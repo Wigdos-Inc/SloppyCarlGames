@@ -53,6 +53,10 @@ async function processPayload(payloadId) {
 		payload.screenId = payloadId;
 	}
 
+	if (ENGINE && typeof ENGINE.Log === "function") {
+		ENGINE.Log("GAME", `UI payload sent: ${payloadId}`, "log", "UI");
+	}
+
 	if (ENGINE && ENGINE.UI && typeof ENGINE.UI.ApplyMenuUI === "function") {
 		ENGINE.UI.ApplyMenuUI(payload);
 	}

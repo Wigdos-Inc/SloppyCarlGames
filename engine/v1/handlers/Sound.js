@@ -5,6 +5,7 @@
 /* === IMPORTS === */
 // Logging support.
 
+import { CONFIG } from "../core/config.js";
 import { log } from "../core/meta.js";
 
 /* === STATE === */
@@ -23,9 +24,30 @@ let nextVoiceId = 1;
 /* === INTERNALS === */
 // Audio creation helpers.
 
-function configureAudio(audio, options) {
-	if (options && typeof options.volume === "number") {
-		audio.volume = Math.max(0, Math.min(1, options.volume));
+function resolveVolume(channel) {
+	if (!CONFIG || !CONFIG.VOLUME) {
+		return 1;
+	}
+
+	if (channel === "Music") {
+		return CONFIG.VOLUME.Music;
+	}
+
+	if (channel === "Sfx") {
+		return CONFIG.VOLUME.Sfx;
+	}
+
+	if (channel === "Voice") {
+		return CONFIG.VOLUME.Voice;
+	}
+
+	return 1;
+}
+
+function configureAudio(audio, options, channel) {
+	const volume = resolveVolume(channel);
+	if (typeof volume === "number") {
+		audio.volume = Math.max(0, Math.min(1, volume));
 	}
 
 	if (options && typeof options.rate === "number") {
@@ -37,9 +59,9 @@ function configureAudio(audio, options) {
 	}
 }
 
-function playAudio(src, options) {
+function playAudio(src, options, channel) {
 	const audio = new Audio(src);
-	configureAudio(audio, options);
+	configureAudio(audio, options, channel);
 	audio.play();
 	return audio;
 }
@@ -58,7 +80,7 @@ function PlaySfx(src, options) {
 
 	log("ENGINE", `Audio play (sfx): ${sfxId} ${label}`, "log", "Audio");
 
-	const audio = playAudio(src, options);
+	const audio = playAudio(src, options, "Sfx");
 	activeSfx.push({ id: sfxId, src: src, label: label, audio: audio });
 
 	return new Promise((resolve) => {
@@ -89,7 +111,7 @@ function PlayVoice(src, options) {
 
 	log("ENGINE", `Audio play (voice): ${voiceId} ${label}`, "log", "Audio");
 
-	const audio = playAudio(src, options);
+	const audio = playAudio(src, options, "Voice");
 	activeVoice.push({ id: voiceId, src: src, label: label, audio: audio });
 
 	return new Promise((resolve) => {
@@ -126,7 +148,7 @@ function PlayMusic(trackName, src, options) {
 
 	log("ENGINE", `Audio play (music): ${trackName}`, "log", "Audio");
 
-	const audio = playAudio(src, options);
+	const audio = playAudio(src, options, "Music");
 	activeMusic.name = trackName;
 	activeMusic.audio = audio;
 }

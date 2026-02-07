@@ -1,6 +1,8 @@
 // Entry point for the test game. Importing Bootup auto-starts the engine.
 
-import { ENGINE } from "../Bootup.js";
-import "./menus/ui.js";
+console.log("Importing Engine");
+
+const { ENGINE } = await import("../Bootup.js");
+await import("./menus/ui.js");
 
 void ENGINE;

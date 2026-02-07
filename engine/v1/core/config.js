@@ -14,6 +14,11 @@ const CONFIG = {
     UI: true,
     Audio: true,
   },
+  VOLUME: {
+    Music: 1,
+    Sfx: 1,
+    Voice: 1,
+  },
 };
 
 /* === EXPORTS === */

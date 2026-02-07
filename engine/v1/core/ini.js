@@ -6,7 +6,7 @@
 /* === IMPORTS === */
 // Core diagnostics and logging support.
 
-import { log, logAll, initMeta, sendEvent } from "./meta.js";
+import { log, logAll, sendEvent } from "./meta.js";
 import { ApplyMenuUI, LoadScreen } from "../handlers/UI.js";
 import {
   PlaySfx,

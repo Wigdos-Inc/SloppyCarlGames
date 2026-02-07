@@ -90,7 +90,7 @@ function waitForUserStart() {
     return;
   }
 
-  log("ENGINE", "Bootup Start", "log", "Startup");
+  log("ENGINE", "Start Engine Bootup", "log", "Startup");
   const exposed = initialize();
   if (exposed && typeof exposed === "object") {
     Object.assign(ENGINE, exposed);

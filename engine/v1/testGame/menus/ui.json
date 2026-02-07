@@ -14,8 +14,7 @@
             "music": {
                 "name": "TITLE_THEME",
                 "src": "../audio/titleTheme.mp3",
-                "loop": true,
-                "volume": 0.7
+                "loop": true
             },
             "elements": [
                 {
@@ -24,31 +23,202 @@
                     "styles": {
                         "position": "fixed",
                         "inset": "0",
-                        "display": "flex",
-                        "flexDirection": "column",
-                        "alignItems": "center",
-                        "justifyContent": "center",
-                        "background": "#0d0d0d",
-                        "color": "#f2f2f2",
-                        "fontFamily": "Georgia, serif",
-                        "textAlign": "center"
+                        "overflow": "hidden",
+                        "background": "linear-gradient(180deg, #2c123c 0%, #5a2b63 34%, #d27a78 62%, #271a3a 100%)",
+                        "fontFamily": "\"Orbitron\", \"Trebuchet MS\", sans-serif",
+                        "color": "#dffbff"
                     },
                     "children": [
                         {
                             "type": "div",
-                            "text": "CarlNet Engine",
                             "styles": {
-                                "fontSize": "48px",
-                                "letterSpacing": "2px",
-                                "marginBottom": "12px"
+                                "position": "absolute",
+                                "inset": "0",
+                                "background": "radial-gradient(circle at 50% 40%, rgba(255,210,160,0.45) 0%, rgba(255,210,160,0.2) 18%, rgba(0,0,0,0) 40%)",
+                                "opacity": "0.9"
                             }
                         },
                         {
                             "type": "div",
-                            "text": "Press Start",
                             "styles": {
-                                "fontSize": "18px",
-                                "opacity": "0.8"
+                                "position": "absolute",
+                                "inset": "0",
+                                "backgroundImage": "linear-gradient(120deg, rgba(120,255,255,0.08) 0%, rgba(120,255,255,0) 35%, rgba(200,120,255,0.12) 70%, rgba(200,120,255,0) 100%)",
+                                "mixBlendMode": "screen",
+                                "opacity": "0.7"
+                            }
+                        },
+                        {
+                            "type": "div",
+                            "id": "city-silhouette",
+                            "styles": {
+                                "position": "absolute",
+                                "left": "0",
+                                "right": "0",
+                                "bottom": "32%",
+                                "height": "26%",
+                                "background": "linear-gradient(180deg, rgba(33,22,55,0.95) 0%, rgba(20,14,34,0.95) 100%)",
+                                "boxShadow": "0 -14px 30px rgba(74,40,120,0.55)"
+                            }
+                        },
+                        {
+                            "type": "div",
+                            "styles": {
+                                "position": "absolute",
+                                "left": "0",
+                                "right": "0",
+                                "bottom": "32%",
+                                "height": "26%",
+                                "backgroundImage": "repeating-linear-gradient(90deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 12px, rgba(60,200,255,0.12) 12px, rgba(60,200,255,0.12) 14px)",
+                                "opacity": "0.45"
+                            }
+                        },
+                        {
+                            "type": "div",
+                            "id": "neon-rails",
+                            "styles": {
+                                "position": "absolute",
+                                "left": "-10%",
+                                "right": "-10%",
+                                "bottom": "24%",
+                                "height": "60px",
+                                "background": "linear-gradient(90deg, rgba(143,50,255,0.1) 0%, rgba(143,50,255,0.8) 20%, rgba(0,0,0,0) 50%, rgba(0,0,0,0) 50%, rgba(0,0,0,0) 60%, rgba(0,255,255,0.7) 80%, rgba(0,255,255,0.15) 100%)",
+                                "filter": "blur(0.2px)",
+                                "opacity": "0.85"
+                            }
+                        },
+                        {
+                            "type": "div",
+                            "id": "grid-floor",
+                            "styles": {
+                                "position": "absolute",
+                                "left": "-15%",
+                                "right": "-15%",
+                                "bottom": "0",
+                                "height": "34%",
+                                "backgroundImage": "linear-gradient(180deg, rgba(20,10,40,0) 0%, rgba(20,10,40,0.9) 60%), repeating-linear-gradient(90deg, rgba(235,80,255,0.75) 0px, rgba(235,80,255,0.75) 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 60px), repeating-linear-gradient(0deg, rgba(235,80,255,0.6) 0px, rgba(235,80,255,0.6) 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 45px)",
+                                "transform": "skewX(-8deg)",
+                                "opacity": "0.85"
+                            }
+                        },
+                        {
+                            "type": "div",
+                            "id": "logo-wrap",
+                            "styles": {
+                                "position": "absolute",
+                                "left": "50%",
+                                "top": "8%",
+                                "transform": "translateX(-50%)",
+                                "textAlign": "center",
+                                "textTransform": "uppercase",
+                                "letterSpacing": "2px"
+                            },
+                            "children": [
+                                {
+                                    "type": "div",
+                                    "styles": {
+                                        "fontSize": "88px",
+                                        "fontWeight": "800",
+                                        "color": "#7ef9ff",
+                                        "textShadow": "0 6px 0 #1e2b7a, 0 0 18px rgba(0,255,255,0.8), 0 0 40px rgba(255,96,232,0.6)",
+                                        "background": "linear-gradient(90deg, #6efcff 0%, #9c6bff 45%, #ff74e5 100%)",
+                                        "WebkitBackgroundClip": "text",
+                                        "WebkitTextFillColor": "transparent",
+                                        "filter": "drop-shadow(0 6px 0 #1e2b7a)"
+                                    },
+                                    "text": "CarlNet"
+                                },
+                                {
+                                    "type": "div",
+                                    "styles": {
+                                        "fontSize": "40px",
+                                        "fontWeight": "700",
+                                        "color": "#7ef9ff",
+                                        "textShadow": "0 4px 0 #10325d, 0 0 20px rgba(0,255,255,0.75)",
+                                        "marginTop": "-8px"
+                                    },
+                                    "text": "Engine"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "img",
+                            "id": "carl-hero",
+                            "src": "../assets/characters/carl/carl_wave.png",
+                            "styles": {
+                                "position": "absolute",
+                                "left": "50%",
+                                "bottom": "8%",
+                                "transform": "translateX(-50%)",
+                                "height": "480px",
+                                "width": "auto",
+                                "filter": "drop-shadow(0 14px 24px rgba(25,10,40,0.7))",
+                                "zIndex": "3"
+                            }
+                        },
+                        {
+                            "type": "div",
+                            "id": "menu-panel",
+                            "styles": {
+                                "position": "absolute",
+                                "right": "8%",
+                                "top": "48%",
+                                "transform": "translateY(-50%)",
+                                "display": "flex",
+                                "flexDirection": "column",
+                                "gap": "10px",
+                                "fontSize": "20px",
+                                "fontWeight": "700",
+                                "textTransform": "uppercase",
+                                "color": "#7ef9ff",
+                                "textShadow": "0 0 12px rgba(0,255,255,0.65)",
+                                "letterSpacing": "2px",
+                                "zIndex": "4"
+                            },
+                            "children": [
+                                {
+                                    "type": "div",
+                                    "text": "New Game"
+                                },
+                                {
+                                    "type": "div",
+                                    "styles": {
+                                        "position": "relative",
+                                        "padding": "6px 16px",
+                                        "border": "2px solid rgba(111,220,255,0.9)",
+                                        "background": "linear-gradient(90deg, rgba(123,85,255,0.5), rgba(74,220,255,0.35))",
+                                        "boxShadow": "0 0 14px rgba(100,220,255,0.6)"
+                                    },
+                                    "text": "Load"
+                                },
+                                {
+                                    "type": "div",
+                                    "text": "Settings"
+                                },
+                                {
+                                    "type": "div",
+                                    "text": "Exit"
+                                },
+                                {
+                                    "type": "div",
+                                    "styles": {
+                                        "marginTop": "8px",
+                                        "fontSize": "16px",
+                                        "color": "#b8faff",
+                                        "opacity": "0.85"
+                                    },
+                                    "text": "Press Start"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "div",
+                            "styles": {
+                                "position": "absolute",
+                                "inset": "0",
+                                "backgroundImage": "repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 4px)",
+                                "opacity": "0.35",
+                                "pointerEvents": "none"
                             }
                         }
                     ]
