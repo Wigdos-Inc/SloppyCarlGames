@@ -1,0 +1,95 @@
+Overarching Theme:
+1. Game files send JSON data to an Engine Handler
+2. Engine Handler interprets data, builds and tracks what is needed using modules
+3. All visual elements get rendered by Render.js directly into document.body
+4. Moving entities get updated every frame.
+
+Core Workflow (Every Frame):
+1. Input Check (keypress/mouseclick)
+2. Player+Entity / UI Logic (Input Response)
+3. Physics Application (physics pipeline if needed)
+4. Animation Update (if needed)
+5. Camera Update (if needed)
+6. Audio Update (if needed)
+7. Metadata + Logging Updates
+8. Render result
+
+Startup Workflow:
+1. Bootup.js registers modules and initializes global state (global "ENGINE" variable).
+    - Engine is exported for game imports as "ENGINE" and also assigned to globalThis.Engine for debug access.
+    - Bootup.js should self-execute on import.
+2. config.js applies engine flags (like PHYSICS_ENABLED or DEBUG_ENABLED) and modifiable constants (like SPEED_MULTIPLIER)
+3. meta.js starts tracking metadata + logs startup process
+4. Pre-existing assets are initialized (especially audio files)
+5. handlers/menu/Splash.js displays splash screens via handlers/Render.js
+6. Load Title Screen + Music through handlers/UI.js
+
+Menus Workflow:
+1. Game sends menu visual data to handlers/UI.js
+2. handlers/UI.js uses builder/NewUI.js to build UI elements
+3. handlers/Controls.js routes UI inputs to handlers/UI.js, which prompts the game (event) to tell it what to do (function call).
+4. UI.js responds to inputs (e.g. starting a level, going back to title screen)
+5. Visual changes displayed using Render.js
+
+Music Workflow:
+1. Game sends Music File Path
+2. Sound.js initializes music and handles functionality (e.g. play speed, crossfades)
+3. Audio calls can be requested by many modules (mainly UI.js, AudioSync.js and Level.js)
+4. Sound.js is the executionist for all audio (music+SFX)
+
+Level Workflow:
+1. Game sends level data to Level.js.
+2. builders/NewLevel.js interprets level data and creates world, entities, obstacles, etc.
+3. handlers/Level.js loads and updates all Level Objects, including player and camera position (world-space visuals; audio can be requested through Sound.js).
+    - Level.js renders world-space elements into document.body.
+4. Loading Screen if Level is not finished loading.
+5. Level Intro shot (short cinematic camera motion)
+6. Level starts (player given control, music starts, etc)
+
+Game Object Workflow:
+1. Level.js or Cutscene.js receives data from game or template.
+2. Builder (NewEntity/NewObstacle) uses data to build game objects using NewObject.js
+3. Handlers (Enemy/Physics/Collectible/Sound/Animation) apply behaviour
+4. Render.js displays updated state
+
+Player character Workflow:
+1. Game informs Level.js or Cutscene.js which playable character to load
+2. Model.js builds the model using characters.json and NewEntity.js
+3. Controls.js reads user input
+4. Movement.js and/or Abilities.js convert input into intent
+5. Physics.js applies physics engine pipeline
+6. Animation.js tracks and updates player animation state(s)
+8. Camera.js updates player camera
+9. Level.js or Cutscene.js applies changes and sends Render.js complete level state
+
+Animation Workflow:
+1. Animation.js Receives entity state changes and updates entity animation type and/or frame accordingly.
+2. Level.js or Cutscene.js receives updated entity data
+3. Render.js displays new animation state in-world.
+
+Cutscene Workflow:
+1. Level.js waits until player passes cutscene trigger
+2. Game state is paused (no inputs, no regular Level.js updates, fade to black)
+3. Cutscene.js loads rendered cutscene (video file) OR creates in-game cutscene states using Actors.js, Sound.js, AudioSync.js and Animation.js
+4. Render.js displays updated cutscene states or video file.
+5. Fade to black, then display and resume game state.
+
+Collectible & Powerup Workflow:
+1. Level.js+Collision.js detects player+collectible collision
+2. Collectible.js applies collectible effect to player state or game state
+3. Sound.js, Animation.js and Level.js update accordingly.
+4. Render.js displays visual indication.
+
+Boss Fight Workflow:
+1. Level.js waits until player passes Boss Trigger
+2. Cutscene Workflow
+3. Level.js removes regular level data.
+4. NewLevel.js builds Boss Arena and NewEntity.js builds boss entity. UI.js creates healthbar.
+5. Level.js places arena, boss and player during cutscene.
+6. LoadScreen.js engages if previous steps are still ongoing when cutscene finishes, displaying load screen via Render.js
+7. End of cutscene/loading screen
+8. Boss.js, Level.js and Controls.js reactivate and player enters boss fight.
+
+JSON Validation:
+- Incoming JSON must be validated against defined formats.
+- Invalid formats throw an error to aid debugging (exact schemas to be defined during implementation).

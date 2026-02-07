@@ -1,0 +1,61 @@
+{
+    "levelUI": {
+        "pause": {},
+        "game" : {}
+    },
+
+    "menuUI": {
+        "TitleScreen": {
+            "rootId": "engine-ui-root",
+            "rootStyles": {
+                "position": "relative",
+                "zIndex": "1"
+            },
+            "music": {
+                "name": "TITLE_THEME",
+                "src": "../audio/titleTheme.mp3",
+                "loop": true,
+                "volume": 0.7
+            },
+            "elements": [
+                {
+                    "type": "div",
+                    "id": "title-screen",
+                    "styles": {
+                        "position": "fixed",
+                        "inset": "0",
+                        "display": "flex",
+                        "flexDirection": "column",
+                        "alignItems": "center",
+                        "justifyContent": "center",
+                        "background": "#0d0d0d",
+                        "color": "#f2f2f2",
+                        "fontFamily": "Georgia, serif",
+                        "textAlign": "center"
+                    },
+                    "children": [
+                        {
+                            "type": "div",
+                            "text": "CarlNet Engine",
+                            "styles": {
+                                "fontSize": "48px",
+                                "letterSpacing": "2px",
+                                "marginBottom": "12px"
+                            }
+                        },
+                        {
+                            "type": "div",
+                            "text": "Press Start",
+                            "styles": {
+                                "fontSize": "18px",
+                                "opacity": "0.8"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "LevelSelect": {},
+        "Settings": {}
+    }
+}

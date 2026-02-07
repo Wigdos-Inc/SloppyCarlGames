@@ -1,0 +1,13 @@
+Engine:
+- Conceptualization : ChatGPT 5-mini
+- Structure Planning: ChatGPT 5.2 Instant
+- Feature Planning  : ChatGPT 5.2 Codex
+- Building          : ChatGPT 5.2 Codex
+
+testGame:
+- carlStudios Assets: Sloppy Carl Studios
+- CarlNet Engine Logo: Gemini Nano Banana Pro
+- Wigdos Assets      : Wigdos Studios Inc
+- Level Design: ChatGPT 5.2 Codex
+- Graphics: ChatGPT 5.2 Codex
+- Engine: CarlNet Engine (by Sloppy Carl Studios)
