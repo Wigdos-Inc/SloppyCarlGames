@@ -1,0 +1,10 @@
+Game Title: Jeff & Carl Party Sports Olympics
+
+Olympic Sports:
+- Western:
+  - Target Shooting
+- Horse:
+  - Horse Riding
+
+Party Sports:
+- 
