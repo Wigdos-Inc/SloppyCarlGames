@@ -145,8 +145,11 @@ async function RunSplashSequence() {
 
 	await context.wait(1000);
 	await runSequenceSteps(steps, context);
+
+	await context.wait(1000);
+
 	sendEvent("TitleScreen");
-	await FadeElement(context.overlayId, 0, 0.6);
+	await FadeElement(context.overlayId, 0, 1);
 	RemoveRoot(context.overlayId);
 }
 
