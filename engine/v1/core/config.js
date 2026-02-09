@@ -15,10 +15,16 @@ const CONFIG = {
     Audio: true,
   },
   VOLUME: {
-    Music: 1,
-    Sfx: 1,
-    Voice: 1,
+    Music: 0.5,
+    Sfx: 0.5,
+    Voice: 0.5,
+    Cutscene: 0.5
   },
+  CUTSCENE: {
+    DisableAll: false,
+    SkipIntro: false,
+  },
+  PHYSICS: {}
 };
 
 /* === EXPORTS === */

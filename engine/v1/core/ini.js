@@ -6,8 +6,9 @@
 /* === IMPORTS === */
 // Core diagnostics and logging support.
 
-import { log, logAll, sendEvent } from "./meta.js";
+import { log, logAll, sendEvent, Wait } from "./meta.js";
 import { ApplyMenuUI, LoadScreen } from "../handlers/UI.js";
+import { Controls } from "../handlers/Controls.js";
 import {
   PlaySfx,
   PlayVoice,
@@ -27,6 +28,7 @@ function initialize() {
   log("ENGINE", "Initializing Diagnostics.", "log", "Startup");
   log("ENGINE", "Initializing Logging System.", "log", "Startup");
   log("ENGINE", "Initializing Event System.", "log", "Startup");
+  log("ENGINE", "Initializing Background Processes.", "log", "Startup");
   
 
   return {
@@ -34,7 +36,9 @@ function initialize() {
     Meta: {
       LogAll: logAll,
       SendEvent: sendEvent,
+      Wait: Wait,
     },
+    Controls: Controls,
     UI: {
       ApplyMenuUI: ApplyMenuUI,
       LoadScreen: LoadScreen,

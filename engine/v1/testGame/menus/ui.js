@@ -3,7 +3,6 @@
 
 import { ENGINE } from "../../Bootup.js";
 
-const engineEvent = "ENGINE_EVENT";
 let uiDataPromise = null;
 
 function loadUiData() {
@@ -32,6 +31,22 @@ function resolvePayload(uiData, payloadId) {
 	return null;
 }
 
+function resolvePayloadType(uiData, payloadId) {
+	if (!uiData || !payloadId) {
+		return "unknown";
+	}
+
+	if (uiData.menuUI && uiData.menuUI[payloadId]) {
+		return "menu";
+	}
+
+	if (uiData.gameUI && uiData.gameUI[payloadId]) {
+		return "game";
+	}
+
+	return "unknown";
+}
+
 async function processPayload(payloadId) {
 	const uiData = await loadUiData();
 	const payload = resolvePayload(uiData, payloadId);
@@ -41,6 +56,8 @@ async function processPayload(payloadId) {
 		}
 		return;
 	}
+
+	const payloadType = resolvePayloadType(uiData, payloadId);
 
 	if (payload.music && payload.music.src) {
 		payload.music = {
@@ -54,7 +71,12 @@ async function processPayload(payloadId) {
 	}
 
 	if (ENGINE && typeof ENGINE.Log === "function") {
-		ENGINE.Log("GAME", `UI payload sent: ${payloadId}`, "log", "UI");
+		ENGINE.Log(
+			"GAME",
+			`Sending ${payloadId} ${payloadType} UI Payload.`,
+			"log",
+			"UI"
+		);
 	}
 
 	if (ENGINE && ENGINE.UI && typeof ENGINE.UI.ApplyMenuUI === "function") {
@@ -62,12 +84,13 @@ async function processPayload(payloadId) {
 	}
 }
 
-function handleEngineEvent(event) {
-	if (!event || !event.detail || !event.detail.name) {
+function handleUiRequest(event) {
+	const payload = event && event.detail ? event.detail.payload : null;
+	if (!payload || !payload.screenId) {
 		return;
 	}
 
-	processPayload(event.detail.name);
+	processPayload(payload.screenId);
 }
 
-window.addEventListener(engineEvent, handleEngineEvent);
+window.addEventListener("UI_REQUEST", handleUiRequest);

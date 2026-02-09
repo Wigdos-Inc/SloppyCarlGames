@@ -11,7 +11,12 @@ import { CONFIG } from "./config.js";
 // Stored log history.
 
 const logs = [];
-const engineEvent = "ENGINE_EVENT";
+
+function Wait(milliseconds) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
 
 /* === DEBUG CHECKS === */
 // Gate logging based on debug flags.
@@ -126,11 +131,10 @@ function sendEvent(eventName, payload) {
   }
 
   const detail = {
-    name: eventName,
     payload: payload || null,
   };
 
-  window.dispatchEvent(new CustomEvent(engineEvent, { detail: detail }));
+  window.dispatchEvent(new CustomEvent(eventName, { detail: detail }));
 }
 
 function initMeta() {
@@ -140,4 +144,4 @@ function initMeta() {
 /* === EXPORTS === */
 // Public metadata API for engine modules.
 
-export { log, logAll, sendEvent, initMeta };
+export { log, logAll, sendEvent, initMeta, Wait };

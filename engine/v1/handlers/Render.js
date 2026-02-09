@@ -10,7 +10,7 @@ const defaultUiRootId = "engine-ui-root";
 /* === IMPORTS === */
 // UI element builder.
 
-import { BuildElements } from "../builder/NewUI.js";
+import { UIElement } from "../builder/NewUI.js";
 
 /* === INTERNALS === */
 // DOM helpers for rendering payloads.
@@ -31,11 +31,6 @@ function ensureRoot(rootId, rootStyles) {
 	return root;
 }
 
-function wait(milliseconds) {
-	return new Promise((resolve) => {
-		setTimeout(resolve, milliseconds);
-	});
-}
 
 /* === PAYLOADS === */
 // Renders payloads built by the UI builder.
@@ -52,56 +47,37 @@ function RenderPayload(payload) {
 		root.innerHTML = "";
 	}
 
-	const elements = BuildElements(payload.elements);
-	root.appendChild(elements);
+	const elements = payload.elements;
+	if (elements && typeof elements === "object" && "nodeType" in elements) {
+		root.appendChild(elements);
+	}
 }
 
 /* === ELEMENTS === */
 // Utility helpers for updating rendered elements.
 
 function GetElement(elementId) {
-	return document.getElementById(elementId);
+	return UIElement.get(elementId).element;
 }
 
 function SetElementText(elementId, text) {
-	const element = GetElement(elementId);
-	if (element) {
-		element.textContent = text;
-	}
+	UIElement.get(elementId).setText(text);
 }
 
 function SetElementSource(elementId, src) {
-	const element = GetElement(elementId);
-	if (element && "src" in element) {
-		element.src = src;
-	}
+	UIElement.get(elementId).setSource(src);
 }
 
 function SetElementStyle(elementId, styles) {
-	const element = GetElement(elementId);
-	if (element && styles && typeof styles === "object") {
-		Object.assign(element.style, styles);
-	}
+	UIElement.get(elementId).setStyle(styles);
 }
 
 function FadeElement(elementId, targetOpacity, durationSeconds) {
-	const element = GetElement(elementId);
-	if (!element) {
-		return Promise.resolve();
-	}
-
-	const fadeDuration = Math.max(0, durationSeconds || 0);
-	element.style.transition = `opacity ${fadeDuration}s ease`;
-	element.style.opacity = String(targetOpacity);
-
-	return wait(fadeDuration * 1000);
+	return UIElement.get(elementId).fadeTo(targetOpacity, durationSeconds);
 }
 
 function RemoveRoot(rootId) {
-	const element = document.getElementById(rootId);
-	if (element && element.parentNode) {
-		element.parentNode.removeChild(element);
-	}
+	UIElement.removeRoot(rootId);
 }
 
 /* === EXPORTS === */
