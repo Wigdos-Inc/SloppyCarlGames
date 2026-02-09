@@ -25,6 +25,14 @@ function ApplyMenuUI(payload) {
 
 	RenderPayload(payload);
 
+	if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+		window.dispatchEvent(
+			new CustomEvent("ENGINE_UI_RENDERED", {
+				detail: { screenId: payload.screenId || null },
+			})
+		);
+	}
+
 	const music = payload.music;
 	if (music && music.name && music.src) {
 		PlayMusic(music.name, music.src, music);

@@ -27,6 +27,32 @@ function setupSplashSequence() {
 	};
 }
 
+function waitForUiRender(screenId, timeoutMs) {
+	if (typeof window === "undefined" || typeof window.addEventListener !== "function") {
+		return Promise.resolve();
+	}
+
+	return new Promise((resolve) => {
+		const timeout = Math.max(0, timeoutMs || 0);
+		const onUiRendered = (event) => {
+			const resolvedId = event && event.detail ? event.detail.screenId || null : null;
+			if (!screenId || resolvedId === screenId) {
+				cleanup();
+			}
+		};
+		const cleanup = () => {
+			window.removeEventListener("ENGINE_UI_RENDERED", onUiRendered);
+			if (timerId) {
+				clearTimeout(timerId);
+			}
+			resolve();
+		};
+		const timerId = timeout > 0 ? setTimeout(cleanup, timeout) : null;
+
+		window.addEventListener("ENGINE_UI_RENDERED", onUiRendered);
+	});
+}
+
 function getCarlStudiosSequence() {
 	return [
 		{
@@ -148,9 +174,10 @@ async function RunSplashSequence() {
 
 	await context.wait(1000);
 
+	sendEvent("TitleScreen");
+	await waitForUiRender("TitleScreen", 2000);
 	await FadeElement(context.overlayId, 0, 1);
 	RemoveRoot(context.overlayId);
-	sendEvent("TitleScreen");
 }
 
 /* === EXPORTS === */
