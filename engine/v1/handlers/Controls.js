@@ -2,6 +2,9 @@
 
 // Allows creating, tracking, and clearing input event listeners.
 
+import { Cache, Log, sendEvent } from "../core/meta.js";
+import { HandleUiAction, ResolveUiAction } from "./UI.js";
+
 class Controls {
 	constructor(target) {
 		this.target = target || (typeof window !== "undefined" ? window : null);
@@ -14,6 +17,7 @@ class Controls {
 		}
 
 		const once = options && options.once === true;
+		// Wrap once-only handlers so they self-remove.
 		const wrapped = once
 			? (...args) => {
 				handler(...args);
@@ -60,4 +64,75 @@ class Controls {
 	}
 }
 
-export { Controls };
+function buildInteractionPayload(event) {
+	// Capture a lightweight event snapshot for the game.
+	const target = event && event.target ? event.target : null;
+	return {
+		type: event && event.type ? event.type : null,
+		targetId: target && target.id ? target.id : null,
+		key: event && "key" in event ? event.key : null,
+		code: event && "code" in event ? event.code : null,
+		button: event && "button" in event ? event.button : null,
+		pointerType: event && "pointerType" in event ? event.pointerType : null,
+		clientX: event && "clientX" in event ? event.clientX : null,
+		clientY: event && "clientY" in event ? event.clientY : null,
+		screenId: Cache && Cache.UI ? Cache.UI.screenID : null,
+	};
+}
+
+function resolveCachedAction(event) {
+	// Check cached payloads for a matching action.
+	if (Cache && Cache.UI) {
+		return { handler: HandleUiAction, resolved: ResolveUiAction(event) };
+	}
+
+	return null;
+}
+
+function StartInputRouter(target) {
+	// Register global input listeners for UI routing.
+	const router = new Controls(target);
+	const eventTypes = [
+		"click",
+		"pointerdown",
+		"pointerup",
+		"pointerover",
+		"pointerout",
+		"keydown",
+		"keyup",
+	];
+
+	const handler = (event) => {
+		const targetId = event && event.target ? event.target.id : null;
+		// Log each user interaction the router sees.
+			Log(
+			"ENGINE",
+			`User Input: ${event.type} ${"on " + (targetId || "document")}`.trim(),
+			"log",
+			"Controls"
+		);
+
+		// Use cached actions when available.
+		const match = resolveCachedAction(event);
+		if (match && match.resolved && match.handler(match.resolved.action)) {
+			Log(
+				"ENGINE",
+				`Input action handled: ${event.type} ${match.resolved.targetId}`,
+				"log",
+				"Controls"
+			);
+			return;
+		}
+
+		// Fallback to game-controlled handling.
+		sendEvent("USER_INPUT", buildInteractionPayload(event));
+	};
+
+	eventTypes.forEach((eventType) => {
+		router.on(eventType, handler);
+	});
+
+	return router;
+}
+
+export { Controls, StartInputRouter };

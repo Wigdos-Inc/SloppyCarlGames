@@ -12,6 +12,22 @@ import { CONFIG } from "./config.js";
 
 const logs = [];
 
+// Cache last known payloads for quick lookups.
+const Cache = {
+  UI: {
+    lastPayload: null,
+    screenID: null,
+    elementIndex: {},
+  },
+  Level: {
+    lastPayload: null,
+  },
+  Cutscene: {
+    lastPayload: null,
+  },
+};
+
+// Shared delay utility for async flows.
 function Wait(milliseconds) {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
@@ -25,37 +41,31 @@ function getDebugConfig() {
   return CONFIG && CONFIG.DEBUG ? CONFIG.DEBUG : null;
 }
 
-function shouldLog(channel, level) {
+function shouldLog(source, channel, level) {
   const debug = getDebugConfig();
+  // Allow logs when no debug config exists.
   if (!debug) {
     return true;
   }
 
-  if (debug.All === true) {
-    return true;
-  }
-
-  if (debug.Logging === false) {
+  // Apply global debug gating before channel specifics.
+  if (
+    !debug.All || !debug.Logging ||
+    (source === "ENGINE" && !debug.Engine) ||
+    (source === "GAME" && !debug.Game) ||
+    (level === "log" && !debug.Log) ||
+    (level === "warn" && !debug.Warn) ||
+    (level === "error" && !debug.Error)
+  ) {
     return false;
   }
 
-  if (level === "log" && debug.Log === false) {
-    return false;
-  }
-
-  if (level === "warn" && debug.Warn === false) {
-    return false;
-  }
-
-  if (level === "error" && debug.Error === false) {
-    return false;
-  }
-
+  // Allow explicit channel overrides.
   if (channel && debug[channel] === true) {
     return true;
   }
 
-  return false;
+  return debug.All === true;
 }
 
 function resolveLevel(level) {
@@ -81,24 +91,29 @@ function isValidSource(source) {
   return /^[A-Z0-9_]+$/.test(source);
 }
 
-function log(source, message, level, channel) {
-  if (!isValidSource(source)) {
-    console.error("ENGINE.Log requires a SOURCE in full caps (A-Z, 0-9, _).");
-    return;
+function Log(source, message, level, channel) {
+  let resolvedSource = source;
+  let resolvedMessage = message;
+
+  // Normalize invalid source names into an engine warning.
+  if (!isValidSource(resolvedSource)) {
+    resolvedMessage = `Invalid log source "${resolvedSource}". ${resolvedMessage}`;
+    resolvedSource = "ENGINE";
   }
 
   const resolvedLevel = resolveLevel(level);
   const entry = {
     time: Date.now(),
     level: resolvedLevel,
-    source: source,
+    source: resolvedSource,
     channel: channel || "All",
-    message: message,
+    message: resolvedMessage,
   };
 
   logs.push(entry);
 
-  if (!shouldLog(entry.channel, entry.level)) {
+  // Skip console output when debug gating fails.
+  if (!shouldLog(entry.source, entry.channel, entry.level)) {
     return;
   }
 
@@ -109,6 +124,7 @@ function log(source, message, level, channel) {
   );
 }
 
+// Replay all stored logs in order.
 function logAll() {
   logs.forEach((entry) => {
     const logger = console[entry.level] || console.log;
@@ -119,17 +135,91 @@ function logAll() {
   });
 }
 
+// Log the current cache snapshot.
+function LogCache() {
+  Log("ENGINE", "Cache snapshot:", "log", "Meta");
+  Log("ENGINE", JSON.stringify(Cache, null, 2), "log", "Meta");
+}
+
+const Cursor = {
+  currentState: "enabled",
+  currentShape: "auto",
+  changeState(state) {
+    const resolvedState = state || "enabled";
+    this.currentState = resolvedState;
+    this.apply();
+    Log("ENGINE", `Cursor state: ${resolvedState}`, "log", "Controls");
+  },
+  changeShape(shape) {
+    const resolvedShape = shape || "auto";
+    this.currentShape = resolvedShape;
+    this.apply();
+    Log("ENGINE", `Cursor shape: ${resolvedShape}`, "log", "Controls");
+  },
+  apply() {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const hidden = this.currentState !== "enabled";
+    const cursorValue = hidden ? "none" : this.currentShape;
+    const pointerValue = hidden ? "none" : "auto";
+
+    if (document.documentElement) {
+      document.documentElement.style.cursor = cursorValue;
+      document.documentElement.style.pointerEvents = pointerValue;
+    }
+
+    if (document.body) {
+      document.body.style.cursor = cursorValue;
+      document.body.style.pointerEvents = pointerValue;
+    }
+
+    const overlay = document.getElementById("engine-startup-overlay");
+    if (overlay) {
+      overlay.style.cursor = cursorValue;
+      overlay.style.pointerEvents = pointerValue;
+    }
+
+    let styleTag = document.getElementById("engine-cursor-style");
+    if (!styleTag) {
+      styleTag = document.createElement("style");
+      styleTag.id = "engine-cursor-style";
+      document.head.appendChild(styleTag);
+    }
+    styleTag.textContent = hidden
+      ? "html, body, #engine-startup-overlay { cursor: none !important; }"
+      : "";
+  },
+};
+
+function ExitGame() {
+  Log("ENGINE", "Exit requested.", "log", "Meta");
+  Cursor.changeState("hidden");
+  if (typeof document !== "undefined" && document.body) {
+    document.body.style.background = "black";
+    while (document.body.firstChild) {
+      document.body.removeChild(document.body.firstChild);
+    }
+  }
+  if (typeof window !== "undefined" && typeof window.close === "function") {
+    window.close();
+  }
+}
+
 function sendEvent(eventName, payload) {
+  // Guard against invalid event usage.
   if (typeof eventName !== "string" || eventName.length === 0) {
-    console.error("ENGINE.Meta.SendEvent requires a non-empty event name.");
+    Log("ENGINE", "Meta.SendEvent requires a non-empty event name.", "error", "Meta");
     return;
   }
 
+  // Ensure a browser context exists.
   if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") {
-    console.error("ENGINE.Meta.SendEvent is only available in a browser context.");
+    Log("ENGINE", "Meta.SendEvent is only available in a browser context.", "error", "Meta");
     return;
   }
 
+  // Dispatch with payload as detail.
   const detail = {
     payload: payload || null,
   };
@@ -137,11 +227,7 @@ function sendEvent(eventName, payload) {
   window.dispatchEvent(new CustomEvent(eventName, { detail: detail }));
 }
 
-function initMeta() {
-  log("ENGINE", "Meta system ready.", "log", "Startup");
-}
-
 /* === EXPORTS === */
 // Public metadata API for engine modules.
 
-export { log, logAll, sendEvent, initMeta, Wait };
+export { Log, logAll, LogCache, sendEvent, Wait, Cache, Cursor, ExitGame };

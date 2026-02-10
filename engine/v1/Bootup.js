@@ -9,7 +9,7 @@
 // Core initialization and logging.
 
 import { initialize } from "./core/ini.js";
-import { log, sendEvent, Wait } from "./core/meta.js";
+import { Cursor, Log, sendEvent, Wait } from "./core/meta.js";
 import { FadeElement, RemoveRoot, SetElementStyle, SetElementText } from "./handlers/Render.js";
 import { CreateUI } from "./handlers/UI.js";
 import { PlayIntroCinematic } from "./handlers/Cutscene.js";
@@ -131,6 +131,7 @@ function waitForUiRender(screenId, timeoutMs) {
 }
 
 async function runStartupSequence() {
+  Cursor.changeState("hidden");
   const context = await RunSplashSequence();
   const overlayId = context && context.overlayId ? context.overlayId : "engine-startup-overlay";
 
@@ -188,20 +189,21 @@ async function runStartupSequence() {
   await waitForUiRender("TitleScreen", 2000);
   await FadeElement(overlayId, 0, 1);
   RemoveRoot(overlayId);
+  Cursor.changeState("enabled");
 }
 
 (() => {
   if (typeof initialize !== "function") {
-    log("ENGINE", "Bootup failed: initialize not available.", "error", "Startup");
+    Log("ENGINE", "Bootup failed: initialize not available.", "error", "Startup");
     return;
   }
 
-  log("ENGINE", "Start Engine Bootup", "log", "Startup");
+  Log("ENGINE", "Start Engine Bootup", "log", "Startup");
   const exposed = initialize();
   if (exposed && typeof exposed === "object") {
     Object.assign(ENGINE, exposed);
   }
-  log("ENGINE", "Bootup complete.", "log", "Startup");
+  Log("ENGINE", "Bootup complete.", "log", "Startup");
   waitForUserStart();
 })();
 

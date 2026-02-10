@@ -8,12 +8,13 @@ import {
 	SetElementSource,
 } from "../handlers/Render.js";
 import { PlaySfx, PlayVoice } from "../handlers/Sound.js";
-import { log } from "./meta.js";
+import { Log } from "./meta.js";
 
 /* === SEQUENCE === */
 // Runs the built-in splash and transitions to the title screen.
 
 function setupSplashSequence() {
+	// Provide shared context for splash sequencing.
 	const wait = (milliseconds) =>
 		new Promise((resolve) => {
 			setTimeout(resolve, milliseconds);
@@ -27,10 +28,11 @@ function setupSplashSequence() {
 }
 
 
+// Splash steps for Sloppy Carl Games.
 function getCarlStudiosSequence() {
 	return [
 		{
-			name: "Carl Studios",
+			name: "Sloppy Carl Games",
 			image: new URL(
 				"../assets/carlStudios/sloppyCarl.png",
 				import.meta.url
@@ -52,6 +54,7 @@ function getCarlStudiosSequence() {
 	];
 }
 
+// Splash steps for Wigdos Studios Inc.
 function getWigdosStudiosSequence() {
 	return [
 		{
@@ -67,6 +70,7 @@ function getWigdosStudiosSequence() {
 	];
 }
 
+// Splash steps for CarlNet Engine.
 function getCarlNetEngineSequence() {
 	return [
 		{
@@ -88,11 +92,12 @@ function getCarlNetEngineSequence() {
 	];
 }
 
+// Execute each splash step in order.
 async function runSequenceSteps(sequence, context) {
 	for (let index = 0; index < sequence.length; index += 1) {
 		const step = sequence[index];
 		if (step.name) {
-			log(
+			Log(
 				"ENGINE",
 				`Splash stage start: ${step.name}.`,
 				"log",
@@ -100,34 +105,42 @@ async function runSequenceSteps(sequence, context) {
 			);
 		}
 
+		// Swap the splash image when provided.
 		if (step.image) {
 			SetElementSource(context.imageId, step.image);
 		}
 
+		// Play SFX tied to the splash stage.
 		if (step.sfx && step.sfx.src) {
 			PlaySfx(step.sfx.src, step.sfx.options);
 		}
 
+		// Trigger voice-over at the start of a step.
 		if (step.voiceAtStart && step.voice && step.voice.src) {
 			PlayVoice(step.voice.src, step.voice.options);
 		}
 
+		// Fade in the splash image.
 		if (typeof step.fadeInSeconds === "number") {
 			await FadeElement(context.imageId, 1, step.fadeInSeconds);
 		}
 
+		// Hold the image on screen.
 		if (typeof step.holdMs === "number") {
 			await context.wait(step.holdMs);
 		}
 
+		// Play voice-over after the hold.
 		if (!step.voiceAtStart && step.voice && step.voice.src) {
 			await PlayVoice(step.voice.src, step.voice.options);
 		}
 
 		if (typeof step.fadeOutSeconds === "number") {
+			// Fade out the splash image.
 			await FadeElement(context.imageId, 0, step.fadeOutSeconds);
 		}
 
+		// Pause between splash steps.
 		if (index < sequence.length - 1) {
 			await context.wait(1000);
 		}
@@ -135,6 +148,7 @@ async function runSequenceSteps(sequence, context) {
 }
 
 async function RunSplashSequence() {
+	// Build the full splash sequence pipeline.
 	const context = setupSplashSequence();
 	const providers = [
 		getCarlStudiosSequence,
@@ -143,9 +157,11 @@ async function RunSplashSequence() {
 	];
 	const steps = providers.flatMap((provider) => provider());
 
+	// Initial pacing before the first splash.
 	await context.wait(1000);
 	await runSequenceSteps(steps, context);
 
+	// Final pacing after splash(es).
 	await context.wait(1000);
 
 	return context;

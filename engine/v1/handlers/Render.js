@@ -16,14 +16,19 @@ import { UIElement } from "../builder/NewUI.js";
 // DOM helpers for rendering payloads.
 
 function ensureRoot(rootId, rootStyles) {
+	// Resolve or create the UI root container.
 	const resolvedRootId = rootId || defaultUiRootId;
 	let root = document.getElementById(resolvedRootId);
 	if (!root) {
 		root = document.createElement("div");
 		root.id = resolvedRootId;
+		root.style.userSelect = "none";
+		root.style.webkitUserSelect = "none";
+		root.style.msUserSelect = "none";
 		document.body.appendChild(root);
 	}
 
+	// Apply root styles when provided.
 	if (rootStyles && typeof rootStyles === "object") {
 		Object.assign(root.style, rootStyles);
 	}
@@ -36,6 +41,7 @@ function ensureRoot(rootId, rootStyles) {
 // Renders payloads built by the UI builder.
 
 function RenderPayload(payload) {
+	// Guard against invalid payloads.
 	if (!payload || typeof payload !== "object") {
 		return;
 	}
@@ -43,10 +49,12 @@ function RenderPayload(payload) {
 	const rootId = payload.rootId || defaultUiRootId;
 	const root = ensureRoot(rootId, payload.rootStyles);
 
+	// Replace existing contents by default.
 	if (payload.replace !== false) {
 		root.innerHTML = "";
 	}
 
+	// Append pre-built elements when provided.
 	const elements = payload.elements;
 	if (elements && typeof elements === "object" && "nodeType" in elements) {
 		root.appendChild(elements);

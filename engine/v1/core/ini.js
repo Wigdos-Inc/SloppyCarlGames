@@ -6,9 +6,9 @@
 /* === IMPORTS === */
 // Core diagnostics and logging support.
 
-import { log, logAll, sendEvent, Wait } from "./meta.js";
+import { Log, logAll, LogCache, sendEvent, Wait, Cache, Cursor, ExitGame } from "./meta.js";
 import { ApplyMenuUI, LoadScreen } from "../handlers/UI.js";
-import { Controls } from "../handlers/Controls.js";
+import { Controls, StartInputRouter } from "../handlers/Controls.js";
 import {
   PlaySfx,
   PlayVoice,
@@ -24,21 +24,33 @@ import {
 // Bootstraps engine subsystems and returns the public API.
 
 function initialize() {
-  log("ENGINE", "Initializing Engine Core.", "log", "Startup");
-  log("ENGINE", "Initializing Diagnostics.", "log", "Startup");
-  log("ENGINE", "Initializing Logging System.", "log", "Startup");
-  log("ENGINE", "Initializing Event System.", "log", "Startup");
-  log("ENGINE", "Initializing Background Processes.", "log", "Startup");
+  // Log startup checkpoints.
+  Log("ENGINE", "Initializing Engine Core.", "log", "Startup");
+  Log("ENGINE", "Initializing Diagnostics.", "log", "Startup");
+  Log("ENGINE", "Initializing Logging System.", "log", "Startup");
+  Log("ENGINE", "Initializing Event System.", "log", "Startup");
+  Log("ENGINE", "Initializing Background Processes.", "log", "Startup");
   
+  // Start global input routing.
+  const inputRouter = StartInputRouter();
 
+  // Expose the engine public API surface.
   return {
-    Log: log,
+    Log: Log,
+    Cache: Cache,
     Meta: {
       LogAll: logAll,
+      LogCache: LogCache,
+      Cursor: Cursor,
+      ExitGame: ExitGame,
       SendEvent: sendEvent,
       Wait: Wait,
     },
     Controls: Controls,
+    Input: {
+      Router: inputRouter,
+      StartInputRouter: StartInputRouter,
+    },
     UI: {
       ApplyMenuUI: ApplyMenuUI,
       LoadScreen: LoadScreen,

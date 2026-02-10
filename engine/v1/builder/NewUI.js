@@ -6,7 +6,7 @@
 /* === BUILDERS === */
 // Converts UI payload definitions into DOM elements.
 
-import { Wait, log } from "../core/meta.js";
+import { Wait, Log } from "../core/meta.js";
 
 class UIElement {
 	constructor(elementId) {
@@ -14,6 +14,7 @@ class UIElement {
 	}
 	
 	get element() {
+		// Resolve the DOM element by id when available.
 		if (typeof document === "undefined") {
 			return null;
 		}
@@ -21,7 +22,8 @@ class UIElement {
 	}
 
 	setText(text) {
-		log("ENGINE", `Set ${this.elementId} Text to ${text}`, "log", "UI");
+		// Update element text content.
+		Log("ENGINE", `Set ${this.elementId} Text to ${text}`, "log", "UI");
 		const element = this.element;
 		if (element) {
 			element.textContent = text;
@@ -30,7 +32,8 @@ class UIElement {
 	}
 
 	setSource(src) {
-		log("ENGINE", `Set ${this.elementId} Source to "${src}".`, "log", "UI");
+		// Update image or media source.
+		Log("ENGINE", `Set ${this.elementId} Source to "${src}".`, "log", "UI");
 		const element = this.element;
 		if (element && "src" in element) {
 			element.src = src;
@@ -39,7 +42,8 @@ class UIElement {
 	}
 
 	setStyle(styles) {
-		log("ENGINE", `Applied Styles to ${this.elementId}.`, "log", "UI");
+		// Apply inline styles to the element.
+		Log("ENGINE", `Applied Styles to ${this.elementId}.`, "log", "UI");
 		const element = this.element;
 		if (element && styles && typeof styles === "object") {
 			Object.assign(element.style, styles);
@@ -48,7 +52,8 @@ class UIElement {
 	}
 
 	fadeTo(targetOpacity, durationSeconds) {
-		log(
+		// Animate opacity over the given duration.
+		Log(
 			"ENGINE",
 			`Set ${this.elementId} Opacity to "${targetOpacity}" in ${durationSeconds}s.`,
 			"log",
@@ -67,7 +72,8 @@ class UIElement {
 	}
 
 	remove() {
-		log("ENGINE", `Removed ${this.elementId}.`, "log", "UI");
+		// Remove element from the DOM.
+		Log("ENGINE", `Removed ${this.elementId}.`, "log", "UI");
 		const element = this.element;
 		if (element && element.parentNode) {
 			element.parentNode.removeChild(element);
@@ -75,6 +81,7 @@ class UIElement {
 	}
 
 	static get(elementId) {
+		// Build a helper for a specific element id.
 		return new UIElement(elementId);
 	}
 
@@ -82,7 +89,8 @@ class UIElement {
 		if (typeof document === "undefined") {
 			return;
 		}
-		log("ENGINE", `Removed ${rootId}.`, "log", "UI");
+		// Remove a root container by id.
+		Log("ENGINE", `Removed ${rootId}.`, "log", "UI");
 		const element = document.getElementById(rootId);
 		if (element && element.parentNode) {
 			element.parentNode.removeChild(element);
@@ -91,6 +99,7 @@ class UIElement {
 }
 
 function BuildElement(definition) {
+	// Create a single DOM element from a definition.
 	if (!definition || typeof definition !== "object") {
 		return document.createElement("div");
 	}
@@ -119,6 +128,7 @@ function BuildElement(definition) {
 	}
 
 	if (Array.isArray(definition.children)) {
+		// Recursively append child elements.
 		definition.children.forEach((child) => {
 			element.appendChild(BuildElement(child));
 		});
@@ -128,6 +138,7 @@ function BuildElement(definition) {
 }
 
 function collectElementIds(definition, ids) {
+	// Gather ids for logging and input routing.
 	if (!definition || typeof definition !== "object") {
 		return;
 	}
@@ -142,18 +153,21 @@ function collectElementIds(definition, ids) {
 }
 
 function BuildElements(definitions, menuId) {
+	// Build a fragment of UI elements from definitions.
 	const fragment = document.createDocumentFragment();
 	const ids = [];
 
 	if (Array.isArray(definitions)) {
+		// Collect ids before building the DOM tree.
 		definitions.forEach((definition) => collectElementIds(definition, ids));
+		// Convert each definition into DOM nodes.
 		definitions.forEach((definition) => {
 			fragment.appendChild(BuildElement(definition));
 		});
 	}
 
 	const resolvedMenuId = menuId || "unknown";
-	log("ENGINE", `Building ${resolvedMenuId}: ${ids.join(", ")}`, "log", "UI");
+	Log("ENGINE", `Building ${resolvedMenuId}: ${ids.join(", ")}`, "log", "UI");
 
 	return fragment;
 }

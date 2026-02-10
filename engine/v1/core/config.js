@@ -5,14 +5,18 @@
 
 const CONFIG = {
   DEBUG: {
-    All: true,
-    Logging: true,
-    Log: true,
-    Warn: true,
-    Error: true,
-    Startup: true,
-    UI: true,
-    Audio: true,
+    All: true,       // Global Debug Switch
+    Logging: true,   // All Debug Logging
+    Log: true,       // Console Logs
+    Warn: true,      // Console Warnings
+    Error: true,     // Console Errors
+    Engine: true,    // Engine Logs
+    Game: true,      // Game Logs
+    Startup: true,   // Startup Workflow
+    UI: true,        // Menus & UI Workflow
+    Audio: true,     // Audio Workflow
+    Controls: true,  // Controls Workflow
+    Cutscene: true,  // Cutscene Workflow
   },
   VOLUME: {
     Music: 0.5,
@@ -22,9 +26,8 @@ const CONFIG = {
   },
   CUTSCENE: {
     DisableAll: false,
-    SkipIntro: false,
-  },
-  PHYSICS: {}
+    SkipIntro: true,
+  }
 };
 
 /* === EXPORTS === */

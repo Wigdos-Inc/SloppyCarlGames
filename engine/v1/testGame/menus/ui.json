@@ -6,7 +6,6 @@
 
     "menuUI": {
         "TitleScreen": {
-            "rootId": "engine-ui-root",
             "rootStyles": {
                 "position": "relative",
                 "zIndex": "1"
@@ -137,7 +136,7 @@
                                         "textShadow": "0 4px 0 #10325d, 0 0 20px rgba(0,255,255,0.75)",
                                         "marginTop": "-8px"
                                     },
-                                    "text": "Engine - v0.3"
+                                    "text": "Engine - v0.4"
                                 }
                             ]
                         },
@@ -178,36 +177,142 @@
                             "children": [
                                 {
                                     "type": "div",
-                                    "text": "New Game"
-                                },
-                                {
-                                    "type": "div",
+                                    "id": "menu-new-game",
                                     "styles": {
-                                        "position": "relative",
                                         "padding": "6px 16px",
-                                        "border": "2px solid rgba(111,220,255,0.9)",
-                                        "background": "linear-gradient(90deg, rgba(123,85,255,0.5), rgba(74,220,255,0.35))",
-                                        "boxShadow": "0 0 14px rgba(100,220,255,0.6)"
+                                        "border": "2px solid transparent",
+                                        "borderRadius": "6px",
+                                        "cursor": "pointer"
                                     },
-                                    "text": "Load"
+                                    "events": {
+                                        "click": {
+                                            "type": "request",
+                                            "screenId": "LevelSelect"
+                                        },
+                                        "pointerover": {
+                                            "type": "style",
+                                            "targetId": "menu-new-game",
+                                            "styles": {
+                                                "border": "2px solid rgba(111,220,255,0.9)",
+                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5), rgba(74,220,255,0.35))",
+                                                "boxShadow": "0 0 14px rgba(100,220,255,0.6)"
+                                            }
+                                        },
+                                        "pointerout": {
+                                            "type": "style",
+                                            "targetId": "menu-new-game",
+                                            "styles": {
+                                                "border": "2px solid transparent",
+                                                "background": "transparent",
+                                                "boxShadow": "none"
+                                            }
+                                        }
+                                    },
+                                    "text": "NEW GAME"
                                 },
                                 {
                                     "type": "div",
-                                    "text": "Settings"
-                                },
-                                {
-                                    "type": "div",
-                                    "text": "Exit"
-                                },
-                                {
-                                    "type": "div",
+                                    "id": "menu-load-game",
                                     "styles": {
-                                        "marginTop": "8px",
-                                        "fontSize": "16px",
-                                        "color": "#b8faff",
-                                        "opacity": "0.85"
+                                        "padding": "6px 16px",
+                                        "border": "2px solid transparent",
+                                        "borderRadius": "6px",
+                                        "cursor": "pointer"
                                     },
-                                    "text": "Press Start"
+                                    "events": {
+                                        "click": {
+                                            "type": "request",
+                                            "screenId": "LevelSelect"
+                                        },
+                                        "pointerover": {
+                                            "type": "style",
+                                            "targetId": "menu-load-game",
+                                            "styles": {
+                                                "border": "2px solid rgba(111,220,255,0.9)",
+                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5), rgba(74,220,255,0.35))",
+                                                "boxShadow": "0 0 14px rgba(100,220,255,0.6)"
+                                            }
+                                        },
+                                        "pointerout": {
+                                            "type": "style",
+                                            "targetId": "menu-load-game",
+                                            "styles": {
+                                                "border": "2px solid transparent",
+                                                "background": "transparent",
+                                                "boxShadow": "none"
+                                            }
+                                        }
+                                    },
+                                    "text": "LOAD GAME"
+                                },
+                                {
+                                    "type": "div",
+                                    "id": "menu-settings",
+                                    "styles": {
+                                        "padding": "6px 16px",
+                                        "border": "2px solid transparent",
+                                        "borderRadius": "6px",
+                                        "cursor": "pointer"
+                                    },
+                                    "events": {
+                                        "click": {
+                                            "type": "request",
+                                            "screenId": "Settings"
+                                        },
+                                        "pointerover": {
+                                            "type": "style",
+                                            "targetId": "menu-settings",
+                                            "styles": {
+                                                "border": "2px solid rgba(111,220,255,0.9)",
+                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5), rgba(74,220,255,0.35))",
+                                                "boxShadow": "0 0 14px rgba(100,220,255,0.6)"
+                                            }
+                                        },
+                                        "pointerout": {
+                                            "type": "style",
+                                            "targetId": "menu-settings",
+                                            "styles": {
+                                                "border": "2px solid transparent",
+                                                "background": "transparent",
+                                                "boxShadow": "none"
+                                            }
+                                        }
+                                    },
+                                    "text": "SETTINGS"
+                                },
+                                {
+                                    "type": "div",
+                                    "id": "menu-exit",
+                                    "styles": {
+                                        "padding": "6px 16px",
+                                        "border": "2px solid transparent",
+                                        "borderRadius": "6px",
+                                        "cursor": "pointer"
+                                    },
+                                    "events": {
+                                        "click": {
+                                            "type": "exit"
+                                        },
+                                        "pointerover": {
+                                            "type": "style",
+                                            "targetId": "menu-exit",
+                                            "styles": {
+                                                "border": "2px solid rgba(111,220,255,0.9)",
+                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5), rgba(74,220,255,0.35))",
+                                                "boxShadow": "0 0 14px rgba(100,220,255,0.6)"
+                                            }
+                                        },
+                                        "pointerout": {
+                                            "type": "style",
+                                            "targetId": "menu-exit",
+                                            "styles": {
+                                                "border": "2px solid transparent",
+                                                "background": "transparent",
+                                                "boxShadow": "none"
+                                            }
+                                        }
+                                    },
+                                    "text": "EXIT"
                                 }
                             ]
                         },
@@ -225,7 +330,189 @@
                 }
             ]
         },
-        "LevelSelect": {},
-        "Settings": {}
+        "LevelSelect": {
+            "rootStyles": {
+                "position": "relative",
+                "zIndex": "1"
+            },
+            "elements": [
+                {
+                    "type": "div",
+                    "id": "level-select-screen",
+                    "styles": {
+                        "position": "fixed",
+                        "inset": "0",
+                        "background": "linear-gradient(180deg, #121a2b 0%, #1f2b44 55%, #0d1422 100%)",
+                        "fontFamily": "\"Orbitron\", \"Trebuchet MS\", sans-serif",
+                        "color": "#dffbff",
+                        "display": "flex",
+                        "alignItems": "center",
+                        "justifyContent": "center"
+                    },
+                    "children": [
+                        {
+                            "type": "div",
+                            "styles": {
+                                "display": "flex",
+                                "flexDirection": "column",
+                                "gap": "18px",
+                                "background": "rgba(10, 12, 20, 0.6)",
+                                "padding": "32px 36px",
+                                "borderRadius": "16px",
+                                "boxShadow": "0 12px 28px rgba(0,0,0,0.35)"
+                            },
+                            "children": [
+                                {
+                                    "type": "div",
+                                    "styles": {
+                                        "fontSize": "32px",
+                                        "fontWeight": "700",
+                                        "letterSpacing": "2px",
+                                        "textTransform": "uppercase"
+                                    },
+                                    "text": "Level Select"
+                                },
+                                {
+                                    "type": "div",
+                                    "styles": {
+                                        "fontSize": "18px",
+                                        "opacity": "0.85"
+                                    },
+                                    "text": "Choose a stage to start."
+                                },
+                                {
+                                    "type": "div",
+                                    "id": "level-select-back",
+                                    "styles": {
+                                        "alignSelf": "flex-start",
+                                        "padding": "8px 18px",
+                                        "border": "2px solid rgba(111,220,255,0.9)",
+                                        "borderRadius": "8px",
+                                        "cursor": "pointer",
+                                        "textTransform": "uppercase",
+                                        "letterSpacing": "1px"
+                                    },
+                                    "events": {
+                                        "click": {
+                                            "type": "request",
+                                            "screenId": "TitleScreen"
+                                        },
+                                        "pointerover": {
+                                            "type": "style",
+                                            "targetId": "level-select-back",
+                                            "styles": {
+                                                "background": "rgba(111,220,255,0.2)",
+                                                "boxShadow": "0 0 14px rgba(100,220,255,0.6)"
+                                            }
+                                        },
+                                        "pointerout": {
+                                            "type": "style",
+                                            "targetId": "level-select-back",
+                                            "styles": {
+                                                "background": "transparent",
+                                                "boxShadow": "none"
+                                            }
+                                        }
+                                    },
+                                    "text": "Back"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        "Settings": {
+            "rootStyles": {
+                "position": "relative",
+                "zIndex": "1"
+            },
+            "elements": [
+                {
+                    "type": "div",
+                    "id": "settings-screen",
+                    "styles": {
+                        "position": "fixed",
+                        "inset": "0",
+                        "background": "linear-gradient(180deg, #1b2238 0%, #2d3a55 45%, #1a1f2d 100%)",
+                        "fontFamily": "\"Orbitron\", \"Trebuchet MS\", sans-serif",
+                        "color": "#dffbff",
+                        "display": "flex",
+                        "alignItems": "center",
+                        "justifyContent": "center"
+                    },
+                    "children": [
+                        {
+                            "type": "div",
+                            "styles": {
+                                "display": "flex",
+                                "flexDirection": "column",
+                                "gap": "18px",
+                                "background": "rgba(10, 12, 20, 0.6)",
+                                "padding": "32px 36px",
+                                "borderRadius": "16px",
+                                "boxShadow": "0 12px 28px rgba(0,0,0,0.35)"
+                            },
+                            "children": [
+                                {
+                                    "type": "div",
+                                    "styles": {
+                                        "fontSize": "36px",
+                                        "fontWeight": "700",
+                                        "letterSpacing": "2px",
+                                        "textTransform": "uppercase"
+                                    },
+                                    "text": "Settings"
+                                },
+                                {
+                                    "type": "div",
+                                    "styles": {
+                                        "fontSize": "18px",
+                                        "opacity": "0.85"
+                                    },
+                                    "text": "Audio, Controls, and Display options."
+                                },
+                                {
+                                    "type": "div",
+                                    "id": "settings-back",
+                                    "styles": {
+                                        "alignSelf": "flex-start",
+                                        "padding": "8px 18px",
+                                        "border": "2px solid rgba(111,220,255,0.9)",
+                                        "borderRadius": "8px",
+                                        "cursor": "pointer",
+                                        "textTransform": "uppercase",
+                                        "letterSpacing": "1px"
+                                    },
+                                    "events": {
+                                        "click": {
+                                            "type": "request",
+                                            "screenId": "TitleScreen"
+                                        },
+                                        "pointerover": {
+                                            "type": "style",
+                                            "targetId": "settings-back",
+                                            "styles": {
+                                                "background": "rgba(111,220,255,0.2)",
+                                                "boxShadow": "0 0 14px rgba(100,220,255,0.6)"
+                                            }
+                                        },
+                                        "pointerout": {
+                                            "type": "style",
+                                            "targetId": "settings-back",
+                                            "styles": {
+                                                "background": "transparent",
+                                                "boxShadow": "none"
+                                            }
+                                        }
+                                    },
+                                    "text": "Back"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
     }
 }
