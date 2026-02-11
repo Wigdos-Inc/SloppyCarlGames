@@ -6,7 +6,19 @@
 /* === IMPORTS === */
 // Core diagnostics and logging support.
 
-import { Log, logAll, LogCache, sendEvent, Wait, Cache, Cursor, ExitGame } from "./meta.js";
+import {
+  Log,
+  logAll,
+  LogCache,
+  sendEvent,
+  Wait,
+  Cache,
+  Cursor,
+  ExitGame,
+  pushToSession,
+  readFromSession,
+  SESSION_KEYS,
+} from "./meta.js";
 import { CONFIG } from "./config.js";
 import { ApplyMenuUI, LoadScreen } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
@@ -48,6 +60,9 @@ function initialize() {
       ExitGame: ExitGame,
       SendEvent: sendEvent,
       Wait: Wait,
+      PushToSession: pushToSession,
+      ReadFromSession: readFromSession,
+      SessionKey: SESSION_KEYS,
     },
     Controls: Controls,
     Input: {

@@ -35,6 +35,15 @@ function normalizeIntroPayload(payload) {
 }
 
 async function playVideoCutscene(payload, options) {
+	if (
+		CONFIG &&
+		CONFIG.DEBUG &&
+		CONFIG.DEBUG.SKIP &&
+		CONFIG.DEBUG.SKIP.Cutscene
+	) {
+		Log("ENGINE", "Video cutscene skipped by config.", "log", "Cutscene");
+		return;
+	}
 	// Guard against missing video sources.
 	if (!payload || !payload.src) {
 		return;
@@ -54,7 +63,7 @@ async function playVideoCutscene(payload, options) {
 	video.autoplay = true;
 	video.playsInline = true;
 	video.controls = false;
-	video.muted = payload.muted === true || (CONFIG && CONFIG.CUTSCENE && CONFIG.CUTSCENE.Mute === true);
+	video.muted = payload.muted === true;
 	video.loop = payload.loop === true;
 	if (video.muted) {
 		video.volume = 0;
@@ -177,6 +186,15 @@ async function fadeCutsceneToBlack(options) {
 }
 
 async function playEngineCutscene(payload, options) {
+	if (
+		CONFIG &&
+		CONFIG.DEBUG &&
+		CONFIG.DEBUG.SKIP &&
+		CONFIG.DEBUG.SKIP.Cutscene
+	) {
+		Log("ENGINE", "Engine cutscene skipped by config.", "log", "Cutscene");
+		return;
+	}
 	// Drive in-engine cutscene timelines with a simple duration flow.
 	const data = payload && payload.payload ? payload.payload : payload;
 	const durationSeconds = payload && typeof payload.durationSeconds === "number"
@@ -210,7 +228,12 @@ async function playEngineCutscene(payload, options) {
 
 async function PlayIntroCinematic(payload, options) {
 	// Skip intros if config disables them.
-	if (CONFIG && CONFIG.CUTSCENE && (CONFIG.CUTSCENE.DisableAll || CONFIG.CUTSCENE.SkipIntro)) {
+	if (
+		CONFIG &&
+		CONFIG.DEBUG &&
+		CONFIG.DEBUG.SKIP &&
+		(CONFIG.DEBUG.SKIP.Cutscene || CONFIG.DEBUG.SKIP.Intro)
+	) {
 		Log("ENGINE", "Intro cinematic skipped by config.", "log", "Cutscene");
 		return false;
 	}

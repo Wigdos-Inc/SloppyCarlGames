@@ -136,7 +136,7 @@
                                         "textShadow": "0 4px 0 #10325d, 0 0 20px rgba(0,255,255,0.75)",
                                         "marginTop": "-8px"
                                     },
-                                    "text": "Engine - v0.4"
+                                    "text": "Engine - v0.5.1"
                                 }
                             ]
                         },
@@ -378,174 +378,595 @@
                     "styles": {
                         "position": "fixed",
                         "inset": "0",
-                        "background": "linear-gradient(180deg, #121a2b 0%, #1f2b44 55%, #0d1422 100%)",
+                        "background": "linear-gradient(180deg, #6b2e60 0%, #3a1f4a 32%, #23324e 64%, #0f1626 100%)",
                         "fontFamily": "\"Orbitron\", \"Trebuchet MS\", sans-serif",
                         "color": "#dffbff",
                         "display": "flex",
                         "alignItems": "center",
-                        "justifyContent": "center"
+                        "justifyContent": "center",
+                        "overflow": "hidden"
                     },
                     "children": [
                         {
                             "type": "div",
                             "styles": {
+                                "position": "absolute",
+                                "inset": "0",
+                                "background": "radial-gradient(circle at 50% 20%, rgba(255,180,200,0.35), rgba(0,0,0,0) 60%)",
+                                "opacity": "0.7"
+                            },
+                            "children": []
+                        },
+                        {
+                            "type": "div",
+                            "styles": {
+                                "position": "absolute",
+                                "inset": "0",
+                                "backgroundImage": "repeating-linear-gradient(0deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 1px, rgba(0,0,0,0) 3px, rgba(0,0,0,0) 6px)",
+                                "opacity": "0.4",
+                                "pointerEvents": "none"
+                            }
+                        },
+                        {
+                            "type": "div",
+                            "styles": {
+                                "position": "absolute",
+                                "left": "-20%",
+                                "right": "-20%",
+                                "bottom": "0",
+                                "height": "34%",
+                                "backgroundImage": "linear-gradient(180deg, rgba(20,10,40,0) 0%, rgba(12,8,22,0.9) 60%), repeating-linear-gradient(90deg, rgba(255,90,255,0.75) 0px, rgba(255,90,255,0.75) 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 70px), repeating-linear-gradient(0deg, rgba(90,240,255,0.6) 0px, rgba(90,240,255,0.6) 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 50px)",
+                                "transform": "skewX(-8deg)",
+                                "opacity": "0.8",
+                                "pointerEvents": "none"
+                            }
+                        },
+                        {
+                            "type": "div",
+                            "styles": {
+                                "position": "relative",
+                                "zIndex": "2",
+                                "width": "min(1100px, 92vw)",
                                 "display": "flex",
                                 "flexDirection": "column",
                                 "gap": "18px",
-                                "background": "rgba(10, 12, 20, 0.6)",
-                                "padding": "32px 36px",
-                                "borderRadius": "16px",
-                                "boxShadow": "0 12px 28px rgba(0,0,0,0.35)"
+                                "alignItems": "center"
                             },
                             "children": [
                                 {
                                     "type": "div",
                                     "styles": {
-                                        "fontSize": "32px",
+                                        "fontSize": "48px",
                                         "fontWeight": "700",
-                                        "letterSpacing": "2px",
-                                        "textTransform": "uppercase"
+                                        "letterSpacing": "6px",
+                                        "textTransform": "uppercase",
+                                        "textAlign": "center",
+                                        "color": "#9df6ff",
+                                        "textShadow": "0 0 12px rgba(120, 240, 255, 0.85), 0 0 2px rgba(30, 80, 140, 0.9)"
                                     },
-                                    "text": "Level Select"
+                                    "text": "LEVEL SELECT"
                                 },
                                 {
                                     "type": "div",
                                     "styles": {
-                                        "fontSize": "18px",
-                                        "opacity": "0.85"
-                                    },
-                                    "text": "Choose a stage to start."
-                                },
-                                {
-                                    "type": "div",
-                                    "styles": {
-                                        "display": "grid",
-                                        "gridTemplateColumns": "repeat(2, minmax(160px, 1fr))",
-                                        "gap": "12px",
-                                        "marginTop": "6px"
+                                        "display": "flex",
+                                        "alignItems": "center",
+                                        "justifyContent": "center",
+                                        "gap": "22px",
+                                        "width": "100%"
                                     },
                                     "children": [
                                         {
                                             "type": "div",
-                                            "id": "level-1-stage-1",
+                                            "id": "level-nav-prev",
                                             "styles": {
-                                                "padding": "10px 14px",
-                                                "border": "2px solid rgba(111,220,255,0.4)",
-                                                "borderRadius": "8px",
+                                                "width": "64px",
+                                                "height": "64px",
+                                                "borderRadius": "16px",
+                                                "border": "2px solid rgba(111,220,255,0.9)",
+                                                "display": "flex",
+                                                "alignItems": "center",
+                                                "justifyContent": "center",
+                                                "fontSize": "32px",
+                                                "fontWeight": "700",
+                                                "color": "#7fe9ff",
+                                                "textShadow": "0 0 10px rgba(120, 240, 255, 0.8)",
                                                 "cursor": "pointer",
-                                                "textTransform": "uppercase",
-                                                "letterSpacing": "1px",
-                                                "textAlign": "center"
+                                                "background": "rgba(12, 10, 22, 0.6)",
+                                                "boxShadow": "0 0 18px rgba(111,220,255,0.35)"
                                             },
                                             "events": {
-                                                "click": {
-                                                    "type": "event",
-                                                    "name": "START_GAME",
-                                                    "payload": { "levelIndex": 0, "stageIndex": 0 }
+                                                "pointerover": {
+                                                    "type": "style",
+                                                    "targetId": "level-nav-prev",
+                                                    "styles": {
+                                                        "background": "linear-gradient(90deg, rgba(123,85,255,0.5), rgba(74,220,255,0.35))",
+                                                        "boxShadow": "0 0 20px rgba(120, 240, 255, 0.6)"
+                                                    }
+                                                },
+                                                "pointerout": {
+                                                    "type": "style",
+                                                    "targetId": "level-nav-prev",
+                                                    "styles": {
+                                                        "background": "rgba(12, 10, 22, 0.6)",
+                                                        "boxShadow": "0 0 18px rgba(111,220,255,0.35)"
+                                                    }
                                                 }
                                             },
-                                            "text": "Level 1-1"
+                                            "text": "<"
                                         },
                                         {
                                             "type": "div",
-                                            "id": "level-1-stage-2",
+                                            "id": "level-select-card",
                                             "styles": {
-                                                "padding": "10px 14px",
-                                                "border": "2px solid rgba(111,220,255,0.4)",
-                                                "borderRadius": "8px",
-                                                "cursor": "pointer",
-                                                "textTransform": "uppercase",
-                                                "letterSpacing": "1px",
-                                                "textAlign": "center"
+                                                "flex": "1",
+                                                "minHeight": "360px",
+                                                "maxWidth": "820px",
+                                                "position": "relative",
+                                                "padding": "24px",
+                                                "borderRadius": "24px",
+                                                "border": "none",
+                                                "background": "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0) 100%)",
+                                                "boxShadow": "none",
+                                                "overflow": "hidden"
                                             },
-                                            "events": {
-                                                "click": {
-                                                    "type": "event",
-                                                    "name": "START_GAME",
-                                                    "payload": { "levelIndex": 0, "stageIndex": 1 }
+                                            "children": [
+                                                {
+                                                    "type": "div",
+                                                    "id": "level-panel-1",
+                                                    "styles": {
+                                                        "position": "relative",
+                                                        "zIndex": "1",
+                                                        "display": "flex",
+                                                        "flexDirection": "column",
+                                                        "gap": "16px",
+                                                        "width": "100%"
+                                                    },
+                                                    "children": [
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "26px",
+                                                                "letterSpacing": "3px",
+                                                                "textTransform": "uppercase",
+                                                                "color": "#7fe9ff",
+                                                                "textShadow": "0 0 10px rgba(120, 240, 255, 0.7), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "text": "CarlNet Zone 1"
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "16px",
+                                                                "opacity": "0.85",
+                                                                "letterSpacing": "2px",
+                                                                "textTransform": "uppercase"
+                                                            },
+                                                            "text": "Select a stage"
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "display": "grid",
+                                                                "gridTemplateColumns": "repeat(2, minmax(200px, 1fr))",
+                                                                "gap": "16px"
+                                                            },
+                                                            "children": [
+                                                                {
+                                                                    "type": "div",
+                                                                    "id": "level-1-stage-1",
+                                                                    "styles": {
+                                                                        "position": "relative",
+                                                                        "height": "180px",
+                                                                        "borderRadius": "16px",
+                                                                        "border": "2px solid rgba(111,220,255,0.55)",
+                                                                        "cursor": "pointer",
+                                                                        "backgroundImage": "url('./levels/level1.png')",
+                                                                        "backgroundSize": "cover",
+                                                                        "backgroundPosition": "center",
+                                                                        "overflow": "hidden",
+                                                                        "boxShadow": "0 10px 20px rgba(0,0,0,0.35)",
+                                                                        "transition": "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease"
+                                                                    },
+                                                                    "events": {
+                                                                        "click": {
+                                                                            "type": "event",
+                                                                            "name": "START_GAME",
+                                                                            "payload": { "levelIndex": 0, "stageIndex": 0 }
+                                                                        },
+                                                                        "pointerover": {
+                                                                            "type": "style",
+                                                                            "targetId": "level-1-stage-1",
+                                                                            "styles": {
+                                                                                "transform": "translateY(-6px)",
+                                                                                "boxShadow": "0 16px 26px rgba(0,0,0,0.45)",
+                                                                                "border": "2px solid rgba(127,233,255,0.9)"
+                                                                            }
+                                                                        },
+                                                                        "pointerout": {
+                                                                            "type": "style",
+                                                                            "targetId": "level-1-stage-1",
+                                                                            "styles": {
+                                                                                "transform": "translateY(0px)",
+                                                                                "boxShadow": "0 10px 20px rgba(0,0,0,0.35)",
+                                                                                "border": "2px solid rgba(111,220,255,0.55)"
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    "children": [
+                                                                        {
+                                                                            "type": "div",
+                                                                            "styles": {
+                                                                                "position": "absolute",
+                                                                                "inset": "0",
+                                                                                "background": "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%)",
+                                                                                "pointerEvents": "none"
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            "type": "div",
+                                                                            "styles": {
+                                                                                "position": "absolute",
+                                                                                "left": "14px",
+                                                                                "bottom": "12px",
+                                                                                "fontSize": "16px",
+                                                                                "letterSpacing": "2px",
+                                                                                "textTransform": "uppercase",
+                                                                                "color": "#e8feff",
+                                                                                "textShadow": "0 0 6px rgba(0,0,0,0.6)",
+                                                                                "pointerEvents": "none"
+                                                                            },
+                                                                            "text": "Stage 1"
+                                                                        }
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "type": "div",
+                                                                    "id": "level-1-stage-2",
+                                                                    "styles": {
+                                                                        "position": "relative",
+                                                                        "height": "180px",
+                                                                        "borderRadius": "16px",
+                                                                        "border": "2px solid rgba(111,220,255,0.55)",
+                                                                        "cursor": "pointer",
+                                                                        "backgroundImage": "url('./levels/level1.png')",
+                                                                        "backgroundSize": "cover",
+                                                                        "backgroundPosition": "center",
+                                                                        "overflow": "hidden",
+                                                                        "boxShadow": "0 10px 20px rgba(0,0,0,0.35)",
+                                                                        "transition": "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease"
+                                                                    },
+                                                                    "events": {
+                                                                        "click": {
+                                                                            "type": "event",
+                                                                            "name": "START_GAME",
+                                                                            "payload": { "levelIndex": 0, "stageIndex": 1 }
+                                                                        },
+                                                                        "pointerover": {
+                                                                            "type": "style",
+                                                                            "targetId": "level-1-stage-2",
+                                                                            "styles": {
+                                                                                "transform": "translateY(-6px)",
+                                                                                "boxShadow": "0 16px 26px rgba(0,0,0,0.45)",
+                                                                                "border": "2px solid rgba(127,233,255,0.9)"
+                                                                            }
+                                                                        },
+                                                                        "pointerout": {
+                                                                            "type": "style",
+                                                                            "targetId": "level-1-stage-2",
+                                                                            "styles": {
+                                                                                "transform": "translateY(0px)",
+                                                                                "boxShadow": "0 10px 20px rgba(0,0,0,0.35)",
+                                                                                "border": "2px solid rgba(111,220,255,0.55)"
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    "children": [
+                                                                        {
+                                                                            "type": "div",
+                                                                            "styles": {
+                                                                                "position": "absolute",
+                                                                                "inset": "0",
+                                                                                "background": "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%)",
+                                                                                "pointerEvents": "none"
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            "type": "div",
+                                                                            "styles": {
+                                                                                "position": "absolute",
+                                                                                "left": "14px",
+                                                                                "bottom": "12px",
+                                                                                "fontSize": "16px",
+                                                                                "letterSpacing": "2px",
+                                                                                "textTransform": "uppercase",
+                                                                                "color": "#e8feff",
+                                                                                "textShadow": "0 0 6px rgba(0,0,0,0.6)",
+                                                                                "pointerEvents": "none"
+                                                                            },
+                                                                            "text": "Stage 2"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "div",
+                                                    "id": "level-panel-2",
+                                                    "styles": {
+                                                        "position": "relative",
+                                                        "zIndex": "1",
+                                                        "display": "none",
+                                                        "flexDirection": "column",
+                                                        "gap": "16px",
+                                                        "opacity": "0",
+                                                        "pointerEvents": "none",
+                                                        "width": "100%"
+                                                    },
+                                                    "children": [
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "26px",
+                                                                "letterSpacing": "3px",
+                                                                "textTransform": "uppercase",
+                                                                "color": "#7fe9ff",
+                                                                "textShadow": "0 0 10px rgba(120, 240, 255, 0.7), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "text": "CarlNet Zone 2"
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "16px",
+                                                                "opacity": "0.85",
+                                                                "letterSpacing": "2px",
+                                                                "textTransform": "uppercase"
+                                                            },
+                                                            "text": "Select a stage"
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "display": "grid",
+                                                                "gridTemplateColumns": "repeat(2, minmax(200px, 1fr))",
+                                                                "gap": "16px"
+                                                            },
+                                                            "children": [
+                                                                {
+                                                                    "type": "div",
+                                                                    "id": "level-2-stage-1",
+                                                                    "styles": {
+                                                                        "position": "relative",
+                                                                        "height": "180px",
+                                                                        "borderRadius": "16px",
+                                                                        "border": "2px solid rgba(111,220,255,0.55)",
+                                                                        "cursor": "pointer",
+                                                                        "backgroundImage": "url('./levels/level2.png')",
+                                                                        "backgroundSize": "cover",
+                                                                        "backgroundPosition": "center",
+                                                                        "overflow": "hidden",
+                                                                        "boxShadow": "0 10px 20px rgba(0,0,0,0.35)",
+                                                                        "transition": "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease"
+                                                                    },
+                                                                    "events": {
+                                                                        "click": {
+                                                                            "type": "event",
+                                                                            "name": "START_GAME",
+                                                                            "payload": { "levelIndex": 1, "stageIndex": 0 }
+                                                                        },
+                                                                        "pointerover": {
+                                                                            "type": "style",
+                                                                            "targetId": "level-2-stage-1",
+                                                                            "styles": {
+                                                                                "transform": "translateY(-6px)",
+                                                                                "boxShadow": "0 16px 26px rgba(0,0,0,0.45)",
+                                                                                "border": "2px solid rgba(127,233,255,0.9)"
+                                                                            }
+                                                                        },
+                                                                        "pointerout": {
+                                                                            "type": "style",
+                                                                            "targetId": "level-2-stage-1",
+                                                                            "styles": {
+                                                                                "transform": "translateY(0px)",
+                                                                                "boxShadow": "0 10px 20px rgba(0,0,0,0.35)",
+                                                                                "border": "2px solid rgba(111,220,255,0.55)"
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    "children": [
+                                                                        {
+                                                                            "type": "div",
+                                                                            "styles": {
+                                                                                "position": "absolute",
+                                                                                "inset": "0",
+                                                                                "background": "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%)",
+                                                                                "pointerEvents": "none"
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            "type": "div",
+                                                                            "styles": {
+                                                                                "position": "absolute",
+                                                                                "left": "14px",
+                                                                                "bottom": "12px",
+                                                                                "fontSize": "16px",
+                                                                                "letterSpacing": "2px",
+                                                                                "textTransform": "uppercase",
+                                                                                "color": "#e8feff",
+                                                                                "textShadow": "0 0 6px rgba(0,0,0,0.6)",
+                                                                                "pointerEvents": "none"
+                                                                            },
+                                                                            "text": "Stage 1"
+                                                                        }
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "type": "div",
+                                                                    "id": "level-2-stage-2",
+                                                                    "styles": {
+                                                                        "position": "relative",
+                                                                        "height": "180px",
+                                                                        "borderRadius": "16px",
+                                                                        "border": "2px solid rgba(111,220,255,0.55)",
+                                                                        "cursor": "pointer",
+                                                                        "backgroundImage": "url('./levels/level2.png')",
+                                                                        "backgroundSize": "cover",
+                                                                        "backgroundPosition": "center",
+                                                                        "overflow": "hidden",
+                                                                        "boxShadow": "0 10px 20px rgba(0,0,0,0.35)",
+                                                                        "transition": "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease"
+                                                                    },
+                                                                    "events": {
+                                                                        "click": {
+                                                                            "type": "event",
+                                                                            "name": "START_GAME",
+                                                                            "payload": { "levelIndex": 1, "stageIndex": 1 }
+                                                                        },
+                                                                        "pointerover": {
+                                                                            "type": "style",
+                                                                            "targetId": "level-2-stage-2",
+                                                                            "styles": {
+                                                                                "transform": "translateY(-6px)",
+                                                                                "boxShadow": "0 16px 26px rgba(0,0,0,0.45)",
+                                                                                "border": "2px solid rgba(127,233,255,0.9)"
+                                                                            }
+                                                                        },
+                                                                        "pointerout": {
+                                                                            "type": "style",
+                                                                            "targetId": "level-2-stage-2",
+                                                                            "styles": {
+                                                                                "transform": "translateY(0px)",
+                                                                                "boxShadow": "0 10px 20px rgba(0,0,0,0.35)",
+                                                                                "border": "2px solid rgba(111,220,255,0.55)"
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    "children": [
+                                                                        {
+                                                                            "type": "div",
+                                                                            "styles": {
+                                                                                "position": "absolute",
+                                                                                "inset": "0",
+                                                                                "background": "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%)",
+                                                                                "pointerEvents": "none"
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            "type": "div",
+                                                                            "styles": {
+                                                                                "position": "absolute",
+                                                                                "left": "14px",
+                                                                                "bottom": "12px",
+                                                                                "fontSize": "16px",
+                                                                                "letterSpacing": "2px",
+                                                                                "textTransform": "uppercase",
+                                                                                "color": "#e8feff",
+                                                                                "textShadow": "0 0 6px rgba(0,0,0,0.6)",
+                                                                                "pointerEvents": "none"
+                                                                            },
+                                                                            "text": "Stage 2"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
                                                 }
-                                            },
-                                            "text": "Level 1-2"
+                                            ]
                                         },
                                         {
                                             "type": "div",
-                                            "id": "level-2-stage-1",
+                                            "id": "level-nav-next",
                                             "styles": {
-                                                "padding": "10px 14px",
-                                                "border": "2px solid rgba(111,220,255,0.4)",
-                                                "borderRadius": "8px",
+                                                "width": "64px",
+                                                "height": "64px",
+                                                "borderRadius": "16px",
+                                                "border": "2px solid rgba(111,220,255,0.9)",
+                                                "display": "flex",
+                                                "alignItems": "center",
+                                                "justifyContent": "center",
+                                                "fontSize": "32px",
+                                                "fontWeight": "700",
+                                                "color": "#7fe9ff",
+                                                "textShadow": "0 0 10px rgba(120, 240, 255, 0.8)",
                                                 "cursor": "pointer",
-                                                "textTransform": "uppercase",
-                                                "letterSpacing": "1px",
-                                                "textAlign": "center"
+                                                "background": "rgba(12, 10, 22, 0.6)",
+                                                "boxShadow": "0 0 18px rgba(111,220,255,0.35)"
                                             },
                                             "events": {
-                                                "click": {
-                                                    "type": "event",
-                                                    "name": "START_GAME",
-                                                    "payload": { "levelIndex": 1, "stageIndex": 0 }
+                                                "pointerover": {
+                                                    "type": "style",
+                                                    "targetId": "level-nav-next",
+                                                    "styles": {
+                                                        "background": "linear-gradient(90deg, rgba(123,85,255,0.5), rgba(74,220,255,0.35))",
+                                                        "boxShadow": "0 0 20px rgba(120, 240, 255, 0.6)"
+                                                    }
+                                                },
+                                                "pointerout": {
+                                                    "type": "style",
+                                                    "targetId": "level-nav-next",
+                                                    "styles": {
+                                                        "background": "rgba(12, 10, 22, 0.6)",
+                                                        "boxShadow": "0 0 18px rgba(111,220,255,0.35)"
+                                                    }
                                                 }
                                             },
-                                            "text": "Level 2-1"
-                                        },
-                                        {
-                                            "type": "div",
-                                            "id": "level-2-stage-2",
-                                            "styles": {
-                                                "padding": "10px 14px",
-                                                "border": "2px solid rgba(111,220,255,0.4)",
-                                                "borderRadius": "8px",
-                                                "cursor": "pointer",
-                                                "textTransform": "uppercase",
-                                                "letterSpacing": "1px",
-                                                "textAlign": "center"
-                                            },
-                                            "events": {
-                                                "click": {
-                                                    "type": "event",
-                                                    "name": "START_GAME",
-                                                    "payload": { "levelIndex": 1, "stageIndex": 1 }
-                                                }
-                                            },
-                                            "text": "Level 2-2"
+                                            "text": ">"
                                         }
                                     ]
                                 },
                                 {
                                     "type": "div",
-                                    "id": "level-select-back",
                                     "styles": {
-                                        "alignSelf": "flex-start",
-                                        "padding": "8px 18px",
-                                        "border": "2px solid rgba(111,220,255,0.9)",
-                                        "borderRadius": "8px",
-                                        "cursor": "pointer",
-                                        "textTransform": "uppercase",
-                                        "letterSpacing": "1px"
+                                        "width": "100%",
+                                        "maxWidth": "820px",
+                                        "display": "flex",
+                                        "justifyContent": "flex-start"
                                     },
-                                    "events": {
-                                        "click": {
-                                            "type": "request",
-                                            "screenId": "TitleScreen"
-                                        },
-                                        "pointerover": {
-                                            "type": "style",
-                                            "targetId": "level-select-back",
+                                    "children": [
+                                        {
+                                            "type": "div",
+                                            "id": "level-select-back",
                                             "styles": {
-                                                "background": "rgba(111,220,255,0.2)",
-                                                "boxShadow": "0 0 14px rgba(100,220,255,0.6)"
-                                            }
-                                        },
-                                        "pointerout": {
-                                            "type": "style",
-                                            "targetId": "level-select-back",
-                                            "styles": {
-                                                "background": "transparent",
-                                                "boxShadow": "none"
-                                            }
+                                                "padding": "10px 20px",
+                                                "border": "2px solid rgba(111,220,255,0.9)",
+                                                "borderRadius": "10px",
+                                                "cursor": "pointer",
+                                                "textTransform": "uppercase",
+                                                "letterSpacing": "2px",
+                                                "color": "#7fe9ff",
+                                                "textShadow": "0 0 10px rgba(120, 240, 255, 0.7)",
+                                                "background": "rgba(12, 10, 22, 0.6)",
+                                                "boxShadow": "0 0 18px rgba(111,220,255,0.35)"
+                                            },
+                                            "events": {
+                                                "click": {
+                                                    "type": "request",
+                                                    "screenId": "TitleScreen"
+                                                },
+                                                "pointerover": {
+                                                    "type": "style",
+                                                    "targetId": "level-select-back",
+                                                    "styles": {
+                                                        "background": "linear-gradient(90deg, rgba(123,85,255,0.5), rgba(74,220,255,0.35))",
+                                                        "boxShadow": "0 0 20px rgba(120, 240, 255, 0.6)"
+                                                    }
+                                                },
+                                                "pointerout": {
+                                                    "type": "style",
+                                                    "targetId": "level-select-back",
+                                                    "styles": {
+                                                        "background": "rgba(12, 10, 22, 0.6)",
+                                                        "boxShadow": "0 0 18px rgba(111,220,255,0.35)"
+                                                    }
+                                                }
+                                            },
+                                            "text": "Back"
                                         }
-                                    },
-                                    "text": "Back"
+                                    ]
                                 }
                             ]
                         }

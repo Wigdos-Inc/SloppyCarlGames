@@ -8,7 +8,8 @@ import {
 	SetElementSource,
 } from "../handlers/Render.js";
 import { PlaySfx, PlayVoice } from "../handlers/Sound.js";
-import { Log } from "./meta.js";
+import { Log, pushToSession, readFromSession, SESSION_KEYS } from "./meta.js";
+import { CONFIG } from "./config.js";
 
 /* === SEQUENCE === */
 // Runs the built-in splash and transitions to the title screen.
@@ -150,6 +151,14 @@ async function runSequenceSteps(sequence, context) {
 async function RunSplashSequence() {
 	// Build the full splash sequence pipeline.
 	const context = setupSplashSequence();
+	const skipSplash =
+		(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.SKIP && CONFIG.DEBUG.SKIP.Splash === true) ||
+		readFromSession(SESSION_KEYS.SplashPlayed, false) === true;
+
+	if (skipSplash) {
+		Log("ENGINE", "Splash skipped.", "log", "Startup");
+		return context;
+	}
 	const providers = [
 		getCarlStudiosSequence,
 		getWigdosStudiosSequence,
@@ -163,6 +172,7 @@ async function RunSplashSequence() {
 
 	// Final pacing after splash(es).
 	await context.wait(1000);
+	pushToSession(SESSION_KEYS.SplashPlayed, true);
 
 	return context;
 }

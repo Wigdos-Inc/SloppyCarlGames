@@ -118,7 +118,7 @@ function getSettingsSnapshot() {
 
 	const volume = ENGINE && ENGINE.Config ? ENGINE.Config.VOLUME : null;
 	const debug = ENGINE && ENGINE.Config ? ENGINE.Config.DEBUG : null;
-	const cutscene = ENGINE && ENGINE.Config ? ENGINE.Config.CUTSCENE : null;
+	const skip = debug && debug.SKIP ? debug.SKIP : null;
 
 	return {
 		master: volume ? volume.Master : 0.5,
@@ -127,7 +127,7 @@ function getSettingsSnapshot() {
 		menuSfx: volume ? volume.MenuSfx : 1,
 		gameSfx: volume ? volume.GameSfx : 1,
 		cutscene: volume ? volume.Cutscene : 1,
-		skipIntro: cutscene ? cutscene.SkipIntro : false,
+		skipIntro: skip ? skip.Intro : false,
 		debugMode: debug ? debug.ALL : false,
 	};
 }
@@ -175,14 +175,12 @@ function applySettings(settings) {
 		}
 	}
 
-	const cutscene = ENGINE.Config.CUTSCENE;
-	if (cutscene) {
-		if (typeof settings.skipIntro === "boolean") {
-			cutscene.SkipIntro = settings.skipIntro;
-		}
+	const debug = ENGINE.Config.DEBUG;
+	if (debug && debug.SKIP && typeof settings.skipIntro === "boolean") {
+		debug.SKIP.Intro = settings.skipIntro;
 	}
 
-	const debug = ENGINE.Config.DEBUG;
+	// Keep debug flag changes after skip updates.
 	if (debug && typeof settings.debugMode === "boolean") {
 		debug.ALL = settings.debugMode;
 	}
@@ -351,9 +349,52 @@ function handleSettingsInput(payload) {
 	}
 }
 
+function showLevelSelectPanel(panelIndex) {
+	const panel1 = document.getElementById("level-panel-1");
+	const panel2 = document.getElementById("level-panel-2");
+	if (!panel1 || !panel2) {
+		return;
+	}
+
+	const showFirst = panelIndex === 1;
+	panel1.style.display = showFirst ? "flex" : "none";
+	panel1.style.opacity = showFirst ? "1" : "0";
+	panel1.style.pointerEvents = showFirst ? "auto" : "none";
+
+	panel2.style.display = showFirst ? "none" : "flex";
+	panel2.style.opacity = showFirst ? "0" : "1";
+	panel2.style.pointerEvents = showFirst ? "none" : "auto";
+}
+
+function handleLevelSelectInput(payload) {
+	if (!payload || payload.screenId !== "LevelSelect") {
+		return;
+	}
+
+	if (payload.type === "keydown") {
+		if (payload.key === "ArrowLeft") {
+			showLevelSelectPanel(1);
+		}
+		if (payload.key === "ArrowRight") {
+			showLevelSelectPanel(2);
+		}
+		return;
+	}
+
+	if (payload.type === "click") {
+		if (payload.targetId === "level-nav-prev") {
+			showLevelSelectPanel(1);
+		}
+		if (payload.targetId === "level-nav-next") {
+			showLevelSelectPanel(2);
+		}
+	}
+}
+
 function handleUserInput(event) {
 	const payload = event && event.detail ? event.detail.payload : null;
 	handleSettingsInput(payload);
+	handleLevelSelectInput(payload);
 }
 
 window.addEventListener("USER_INPUT", handleUserInput);

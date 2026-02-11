@@ -8,6 +8,11 @@ const settings = JSON.parse(localStorage.getItem("settings")) ?? null;
 let CONFIG = {
   DEBUG: {
     ALL: settings.debugMode ?? false,       // Global Debug Switch
+    SKIP: {
+      Splash: false,
+      Intro: settings.skipIntro ?? false,
+      Cutscene: false,
+    },
     LOGGING: {
       All: true,
       Type: {
@@ -39,10 +44,6 @@ let CONFIG = {
     MenuSfx : settings.menuSfx ?? 1,
     GameSfx : settings.gameSfx ?? 1,
     Cutscene: settings.cutscene ?? 1
-  },
-  CUTSCENE: {
-    DisableAll: false,
-    SkipIntro: settings.skipIntro ?? false
   }
 };
 

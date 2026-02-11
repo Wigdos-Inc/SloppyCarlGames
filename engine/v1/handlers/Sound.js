@@ -291,14 +291,8 @@ function UpdateActiveAudioVolumes() {
 	if (typeof document !== "undefined") {
 		const cutsceneVideo = document.getElementById("engine-intro-video");
 		if (cutsceneVideo) {
-			const muted = CONFIG && CONFIG.CUTSCENE && CONFIG.CUTSCENE.Mute === true;
-			cutsceneVideo.muted = muted;
-			if (muted) {
-				cutsceneVideo.volume = 0;
-			} else {
-				const volume = resolveVolume("Cutscene", null);
-				cutsceneVideo.volume = Math.max(0, Math.min(1, volume));
-			}
+			const volume = resolveVolume("Cutscene", null);
+			cutsceneVideo.volume = Math.max(0, Math.min(1, volume));
 		}
 	}
 }

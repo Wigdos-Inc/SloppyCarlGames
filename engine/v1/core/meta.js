@@ -7,30 +7,83 @@
 
 import { CONFIG } from "./config.js";
 
+/* === SESSION === */
+// Persistence helpers for same-tab navigation.
+
+const SESSION_KEYS = {
+  Logs: "ENGINE_LOGS",
+  Cache: "ENGINE_CACHE",
+  SplashPlayed: "ENGINE_SPLASH_PLAYED",
+};
+
+function readFromSession(key, fallback) {
+  if (typeof sessionStorage === "undefined") {
+    return fallback;
+  }
+
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) {
+      return fallback;
+    }
+    return JSON.parse(raw);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function pushToSession(key, value) {
+  if (typeof sessionStorage !== "undefined") {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      void error;
+    }
+  }
+  return value;
+}
+
+function clearSessionStorage() {
+  if (typeof sessionStorage === "undefined") {
+    return;
+  }
+  try {
+    sessionStorage.clear();
+  } catch (error) {
+    void error;
+  }
+}
+
 /* === STATE === */
 // Stored log history.
 
-const logs = {
-  Engine: [],
-  Game: [],
-  Controls: [],
-  Other: [],
-};
+const logs = pushToSession(
+  SESSION_KEYS.Logs,
+  readFromSession(SESSION_KEYS.Logs, {
+    Engine: [],
+    Game: [],
+    Controls: [],
+    Other: [],
+  })
+);
 
 // Cache last known payloads for quick lookups.
-const Cache = {
-  UI: {
-    lastPayload: null,
-    screenID: null,
-    elementIndex: {},
-  },
-  Level: {
-    lastPayload: null,
-  },
-  Cutscene: {
-    lastPayload: null,
-  },
-};
+const Cache = pushToSession(
+  SESSION_KEYS.Cache,
+  readFromSession(SESSION_KEYS.Cache, {
+    UI: {
+      lastPayload: null,
+      screenID: null,
+      elementIndex: {},
+    },
+    Level: {
+      lastPayload: null,
+    },
+    Cutscene: {
+      lastPayload: null,
+    },
+  })
+);
 
 // Shared delay utility for async flows.
 function Wait(milliseconds) {
@@ -155,6 +208,8 @@ function Log(source, message, level, channel) {
     logs.Other.push(entry);
   }
 
+  pushToSession(SESSION_KEYS.Logs, logs);
+
   // Skip console output when debug gating fails.
   if (!shouldLog(entry.source, entry.channel, entry.level)) {
     return;
@@ -244,6 +299,7 @@ const Cursor = {
 
 function ExitGame() {
   Log("ENGINE", "Exit requested.", "log", "Meta");
+  clearSessionStorage();
   Cursor.changeState("hidden");
   if (typeof document !== "undefined" && document.body) {
     document.body.style.background = "black";
@@ -280,4 +336,16 @@ function sendEvent(eventName, payload) {
 /* === EXPORTS === */
 // Public metadata API for engine modules.
 
-export { Log, logAll, LogCache, sendEvent, Wait, Cache, Cursor, ExitGame };
+export {
+  Log,
+  logAll,
+  LogCache,
+  sendEvent,
+  Wait,
+  Cache,
+  Cursor,
+  ExitGame,
+  pushToSession,
+  readFromSession,
+  SESSION_KEYS,
+};

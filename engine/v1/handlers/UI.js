@@ -7,7 +7,7 @@
 /* === IMPORTS === */
 // Rendering and audio handlers.
 
-import { Cache, Log, sendEvent, Cursor, ExitGame } from "../core/meta.js";
+import { Cache, Log, sendEvent, Cursor, ExitGame, pushToSession, SESSION_KEYS } from "../core/meta.js";
 import { BuildElements } from "../builder/NewUI.js";
 import { RenderPayload } from "./Render.js";
 import { PlayMusic } from "./Sound.js";
@@ -145,6 +145,7 @@ function ApplyMenuUI(payload) {
 		Cache.UI.screenID = payload.screenId || null;
 		Cache.UI.elementIndex = {};
 		indexElements(payload.elements, Cache.UI.elementIndex);
+		pushToSession(SESSION_KEYS.Cache, Cache);
 	}
 
 	const screenLabel = payload.screenId || "unknown";
