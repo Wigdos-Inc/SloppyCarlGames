@@ -119,6 +119,20 @@ function BuildElement(definition) {
 		element.textContent = definition.text;
 	}
 
+	if (definition.attributes && typeof definition.attributes === "object") {
+		Object.entries(definition.attributes).forEach(([key, value]) => {
+			element.setAttribute(key, String(value));
+		});
+	}
+
+	if ("value" in definition) {
+		element.value = definition.value;
+	}
+
+	if ("checked" in definition) {
+		element.checked = Boolean(definition.checked);
+	}
+
 	if (definition.src && elementType === "img") {
 		element.src = definition.src;
 	}

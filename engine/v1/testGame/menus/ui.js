@@ -47,6 +47,65 @@ function resolvePayloadType(uiData, payloadId) {
 	return "unknown";
 }
 
+function loadSettings() {
+	const raw = localStorage.getItem("settings");
+	if (!raw) {
+		return null;
+	}
+
+	try {
+		return JSON.parse(raw);
+	} catch (error) {
+		return null;
+	}
+}
+
+function applySettingsToPayload(payload) {
+	if (!payload || payload.screenId !== "Settings") {
+		return;
+	}
+
+	const settings = loadSettings();
+	if (!settings || !Array.isArray(payload.elements)) {
+		return;
+	}
+
+	const applyValue = (definitions) => {
+		definitions.forEach((definition) => {
+			if (definition && typeof definition === "object") {
+				switch (definition.id) {
+					case "setting-master":
+						definition.value = String(settings.master ?? definition.value ?? 0.5);
+						break;
+					case "setting-music":
+						definition.value = String(settings.music ?? definition.value ?? 0.5);
+						break;
+					case "setting-voice":
+						definition.value = String(settings.voice ?? definition.value ?? 0.5);
+						break;
+					case "setting-menu-sfx":
+						definition.value = String(settings.menuSfx ?? definition.value ?? 0.5);
+						break;
+					case "setting-game-sfx":
+						definition.value = String(settings.gameSfx ?? definition.value ?? 0.5);
+						break;
+					case "setting-cutscenes-volume":
+						definition.value = String(settings.cutscene ?? definition.value ?? 0.5);
+						break;
+					default:
+						break;
+				}
+
+				if (Array.isArray(definition.children)) {
+					applyValue(definition.children);
+				}
+			}
+		});
+	};
+
+	applyValue(payload.elements);
+}
+
 async function processPayload(payloadId) {
 	const uiData = await loadUiData();
 	const payload = resolvePayload(uiData, payloadId);
@@ -69,6 +128,8 @@ async function processPayload(payloadId) {
 	if (!payload.screenId) {
 		payload.screenId = payloadId;
 	}
+
+	applySettingsToPayload(payload);
 
 	if (ENGINE && typeof ENGINE.Log === "function") {
 		ENGINE.Log(

@@ -10,7 +10,12 @@ import { CONFIG } from "./config.js";
 /* === STATE === */
 // Stored log history.
 
-const logs = [];
+const logs = {
+  Engine: [],
+  Game: [],
+  Controls: [],
+  Other: [],
+};
 
 // Cache last known payloads for quick lookups.
 const Cache = {
@@ -48,24 +53,54 @@ function shouldLog(source, channel, level) {
     return true;
   }
 
-  // Apply global debug gating before channel specifics.
-  if (
-    !debug.All || !debug.Logging ||
-    (source === "ENGINE" && !debug.Engine) ||
-    (source === "GAME" && !debug.Game) ||
-    (level === "log" && !debug.Log) ||
-    (level === "warn" && !debug.Warn) ||
-    (level === "error" && !debug.Error)
-  ) {
+  if (debug.ALL !== true) {
     return false;
   }
 
-  // Allow explicit channel overrides.
-  if (channel && debug[channel] === true) {
-    return true;
+  const logging = debug.LOGGING || {};
+  if (logging.All !== true) {
+    return false;
   }
 
-  return debug.All === true;
+  const type = logging.Type || {};
+  if ((level === "log" && type.Log === false) ||
+    (level === "warn" && type.Warn === false) ||
+    (level === "error" && type.Error === false)) {
+    return false;
+  }
+
+  const sourceConfig = logging.Source || {};
+  if ((source === "ENGINE" && sourceConfig.Engine === false) ||
+    (source === "GAME" && sourceConfig.Game === false)) {
+    return false;
+  }
+
+  const channelConfig = logging.Channel || {};
+  if (channel) {
+    if (channel.startsWith("Controls")) {
+      const controlsConfig = channelConfig.Controls;
+      if (controlsConfig === false) {
+        return false;
+      }
+
+      if (typeof controlsConfig === "object" && controlsConfig !== null) {
+        const segments = channel.split(".");
+        const subChannel = segments.length > 1 ? segments[1] : null;
+        if (subChannel && controlsConfig[subChannel] === false) {
+          return false;
+        }
+        if (subChannel && controlsConfig[subChannel] === true) {
+          return true;
+        }
+      }
+    }
+
+    if (typeof channelConfig[channel] === "boolean") {
+      return channelConfig[channel];
+    }
+  }
+
+  return true;
 }
 
 function resolveLevel(level) {
@@ -110,7 +145,15 @@ function Log(source, message, level, channel) {
     message: resolvedMessage,
   };
 
-  logs.push(entry);
+  if (entry.channel && entry.channel.startsWith("Controls")) {
+    logs.Controls.push(entry);
+  } else if (entry.source === "ENGINE") {
+    logs.Engine.push(entry);
+  } else if (entry.source === "GAME") {
+    logs.Game.push(entry);
+  } else {
+    logs.Other.push(entry);
+  }
 
   // Skip console output when debug gating fails.
   if (!shouldLog(entry.source, entry.channel, entry.level)) {
@@ -126,7 +169,14 @@ function Log(source, message, level, channel) {
 
 // Replay all stored logs in order.
 function logAll() {
-  logs.forEach((entry) => {
+  const allEntries = [
+    ...logs.Engine,
+    ...logs.Game,
+    ...logs.Controls,
+    ...logs.Other,
+  ].sort((a, b) => a.time - b.time);
+
+  allEntries.forEach((entry) => {
     const logger = console[entry.level] || console.log;
     logger(
       `[${new Date(entry.time).toISOString()}] [${entry.source}] [${entry.channel}]`,

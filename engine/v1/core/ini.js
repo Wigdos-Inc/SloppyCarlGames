@@ -7,6 +7,7 @@
 // Core diagnostics and logging support.
 
 import { Log, logAll, LogCache, sendEvent, Wait, Cache, Cursor, ExitGame } from "./meta.js";
+import { CONFIG } from "./config.js";
 import { ApplyMenuUI, LoadScreen } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
 import {
@@ -18,6 +19,7 @@ import {
   StopMusic,
   StopSfx,
   StopAllAudio,
+  UpdateActiveAudioVolumes,
 } from "../handlers/Sound.js";
 
 /* === INITIALIZATION === */
@@ -37,6 +39,7 @@ function initialize() {
   // Expose the engine public API surface.
   return {
     Log: Log,
+    Config: CONFIG,
     Cache: Cache,
     Meta: {
       LogAll: logAll,
@@ -64,6 +67,7 @@ function initialize() {
       StopMusic: StopMusic,
       StopSfx: StopSfx,
       StopAllAudio: StopAllAudio,
+      UpdateActiveAudioVolumes: UpdateActiveAudioVolumes,
     },
   };
 }

@@ -54,10 +54,14 @@ async function playVideoCutscene(payload, options) {
 	video.autoplay = true;
 	video.playsInline = true;
 	video.controls = false;
-	video.muted = payload.muted === true;
+	video.muted = payload.muted === true || (CONFIG && CONFIG.CUTSCENE && CONFIG.CUTSCENE.Mute === true);
 	video.loop = payload.loop === true;
-	if (CONFIG && CONFIG.VOLUME && typeof CONFIG.VOLUME.Cutscene === "number") {
-		video.volume = Math.max(0, Math.min(1, CONFIG.VOLUME.Cutscene));
+	if (video.muted) {
+		video.volume = 0;
+	} else if (CONFIG && CONFIG.VOLUME && typeof CONFIG.VOLUME.Cutscene === "number") {
+		const master = typeof CONFIG.VOLUME.Master === "number" ? CONFIG.VOLUME.Master : 1;
+		const volume = Math.max(0, Math.min(1, master * CONFIG.VOLUME.Cutscene));
+		video.volume = volume;
 	}
 	video.style.position = "absolute";
 	video.style.inset = "0";

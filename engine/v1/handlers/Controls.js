@@ -70,6 +70,9 @@ function buildInteractionPayload(event) {
 	return {
 		type: event && event.type ? event.type : null,
 		targetId: target && target.id ? target.id : null,
+		targetType: target && target.type ? target.type : null,
+		value: target && "value" in target ? target.value : null,
+		checked: target && "checked" in target ? target.checked : null,
 		key: event && "key" in event ? event.key : null,
 		code: event && "code" in event ? event.code : null,
 		button: event && "button" in event ? event.button : null,
@@ -98,6 +101,8 @@ function StartInputRouter(target) {
 		"pointerup",
 		"pointerover",
 		"pointerout",
+		"input",
+		"change",
 		"keydown",
 		"keyup",
 	];
@@ -105,11 +110,20 @@ function StartInputRouter(target) {
 	const handler = (event) => {
 		const targetId = event && event.target ? event.target.id : null;
 		// Log each user interaction the router sees.
-			Log(
+		let controlsChannel = "Controls";
+		if (event && (event.type === "click" || event.type === "pointerdown" || event.type === "pointerup")) {
+			controlsChannel = "Controls.Click";
+		} else if (event && (event.type === "pointerover" || event.type === "pointerout")) {
+			controlsChannel = "Controls.Hover";
+		} else if (event && (event.type === "keydown" || event.type === "keyup")) {
+			controlsChannel = "Controls.Key";
+		}
+
+		Log(
 			"ENGINE",
 			`User Input: ${event.type} ${"on " + (targetId || "document")}`.trim(),
 			"log",
-			"Controls"
+			controlsChannel
 		);
 
 		// Use cached actions when available.
@@ -119,7 +133,7 @@ function StartInputRouter(target) {
 				"ENGINE",
 				`Input action handled: ${event.type} ${match.resolved.targetId}`,
 				"log",
-				"Controls"
+				controlsChannel
 			);
 			return;
 		}

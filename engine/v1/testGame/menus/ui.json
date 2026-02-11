@@ -186,8 +186,9 @@
                                     },
                                     "events": {
                                         "click": {
-                                            "type": "request",
-                                            "screenId": "LevelSelect"
+                                            "type": "event",
+                                            "name": "START_GAME",
+                                            "payload": { "levelIndex": 0, "stageIndex": 0 }
                                         },
                                         "pointerover": {
                                             "type": "style",
@@ -221,8 +222,8 @@
                                     },
                                     "events": {
                                         "click": {
-                                            "type": "request",
-                                            "screenId": "LevelSelect"
+                                            "type": "event",
+                                            "name": "LOAD_GAME"
                                         },
                                         "pointerover": {
                                             "type": "style",
@@ -243,7 +244,42 @@
                                             }
                                         }
                                     },
-                                    "text": "LOAD GAME"
+                                    "text": "LOAD"
+                                },
+                                {
+                                    "type": "div",
+                                    "id": "menu-level-select",
+                                    "styles": {
+                                        "padding": "6px 16px",
+                                        "border": "2px solid transparent",
+                                        "borderRadius": "6px",
+                                        "cursor": "pointer"
+                                    },
+                                    "events": {
+                                        "click": {
+                                            "type": "request",
+                                            "screenId": "LevelSelect"
+                                        },
+                                        "pointerover": {
+                                            "type": "style",
+                                            "targetId": "menu-level-select",
+                                            "styles": {
+                                                "border": "2px solid rgba(111,220,255,0.9)",
+                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5), rgba(74,220,255,0.35))",
+                                                "boxShadow": "0 0 14px rgba(100,220,255,0.6)"
+                                            }
+                                        },
+                                        "pointerout": {
+                                            "type": "style",
+                                            "targetId": "menu-level-select",
+                                            "styles": {
+                                                "border": "2px solid transparent",
+                                                "background": "transparent",
+                                                "boxShadow": "none"
+                                            }
+                                        }
+                                    },
+                                    "text": "LEVEL SELECT"
                                 },
                                 {
                                     "type": "div",
@@ -382,6 +418,101 @@
                                 },
                                 {
                                     "type": "div",
+                                    "styles": {
+                                        "display": "grid",
+                                        "gridTemplateColumns": "repeat(2, minmax(160px, 1fr))",
+                                        "gap": "12px",
+                                        "marginTop": "6px"
+                                    },
+                                    "children": [
+                                        {
+                                            "type": "div",
+                                            "id": "level-1-stage-1",
+                                            "styles": {
+                                                "padding": "10px 14px",
+                                                "border": "2px solid rgba(111,220,255,0.4)",
+                                                "borderRadius": "8px",
+                                                "cursor": "pointer",
+                                                "textTransform": "uppercase",
+                                                "letterSpacing": "1px",
+                                                "textAlign": "center"
+                                            },
+                                            "events": {
+                                                "click": {
+                                                    "type": "event",
+                                                    "name": "START_GAME",
+                                                    "payload": { "levelIndex": 0, "stageIndex": 0 }
+                                                }
+                                            },
+                                            "text": "Level 1-1"
+                                        },
+                                        {
+                                            "type": "div",
+                                            "id": "level-1-stage-2",
+                                            "styles": {
+                                                "padding": "10px 14px",
+                                                "border": "2px solid rgba(111,220,255,0.4)",
+                                                "borderRadius": "8px",
+                                                "cursor": "pointer",
+                                                "textTransform": "uppercase",
+                                                "letterSpacing": "1px",
+                                                "textAlign": "center"
+                                            },
+                                            "events": {
+                                                "click": {
+                                                    "type": "event",
+                                                    "name": "START_GAME",
+                                                    "payload": { "levelIndex": 0, "stageIndex": 1 }
+                                                }
+                                            },
+                                            "text": "Level 1-2"
+                                        },
+                                        {
+                                            "type": "div",
+                                            "id": "level-2-stage-1",
+                                            "styles": {
+                                                "padding": "10px 14px",
+                                                "border": "2px solid rgba(111,220,255,0.4)",
+                                                "borderRadius": "8px",
+                                                "cursor": "pointer",
+                                                "textTransform": "uppercase",
+                                                "letterSpacing": "1px",
+                                                "textAlign": "center"
+                                            },
+                                            "events": {
+                                                "click": {
+                                                    "type": "event",
+                                                    "name": "START_GAME",
+                                                    "payload": { "levelIndex": 1, "stageIndex": 0 }
+                                                }
+                                            },
+                                            "text": "Level 2-1"
+                                        },
+                                        {
+                                            "type": "div",
+                                            "id": "level-2-stage-2",
+                                            "styles": {
+                                                "padding": "10px 14px",
+                                                "border": "2px solid rgba(111,220,255,0.4)",
+                                                "borderRadius": "8px",
+                                                "cursor": "pointer",
+                                                "textTransform": "uppercase",
+                                                "letterSpacing": "1px",
+                                                "textAlign": "center"
+                                            },
+                                            "events": {
+                                                "click": {
+                                                    "type": "event",
+                                                    "name": "START_GAME",
+                                                    "payload": { "levelIndex": 1, "stageIndex": 1 }
+                                                }
+                                            },
+                                            "text": "Level 2-2"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type": "div",
                                     "id": "level-select-back",
                                     "styles": {
                                         "alignSelf": "flex-start",
@@ -434,79 +565,697 @@
                     "styles": {
                         "position": "fixed",
                         "inset": "0",
-                        "background": "linear-gradient(180deg, #1b2238 0%, #2d3a55 45%, #1a1f2d 100%)",
+                        "background": "linear-gradient(180deg, #2a1b3f 0%, #43245a 50%, #1c0f26 100%)",
                         "fontFamily": "\"Orbitron\", \"Trebuchet MS\", sans-serif",
                         "color": "#dffbff",
                         "display": "flex",
                         "alignItems": "center",
-                        "justifyContent": "center"
+                        "justifyContent": "center",
+                        "overflow": "hidden"
                     },
                     "children": [
                         {
                             "type": "div",
                             "styles": {
+                                "position": "absolute",
+                                "inset": "0",
+                                "background": "radial-gradient(circle at 50% 20%, rgba(140,220,255,0.25), rgba(0,0,0,0) 60%)",
+                                "opacity": "0.55"
+                            }
+                        },
+                        {
+                            "type": "div",
+                            "styles": {
+                                "position": "absolute",
+                                "inset": "0",
+                                "backgroundImage": "repeating-linear-gradient(90deg, rgba(120,230,255,0.06) 0px, rgba(120,230,255,0.06) 1px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 16px)",
+                                "opacity": "0.3",
+                                "mixBlendMode": "screen"
+                            }
+                        },
+                        {
+                            "type": "div",
+                            "styles": {
                                 "display": "flex",
                                 "flexDirection": "column",
-                                "gap": "18px",
-                                "background": "rgba(10, 12, 20, 0.6)",
-                                "padding": "32px 36px",
-                                "borderRadius": "16px",
-                                "boxShadow": "0 12px 28px rgba(0,0,0,0.35)"
+                                "gap": "16px",
+                                "background": "transparent",
+                                "padding": "26px 30px",
+                                "borderRadius": "18px",
+                                "boxShadow": "none",
+                                "border": "none",
+                                "minWidth": "320px",
+                                "width": "76%",
+                                "maxWidth": "760px",
+                                "position": "relative",
+                                "zIndex": "1"
                             },
                             "children": [
                                 {
                                     "type": "div",
                                     "styles": {
-                                        "fontSize": "36px",
+                                        "fontSize": "48px",
                                         "fontWeight": "700",
-                                        "letterSpacing": "2px",
-                                        "textTransform": "uppercase"
-                                    },
-                                    "text": "Settings"
-                                },
-                                {
-                                    "type": "div",
-                                    "styles": {
-                                        "fontSize": "18px",
-                                        "opacity": "0.85"
-                                    },
-                                    "text": "Audio, Controls, and Display options."
-                                },
-                                {
-                                    "type": "div",
-                                    "id": "settings-back",
-                                    "styles": {
-                                        "alignSelf": "flex-start",
-                                        "padding": "8px 18px",
-                                        "border": "2px solid rgba(111,220,255,0.9)",
-                                        "borderRadius": "8px",
-                                        "cursor": "pointer",
+                                        "letterSpacing": "6px",
                                         "textTransform": "uppercase",
-                                        "letterSpacing": "1px"
+                                        "textAlign": "center",
+                                        "color": "#9df6ff",
+                                        "textShadow": "0 0 12px rgba(120, 240, 255, 0.85), 0 0 2px rgba(30, 80, 140, 0.9)"
                                     },
-                                    "events": {
-                                        "click": {
-                                            "type": "request",
-                                            "screenId": "TitleScreen"
-                                        },
-                                        "pointerover": {
-                                            "type": "style",
-                                            "targetId": "settings-back",
+                                    "text": "SETTINGS"
+                                },
+                                {
+                                    "type": "div",
+                                    "styles": {
+                                        "display": "flex",
+                                        "flexDirection": "column",
+                                        "gap": "12px",
+                                        "padding": "14px 16px",
+                                        "borderRadius": "18px",
+                                        "background": "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0) 100%)"
+                                    },
+                                    "children": [
+                                        {
+                                            "type": "div",
                                             "styles": {
-                                                "background": "rgba(111,220,255,0.2)",
-                                                "boxShadow": "0 0 14px rgba(100,220,255,0.6)"
-                                            }
+                                                "fontSize": "24px",
+                                                "letterSpacing": "4px",
+                                                "textTransform": "uppercase",
+                                                "color": "#7ddaf5",
+                                                "textAlign": "center",
+                                                "textShadow": "0 0 10px rgba(120, 240, 255, 0.7), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                            },
+                                            "text": "VOLUME"
                                         },
-                                        "pointerout": {
-                                            "type": "style",
-                                            "targetId": "settings-back",
+                                        {
+                                            "type": "div",
                                             "styles": {
-                                                "background": "transparent",
-                                                "boxShadow": "none"
-                                            }
+                                                "display": "grid",
+                                                "gap": "14px",
+                                                "padding": "8px 6px",
+                                                "borderRadius": "12px"
+                                            },
+                                            "children": [
+                                                {
+                                                    "type": "div",
+                                                    "styles": {
+                                                        "display": "grid",
+                                                        "gridTemplateColumns": "150px 1fr 70px",
+                                                        "alignItems": "center",
+                                                        "gap": "12px"
+                                                    },
+                                                    "children": [
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textTransform": "uppercase",
+                                                                "letterSpacing": "3px",
+                                                                "color": "#7fe9ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "text": "MASTER"
+                                                        },
+                                                        {
+                                                            "type": "input",
+                                                            "id": "setting-master",
+                                                            "attributes": {
+                                                                "type": "range",
+                                                                "min": "0",
+                                                                "max": "1",
+                                                                "step": "0.1"
+                                                            },
+                                                            "value": "0.5",
+                                                            "styles": {
+                                                                "width": "100%",
+                                                                "height": "12px",
+                                                                "borderRadius": "999px",
+                                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5) 0%, rgba(74,220,255,0.35) 50%, rgba(255,255,255,0.15) 50%)",
+                                                                "boxShadow": "inset 0 0 0 1px rgba(35,90,150,0.9), 0 0 8px rgba(127,233,255,0.35)",
+                                                                "appearance": "none",
+                                                                "WebkitAppearance": "none",
+                                                                "accentColor": "#7fe9ff",
+                                                                "border": "1px solid rgba(35,90,150,0.9)",
+                                                                "cursor": "pointer"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textAlign": "right",
+                                                                "color": "#b5f8ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "id": "setting-master-percent",
+                                                            "text": "50%"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "div",
+                                                    "styles": {
+                                                        "display": "grid",
+                                                        "gridTemplateColumns": "150px 1fr 70px",
+                                                        "alignItems": "center",
+                                                        "gap": "12px"
+                                                    },
+                                                    "children": [
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textTransform": "uppercase",
+                                                                "letterSpacing": "3px",
+                                                                "color": "#7fe9ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "text": "MUSIC"
+                                                        },
+                                                        {
+                                                            "type": "input",
+                                                            "id": "setting-music",
+                                                            "attributes": {
+                                                                "type": "range",
+                                                                "min": "0",
+                                                                "max": "1",
+                                                                "step": "0.1"
+                                                            },
+                                                            "value": "0.5",
+                                                            "styles": {
+                                                                "width": "100%",
+                                                                "height": "12px",
+                                                                "borderRadius": "999px",
+                                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5) 0%, rgba(74,220,255,0.35) 50%, rgba(255,255,255,0.15) 50%)",
+                                                                "boxShadow": "inset 0 0 0 1px rgba(35,90,150,0.9), 0 0 8px rgba(127,233,255,0.35)",
+                                                                "appearance": "none",
+                                                                "WebkitAppearance": "none",
+                                                                "accentColor": "#7fe9ff",
+                                                                "border": "1px solid rgba(35,90,150,0.9)",
+                                                                "cursor": "pointer"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textAlign": "right",
+                                                                "color": "#b5f8ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "id": "setting-music-percent",
+                                                            "text": "50%"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "div",
+                                                    "styles": {
+                                                        "display": "grid",
+                                                        "gridTemplateColumns": "150px 1fr 70px",
+                                                        "alignItems": "center",
+                                                        "gap": "12px"
+                                                    },
+                                                    "children": [
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textTransform": "uppercase",
+                                                                "letterSpacing": "3px",
+                                                                "color": "#7fe9ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "text": "VOICE"
+                                                        },
+                                                        {
+                                                            "type": "input",
+                                                            "id": "setting-voice",
+                                                            "attributes": {
+                                                                "type": "range",
+                                                                "min": "0",
+                                                                "max": "1",
+                                                                "step": "0.1"
+                                                            },
+                                                            "value": "0.5",
+                                                            "styles": {
+                                                                "width": "100%",
+                                                                "height": "12px",
+                                                                "borderRadius": "999px",
+                                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5) 0%, rgba(74,220,255,0.35) 50%, rgba(255,255,255,0.15) 50%)",
+                                                                "boxShadow": "inset 0 0 0 1px rgba(35,90,150,0.9), 0 0 8px rgba(127,233,255,0.35)",
+                                                                "appearance": "none",
+                                                                "WebkitAppearance": "none",
+                                                                "accentColor": "#7fe9ff",
+                                                                "border": "1px solid rgba(35,90,150,0.9)",
+                                                                "cursor": "pointer"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textAlign": "right",
+                                                                "color": "#b5f8ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "id": "setting-voice-percent",
+                                                            "text": "50%"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "div",
+                                                    "styles": {
+                                                        "display": "grid",
+                                                        "gridTemplateColumns": "150px 1fr 70px",
+                                                        "alignItems": "center",
+                                                        "gap": "12px"
+                                                    },
+                                                    "children": [
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textTransform": "uppercase",
+                                                                "letterSpacing": "3px",
+                                                                "color": "#7fe9ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "text": "MENU SFX"
+                                                        },
+                                                        {
+                                                            "type": "input",
+                                                            "id": "setting-menu-sfx",
+                                                            "attributes": {
+                                                                "type": "range",
+                                                                "min": "0",
+                                                                "max": "1",
+                                                                "step": "0.1"
+                                                            },
+                                                            "value": "0.5",
+                                                            "styles": {
+                                                                "width": "100%",
+                                                                "height": "12px",
+                                                                "borderRadius": "999px",
+                                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5) 0%, rgba(74,220,255,0.35) 50%, rgba(255,255,255,0.15) 50%)",
+                                                                "boxShadow": "inset 0 0 0 1px rgba(35,90,150,0.9), 0 0 8px rgba(127,233,255,0.35)",
+                                                                "appearance": "none",
+                                                                "WebkitAppearance": "none",
+                                                                "accentColor": "#7fe9ff",
+                                                                "border": "1px solid rgba(35,90,150,0.9)",
+                                                                "cursor": "pointer"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textAlign": "right",
+                                                                "color": "#b5f8ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "id": "setting-menu-sfx-percent",
+                                                            "text": "50%"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "div",
+                                                    "styles": {
+                                                        "display": "grid",
+                                                        "gridTemplateColumns": "150px 1fr 70px",
+                                                        "alignItems": "center",
+                                                        "gap": "12px"
+                                                    },
+                                                    "children": [
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textTransform": "uppercase",
+                                                                "letterSpacing": "3px",
+                                                                "color": "#7fe9ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "text": "GAME SFX"
+                                                        },
+                                                        {
+                                                            "type": "input",
+                                                            "id": "setting-game-sfx",
+                                                            "attributes": {
+                                                                "type": "range",
+                                                                "min": "0",
+                                                                "max": "1",
+                                                                "step": "0.1"
+                                                            },
+                                                            "value": "0.5",
+                                                            "styles": {
+                                                                "width": "100%",
+                                                                "height": "12px",
+                                                                "borderRadius": "999px",
+                                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5) 0%, rgba(74,220,255,0.35) 50%, rgba(255,255,255,0.15) 50%)",
+                                                                "boxShadow": "inset 0 0 0 1px rgba(35,90,150,0.9), 0 0 8px rgba(127,233,255,0.35)",
+                                                                "appearance": "none",
+                                                                "WebkitAppearance": "none",
+                                                                "accentColor": "#7fe9ff",
+                                                                "border": "1px solid rgba(35,90,150,0.9)",
+                                                                "cursor": "pointer"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textAlign": "right",
+                                                                "color": "#b5f8ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "id": "setting-game-sfx-percent",
+                                                            "text": "50%"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "div",
+                                                    "styles": {
+                                                        "display": "grid",
+                                                        "gridTemplateColumns": "150px 1fr 70px",
+                                                        "alignItems": "center",
+                                                        "gap": "12px"
+                                                    },
+                                                    "children": [
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textTransform": "uppercase",
+                                                                "letterSpacing": "3px",
+                                                                "color": "#7fe9ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "text": "CUTSCENES"
+                                                        },
+                                                        {
+                                                            "type": "input",
+                                                            "id": "setting-cutscenes-volume",
+                                                            "attributes": {
+                                                                "type": "range",
+                                                                "min": "0",
+                                                                "max": "1",
+                                                                "step": "0.1"
+                                                            },
+                                                            "value": "0",
+                                                            "styles": {
+                                                                "width": "100%",
+                                                                "height": "12px",
+                                                                "borderRadius": "999px",
+                                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5) 0%, rgba(74,220,255,0.35) 0%, rgba(255,255,255,0.15) 0%)",
+                                                                "boxShadow": "inset 0 0 0 1px rgba(35,90,150,0.9), 0 0 8px rgba(127,233,255,0.35)",
+                                                                "appearance": "none",
+                                                                "WebkitAppearance": "none",
+                                                                "accentColor": "#7fe9ff",
+                                                                "border": "1px solid rgba(35,90,150,0.9)",
+                                                                "cursor": "pointer"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textAlign": "right",
+                                                                "color": "#b5f8ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "id": "setting-cutscenes-volume-percent",
+                                                            "text": "0%"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
                                         }
+                                    ]
+                                },
+                                {
+                                    "type": "div",
+                                    "styles": {
+                                        "display": "flex",
+                                        "flexDirection": "column",
+                                        "gap": "12px",
+                                        "padding": "14px 16px",
+                                        "borderRadius": "18px",
+                                        "background": "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0) 100%)"
                                     },
-                                    "text": "Back"
+                                    "children": [
+                                        {
+                                            "type": "div",
+                                            "styles": {
+                                                "fontSize": "24px",
+                                                "letterSpacing": "4px",
+                                                "textTransform": "uppercase",
+                                                "color": "#7ddaf5",
+                                                "textAlign": "center",
+                                                "textShadow": "0 0 10px rgba(120, 240, 255, 0.7), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                            },
+                                            "text": "PREFERENCES"
+                                        },
+                                        {
+                                            "type": "div",
+                                            "styles": {
+                                                "display": "grid",
+                                                "gridTemplateColumns": "repeat(2, minmax(0, 1fr))",
+                                                "gap": "16px",
+                                                "padding": "6px 4px",
+                                                "borderRadius": "12px"
+                                            },
+                                            "children": [
+                                                {
+                                                    "type": "div",
+                                                    "styles": {
+                                                        "display": "flex",
+                                                        "flexDirection": "column",
+                                                        "alignItems": "center",
+                                                        "gap": "8px"
+                                                    },
+                                                    "children": [
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textTransform": "uppercase",
+                                                                "letterSpacing": "3px",
+                                                                "color": "#7fe9ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "text": "SKIP INTRO"
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "id": "setting-skip-intro",
+                                                            "styles": {
+                                                                "width": "96px",
+                                                                "height": "34px",
+                                                                "borderRadius": "999px",
+                                                                "background": "linear-gradient(90deg, rgba(123,85,255,0.5), rgba(74,220,255,0.35))",
+                                                                "border": "1px solid rgba(35,90,150,0.9)",
+                                                                "boxShadow": "inset 0 0 8px rgba(20,20,40,0.6), 0 0 8px rgba(127,233,255,0.35)",
+                                                                "position": "relative",
+                                                                "cursor": "pointer"
+                                                            },
+                                                            "children": [
+                                                                {
+                                                                    "type": "div",
+                                                                    "id": "setting-skip-intro-label",
+                                                                    "styles": {
+                                                                        "position": "absolute",
+                                                                        "left": "14px",
+                                                                        "top": "6px",
+                                                                        "fontSize": "16px",
+                                                                        "letterSpacing": "3px",
+                                                                        "textTransform": "uppercase",
+                                                                        "color": "#dffbff",
+                                                                        "textShadow": "0 0 6px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                                    },
+                                                                    "text": "ON"
+                                                                },
+                                                                {
+                                                                    "type": "div",
+                                                                    "id": "setting-skip-intro-knob",
+                                                                    "styles": {
+                                                                        "width": "26px",
+                                                                        "height": "26px",
+                                                                        "borderRadius": "999px",
+                                                                        "background": "#e8fbff",
+                                                                        "position": "absolute",
+                                                                        "top": "3px",
+                                                                        "left": "62px",
+                                                                        "boxShadow": "0 0 8px rgba(127,233,255,0.6)"
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "div",
+                                                    "styles": {
+                                                        "display": "flex",
+                                                        "flexDirection": "column",
+                                                        "alignItems": "center",
+                                                        "gap": "8px"
+                                                    },
+                                                    "children": [
+                                                        {
+                                                            "type": "div",
+                                                            "styles": {
+                                                                "fontSize": "18px",
+                                                                "textTransform": "uppercase",
+                                                                "letterSpacing": "3px",
+                                                                "color": "#7fe9ff",
+                                                                "textShadow": "0 0 7px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                            },
+                                                            "text": "DEBUG MODE"
+                                                        },
+                                                        {
+                                                            "type": "div",
+                                                            "id": "setting-debug-mode",
+                                                            "styles": {
+                                                                "width": "96px",
+                                                                "height": "34px",
+                                                                "borderRadius": "999px",
+                                                                "background": "rgba(12, 10, 22, 0.7)",
+                                                                "border": "1px solid rgba(35,90,150,0.9)",
+                                                                "boxShadow": "inset 0 0 8px rgba(20,20,40,0.6)",
+                                                                "position": "relative",
+                                                                "cursor": "pointer"
+                                                            },
+                                                            "children": [
+                                                                {
+                                                                    "type": "div",
+                                                                    "id": "setting-debug-mode-label",
+                                                                    "styles": {
+                                                                        "position": "absolute",
+                                                                        "right": "14px",
+                                                                        "top": "6px",
+                                                                        "fontSize": "16px",
+                                                                        "letterSpacing": "3px",
+                                                                        "textTransform": "uppercase",
+                                                                        "color": "#dffbff",
+                                                                        "opacity": "0.75",
+                                                                        "textShadow": "0 0 6px rgba(120, 240, 255, 0.55), 0 0 2px rgba(30, 80, 140, 0.85)"
+                                                                    },
+                                                                    "text": "OFF"
+                                                                },
+                                                                {
+                                                                    "type": "div",
+                                                                    "id": "setting-debug-mode-knob",
+                                                                    "styles": {
+                                                                        "width": "26px",
+                                                                        "height": "26px",
+                                                                        "borderRadius": "999px",
+                                                                        "background": "#e8fbff",
+                                                                        "position": "absolute",
+                                                                        "top": "3px",
+                                                                        "left": "4px",
+                                                                        "boxShadow": "0 0 8px rgba(127,233,255,0.35)"
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type": "div",
+                                    "styles": {
+                                        "display": "flex",
+                                        "flexWrap": "wrap",
+                                        "gap": "12px",
+                                        "justifyContent": "space-between"
+                                    },
+                                    "children": [
+                                        {
+                                            "type": "div",
+                                            "id": "settings-back",
+                                            "styles": {
+                                                "fontSize": "18px",
+                                                "padding": "8px 22px",
+                                                "border": "1px solid rgba(120,220,255,0.9)",
+                                                "borderRadius": "999px",
+                                                "cursor": "pointer",
+                                                "textTransform": "uppercase",
+                                                "letterSpacing": "3px",
+                                                "color": "#9df6ff",
+                                                "boxShadow": "0 0 12px rgba(100,220,255,0.35)",
+                                                "background": "rgba(10, 12, 22, 0.7)"
+                                            },
+                                            "events": {
+                                                "click": {
+                                                    "type": "request",
+                                                    "screenId": "TitleScreen"
+                                                },
+                                                "pointerover": {
+                                                    "type": "style",
+                                                    "targetId": "settings-back",
+                                                    "styles": {
+                                                        "background": "rgba(111,220,255,0.15)",
+                                                        "boxShadow": "0 0 16px rgba(100,220,255,0.7)"
+                                                    }
+                                                },
+                                                "pointerout": {
+                                                    "type": "style",
+                                                    "targetId": "settings-back",
+                                                    "styles": {
+                                                        "background": "rgba(10, 12, 22, 0.7)",
+                                                        "boxShadow": "0 0 12px rgba(100,220,255,0.35)"
+                                                    }
+                                                }
+                                            },
+                                            "text": "Back"
+                                        },
+                                        {
+                                            "type": "div",
+                                            "id": "settings-delete-save",
+                                            "styles": {
+                                                "fontSize": "18px",
+                                                "padding": "8px 22px",
+                                                "border": "1px solid rgba(255,120,120,0.9)",
+                                                "borderRadius": "999px",
+                                                "cursor": "pointer",
+                                                "textTransform": "uppercase",
+                                                "letterSpacing": "3px",
+                                                "color": "#ffd4d4",
+                                                "boxShadow": "0 0 12px rgba(255,120,120,0.35)",
+                                                "background": "rgba(22, 10, 12, 0.7)"
+                                            },
+                                            "events": {
+                                                "click": {
+                                                    "type": "event",
+                                                    "name": "DELETE_SAVE_DATA"
+                                                },
+                                                "pointerover": {
+                                                    "type": "style",
+                                                    "targetId": "settings-delete-save",
+                                                    "styles": {
+                                                        "background": "rgba(255,120,120,0.18)",
+                                                        "boxShadow": "0 0 16px rgba(255,120,120,0.7)"
+                                                    }
+                                                },
+                                                "pointerout": {
+                                                    "type": "style",
+                                                    "targetId": "settings-delete-save",
+                                                    "styles": {
+                                                        "background": "rgba(22, 10, 12, 0.7)",
+                                                        "boxShadow": "0 0 12px rgba(255,120,120,0.35)"
+                                                    }
+                                                }
+                                            },
+                                            "text": "Delete Save Data"
+                                        }
+                                    ]
                                 }
                             ]
                         }
