@@ -61,6 +61,45 @@ function RenderPayload(payload) {
 	}
 }
 
+/* === LEVEL === */
+// Lightweight level debug renderer for testing pipelines.
+
+function RenderLevel(levelState, options) {
+	if (typeof document === "undefined") {
+		return;
+	}
+
+	const resolvedOptions = options && typeof options === "object" ? options : {};
+	const rootId = resolvedOptions.rootId || "engine-level-root";
+	const rootStyles = resolvedOptions.rootStyles || {
+		position: "relative",
+		zIndex: "0",
+	};
+
+	const pre = document.createElement("pre");
+	pre.id = resolvedOptions.elementId || "engine-level-debug";
+	pre.textContent = JSON.stringify(levelState || {}, null, 2);
+	pre.style.margin = "0";
+	pre.style.padding = "16px";
+	pre.style.fontSize = "12px";
+	pre.style.fontFamily = "Consolas, \"Courier New\", monospace";
+	pre.style.color = "#e9f7ff";
+	pre.style.background = "rgba(8, 12, 24, 0.85)";
+	pre.style.overflow = "auto";
+	pre.style.maxHeight = "50vh";
+	pre.style.borderTop = "1px solid rgba(110, 220, 255, 0.2)";
+
+	const fragment = document.createDocumentFragment();
+	fragment.appendChild(pre);
+
+	RenderPayload({
+		rootId: rootId,
+		rootStyles: rootStyles,
+		replace: true,
+		elements: fragment,
+	});
+}
+
 /* === ELEMENTS === */
 // Utility helpers for updating rendered elements.
 
@@ -93,6 +132,7 @@ function RemoveRoot(rootId) {
 
 export {
 	RenderPayload,
+	RenderLevel,
 	GetElement,
 	SetElementText,
 	SetElementSource,

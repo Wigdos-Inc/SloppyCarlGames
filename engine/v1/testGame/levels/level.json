@@ -1,0 +1,183 @@
+{
+  "levels": [
+    {
+      "id": "level0",
+      "name": "Test Level 0",
+      "seed": "debug-0",
+      "music": {
+        "name": "LEVEL_THEME",
+        "src": "../audio/levelTheme.mp3",
+        "loop": true,
+        "volume": 0.8
+      },
+      "terrain": [
+        {
+          "id": "ground-0",
+          "shape": "box",
+          "geometry": { "width": 40, "height": 2, "depth": 40 },
+          "transform": {
+            "position": { "x": 0, "y": -1, "z": 0 },
+            "rotation": { "x": 0, "y": 0, "z": 0 },
+            "scale": { "x": 1, "y": 1, "z": 1 }
+          },
+          "material": { "color": "#4b8b3b", "roughness": 0.9 }
+        }
+      ],
+      "background": [
+        {
+          "id": "skybox-0",
+          "shape": "box",
+          "geometry": { "width": 200, "height": 120, "depth": 200 },
+          "transform": {
+            "position": { "x": 0, "y": 40, "z": 0 },
+            "rotation": { "x": 0, "y": 0, "z": 0 },
+            "scale": { "x": 1, "y": 1, "z": 1 }
+          },
+          "material": { "color": "#1c2b4f", "roughness": 1 }
+        }
+      ],
+      "obstacles": [
+        {
+          "id": "rock-0",
+          "type": "rock",
+          "transform": {
+            "position": { "x": 6, "y": 0, "z": 2 },
+            "rotation": { "x": 0, "y": 25, "z": 0 },
+            "scale": { "x": 1, "y": 1, "z": 1 }
+          },
+          "object": {
+            "shape": "cylinder",
+            "geometry": { "radius": 1.2, "height": 2.5, "segments": 8 },
+            "material": { "color": "#6a5b49", "roughness": 0.8 }
+          },
+          "destructible": false
+        }
+      ],
+      "entities": [
+        {
+          "id": "npc-0",
+          "type": "npc",
+          "name": "Guide",
+          "transform": {
+            "position": { "x": -4, "y": 0, "z": -3 },
+            "rotation": { "x": 0, "y": -15, "z": 0 },
+            "scale": { "x": 1, "y": 1, "z": 1 }
+          },
+          "animated": true,
+          "model": {
+            "parts": [
+              {
+                "shape": "box",
+                "geometry": { "width": 1, "height": 2, "depth": 0.8 },
+                "material": { "color": "#f3d1b0", "roughness": 0.5 }
+              }
+            ]
+          },
+          "path": {
+            "points": [
+              { "x": -4, "y": 0, "z": -3 },
+              { "x": -2, "y": 0, "z": -1 }
+            ],
+            "loop": true,
+            "repeat": true,
+            "speed": 0.8
+          }
+        }
+      ],
+      "triggers": [
+        {
+          "id": "checkpoint-0",
+          "type": "checkpoint",
+          "position": { "x": 0, "y": 0, "z": 6 },
+          "radius": 2,
+          "payload": { "checkpointId": "checkpoint-0" }
+        }
+      ]
+    },
+    {
+      "id": "level1",
+      "name": "Test Level 1",
+      "seed": "debug-1",
+      "music": {
+        "name": "BOSS_THEME",
+        "src": "../audio/bossTheme.mp3",
+        "loop": true,
+        "volume": 0.7
+      },
+      "terrain": [
+        {
+          "id": "ground-1",
+          "shape": "box",
+          "geometry": { "width": 28, "height": 2, "depth": 28 },
+          "transform": {
+            "position": { "x": 0, "y": -1, "z": 0 },
+            "rotation": { "x": 0, "y": 0, "z": 0 },
+            "scale": { "x": 1, "y": 1, "z": 1 }
+          },
+          "material": { "color": "#3a5460", "roughness": 0.85 }
+        }
+      ],
+      "background": [
+        {
+          "id": "skybox-1",
+          "shape": "box",
+          "geometry": { "width": 160, "height": 100, "depth": 160 },
+          "transform": {
+            "position": { "x": 0, "y": 30, "z": 0 },
+            "rotation": { "x": 0, "y": 0, "z": 0 },
+            "scale": { "x": 1, "y": 1, "z": 1 }
+          },
+          "material": { "color": "#0e1b2b", "roughness": 1 }
+        }
+      ],
+      "obstacles": [
+        {
+          "id": "pillar-1",
+          "type": "pillar",
+          "transform": {
+            "position": { "x": 3, "y": 0, "z": -5 },
+            "rotation": { "x": 0, "y": 10, "z": 0 },
+            "scale": { "x": 1, "y": 1, "z": 1 }
+          },
+          "object": {
+            "shape": "box",
+            "geometry": { "width": 1.5, "height": 4, "depth": 1.5 },
+            "material": { "color": "#6b6e76", "roughness": 0.9 }
+          },
+          "destructible": false
+        }
+      ],
+      "entities": [
+        {
+          "id": "npc-1",
+          "type": "npc",
+          "name": "Observer",
+          "transform": {
+            "position": { "x": -3, "y": 0, "z": 4 },
+            "rotation": { "x": 0, "y": 20, "z": 0 },
+            "scale": { "x": 1, "y": 1, "z": 1 }
+          },
+          "animated": false,
+          "model": {
+            "parts": [
+              {
+                "shape": "box",
+                "geometry": { "width": 1, "height": 1.6, "depth": 0.6 },
+                "material": { "color": "#c8d5ff", "roughness": 0.4 }
+              }
+            ]
+          }
+        }
+      ],
+      "triggers": [
+        {
+          "id": "end-1",
+          "type": "level_end",
+          "position": { "x": 0, "y": 0, "z": -8 },
+          "radius": 2,
+          "payload": { "nextLevelId": "level0" }
+        }
+      ]
+    }
+  ]
+}

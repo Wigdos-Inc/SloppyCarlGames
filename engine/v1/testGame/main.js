@@ -9,6 +9,8 @@ await import("./cutscene/cutscene.js");
 const SETTINGS_KEY = "settings";
 const SAVE_KEY = "saveData";
 
+let levelDataPromise = null;
+
 function safeParse(json) {
 	try {
 		return JSON.parse(json);
@@ -24,6 +26,46 @@ function loadSettings() {
 
 function saveSettings(settings) {
 	localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function loadLevelData() {
+	if (!levelDataPromise) {
+		levelDataPromise = fetch(new URL("./levels/level.json", import.meta.url))
+			.then((response) => response.json())
+			.catch(() => null);
+	}
+
+	return levelDataPromise;
+}
+
+function resolveLevelPayload(levelData, request) {
+	if (!levelData || typeof levelData !== "object") {
+		return null;
+	}
+
+	if (levelData.levels && Array.isArray(levelData.levels)) {
+		if (request && request.levelId) {
+			const match = levelData.levels.find((level) => level && level.id === request.levelId);
+			if (match) {
+				return match;
+			}
+		}
+
+		if (request && typeof request.levelIndex === "number") {
+			const indexed = levelData.levels[request.levelIndex] || null;
+			if (indexed) {
+				return indexed;
+			}
+		}
+
+		return levelData.levels[0] || null;
+	}
+
+	if (levelData.level) {
+		return levelData.level;
+	}
+
+	return levelData;
 }
 
 function clamp(value, min, max) {
@@ -221,6 +263,39 @@ function startGame(saveData) {
 	}
 }
 
+async function requestLevelLoad(payload) {
+	const levelData = await loadLevelData();
+	if (!levelData) {
+		if (ENGINE && typeof ENGINE.Log === "function") {
+			ENGINE.Log("GAME", "Missing level data for load request.", "warn", "Level");
+		}
+		return;
+	}
+
+	const resolved = resolveLevelPayload(levelData, payload || null);
+	if (!resolved) {
+		if (ENGINE && typeof ENGINE.Log === "function") {
+			ENGINE.Log("GAME", "Requested level not found.", "warn", "Level");
+		}
+		return;
+	}
+
+	if (resolved.music && resolved.music.src) {
+		resolved.music = {
+			...resolved.music,
+			src: new URL(resolved.music.src, new URL("./levels/", import.meta.url)).href,
+		};
+	}
+	if (ENGINE && ENGINE.Level && typeof ENGINE.Level.LoadLevel === "function") {
+		ENGINE.Level.LoadLevel(resolved, {
+			source: "testGame",
+			renderOptions: {
+				rootId: "engine-level-root",
+			},
+		});
+	}
+}
+
 function handleStartGame(event) {
 	const payload = event && event.detail ? event.detail.payload : null;
 	if (payload && typeof payload.levelIndex === "number") {
@@ -228,6 +303,11 @@ function handleStartGame(event) {
 		return;
 	}
 	startGame({ levelIndex: 0, stageIndex: 0 });
+}
+
+function handleLevelRequest(event) {
+	const payload = event && event.detail ? event.detail.payload : null;
+	void requestLevelLoad(payload || null);
 }
 
 function handleLoadGame() {
@@ -399,6 +479,7 @@ function handleUserInput(event) {
 
 window.addEventListener("USER_INPUT", handleUserInput);
 window.addEventListener("START_GAME", handleStartGame);
+window.addEventListener("LEVEL_REQUEST", handleLevelRequest);
 window.addEventListener("LOAD_GAME", handleLoadGame);
 window.addEventListener("DELETE_SAVE_DATA", handleDeleteSave);
 window.addEventListener("ENGINE_UI_RENDERED", (event) => {
