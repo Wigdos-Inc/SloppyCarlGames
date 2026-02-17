@@ -106,12 +106,8 @@ function shouldLog(source, channel, level) {
     return true;
   }
 
-  if (debug.ALL !== true) {
-    return false;
-  }
-
   const logging = debug.LOGGING || {};
-  if (logging.All !== true) {
+  if (debug.ALL !== true || logging.All !== true) {
     return false;
   }
 

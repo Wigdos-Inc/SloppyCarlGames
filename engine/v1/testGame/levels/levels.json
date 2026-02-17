@@ -1,25 +1,102 @@
-[
-    {
-        "level": {
-            "world": {},
-            "obstacles": [
-                {
-                    "model": {},
-                    "destructable": false,
-                    "position": {}
+{
+    "level1": {
+        "id": "level1 [optional]",
+        "title": "CarlNet Engine Zone 1",
+        "stages": [
+            {
+                "id": "[optional]",
+                "title": "...",
+                "world": {
+                    "length": 0,
+                    "width": 0,
+                    "height": 0,
+                    "deathBarrierY": 0
+                },
+                "terrain": {
+                    "objects": [
+                        {
+                            "id": "terrain_object_ID",
+                            "shape": "cube",
+                            "size": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "trigger": {
+                                "type": "cutscene/dialogue",
+                                "payload": {},
+                                "activateOnce": true
+                            }
+                        },
+                        {
+                            "shape": "pyramid",
+                            "size": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "trigger": null
+                        }
+                    ],
+                    "triggers": [
+                        {
+                            "start": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "end": {
+                                "x": 0,
+                                "y": 0,
+                                "z": 0
+                            },
+                            "type": "cutscene/dialogue",
+                            "payload": {},
+                            "activateOnce": true
+                        }
+                    ]
+                },
+                "entities": [
+                    {
+                        "id": "entity_ID",
+                        "type": "enemy",
+                        "platform": "terrain_object_ID [optional for relative placement]",
+                        "movement": {
+                            "start": {},
+                            "end": {},
+                            "repeat": true,
+                            "backAndForth": true,
+                            "speed": 0,
+                            "jump": 0,
+                            "jumpInterval": 0,
+                            "jumpOnSight": false,
+                            "disappear": false,
+                            "chase": false,
+                            "physics": false
+                        },
+                        "hp": 0
+                    }
+                ],
+                "camera": {
+                    "levelOpening": {
+                        "startPosition": {
+                            "x": 0,
+                            "y": 0,
+                            "z": 0
+                        },
+                        "endPosition": {
+                            "x": 0,
+                            "y": 0,
+                            "z": 0
+                        }
+                    },
+                    "distanceFromPlayer": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                    }
                 }
-            ],
-            "entities": [
-                {
-                    "model": {},
-                    "type": "",
-                    "position": {}
-                }
-            ]
-        },
-        "boss": {
-            "world": {},
-            "model": {}
-        }
+            }
+        ]
     }
-]
+}
