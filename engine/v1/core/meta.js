@@ -99,7 +99,50 @@ function getDebugConfig() {
   return CONFIG && CONFIG.DEBUG ? CONFIG.DEBUG : null;
 }
 
-function shouldLog(source, channel, level) {
+function resolveControlsSubtypeFromMessage(message) {
+  if (typeof message !== "string") {
+    return null;
+  }
+
+  const lower = message.toLowerCase();
+  let eventType = null;
+
+  const userInputMatch = lower.match(/user input:\s*([a-z]+)/);
+  if (userInputMatch && userInputMatch[1]) {
+    eventType = userInputMatch[1];
+  }
+
+  const handledMatch = lower.match(/input action handled:\s*([a-z]+)/);
+  if (!eventType && handledMatch && handledMatch[1]) {
+    eventType = handledMatch[1];
+  }
+
+  if (!eventType) {
+    return null;
+  }
+
+  if (eventType === "pointerover" || eventType === "pointerout") {
+    return "Hover";
+  }
+
+  if (eventType === "keydown" || eventType === "keyup") {
+    return "Key";
+  }
+
+  if (
+    eventType === "click" ||
+    eventType === "pointerdown" ||
+    eventType === "pointerup" ||
+    eventType === "input" ||
+    eventType === "change"
+  ) {
+    return "Click";
+  }
+
+  return null;
+}
+
+function shouldLog(source, channel, level, message) {
   const debug = getDebugConfig();
   // Allow logs when no debug config exists.
   if (!debug) {
@@ -134,7 +177,10 @@ function shouldLog(source, channel, level) {
 
       if (typeof controlsConfig === "object" && controlsConfig !== null) {
         const segments = channel.split(".");
-        const subChannel = segments.length > 1 ? segments[1] : null;
+        let subChannel = segments.length > 1 ? segments[1] : null;
+        if (!subChannel && channel === "Controls") {
+          subChannel = resolveControlsSubtypeFromMessage(message);
+        }
         if (subChannel && controlsConfig[subChannel] === false) {
           return false;
         }
@@ -207,7 +253,7 @@ function Log(source, message, level, channel) {
   pushToSession(SESSION_KEYS.Logs, logs);
 
   // Skip console output when debug gating fails.
-  if (!shouldLog(entry.source, entry.channel, entry.level)) {
+  if (!shouldLog(entry.source, entry.channel, entry.level, entry.message)) {
     return;
   }
 

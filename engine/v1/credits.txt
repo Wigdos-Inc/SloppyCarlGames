@@ -2,7 +2,9 @@ Engine:
 - Conceptualization : ChatGPT 5-mini
 - Structure Planning: ChatGPT 5.2 Instant
 - Feature Planning  : ChatGPT 5.2 Codex
-- Building          : ChatGPT 5.2 Codex
+- Building Menus    : ChatGPT 5.2 Codex
+- 3D World Rednering: ChatGPT 5.3 Codex
+- Cleanup           : ChatGPT 5-mini
 
 testGame:
 - carlStudios Assets: Sloppy Carl Studios

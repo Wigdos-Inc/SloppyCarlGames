@@ -9,7 +9,7 @@
 
 import { Cache, Log, sendEvent, Cursor, ExitGame, pushToSession, SESSION_KEYS } from "../core/meta.js";
 import { BuildElements } from "../builder/NewUI.js";
-import { RenderPayload } from "./Render.js";
+import { RenderPayload, RemoveRoot } from "./Render.js";
 import { PlayMusic } from "./Sound.js";
 
 
@@ -176,7 +176,21 @@ function LoadScreen(payload) {
 	ApplyMenuUI(payload);
 }
 
+function ClearUI(rootId) {
+	const resolvedRootId = rootId || "engine-ui-root";
+
+	if (Cache && Cache.UI) {
+		Cache.UI.lastPayload = null;
+		Cache.UI.screenID = null;
+		Cache.UI.elementIndex = {};
+		pushToSession(SESSION_KEYS.Cache, Cache);
+	}
+
+	RemoveRoot(resolvedRootId);
+	Log("ENGINE", `UI cleared: ${resolvedRootId}`, "log", "UI");
+}
+
 /* === EXPORTS === */
 // Public UI API for engine modules.
 
-export { CreateUI, ApplyMenuUI, LoadScreen, ResolveUiAction, HandleUiAction }; 
+export { CreateUI, ApplyMenuUI, LoadScreen, ClearUI, ResolveUiAction, HandleUiAction }; 

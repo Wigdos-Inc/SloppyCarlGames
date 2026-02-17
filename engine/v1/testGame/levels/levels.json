@@ -1,102 +1,166 @@
 {
-    "level1": {
-        "id": "level1 [optional]",
-        "title": "CarlNet Engine Zone 1",
-        "stages": [
-            {
-                "id": "[optional]",
-                "title": "...",
-                "world": {
-                    "length": 0,
-                    "width": 0,
-                    "height": 0,
-                    "deathBarrierY": 0
-                },
-                "terrain": {
-                    "objects": [
+    "levels": [
+        {
+            "id": "level0",
+            "title": "Engine Test Zone",
+            "stages": [
+                {
+                    "id": "stage0",
+                    "title": "First Stage",
+                    "world": {
+                        "length": 120,
+                        "width": 80,
+                        "height": 40,
+                        "deathBarrierY": -20
+                    },
+                    "terrain": {
+                        "objects": [
+                            {
+                                "id": "ground-main",
+                                "shape": "cube",
+                                "size": {
+                                    "x": 120,
+                                    "y": 2,
+                                    "z": 80
+                                },
+                                "position": {
+                                    "x": 60,
+                                    "y": 0,
+                                    "z": 40
+                                }
+                            },
+                            {
+                                "id": "platform-a",
+                                "shape": "cube",
+                                "size": {
+                                    "x": 18,
+                                    "y": 2,
+                                    "z": 18
+                                },
+                                "position": {
+                                    "x": 25,
+                                    "y": 8,
+                                    "z": 24
+                                }
+                            },
+                            {
+                                "id": "platform-b",
+                                "shape": "cube",
+                                "size": {
+                                    "x": 20,
+                                    "y": 2,
+                                    "z": 20
+                                },
+                                "position": {
+                                    "x": 90,
+                                    "y": 12,
+                                    "z": 52
+                                }
+                            },
+                            {
+                                "id": "beacon",
+                                "shape": "pyramid",
+                                "size": {
+                                    "x": 10,
+                                    "y": 14,
+                                    "z": 10
+                                },
+                                "position": {
+                                    "x": 60,
+                                    "y": 2,
+                                    "z": 40
+                                }
+                            }
+                        ],
+                        "triggers": []
+                    },
+                    "entities": [
                         {
-                            "id": "terrain_object_ID",
+                            "id": "enemy-01",
+                            "type": "enemy",
+                            "hp": 3,
                             "shape": "cube",
                             "size": {
-                                "x": 0,
-                                "y": 0,
-                                "z": 0
+                                "x": 2,
+                                "y": 4,
+                                "z": 2
                             },
-                            "trigger": {
-                                "type": "cutscene/dialogue",
-                                "payload": {},
-                                "activateOnce": true
+                            "position": {
+                                "x": 22,
+                                "y": 10,
+                                "z": 22
+                            },
+                            "movement": {
+                                "start": {
+                                    "x": 20,
+                                    "y": 10,
+                                    "z": 20
+                                },
+                                "end": {
+                                    "x": 35,
+                                    "y": 10,
+                                    "z": 28
+                                },
+                                "repeat": true,
+                                "backAndForth": true,
+                                "speed": 6,
+                                "physics": false
                             }
                         },
                         {
-                            "shape": "pyramid",
+                            "id": "enemy-02",
+                            "type": "enemy",
+                            "hp": 2,
+                            "shape": "cube",
                             "size": {
-                                "x": 0,
-                                "y": 0,
-                                "z": 0
+                                "x": 2,
+                                "y": 3,
+                                "z": 2
                             },
-                            "trigger": null
+                            "position": {
+                                "x": 88,
+                                "y": 14,
+                                "z": 52
+                            },
+                            "movement": {
+                                "start": {
+                                    "x": 84,
+                                    "y": 14,
+                                    "z": 46
+                                },
+                                "end": {
+                                    "x": 96,
+                                    "y": 14,
+                                    "z": 58
+                                },
+                                "repeat": true,
+                                "backAndForth": true,
+                                "speed": 5,
+                                "physics": false
+                            }
                         }
                     ],
-                    "triggers": [
-                        {
-                            "start": {
-                                "x": 0,
-                                "y": 0,
-                                "z": 0
+                    "camera": {
+                        "levelOpening": {
+                            "startPosition": {
+                                "x": 60,
+                                "y": 52,
+                                "z": 112
                             },
-                            "end": {
-                                "x": 0,
-                                "y": 0,
-                                "z": 0
-                            },
-                            "type": "cutscene/dialogue",
-                            "payload": {},
-                            "activateOnce": true
-                        }
-                    ]
-                },
-                "entities": [
-                    {
-                        "id": "entity_ID",
-                        "type": "enemy",
-                        "platform": "terrain_object_ID [optional for relative placement]",
-                        "movement": {
-                            "start": {},
-                            "end": {},
-                            "repeat": true,
-                            "backAndForth": true,
-                            "speed": 0,
-                            "jump": 0,
-                            "jumpInterval": 0,
-                            "jumpOnSight": false,
-                            "disappear": false,
-                            "chase": false,
-                            "physics": false
+                            "endPosition": {
+                                "x": 60,
+                                "y": 52,
+                                "z": 112
+                            }
                         },
-                        "hp": 0
-                    }
-                ],
-                "camera": {
-                    "levelOpening": {
-                        "startPosition": {
+                        "distanceFromPlayer": {
                             "x": 0,
-                            "y": 0,
-                            "z": 0
-                        },
-                        "endPosition": {
-                            "x": 0,
-                            "y": 0,
-                            "z": 0
+                            "y": 28,
+                            "z": 72
                         }
-                    },
-                    "distanceFromPlayer": {
-                        "x": 0,
-                        "y": 0,
-                        "z": 0
                     }
                 }
-            }
-        ]
-    }
+            ]
+        }
+    ]
 }

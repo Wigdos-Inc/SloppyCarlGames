@@ -20,7 +20,7 @@ import {
   SESSION_KEYS,
 } from "./meta.js";
 import { CONFIG } from "./config.js";
-import { ApplyMenuUI, LoadScreen } from "../handlers/UI.js";
+import { ApplyMenuUI, LoadScreen, ClearUI } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
 import {
   PlaySfx,
@@ -33,6 +33,12 @@ import {
   StopAllAudio,
   UpdateActiveAudioVolumes,
 } from "../handlers/Sound.js";
+import {
+  CreateLevel,
+  Update as UpdateLevel,
+  GetActiveLevel,
+  LoadLevel,
+} from "../handlers/game/Level.js";
 
 /* === INITIALIZATION === */
 // Bootstraps engine subsystems and returns the public API.
@@ -72,6 +78,7 @@ function initialize() {
     UI: {
       ApplyMenuUI: ApplyMenuUI,
       LoadScreen: LoadScreen,
+      ClearUI: ClearUI,
     },
     Audio: {
       PlaySfx: PlaySfx,
@@ -83,6 +90,12 @@ function initialize() {
       StopSfx: StopSfx,
       StopAllAudio: StopAllAudio,
       UpdateActiveAudioVolumes: UpdateActiveAudioVolumes,
+    },
+    Level: {
+      CreateLevel: CreateLevel,
+      LoadLevel: LoadLevel,
+      Update: UpdateLevel,
+      GetActiveLevel: GetActiveLevel,
     },
   };
 }

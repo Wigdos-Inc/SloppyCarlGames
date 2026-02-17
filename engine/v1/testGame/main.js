@@ -5,11 +5,10 @@ console.log("Importing Engine");
 const { ENGINE } = await import("../Bootup.js");
 await import("./menus/ui.js");
 await import("./cutscene/cutscene.js");
+const { RequestLevelCreate } = await import("./levels/level.js");
 
 const SETTINGS_KEY = "settings";
 const SAVE_KEY = "saveData";
-
-let levelDataPromise = null;
 
 function safeParse(json) {
 	try {
@@ -28,45 +27,6 @@ function saveSettings(settings) {
 	localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
-function loadLevelData() {
-	if (!levelDataPromise) {
-		levelDataPromise = fetch(new URL("./levels/level.json", import.meta.url))
-			.then((response) => response.json())
-			.catch(() => null);
-	}
-
-	return levelDataPromise;
-}
-
-function resolveLevelPayload(levelData, request) {
-	if (!levelData || typeof levelData !== "object") {
-		return null;
-	}
-
-	if (levelData.levels && Array.isArray(levelData.levels)) {
-		if (request && request.levelId) {
-			const match = levelData.levels.find((level) => level && level.id === request.levelId);
-			if (match) {
-				return match;
-			}
-		}
-
-		if (request && typeof request.levelIndex === "number") {
-			const indexed = levelData.levels[request.levelIndex] || null;
-			if (indexed) {
-				return indexed;
-			}
-		}
-
-		return levelData.levels[0] || null;
-	}
-
-	if (levelData.level) {
-		return levelData.level;
-	}
-
-	return levelData;
-}
 
 function clamp(value, min, max) {
 	return Math.min(max, Math.max(min, value));
@@ -264,36 +224,25 @@ function startGame(saveData) {
 }
 
 async function requestLevelLoad(payload) {
-	const levelData = await loadLevelData();
-	if (!levelData) {
-		if (ENGINE && typeof ENGINE.Log === "function") {
-			ENGINE.Log("GAME", "Missing level data for load request.", "warn", "Level");
-		}
-		return;
-	}
+	return RequestLevelCreate(payload, {
+		source: "testGame",
+		renderOptions: {
+			rootId: "engine-level-root",
+		},
+	});
+}
 
-	const resolved = resolveLevelPayload(levelData, payload || null);
-	if (!resolved) {
-		if (ENGINE && typeof ENGINE.Log === "function") {
-			ENGINE.Log("GAME", "Requested level not found.", "warn", "Level");
-		}
-		return;
-	}
+function handleLevelRequest(event) {
+	const request = event && event.detail ? event.detail.payload || null : null;
+	const startPayload = request || { levelIndex: 0, stageIndex: 0 };
+	startGame(startPayload);
+	void requestLevelLoad(startPayload);
+}
 
-	if (resolved.music && resolved.music.src) {
-		resolved.music = {
-			...resolved.music,
-			src: new URL(resolved.music.src, new URL("./levels/", import.meta.url)).href,
-		};
-	}
-	if (ENGINE && ENGINE.Level && typeof ENGINE.Level.LoadLevel === "function") {
-		ENGINE.Level.LoadLevel(resolved, {
-			source: "testGame",
-			renderOptions: {
-				rootId: "engine-level-root",
-			},
-		});
-	}
+function handleLoadGame() {
+	const saveData = loadSave() || { levelIndex: 0, stageIndex: 0 };
+	startGame(saveData);
+	void requestLevelLoad(saveData);
 }
 
 function handleDeleteSave() {
@@ -460,6 +409,8 @@ function handleUserInput(event) {
 
 window.addEventListener("USER_INPUT", handleUserInput);
 window.addEventListener("DELETE_SAVE_DATA", handleDeleteSave);
+window.addEventListener("LEVEL_REQUEST", handleLevelRequest);
+window.addEventListener("LOAD_GAME", handleLoadGame);
 window.addEventListener("ENGINE_UI_RENDERED", (event) => {
 	const screenId = event && event.detail ? event.detail.screenId : null;
 	if (screenId === "Settings") {
