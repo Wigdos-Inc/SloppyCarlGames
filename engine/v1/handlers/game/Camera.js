@@ -1,3 +1,4 @@
 // Controls Camera State
 
-// Receives camera instructions from Render.js
+// Receives camera instructions from Level.js and Cutscene.js
+// Returns ready to use Camera State

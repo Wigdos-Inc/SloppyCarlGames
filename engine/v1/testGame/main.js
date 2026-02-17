@@ -296,25 +296,6 @@ async function requestLevelLoad(payload) {
 	}
 }
 
-function handleStartGame(event) {
-	const payload = event && event.detail ? event.detail.payload : null;
-	if (payload && typeof payload.levelIndex === "number") {
-		startGame(payload);
-		return;
-	}
-	startGame({ levelIndex: 0, stageIndex: 0 });
-}
-
-function handleLevelRequest(event) {
-	const payload = event && event.detail ? event.detail.payload : null;
-	void requestLevelLoad(payload || null);
-}
-
-function handleLoadGame() {
-	const saveData = loadSave() || { levelIndex: 0, stageIndex: 0 };
-	startGame(saveData);
-}
-
 function handleDeleteSave() {
 	deleteSaveData();
 }
@@ -478,9 +459,6 @@ function handleUserInput(event) {
 }
 
 window.addEventListener("USER_INPUT", handleUserInput);
-window.addEventListener("START_GAME", handleStartGame);
-window.addEventListener("LEVEL_REQUEST", handleLevelRequest);
-window.addEventListener("LOAD_GAME", handleLoadGame);
 window.addEventListener("DELETE_SAVE_DATA", handleDeleteSave);
 window.addEventListener("ENGINE_UI_RENDERED", (event) => {
 	const screenId = event && event.detail ? event.detail.screenId : null;

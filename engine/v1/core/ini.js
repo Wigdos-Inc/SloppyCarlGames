@@ -22,7 +22,6 @@ import {
 import { CONFIG } from "./config.js";
 import { ApplyMenuUI, LoadScreen } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
-import { LoadLevel, GetLevelState, UpdateLevelState, ClearLevel } from "../handlers/game/Level.js";
 import {
   PlaySfx,
   PlayVoice,
@@ -84,12 +83,6 @@ function initialize() {
       StopSfx: StopSfx,
       StopAllAudio: StopAllAudio,
       UpdateActiveAudioVolumes: UpdateActiveAudioVolumes,
-    },
-    Level: {
-      LoadLevel: LoadLevel,
-      GetLevelState: GetLevelState,
-      UpdateLevelState: UpdateLevelState,
-      ClearLevel: ClearLevel,
     },
   };
 }

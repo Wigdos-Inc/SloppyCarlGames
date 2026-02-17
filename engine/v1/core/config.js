@@ -34,6 +34,7 @@ let CONFIG = {
           Hover: false,
           Key: true,
         },
+        Level: true,
       },
     },
   },
