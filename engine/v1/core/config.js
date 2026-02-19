@@ -13,6 +13,21 @@ let CONFIG = {
       Intro: settings.skipIntro ?? false,
       Cutscene: false,
     },
+    LEVELS: {
+      Triggers: true,
+      FreeCam: false,
+      BoundingBox: {
+        Terrain: false,
+        Scatter: false,
+        Entity: false,
+        EntityPart: false,
+        Obstacle: false,
+        Player: false,
+        PlayerPart: false,
+        Boss: false,
+        BossPart: false,
+      },
+    },
     LOGGING: {
       All: true,
       Type: {
@@ -45,6 +60,9 @@ let CONFIG = {
     MenuSfx : settings.menuSfx ?? 1,
     GameSfx : settings.gameSfx ?? 1,
     Cutscene: settings.cutscene ?? 1
+  },
+  PERFORMANCE: {
+    TerrainScatter: "High",
   }
 };
 

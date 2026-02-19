@@ -6,11 +6,12 @@
 // End of player pipeline(s) to determine position.
 // Uses Render.js for rendering level state per frame.
 
-import { BuildLevel } from "../../builder/NewLevel.js";
+import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js";
 import { RenderLevel } from "../Render.js";
 import { Cache, Log, pushToSession, SESSION_KEYS } from "../../core/meta.js";
-import { CalculateCameraState, UpdateCameraState } from "../helpers/Camera.js";
+import { InitializeCameraState, UpdateCameraState } from "./Camera.js";
 import { addVector3, distanceVector3, lerpVector3, normalizeVector3, scaleVector3 } from "../../math/Vector3.js";
+import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 
 const levelRuntimeState = {
 	payload: null,
@@ -52,17 +53,26 @@ function cacheLevelPayload(payload) {
 	return cachedPayload;
 }
 
-function applyCameraState(sceneGraph) {
-	if (!sceneGraph || typeof sceneGraph !== "object") {
-		return sceneGraph;
-	}
+function buildIncomingPayloadSummary(payload) {
+	const source = payload && typeof payload === "object" ? payload : {};
+	const terrainObjects = source.terrain && Array.isArray(source.terrain.objects) ? source.terrain.objects.length : 0;
+	const terrainTriggers = source.terrain && Array.isArray(source.terrain.triggers) ? source.terrain.triggers.length : 0;
+	const obstacles = Array.isArray(source.obstacles) ? source.obstacles.length : 0;
+	const entities = Array.isArray(source.entities) ? source.entities.length : 0;
+	const blueprints = source.entityBlueprints && typeof source.entityBlueprints === "object" ? source.entityBlueprints : {};
+	const count = (key) => (Array.isArray(blueprints[key]) ? blueprints[key].length : 0);
 
-	if (!sceneGraph.cameraConfig || typeof sceneGraph.cameraConfig !== "object") {
-		sceneGraph.cameraConfig = {};
-	}
-
-	sceneGraph.cameraConfig.state = CalculateCameraState(sceneGraph, sceneGraph.cameraConfig);
-	return sceneGraph;
+	return [
+		"Engine received level payload:",
+		`- levelId: ${source.meta && source.meta.levelId ? source.meta.levelId : source.id || "unknown"}`,
+		`- stageId: ${source.meta && source.meta.stageId ? source.meta.stageId : source.id || "unknown"}`,
+		`- world: ${source.world ? `${source.world.length || 0}x${source.world.width || 0}x${source.world.height || 0}` : "missing"}`,
+		`- terrainObjects: ${terrainObjects}`,
+		`- terrainTriggers: ${terrainTriggers}`,
+		`- obstacles: ${obstacles}`,
+		`- entities(overrides): ${entities}`,
+		`- blueprintCounts: enemies=${count("enemies")}, npcs=${count("npcs")}, collectibles=${count("collectibles")}, projectiles=${count("projectiles")}`,
+	].join("\n");
 }
 
 function updateEntityMovement(entity, deltaSeconds) {
@@ -144,19 +154,31 @@ function syncEntityMeshes(sceneGraph) {
 	const entities = Array.isArray(sceneGraph && sceneGraph.entities) ? sceneGraph.entities : [];
 	for (let index = 0; index < entities.length; index += 1) {
 		const entity = entities[index];
-		if (!entity || !entity.mesh) {
+		if (!entity) {
 			continue;
 		}
+
+		if (entity.model) {
+			UpdateEntityModelFromTransform(entity);
+			entity.mesh = entity.model.parts && entity.model.parts[0] ? entity.model.parts[0].mesh : null;
+			continue;
+		}
+
+		if (!entity.mesh) {
+			continue;
+		}
+
 		if (!entity.mesh.transform) {
 			entity.mesh.transform = {};
 		}
+
 		entity.mesh.transform.position = { ...entity.transform.position };
 		entity.mesh.transform.rotation = { ...entity.transform.rotation };
 		entity.mesh.transform.scale = { ...entity.transform.scale };
 	}
 }
 
-function CreateLevel(payload, options) {
+async function CreateLevel(payload, options) {
 	if (!payload || typeof payload !== "object") {
 		Log("ENGINE", "Level.CreateLevel aborted: invalid payload.", "warn", "Level");
 		return null;
@@ -168,17 +190,27 @@ function CreateLevel(payload, options) {
 		return null;
 	}
 
+	Log("ENGINE", buildIncomingPayloadSummary(cachedPayload), "log", "Level");
+
 	const resolvedOptions = options && typeof options === "object" ? options : {};
 	levelRuntimeState.renderOptions = {
 		...levelRuntimeState.renderOptions,
 		...(resolvedOptions.renderOptions || {}),
 	};
 
-	const sceneGraph = BuildLevel(cachedPayload);
-	applyCameraState(sceneGraph);
+	const sceneGraph = await BuildLevel(cachedPayload);
+	if (!sceneGraph.cameraConfig || typeof sceneGraph.cameraConfig !== "object") {
+		sceneGraph.cameraConfig = {};
+	}
+	sceneGraph.cameraConfig.state = InitializeCameraState(
+		sceneGraph,
+		sceneGraph.cameraConfig,
+		cachedPayload.meta || null
+	);
 
 	levelRuntimeState.sceneGraph = sceneGraph;
 	levelRuntimeState.lastUpdateAt = performance.now();
+	RefreshSceneBoundingBoxes(sceneGraph);
 
 	RenderLevel(sceneGraph, levelRuntimeState.renderOptions);
 
@@ -194,6 +226,7 @@ function CreateLevel(payload, options) {
 	}
 
 	Log("ENGINE", `Level created: ${cachedPayload.id || "unknown"}`, "log", "Level");
+	Log("ENGINE", "Level generation finished and render initialized.", "log", "Level");
 	return sceneGraph;
 }
 
@@ -225,10 +258,12 @@ function Update(deltaMilliseconds) {
 	sceneGraph.cameraConfig.state = UpdateCameraState(
 		sceneGraph.cameraConfig.state,
 		sceneGraph,
-		sceneGraph.cameraConfig
+		sceneGraph.cameraConfig,
+		deltaSeconds
 	);
 
 	syncEntityMeshes(sceneGraph);
+	RefreshSceneBoundingBoxes(sceneGraph);
 	RenderLevel(sceneGraph, levelRuntimeState.renderOptions);
 
 	return sceneGraph;

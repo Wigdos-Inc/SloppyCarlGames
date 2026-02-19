@@ -3,6 +3,9 @@
 // Allows creating, tracking, and clearing input event listeners.
 
 import { Cache, Log, sendEvent } from "../core/meta.js";
+import { CONFIG } from "../core/config.js";
+import { GetActiveLevel } from "./game/Level.js";
+import { HandleFreeCamInput } from "./game/Camera.js";
 import { HandleUiAction, ResolveUiAction } from "./UI.js";
 
 class Controls {
@@ -101,6 +104,8 @@ function StartInputRouter(target) {
 		"pointerup",
 		"pointerover",
 		"pointerout",
+		"mousemove",
+		"wheel",
 		"input",
 		"change",
 		"keydown",
@@ -111,12 +116,21 @@ function StartInputRouter(target) {
 		const targetId = event && event.target ? event.target.id : null;
 
 		// Log each user interaction the router sees.
-		Log(
-			"ENGINE",
-			`User Input: ${event.type} ${"on " + (targetId || "document")}`.trim(),
-			"log",
-			"Controls"
-		);
+		//Log(
+		//	"ENGINE",
+		//	`User Input: ${event.type} ${"on " + (targetId || "document")}`.trim(),
+		//	"log",
+		//	"Controls"
+		//);
+
+		const levelIsLoaded = Boolean(GetActiveLevel());
+		const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
+		if (levelIsLoaded && freeCamEnabled) {
+			const consumed = HandleFreeCamInput(event, GetActiveLevel());
+			if (consumed) {
+				return;
+			}
+		}
 
 		// Use cached actions when available.
 		const match = resolveCachedAction(event);
@@ -141,4 +155,7 @@ function StartInputRouter(target) {
 	return router;
 }
 
-export { Controls, StartInputRouter };
+export {
+	Controls,
+	StartInputRouter,
+};

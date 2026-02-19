@@ -60,12 +60,29 @@ function clearSessionStorage() {
 const logs = pushToSession(
   SESSION_KEYS.Logs,
   readFromSession(SESSION_KEYS.Logs, {
+    All: [],
     Engine: [],
     Game: [],
     Controls: [],
     Other: [],
   })
 );
+
+if (!Array.isArray(logs.All)) {
+  logs.All = [];
+}
+if (!Array.isArray(logs.Engine)) {
+  logs.Engine = [];
+}
+if (!Array.isArray(logs.Game)) {
+  logs.Game = [];
+}
+if (!Array.isArray(logs.Controls)) {
+  logs.Controls = [];
+}
+if (!Array.isArray(logs.Other)) {
+  logs.Other = [];
+}
 
 // Cache last known payloads for quick lookups.
 const Cache = pushToSession(
@@ -121,7 +138,7 @@ function resolveControlsSubtypeFromMessage(message) {
     return null;
   }
 
-  if (eventType === "pointerover" || eventType === "pointerout") {
+  if (eventType === "pointerover" || eventType === "pointerout" || eventType === "mousemove") {
     return "Hover";
   }
 
@@ -221,6 +238,33 @@ function isValidSource(source) {
   return /^[A-Z0-9_]+$/.test(source);
 }
 
+function getMostRecentLogEntry() {
+  if (!Array.isArray(logs.All) || logs.All.length === 0) {
+    return null;
+  }
+
+  const latest = logs.All[logs.All.length - 1];
+  if (!latest || typeof latest !== "object") {
+    return null;
+  }
+
+  return latest;
+}
+
+function isDuplicateOfLatest(entry) {
+  const latest = getMostRecentLogEntry();
+  if (!latest) {
+    return false;
+  }
+
+  return (
+    latest.source === entry.source &&
+    latest.channel === entry.channel &&
+    latest.level === entry.level &&
+    latest.message === entry.message
+  );
+}
+
 function Log(source, message, level, channel) {
   let resolvedSource = source;
   let resolvedMessage = message;
@@ -239,6 +283,14 @@ function Log(source, message, level, channel) {
     channel: channel || "All",
     message: resolvedMessage,
   };
+
+  // Prevent Duplicate Logs
+  if (isDuplicateOfLatest(entry)) {
+    return;
+  }
+
+  // Log Caching
+  logs.All.push(entry);
 
   if (entry.channel && entry.channel.startsWith("Controls")) {
     logs.Controls.push(entry);
@@ -266,12 +318,14 @@ function Log(source, message, level, channel) {
 
 // Replay all stored logs in order.
 function logAll() {
-  const allEntries = [
-    ...logs.Engine,
-    ...logs.Game,
-    ...logs.Controls,
-    ...logs.Other,
-  ].sort((a, b) => a.time - b.time);
+  const allEntries = Array.isArray(logs.All)
+    ? logs.All
+    : [
+      ...logs.Engine,
+      ...logs.Game,
+      ...logs.Controls,
+      ...logs.Other,
+    ].sort((a, b) => a.time - b.time);
 
   allEntries.forEach((entry) => {
     const logger = console[entry.level] || console.log;

@@ -3,6 +3,7 @@
 import { ENGINE } from "../../Bootup.js";
 
 let levelsDataPromise = null;
+let entitiesDataPromise = null;
 
 function loadLevelsData() {
 	if (!levelsDataPromise) {
@@ -12,6 +13,16 @@ function loadLevelsData() {
 	}
 
 	return levelsDataPromise;
+}
+
+function loadEntitiesData() {
+	if (!entitiesDataPromise) {
+		entitiesDataPromise = fetch(new URL("./entities.json", import.meta.url))
+			.then((response) => response.json())
+			.catch(() => null);
+	}
+
+	return entitiesDataPromise;
 }
 
 function resolveLevelCollection(levelsData) {
@@ -65,17 +76,28 @@ function resolveStage(level, request) {
 	return level.stages[0] || null;
 }
 
-function buildCreateLevelPayload(level, stage) {
+function buildCreateLevelPayload(level, stage, entitiesData) {
 	if (!level || !stage) {
 		return null;
 	}
+
+	const mergedBlueprints = entitiesData && typeof entitiesData === "object"
+		? entitiesData
+		: {
+			enemies: [],
+			npcs: [],
+			collectibles: [],
+			projectiles: [],
+		};
 
 	return {
 		id: stage.id || `${level.id || "level"}-stage0`,
 		title: stage.title || level.title || "Untitled Stage",
 		world: stage.world || {},
 		terrain: stage.terrain || { objects: [] },
+		obstacles: Array.isArray(stage.obstacles) ? stage.obstacles : [],
 		entities: Array.isArray(stage.entities) ? stage.entities : [],
+		entityBlueprints: mergedBlueprints,
 		camera: stage.camera || {},
 		music: stage.music || level.music || null,
 		meta: {
@@ -85,8 +107,19 @@ function buildCreateLevelPayload(level, stage) {
 	};
 }
 
+function buildBlueprintCounts(blueprints) {
+	const source = blueprints && typeof blueprints === "object" ? blueprints : {};
+	const count = (key) => (Array.isArray(source[key]) ? source[key].length : 0);
+	return {
+		enemies: count("enemies"),
+		npcs: count("npcs"),
+		collectibles: count("collectibles"),
+		projectiles: count("projectiles"),
+	};
+}
+
 async function RequestLevelCreate(request, options) {
-	const levelsData = await loadLevelsData();
+	const [levelsData, entitiesData] = await Promise.all([loadLevelsData(), loadEntitiesData()]);
 	if (!levelsData) {
 		if (ENGINE && typeof ENGINE.Log === "function") {
 			ENGINE.Log("GAME", "Failed to load levels.json.", "warn", "Level");
@@ -110,9 +143,39 @@ async function RequestLevelCreate(request, options) {
 		return null;
 	}
 
-	const payload = buildCreateLevelPayload(level, stage);
+	const payload = buildCreateLevelPayload(level, stage, entitiesData);
 	if (!payload) {
 		return null;
+	}
+
+	if (ENGINE && typeof ENGINE.Log === "function") {
+		const blueprintCounts = buildBlueprintCounts(payload.entityBlueprints);
+		ENGINE.Log(
+			"GAME",
+			[
+				"Sending level payload to engine:",
+				`- levelId: ${payload.meta.levelId || "unknown"}`,
+				`- stageId: ${payload.meta.stageId || "unknown"}`,
+				`- terrainObjects: ${Array.isArray(payload.terrain && payload.terrain.objects) ? payload.terrain.objects.length : 0}`,
+				`- obstacles: ${Array.isArray(payload.obstacles) ? payload.obstacles.length : 0}`,
+				`- entities(overrides): ${Array.isArray(payload.entities) ? payload.entities.length : 0}`,
+			].join("\n"),
+			"log",
+			"Level"
+		);
+
+		ENGINE.Log(
+			"GAME",
+			[
+				"Sending separate entity blueprint payload:",
+				`- enemies: ${blueprintCounts.enemies}`,
+				`- npcs: ${blueprintCounts.npcs}`,
+				`- collectibles: ${blueprintCounts.collectibles}`,
+				`- projectiles: ${blueprintCounts.projectiles}`,
+			].join("\n"),
+			"log",
+			"Level"
+		);
 	}
 
 	if (payload.music && payload.music.src) {
@@ -131,7 +194,7 @@ async function RequestLevelCreate(request, options) {
 	}
 
 	if (ENGINE && ENGINE.Level && typeof ENGINE.Level.CreateLevel === "function") {
-		const sceneGraph = ENGINE.Level.CreateLevel(payload, {
+		const sceneGraph = await ENGINE.Level.CreateLevel(payload, {
 			source: "testGame",
 			renderOptions: {
 				rootId: "engine-level-root",

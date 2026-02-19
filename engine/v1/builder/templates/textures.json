@@ -1,0 +1,125 @@
+{
+    "textures": {
+        "default-grid": {
+            "id": "default-grid",
+            "size": 64,
+            "pattern": "grid",
+            "primary": "#a6b9cc",
+            "secondary": "#6f8299"
+        },
+        "grass-soft": {
+            "id": "grass-soft",
+            "size": 64,
+            "pattern": "noise",
+            "primary": "#5da85a",
+            "secondary": "#3d7f47"
+        },
+        "stone-block": {
+            "id": "stone-block",
+            "size": 64,
+            "pattern": "checker",
+            "primary": "#9aa0ad",
+            "secondary": "#6e7482"
+        },
+        "metal-panel": {
+            "id": "metal-panel",
+            "size": 64,
+            "pattern": "stripes",
+            "primary": "#8a9ba9",
+            "secondary": "#5f6d7d"
+        },
+        "wood-plank": {
+            "id": "wood-plank",
+            "size": 64,
+            "pattern": "stripes",
+            "primary": "#986b43",
+            "secondary": "#704527"
+        },
+        "energy-core": {
+            "id": "energy-core",
+            "size": 64,
+            "pattern": "radial",
+            "primary": "#7ff8ff",
+            "secondary": "#3f60ff"
+        },
+        "water-surface": {
+            "id": "water-surface",
+            "size": 64,
+            "pattern": "noise",
+            "primary": "#4d95c9",
+            "secondary": "#2b5f8d"
+        }
+    },
+    "scatterTypes": {
+        "grass-clump": {
+            "id": "grass-clump",
+            "noiseScale": 0.12,
+            "heightMin": -100,
+            "heightMax": 999,
+            "slopeMax": 0.9,
+            "parts": [
+                {
+                    "primitive": "plane",
+                    "dimensions": { "x": 0.4, "y": 1.1, "z": 0.12 },
+                    "localPosition": { "x": 0, "y": 0.45, "z": 0 },
+                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                    "textureID": "grass-soft",
+                    "textureColor": { "r": 0.9, "g": 1, "b": 0.9, "a": 1 },
+                    "textureOpacity": 0.95
+                }
+            ],
+            "scaleRange": { "min": 0.8, "max": 1.35 }
+        },
+        "pebble-field": {
+            "id": "pebble-field",
+            "noiseScale": 0.2,
+            "heightMin": -100,
+            "heightMax": 999,
+            "slopeMax": 0.95,
+            "parts": [
+                {
+                    "primitive": "sphere",
+                    "dimensions": { "x": 0.35, "y": 0.2, "z": 0.3 },
+                    "localPosition": { "x": 0, "y": 0.1, "z": 0 },
+                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                    "textureID": "stone-block",
+                    "textureColor": { "r": 0.85, "g": 0.85, "b": 0.9, "a": 1 },
+                    "textureOpacity": 1
+                }
+            ],
+            "scaleRange": { "min": 0.7, "max": 1.4 }
+        },
+        "scrub-bush": {
+            "id": "scrub-bush",
+            "noiseScale": 0.08,
+            "heightMin": -100,
+            "heightMax": 999,
+            "slopeMax": 0.75,
+            "parts": [
+                {
+                    "primitive": "sphere",
+                    "dimensions": { "x": 0.9, "y": 0.75, "z": 0.9 },
+                    "localPosition": { "x": 0, "y": 0.4, "z": 0 },
+                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                    "textureID": "grass-soft",
+                    "textureColor": { "r": 0.78, "g": 0.9, "b": 0.74, "a": 1 },
+                    "textureOpacity": 1
+                },
+                {
+                    "primitive": "cylinder",
+                    "dimensions": { "x": 0.08, "y": 0.35, "z": 0.08 },
+                    "localPosition": { "x": 0, "y": 0.15, "z": 0 },
+                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                    "textureID": "wood-plank",
+                    "textureColor": { "r": 0.82, "g": 0.72, "b": 0.62, "a": 1 },
+                    "textureOpacity": 1
+                }
+            ],
+            "scaleRange": { "min": 0.75, "max": 1.2 }
+        }
+    }
+}

@@ -1,0 +1,204 @@
+{
+	"enemies": [
+		{
+			"id": "enemy.scout-drone",
+			"type": "enemy",
+			"hp": 6,
+			"attacks": [
+				{
+					"id": "pulse-bolt",
+					"cooldownMs": 1400,
+					"projectileBlueprintId": "projectile.pulse"
+				}
+			],
+			"hardcoded": {
+				"aggroRange": 14,
+				"scoreValue": 125
+			},
+			"animations": {
+				"idle": { "loop": true },
+				"moving": { "loop": true },
+				"charging": { "loop": false },
+				"damage": { "loop": false }
+			},
+			"model": {
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 }
+				},
+				"parts": [
+					{
+						"id": "core",
+						"primitive": "cube",
+						"dimensions": { "x": 1.8, "y": 1.2, "z": 1.8 },
+						"localPosition": { "x": 0, "y": 1.3, "z": 0 },
+						"localRotation": { "x": 0, "y": 0, "z": 0 },
+						"localScale": { "x": 1, "y": 1, "z": 1 },
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"textureID": "metal-panel",
+						"textureColor": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
+						"textureOpacity": 1
+					},
+					{
+						"id": "left-arm",
+						"parentId": "core",
+						"primitive": "cylinder",
+						"dimensions": { "x": 0.35, "y": 1.4, "z": 0.35 },
+						"localPosition": { "x": -1.1, "y": 1.25, "z": 0 },
+						"localRotation": { "x": 0, "y": 0, "z": 0.05 },
+						"localScale": { "x": 1, "y": 1, "z": 1 },
+						"pivot": { "x": 0, "y": 0.7, "z": 0 },
+						"textureID": "metal-panel",
+						"textureColor": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
+						"textureOpacity": 1
+					},
+					{
+						"id": "right-arm",
+						"parentId": "core",
+						"primitive": "cylinder",
+						"dimensions": { "x": 0.35, "y": 1.4, "z": 0.35 },
+						"localPosition": { "x": 1.1, "y": 1.25, "z": 0 },
+						"localRotation": { "x": 0, "y": 0, "z": -0.05 },
+						"localScale": { "x": 1, "y": 1, "z": 1 },
+						"pivot": { "x": 0, "y": 0.7, "z": 0 },
+						"textureID": "metal-panel",
+						"textureColor": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
+						"textureOpacity": 1
+					},
+					{
+						"id": "eye",
+						"parentId": "core",
+						"primitive": "sphere",
+						"dimensions": { "x": 0.5, "y": 0.5, "z": 0.5 },
+						"localPosition": { "x": 0, "y": 1.5, "z": 0.95 },
+						"localRotation": { "x": 0, "y": 0, "z": 0 },
+						"localScale": { "x": 1, "y": 1, "z": 1 },
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"textureID": "energy-core",
+						"textureColor": { "r": 0.65, "g": 0.95, "b": 1, "a": 1 },
+						"textureOpacity": 1
+					}
+				]
+			}
+		}
+	],
+	"npcs": [
+		{
+			"id": "npc.engineer",
+			"type": "npc",
+			"hp": 10,
+			"attacks": [],
+			"hardcoded": {
+				"interactable": true
+			},
+			"animations": {
+				"idle": { "loop": true },
+				"moving": { "loop": true },
+				"talking": { "loop": true }
+			},
+			"model": {
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 }
+				},
+				"parts": [
+					{
+						"id": "body",
+						"primitive": "cube",
+						"dimensions": { "x": 1.2, "y": 2.1, "z": 0.9 },
+						"localPosition": { "x": 0, "y": 1.05, "z": 0 },
+						"localRotation": { "x": 0, "y": 0, "z": 0 },
+						"localScale": { "x": 1, "y": 1, "z": 1 },
+						"textureID": "wood-plank",
+						"textureColor": { "r": 0.95, "g": 0.88, "b": 0.78, "a": 1 },
+						"textureOpacity": 1
+					},
+					{
+						"id": "head",
+						"parentId": "body",
+						"primitive": "sphere",
+						"dimensions": { "x": 0.9, "y": 0.9, "z": 0.9 },
+						"localPosition": { "x": 0, "y": 2.35, "z": 0 },
+						"localRotation": { "x": 0, "y": 0, "z": 0 },
+						"localScale": { "x": 1, "y": 1, "z": 1 },
+						"textureID": "wood-plank",
+						"textureColor": { "r": 1, "g": 0.9, "b": 0.8, "a": 1 },
+						"textureOpacity": 1
+					}
+				]
+			}
+		}
+	],
+	"collectibles": [
+		{
+			"id": "collectible.orb",
+			"type": "collectible",
+			"hp": 1,
+			"attacks": [],
+			"hardcoded": {
+				"grant": "energy",
+				"amount": 25
+			},
+			"animations": {
+				"idle": { "loop": true }
+			},
+			"model": {
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 }
+				},
+				"parts": [
+					{
+						"id": "orb",
+						"primitive": "sphere",
+						"dimensions": { "x": 0.9, "y": 0.9, "z": 0.9 },
+						"localPosition": { "x": 0, "y": 0.45, "z": 0 },
+						"localRotation": { "x": 0, "y": 0, "z": 0 },
+						"localScale": { "x": 1, "y": 1, "z": 1 },
+						"textureID": "energy-core",
+						"textureColor": { "r": 0.75, "g": 1, "b": 1, "a": 1 },
+						"textureOpacity": 1
+					}
+				]
+			}
+		}
+	],
+	"projectiles": [
+		{
+			"id": "projectile.pulse",
+			"type": "projectile",
+			"hp": 1,
+			"attacks": [],
+			"hardcoded": {
+				"damage": 1,
+				"lifeMs": 2200
+			},
+			"animations": {
+				"idle": { "loop": true }
+			},
+			"model": {
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 }
+				},
+				"parts": [
+					{
+						"id": "bolt",
+						"primitive": "sphere",
+						"dimensions": { "x": 0.4, "y": 0.4, "z": 0.4 },
+						"localPosition": { "x": 0, "y": 0.2, "z": 0 },
+						"localRotation": { "x": 0, "y": 0, "z": 0 },
+						"localScale": { "x": 1, "y": 1, "z": 1 },
+						"textureID": "energy-core",
+						"textureColor": { "r": 0.7, "g": 0.95, "b": 1, "a": 1 },
+						"textureOpacity": 0.95
+					}
+				]
+			}
+		}
+	]
+}

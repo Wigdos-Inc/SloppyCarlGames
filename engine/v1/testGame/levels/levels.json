@@ -3,6 +3,11 @@
         {
             "id": "level0",
             "title": "Engine Test Zone",
+            "music": {
+                "name": "LEVEL_TEST_01",
+                "src": "../audio/levelTheme.mp3",
+                "loop": true
+            },
             "stages": [
                 {
                     "id": "stage0",
@@ -11,147 +16,191 @@
                         "length": 120,
                         "width": 80,
                         "height": 40,
-                        "deathBarrierY": -20
+                        "deathBarrierY": -20,
+                        "waterLevel": 6
                     },
                     "terrain": {
                         "objects": [
                             {
                                 "id": "ground-main",
-                                "shape": "cube",
-                                "size": {
-                                    "x": 120,
-                                    "y": 2,
-                                    "z": 80
-                                },
-                                "position": {
-                                    "x": 60,
-                                    "y": 0,
-                                    "z": 40
-                                }
+                                "primitive": "cube",
+                                "dimensions": { "x": 120, "y": 2, "z": 80 },
+                                "position": { "x": 60, "y": 0, "z": 40 },
+                                "textureID": "grass-soft",
+                                "textureColor": { "r": 1, "g": 1, "b": 1, "a": 1 },
+                                "textureOpacity": 1,
+                                "scatterTypeIDs": ["grass-clump", "pebble-field"],
+                                "baseDensity": 0.9
                             },
                             {
                                 "id": "platform-a",
-                                "shape": "cube",
-                                "size": {
-                                    "x": 18,
-                                    "y": 2,
-                                    "z": 18
-                                },
-                                "position": {
-                                    "x": 25,
-                                    "y": 8,
-                                    "z": 24
-                                }
+                                "primitive": "cube",
+                                "dimensions": { "x": 18, "y": 2, "z": 18 },
+                                "position": { "x": 25, "y": 8, "z": 24 },
+                                "textureID": "stone-block",
+                                "textureColor": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
+                                "textureOpacity": 1,
+                                "scatterTypeIDs": ["pebble-field"],
+                                "baseDensity": 0.3
                             },
                             {
                                 "id": "platform-b",
-                                "shape": "cube",
-                                "size": {
-                                    "x": 20,
-                                    "y": 2,
-                                    "z": 20
-                                },
-                                "position": {
-                                    "x": 90,
-                                    "y": 12,
-                                    "z": 52
-                                }
+                                "primitive": "cube",
+                                "dimensions": { "x": 20, "y": 2, "z": 20 },
+                                "position": { "x": 90, "y": 12, "z": 52 },
+                                "textureID": "stone-block",
+                                "textureColor": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
+                                "textureOpacity": 1,
+                                "scatterTypeIDs": ["scrub-bush"],
+                                "baseDensity": 0.25
                             },
                             {
                                 "id": "beacon",
-                                "shape": "pyramid",
-                                "size": {
-                                    "x": 10,
-                                    "y": 14,
-                                    "z": 10
-                                },
-                                "position": {
-                                    "x": 60,
-                                    "y": 2,
-                                    "z": 40
-                                }
+                                "primitive": "pyramid",
+                                "dimensions": { "x": 10, "y": 14, "z": 10 },
+                                "position": { "x": 60, "y": 2, "z": 40 },
+                                "textureID": "metal-panel",
+                                "textureColor": { "r": 0.95, "g": 0.9, "b": 1, "a": 1 },
+                                "textureOpacity": 1,
+                                "scatterTypeIDs": [],
+                                "baseDensity": 0
                             }
                         ],
-                        "triggers": []
+                        "triggers": [
+                            {
+                                "id": "trigger-intro-dialogue",
+                                "start": { "x": 10, "y": 0, "z": 10 },
+                                "end": { "x": 20, "y": 0, "z": 20 },
+                                "type": "dialogue",
+                                "payload": {
+                                    "lineId": "dlg.intro.01"
+                                },
+                                "activateOnce": true
+                            },
+                            {
+                                "id": "trigger-beacon-cutscene",
+                                "start": { "x": 55, "y": 0, "z": 35 },
+                                "end": { "x": 65, "y": 0, "z": 45 },
+                                "type": "cutscene",
+                                "payload": {
+                                    "cutsceneId": "BeaconReveal"
+                                },
+                                "activateOnce": true
+                            }
+                        ]
                     },
+                    "obstacles": [
+                        {
+                            "id": "crate-stack",
+                            "primitive": "cube",
+                            "dimensions": { "x": 4, "y": 4, "z": 4 },
+                            "position": { "x": 44, "y": 2, "z": 30 },
+                            "textureID": "wood-plank",
+                            "textureColor": { "r": 0.96, "g": 0.93, "b": 0.87, "a": 1 },
+                            "textureOpacity": 1,
+                            "scatterTypeIDs": ["pebble-field"],
+                            "baseDensity": 0.1,
+                            "destructible": true
+                        }
+                    ],
                     "entities": [
                         {
                             "id": "enemy-01",
-                            "type": "enemy",
-                            "hp": 3,
-                            "shape": "cube",
-                            "size": {
-                                "x": 2,
-                                "y": 4,
-                                "z": 2
-                            },
-                            "position": {
-                                "x": 22,
-                                "y": 10,
-                                "z": 22
-                            },
+                            "blueprintId": "enemy.scout-drone",
+                            "position": { "x": 22, "y": 10, "z": 22 },
                             "movement": {
-                                "start": {
-                                    "x": 20,
-                                    "y": 10,
-                                    "z": 20
-                                },
-                                "end": {
-                                    "x": 35,
-                                    "y": 10,
-                                    "z": 28
-                                },
+                                "start": { "x": 20, "y": 10, "z": 20 },
+                                "end": { "x": 35, "y": 10, "z": 28 },
                                 "repeat": true,
                                 "backAndForth": true,
                                 "speed": 6,
                                 "physics": false
-                            }
+                            },
+                            "dialogue": ["Hostile scout detected."]
                         },
                         {
                             "id": "enemy-02",
-                            "type": "enemy",
-                            "hp": 2,
-                            "shape": "cube",
-                            "size": {
-                                "x": 2,
-                                "y": 3,
-                                "z": 2
-                            },
-                            "position": {
-                                "x": 88,
-                                "y": 14,
-                                "z": 52
-                            },
+                            "blueprintId": "enemy.scout-drone",
+                            "position": { "x": 88, "y": 14, "z": 52 },
+                            "hp": 8,
                             "movement": {
-                                "start": {
-                                    "x": 84,
-                                    "y": 14,
-                                    "z": 46
-                                },
-                                "end": {
-                                    "x": 96,
-                                    "y": 14,
-                                    "z": 58
-                                },
+                                "start": { "x": 84, "y": 14, "z": 46 },
+                                "end": { "x": 96, "y": 14, "z": 58 },
                                 "repeat": true,
                                 "backAndForth": true,
                                 "speed": 5,
                                 "physics": false
+                            },
+                            "hardcoded": {
+                                "aggroRange": 18
+                            }
+                        },
+                        {
+                            "id": "npc-01",
+                            "blueprintId": "npc.engineer",
+                            "position": { "x": 16, "y": 2, "z": 14 },
+                            "movement": {
+                                "start": { "x": 16, "y": 2, "z": 14 },
+                                "end": { "x": 22, "y": 2, "z": 18 },
+                                "repeat": true,
+                                "backAndForth": true,
+                                "speed": 1.8,
+                                "physics": false
+                            },
+                            "dialogue": ["Keep your eye on that beacon."]
+                        },
+                        {
+                            "id": "collectible-01",
+                            "blueprintId": "collectible.orb",
+                            "position": { "x": 60, "y": 18, "z": 40 },
+                            "movement": {
+                                "start": { "x": 60, "y": 18, "z": 40 },
+                                "end": { "x": 60, "y": 19.5, "z": 40 },
+                                "repeat": true,
+                                "backAndForth": true,
+                                "speed": 0.9,
+                                "physics": false
+                            }
+                        },
+                        {
+                            "id": "projectile-preview",
+                            "type": "projectile",
+                            "hp": 1,
+                            "position": { "x": 64, "y": 14, "z": 44 },
+                            "movement": {
+                                "start": { "x": 64, "y": 14, "z": 44 },
+                                "end": { "x": 72, "y": 14, "z": 44 },
+                                "repeat": true,
+                                "backAndForth": true,
+                                "speed": 4,
+                                "physics": false
+                            },
+                            "model": {
+                                "rootTransform": {
+                                    "position": { "x": 0, "y": 0, "z": 0 },
+                                    "rotation": { "x": 0, "y": 0, "z": 0 },
+                                    "scale": { "x": 1, "y": 1, "z": 1 }
+                                },
+                                "parts": [
+                                    {
+                                        "id": "pulse",
+                                        "primitive": "sphere",
+                                        "dimensions": { "x": 0.45, "y": 0.45, "z": 0.45 },
+                                        "localPosition": { "x": 0, "y": 0.25, "z": 0 },
+                                        "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                        "localScale": { "x": 1, "y": 1, "z": 1 },
+                                        "textureID": "energy-core",
+                                        "textureColor": { "r": 0.78, "g": 0.98, "b": 1, "a": 1 },
+                                        "textureOpacity": 0.95
+                                    }
+                                ]
                             }
                         }
                     ],
                     "camera": {
                         "levelOpening": {
-                            "startPosition": {
-                                "x": 60,
-                                "y": 52,
-                                "z": 112
-                            },
-                            "endPosition": {
-                                "x": 60,
-                                "y": 52,
-                                "z": 112
-                            }
+                            "startPosition": { "x": 60, "y": 52, "z": 112 },
+                            "endPosition": { "x": 60, "y": 52, "z": 112 }
                         },
                         "distanceFromPlayer": {
                             "x": 0,
