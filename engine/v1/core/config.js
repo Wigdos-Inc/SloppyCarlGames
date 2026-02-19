@@ -46,7 +46,7 @@ let CONFIG = {
         Cutscene: true,
         Controls: {
           Click: true,
-          Hover: false,
+          Hover: true,
           Key: true,
         },
         Level: true,

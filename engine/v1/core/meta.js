@@ -92,6 +92,14 @@ const Cache = pushToSession(
       lastPayload: null,
       screenID: null,
       elementIndex: {},
+      uiRuntime: {
+        hoverOverMap: {},
+        hoverOutMap: {},
+        clickMap: {},
+        inputMap: {},
+        changeMap: {},
+        keyMap: {},
+      },
     },
     Level: {
       lastPayload: null,
@@ -101,6 +109,20 @@ const Cache = pushToSession(
     },
   })
 );
+
+if (!Cache.UI || typeof Cache.UI !== "object") {
+  Cache.UI = {};
+}
+if (!Cache.UI.uiRuntime || typeof Cache.UI.uiRuntime !== "object") {
+  Cache.UI.uiRuntime = {
+    hoverOverMap: {},
+    hoverOutMap: {},
+    clickMap: {},
+    inputMap: {},
+    changeMap: {},
+    keyMap: {},
+  };
+}
 
 // Shared delay utility for async flows.
 function Wait(milliseconds) {

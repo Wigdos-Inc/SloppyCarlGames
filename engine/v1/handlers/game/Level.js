@@ -198,6 +198,14 @@ async function CreateLevel(payload, options) {
 		...(resolvedOptions.renderOptions || {}),
 	};
 
+	if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+		window.dispatchEvent(
+			new CustomEvent("ENGINE_LEVEL_PAYLOAD_PROCESSED", {
+				detail: { payload: cachedPayload },
+			})
+		);
+	}
+
 	const sceneGraph = await BuildLevel(cachedPayload);
 	if (!sceneGraph.cameraConfig || typeof sceneGraph.cameraConfig !== "object") {
 		sceneGraph.cameraConfig = {};

@@ -48,8 +48,25 @@ function indexElements(definitions, index) {
 	});
 }
 
+function createUiRuntimeMaps() {
+	return {
+		hoverOverMap: {},
+		hoverOutMap: {},
+		clickMap: {},
+		inputMap: {},
+		changeMap: {},
+		keyMap: {},
+	};
+}
+
+function setPrecomputedAction(targetMap, elementId, action) {
+	if (!targetMap || !elementId || !action) {
+		return;
+	}
+	targetMap[elementId] = action;
+}
+
 function getActionFromDefinition(definition, eventType) {
-	// Pull the most specific action mapping for the event.
 	if (!definition || typeof definition !== "object" || !eventType) {
 		return null;
 	}
@@ -67,21 +84,55 @@ function getActionFromDefinition(definition, eventType) {
 	return direct || null;
 }
 
-function ResolveUiAction(event) {
-	// Match the event target to a cached element definition.
-	const target = event && event.target ? event.target : null;
-	const targetId = target && target.id ? target.id : null;
-	if (!targetId || !Cache || !Cache.UI || !Cache.UI.elementIndex) {
+function buildUiRuntimeMapsFromIndex(index) {
+	const runtime = createUiRuntimeMaps();
+	if (!index || typeof index !== "object") {
+		return runtime;
+	}
+
+	Object.keys(index).forEach((elementId) => {
+		const definition = index[elementId];
+		if (!definition || typeof definition !== "object") {
+			return;
+		}
+
+		setPrecomputedAction(runtime.hoverOverMap, elementId, getActionFromDefinition(definition, "pointerover"));
+		setPrecomputedAction(runtime.hoverOutMap, elementId, getActionFromDefinition(definition, "pointerout"));
+		setPrecomputedAction(runtime.clickMap, elementId, getActionFromDefinition(definition, "click"));
+		setPrecomputedAction(runtime.inputMap, elementId, getActionFromDefinition(definition, "input"));
+		setPrecomputedAction(runtime.changeMap, elementId, getActionFromDefinition(definition, "change"));
+		setPrecomputedAction(runtime.keyMap, elementId, getActionFromDefinition(definition, "keydown"));
+		if (!runtime.keyMap[elementId]) {
+			setPrecomputedAction(runtime.keyMap, elementId, getActionFromDefinition(definition, "keyup"));
+		}
+	});
+
+	return runtime;
+}
+
+function resolvePrecomputedAction(type, targetId) {
+	if (!type || !targetId || !Cache || !Cache.UI || !Cache.UI.uiRuntime) {
 		return null;
 	}
 
-	const definition = Cache.UI.elementIndex[targetId];
-	const action = getActionFromDefinition(definition, event.type);
-	if (!action) {
-		return null;
+	const runtime = Cache.UI.uiRuntime;
+	switch (type) {
+		case "pointerover":
+			return runtime.hoverOverMap && runtime.hoverOverMap[targetId] ? runtime.hoverOverMap[targetId] : null;
+		case "pointerout":
+			return runtime.hoverOutMap && runtime.hoverOutMap[targetId] ? runtime.hoverOutMap[targetId] : null;
+		case "click":
+			return runtime.clickMap && runtime.clickMap[targetId] ? runtime.clickMap[targetId] : null;
+		case "input":
+			return runtime.inputMap && runtime.inputMap[targetId] ? runtime.inputMap[targetId] : null;
+		case "change":
+			return runtime.changeMap && runtime.changeMap[targetId] ? runtime.changeMap[targetId] : null;
+		case "keydown":
+		case "keyup":
+			return runtime.keyMap && runtime.keyMap[targetId] ? runtime.keyMap[targetId] : null;
+		default:
+			return null;
 	}
-
-	return { action: action, targetId: targetId };
 }
 
 function HandleUiAction(action) {
@@ -145,14 +196,22 @@ function ApplyMenuUI(payload) {
 		Cache.UI.screenID = payload.screenId || null;
 		Cache.UI.elementIndex = {};
 		indexElements(payload.elements, Cache.UI.elementIndex);
+		Cache.UI.uiRuntime = buildUiRuntimeMapsFromIndex(Cache.UI.elementIndex);
 		pushToSession(SESSION_KEYS.Cache, Cache);
 	}
 
+	if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+		window.dispatchEvent(
+			new CustomEvent("ENGINE_UI_PAYLOAD_PROCESSED", {
+				detail: { payload: payload },
+			})
+		);
+	}
+
 	const screenLabel = payload.screenId || "unknown";
-	Log("ENGINE", `UI render start: ${screenLabel}`, "log", "UI");
+	Log("ENGINE", `UI Render: ${screenLabel}`, "log", "UI");
 
 	CreateUI(payload);
-	Log("ENGINE", `UI render end: ${screenLabel}`, "log", "UI");
 	Cursor.changeState("enabled");
 
 	// Notify listeners that the UI is ready.
@@ -183,7 +242,16 @@ function ClearUI(rootId) {
 		Cache.UI.lastPayload = null;
 		Cache.UI.screenID = null;
 		Cache.UI.elementIndex = {};
+		Cache.UI.uiRuntime = createUiRuntimeMaps();
 		pushToSession(SESSION_KEYS.Cache, Cache);
+	}
+
+	if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+		window.dispatchEvent(
+			new CustomEvent("ENGINE_UI_PAYLOAD_PROCESSED", {
+				detail: { payload: { elements: [] } },
+			})
+		);
 	}
 
 	RemoveRoot(resolvedRootId);
@@ -193,4 +261,4 @@ function ClearUI(rootId) {
 /* === EXPORTS === */
 // Public UI API for engine modules.
 
-export { CreateUI, ApplyMenuUI, LoadScreen, ClearUI, ResolveUiAction, HandleUiAction }; 
+export { CreateUI, ApplyMenuUI, LoadScreen, ClearUI, HandleUiAction, resolvePrecomputedAction }; 

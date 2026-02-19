@@ -6,7 +6,133 @@ import { Cache, Log, sendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { GetActiveLevel } from "./game/Level.js";
 import { HandleFreeCamInput } from "./game/Camera.js";
-import { HandleUiAction, ResolveUiAction } from "./UI.js";
+import { HandleUiAction, resolvePrecomputedAction } from "./UI.js";
+
+const eventTypes = {
+	pointerover: false,
+	pointerout: false,
+	click: false,
+	pointerdown: false,
+	pointerup: false,
+	keydown: false,
+	keyup: false,
+	wheel: false,
+	input: false,
+	change: false,
+	mousemove: false,
+};
+
+const directEventNameMap = {
+	onClick: "click",
+	onInput: "input",
+	onChange: "change",
+	onPointerover: "pointerover",
+	onPointerout: "pointerout",
+	onPointerdown: "pointerdown",
+	onPointerup: "pointerup",
+	onKeydown: "keydown",
+	onKeyup: "keyup",
+	onWheel: "wheel",
+	onMousemove: "mousemove",
+};
+
+function resetEventTypes() {
+	Object.keys(eventTypes).forEach((key) => {
+		eventTypes[key] = false;
+	});
+}
+
+function setEventType(type, enabled) {
+	if (!type || !(type in eventTypes)) {
+		return;
+	}
+	eventTypes[type] = enabled === true;
+
+	console.log("TEST: SET EVENT TYPE TO TRUE: " + type)
+}
+
+function markEventFromDefinitionEventName(eventName) {
+	if (!eventName || typeof eventName !== "string") {
+		return;
+	}
+	const normalized = eventName.toLowerCase();
+	if (normalized in eventTypes) {
+		eventTypes[normalized] = true;
+	}
+}
+
+function scanUiDefinitionsForEvents(definitions) {
+	if (!Array.isArray(definitions)) {
+		return;
+	}
+
+	definitions.forEach((definition) => {
+		if (!definition || typeof definition !== "object") {
+			return;
+		}
+
+		const events = definition.events && typeof definition.events === "object" ? definition.events : null;
+		if (events) {
+			Object.keys(events).forEach((eventName) => {
+				if (events[eventName]) {
+					markEventFromDefinitionEventName(eventName);
+				}
+			});
+		}
+
+		const onMap = definition.on && typeof definition.on === "object" ? definition.on : null;
+		if (onMap) {
+			Object.keys(onMap).forEach((eventName) => {
+				if (onMap[eventName]) {
+					markEventFromDefinitionEventName(eventName);
+				}
+			});
+		}
+
+		Object.keys(directEventNameMap).forEach((directKey) => {
+			if (definition[directKey]) {
+				setEventType(directEventNameMap[directKey], true);
+			}
+		});
+
+		if (Array.isArray(definition.children)) {
+			scanUiDefinitionsForEvents(definition.children);
+		}
+	});
+}
+
+function configureEventTypesFromUiPayload(payload) {
+	const source = payload && typeof payload === "object" ? payload : null;
+	if (!source) {
+		return;
+	}
+
+	scanUiDefinitionsForEvents(source.elements);
+}
+
+function configureEventTypesFromLevelPayload(payload) {
+	const source = payload && typeof payload === "object" ? payload : null;
+	if (!source) {
+		return;
+	}
+
+	setEventType("pointerdown", true);
+	setEventType("mousemove", true);
+	setEventType("wheel", true);
+	setEventType("keydown", true);
+	setEventType("keyup", true);
+}
+
+function configureEventTypesFromPayload(payloadType, payload) {
+	if (payloadType === "ui") {
+		configureEventTypesFromUiPayload(payload);
+		return;
+	}
+
+	if (payloadType === "level") {
+		configureEventTypesFromLevelPayload(payload);
+	}
+}
 
 class Controls {
 	constructor(target) {
@@ -86,69 +212,80 @@ function buildInteractionPayload(event) {
 	};
 }
 
-function resolveCachedAction(event) {
-	// Check cached payloads for a matching action.
-	if (Cache && Cache.UI) {
-		return { handler: HandleUiAction, resolved: ResolveUiAction(event) };
-	}
-
-	return null;
-}
-
 function StartInputRouter(target) {
 	// Register global input listeners for UI routing.
 	const router = new Controls(target);
-	const eventTypes = [
-		"click",
-		"pointerdown",
-		"pointerup",
-		"pointerover",
-		"pointerout",
-		"mousemove",
-		"wheel",
-		"input",
-		"change",
-		"keydown",
-		"keyup",
-	];
+
+	const onUiRequest = () => {
+		resetEventTypes();
+	};
+	const onLevelRequest = () => {
+		resetEventTypes();
+	};
+	const onLoadGame = () => {
+		resetEventTypes();
+	};
+	const onUiPayloadProcessed = (event) => {
+		const payload = event && event.detail && event.detail.payload ? event.detail.payload : null;
+		configureEventTypesFromPayload("ui", payload);
+	};
+	const onLevelPayloadProcessed = (event) => {
+		const payload = event && event.detail && event.detail.payload ? event.detail.payload : null;
+		configureEventTypesFromPayload("level", payload);
+	};
+
+	router.on("UI_REQUEST", onUiRequest);
+	router.on("LEVEL_REQUEST", onLevelRequest);
+	router.on("LOAD_GAME", onLoadGame);
+	router.on("ENGINE_UI_PAYLOAD_PROCESSED", onUiPayloadProcessed);
+	router.on("ENGINE_LEVEL_PAYLOAD_PROCESSED", onLevelPayloadProcessed);
 
 	const handler = (event) => {
+		const type = event && event.type ? event.type : null;
 		const targetId = event && event.target ? event.target.id : null;
+		let consumed = false;
 
-		// Log each user interaction the router sees.
-		//Log(
-		//	"ENGINE",
-		//	`User Input: ${event.type} ${"on " + (targetId || "document")}`.trim(),
-		//	"log",
-		//	"Controls"
-		//);
+		if (type && eventTypes[type] === true) {
+			const action = resolvePrecomputedAction(type, targetId);
+			if (action) {
+				consumed = HandleUiAction(action);
+				if (consumed) {
+					Log(
+						"ENGINE",
+						`Input action handled: ${type} ${targetId || "document"}`,
+						"log",
+						"Controls"
+					);
+					return;
+				}
+			}
 
-		const levelIsLoaded = Boolean(GetActiveLevel());
-		const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
-		if (levelIsLoaded && freeCamEnabled) {
-			const consumed = HandleFreeCamInput(event, GetActiveLevel());
-			if (consumed) {
-				return;
+			const activeLevel = GetActiveLevel();
+			const levelIsLoaded = Boolean(activeLevel);
+			const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
+			if (levelIsLoaded && freeCamEnabled) {
+				consumed = HandleFreeCamInput(event, activeLevel);
+				if (consumed) {
+					return;
+				}
 			}
 		}
 
-		// Use cached actions when available.
-		const match = resolveCachedAction(event);
-		if (match && match.resolved && match.handler(match.resolved.action)) {
+		if (consumed) {
 			Log(
 				"ENGINE",
-				`Input action handled: ${event.type} ${match.resolved.targetId}`,
+				`Input action handled: ${type} on ${targetId || "document"}`,
 				"log",
 				"Controls"
 			);
 			return;
 		}
 
-		// Fallback to game-controlled handling.
+		// Always forward unconsumed events to game-level handlers.
 		sendEvent("USER_INPUT", buildInteractionPayload(event));
 	};
 
-	eventTypes.forEach((eventType) => {
+	Object.keys(eventTypes).forEach((eventType) => {
 		router.on(eventType, handler);
 	});
 
@@ -158,4 +295,6 @@ function StartInputRouter(target) {
 export {
 	Controls,
 	StartInputRouter,
+	resetEventTypes,
+	configureEventTypesFromPayload,
 };
