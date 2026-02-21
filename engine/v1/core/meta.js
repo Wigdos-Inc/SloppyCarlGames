@@ -131,6 +131,28 @@ function Wait(milliseconds) {
   });
 }
 
+function IsPointerLocked() {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  return Boolean(document.pointerLockElement);
+}
+
+function RequestPointerLock(targetElement) {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const element = targetElement || document.getElementById("engine-level-root-canvas") || document.body;
+  if (!element || typeof element.requestPointerLock !== "function") {
+    return false;
+  }
+
+  element.requestPointerLock();
+  return true;
+}
+
 /* === DEBUG CHECKS === */
 // Gate logging based on debug flags.
 
@@ -275,16 +297,42 @@ function getMostRecentLogEntry() {
 
 function isDuplicateOfLatest(entry) {
   const latest = getMostRecentLogEntry();
-  if (!latest) {
-    return false;
-  }
-
-  return (
+  if (
+    latest &&
     latest.source === entry.source &&
     latest.channel === entry.channel &&
     latest.level === entry.level &&
     latest.message === entry.message
-  );
+  ) {
+    return true;
+  }
+
+  if (!entry || !entry.channel || !String(entry.channel).startsWith("Controls")) {
+    return false;
+  }
+
+  if (!Array.isArray(logs.Controls) || logs.Controls.length === 0) {
+    return false;
+  }
+
+  const startIndex = Math.max(0, logs.Controls.length - 3);
+  for (let index = logs.Controls.length - 1; index >= startIndex; index -= 1) {
+    const existing = logs.Controls[index];
+    if (!existing || typeof existing !== "object") {
+      continue;
+    }
+
+    if (
+      existing.source === entry.source &&
+      existing.channel === entry.channel &&
+      existing.level === entry.level &&
+      existing.message === entry.message
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function Log(source, message, level, channel) {
@@ -460,6 +508,8 @@ export {
   LogCache,
   sendEvent,
   Wait,
+  IsPointerLocked,
+  RequestPointerLock,
   Cache,
   Cursor,
   ExitGame,

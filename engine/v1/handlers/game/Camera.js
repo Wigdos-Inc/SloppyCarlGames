@@ -4,7 +4,7 @@
 // Returns ready to use Camera State
 
 import { CONFIG } from "../../core/config.js";
-import { Log } from "../../core/meta.js";
+import { IsPointerLocked, Log, RequestPointerLock } from "../../core/meta.js";
 import {
 	addVector3,
 	crossVector3,
@@ -16,6 +16,7 @@ import {
 
 const worldUp = { x: 0, y: 1, z: 0 };
 const pitchClampDegrees = 89;
+const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
 
 const persistedFreeCamStates = new Map();
 const freeCamRuntime = {
@@ -26,6 +27,10 @@ const freeCamRuntime = {
 		KeyA: false,
 		KeyS: false,
 		KeyD: false,
+		ArrowLeft: false,
+		ArrowUp: false,
+		ArrowDown: false,
+		ArrowRight: false,
 		Space: false,
 		ShiftLeft: false,
 		ShiftRight: false,
@@ -39,6 +44,7 @@ const freeCamRuntime = {
 	lookDeltaY: 0,
 	wheelDelta: 0,
 };
+const playerCamRuntime = {}
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -115,6 +121,18 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 	};
 }
 
+function createStationaryCameraState(sceneGraph, cameraConfig) {
+	const base = resolveDefaultLevelCamera(sceneGraph, cameraConfig);
+	return {
+		...base,
+		mode: "stationary",
+	};
+}
+
+function CalculateCameraState(sceneGraph, cameraConfig) {
+	return createStationaryCameraState(sceneGraph, cameraConfig);
+}
+
 function applyTuningStep(step) {
 	freeCamRuntime.tuningStep = clamp(step, -6, 16);
 	freeCamRuntime.maxSpeed = clamp(14 + freeCamRuntime.tuningStep * 2.5, 3, 80);
@@ -131,34 +149,11 @@ function applyTuningStep(step) {
 	}
 }
 
-function isPointerLocked() {
-	if (typeof document === "undefined") {
-		return false;
-	}
-	return Boolean(document.pointerLockElement);
-}
-
-function requestPointerLock() {
-	if (typeof document === "undefined") {
-		return false;
-	}
-	if (isPointerLocked()) {
-		return true;
-	}
-	const element = document.getElementById("engine-level-root-canvas") || document.body;
-	if (!element || typeof element.requestPointerLock !== "function") {
-		return false;
-	}
-	element.requestPointerLock();
-	Log("ENGINE", "FreeCam pointer lock requested.", "log", "Level");
-	return true;
-}
-
 function releasePointerLock() {
 	if (typeof document === "undefined" || typeof document.exitPointerLock !== "function") {
 		return false;
 	}
-	if (!isPointerLocked()) {
+	if (!IsPointerLocked()) {
 		return true;
 	}
 	document.exitPointerLock();
@@ -195,7 +190,6 @@ function applyLookInput(cameraState, movementX, movementY) {
 }
 
 function HandleFreeCamInput(eventLike, sceneGraph) {
-	const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
 	if (!freeCamEnabled || !eventLike || typeof eventLike !== "object") {
 		return false;
 	}
@@ -204,7 +198,9 @@ function HandleFreeCamInput(eventLike, sceneGraph) {
 	const eventCode = eventLike.code || null;
 
 	if (eventType === "pointerdown") {
-		requestPointerLock();
+		if (RequestPointerLock()) {
+			Log("ENGINE", "FreeCam pointer lock requested.", "log", "Level");
+		}
 		return true;
 	}
 
@@ -234,7 +230,7 @@ function HandleFreeCamInput(eventLike, sceneGraph) {
 	}
 
 	if (eventType === "mousemove") {
-		if (!isPointerLocked()) {
+		if (!IsPointerLocked()) {
 			return false;
 		}
 		freeCamRuntime.lookDeltaX += toNumber(eventLike.movementX, 0);
@@ -247,16 +243,16 @@ function HandleFreeCamInput(eventLike, sceneGraph) {
 
 function getMoveDirectionFromKeys(cameraState) {
 	let direction = { x: 0, y: 0, z: 0 };
-	if (freeCamRuntime.keyState.KeyW) {
+	if (freeCamRuntime.keyState.KeyW || freeCamRuntime.keyState.ArrowUp) {
 		direction = addVector3(direction, cameraState.forward);
 	}
-	if (freeCamRuntime.keyState.KeyS) {
+	if (freeCamRuntime.keyState.KeyS || freeCamRuntime.keyState.ArrowDown) {
 		direction = addVector3(direction, scaleVector3(cameraState.forward, -1));
 	}
-	if (freeCamRuntime.keyState.KeyD) {
+	if (freeCamRuntime.keyState.KeyD || freeCamRuntime.keyState.ArrowRight) {
 		direction = addVector3(direction, cameraState.right);
 	}
-	if (freeCamRuntime.keyState.KeyA) {
+	if (freeCamRuntime.keyState.KeyA || freeCamRuntime.keyState.ArrowLeft) {
 		direction = addVector3(direction, scaleVector3(cameraState.right, -1));
 	}
 	if (freeCamRuntime.keyState.Space) {
@@ -322,8 +318,6 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 }
 
 function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
-	const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
-
 	if (!freeCamEnabled) {
 		freeCamRuntime.active = false;
 		freeCamRuntime.levelKey = null;
@@ -370,9 +364,8 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 }
 
 function UpdateCameraState(currentState, sceneGraph, cameraConfig, deltaSeconds) {
-	const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
 	if (!freeCamEnabled) {
-		return currentState && currentState.mode === "level"
+		return currentState && (currentState.mode === "level" || currentState.mode === "stationary")
 			? currentState
 			: resolveDefaultLevelCamera(sceneGraph, cameraConfig);
 	}
@@ -384,4 +377,4 @@ function UpdateCameraState(currentState, sceneGraph, cameraConfig, deltaSeconds)
 	return updateFreeCamState(resolvedState, deltaSeconds);
 }
 
-export { InitializeCameraState, UpdateCameraState, HandleFreeCamInput };
+export { InitializeCameraState, UpdateCameraState, HandleFreeCamInput, CalculateCameraState };

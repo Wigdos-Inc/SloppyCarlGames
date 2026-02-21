@@ -47,8 +47,6 @@ function setEventType(type, enabled) {
 		return;
 	}
 	eventTypes[type] = enabled === true;
-
-	console.log("TEST: SET EVENT TYPE TO TRUE: " + type)
 }
 
 function markEventFromDefinitionEventName(eventName) {
@@ -101,36 +99,33 @@ function scanUiDefinitionsForEvents(definitions) {
 	});
 }
 
-function configureEventTypesFromUiPayload(payload) {
-	const source = payload && typeof payload === "object" ? payload : null;
-	if (!source) {
-		return;
-	}
+// Update Input Events Engine Listens for
+function UpdateInputEventTypes(options) {
+	const source = options && typeof options === "object" ? options : {};
+	const payloadType = source.payloadType || null;
+	const payload = source.payload || null;
 
-	scanUiDefinitionsForEvents(source.elements);
-}
-
-function configureEventTypesFromLevelPayload(payload) {
-	const source = payload && typeof payload === "object" ? payload : null;
-	if (!source) {
-		return;
-	}
-
-	setEventType("pointerdown", true);
-	setEventType("mousemove", true);
-	setEventType("wheel", true);
-	setEventType("keydown", true);
-	setEventType("keyup", true);
-}
-
-function configureEventTypesFromPayload(payloadType, payload) {
 	if (payloadType === "ui") {
-		configureEventTypesFromUiPayload(payload);
+		resetEventTypes();
+		const uiPayload = payload && typeof payload === "object" ? payload : null;
+		if (!uiPayload) {
+			return;
+		}
+		scanUiDefinitionsForEvents(uiPayload.elements);
 		return;
 	}
 
 	if (payloadType === "level") {
-		configureEventTypesFromLevelPayload(payload);
+		resetEventTypes();
+		const levelPayload = payload && typeof payload === "object" ? payload : null;
+		if (!levelPayload) {
+			return;
+		}
+		setEventType("pointerdown", true);
+		setEventType("mousemove", true);
+		setEventType("wheel", true);
+		setEventType("keydown", true);
+		setEventType("keyup", true);
 	}
 }
 
@@ -216,30 +211,6 @@ function StartInputRouter(target) {
 	// Register global input listeners for UI routing.
 	const router = new Controls(target);
 
-	const onUiRequest = () => {
-		resetEventTypes();
-	};
-	const onLevelRequest = () => {
-		resetEventTypes();
-	};
-	const onLoadGame = () => {
-		resetEventTypes();
-	};
-	const onUiPayloadProcessed = (event) => {
-		const payload = event && event.detail && event.detail.payload ? event.detail.payload : null;
-		configureEventTypesFromPayload("ui", payload);
-	};
-	const onLevelPayloadProcessed = (event) => {
-		const payload = event && event.detail && event.detail.payload ? event.detail.payload : null;
-		configureEventTypesFromPayload("level", payload);
-	};
-
-	router.on("UI_REQUEST", onUiRequest);
-	router.on("LEVEL_REQUEST", onLevelRequest);
-	router.on("LOAD_GAME", onLoadGame);
-	router.on("ENGINE_UI_PAYLOAD_PROCESSED", onUiPayloadProcessed);
-	router.on("ENGINE_LEVEL_PAYLOAD_PROCESSED", onLevelPayloadProcessed);
-
 	const handler = (event) => {
 		const type = event && event.type ? event.type : null;
 		const targetId = event && event.target ? event.target.id : null;
@@ -265,16 +236,13 @@ function StartInputRouter(target) {
 			const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
 			if (levelIsLoaded && freeCamEnabled) {
 				consumed = HandleFreeCamInput(event, activeLevel);
-				if (consumed) {
-					return;
-				}
 			}
 		}
 
 		if (consumed) {
 			Log(
 				"ENGINE",
-				`Input action handled: ${type} on ${targetId || "document"}`,
+				`Input action handled: ${type} ${targetId ? `on ${targetId}` : ""}`,
 				"log",
 				"Controls"
 			);
@@ -296,5 +264,5 @@ export {
 	Controls,
 	StartInputRouter,
 	resetEventTypes,
-	configureEventTypesFromPayload,
+	UpdateInputEventTypes,
 };

@@ -11,6 +11,7 @@ import { Cache, Log, sendEvent, Cursor, ExitGame, pushToSession, SESSION_KEYS } 
 import { BuildElements } from "../builder/NewUI.js";
 import { RenderPayload, RemoveRoot } from "./Render.js";
 import { PlayMusic } from "./Sound.js";
+import { UpdateInputEventTypes } from "./Controls.js";
 
 
 /* === MENU UI === */
@@ -135,6 +136,71 @@ function resolvePrecomputedAction(type, targetId) {
 	}
 }
 
+function countInlineStyleKeys(styles) {
+	if (!styles || typeof styles !== "object") {
+		return 0;
+	}
+
+	let count = 0;
+	Object.keys(styles).forEach((key) => {
+		if (key !== "classList") {
+			count += 1;
+		}
+	});
+	return count;
+}
+
+function styleActionHasManyInlineStyles(action) {
+	if (!action || typeof action !== "object") {
+		return false;
+	}
+
+	if (Array.isArray(action)) {
+		for (let index = 0; index < action.length; index += 1) {
+			if (styleActionHasManyInlineStyles(action[index])) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	if (action.type !== "style" || !action.styles || typeof action.styles !== "object") {
+		return false;
+	}
+
+	return countInlineStyleKeys(action.styles) >= 5;
+}
+
+function payloadHasHeavyInlineStyleActions(definitions) {
+	if (!Array.isArray(definitions)) {
+		return false;
+	}
+
+	for (let index = 0; index < definitions.length; index += 1) {
+		const definition = definitions[index];
+		if (!definition || typeof definition !== "object") {
+			continue;
+		}
+
+		const events = definition.events && typeof definition.events === "object" ? definition.events : null;
+		if (events) {
+			const eventNames = Object.keys(events);
+			for (let eventIndex = 0; eventIndex < eventNames.length; eventIndex += 1) {
+				const eventName = eventNames[eventIndex];
+				if (styleActionHasManyInlineStyles(events[eventName])) {
+					return true;
+				}
+			}
+		}
+
+		if (Array.isArray(definition.children) && payloadHasHeavyInlineStyleActions(definition.children)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 function HandleUiAction(action) {
 	// Dispatch a resolved UI action or engine event.
 	if (!action) {
@@ -173,7 +239,53 @@ function HandleUiAction(action) {
 	if (action.type === "style" && action.targetId && action.styles) {
 		const element = document.getElementById(action.targetId);
 		if (element) {
-			Object.assign(element.style, action.styles);
+			const styles = action.styles;
+			const classListConfig = styles.classList;
+
+			if (Array.isArray(classListConfig)) {
+				for (let index = 0; index < classListConfig.length; index += 1) {
+					const className = classListConfig[index];
+					if (typeof className === "string" && className.length > 0) {
+						element.classList.add(className);
+					}
+				}
+			} else if (classListConfig && typeof classListConfig === "object") {
+				const addClasses = Array.isArray(classListConfig.add) ? classListConfig.add : [];
+				for (let index = 0; index < addClasses.length; index += 1) {
+					const className = addClasses[index];
+					if (typeof className === "string" && className.length > 0) {
+						element.classList.add(className);
+					}
+				}
+
+				const removeClasses = Array.isArray(classListConfig.remove) ? classListConfig.remove : [];
+				for (let index = 0; index < removeClasses.length; index += 1) {
+					const className = removeClasses[index];
+					if (typeof className === "string" && className.length > 0) {
+						element.classList.remove(className);
+					}
+				}
+			}
+
+			if ("classList" in styles) {
+				const inlineStyles = {};
+				let inlineCount = 0;
+				const styleKeys = Object.keys(styles);
+				for (let index = 0; index < styleKeys.length; index += 1) {
+					const key = styleKeys[index];
+					if (key === "classList") {
+						continue;
+					}
+					inlineStyles[key] = styles[key];
+					inlineCount += 1;
+				}
+				if (inlineCount > 0) {
+					Object.assign(element.style, inlineStyles);
+				}
+			} else {
+				Object.assign(element.style, styles);
+			}
+
 			return true;
 		}
 	}
@@ -186,8 +298,20 @@ function ApplyMenuUI(payload) {
 		return;
 	}
 
+	// Update Input Events Engine Listens for
+	UpdateInputEventTypes({ payloadType: "ui", payload: payload });
+
 	if (payload.screenId) {
 		Log("ENGINE", `UI screen load: ${payload.screenId}`, "log", "UI");
+	}
+
+	if (payloadHasHeavyInlineStyleActions(payload.elements)) {
+		Log(
+			"ENGINE",
+			"Many style actions detected. Consider using CSS Stylesheet + classList for better performance.",
+			"warn",
+			"UI"
+		);
 	}
 
 	// Cache the latest UI payload for input routing.
@@ -198,14 +322,6 @@ function ApplyMenuUI(payload) {
 		indexElements(payload.elements, Cache.UI.elementIndex);
 		Cache.UI.uiRuntime = buildUiRuntimeMapsFromIndex(Cache.UI.elementIndex);
 		pushToSession(SESSION_KEYS.Cache, Cache);
-	}
-
-	if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
-		window.dispatchEvent(
-			new CustomEvent("ENGINE_UI_PAYLOAD_PROCESSED", {
-				detail: { payload: payload },
-			})
-		);
 	}
 
 	const screenLabel = payload.screenId || "unknown";
@@ -231,6 +347,7 @@ function ApplyMenuUI(payload) {
 }
 
 function LoadScreen(payload) {
+	UpdateInputEventTypes({ request: "ui" });
 	Cursor.changeState("hidden");
 	ApplyMenuUI(payload);
 }
@@ -244,14 +361,6 @@ function ClearUI(rootId) {
 		Cache.UI.elementIndex = {};
 		Cache.UI.uiRuntime = createUiRuntimeMaps();
 		pushToSession(SESSION_KEYS.Cache, Cache);
-	}
-
-	if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
-		window.dispatchEvent(
-			new CustomEvent("ENGINE_UI_PAYLOAD_PROCESSED", {
-				detail: { payload: { elements: [] } },
-			})
-		);
 	}
 
 	RemoveRoot(resolvedRootId);

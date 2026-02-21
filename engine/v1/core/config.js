@@ -15,11 +15,11 @@ let CONFIG = {
     },
     LEVELS: {
       Triggers: true,
-      FreeCam: false,
+      FreeCam: true,
       BoundingBox: {
-        Terrain: false,
-        Scatter: false,
-        Entity: false,
+        Terrain: true,
+        Scatter: true,
+        Entity: true,
         EntityPart: false,
         Obstacle: false,
         Player: false,

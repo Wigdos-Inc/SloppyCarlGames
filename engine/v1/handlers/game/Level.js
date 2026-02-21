@@ -8,10 +8,11 @@
 
 import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js";
 import { RenderLevel } from "../Render.js";
-import { Cache, Log, pushToSession, SESSION_KEYS } from "../../core/meta.js";
+import { Cache, IsPointerLocked, Log, pushToSession, SESSION_KEYS } from "../../core/meta.js";
 import { InitializeCameraState, UpdateCameraState } from "./Camera.js";
 import { addVector3, distanceVector3, lerpVector3, normalizeVector3, scaleVector3 } from "../../math/Vector3.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
+import { UpdateInputEventTypes } from "../Controls.js";
 
 const levelRuntimeState = {
 	payload: null,
@@ -19,7 +20,16 @@ const levelRuntimeState = {
 	renderOptions: {
 		rootId: "engine-level-root",
 	},
-	lastUpdateAt: 0,
+};
+
+const levelLoop = {
+	active: false,
+	paused: false,
+	animationFrameId: null,
+	lastFrameTime: 0,
+	accumulator: 0,
+	fixedTimeStep: 1000 / 60,
+	maxFrameTime: 250,
 };
 
 function toNumber(value, fallback) {
@@ -178,11 +188,84 @@ function syncEntityMeshes(sceneGraph) {
 	}
 }
 
+function StartLevelLoop() {
+	if (levelLoop.active) {
+		return;
+	}
+
+	if (typeof requestAnimationFrame !== "function" || typeof performance === "undefined") {
+		Log("ENGINE", "Level loop start aborted: animation frame API unavailable.", "warn", "Level");
+		return;
+	}
+
+	levelLoop.active = true;
+	levelLoop.paused = false;
+	levelLoop.lastFrameTime = performance.now();
+	levelLoop.accumulator = 0;
+
+	const frame = () => {
+		if (!levelLoop.active) {
+			return;
+		}
+
+		const now = performance.now();
+		let frameTime = now - levelLoop.lastFrameTime;
+		levelLoop.lastFrameTime = now;
+
+		if (frameTime > levelLoop.maxFrameTime) {
+			frameTime = levelLoop.maxFrameTime;
+		}
+
+		levelLoop.accumulator += frameTime;
+		const pointerLocked = IsPointerLocked();
+
+		while (levelLoop.accumulator >= levelLoop.fixedTimeStep && !levelLoop.paused) {
+			if (pointerLocked) {
+				Update(levelLoop.fixedTimeStep);
+			}
+			levelLoop.accumulator -= levelLoop.fixedTimeStep;
+		}
+
+		if (levelRuntimeState.sceneGraph && !levelLoop.paused) {
+			RenderLevel(levelRuntimeState.sceneGraph, levelRuntimeState.renderOptions || {});
+		}
+
+		levelLoop.animationFrameId = requestAnimationFrame(frame);
+	};
+
+	levelLoop.animationFrameId = requestAnimationFrame(frame);
+}
+
+function StopLevelLoop() {
+	const wasActive = levelLoop.active;
+	levelLoop.active = false;
+
+	if (levelLoop.animationFrameId !== null && typeof cancelAnimationFrame === "function") {
+		cancelAnimationFrame(levelLoop.animationFrameId);
+		levelLoop.animationFrameId = null;
+	}
+
+	if (wasActive) {
+		Log("ENGINE", "Level loop stopped.", "log", "Level");
+	}
+}
+
+function PauseLevelLoop() {
+	levelLoop.paused = true;
+}
+
+function ResumeLevelLoop() {
+	levelLoop.paused = false;
+}
+
 async function CreateLevel(payload, options) {
 	if (!payload || typeof payload !== "object") {
 		Log("ENGINE", "Level.CreateLevel aborted: invalid payload.", "warn", "Level");
 		return null;
 	}
+
+	// Update Input Events Engine Listens for
+	UpdateInputEventTypes({ payloadType: "level", payload: payload });
 
 	const cachedPayload = cacheLevelPayload(payload);
 	if (!cachedPayload) {
@@ -198,12 +281,9 @@ async function CreateLevel(payload, options) {
 		...(resolvedOptions.renderOptions || {}),
 	};
 
-	if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
-		window.dispatchEvent(
-			new CustomEvent("ENGINE_LEVEL_PAYLOAD_PROCESSED", {
-				detail: { payload: cachedPayload },
-			})
-		);
+	if (levelLoop.active) {
+		StopLevelLoop();
+		Log("ENGINE", "Previous level loop stopped before new level creation.", "log", "Level");
 	}
 
 	const sceneGraph = await BuildLevel(cachedPayload);
@@ -217,10 +297,11 @@ async function CreateLevel(payload, options) {
 	);
 
 	levelRuntimeState.sceneGraph = sceneGraph;
-	levelRuntimeState.lastUpdateAt = performance.now();
 	RefreshSceneBoundingBoxes(sceneGraph);
 
 	RenderLevel(sceneGraph, levelRuntimeState.renderOptions);
+	StartLevelLoop();
+	Log("ENGINE", "Level loop started.", "log", "Level");
 
 	if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
 		window.dispatchEvent(
@@ -240,16 +321,11 @@ async function CreateLevel(payload, options) {
 
 function Update(deltaMilliseconds) {
 	if (!levelRuntimeState.sceneGraph) {
-		return null;
+		Log("ENGINE", "Level.Update skipped: no active sceneGraph.", "warn", "Level");
+		return;
 	}
 
-	const now = performance.now();
-	const computedDelta = levelRuntimeState.lastUpdateAt > 0
-		? now - levelRuntimeState.lastUpdateAt
-		: 16.67;
-	levelRuntimeState.lastUpdateAt = now;
-
-	const deltaMs = typeof deltaMilliseconds === "number" ? deltaMilliseconds : computedDelta;
+	const deltaMs = typeof deltaMilliseconds === "number" ? deltaMilliseconds : 0;
 	const deltaSeconds = Math.max(0, deltaMs) / 1000;
 	const sceneGraph = levelRuntimeState.sceneGraph;
 	const entities = Array.isArray(sceneGraph.entities) ? sceneGraph.entities : [];
@@ -272,9 +348,6 @@ function Update(deltaMilliseconds) {
 
 	syncEntityMeshes(sceneGraph);
 	RefreshSceneBoundingBoxes(sceneGraph);
-	RenderLevel(sceneGraph, levelRuntimeState.renderOptions);
-
-	return sceneGraph;
 }
 
 function GetActiveLevel() {
@@ -285,4 +358,4 @@ function LoadLevel(payload, options) {
 	return CreateLevel(payload, options);
 }
 
-export { CreateLevel, Update, GetActiveLevel, LoadLevel };
+export { CreateLevel, Update, GetActiveLevel, LoadLevel, StartLevelLoop, StopLevelLoop, PauseLevelLoop, ResumeLevelLoop };
