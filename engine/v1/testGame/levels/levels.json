@@ -29,7 +29,7 @@
                                 "textureID": "grass-soft",
                                 "textureColor": { "r": 1, "g": 1, "b": 1, "a": 1 },
                                 "textureOpacity": 1,
-                                "scatterTypeIDs": ["grass-clump", "pebble-field"],
+                                "scatterTypeIDs": ["grass", "pebbles"],
                                 "baseDensity": 0.9
                             },
                             {
@@ -40,7 +40,7 @@
                                 "textureID": "stone-block",
                                 "textureColor": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
                                 "textureOpacity": 1,
-                                "scatterTypeIDs": ["pebble-field"],
+                                "scatterTypeIDs": ["pebbles"],
                                 "baseDensity": 0.3
                             },
                             {
@@ -51,7 +51,7 @@
                                 "textureID": "stone-block",
                                 "textureColor": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
                                 "textureOpacity": 1,
-                                "scatterTypeIDs": ["scrub-bush"],
+                                "scatterTypeIDs": ["bushes"],
                                 "baseDensity": 0.25
                             },
                             {
@@ -98,7 +98,7 @@
                             "textureID": "wood-plank",
                             "textureColor": { "r": 0.96, "g": 0.93, "b": 0.87, "a": 1 },
                             "textureOpacity": 1,
-                            "scatterTypeIDs": ["pebble-field"],
+                            "scatterTypeIDs": ["pebbles"],
                             "baseDensity": 0.1,
                             "destructible": true
                         }

@@ -229,18 +229,20 @@ function createProgram(gl) {
 		varying float v_depth;
 		void main() {
 			vec4 world = u_model * vec4(a_position, 1.0);
-			vec4 clip = u_projection * u_view * world;
+			vec4 viewPos = u_view * world;
+			vec4 clip = u_projection * viewPos;
 			gl_Position = clip;
 			v_uv = a_uv;
-			v_depth = abs(clip.z / max(0.0001, clip.w));
+			v_depth = abs(viewPos.z);
 		}
 	`;
 
 	const fragmentShaderSource = `
-		precision mediump float;
+		precision highp float;
 		uniform sampler2D u_texture;
 		uniform vec4 u_tint;
 		uniform float u_fogDensity;
+		uniform float u_far;
 		uniform vec3 u_colorShift;
 		uniform float u_underwater;
 		varying vec2 v_uv;
@@ -252,7 +254,8 @@ function createProgram(gl) {
 				discard;
 			}
 
-			float fog = clamp(v_depth * u_fogDensity, 0.0, 1.0);
+			float normalizedDepth = v_depth / max(1.0, u_far);
+			float fog = clamp(normalizedDepth * u_fogDensity, 0.0, 1.0);
 			vec3 shifted = shaded.rgb + u_colorShift;
 			vec3 fogColor = mix(vec3(0.04, 0.05, 0.08), vec3(0.03, 0.13, 0.2), clamp(u_underwater, 0.0, 1.0));
 			vec3 finalColor = mix(shifted, fogColor, fog);
@@ -293,6 +296,7 @@ function createProgram(gl) {
 			texture: gl.getUniformLocation(program, "u_texture"),
 			tint: gl.getUniformLocation(program, "u_tint"),
 			fogDensity: gl.getUniformLocation(program, "u_fogDensity"),
+			far: gl.getUniformLocation(program, "u_far"),
 			colorShift: gl.getUniformLocation(program, "u_colorShift"),
 			underwater: gl.getUniformLocation(program, "u_underwater"),
 		},
@@ -649,6 +653,7 @@ function drawScene(renderer, sceneGraph) {
 	const fogDensity = underwater ? 0.85 : 0.2;
 	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
 	gl.uniform1f(shader.uniforms.fogDensity, fogDensity);
+	gl.uniform1f(shader.uniforms.far, cameraState.far || 500);
 	gl.uniform3f(shader.uniforms.colorShift, colorShift.r, colorShift.g, colorShift.b);
 	gl.uniform1f(shader.uniforms.underwater, underwater ? 1 : 0);
 

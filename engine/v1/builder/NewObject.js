@@ -139,8 +139,10 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 			if (v > maxV) maxV = v;
 		}
 
-		const spanU = Math.max(0.0001, maxU - minU);
-		const spanV = Math.max(0.0001, maxV - minV);
+		const rawSpanU = maxU - minU;
+		const rawSpanV = maxV - minV;
+		const spanU = rawSpanU === 0 ? 1 : rawSpanU;
+		const spanV = rawSpanV === 0 ? 1 : rawSpanV;
 
 		for (let index = 0; index < group.vertexIndices.length; index += 1) {
 			const vertexIndex = group.vertexIndices[index];
@@ -229,33 +231,109 @@ function rotateZ(vector, radians) {
 	};
 }
 
+function createIdentityMatrix() {
+	return [
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+	];
+}
+
+function multiplyMatrix4(a, b) {
+	const out = new Array(16);
+	for (let row = 0; row < 4; row += 1) {
+		for (let col = 0; col < 4; col += 1) {
+			out[row * 4 + col] =
+				a[row * 4 + 0] * b[0 * 4 + col] +
+				a[row * 4 + 1] * b[1 * 4 + col] +
+				a[row * 4 + 2] * b[2 * 4 + col] +
+				a[row * 4 + 3] * b[3 * 4 + col];
+		}
+	}
+	return out;
+}
+
+function createTranslationMatrix(position) {
+	return [
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		position.x, position.y, position.z, 1,
+	];
+}
+
+function createScaleMatrix(scale) {
+	return [
+		scale.x, 0, 0, 0,
+		0, scale.y, 0, 0,
+		0, 0, scale.z, 0,
+		0, 0, 0, 1,
+	];
+}
+
+function createRotationX(radians) {
+	const c = Math.cos(radians);
+	const s = Math.sin(radians);
+	return [
+		1, 0, 0, 0,
+		0, c, s, 0,
+		0, -s, c, 0,
+		0, 0, 0, 1,
+	];
+}
+
+function createRotationY(radians) {
+	const c = Math.cos(radians);
+	const s = Math.sin(radians);
+	return [
+		c, 0, -s, 0,
+		0, 1, 0, 0,
+		s, 0, c, 0,
+		0, 0, 0, 1,
+	];
+}
+
+function createRotationZ(radians) {
+	const c = Math.cos(radians);
+	const s = Math.sin(radians);
+	return [
+		c, s, 0, 0,
+		-s, c, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+	];
+}
+
+function createModelMatrix(transform) {
+	const source = transform && typeof transform === "object" ? transform : {};
+	const position = normalizeVector3(source.position, { x: 0, y: 0, z: 0 });
+	const rotation = normalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
+	const scale = normalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
+	const pivot = normalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
+
+	let matrix = createIdentityMatrix();
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix(position));
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix(pivot));
+	matrix = multiplyMatrix4(matrix, createRotationY(rotation.y || 0));
+	matrix = multiplyMatrix4(matrix, createRotationX(rotation.x || 0));
+	matrix = multiplyMatrix4(matrix, createRotationZ(rotation.z || 0));
+	matrix = multiplyMatrix4(matrix, createScaleMatrix(scale));
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix({ x: -pivot.x, y: -pivot.y, z: -pivot.z }));
+	return matrix;
+}
+
+function transformPointByMatrix(localPoint, matrix) {
+	return {
+		x: matrix[0] * localPoint.x + matrix[4] * localPoint.y + matrix[8] * localPoint.z + matrix[12],
+		y: matrix[1] * localPoint.x + matrix[5] * localPoint.y + matrix[9] * localPoint.z + matrix[13],
+		z: matrix[2] * localPoint.x + matrix[6] * localPoint.y + matrix[10] * localPoint.z + matrix[14],
+	};
+}
+
 function transformPoint(localPoint, transform) {
-	const position = normalizeVector3(transform && transform.position, { x: 0, y: 0, z: 0 });
-	const rotation = normalizeVector3(transform && transform.rotation, { x: 0, y: 0, z: 0 });
-	const scale = normalizeVector3(transform && transform.scale, { x: 1, y: 1, z: 1 });
-	const pivot = normalizeVector3(transform && transform.pivot, { x: 0, y: 0, z: 0 });
-
-	// Match renderer order: T(position) * T(pivot) * RY * RX * RZ * S * T(-pivot)
-	let point = {
-		x: localPoint.x - pivot.x,
-		y: localPoint.y - pivot.y,
-		z: localPoint.z - pivot.z,
-	};
-	point = {
-		x: point.x * scale.x,
-		y: point.y * scale.y,
-		z: point.z * scale.z,
-	};
-	point = rotateY(point, rotation.y || 0);
-	point = rotateX(point, rotation.x || 0);
-	point = rotateZ(point, rotation.z || 0);
-	point = {
-		x: point.x + pivot.x + position.x,
-		y: point.y + pivot.y + position.y,
-		z: point.z + pivot.z + position.z,
-	};
-
-	return point;
+	const modelMatrix = createModelMatrix(transform);
+	return transformPointByMatrix(localPoint, modelMatrix);
 }
 
 function computeWorldAabbFromGeometry(positions, transform) {

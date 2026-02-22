@@ -93,9 +93,18 @@ function drawPattern(ctx, size, textureDefinition) {
 	}
 
 	if (pattern === "noise") {
-		const speck = Math.max(2, Math.floor(size / 16));
+		const speck = Math.max(
+			1,
+			Number.isFinite(textureDefinition.speckSize)
+				? Math.floor(textureDefinition.speckSize)
+				: 2
+		);
+		const density = Number.isFinite(textureDefinition.density)
+			? Math.max(0.1, textureDefinition.density)
+			: 1;
+		const speckCount = Math.min(16000, Math.max(size * 2, Math.floor(size * size * 0.02 * density)));
 		ctx.fillStyle = secondary;
-		for (let index = 0; index < size * 2; index += 1) {
+		for (let index = 0; index < speckCount; index += 1) {
 			const x = Math.floor(Math.random() * (size - speck));
 			const y = Math.floor(Math.random() * (size - speck));
 			ctx.fillRect(x, y, speck, speck);
@@ -120,12 +129,34 @@ function drawPattern(ctx, size, textureDefinition) {
 	}
 }
 
-function buildTextureSurface(textureDefinition) {
+function toPowerOfTwoSize(value) {
+	let size = 8;
+	const target = Math.max(8, Math.min(512, Math.floor(value)));
+	while (size < target) {
+		size *= 2;
+	}
+	return size;
+}
+
+function resolveTextureSize(textureDefinition, usageEntry) {
+	const baseSize = Number.isFinite(textureDefinition.size) ? Math.max(8, textureDefinition.size) : 64;
+	if (!usageEntry || usageEntry.isTerrain !== true) {
+		return toPowerOfTwoSize(baseSize);
+	}
+
+	const span = Math.max(1, usageEntry.maxSpan || 1);
+	const scaleMultiplier = Math.max(1, Math.min(8, span / 24));
+	return toPowerOfTwoSize(baseSize * scaleMultiplier);
+}
+
+function buildTextureSurface(textureDefinition, resolvedSize) {
 	if (typeof document === "undefined") {
 		return null;
 	}
 
-	const size = Number.isFinite(textureDefinition.size) ? Math.max(8, textureDefinition.size) : 64;
+	const size = Number.isFinite(resolvedSize)
+		? Math.max(8, resolvedSize)
+		: (Number.isFinite(textureDefinition.size) ? Math.max(8, textureDefinition.size) : 64);
 	const canvas = document.createElement("canvas");
 	canvas.width = size;
 	canvas.height = size;
@@ -138,39 +169,59 @@ function buildTextureSurface(textureDefinition) {
 	return canvas;
 }
 
-function collectTextureReferences(sceneGraph) {
-	const ids = new Set(["default-grid"]);
+function collectTextureUsage(sceneGraph) {
+	const usage = {
+		"default-grid": { isTerrain: false, maxSpan: 1 },
+	};
 
-	const collectMesh = (mesh) => {
+	const register = (textureID, options) => {
+		const id = textureID || "default-grid";
+		if (!usage[id]) {
+			usage[id] = { isTerrain: false, maxSpan: 1 };
+		}
+
+		const entry = usage[id];
+		if (options && options.isTerrain === true) {
+			entry.isTerrain = true;
+			entry.maxSpan = Math.max(entry.maxSpan, options.maxSpan || 1);
+		}
+	};
+
+	const collectMesh = (mesh, options) => {
 		if (!mesh || !mesh.material || !mesh.material.textureID) {
 			return;
 		}
-		ids.add(mesh.material.textureID);
+		register(mesh.material.textureID, options || null);
 	};
 
 	const terrain = Array.isArray(sceneGraph && sceneGraph.terrain) ? sceneGraph.terrain : [];
-	terrain.forEach(collectMesh);
+	terrain.forEach((mesh) => {
+		const dimensions = normalizeVector3(mesh && mesh.dimensions, { x: 1, y: 1, z: 1 });
+		const scale = normalizeVector3(mesh && mesh.transform && mesh.transform.scale, { x: 1, y: 1, z: 1 });
+		const span = Math.max(1, dimensions.x * scale.x, dimensions.z * scale.z);
+		collectMesh(mesh, { isTerrain: true, maxSpan: span });
+	});
 
 	const triggers = Array.isArray(sceneGraph && sceneGraph.triggers) ? sceneGraph.triggers : [];
-	triggers.forEach(collectMesh);
+	triggers.forEach((mesh) => collectMesh(mesh, null));
 
 	const scatter = Array.isArray(sceneGraph && sceneGraph.scatter) ? sceneGraph.scatter : [];
-	scatter.forEach(collectMesh);
+	scatter.forEach((mesh) => collectMesh(mesh, null));
 
 	const entities = Array.isArray(sceneGraph && sceneGraph.entities) ? sceneGraph.entities : [];
 	entities.forEach((entity) => {
 		if (entity && entity.model && Array.isArray(entity.model.parts)) {
-			entity.model.parts.forEach((part) => collectMesh(part.mesh));
+			entity.model.parts.forEach((part) => collectMesh(part.mesh, null));
 		}
 		if (entity && entity.mesh) {
-			collectMesh(entity.mesh);
+			collectMesh(entity.mesh, null);
 		}
 	});
 
-	return Array.from(ids);
+	return usage;
 }
 
-function createTextureRegistry(templateRegistry, textureIDs) {
+function createTextureRegistry(templateRegistry, textureUsage) {
 	const textureDefinitions = templateRegistry && templateRegistry.textures ? templateRegistry.textures : {};
 	const fallback = textureDefinitions["default-grid"] || {
 		id: "default-grid",
@@ -181,21 +232,33 @@ function createTextureRegistry(templateRegistry, textureIDs) {
 	};
 
 	const registry = {};
+	const usage = textureUsage && typeof textureUsage === "object"
+		? textureUsage
+		: { "default-grid": { isTerrain: false, maxSpan: 1 } };
+	const textureIDs = Object.keys(usage);
 	textureIDs.forEach((textureID) => {
 		const definition = textureDefinitions[textureID] || fallback;
-		const source = buildTextureSurface(definition);
+		const resolvedSize = resolveTextureSize(definition, usage[textureID]);
+		const source = buildTextureSurface(definition, resolvedSize);
 		registry[textureID] = {
 			id: textureID,
-			definition: definition,
+			definition: {
+				...definition,
+				size: resolvedSize,
+			},
 			source: source,
 		};
 	});
 
 	if (!registry["default-grid"]) {
+		const fallbackSize = resolveTextureSize(fallback, usage["default-grid"] || null);
 		registry["default-grid"] = {
 			id: "default-grid",
-			definition: fallback,
-			source: buildTextureSurface(fallback),
+			definition: {
+				...fallback,
+				size: fallbackSize,
+			},
+			source: buildTextureSurface(fallback, fallbackSize),
 		};
 	}
 
@@ -247,8 +310,8 @@ function ResolveScatterType(templateRegistry, scatterTypeID) {
 
 async function PrepareLevelVisualResources(sceneGraph) {
 	const templates = await LoadEngineVisualTemplates();
-	const textureIDs = collectTextureReferences(sceneGraph);
-	const textureRegistry = createTextureRegistry(templates, textureIDs);
+	const textureUsage = collectTextureUsage(sceneGraph);
+	const textureRegistry = createTextureRegistry(templates, textureUsage);
 
 	sceneGraph.visualResources = {
 		textureRegistry: textureRegistry,
