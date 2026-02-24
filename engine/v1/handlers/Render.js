@@ -96,13 +96,13 @@ function createIdentityMatrix() {
 
 function multiplyMatrix4(a, b) {
 	const out = new Array(16);
-	for (let row = 0; row < 4; row += 1) {
-		for (let col = 0; col < 4; col += 1) {
-			out[row * 4 + col] =
-				a[row * 4 + 0] * b[0 * 4 + col] +
-				a[row * 4 + 1] * b[1 * 4 + col] +
-				a[row * 4 + 2] * b[2 * 4 + col] +
-				a[row * 4 + 3] * b[3 * 4 + col];
+	for (let col = 0; col < 4; col += 1) {
+		for (let row = 0; row < 4; row += 1) {
+			out[col * 4 + row] =
+				a[0 * 4 + row] * b[col * 4 + 0] +
+				a[1 * 4 + row] * b[col * 4 + 1] +
+				a[2 * 4 + row] * b[col * 4 + 2] +
+				a[3 * 4 + row] * b[col * 4 + 3];
 		}
 	}
 	return out;
@@ -689,6 +689,24 @@ function drawScene(renderer, sceneGraph) {
 		}
 
 		const model = createModelMatrix(mesh.transform);
+		if (mesh.role === "scatter" && !renderer.loggedScatterModelTranslation) {
+			const transform = mesh.transform && typeof mesh.transform === "object" ? mesh.transform : {};
+			const position = transform.position && typeof transform.position === "object"
+				? transform.position
+				: { x: 0, y: 0, z: 0 };
+			const dx = model[12] - (position.x || 0);
+			const dy = model[13] - (position.y || 0);
+			const dz = model[14] - (position.z || 0);
+			const epsilon = 0.000001;
+			const preserved = Math.abs(dx) <= epsilon && Math.abs(dy) <= epsilon && Math.abs(dz) <= epsilon;
+			Log(
+				"ENGINE",
+				`Scatter matrix translation check (${mesh.id}): model=[${model[12]}, ${model[13]}, ${model[14]}] transform.position=[${position.x || 0}, ${position.y || 0}, ${position.z || 0}] delta=[${dx}, ${dy}, ${dz}] preserved=${preserved}`,
+				preserved ? "log" : "warn",
+				"Render"
+			);
+			renderer.loggedScatterModelTranslation = true;
+		}
 		const color = mesh.material && mesh.material.color
 			? mesh.material.color
 			: { r: 0.8, g: 0.8, b: 0.8, a: 1 };

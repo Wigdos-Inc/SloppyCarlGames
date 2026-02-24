@@ -242,13 +242,13 @@ function createIdentityMatrix() {
 
 function multiplyMatrix4(a, b) {
 	const out = new Array(16);
-	for (let row = 0; row < 4; row += 1) {
-		for (let col = 0; col < 4; col += 1) {
-			out[row * 4 + col] =
-				a[row * 4 + 0] * b[0 * 4 + col] +
-				a[row * 4 + 1] * b[1 * 4 + col] +
-				a[row * 4 + 2] * b[2 * 4 + col] +
-				a[row * 4 + 3] * b[3 * 4 + col];
+	for (let col = 0; col < 4; col += 1) {
+		for (let row = 0; row < 4; row += 1) {
+			out[col * 4 + row] =
+				a[0 * 4 + row] * b[col * 4 + 0] +
+				a[1 * 4 + row] * b[col * 4 + 1] +
+				a[2 * 4 + row] * b[col * 4 + 2] +
+				a[3 * 4 + row] * b[col * 4 + 3];
 		}
 	}
 	return out;

@@ -19,6 +19,7 @@ const pitchClampDegrees = 89;
 const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
 
 const persistedFreeCamStates = new Map();
+let latestCameraPosition = null;
 const freeCamRuntime = {
 	active: false,
 	levelKey: null,
@@ -45,6 +46,42 @@ const freeCamRuntime = {
 	wheelDelta: 0,
 };
 const playerCamRuntime = {}
+
+function cacheCameraPosition(cameraState) {
+	if (
+		cameraState
+		&& cameraState.position
+		&& typeof cameraState.position.x === "number"
+		&& typeof cameraState.position.y === "number"
+		&& typeof cameraState.position.z === "number"
+	) {
+		latestCameraPosition = {
+			x: cameraState.position.x,
+			y: cameraState.position.y,
+			z: cameraState.position.z,
+		};
+		return;
+	}
+
+	latestCameraPosition = null;
+}
+
+function getCurrentCameraPosition() {
+	if (!latestCameraPosition) {
+		console.warn("window.camPos can only be used while in a level.");
+		return null;
+	}
+
+	return {
+		x: latestCameraPosition.x,
+		y: latestCameraPosition.y,
+		z: latestCameraPosition.z,
+	};
+}
+
+if (typeof window !== "undefined") {
+	window.camPos = getCurrentCameraPosition;
+}
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -123,10 +160,12 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 
 function createStationaryCameraState(sceneGraph, cameraConfig) {
 	const base = resolveDefaultLevelCamera(sceneGraph, cameraConfig);
-	return {
+	const state = {
 		...base,
 		mode: "stationary",
 	};
+	cacheCameraPosition(state);
+	return state;
 }
 
 function CalculateCameraState(sceneGraph, cameraConfig) {
@@ -327,7 +366,9 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 		freeCamRuntime.lookDeltaX = 0;
 		freeCamRuntime.lookDeltaY = 0;
 		freeCamRuntime.wheelDelta = 0;
-		return resolveDefaultLevelCamera(sceneGraph, cameraConfig);
+		const levelCameraState = resolveDefaultLevelCamera(sceneGraph, cameraConfig);
+		cacheCameraPosition(levelCameraState);
+		return levelCameraState;
 	}
 
 	const levelId = payloadMeta && payloadMeta.levelId ? payloadMeta.levelId : "unknown-level";
@@ -339,6 +380,7 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 
 	const existing = persistedFreeCamStates.get(levelKey);
 	if (existing) {
+		cacheCameraPosition(existing);
 		return existing;
 	}
 
@@ -359,22 +401,27 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 		near: base.near,
 		far: base.far,
 	});
+	cacheCameraPosition(created);
 	persistedFreeCamStates.set(levelKey, created);
 	return created;
 }
 
 function UpdateCameraState(currentState, sceneGraph, cameraConfig, deltaSeconds) {
 	if (!freeCamEnabled) {
-		return currentState && (currentState.mode === "level" || currentState.mode === "stationary")
+		const resolvedLevelState = currentState && (currentState.mode === "level" || currentState.mode === "stationary")
 			? currentState
 			: resolveDefaultLevelCamera(sceneGraph, cameraConfig);
+		cacheCameraPosition(resolvedLevelState);
+		return resolvedLevelState;
 	}
 
 	const resolvedState = resolveFreeCamState(sceneGraph)
 		|| (currentState && currentState.mode === "freecam" ? currentState : null)
 		|| InitializeCameraState(sceneGraph, cameraConfig, sceneGraph && sceneGraph.meta ? sceneGraph.meta : null);
 
-	return updateFreeCamState(resolvedState, deltaSeconds);
+	const nextState = updateFreeCamState(resolvedState, deltaSeconds);
+	cacheCameraPosition(nextState);
+	return nextState;
 }
 
 export { InitializeCameraState, UpdateCameraState, HandleFreeCamInput, CalculateCameraState };

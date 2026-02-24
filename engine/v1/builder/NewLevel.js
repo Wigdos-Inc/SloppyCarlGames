@@ -183,10 +183,10 @@ function generateTerrainScatter(terrainMesh, terrainDefinition, scatterDefinitio
 	const width = Math.max(1, terrainMesh.dimensions.x * terrainMesh.transform.scale.x);
 	const depth = Math.max(1, terrainMesh.dimensions.z * terrainMesh.transform.scale.z);
 	const approxArea = width * depth;
-	const minX = terrainMesh.transform.position.x - width * 0.5;
-	const maxX = terrainMesh.transform.position.x + width * 0.5;
-	const minZ = terrainMesh.transform.position.z - depth * 0.5;
-	const maxZ = terrainMesh.transform.position.z + depth * 0.5;
+	const minX = (terrainMesh.transform.position.x - width * 0.5);
+	const maxX = (terrainMesh.transform.position.x + width * 0.5);
+	const minZ = (terrainMesh.transform.position.z - depth * 0.5);
+	const maxZ = (terrainMesh.transform.position.z + depth * 0.5);
 	const positionThreshold = 100000;
 
 	Log(
