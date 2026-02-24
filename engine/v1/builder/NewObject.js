@@ -4,6 +4,7 @@
 
 import { normalizeVector3 } from "../math/Vector3.js";
 import { Log } from "../core/meta.js";
+import { BuildScatter, GetPerformanceScatterMultiplier } from "./NewScatter.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -21,6 +22,68 @@ function normalizeColor(color) {
 		b: clamp(color.b),
 		a: clamp(color.a),
 	};
+}
+
+function normalizeTextureShape(shape) {
+	if (typeof shape !== "string") {
+		return null;
+	}
+
+	const value = shape.trim().toLowerCase();
+	return value.length > 0 ? value : null;
+}
+
+function normalizeTextureDescriptor(source, options) {
+	const texture = source && source.texture && typeof source.texture === "object"
+		? source.texture
+		: null;
+	const baseTextureID = (texture && typeof texture.textureID === "string" && texture.textureID)
+		? texture.textureID
+		: (source.textureID || options.textureID || "default-grid");
+	const shape = normalizeTextureShape(texture && texture.shape);
+	const color = normalizeColor(
+		(texture && texture.color) || source.textureColor || source.color || options.defaultColor
+	);
+	const opacitySource = texture && typeof texture.opacity === "number"
+		? texture.opacity
+		: source.textureOpacity;
+	const opacity = Math.max(0, Math.min(1, toNumber(opacitySource, 1)));
+	const densitySource = texture && typeof texture.density === "number"
+		? texture.density
+		: null;
+	const materialTextureID = shape
+		? `${baseTextureID}::shape=${shape}`
+		: baseTextureID;
+
+	return {
+		textureID: baseTextureID,
+		baseTextureID: baseTextureID,
+		materialTextureID: materialTextureID,
+		shape: shape,
+		color: color,
+		opacity: opacity,
+		density: Math.max(0, toNumber(densitySource, 1)),
+	};
+}
+
+function normalizeScatterRequests(source) {
+	if (!source || !Array.isArray(source.scatter)) {
+		return [];
+	}
+
+	return source.scatter
+		.map((entry) => {
+			const request = entry && typeof entry === "object" ? entry : null;
+			if (!request || typeof request.typeID !== "string" || request.typeID.length === 0) {
+				return null;
+			}
+
+			return {
+				typeID: request.typeID,
+				density: Math.max(0, toNumber(request.density, 0)),
+			};
+		})
+		.filter(Boolean);
 }
 
 function generateLegacyUvFromPositions(positions) {
@@ -541,7 +604,8 @@ function BuildObject(definition, options) {
 	const resolvedOptions = options && typeof options === "object" ? options : {};
 	const shapeSource = typeof source.shape === "string" ? source.shape : source.primitive;
 	const shape = typeof shapeSource === "string" ? shapeSource.toLowerCase() : "cube";
-
+	const texture = normalizeTextureDescriptor(source, resolvedOptions);
+	const scatter = normalizeScatterRequests(source);
 	const size = normalizeVector3(source.dimensions || source.size, { x: 1, y: 1, z: 1 });
 	const position = normalizeVector3(source.position, { x: 0, y: 0, z: 0 });
 	const rotation = normalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
@@ -550,7 +614,6 @@ function BuildObject(definition, options) {
 	const geometry = buildGeometry(shape, size);
 	const uvs = generateUvs(geometry.positions, geometry);
 	const bounds = computeBounds(geometry.positions);
-	const opacity = Math.max(0, Math.min(1, toNumber(source.textureOpacity, 1)));
 	const vertexCount = geometry.positions.length / 3;
 	if (uvs.length !== vertexCount * 2) {
 		Log(
@@ -568,7 +631,7 @@ function BuildObject(definition, options) {
 	};
 	const worldAabb = computeWorldAabbFromGeometry(geometry.positions, transform);
 
-	return {
+	const mesh = {
 		id: source.id || `object-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
 		type: "mesh3d",
 		shape: shape,
@@ -582,20 +645,55 @@ function BuildObject(definition, options) {
 			bounds: bounds,
 		},
 		material: {
-			textureID: source.textureID || resolvedOptions.textureID || "default-grid",
-			color: normalizeColor(source.textureColor || source.color || resolvedOptions.defaultColor),
-			opacity: opacity,
-			transparent: opacity < 1,
+			textureID: texture.materialTextureID,
+			color: texture.color,
+			opacity: texture.opacity,
+			transparent: texture.opacity < 1,
 		},
 		meta: {
 			trigger: source.trigger || null,
 			platform: source.platform || null,
 			parentId: source.parentId || null,
 		},
+		detail: {
+			texture: texture,
+			scatter: scatter,
+		},
 		localBounds: bounds,
 		worldAabb: worldAabb,
 		dimensions: size,
 	};
+
+	const scatterContext = resolvedOptions.scatterContext && typeof resolvedOptions.scatterContext === "object"
+		? resolvedOptions.scatterContext
+		: null;
+	if (scatterContext && Array.isArray(mesh.detail.scatter) && mesh.detail.scatter.length > 0) {
+		const generatedScatter = BuildScatter({
+			objectMesh: mesh,
+			scatterDefinitions: scatterContext.scatterDefinitions,
+			scatterMultiplier: toNumber(scatterContext.scatterMultiplier, GetPerformanceScatterMultiplier()),
+			world: scatterContext.world,
+			indexSeed: toNumber(scatterContext.indexSeed, 1),
+			explicitScatter: mesh.detail.scatter,
+			buildObject: BuildObject,
+		});
+
+		if (generatedScatter.length > 0) {
+			mesh.meta.scatter = {
+				count: generatedScatter.length,
+			};
+
+			if (Array.isArray(scatterContext.scatterAccumulator)) {
+				scatterContext.scatterAccumulator.push(...generatedScatter);
+			}
+
+			if (typeof scatterContext.onScatterGenerated === "function") {
+				scatterContext.onScatterGenerated(mesh, generatedScatter);
+			}
+		}
+	}
+
+	return mesh;
 }
 
 function UpdateObjectWorldAabb(mesh) {

@@ -17,7 +17,9 @@
                         "width": 80,
                         "height": 40,
                         "deathBarrierY": -20,
-                        "waterLevel": 6
+                        "waterLevel": 6,
+                        "textureScale": 1,
+                        "scatterScale": 1
                     },
                     "terrain": {
                         "objects": [
@@ -26,44 +28,60 @@
                                 "primitive": "cube",
                                 "dimensions": { "x": 120, "y": 2, "z": 80 },
                                 "position": { "x": 60, "y": 0, "z": 40 },
-                                "textureID": "grass-soft",
-                                "textureColor": { "r": 1, "g": 1, "b": 1, "a": 1 },
-                                "textureOpacity": 1,
-                                "scatterTypeIDs": ["grass", "pebbles"],
-                                "baseDensity": 0.9
+                                "texture": {
+                                    "textureID": "grass-soft",
+                                    "color": { "r": 1, "g": 1, "b": 1, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1
+                                },
+                                "scatter": [
+                                    { "typeID": "grass", "density": 0.55 },
+                                    { "typeID": "pebbles", "density": 0.35 },
+                                    { "typeID": "bushes", "density": 0.1 }
+                                ]
                             },
                             {
                                 "id": "platform-a",
                                 "primitive": "cube",
                                 "dimensions": { "x": 18, "y": 2, "z": 18 },
                                 "position": { "x": 25, "y": 8, "z": 24 },
-                                "textureID": "stone-block",
-                                "textureColor": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
-                                "textureOpacity": 1,
-                                "scatterTypeIDs": ["pebbles"],
-                                "baseDensity": 0.3
+                                "texture": {
+                                    "textureID": "stone-block",
+                                    "color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1
+                                },
+                                "scatter": [
+                                    { "typeID": "pebbles", "density": 0.3 }
+                                ]
                             },
                             {
                                 "id": "platform-b",
                                 "primitive": "cube",
                                 "dimensions": { "x": 20, "y": 2, "z": 20 },
                                 "position": { "x": 90, "y": 12, "z": 52 },
-                                "textureID": "stone-block",
-                                "textureColor": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
-                                "textureOpacity": 1,
-                                "scatterTypeIDs": ["bushes"],
-                                "baseDensity": 0.25
+                                "texture": {
+                                    "textureID": "stone-block",
+                                    "color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1
+                                },
+                                "scatter": [
+                                    { "typeID": "pebbles", "density": 0.8 }
+                                ]
                             },
                             {
                                 "id": "beacon",
                                 "primitive": "pyramid",
                                 "dimensions": { "x": 10, "y": 14, "z": 10 },
                                 "position": { "x": 60, "y": 2, "z": 40 },
-                                "textureID": "metal-panel",
-                                "textureColor": { "r": 0.95, "g": 0.9, "b": 1, "a": 1 },
-                                "textureOpacity": 1,
-                                "scatterTypeIDs": [],
-                                "baseDensity": 0
+                                "texture": {
+                                    "textureID": "metal-panel",
+                                    "color": { "r": 0.95, "g": 0.9, "b": 1, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1
+                                },
+                                "scatter": []
                             }
                         ],
                         "triggers": [
@@ -95,11 +113,15 @@
                             "primitive": "cube",
                             "dimensions": { "x": 4, "y": 4, "z": 4 },
                             "position": { "x": 44, "y": 2, "z": 30 },
-                            "textureID": "wood-plank",
-                            "textureColor": { "r": 0.96, "g": 0.93, "b": 0.87, "a": 1 },
-                            "textureOpacity": 1,
-                            "scatterTypeIDs": ["pebbles"],
-                            "baseDensity": 0.1,
+                            "texture": {
+                                "textureID": "wood-plank",
+                                "color": { "r": 0.96, "g": 0.93, "b": 0.87, "a": 1 },
+                                "opacity": 1,
+                                "density": 1
+                            },
+                            "scatter": [
+                                { "typeID": "pebbles", "density": 0.1 }
+                            ],
                             "destructible": true
                         }
                     ],
@@ -189,9 +211,12 @@
                                         "localPosition": { "x": 0, "y": 0.25, "z": 0 },
                                         "localRotation": { "x": 0, "y": 0, "z": 0 },
                                         "localScale": { "x": 1, "y": 1, "z": 1 },
-                                        "textureID": "energy-core",
-                                        "textureColor": { "r": 0.78, "g": 0.98, "b": 1, "a": 1 },
-                                        "textureOpacity": 0.95
+                                        "texture": {
+                                            "textureID": "energy-core",
+                                            "color": { "r": 0.78, "g": 0.98, "b": 1, "a": 1 },
+                                            "opacity": 0.95,
+                                            "density": 1
+                                        }
                                     }
                                 ]
                             }

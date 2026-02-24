@@ -29,6 +29,58 @@ function parseHexColor(hex, fallback) {
 	return `rgb(${r}, ${g}, ${b})`;
 }
 
+function toNumber(value, fallback) {
+	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function hashNoise(x, y, seed) {
+	const value = Math.sin(x * 12.9898 + y * 78.233 + seed * 37.719) * 43758.5453;
+	return value - Math.floor(value);
+}
+
+function normalizeShape(shape) {
+	if (typeof shape !== "string") {
+		return "square";
+	}
+
+	const value = shape.trim().toLowerCase();
+	if (value === "circle" || value === "diamond") {
+		return value;
+	}
+
+	return "square";
+}
+
+function drawShape(ctx, shape, x, y, width, height) {
+	if (shape === "circle") {
+		ctx.beginPath();
+		ctx.ellipse(
+			x + width * 0.5,
+			y + height * 0.5,
+			Math.max(0.5, width * 0.5),
+			Math.max(0.5, height * 0.5),
+			0,
+			0,
+			Math.PI * 2
+		);
+		ctx.fill();
+		return;
+	}
+
+	if (shape === "diamond") {
+		ctx.beginPath();
+		ctx.moveTo(x + width * 0.5, y);
+		ctx.lineTo(x + width, y + height * 0.5);
+		ctx.lineTo(x + width * 0.5, y + height);
+		ctx.lineTo(x, y + height * 0.5);
+		ctx.closePath();
+		ctx.fill();
+		return;
+	}
+
+	ctx.fillRect(x, y, width, height);
+}
+
 function ensureTemplateShape(value) {
 	const source = value && typeof value === "object" ? value : {};
 	return {
@@ -53,21 +105,24 @@ async function LoadEngineVisualTemplates() {
 	return visualTemplateCache;
 }
 
-function drawPattern(ctx, size, textureDefinition) {
+function drawPattern(ctx, size, textureDefinition, textureScale) {
 	const primary = parseHexColor(textureDefinition.primary, "rgb(170, 180, 190)");
 	const secondary = parseHexColor(textureDefinition.secondary, "rgb(100, 110, 120)");
 	const pattern = textureDefinition.pattern || "grid";
+	const featureScale = Math.max(0.05, toNumber(textureScale, 1));
+	const shape = normalizeShape(textureDefinition.shape);
+	const draw = (x, y, width, height) => drawShape(ctx, shape, x, y, width, height);
 
 	ctx.fillStyle = primary;
 	ctx.fillRect(0, 0, size, size);
 
 	if (pattern === "checker") {
-		const cell = Math.max(4, Math.floor(size / 8));
+		const cell = Math.max(4, Math.floor((size / 8) * featureScale));
 		for (let x = 0; x < size; x += cell) {
 			for (let y = 0; y < size; y += cell) {
 				if ((x / cell + y / cell) % 2 === 0) {
 					ctx.fillStyle = secondary;
-					ctx.fillRect(x, y, cell, cell);
+					draw(x, y, cell, cell);
 				}
 			}
 		}
@@ -75,7 +130,7 @@ function drawPattern(ctx, size, textureDefinition) {
 	}
 
 	if (pattern === "stripes") {
-		const stripe = Math.max(3, Math.floor(size / 10));
+		const stripe = Math.max(3, Math.floor((size / 10) * featureScale));
 		ctx.fillStyle = secondary;
 		for (let y = 0; y < size; y += stripe * 2) {
 			ctx.fillRect(0, y, size, stripe);
@@ -93,26 +148,69 @@ function drawPattern(ctx, size, textureDefinition) {
 	}
 
 	if (pattern === "noise") {
+		const baseSpeck = Number.isFinite(textureDefinition.speckSize)
+			? Math.floor(textureDefinition.speckSize)
+			: 2;
 		const speck = Math.max(
 			1,
-			Number.isFinite(textureDefinition.speckSize)
-				? Math.floor(textureDefinition.speckSize)
-				: 2
+			Math.floor(baseSpeck * featureScale)
 		);
 		const density = Number.isFinite(textureDefinition.density)
 			? Math.max(0.1, textureDefinition.density)
 			: 1;
-		const speckCount = Math.min(16000, Math.max(size * 2, Math.floor(size * size * 0.02 * density)));
+		const noisePlacement = textureDefinition.noisePlacement && typeof textureDefinition.noisePlacement === "object"
+			? textureDefinition.noisePlacement
+			: {};
+		const noiseMode = String(noisePlacement.mode || textureDefinition.noiseMode || "random").toLowerCase();
+		const densityScale = Math.max(0.05, featureScale * featureScale);
+		const speckCount = Math.min(16000, Math.max(size * 2, Math.floor((size * size * 0.02 * density) / densityScale)));
 		ctx.fillStyle = secondary;
+
+		if (noiseMode === "natural") {
+			// 'natural' mode: height, slope, clustering
+			const clusterThreshold = Math.max(0, Math.min(1, toNumber(noisePlacement.clusterThreshold, 0.4)));
+			const heightMin = Math.max(0, Math.min(1, toNumber(noisePlacement.heightMin, 0)));
+			const heightMax = Math.max(heightMin, Math.min(1, toNumber(noisePlacement.heightMax, 1)));
+			const slopeMax = Math.max(0, Math.min(1, toNumber(noisePlacement.slopeMax, 0.95)));
+			const noiseScale = Math.max(0.0001, toNumber(noisePlacement.noiseScale, 0.12));
+
+			for (let index = 0; index < speckCount; index += 1) {
+				const nx = hashNoise(index + 1, 2, 11);
+				const ny = hashNoise(3, index + 5, 13);
+				const cluster = hashNoise(nx * 64, ny * 64, 7);
+				if (cluster < clusterThreshold) {
+					continue;
+				}
+
+				const height = hashNoise(nx * noiseScale * 128, ny * noiseScale * 128, 17);
+				if (height < heightMin || height > heightMax) {
+					continue;
+				}
+
+				const hx = hashNoise((nx + 0.01) * noiseScale * 128, ny * noiseScale * 128, 17);
+				const hy = hashNoise(nx * noiseScale * 128, (ny + 0.01) * noiseScale * 128, 17);
+				const slope = Math.min(1, (Math.abs(height - hx) + Math.abs(height - hy)) * 0.5 * 12);
+				if (slope > slopeMax) {
+					continue;
+				}
+
+				const x = Math.floor(nx * Math.max(1, size - speck));
+				const y = Math.floor(ny * Math.max(1, size - speck));
+				draw(x, y, speck, speck);
+			}
+			return;
+		}
+
+		// 'random' mode: classic noise
 		for (let index = 0; index < speckCount; index += 1) {
 			const x = Math.floor(Math.random() * (size - speck));
 			const y = Math.floor(Math.random() * (size - speck));
-			ctx.fillRect(x, y, speck, speck);
+			draw(x, y, speck, speck);
 		}
 		return;
 	}
 
-	const line = Math.max(2, Math.floor(size / 8));
+	const line = Math.max(2, Math.floor((size / 8) * featureScale));
 	ctx.strokeStyle = secondary;
 	ctx.lineWidth = 1;
 	for (let x = 0; x <= size; x += line) {
@@ -149,7 +247,7 @@ function resolveTextureSize(textureDefinition, usageEntry) {
 	return toPowerOfTwoSize(baseSize * scaleMultiplier);
 }
 
-function buildTextureSurface(textureDefinition, resolvedSize) {
+function buildTextureSurface(textureDefinition, resolvedSize, textureScale) {
 	if (typeof document === "undefined") {
 		return null;
 	}
@@ -165,19 +263,19 @@ function buildTextureSurface(textureDefinition, resolvedSize) {
 		return null;
 	}
 
-	drawPattern(context, size, textureDefinition);
+	drawPattern(context, size, textureDefinition, textureScale);
 	return canvas;
 }
 
 function collectTextureUsage(sceneGraph) {
 	const usage = {
-		"default-grid": { isTerrain: false, maxSpan: 1 },
+		"default-grid": { isTerrain: false, maxSpan: 1, density: null, baseTextureID: "default-grid", shape: null },
 	};
 
 	const register = (textureID, options) => {
 		const id = textureID || "default-grid";
 		if (!usage[id]) {
-			usage[id] = { isTerrain: false, maxSpan: 1 };
+			usage[id] = { isTerrain: false, maxSpan: 1, density: null, baseTextureID: id, shape: null };
 		}
 
 		const entry = usage[id];
@@ -185,13 +283,40 @@ function collectTextureUsage(sceneGraph) {
 			entry.isTerrain = true;
 			entry.maxSpan = Math.max(entry.maxSpan, options.maxSpan || 1);
 		}
+
+		if (options && Number.isFinite(options.density)) {
+			entry.density = Number.isFinite(entry.density)
+				? Math.max(entry.density, options.density)
+				: options.density;
+		}
+
+		if (options && typeof options.baseTextureID === "string" && options.baseTextureID.length > 0) {
+			entry.baseTextureID = options.baseTextureID;
+		}
+
+		if (options && typeof options.shape === "string" && options.shape.length > 0) {
+			entry.shape = normalizeShape(options.shape);
+		}
 	};
 
 	const collectMesh = (mesh, options) => {
 		if (!mesh || !mesh.material || !mesh.material.textureID) {
 			return;
 		}
-		register(mesh.material.textureID, options || null);
+		const detailDensity = mesh.detail && mesh.detail.texture && Number.isFinite(mesh.detail.texture.density)
+			? mesh.detail.texture.density
+			: null;
+		const detailTexture = mesh.detail && mesh.detail.texture && typeof mesh.detail.texture === "object"
+			? mesh.detail.texture
+			: null;
+		register(mesh.material.textureID, {
+			...(options || {}),
+			density: Number.isFinite(detailDensity) ? detailDensity : (options ? options.density : null),
+			baseTextureID: detailTexture && typeof detailTexture.baseTextureID === "string"
+				? detailTexture.baseTextureID
+				: (detailTexture && typeof detailTexture.textureID === "string" ? detailTexture.textureID : mesh.material.textureID),
+			shape: detailTexture && typeof detailTexture.shape === "string" ? detailTexture.shape : null,
+		});
 	};
 
 	const terrain = Array.isArray(sceneGraph && sceneGraph.terrain) ? sceneGraph.terrain : [];
@@ -221,8 +346,10 @@ function collectTextureUsage(sceneGraph) {
 	return usage;
 }
 
-function createTextureRegistry(templateRegistry, textureUsage) {
+function createTextureRegistry(templateRegistry, textureUsage, options) {
 	const textureDefinitions = templateRegistry && templateRegistry.textures ? templateRegistry.textures : {};
+	const resolvedOptions = options && typeof options === "object" ? options : {};
+	const textureScale = Math.max(0.05, toNumber(resolvedOptions.textureScale, 1));
 	const fallback = textureDefinitions["default-grid"] || {
 		id: "default-grid",
 		size: 64,
@@ -234,16 +361,35 @@ function createTextureRegistry(templateRegistry, textureUsage) {
 	const registry = {};
 	const usage = textureUsage && typeof textureUsage === "object"
 		? textureUsage
-		: { "default-grid": { isTerrain: false, maxSpan: 1 } };
+		: { "default-grid": { isTerrain: false, maxSpan: 1, density: null, baseTextureID: "default-grid", shape: null } };
 	const textureIDs = Object.keys(usage);
 	textureIDs.forEach((textureID) => {
-		const definition = textureDefinitions[textureID] || fallback;
+		const usageEntry = usage[textureID] || {};
+		const baseTextureID = typeof usageEntry.baseTextureID === "string" && usageEntry.baseTextureID.length > 0
+			? usageEntry.baseTextureID
+			: textureID;
+		const definition = textureDefinitions[baseTextureID] || textureDefinitions[textureID] || fallback;
 		const resolvedSize = resolveTextureSize(definition, usage[textureID]);
-		const source = buildTextureSurface(definition, resolvedSize);
+		const usageDensity = usage[textureID] && Number.isFinite(usage[textureID].density)
+			? Math.max(0.1, usage[textureID].density)
+			: null;
+		const usageShape = typeof usageEntry.shape === "string" && usageEntry.shape.length > 0
+			? normalizeShape(usageEntry.shape)
+			: null;
+		let resolvedDefinition = usageDensity
+			? { ...definition, density: usageDensity }
+			: { ...definition };
+		if (usageShape) {
+			resolvedDefinition = {
+				...resolvedDefinition,
+				shape: usageShape,
+			};
+		}
+		const source = buildTextureSurface(resolvedDefinition, resolvedSize, textureScale);
 		registry[textureID] = {
 			id: textureID,
 			definition: {
-				...definition,
+				...resolvedDefinition,
 				size: resolvedSize,
 			},
 			source: source,
@@ -258,7 +404,7 @@ function createTextureRegistry(templateRegistry, textureUsage) {
 				...fallback,
 				size: fallbackSize,
 			},
-			source: buildTextureSurface(fallback, fallbackSize),
+			source: buildTextureSurface(fallback, fallbackSize, textureScale),
 		};
 	}
 
@@ -297,13 +443,21 @@ function ResolveScatterType(templateRegistry, scatterTypeID) {
 			max: Number.isFinite(scaleRange.max) ? scaleRange.max : 1,
 		},
 		parts: Array.isArray(definition.parts)
-			? definition.parts.map((part) => ({
-				...part,
-				dimensions: normalizeVector3(part.dimensions, { x: 0.5, y: 0.5, z: 0.5 }),
-				localPosition: normalizeVector3(part.localPosition, { x: 0, y: 0, z: 0 }),
-				localRotation: normalizeVector3(part.localRotation, { x: 0, y: 0, z: 0 }),
-				localScale: normalizeVector3(part.localScale, { x: 1, y: 1, z: 1 }),
-			}))
+			? definition.parts.map((part) => {
+				const texture = part && part.texture && typeof part.texture === "object" ? part.texture : null;
+				return {
+					...part,
+					role: typeof part.role === "string" ? part.role.toLowerCase() : "",
+					dimensions: normalizeVector3(part.dimensions, { x: 0.5, y: 0.5, z: 0.5 }),
+					localPosition: normalizeVector3(part.localPosition, { x: 0, y: 0, z: 0 }),
+					localRotation: normalizeVector3(part.localRotation, { x: 0, y: 0, z: 0 }),
+					localScale: normalizeVector3(part.localScale, { x: 1, y: 1, z: 1 }),
+					texture: texture,
+					textureID: texture && texture.textureID ? texture.textureID : part.textureID,
+					textureColor: texture && texture.color ? texture.color : part.textureColor,
+					textureOpacity: texture && typeof texture.opacity === "number" ? texture.opacity : part.textureOpacity,
+				};
+			})
 			: [],
 	};
 }
@@ -311,7 +465,12 @@ function ResolveScatterType(templateRegistry, scatterTypeID) {
 async function PrepareLevelVisualResources(sceneGraph) {
 	const templates = await LoadEngineVisualTemplates();
 	const textureUsage = collectTextureUsage(sceneGraph);
-	const textureRegistry = createTextureRegistry(templates, textureUsage);
+	const world = sceneGraph && sceneGraph.world && typeof sceneGraph.world === "object"
+		? sceneGraph.world
+		: {};
+	const textureRegistry = createTextureRegistry(templates, textureUsage, {
+		textureScale: toNumber(world.textureScale, 1),
+	});
 
 	sceneGraph.visualResources = {
 		textureRegistry: textureRegistry,

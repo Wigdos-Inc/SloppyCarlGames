@@ -37,19 +37,31 @@ function mergeAabb(accumulator, bounds) {
 	};
 }
 
-function buildObstacleParts(source, index) {
+function buildObstacleParts(source, index, options) {
+	const resolvedOptions = options && typeof options === "object" ? options : {};
 	if (!Array.isArray(source.parts) || source.parts.length === 0) {
 		const single = BuildObject(
 			{
 				...source,
 				id: source.id || `obstacle-${index}`,
 				primitive: source.primitive || source.shape || "cube",
-				textureID: source.textureID || "stone-block",
-				textureColor: source.textureColor || { r: 1, g: 1, b: 1, a: 1 },
-				textureOpacity: typeof source.textureOpacity === "number" ? source.textureOpacity : 1,
+				texture: source.texture || {
+					textureID: source.textureID || "stone-block",
+					color: source.textureColor || { r: 1, g: 1, b: 1, a: 1 },
+					opacity: typeof source.textureOpacity === "number" ? source.textureOpacity : 1,
+				},
 				role: "obstacle",
 			},
-			{ role: "obstacle", textureID: "stone-block" }
+			{
+				role: "obstacle",
+				textureID: "stone-block",
+				scatterContext: resolvedOptions.scatterContext
+					? {
+						...resolvedOptions.scatterContext,
+						indexSeed: 500 + index,
+					}
+					: null,
+			}
 		);
 		return [single];
 	}
@@ -60,6 +72,14 @@ function buildObstacleParts(source, index) {
 
 	return source.parts.map((part, partIndex) => {
 		const partSource = part && typeof part === "object" ? part : {};
+		const inheritedTexture = source.texture || null;
+		const inheritedScatter = Array.isArray(source.scatter) ? source.scatter : [];
+		const partScatterContext = resolvedOptions.scatterContext
+			? {
+				...resolvedOptions.scatterContext,
+				indexSeed: 700 + (index * 100) + partIndex,
+			}
+			: null;
 		return BuildObject(
 			{
 				...partSource,
@@ -72,21 +92,30 @@ function buildObstacleParts(source, index) {
 					y: rootScale.y * normalizeVector3(partSource.localScale, { x: 1, y: 1, z: 1 }).y,
 					z: rootScale.z * normalizeVector3(partSource.localScale, { x: 1, y: 1, z: 1 }).z,
 				},
-				textureID: partSource.textureID || source.textureID || "stone-block",
-				textureColor: partSource.textureColor || source.textureColor || { r: 1, g: 1, b: 1, a: 1 },
-				textureOpacity: typeof partSource.textureOpacity === "number"
-					? partSource.textureOpacity
-					: (typeof source.textureOpacity === "number" ? source.textureOpacity : 1),
+				texture: partSource.texture || inheritedTexture || {
+					textureID: partSource.textureID || source.textureID || "stone-block",
+					color: partSource.textureColor || source.textureColor || { r: 1, g: 1, b: 1, a: 1 },
+					opacity: typeof partSource.textureOpacity === "number"
+						? partSource.textureOpacity
+						: (typeof source.textureOpacity === "number" ? source.textureOpacity : 1),
+				},
+				scatter: Array.isArray(partSource.scatter)
+					? partSource.scatter
+					: (partIndex === 0 ? inheritedScatter : []),
 				role: "obstacle",
 			},
-			{ role: "obstacle", textureID: "stone-block" }
+			{
+				role: "obstacle",
+				textureID: "stone-block",
+				scatterContext: partScatterContext,
+			}
 		);
 	});
 }
 
-function BuildObstacle(definition, index) {
+function BuildObstacle(definition, index, options) {
 	const source = definition && typeof definition === "object" ? definition : {};
-	const parts = buildObstacleParts(source, index);
+	const parts = buildObstacleParts(source, index, options);
 	let bounds = null;
 	parts.forEach((part) => {
 		bounds = mergeAabb(bounds, part.worldAabb || null);
@@ -102,17 +131,16 @@ function BuildObstacle(definition, index) {
 		destructible: source.destructible === true,
 		hp: Math.max(1, toNumber(source.hp, 1)),
 		static: source.static !== false,
-		scatterTypeIDs: Array.isArray(source.scatterTypeIDs) ? source.scatterTypeIDs : [],
-		baseDensity: Math.max(0, toNumber(source.baseDensity, 0)),
+		scatter: Array.isArray(source.scatter) ? source.scatter : [],
 		state: {
 			destroyed: false,
 		},
 	};
 }
 
-function BuildObstacles(definitions) {
+function BuildObstacles(definitions, options) {
 	const source = Array.isArray(definitions) ? definitions : [];
-	const built = source.map((definition, index) => BuildObstacle(definition, index));
+	const built = source.map((definition, index) => BuildObstacle(definition, index, options));
 	if (built.length > 0) {
 		const destructibleCount = built.filter((entry) => entry.destructible === true).length;
 		Log(
