@@ -9,19 +9,10 @@
         },
         "grass-soft": {
             "id": "grass-soft",
-            "size": 32,
+            "size": 64,
             "pattern": "noise",
             "primary": "#5da85a",
-            "secondary": "#3d7f47",
-            "noiseMode": "natural",
-            "noisePlacement": {
-                "mode": "natural",
-                "clusterThreshold": 0.42,
-                "heightMin": 0.12,
-                "heightMax": 0.95,
-                "slopeMax": 0.82,
-                "noiseScale": 0.1
-            }
+            "secondary": "#3d7f47"
         },
         "stone-block": {
             "id": "stone-block",

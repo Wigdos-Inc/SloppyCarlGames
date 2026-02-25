@@ -1,6 +1,6 @@
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { ResolveScatterType } from "./NewTexture.js";
+import { normalizeVector3 } from "../math/Vector3.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -85,6 +85,50 @@ function resolveRootPart(parts) {
 	}
 
 	return selected;
+}
+
+function ResolveScatterType(templateRegistry, scatterTypeID) {
+	if (!templateRegistry || !templateRegistry.scatterTypes || !scatterTypeID) {
+		return null;
+	}
+
+	const definition = templateRegistry.scatterTypes[scatterTypeID];
+	if (!definition || typeof definition !== "object") {
+		return null;
+	}
+
+	const scaleRange = definition.scaleRange && typeof definition.scaleRange === "object"
+		? definition.scaleRange
+		: { min: 1, max: 1 };
+
+	return {
+		...definition,
+		noiseScale: Number.isFinite(definition.noiseScale) ? definition.noiseScale : 0.1,
+		heightMin: Number.isFinite(definition.heightMin) ? definition.heightMin : -Infinity,
+		heightMax: Number.isFinite(definition.heightMax) ? definition.heightMax : Infinity,
+		slopeMax: Number.isFinite(definition.slopeMax) ? definition.slopeMax : 1,
+		scaleRange: {
+			min: Number.isFinite(scaleRange.min) ? scaleRange.min : 1,
+			max: Number.isFinite(scaleRange.max) ? scaleRange.max : 1,
+		},
+		parts: Array.isArray(definition.parts)
+			? definition.parts.map((part) => {
+				const texture = part && part.texture && typeof part.texture === "object" ? part.texture : null;
+				return {
+					...part,
+					role: typeof part.role === "string" ? part.role.toLowerCase() : "",
+					dimensions: normalizeVector3(part.dimensions, { x: 0.5, y: 0.5, z: 0.5 }),
+					localPosition: normalizeVector3(part.localPosition, { x: 0, y: 0, z: 0 }),
+					localRotation: normalizeVector3(part.localRotation, { x: 0, y: 0, z: 0 }),
+					localScale: normalizeVector3(part.localScale, { x: 1, y: 1, z: 1 }),
+					texture: texture,
+					textureID: texture && texture.textureID ? texture.textureID : part.textureID,
+					textureColor: texture && texture.color ? texture.color : part.textureColor,
+					textureOpacity: texture && typeof texture.opacity === "number" ? texture.opacity : part.textureOpacity,
+				};
+			})
+			: [],
+	};
 }
 
 function normalizeScatterRequests(entries) {

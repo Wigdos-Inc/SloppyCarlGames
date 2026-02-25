@@ -105,126 +105,82 @@ async function LoadEngineVisualTemplates() {
 	return visualTemplateCache;
 }
 
-function drawPattern(ctx, size, textureDefinition, textureScale) {
-	const primary = parseHexColor(textureDefinition.primary, "rgb(170, 180, 190)");
-	const secondary = parseHexColor(textureDefinition.secondary, "rgb(100, 110, 120)");
-	const pattern = textureDefinition.pattern || "grid";
-	const featureScale = Math.max(0.05, toNumber(textureScale, 1));
-	const shape = normalizeShape(textureDefinition.shape);
-	const draw = (x, y, width, height) => drawShape(ctx, shape, x, y, width, height);
+function drawPattern(ctx, size, textureDefinition, textureScale = 1) {
+    const primary = parseHexColor(textureDefinition.primary, "rgb(170, 180, 190)");
+    const secondary = parseHexColor(textureDefinition.secondary, "rgb(100, 110, 120)");
+    const pattern = textureDefinition.pattern || "grid";
+    const featureScale = Math.max(0.05, typeof textureScale === "number" ? textureScale : 1);
+    const shape = normalizeShape(textureDefinition.shape);
+    const draw = (x, y, width, height) => drawShape(ctx, shape, x, y, width, height);
 
-	ctx.fillStyle = primary;
-	ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = primary;
+    ctx.fillRect(0, 0, size, size);
 
-	if (pattern === "checker") {
-		const cell = Math.max(4, Math.floor((size / 8) * featureScale));
-		for (let x = 0; x < size; x += cell) {
-			for (let y = 0; y < size; y += cell) {
-				if ((x / cell + y / cell) % 2 === 0) {
-					ctx.fillStyle = secondary;
-					draw(x, y, cell, cell);
-				}
-			}
-		}
-		return;
-	}
+    if (pattern === "checker") {
+        const cell = Math.max(4, Math.floor((size / 8) * featureScale));
+        for (let x = 0; x < size; x += cell) {
+            for (let y = 0; y < size; y += cell) {
+                if ((x / cell + y / cell) % 2 === 0) {
+                    ctx.fillStyle = secondary;
+                    draw(x, y, cell, cell);
+                }
+            }
+        }
+        return;
+    }
 
-	if (pattern === "stripes") {
-		const stripe = Math.max(3, Math.floor((size / 10) * featureScale));
-		ctx.fillStyle = secondary;
-		for (let y = 0; y < size; y += stripe * 2) {
-			ctx.fillRect(0, y, size, stripe);
-		}
-		return;
-	}
+    if (pattern === "stripes") {
+        const stripe = Math.max(3, Math.floor((size / 10) * featureScale));
+        ctx.fillStyle = secondary;
+        for (let y = 0; y < size; y += stripe * 2) {
+            ctx.fillRect(0, y, size, stripe);
+        }
+        return;
+    }
 
-	if (pattern === "radial") {
-		const gradient = ctx.createRadialGradient(size * 0.5, size * 0.5, size * 0.1, size * 0.5, size * 0.5, size * 0.6);
-		gradient.addColorStop(0, secondary);
-		gradient.addColorStop(1, primary);
-		ctx.fillStyle = gradient;
-		ctx.fillRect(0, 0, size, size);
-		return;
-	}
+    if (pattern === "radial") {
+        const gradient = ctx.createRadialGradient(size * 0.5, size * 0.5, size * 0.1, size * 0.5, size * 0.5, size * 0.6);
+        gradient.addColorStop(0, secondary);
+        gradient.addColorStop(1, primary);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        return;
+    }
 
-	if (pattern === "noise") {
-		const baseSpeck = Number.isFinite(textureDefinition.speckSize)
-			? Math.floor(textureDefinition.speckSize)
-			: 2;
-		const speck = Math.max(
-			1,
-			Math.floor(baseSpeck * featureScale)
-		);
-		const density = Number.isFinite(textureDefinition.density)
-			? Math.max(0.1, textureDefinition.density)
-			: 1;
-		const noisePlacement = textureDefinition.noisePlacement && typeof textureDefinition.noisePlacement === "object"
-			? textureDefinition.noisePlacement
-			: {};
-		const noiseMode = String(noisePlacement.mode || textureDefinition.noiseMode || "random").toLowerCase();
-		const densityScale = Math.max(0.05, featureScale * featureScale);
-		const speckCount = Math.min(16000, Math.max(size * 2, Math.floor((size * size * 0.02 * density) / densityScale)));
-		ctx.fillStyle = secondary;
+    if (pattern === "noise") {
+        const baseSpeck = Number.isFinite(textureDefinition.speckSize)
+            ? Math.floor(textureDefinition.speckSize)
+            : 2;
+        const speck = Math.max(1, Math.floor(baseSpeck * featureScale));
+        const density = Number.isFinite(textureDefinition.density)
+            ? Math.max(0.1, textureDefinition.density)
+            : 1;
+        const densityScale = Math.max(0.05, featureScale * featureScale);
+        const speckCount = Math.min(16000, Math.max(size * 2, Math.floor((size * size * 0.02 * density) / densityScale)));
+        ctx.fillStyle = secondary;
+        for (let index = 0; index < speckCount; index += 1) {
+            const x = Math.floor(Math.random() * (size - speck));
+            const y = Math.floor(Math.random() * (size - speck));
+            draw(x, y, speck, speck);
+        }
+        return;
+    }
 
-		if (noiseMode === "natural") {
-			// 'natural' mode: height, slope, clustering
-			const clusterThreshold = Math.max(0, Math.min(1, toNumber(noisePlacement.clusterThreshold, 0.4)));
-			const heightMin = Math.max(0, Math.min(1, toNumber(noisePlacement.heightMin, 0)));
-			const heightMax = Math.max(heightMin, Math.min(1, toNumber(noisePlacement.heightMax, 1)));
-			const slopeMax = Math.max(0, Math.min(1, toNumber(noisePlacement.slopeMax, 0.95)));
-			const noiseScale = Math.max(0.0001, toNumber(noisePlacement.noiseScale, 0.12));
-
-			for (let index = 0; index < speckCount; index += 1) {
-				const nx = hashNoise(index + 1, 2, 11);
-				const ny = hashNoise(3, index + 5, 13);
-				const cluster = hashNoise(nx * 64, ny * 64, 7);
-				if (cluster < clusterThreshold) {
-					continue;
-				}
-
-				const height = hashNoise(nx * noiseScale * 128, ny * noiseScale * 128, 17);
-				if (height < heightMin || height > heightMax) {
-					continue;
-				}
-
-				const hx = hashNoise((nx + 0.01) * noiseScale * 128, ny * noiseScale * 128, 17);
-				const hy = hashNoise(nx * noiseScale * 128, (ny + 0.01) * noiseScale * 128, 17);
-				const slope = Math.min(1, (Math.abs(height - hx) + Math.abs(height - hy)) * 0.5 * 12);
-				if (slope > slopeMax) {
-					continue;
-				}
-
-				const x = Math.floor(nx * Math.max(1, size - speck));
-				const y = Math.floor(ny * Math.max(1, size - speck));
-				draw(x, y, speck, speck);
-			}
-			return;
-		}
-
-		// 'random' mode: classic noise
-		for (let index = 0; index < speckCount; index += 1) {
-			const x = Math.floor(Math.random() * (size - speck));
-			const y = Math.floor(Math.random() * (size - speck));
-			draw(x, y, speck, speck);
-		}
-		return;
-	}
-
-	const line = Math.max(2, Math.floor((size / 8) * featureScale));
-	ctx.strokeStyle = secondary;
-	ctx.lineWidth = 1;
-	for (let x = 0; x <= size; x += line) {
-		ctx.beginPath();
-		ctx.moveTo(x, 0);
-		ctx.lineTo(x, size);
-		ctx.stroke();
-	}
-	for (let y = 0; y <= size; y += line) {
-		ctx.beginPath();
-		ctx.moveTo(0, y);
-		ctx.lineTo(size, y);
-		ctx.stroke();
-	}
+    const line = Math.max(2, Math.floor((size / 8) * featureScale));
+    ctx.strokeStyle = secondary;
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= size; x += line) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, size);
+        ctx.stroke();
+    }
+    for (let y = 0; y <= size; y += line) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(size, y);
+        ctx.stroke();
+    }
 }
 
 function toPowerOfTwoSize(value) {
@@ -418,50 +374,6 @@ function createTextureRegistry(templateRegistry, textureUsage, options) {
 	return registry;
 }
 
-function ResolveScatterType(templateRegistry, scatterTypeID) {
-	if (!templateRegistry || !templateRegistry.scatterTypes || !scatterTypeID) {
-		return null;
-	}
-
-	const definition = templateRegistry.scatterTypes[scatterTypeID];
-	if (!definition || typeof definition !== "object") {
-		return null;
-	}
-
-	const scaleRange = definition.scaleRange && typeof definition.scaleRange === "object"
-		? definition.scaleRange
-		: { min: 1, max: 1 };
-
-	return {
-		...definition,
-		noiseScale: Number.isFinite(definition.noiseScale) ? definition.noiseScale : 0.1,
-		heightMin: Number.isFinite(definition.heightMin) ? definition.heightMin : -Infinity,
-		heightMax: Number.isFinite(definition.heightMax) ? definition.heightMax : Infinity,
-		slopeMax: Number.isFinite(definition.slopeMax) ? definition.slopeMax : 1,
-		scaleRange: {
-			min: Number.isFinite(scaleRange.min) ? scaleRange.min : 1,
-			max: Number.isFinite(scaleRange.max) ? scaleRange.max : 1,
-		},
-		parts: Array.isArray(definition.parts)
-			? definition.parts.map((part) => {
-				const texture = part && part.texture && typeof part.texture === "object" ? part.texture : null;
-				return {
-					...part,
-					role: typeof part.role === "string" ? part.role.toLowerCase() : "",
-					dimensions: normalizeVector3(part.dimensions, { x: 0.5, y: 0.5, z: 0.5 }),
-					localPosition: normalizeVector3(part.localPosition, { x: 0, y: 0, z: 0 }),
-					localRotation: normalizeVector3(part.localRotation, { x: 0, y: 0, z: 0 }),
-					localScale: normalizeVector3(part.localScale, { x: 1, y: 1, z: 1 }),
-					texture: texture,
-					textureID: texture && texture.textureID ? texture.textureID : part.textureID,
-					textureColor: texture && texture.color ? texture.color : part.textureColor,
-					textureOpacity: texture && typeof texture.opacity === "number" ? texture.opacity : part.textureOpacity,
-				};
-			})
-			: [],
-	};
-}
-
 async function PrepareLevelVisualResources(sceneGraph) {
 	const templates = await LoadEngineVisualTemplates();
 	const textureUsage = collectTextureUsage(sceneGraph);
@@ -493,5 +405,4 @@ async function PrepareLevelVisualResources(sceneGraph) {
 export {
 	LoadEngineVisualTemplates,
 	PrepareLevelVisualResources,
-	ResolveScatterType,
 };

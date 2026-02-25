@@ -19,7 +19,7 @@
                         "deathBarrierY": -20,
                         "waterLevel": 6,
                         "textureScale": 1,
-                        "scatterScale": 1
+                        "scatterScale": 5
                     },
                     "terrain": {
                         "objects": [
