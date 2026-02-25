@@ -3,14 +3,15 @@
 /* === CONFIG === */
 // Base values and rule switches for the engine.
 
+
 const settings = JSON.parse(localStorage.getItem("settings")) ?? null;
 
 let CONFIG = {
   DEBUG: {
-    ALL: settings.debugMode ?? false,       // Global Debug Switch
+    ALL: settings?.debugMode ?? false,       // Global Debug Switch
     SKIP: {
       Splash: false,
-      Intro: settings.skipIntro ?? false,
+      Intro: settings?.skipIntro ?? false,
       Cutscene: false,
     },
     LEVELS: {
@@ -54,12 +55,12 @@ let CONFIG = {
     },
   },
   VOLUME: {
-    Master  : settings.master ?? 0.5,
-    Music   : settings.music ?? 1,
-    Voice   : settings.voice ?? 1,
-    MenuSfx : settings.menuSfx ?? 1,
-    GameSfx : settings.gameSfx ?? 1,
-    Cutscene: settings.cutscene ?? 1
+    Master  : settings?.master ?? 0.5,
+    Music   : settings?.music ?? 1,
+    Voice   : settings?.voice ?? 1,
+    MenuSfx : settings?.menuSfx ?? 1,
+    GameSfx : settings?.gameSfx ?? 1,
+    Cutscene: settings?.cutscene ?? 1
   },
   PERFORMANCE: {
     TerrainScatter: "High",

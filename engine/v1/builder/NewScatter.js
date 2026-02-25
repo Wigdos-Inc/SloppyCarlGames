@@ -62,7 +62,7 @@ function resolveRootPart(parts) {
 		return null;
 	}
 
-	const roots = parts.filter((part) => part && part.role === "root");
+	const roots = parts.filter((part) => part && part.level === 0);
 	if (roots.length === 0) {
 		return null;
 	}
@@ -101,7 +101,7 @@ function ResolveScatterType(templateRegistry, scatterTypeID) {
 		? definition.scaleRange
 		: { min: 1, max: 1 };
 
-	return {
+	 return {
 		...definition,
 		noiseScale: Number.isFinite(definition.noiseScale) ? definition.noiseScale : 0.1,
 		heightMin: Number.isFinite(definition.heightMin) ? definition.heightMin : -Infinity,
@@ -116,7 +116,6 @@ function ResolveScatterType(templateRegistry, scatterTypeID) {
 				const texture = part && part.texture && typeof part.texture === "object" ? part.texture : null;
 				return {
 					...part,
-					role: typeof part.role === "string" ? part.role.toLowerCase() : "",
 					dimensions: normalizeVector3(part.dimensions, { x: 0.5, y: 0.5, z: 0.5 }),
 					localPosition: normalizeVector3(part.localPosition, { x: 0, y: 0, z: 0 }),
 					localRotation: normalizeVector3(part.localRotation, { x: 0, y: 0, z: 0 }),
@@ -162,6 +161,34 @@ function resolveObjectScatterRequests(mesh, explicitRequests) {
 	return normalizeScatterRequests(mesh.detail.scatter);
 }
 
+// Applies hierarchical Y-offsets to scatter model parts based on their level and scaling
+function applyHierarchicalOffsets(parts, uniformScale) {
+	if (!Array.isArray(parts) || parts.length === 0) return parts;
+
+	// Sort parts by level ascending
+	const sortedParts = [...parts].sort((a, b) => a.level - b.level);
+	let offsetTally = 0;
+
+	// Clone parts to avoid mutating originals
+	const updatedParts = sortedParts.map((part) => {
+		const oldY = part.dimensions.y * part.localScale.y;
+		const newY = oldY * uniformScale;
+		let offset = (newY - oldY) / 2;
+
+		// Apply offset to non-root parts
+		let newLocalPosition = { ...part.localPosition };
+		if (part.level > 0) newLocalPosition.y = part.localPosition.y + offset + offsetTally;
+		else newLocalPosition.y = part.localPosition.y;
+		
+		offsetTally += offset;
+		return {
+			...part,
+			localPosition: newLocalPosition
+		};
+	});
+	return updatedParts;
+}
+
 function generateObjectScatter(objectMesh, scatterDefinitions, scatterMultiplier, world, indexSeed, explicitRequests, buildObject) {
 	if (scatterMultiplier <= 0) {
 		return [];
@@ -205,13 +232,12 @@ function generateObjectScatter(objectMesh, scatterDefinitions, scatterMultiplier
 			return;
 		}
 
-		const rootPart = resolveRootPart(scatterType.parts);
-
 		const maxCount = Math.max(0, Math.floor((approxArea / 18) * request.density * scatterMultiplier));
 		let typeCount = 0;
 		let samplePosition = null;
 		let sampleDimensions = null;
 		let modelCount = 0;
+
 		for (let instanceIndex = 0; instanceIndex < maxCount; instanceIndex += 1) {
 			const seed = indexSeed * 97 + scatterTypeIndex * 59 + instanceIndex * 17;
 			const nx = hashNoise(instanceIndex + 1, seed + 2, seed + 11);
@@ -252,12 +278,16 @@ function generateObjectScatter(objectMesh, scatterDefinitions, scatterMultiplier
 
 			const scaleNoise = hashNoise(worldX * 0.5, worldZ * 0.5, seed + 19);
 			const uniformScale = (scatterType.scaleRange.min + (scatterType.scaleRange.max - scatterType.scaleRange.min) * scaleNoise) * scatterScale;
+			const rootPart = resolveRootPart(scatterType.parts);
 			const modelRootY = rootPart
 				? worldY + getPartHalfHeight(rootPart) * uniformScale - rootPart.localPosition.y
 				: worldY;
 			let modelAabb = null;
 
-				scatterType.parts.forEach((part, partIndex) => {
+			// Apply hierarchical offsets to parts for this instance
+			const offsetParts = applyHierarchicalOffsets(scatterType.parts, uniformScale);
+
+			offsetParts.forEach((part, partIndex) => {
 				typeCount += 1;
 				const finalScaleBoost = 1;
 				const finalY = modelRootY + part.localPosition.y;
@@ -271,7 +301,7 @@ function generateObjectScatter(objectMesh, scatterDefinitions, scatterMultiplier
 					};
 				}
 
-					const scatterMesh = buildObject(
+				const scatterMesh = buildObject(
 					{
 						id: `${objectMesh.id}-scatter-${scatterType.id}-${instanceIndex}-${partIndex}`,
 						primitive: part.primitive,

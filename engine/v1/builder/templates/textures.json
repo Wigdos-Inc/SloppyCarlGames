@@ -60,7 +60,7 @@
             "slopeMax": 0.9,
             "parts": [
                 {
-                    "role": "root",
+                    "level": 0,
                     "primitive": "plane",
                     "dimensions": { "x": 0.4, "y": 1.1, "z": 0.12 },
                     "localPosition": { "x": 0, "y": 0, "z": 0 },
@@ -82,7 +82,7 @@
             "slopeMax": 0.95,
             "parts": [
                 {
-                    "role": "root",
+                    "level": 0,
                     "primitive": "sphere",
                     "dimensions": { "x": 0.4, "y": 0.25, "z": 0.35 },
                     "localPosition": { "x": 0, "y": 0, "z": 0 },
@@ -104,10 +104,10 @@
             "slopeMax": 0.75,
             "parts": [
                 {
-                    "role": "foliage",
+                    "level": 1,
                     "primitive": "sphere",
-                    "dimensions": { "x": 1.5, "y": 1, "z": 1.5 },
-                    "localPosition": { "x": 0, "y": 0.5, "z": 0 },
+                    "dimensions": { "x": 2.5, "y": 1.8, "z": 2.5 },
+                    "localPosition": { "x": 0, "y": 1.3, "z": 0 },
                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                     "localScale": { "x": 1, "y": 1, "z": 1 },
                     "textureID": "grass-soft",
@@ -115,9 +115,9 @@
                     "textureOpacity": 1
                 },
                 {
-                    "role": "root",
+                    "level": 0,
                     "primitive": "cylinder",
-                    "dimensions": { "x": 0.15, "y": 0.6, "z": 0.15 },
+                    "dimensions": { "x": 0.25, "y": 1, "z": 0.25 },
                     "localPosition": { "x": 0, "y": 0, "z": 0 },
                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                     "localScale": { "x": 1, "y": 1, "z": 1 },
