@@ -1,6 +1,7 @@
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { NormalizeVector3 } from "../math/Vector3.js";
+import { DegreesToRadians } from "../math/Utilities.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -114,11 +115,16 @@ function ResolveScatterType(templateRegistry, scatterTypeID) {
 		parts: Array.isArray(definition.parts)
 			? definition.parts.map((part) => {
 				const texture = part && part.texture && typeof part.texture === "object" ? part.texture : null;
+				const localRot = NormalizeVector3(part.localRotation, { x: 0, y: 0, z: 0 });
 				return {
 					...part,
 					dimensions: NormalizeVector3(part.dimensions, { x: 0.5, y: 0.5, z: 0.5 }),
 					localPosition: NormalizeVector3(part.localPosition, { x: 0, y: 0, z: 0 }),
-					localRotation: NormalizeVector3(part.localRotation, { x: 0, y: 0, z: 0 }),
+					localRotation: {
+						x: DegreesToRadians(localRot.x),
+						y: DegreesToRadians(localRot.y),
+						z: DegreesToRadians(localRot.z),
+					},
 					localScale: NormalizeVector3(part.localScale, { x: 1, y: 1, z: 1 }),
 					texture: texture,
 					textureID: texture && texture.textureID ? texture.textureID : part.textureID,

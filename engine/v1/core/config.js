@@ -8,47 +8,47 @@ const settings = JSON.parse(localStorage.getItem("settings")) ?? null;
 
 let CONFIG = {
   DEBUG: {
-    ALL: settings?.debugMode ?? false,       // Global Debug Switch
+    ALL : settings?.debugMode ?? false,       // Global Debug Switch
     SKIP: {
-      Splash: false,
-      Intro: settings?.skipIntro ?? false,
+      Splash  : false,
+      Intro   : settings?.skipIntro ?? false,
       Cutscene: false,
     },
     LEVELS: {
       Triggers: true,
-      FreeCam: true,
+      FreeCam : true,
       BoundingBox: {
-        Terrain: true,
-        Scatter: true,
-        Entity: true,
+        Terrain   : true,
+        Scatter   : true,
+        Entity    : true,
         EntityPart: false,
-        Obstacle: false,
-        Player: false,
+        Obstacle  : false,
+        Player    : false,
         PlayerPart: false,
-        Boss: false,
-        BossPart: false,
+        Boss      : false,
+        BossPart  : false,
       },
     },
     LOGGING: {
       All: true,
       Type: {
-        Log: true,
-        Warn: true,
+        Log  : true,
+        Warn : true,
         Error: true,
       },
       Source: {
         Engine: true,
-        Game: true,
+        Game  : true,
       },
       Channel: {
-        Startup: true,
-        UI: true,
-        Audio: true,
+        Startup : true,
+        UI      : true,
+        Audio   : true,
         Cutscene: true,
         Controls: {
           Click: true,
           Hover: true,
-          Key: true,
+          Key  : true,
         },
         Level: true,
       },
@@ -64,6 +64,9 @@ let CONFIG = {
   },
   PERFORMANCE: {
     TerrainScatter: "High",
+    RenderDistance: "High",
+    Animations    : true,
+    FrameRate     : 60
   }
 };
 

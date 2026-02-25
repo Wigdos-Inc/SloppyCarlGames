@@ -2,7 +2,7 @@ Overarching Theme:
 1. Game files send JSON data to an Engine Handler
 2. Engine Handler interprets data, builds and tracks what is needed using modules
 3. All visual elements get rendered by Render.js directly into document.body
-4. Moving entities get updated every frame.
+4. Entities get updated every frame.
 
 Core Workflow (Every Frame):
 1. Input Check (keypress/mouseclick)
@@ -93,3 +93,10 @@ Boss Fight Workflow:
 JSON Validation:
 - Incoming JSON must be validated against defined formats.
 - Invalid formats throw an error to aid debugging (exact schemas to be defined during implementation).
+
+
+Updates:
+- Defer scatter & bbox rendering to GPU instead of CPU.
+- Render Distance. Faraway scatters replaced by bbox-sized plane
+- Frame Rate. Lock maximum frame rate.
+- Add Mushroom Scatter

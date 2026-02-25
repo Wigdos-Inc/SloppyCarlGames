@@ -5,6 +5,7 @@
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
 import { AddVector3, LerpVector3, NormalizeVector3 } from "../math/Vector3.js";
+import { DegreesToRadians } from "../math/Utilities.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -23,11 +24,20 @@ function multiplyVector3(a, b) {
 function cloneTransform(transform, fallback) {
 	const source = transform && typeof transform === "object" ? transform : {};
 	const resolvedFallback = fallback && typeof fallback === "object" ? fallback : {};
+	const position = NormalizeVector3(source.position, resolvedFallback.position || { x: 0, y: 0, z: 0 });
+	const rotation = NormalizeVector3(source.rotation, resolvedFallback.rotation || { x: 0, y: 0, z: 0 });
+	const rotationRad = {
+		x: DegreesToRadians(rotation.x),
+		y: DegreesToRadians(rotation.y),
+		z: DegreesToRadians(rotation.z),
+	};
+	const scale = NormalizeVector3(source.scale, resolvedFallback.scale || { x: 1, y: 1, z: 1 });
+	const pivot = NormalizeVector3(source.pivot, resolvedFallback.pivot || { x: 0, y: 0, z: 0 });
 	return {
-		position: NormalizeVector3(source.position, resolvedFallback.position || { x: 0, y: 0, z: 0 }),
-		rotation: NormalizeVector3(source.rotation, resolvedFallback.rotation || { x: 0, y: 0, z: 0 }),
-		scale: NormalizeVector3(source.scale, resolvedFallback.scale || { x: 1, y: 1, z: 1 }),
-		pivot: NormalizeVector3(source.pivot, resolvedFallback.pivot || { x: 0, y: 0, z: 0 }),
+		position: position,
+		rotation: rotationRad,
+		scale: scale,
+		pivot: pivot,
 	};
 }
 
@@ -269,11 +279,19 @@ function BuildEntity(definition) {
 		hardcoded: merged.hardcoded && typeof merged.hardcoded === "object" ? merged.hardcoded : {},
 		platform: merged.platform || null,
 		movement: movement,
-		transform: {
-			position: { ...startPosition },
-			rotation: NormalizeVector3(merged.rotation, { x: 0, y: 0, z: 0 }),
-			scale: NormalizeVector3(merged.scale, { x: 1, y: 1, z: 1 }),
-		},
+		transform: (function() {
+			const pos = { ...startPosition };
+			const r = NormalizeVector3(merged.rotation, { x: 0, y: 0, z: 0 });
+			return {
+				position: pos,
+				rotation: {
+					x: DegreesToRadians(r.x),
+					y: DegreesToRadians(r.y),
+					z: DegreesToRadians(r.z),
+				},
+				scale: NormalizeVector3(merged.scale, { x: 1, y: 1, z: 1 }),
+			};
+		})(),
 		velocity: NormalizeVector3(merged.velocity, { x: 0, y: 0, z: 0 }),
 		model: model,
 		mesh: model.parts.length > 0 ? model.parts[0].mesh : null,

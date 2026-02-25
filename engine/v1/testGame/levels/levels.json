@@ -18,7 +18,7 @@
                         "height": 40,
                         "deathBarrierY": -20,
                         "waterLevel": 6,
-                        "textureScale": 1,
+                        "textureScale": 2,
                         "scatterScale": 1
                     },
                     "terrain": {
@@ -30,14 +30,17 @@
                                 "position": { "x": 60, "y": 0, "z": 40 },
                                 "texture": {
                                     "textureID": "grass-soft",
+                                    "shape": "circle",
                                     "color": { "r": 1, "g": 1, "b": 1, "a": 1 },
                                     "opacity": 1,
-                                    "density": 1
+                                    "density": 10
                                 },
                                 "scatter": [
-                                    { "typeID": "grass", "density": 0.55 },
-                                    { "typeID": "pebbles", "density": 0.35 },
-                                    { "typeID": "bushes", "density": 0.1 }
+                                    { "typeID": "grass", "density": 1 },
+                                    { "typeID": "pebbles", "density": 0.7 },
+                                    { "typeID": "bushes", "density": 0.4 },
+                                    { "typeID": "leaves", "density": 0.1 },
+                                    { "typeID": "twigs", "density": 0.3 }
                                 ]
                             },
                             {
@@ -62,6 +65,7 @@
                                 "position": { "x": 90, "y": 12, "z": 52 },
                                 "texture": {
                                     "textureID": "stone-block",
+                                    "shape": "circle",
                                     "color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
                                     "opacity": 1,
                                     "density": 1

@@ -5,6 +5,7 @@
 import { NormalizeVector3 } from "../math/Vector3.js";
 import { Log } from "../core/meta.js";
 import { BuildScatter, GetPerformanceScatterMultiplier } from "./NewScatter.js";
+import { DegreesToRadians } from "../math/Utilities.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -372,6 +373,11 @@ function createModelMatrix(transform) {
 	const source = transform && typeof transform === "object" ? transform : {};
 	const position = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
 	const rotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
+	const rotationRadians = {
+		x: DegreesToRadians(rotation.x),
+		y: DegreesToRadians(rotation.y),
+		z: DegreesToRadians(rotation.z),
+	};
 	const scale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
 	const pivot = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
 
