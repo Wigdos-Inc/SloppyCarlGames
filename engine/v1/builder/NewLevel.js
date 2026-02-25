@@ -10,7 +10,7 @@ import { BuildObject } from "./NewObject.js";
 import { BuildEntity } from "./NewEntity.js";
 import { BuildObstacles } from "./NewObstacle.js";
 import { GetPerformanceScatterMultiplier } from "./NewScatter.js";
-import { normalizeVector3 } from "../math/Vector3.js";
+import { NormalizeVector3 } from "../math/Vector3.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import {
@@ -40,16 +40,16 @@ function normalizeCameraConfig(camera) {
 	return {
 		mode: "stationary",
 		levelOpening: {
-			startPosition: normalizeVector3(
+			startPosition: NormalizeVector3(
 				source.levelOpening && source.levelOpening.startPosition,
 				{ x: 0, y: 40, z: 80 }
 			),
-			endPosition: normalizeVector3(
+			endPosition: NormalizeVector3(
 				source.levelOpening && source.levelOpening.endPosition,
 				{ x: 0, y: 40, z: 80 }
 			),
 		},
-		distanceFromPlayer: normalizeVector3(source.distanceFromPlayer, { x: 0, y: 20, z: 40 }),
+		distanceFromPlayer: NormalizeVector3(source.distanceFromPlayer, { x: 0, y: 20, z: 40 }),
 	};
 }
 
@@ -113,8 +113,8 @@ function resolveTriggerColor(triggerType) {
 
 function buildTriggerMesh(triggerDefinition, world, index) {
 	const source = triggerDefinition && typeof triggerDefinition === "object" ? triggerDefinition : {};
-	const start = normalizeVector3(source.start, { x: 0, y: 0, z: 0 });
-	const end = normalizeVector3(source.end, start);
+	const start = NormalizeVector3(source.start, { x: 0, y: 0, z: 0 });
+	const end = NormalizeVector3(source.end, start);
 	const center = {
 		x: (start.x + end.x) * 0.5,
 		y: toNumber(source.y, world.height * 0.5),

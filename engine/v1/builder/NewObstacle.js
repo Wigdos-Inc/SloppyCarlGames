@@ -5,7 +5,7 @@
 
 import { BuildObject } from "./NewObject.js";
 import { Log } from "../core/meta.js";
-import { addVector3, normalizeVector3 } from "../math/Vector3.js";
+import { AddVector3, NormalizeVector3 } from "../math/Vector3.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -66,9 +66,9 @@ function buildObstacleParts(source, index, options) {
 		return [single];
 	}
 
-	const rootPosition = normalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const rootRotation = normalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
-	const rootScale = normalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
+	const rootPosition = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
+	const rootRotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
+	const rootScale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
 
 	return source.parts.map((part, partIndex) => {
 		const partSource = part && typeof part === "object" ? part : {};
@@ -85,12 +85,12 @@ function buildObstacleParts(source, index, options) {
 				...partSource,
 				id: partSource.id || `${source.id || `obstacle-${index}`}-part-${partIndex}`,
 				primitive: partSource.primitive || partSource.shape || "cube",
-				position: addVector3(rootPosition, normalizeVector3(partSource.localPosition, { x: 0, y: 0, z: 0 })),
-				rotation: addVector3(rootRotation, normalizeVector3(partSource.localRotation, { x: 0, y: 0, z: 0 })),
+				position: AddVector3(rootPosition, NormalizeVector3(partSource.localPosition, { x: 0, y: 0, z: 0 })),
+				rotation: AddVector3(rootRotation, NormalizeVector3(partSource.localRotation, { x: 0, y: 0, z: 0 })),
 				scale: {
-					x: rootScale.x * normalizeVector3(partSource.localScale, { x: 1, y: 1, z: 1 }).x,
-					y: rootScale.y * normalizeVector3(partSource.localScale, { x: 1, y: 1, z: 1 }).y,
-					z: rootScale.z * normalizeVector3(partSource.localScale, { x: 1, y: 1, z: 1 }).z,
+					x: rootScale.x * NormalizeVector3(partSource.localScale, { x: 1, y: 1, z: 1 }).x,
+					y: rootScale.y * NormalizeVector3(partSource.localScale, { x: 1, y: 1, z: 1 }).y,
+					z: rootScale.z * NormalizeVector3(partSource.localScale, { x: 1, y: 1, z: 1 }).z,
 				},
 				texture: partSource.texture || inheritedTexture || {
 					textureID: partSource.textureID || source.textureID || "stone-block",

@@ -6,10 +6,10 @@
 import { CONFIG } from "../../core/config.js";
 import { IsPointerLocked, Log, RequestPointerLock } from "../../core/meta.js";
 import {
-	addVector3,
+	AddVector3,
 	crossVector3,
 	normalizeUnitVector3,
-	normalizeVector3,
+	NormalizeVector3,
 	scaleVector3,
 	vector3Length,
 } from "../../math/Vector3.js";
@@ -103,7 +103,7 @@ function createForwardFromAngles(yawDegrees, pitchDegrees) {
 
 function createCameraState(seed) {
 	const source = seed && typeof seed === "object" ? seed : {};
-	const position = normalizeVector3(source.position, { x: 0, y: 20, z: 40 });
+	const position = NormalizeVector3(source.position, { x: 0, y: 20, z: 40 });
 	const yaw = toNumber(source.yaw, -90);
 	const pitch = clamp(toNumber(source.pitch, -18), -pitchClampDegrees, pitchClampDegrees);
 	const forward = createForwardFromAngles(yaw, pitch);
@@ -118,9 +118,9 @@ function createCameraState(seed) {
 		right: right,
 		up: up,
 		speed: toNumber(source.speed, freeCamRuntime.maxSpeed),
-		velocity: normalizeVector3(source.velocity, { x: 0, y: 0, z: 0 }),
+		velocity: NormalizeVector3(source.velocity, { x: 0, y: 0, z: 0 }),
 		mode: "freecam",
-		target: addVector3(position, forward),
+		target: AddVector3(position, forward),
 		fov: toNumber(source.fov, 60),
 		near: toNumber(source.near, 0.1),
 		far: toNumber(source.far, 800),
@@ -131,7 +131,7 @@ function updateOrientationVectors(cameraState) {
 	cameraState.forward = createForwardFromAngles(cameraState.yaw, cameraState.pitch);
 	cameraState.right = normalizeUnitVector3(crossVector3(cameraState.forward, worldUp));
 	cameraState.up = normalizeUnitVector3(crossVector3(cameraState.right, cameraState.forward));
-	cameraState.target = addVector3(cameraState.position, cameraState.forward);
+	cameraState.target = AddVector3(cameraState.position, cameraState.forward);
 }
 
 function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
@@ -142,7 +142,7 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 		y: Math.max(0, toNumber(world.height, 40) * 0.35),
 		z: toNumber(world.width, 100) * 0.5,
 	};
-	const position = normalizeVector3(levelOpening.startPosition, {
+	const position = NormalizeVector3(levelOpening.startPosition, {
 		x: center.x,
 		y: Math.max(20, toNumber(world.height, 40) * 1.15),
 		z: center.z + Math.max(30, toNumber(world.width, 100) * 0.7),
@@ -283,22 +283,22 @@ function HandleFreeCamInput(eventLike, sceneGraph) {
 function getMoveDirectionFromKeys(cameraState) {
 	let direction = { x: 0, y: 0, z: 0 };
 	if (freeCamRuntime.keyState.KeyW || freeCamRuntime.keyState.ArrowUp) {
-		direction = addVector3(direction, cameraState.forward);
+		direction = AddVector3(direction, cameraState.forward);
 	}
 	if (freeCamRuntime.keyState.KeyS || freeCamRuntime.keyState.ArrowDown) {
-		direction = addVector3(direction, scaleVector3(cameraState.forward, -1));
+		direction = AddVector3(direction, scaleVector3(cameraState.forward, -1));
 	}
 	if (freeCamRuntime.keyState.KeyD || freeCamRuntime.keyState.ArrowRight) {
-		direction = addVector3(direction, cameraState.right);
+		direction = AddVector3(direction, cameraState.right);
 	}
 	if (freeCamRuntime.keyState.KeyA || freeCamRuntime.keyState.ArrowLeft) {
-		direction = addVector3(direction, scaleVector3(cameraState.right, -1));
+		direction = AddVector3(direction, scaleVector3(cameraState.right, -1));
 	}
 	if (freeCamRuntime.keyState.Space) {
-		direction = addVector3(direction, worldUp);
+		direction = AddVector3(direction, worldUp);
 	}
 	if (freeCamRuntime.keyState.ShiftLeft || freeCamRuntime.keyState.ShiftRight) {
-		direction = addVector3(direction, scaleVector3(worldUp, -1));
+		direction = AddVector3(direction, scaleVector3(worldUp, -1));
 	}
 
 	const length = vector3Length(direction);
@@ -327,7 +327,7 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 	const hasInput = vector3Length(inputDirection) > 0.000001;
 
 	if (hasInput) {
-		cameraState.velocity = addVector3(
+		cameraState.velocity = AddVector3(
 			cameraState.velocity,
 			scaleVector3(inputDirection, freeCamRuntime.acceleration * dt)
 		);
@@ -341,7 +341,7 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 		cameraState.velocity = scaleVector3(normalizeUnitVector3(cameraState.velocity), freeCamRuntime.maxSpeed);
 	}
 
-	cameraState.position = addVector3(cameraState.position, scaleVector3(cameraState.velocity, dt));
+	cameraState.position = AddVector3(cameraState.position, scaleVector3(cameraState.velocity, dt));
 	cameraState.speed = freeCamRuntime.maxSpeed;
 	updateOrientationVectors(cameraState);
 

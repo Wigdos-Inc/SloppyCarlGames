@@ -3,7 +3,7 @@
 // Used by NewObject.js to apply 2D and/or 3D textures to model parts.
 // Uses NewObject.js to build simple 3D textures (like grass, pebbles, etc)
 
-import { normalizeVector3 } from "../math/Vector3.js";
+import { NormalizeVector3 } from "../math/Vector3.js";
 import { Log } from "../core/meta.js";
 
 let visualTemplatePromise = null;
@@ -277,8 +277,8 @@ function collectTextureUsage(sceneGraph) {
 
 	const terrain = Array.isArray(sceneGraph && sceneGraph.terrain) ? sceneGraph.terrain : [];
 	terrain.forEach((mesh) => {
-		const dimensions = normalizeVector3(mesh && mesh.dimensions, { x: 1, y: 1, z: 1 });
-		const scale = normalizeVector3(mesh && mesh.transform && mesh.transform.scale, { x: 1, y: 1, z: 1 });
+		const dimensions = NormalizeVector3(mesh && mesh.dimensions, { x: 1, y: 1, z: 1 });
+		const scale = NormalizeVector3(mesh && mesh.transform && mesh.transform.scale, { x: 1, y: 1, z: 1 });
 		const span = Math.max(1, dimensions.x * scale.x, dimensions.z * scale.z);
 		collectMesh(mesh, { isTerrain: true, maxSpan: span });
 	});

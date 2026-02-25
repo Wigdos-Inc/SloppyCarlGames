@@ -2,7 +2,7 @@
 
 // Called by anything that wants any 3D object or wants to build models.
 
-import { normalizeVector3 } from "../math/Vector3.js";
+import { NormalizeVector3 } from "../math/Vector3.js";
 import { Log } from "../core/meta.js";
 import { BuildScatter, GetPerformanceScatterMultiplier } from "./NewScatter.js";
 
@@ -370,10 +370,10 @@ function createRotationZ(radians) {
 
 function createModelMatrix(transform) {
 	const source = transform && typeof transform === "object" ? transform : {};
-	const position = normalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const rotation = normalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
-	const scale = normalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
-	const pivot = normalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
+	const position = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
+	const rotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
+	const scale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
+	const pivot = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
 
 	let matrix = createIdentityMatrix();
 	matrix = multiplyMatrix4(matrix, createTranslationMatrix(position));
@@ -401,7 +401,7 @@ function transformPoint(localPoint, transform) {
 
 function computeWorldAabbFromGeometry(positions, transform) {
 	if (!Array.isArray(positions) || positions.length < 3) {
-		const p = normalizeVector3(transform && transform.position, { x: 0, y: 0, z: 0 });
+		const p = NormalizeVector3(transform && transform.position, { x: 0, y: 0, z: 0 });
 		return { min: { ...p }, max: { ...p } };
 	}
 
@@ -606,11 +606,11 @@ function BuildObject(definition, options) {
 	const shape = typeof shapeSource === "string" ? shapeSource.toLowerCase() : "cube";
 	const texture = normalizeTextureDescriptor(source, resolvedOptions);
 	const scatter = normalizeScatterRequests(source);
-	const size = normalizeVector3(source.dimensions || source.size, { x: 1, y: 1, z: 1 });
-	const position = normalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const rotation = normalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
-	const scale = normalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
-	const pivot = normalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
+	const size = NormalizeVector3(source.dimensions || source.size, { x: 1, y: 1, z: 1 });
+	const position = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
+	const rotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
+	const scale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
+	const pivot = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
 	const geometry = buildGeometry(shape, size);
 	const uvs = generateUvs(geometry.positions, geometry);
 	const bounds = computeBounds(geometry.positions);

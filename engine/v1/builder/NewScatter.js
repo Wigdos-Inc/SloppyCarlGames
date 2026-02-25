@@ -1,6 +1,6 @@
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { normalizeVector3 } from "../math/Vector3.js";
+import { NormalizeVector3 } from "../math/Vector3.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -116,10 +116,10 @@ function ResolveScatterType(templateRegistry, scatterTypeID) {
 				const texture = part && part.texture && typeof part.texture === "object" ? part.texture : null;
 				return {
 					...part,
-					dimensions: normalizeVector3(part.dimensions, { x: 0.5, y: 0.5, z: 0.5 }),
-					localPosition: normalizeVector3(part.localPosition, { x: 0, y: 0, z: 0 }),
-					localRotation: normalizeVector3(part.localRotation, { x: 0, y: 0, z: 0 }),
-					localScale: normalizeVector3(part.localScale, { x: 1, y: 1, z: 1 }),
+					dimensions: NormalizeVector3(part.dimensions, { x: 0.5, y: 0.5, z: 0.5 }),
+					localPosition: NormalizeVector3(part.localPosition, { x: 0, y: 0, z: 0 }),
+					localRotation: NormalizeVector3(part.localRotation, { x: 0, y: 0, z: 0 }),
+					localScale: NormalizeVector3(part.localScale, { x: 1, y: 1, z: 1 }),
 					texture: texture,
 					textureID: texture && texture.textureID ? texture.textureID : part.textureID,
 					textureColor: texture && texture.color ? texture.color : part.textureColor,

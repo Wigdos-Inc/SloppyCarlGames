@@ -69,6 +69,50 @@
                     "textureID": "grass-soft",
                     "textureColor": { "r": 0.9, "g": 1, "b": 0.9, "a": 1 },
                     "textureOpacity": 0.95
+                },
+                {
+                    "level": 0,
+                    "primitive": "plane",
+                    "dimensions": { "x": 0.4, "y": 1.1, "z": 0.12 },
+                    "localPosition": { "x": 0.12, "y": 0, "z": 0.12 },
+                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                    "textureID": "grass-soft",
+                    "textureColor": { "r": 0.9, "g": 1, "b": 0.9, "a": 1 },
+                    "textureOpacity": 0.95
+                },
+                {
+                    "level": 0,
+                    "primitive": "plane",
+                    "dimensions": { "x": 0.4, "y": 1.1, "z": 0.12 },
+                    "localPosition": { "x": -0.12, "y": 0, "z": 0.12 },
+                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                    "textureID": "grass-soft",
+                    "textureColor": { "r": 0.9, "g": 1, "b": 0.9, "a": 1 },
+                    "textureOpacity": 0.95
+                },
+                {
+                    "level": 0,
+                    "primitive": "plane",
+                    "dimensions": { "x": 0.4, "y": 1.1, "z": 0.12 },
+                    "localPosition": { "x": 0.12, "y": 0, "z": -0.12 },
+                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                    "textureID": "grass-soft",
+                    "textureColor": { "r": 0.9, "g": 1, "b": 0.9, "a": 1 },
+                    "textureOpacity": 0.95
+                },
+                {
+                    "level": 0,
+                    "primitive": "plane",
+                    "dimensions": { "x": 0.4, "y": 1.1, "z": 0.12 },
+                    "localPosition": { "x": -0.12, "y": 0, "z": -0.12 },
+                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                    "textureID": "grass-soft",
+                    "textureColor": { "r": 0.9, "g": 1, "b": 0.9, "a": 1 },
+                    "textureOpacity": 0.95
                 }
             ],
             "scaleRange": { "min": 0.8, "max": 1.35 }

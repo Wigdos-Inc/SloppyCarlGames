@@ -10,9 +10,10 @@ import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js
 import { RenderLevel } from "../Render.js";
 import { Cache, IsPointerLocked, Log, pushToSession, SESSION_KEYS } from "../../core/meta.js";
 import { InitializeCameraState, UpdateCameraState } from "./Camera.js";
-import { addVector3, distanceVector3, lerpVector3, normalizeVector3, scaleVector3 } from "../../math/Vector3.js";
+import { AddVector3, distanceVector3, LerpVector3, NormalizeVector3, scaleVector3 } from "../../math/Vector3.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { UpdateInputEventTypes } from "../Controls.js";
+import { ValidateLevelPayload } from "../../core/validate.js";
 
 const levelRuntimeState = {
 	payload: null,
@@ -99,8 +100,8 @@ function updateEntityMovement(entity, deltaSeconds) {
 		return;
 	}
 
-	const start = normalizeVector3(movement.start, { x: 0, y: 0, z: 0 });
-	const end = normalizeVector3(movement.end, start);
+	const start = NormalizeVector3(movement.start, { x: 0, y: 0, z: 0 });
+	const end = NormalizeVector3(movement.end, start);
 	const distance = distanceVector3(start, end);
 	if (distance <= 0.0001) {
 		return;
@@ -121,7 +122,7 @@ function updateEntityMovement(entity, deltaSeconds) {
 	}
 
 	const t = Math.max(0, Math.min(1, state.movementProgress));
-	const nextPosition = lerpVector3(start, end, t);
+	const nextPosition = LerpVector3(start, end, t);
 	position.x = nextPosition.x;
 	position.y = nextPosition.y;
 	position.z = nextPosition.z;
@@ -149,7 +150,7 @@ function applyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 
 	if (movement.physics) {
 		entity.velocity.y -= gravityPerSecond * deltaSeconds;
-		entity.transform.position = addVector3(
+		entity.transform.position = AddVector3(
 			entity.transform.position,
 			scaleVector3(entity.velocity, deltaSeconds)
 		);
@@ -259,15 +260,19 @@ function ResumeLevelLoop() {
 }
 
 async function CreateLevel(payload, options) {
-	if (!payload || typeof payload !== "object") {
+
+	// === VALIDATION & NORMALIZATION PIPELINE ===
+
+	const validatedPayload = ValidateLevelPayload(payload);
+	if (!validatedPayload) {
 		Log("ENGINE", "Level.CreateLevel aborted: invalid payload.", "warn", "Level");
 		return null;
 	}
 
 	// Update Input Events Engine Listens for
-	UpdateInputEventTypes({ payloadType: "level", payload: payload });
+	UpdateInputEventTypes({ payloadType: "level", payload: validatedPayload });
 
-	const cachedPayload = cacheLevelPayload(payload);
+	const cachedPayload = cacheLevelPayload(validatedPayload);
 	if (!cachedPayload) {
 		Log("ENGINE", "Level.CreateLevel aborted: payload cache failed.", "error", "Level");
 		return null;

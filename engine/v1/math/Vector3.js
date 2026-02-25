@@ -8,7 +8,7 @@ function toNumber(value, fallback) {
 	return Number.isFinite(resolved) ? resolved : fallback;
 }
 
-function normalizeVector3(value, fallback) {
+function NormalizeVector3(value, fallback) {
 	const resolvedFallback = fallback || { x: 0, y: 0, z: 0 };
 	if (!value) {
 		return { ...resolvedFallback };
@@ -33,9 +33,9 @@ function normalizeVector3(value, fallback) {
 	return { ...resolvedFallback };
 }
 
-function addVector3(a, b) {
-	const left = normalizeVector3(a);
-	const right = normalizeVector3(b);
+function AddVector3(a, b) {
+	const left = NormalizeVector3(a);
+	const right = NormalizeVector3(b);
 	return {
 		x: left.x + right.x,
 		y: left.y + right.y,
@@ -44,8 +44,8 @@ function addVector3(a, b) {
 }
 
 function subtractVector3(a, b) {
-	const left = normalizeVector3(a);
-	const right = normalizeVector3(b);
+	const left = NormalizeVector3(a);
+	const right = NormalizeVector3(b);
 	return {
 		x: left.x - right.x,
 		y: left.y - right.y,
@@ -54,7 +54,7 @@ function subtractVector3(a, b) {
 }
 
 function scaleVector3(vector, scalar) {
-	const resolved = normalizeVector3(vector);
+	const resolved = NormalizeVector3(vector);
 	const factor = toNumber(scalar, 1);
 	return {
 		x: resolved.x * factor,
@@ -64,14 +64,14 @@ function scaleVector3(vector, scalar) {
 }
 
 function dotVector3(a, b) {
-	const left = normalizeVector3(a);
-	const right = normalizeVector3(b);
+	const left = NormalizeVector3(a);
+	const right = NormalizeVector3(b);
 	return left.x * right.x + left.y * right.y + left.z * right.z;
 }
 
 function crossVector3(a, b) {
-	const left = normalizeVector3(a);
-	const right = normalizeVector3(b);
+	const left = NormalizeVector3(a);
+	const right = NormalizeVector3(b);
 	return {
 		x: left.y * right.z - left.z * right.y,
 		y: left.z * right.x - left.x * right.z,
@@ -80,7 +80,7 @@ function crossVector3(a, b) {
 }
 
 function vector3Length(vector) {
-	const resolved = normalizeVector3(vector);
+	const resolved = NormalizeVector3(vector);
 	return Math.hypot(resolved.x, resolved.y, resolved.z);
 }
 
@@ -89,7 +89,7 @@ function distanceVector3(a, b) {
 }
 
 function normalizeUnitVector3(vector) {
-	const resolved = normalizeVector3(vector);
+	const resolved = NormalizeVector3(vector);
 	const length = vector3Length(resolved);
 	if (length <= 0.000001) {
 		return { x: 0, y: 0, z: 0 };
@@ -101,9 +101,9 @@ function normalizeUnitVector3(vector) {
 	};
 }
 
-function lerpVector3(start, end, t) {
-	const from = normalizeVector3(start);
-	const to = normalizeVector3(end);
+function LerpVector3(start, end, t) {
+	const from = NormalizeVector3(start);
+	const to = NormalizeVector3(end);
 	const alpha = Math.max(0, Math.min(1, toNumber(t, 0)));
 	return {
 		x: from.x + (to.x - from.x) * alpha,
@@ -116,8 +116,8 @@ function lerpVector3(start, end, t) {
 // Public math helpers.
 
 export {
-	normalizeVector3,
-	addVector3,
+	NormalizeVector3,
+	AddVector3,
 	subtractVector3,
 	scaleVector3,
 	dotVector3,
@@ -125,5 +125,5 @@ export {
 	vector3Length,
 	distanceVector3,
 	normalizeUnitVector3,
-	lerpVector3,
+	LerpVector3,
 };

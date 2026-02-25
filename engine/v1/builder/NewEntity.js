@@ -4,15 +4,15 @@
 // Uses NewObject.js for Model Parts
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
-import { addVector3, lerpVector3, normalizeVector3 } from "../math/Vector3.js";
+import { AddVector3, LerpVector3, NormalizeVector3 } from "../math/Vector3.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function multiplyVector3(a, b) {
-	const left = normalizeVector3(a, { x: 1, y: 1, z: 1 });
-	const right = normalizeVector3(b, { x: 1, y: 1, z: 1 });
+	const left = NormalizeVector3(a, { x: 1, y: 1, z: 1 });
+	const right = NormalizeVector3(b, { x: 1, y: 1, z: 1 });
 	return {
 		x: left.x * right.x,
 		y: left.y * right.y,
@@ -24,10 +24,10 @@ function cloneTransform(transform, fallback) {
 	const source = transform && typeof transform === "object" ? transform : {};
 	const resolvedFallback = fallback && typeof fallback === "object" ? fallback : {};
 	return {
-		position: normalizeVector3(source.position, resolvedFallback.position || { x: 0, y: 0, z: 0 }),
-		rotation: normalizeVector3(source.rotation, resolvedFallback.rotation || { x: 0, y: 0, z: 0 }),
-		scale: normalizeVector3(source.scale, resolvedFallback.scale || { x: 1, y: 1, z: 1 }),
-		pivot: normalizeVector3(source.pivot, resolvedFallback.pivot || { x: 0, y: 0, z: 0 }),
+		position: NormalizeVector3(source.position, resolvedFallback.position || { x: 0, y: 0, z: 0 }),
+		rotation: NormalizeVector3(source.rotation, resolvedFallback.rotation || { x: 0, y: 0, z: 0 }),
+		scale: NormalizeVector3(source.scale, resolvedFallback.scale || { x: 1, y: 1, z: 1 }),
+		pivot: NormalizeVector3(source.pivot, resolvedFallback.pivot || { x: 0, y: 0, z: 0 }),
 	};
 }
 
@@ -35,8 +35,8 @@ function composeTransform(parentTransform, localTransform) {
 	const parent = cloneTransform(parentTransform);
 	const local = cloneTransform(localTransform);
 	return {
-		position: addVector3(parent.position, local.position),
-		rotation: addVector3(parent.rotation, local.rotation),
+		position: AddVector3(parent.position, local.position),
+		rotation: AddVector3(parent.rotation, local.rotation),
 		scale: multiplyVector3(parent.scale, local.scale),
 		pivot: local.pivot,
 	};
@@ -45,8 +45,8 @@ function composeTransform(parentTransform, localTransform) {
 function normalizeMovement(movement) {
 	const source = movement && typeof movement === "object" ? movement : {};
 	return {
-		start: normalizeVector3(source.start, { x: 0, y: 0, z: 0 }),
-		end: normalizeVector3(source.end, { x: 0, y: 0, z: 0 }),
+		start: NormalizeVector3(source.start, { x: 0, y: 0, z: 0 }),
+		end: NormalizeVector3(source.end, { x: 0, y: 0, z: 0 }),
 		repeat: source.repeat !== false,
 		backAndForth: source.backAndForth !== false,
 		speed: Math.max(0, toNumber(source.speed, 0)),
@@ -86,17 +86,17 @@ function mergeEntityBlueprint(baseBlueprint, levelOverrides) {
 function buildPart(partDefinition, entityId, index) {
 	const source = partDefinition && typeof partDefinition === "object" ? partDefinition : {};
 	const localTransform = {
-		position: normalizeVector3(source.localPosition, { x: 0, y: 0, z: 0 }),
-		rotation: normalizeVector3(source.localRotation, { x: 0, y: 0, z: 0 }),
-		scale: normalizeVector3(source.localScale, { x: 1, y: 1, z: 1 }),
-		pivot: normalizeVector3(source.pivot, { x: 0, y: 0, z: 0 }),
+		position: NormalizeVector3(source.localPosition, { x: 0, y: 0, z: 0 }),
+		rotation: NormalizeVector3(source.localRotation, { x: 0, y: 0, z: 0 }),
+		scale: NormalizeVector3(source.localScale, { x: 1, y: 1, z: 1 }),
+		pivot: NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 }),
 	};
 
 	const mesh = BuildObject(
 		{
 			id: source.id || `${entityId}-part-${index}`,
 			primitive: source.primitive || source.shape || "cube",
-			dimensions: normalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 }),
+			dimensions: NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 }),
 			textureID: source.textureID || "default-grid",
 			textureColor: source.textureColor || { r: 1, g: 1, b: 1, a: 1 },
 			textureOpacity: toNumber(source.textureOpacity, 1),
@@ -120,10 +120,10 @@ function buildPart(partDefinition, entityId, index) {
 function buildDefaultModel(entityDefinition) {
 	return {
 		rootTransform: {
-			position: normalizeVector3(entityDefinition.position, { x: 0, y: 0, z: 0 }),
-			rotation: normalizeVector3(entityDefinition.rotation, { x: 0, y: 0, z: 0 }),
-			scale: normalizeVector3(entityDefinition.scale, { x: 1, y: 1, z: 1 }),
-			pivot: normalizeVector3(entityDefinition.pivot, { x: 0, y: 0, z: 0 }),
+			position: NormalizeVector3(entityDefinition.position, { x: 0, y: 0, z: 0 }),
+			rotation: NormalizeVector3(entityDefinition.rotation, { x: 0, y: 0, z: 0 }),
+			scale: NormalizeVector3(entityDefinition.scale, { x: 1, y: 1, z: 1 }),
+			pivot: NormalizeVector3(entityDefinition.pivot, { x: 0, y: 0, z: 0 }),
 		},
 		parts: [
 			buildPart(
@@ -150,10 +150,10 @@ function buildModel(entityDefinition) {
 	const model = sourceModel
 		? {
 			rootTransform: {
-				position: normalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.position, entityDefinition.position || { x: 0, y: 0, z: 0 }),
-				rotation: normalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.rotation, entityDefinition.rotation || { x: 0, y: 0, z: 0 }),
-				scale: normalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.scale, entityDefinition.scale || { x: 1, y: 1, z: 1 }),
-				pivot: normalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.pivot, { x: 0, y: 0, z: 0 }),
+				position: NormalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.position, entityDefinition.position || { x: 0, y: 0, z: 0 }),
+				rotation: NormalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.rotation, entityDefinition.rotation || { x: 0, y: 0, z: 0 }),
+				scale: NormalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.scale, entityDefinition.scale || { x: 1, y: 1, z: 1 }),
+				pivot: NormalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.pivot, { x: 0, y: 0, z: 0 }),
 			},
 			parts: Array.isArray(sourceModel.parts)
 				? sourceModel.parts.map((part, index) => buildPart(part, entityDefinition.id || "entity", index))
@@ -251,7 +251,7 @@ function BuildEntity(definition) {
 	const source = definition && typeof definition === "object" ? definition : {};
 	const merged = mergeEntityBlueprint(source.baseBlueprint, source);
 	const movement = normalizeMovement(merged.movement);
-	const startPosition = normalizeVector3(merged.position || movement.start, { x: 0, y: 0, z: 0 });
+	const startPosition = NormalizeVector3(merged.position || movement.start, { x: 0, y: 0, z: 0 });
 
 	const model = buildModel({
 		...merged,
@@ -271,10 +271,10 @@ function BuildEntity(definition) {
 		movement: movement,
 		transform: {
 			position: { ...startPosition },
-			rotation: normalizeVector3(merged.rotation, { x: 0, y: 0, z: 0 }),
-			scale: normalizeVector3(merged.scale, { x: 1, y: 1, z: 1 }),
+			rotation: NormalizeVector3(merged.rotation, { x: 0, y: 0, z: 0 }),
+			scale: NormalizeVector3(merged.scale, { x: 1, y: 1, z: 1 }),
 		},
-		velocity: normalizeVector3(merged.velocity, { x: 0, y: 0, z: 0 }),
+		velocity: NormalizeVector3(merged.velocity, { x: 0, y: 0, z: 0 }),
 		model: model,
 		mesh: model.parts.length > 0 ? model.parts[0].mesh : null,
 		collision: {
@@ -295,9 +295,9 @@ function UpdateEntityModelFromTransform(entity) {
 		return;
 	}
 
-	entity.model.rootTransform.position = normalizeVector3(entity.transform && entity.transform.position, { x: 0, y: 0, z: 0 });
-	entity.model.rootTransform.rotation = normalizeVector3(entity.transform && entity.transform.rotation, { x: 0, y: 0, z: 0 });
-	entity.model.rootTransform.scale = normalizeVector3(entity.transform && entity.transform.scale, { x: 1, y: 1, z: 1 });
+	entity.model.rootTransform.position = NormalizeVector3(entity.transform && entity.transform.position, { x: 0, y: 0, z: 0 });
+	entity.model.rootTransform.rotation = NormalizeVector3(entity.transform && entity.transform.rotation, { x: 0, y: 0, z: 0 });
+	entity.model.rootTransform.scale = NormalizeVector3(entity.transform && entity.transform.scale, { x: 1, y: 1, z: 1 });
 
 	applyModelPose(entity.model);
 	entity.collision = entity.collision || {};
@@ -328,9 +328,9 @@ function SampleMovementPoint(entity, normalizedTime) {
 		return { x: 0, y: 0, z: 0 };
 	}
 
-	const start = normalizeVector3(entity.movement.start, { x: 0, y: 0, z: 0 });
-	const end = normalizeVector3(entity.movement.end, start);
-	return lerpVector3(start, end, normalizedTime);
+	const start = NormalizeVector3(entity.movement.start, { x: 0, y: 0, z: 0 });
+	const end = NormalizeVector3(entity.movement.end, start);
+	return LerpVector3(start, end, normalizedTime);
 }
 
 export {

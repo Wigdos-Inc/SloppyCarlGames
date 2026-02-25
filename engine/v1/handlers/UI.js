@@ -12,6 +12,7 @@ import { BuildElements } from "../builder/NewUI.js";
 import { RenderPayload, RemoveRoot } from "./Render.js";
 import { PlayMusic } from "./Sound.js";
 import { UpdateInputEventTypes } from "./Controls.js";
+import { ValidateMenuUIPayload } from "../core/validate.js";
 
 
 /* === MENU UI === */
@@ -294,18 +295,19 @@ function HandleUiAction(action) {
 }
 
 function ApplyMenuUI(payload) {
-	if (!payload || typeof payload !== "object") {
+	const validatedPayload = ValidateMenuUIPayload(payload);
+	if (!validatedPayload) {
 		return;
 	}
 
 	// Update Input Events Engine Listens for
-	UpdateInputEventTypes({ payloadType: "ui", payload: payload });
+	UpdateInputEventTypes({ payloadType: "ui", payload: validatedPayload });
 
-	if (payload.screenId) {
-		Log("ENGINE", `UI screen load: ${payload.screenId}`, "log", "UI");
+	if (validatedPayload.screenId) {
+		Log("ENGINE", `UI screen load: ${validatedPayload.screenId}`, "log", "UI");
 	}
 
-	if (payloadHasHeavyInlineStyleActions(payload.elements)) {
+	if (payloadHasHeavyInlineStyleActions(validatedPayload.elements)) {
 		Log(
 			"ENGINE",
 			"Many style actions detected. Consider using CSS Stylesheet + classList for better performance.",
@@ -316,31 +318,31 @@ function ApplyMenuUI(payload) {
 
 	// Cache the latest UI payload for input routing.
 	if (Cache && Cache.UI) {
-		Cache.UI.lastPayload = payload;
-		Cache.UI.screenID = payload.screenId || null;
+		Cache.UI.lastPayload = validatedPayload;
+		Cache.UI.screenID = validatedPayload.screenId || null;
 		Cache.UI.elementIndex = {};
-		indexElements(payload.elements, Cache.UI.elementIndex);
+		indexElements(validatedPayload.elements, Cache.UI.elementIndex);
 		Cache.UI.uiRuntime = buildUiRuntimeMapsFromIndex(Cache.UI.elementIndex);
 		pushToSession(SESSION_KEYS.Cache, Cache);
 	}
 
-	const screenLabel = payload.screenId || "unknown";
+	const screenLabel = validatedPayload.screenId || "unknown";
 	Log("ENGINE", `UI Render: ${screenLabel}`, "log", "UI");
 
-	CreateUI(payload);
+	CreateUI(validatedPayload);
 	Cursor.changeState("enabled");
 
 	// Notify listeners that the UI is ready.
 	if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
 		window.dispatchEvent(
 			new CustomEvent("ENGINE_UI_RENDERED", {
-				detail: { screenId: payload.screenId || null },
+				detail: { screenId: validatedPayload.screenId || null },
 			})
 		);
 	}
 
 	// Start UI music after render.
-	const music = payload.music;
+	const music = validatedPayload.music;
 	if (music && music.name && music.src) {
 		PlayMusic(music.name, music.src, music);
 	}
