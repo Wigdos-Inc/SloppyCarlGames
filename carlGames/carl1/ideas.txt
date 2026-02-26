@@ -1,0 +1,16 @@
+Track Usage:
+1. Oops! All Carl!    : Main Menu
+2. Carl Residue       : Main Menu #2
+3. Prime Tide Riding  : Deep Blue Zone
+4. Tangled Coral Tango: Uncanny Coral Zone
+5. Dock Block         : Mechaport Zone
+6. Inversions         : Special Stage
+7. Prolific Porifera  : Leviathan Battle
+8. Mechamarine        : Willy's Wet Torpedo Battle
+9. Pier Pressure      : Wet Willy's Battle
+10. Pier Pressure #2  : Freedom Battle
+11. Whirl Pearl Swirl : Freedom Cutscene
+12. Slugcess 1        : Level Complete
+13. Slugcess 2        : Boss Complete
+14. Slugcess 3        : Game Complete
+15. Kudos             : Credits
