@@ -9,7 +9,7 @@
 import { BuildObject } from "./NewObject.js";
 import { BuildEntity } from "./NewEntity.js";
 import { BuildObstacles } from "./NewObstacle.js";
-import { GetPerformanceScatterMultiplier } from "./NewScatter.js";
+import { GetPerformanceScatterMultiplier, BuildScatterBatches } from "./NewScatter.js";
 import { NormalizeVector3 } from "../math/Vector3.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
@@ -174,6 +174,16 @@ function buildSceneBoundingBoxes(sceneGraph) {
 	const scatter = Array.isArray(sceneGraph && sceneGraph.scatter) ? sceneGraph.scatter : [];
 	scatter.forEach((mesh) => push("Scatter", mesh.id, mesh.worldAabb));
 
+	// Per-model scatter bounding boxes from instanced batch generation.
+	const scatterDebugBounds = Array.isArray(sceneGraph && sceneGraph.scatterDebugBounds)
+		? sceneGraph.scatterDebugBounds
+		: [];
+	scatterDebugBounds.forEach((record) => {
+		if (record && record.min && record.max) {
+			bounds.push({ type: record.type || "Scatter", id: record.id, min: { ...record.min }, max: { ...record.max } });
+		}
+	});
+
 	const obstacles = Array.isArray(sceneGraph && sceneGraph.obstacles) ? sceneGraph.obstacles : [];
 	obstacles.forEach((obstacle) => {
 		push("Obstacle", obstacle.id, obstacle.bounds || null);
@@ -217,12 +227,11 @@ async function BuildLevel(payload) {
 	const blueprintMap = resolveEntityBlueprintMap(source);
 	const scatterMultiplier = GetPerformanceScatterMultiplier();
 	const visualTemplateRegistry = await LoadEngineVisualTemplates();
-	const scatter = [];
-	let terrainScatterCount = 0;
-	let obstacleScatterCount = 0;
+	const scatterBatches = new Map();
+	const scatterDebugBounds = [];
 
-	const terrain = terrainDefinitions.map((terrainObject, index) =>
-		BuildObject(
+	const terrain = terrainDefinitions.map((terrainObject, index) => {
+		const terrainMesh = BuildObject(
 			{
 				...terrainObject,
 				id: terrainObject && terrainObject.id ? terrainObject.id : `terrain-${index}`,
@@ -240,42 +249,61 @@ async function BuildLevel(payload) {
 				role: "terrain",
 				defaultColor: { r: 0.28, g: 0.58, b: 0.42, a: 1 },
 				textureID: "grass-soft",
-				scatterContext: {
-					scatterDefinitions: visualTemplateRegistry,
-					scatterMultiplier: scatterMultiplier,
-					world: world,
-					indexSeed: index + 1,
-					scatterAccumulator: scatter,
-					onScatterGenerated: (mesh, generated) => {
-						if (mesh && mesh.role === "terrain") {
-							terrainScatterCount += generated.length;
-						}
-					},
-				},
 			}
-		)
-	);
+		);
+
+		// Generate scatter batches for this terrain object.
+		const scatterRequests = terrainMesh.detail && Array.isArray(terrainMesh.detail.scatter)
+			? terrainMesh.detail.scatter
+			: [];
+		if (scatterRequests.length > 0) {
+			BuildScatterBatches({
+				objectMesh: terrainMesh,
+				scatterDefinitions: visualTemplateRegistry,
+				scatterMultiplier: scatterMultiplier,
+				world: world,
+				indexSeed: index + 1,
+				explicitScatter: scatterRequests,
+				batchMap: scatterBatches,
+				debugBboxAccumulator: scatterDebugBounds,
+			});
+		}
+
+		return terrainMesh;
+	});
 	if (terrain.length > 0) {
 		Log("ENGINE", `Terrain object group created: count=${terrain.length}`, "log", "Level");
 	}
 
-	const obstacleRecords = BuildObstacles(obstacleDefinitions, {
-		scatterContext: {
-			scatterDefinitions: visualTemplateRegistry,
-			scatterMultiplier: scatterMultiplier,
-			world: world,
-			scatterAccumulator: scatter,
-			onScatterGenerated: (_mesh, generated) => {
-				obstacleScatterCount += generated.length;
-			},
-		},
-	});
+	const obstacleRecords = BuildObstacles(obstacleDefinitions, {});
 	const obstacles = obstacleRecords.map((record) => record.mesh);
 
-	if (scatter.length > 0) {
+	// Generate scatter batches for obstacles that have scatter.
+	obstacleRecords.forEach((record, index) => {
+		const obstacleMesh = record.mesh || record;
+		const scatterRequests = obstacleMesh.detail && Array.isArray(obstacleMesh.detail.scatter)
+			? obstacleMesh.detail.scatter
+			: [];
+		if (scatterRequests.length > 0) {
+			BuildScatterBatches({
+				objectMesh: obstacleMesh,
+				scatterDefinitions: visualTemplateRegistry,
+				scatterMultiplier: scatterMultiplier,
+				world: world,
+				indexSeed: (terrainDefinitions.length + index + 1),
+				explicitScatter: scatterRequests,
+				batchMap: scatterBatches,
+				debugBboxAccumulator: scatterDebugBounds,
+			});
+		}
+	});
+
+	let totalBatchInstances = 0;
+	scatterBatches.forEach((batch) => { totalBatchInstances += batch.instances.length; });
+	if (totalBatchInstances > 0) {
 		Log(
 			"ENGINE",
-			`Scatter applied: total=${scatter.length}, terrain=${terrainScatterCount}, obstacles=${obstacleScatterCount}`,
+			`Scatter batches: ${scatterBatches.size} batch key(s), ${totalBatchInstances} total instance(s)`,
 			"log",
 			"Level"
 		);
@@ -301,7 +329,9 @@ async function BuildLevel(payload) {
 		obstacles: obstacleRecords,
 		entities: entities,
 		triggers: triggers,
-		scatter: scatter,
+		scatter: [],
+		scatterBatches: scatterBatches,
+		scatterDebugBounds: scatterDebugBounds,
 		debug: {
 			showTriggerVolumes: CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.Triggers === true,
 		},
@@ -319,7 +349,7 @@ async function BuildLevel(payload) {
 	RefreshSceneBoundingBoxes(sceneGraph);
 	Log(
 		"ENGINE",
-		`Level generation complete: terrain=${terrain.length}, obstacles=${obstacleRecords.length}, entities=${entities.length}, triggers=${triggers.length}, scatter=${scatter.length}`,
+		`Level generation complete: terrain=${terrain.length}, obstacles=${obstacleRecords.length}, entities=${entities.length}, triggers=${triggers.length}, scatterBatches=${scatterBatches.size}, scatterInstances=${totalBatchInstances}`,
 		"log",
 		"Level"
 	);

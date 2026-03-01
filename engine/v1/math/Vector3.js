@@ -43,7 +43,7 @@ function AddVector3(a, b) {
 	};
 }
 
-function subtractVector3(a, b) {
+function SubtractVector3(a, b) {
 	const left = NormalizeVector3(a);
 	const right = NormalizeVector3(b);
 	return {
@@ -63,13 +63,13 @@ function scaleVector3(vector, scalar) {
 	};
 }
 
-function dotVector3(a, b) {
+function DotVector3(a, b) {
 	const left = NormalizeVector3(a);
 	const right = NormalizeVector3(b);
 	return left.x * right.x + left.y * right.y + left.z * right.z;
 }
 
-function crossVector3(a, b) {
+function CrossVector3(a, b) {
 	const left = NormalizeVector3(a);
 	const right = NormalizeVector3(b);
 	return {
@@ -85,10 +85,10 @@ function vector3Length(vector) {
 }
 
 function distanceVector3(a, b) {
-	return vector3Length(subtractVector3(a, b));
+	return vector3Length(SubtractVector3(a, b));
 }
 
-function normalizeUnitVector3(vector) {
+function NormalizeUnitVector3(vector) {
 	const resolved = NormalizeVector3(vector);
 	const length = vector3Length(resolved);
 	if (length <= 0.000001) {
@@ -118,12 +118,12 @@ function LerpVector3(start, end, t) {
 export {
 	NormalizeVector3,
 	AddVector3,
-	subtractVector3,
+	SubtractVector3,
 	scaleVector3,
-	dotVector3,
-	crossVector3,
+	DotVector3,
+	CrossVector3,
 	vector3Length,
 	distanceVector3,
-	normalizeUnitVector3,
+	NormalizeUnitVector3,
 	LerpVector3,
 };

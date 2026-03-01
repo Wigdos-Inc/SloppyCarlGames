@@ -289,6 +289,22 @@ function collectTextureUsage(sceneGraph) {
 	const scatter = Array.isArray(sceneGraph && sceneGraph.scatter) ? sceneGraph.scatter : [];
 	scatter.forEach((mesh) => collectMesh(mesh, null));
 
+	// Collect texture IDs from instanced scatter batches.
+	const scatterBatches = sceneGraph && sceneGraph.scatterBatches instanceof Map ? sceneGraph.scatterBatches : null;
+	if (scatterBatches) {
+		scatterBatches.forEach((batch) => {
+			if (batch && typeof batch.textureID === "string" && batch.textureID.length > 0 && !usage[batch.textureID]) {
+				usage[batch.textureID] = {
+					isTerrain: false,
+					maxSpan: 1,
+					density: null,
+					baseTextureID: batch.textureID,
+					shape: null,
+				};
+			}
+		});
+	}
+
 	const entities = Array.isArray(sceneGraph && sceneGraph.entities) ? sceneGraph.entities : [];
 	entities.forEach((entity) => {
 		if (entity && entity.model && Array.isArray(entity.model.parts)) {

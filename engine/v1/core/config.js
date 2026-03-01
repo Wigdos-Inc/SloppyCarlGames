@@ -18,9 +18,9 @@ let CONFIG = {
       Triggers: true,
       FreeCam : true,
       BoundingBox: {
-        Terrain   : true,
-        Scatter   : true,
-        Entity    : true,
+        Terrain   : false,
+        Scatter   : false,
+        Entity    : false,
         EntityPart: false,
         Obstacle  : false,
         Player    : false,

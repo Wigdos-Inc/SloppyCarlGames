@@ -36,7 +36,7 @@
                                     "density": 10
                                 },
                                 "scatter": [
-                                    { "typeID": "grass", "density": 1 },
+                                    { "typeID": "grass", "density": 100 },
                                     { "typeID": "pebbles", "density": 0.7 },
                                     { "typeID": "bushes", "density": 0.4 },
                                     { "typeID": "leaves", "density": 0.1 },

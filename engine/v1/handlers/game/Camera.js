@@ -7,8 +7,8 @@ import { CONFIG } from "../../core/config.js";
 import { IsPointerLocked, Log, RequestPointerLock } from "../../core/meta.js";
 import {
 	AddVector3,
-	crossVector3,
-	normalizeUnitVector3,
+	CrossVector3,
+	NormalizeUnitVector3,
 	NormalizeVector3,
 	scaleVector3,
 	vector3Length,
@@ -94,7 +94,7 @@ function clamp(value, min, max) {
 function createForwardFromAngles(yawDegrees, pitchDegrees) {
 	const yaw = (yawDegrees * Math.PI) / 180;
 	const pitch = (pitchDegrees * Math.PI) / 180;
-	return normalizeUnitVector3({
+	return NormalizeUnitVector3({
 		x: Math.cos(pitch) * Math.cos(yaw),
 		y: Math.sin(pitch),
 		z: Math.cos(pitch) * Math.sin(yaw),
@@ -107,8 +107,8 @@ function createCameraState(seed) {
 	const yaw = toNumber(source.yaw, -90);
 	const pitch = clamp(toNumber(source.pitch, -18), -pitchClampDegrees, pitchClampDegrees);
 	const forward = createForwardFromAngles(yaw, pitch);
-	const right = normalizeUnitVector3(crossVector3(forward, worldUp));
-	const up = normalizeUnitVector3(crossVector3(right, forward));
+	const right = NormalizeUnitVector3(CrossVector3(forward, worldUp));
+	const up = NormalizeUnitVector3(CrossVector3(right, forward));
 
 	return {
 		position: position,
@@ -129,8 +129,8 @@ function createCameraState(seed) {
 
 function updateOrientationVectors(cameraState) {
 	cameraState.forward = createForwardFromAngles(cameraState.yaw, cameraState.pitch);
-	cameraState.right = normalizeUnitVector3(crossVector3(cameraState.forward, worldUp));
-	cameraState.up = normalizeUnitVector3(crossVector3(cameraState.right, cameraState.forward));
+	cameraState.right = NormalizeUnitVector3(CrossVector3(cameraState.forward, worldUp));
+	cameraState.up = NormalizeUnitVector3(CrossVector3(cameraState.right, cameraState.forward));
 	cameraState.target = AddVector3(cameraState.position, cameraState.forward);
 }
 
@@ -306,7 +306,7 @@ function getMoveDirectionFromKeys(cameraState) {
 		return { x: 0, y: 0, z: 0 };
 	}
 
-	return normalizeUnitVector3(direction);
+	return NormalizeUnitVector3(direction);
 }
 
 function updateFreeCamState(cameraState, deltaSeconds) {
@@ -338,7 +338,7 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 
 	const speed = vector3Length(cameraState.velocity);
 	if (speed > freeCamRuntime.maxSpeed) {
-		cameraState.velocity = scaleVector3(normalizeUnitVector3(cameraState.velocity), freeCamRuntime.maxSpeed);
+		cameraState.velocity = scaleVector3(NormalizeUnitVector3(cameraState.velocity), freeCamRuntime.maxSpeed);
 	}
 
 	cameraState.position = AddVector3(cameraState.position, scaleVector3(cameraState.velocity, dt));
@@ -385,7 +385,7 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 	}
 
 	const base = resolveDefaultLevelCamera(sceneGraph, cameraConfig);
-	const forward = normalizeUnitVector3({
+	const forward = NormalizeUnitVector3({
 		x: base.target.x - base.position.x,
 		y: base.target.y - base.position.y,
 		z: base.target.z - base.position.z,

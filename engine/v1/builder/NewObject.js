@@ -11,6 +11,43 @@ function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function normalizeGeometryComplexity(value) {
+	if (typeof value !== "string") {
+		return "medium";
+	}
+
+	const normalized = value.trim().toLowerCase();
+	if (normalized === "low" || normalized === "high") {
+		return normalized;
+	}
+
+	return "medium";
+}
+
+function resolveCylinderSegments(complexity) {
+	if (complexity === "low") {
+		return 8;
+	}
+
+	if (complexity === "high") {
+		return 16;
+	}
+
+	return 12;
+}
+
+function resolveSphereResolution(complexity) {
+	if (complexity === "low") {
+		return { stacks: 6, slices: 8 };
+	}
+
+	if (complexity === "high") {
+		return { stacks: 18, slices: 24 };
+	}
+
+	return { stacks: 12, slices: 16 };
+}
+
 function normalizeColor(color) {
 	if (!color || typeof color !== "object") {
 		return { r: 0.7, g: 0.75, b: 0.85, a: 1 };
@@ -222,7 +259,7 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 	return uvs;
 }
 
-function generateUvs(positions, geometry) {
+function GenerateUVs(positions, geometry) {
 	const faceGroups = geometry && Array.isArray(geometry.faceGroups) ? geometry.faceGroups : null;
 	if (faceGroups && faceGroups.length > 0) {
 		return generateFaceProjectedUvs(positions, faceGroups);
@@ -369,7 +406,7 @@ function createRotationZ(radians) {
 	];
 }
 
-function createModelMatrix(transform) {
+function CreateModelMatrix(transform) {
 	const source = transform && typeof transform === "object" ? transform : {};
 	const position = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
 	const rotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
@@ -401,7 +438,7 @@ function transformPointByMatrix(localPoint, matrix) {
 }
 
 function transformPoint(localPoint, transform) {
-	const modelMatrix = createModelMatrix(transform);
+	const modelMatrix = CreateModelMatrix(transform);
 	return transformPointByMatrix(localPoint, modelMatrix);
 }
 
@@ -510,12 +547,12 @@ function buildPlane(size) {
 	};
 }
 
-function buildCylinder(size) {
+function buildCylinder(size, complexity) {
 	const radiusX = Math.max(0.0001, toNumber(size.x, 1)) / 2;
 	const radiusZ = Math.max(0.0001, toNumber(size.z, 1)) / 2;
 	const height = Math.max(0.0001, toNumber(size.y, 1));
 	const halfHeight = height / 2;
-	const segments = 16;
+	const segments = resolveCylinderSegments(normalizeGeometryComplexity(complexity));
 
 	const positions = [];
 	const indices = [];
@@ -550,12 +587,13 @@ function buildCylinder(size) {
 	return { positions: positions, indices: indices };
 }
 
-function buildSphere(size) {
+function buildSphere(size, complexity) {
 	const radiusX = Math.max(0.0001, toNumber(size.x, 1)) / 2;
 	const radiusY = Math.max(0.0001, toNumber(size.y, 1)) / 2;
 	const radiusZ = Math.max(0.0001, toNumber(size.z, 1)) / 2;
-	const stacks = 12;
-	const slices = 16;
+	const resolution = resolveSphereResolution(normalizeGeometryComplexity(complexity));
+	const stacks = resolution.stacks;
+	const slices = resolution.slices;
 
 	const positions = [];
 	const indices = [];
@@ -585,13 +623,13 @@ function buildSphere(size) {
 	return { positions: positions, indices: indices };
 }
 
-function buildGeometry(shape, size) {
+function BuildGeometry(shape, size, complexity) {
 	if (shape === "cylinder") {
-		return buildCylinder(size);
+		return buildCylinder(size, complexity);
 	}
 
 	if (shape === "sphere") {
-		return buildSphere(size);
+		return buildSphere(size, complexity);
 	}
 
 	if (shape === "pyramid") {
@@ -610,6 +648,7 @@ function BuildObject(definition, options) {
 	const resolvedOptions = options && typeof options === "object" ? options : {};
 	const shapeSource = typeof source.shape === "string" ? source.shape : source.primitive;
 	const shape = typeof shapeSource === "string" ? shapeSource.toLowerCase() : "cube";
+	const complexity = normalizeGeometryComplexity(source.complexity || resolvedOptions.complexity);
 	const texture = normalizeTextureDescriptor(source, resolvedOptions);
 	const scatter = normalizeScatterRequests(source);
 	const size = NormalizeVector3(source.dimensions || source.size, { x: 1, y: 1, z: 1 });
@@ -617,8 +656,8 @@ function BuildObject(definition, options) {
 	const rotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
 	const scale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
 	const pivot = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
-	const geometry = buildGeometry(shape, size);
-	const uvs = generateUvs(geometry.positions, geometry);
+	const geometry = BuildGeometry(shape, size, complexity);
+	const uvs = GenerateUVs(geometry.positions, geometry);
 	const bounds = computeBounds(geometry.positions);
 	const vertexCount = geometry.positions.length / 3;
 	if (uvs.length !== vertexCount * 2) {
@@ -642,6 +681,7 @@ function BuildObject(definition, options) {
 		type: "mesh3d",
 		shape: shape,
 		primitive: shape,
+		complexity: complexity,
 		role: source.role || resolvedOptions.role || "terrain",
 		transform: transform,
 		geometry: {
@@ -664,6 +704,7 @@ function BuildObject(definition, options) {
 		detail: {
 			texture: texture,
 			scatter: scatter,
+			complexity: complexity,
 		},
 		localBounds: bounds,
 		worldAabb: worldAabb,
@@ -711,4 +752,4 @@ function UpdateObjectWorldAabb(mesh) {
 	return mesh.worldAabb;
 }
 
-export { BuildObject, UpdateObjectWorldAabb };
+export { BuildObject, UpdateObjectWorldAabb, BuildGeometry, GenerateUVs, CreateModelMatrix };

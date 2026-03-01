@@ -2,9 +2,23 @@ import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { NormalizeVector3 } from "../math/Vector3.js";
 import { DegreesToRadians } from "../math/Utilities.js";
+import { CreateModelMatrix } from "./NewObject.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeGeometryComplexity(value) {
+	if (typeof value !== "string") {
+		return "medium";
+	}
+
+	const normalized = value.trim().toLowerCase();
+	if (normalized === "low" || normalized === "high") {
+		return normalized;
+	}
+
+	return "medium";
 }
 
 function GetPerformanceScatterMultiplier() {
@@ -118,6 +132,7 @@ function ResolveScatterType(templateRegistry, scatterTypeID) {
 				const localRot = NormalizeVector3(part.localRotation, { x: 0, y: 0, z: 0 });
 				return {
 					...part,
+					complexity: normalizeGeometryComplexity(part.complexity),
 					dimensions: NormalizeVector3(part.dimensions, { x: 0.5, y: 0.5, z: 0.5 }),
 					localPosition: NormalizeVector3(part.localPosition, { x: 0, y: 0, z: 0 }),
 					localRotation: {
@@ -380,4 +395,216 @@ function BuildScatter(payload) {
 	);
 }
 
-export { BuildScatter, GetPerformanceScatterMultiplier };
+function generateScatterBatchKey(primitive, dimensions, textureID, complexity) {
+	const p = typeof primitive === "string" ? primitive.toLowerCase() : "cube";
+	const dx = dimensions && typeof dimensions.x === "number" ? dimensions.x : 1;
+	const dy = dimensions && typeof dimensions.y === "number" ? dimensions.y : 1;
+	const dz = dimensions && typeof dimensions.z === "number" ? dimensions.z : 1;
+	const tid = typeof textureID === "string" ? textureID : "default-grid";
+	const detail = normalizeGeometryComplexity(complexity);
+	return `${p}_${dx}_${dy}_${dz}_${tid}_${detail}`;
+}
+
+function normalizeColor(color) {
+	if (!color || typeof color !== "object") {
+		return { r: 0.7, g: 0.75, b: 0.85, a: 1 };
+	}
+	const clamp = (v) => Math.max(0, Math.min(1, toNumber(v, 1)));
+	return { r: clamp(color.r), g: clamp(color.g), b: clamp(color.b), a: clamp(color.a) };
+}
+
+function generateObjectScatterBatches(objectMesh, scatterDefinitions, scatterMultiplier, world, indexSeed, explicitRequests, batchMap, debugBboxAccumulator) {
+	if (scatterMultiplier <= 0) {
+		return;
+	}
+
+	if (!objectMesh || !objectMesh.transform || !objectMesh.dimensions) {
+		return;
+	}
+
+	const scatterRequests = resolveObjectScatterRequests(objectMesh, explicitRequests);
+	if (scatterRequests.length === 0) {
+		return;
+	}
+
+	const topY = objectMesh.transform.position.y + (objectMesh.dimensions.y * objectMesh.transform.scale.y) * 0.5;
+	const width = Math.max(1, objectMesh.dimensions.x * objectMesh.transform.scale.x);
+	const depth = Math.max(1, objectMesh.dimensions.z * objectMesh.transform.scale.z);
+	const approxArea = width * depth;
+	const minX = (objectMesh.transform.position.x - width * 0.5);
+	const maxX = (objectMesh.transform.position.x + width * 0.5);
+	const minZ = (objectMesh.transform.position.z - depth * 0.5);
+	const maxZ = (objectMesh.transform.position.z + depth * 0.5);
+	const positionThreshold = 100000;
+	const scatterScale = Math.max(0.05, toNumber(world && world.scatterScale, 1));
+
+	let totalParts = 0;
+
+	scatterRequests.forEach((request, scatterTypeIndex) => {
+		const scatterType = ResolveScatterType(scatterDefinitions, request.typeID);
+		if (!scatterType || !Array.isArray(scatterType.parts) || scatterType.parts.length === 0) {
+			return;
+		}
+
+		const maxCount = Math.max(0, Math.floor((approxArea / 18) * request.density * scatterMultiplier));
+		let modelCount = 0;
+
+		for (let instanceIndex = 0; instanceIndex < maxCount; instanceIndex += 1) {
+			const seed = indexSeed * 97 + scatterTypeIndex * 59 + instanceIndex * 17;
+			const nx = hashNoise(instanceIndex + 1, seed + 2, seed + 11);
+			const nz = hashNoise(seed + 3, instanceIndex + 5, seed + 13);
+			const clusterThreshold = typeof scatterType.clusterThreshold === "number" ? scatterType.clusterThreshold : 0.4;
+			const cluster = hashNoise(nx * 64, nz * 64, seed + 7);
+			if (cluster < clusterThreshold) {
+				continue;
+			}
+
+			const worldX = objectMesh.transform.position.x - width * 0.5 + nx * width;
+			const worldZ = objectMesh.transform.position.z - depth * 0.5 + nz * depth;
+			const worldY = topY;
+
+			if (!Number.isFinite(worldX) || !Number.isFinite(worldY) || !Number.isFinite(worldZ)) {
+				continue;
+			}
+
+			if (Math.abs(worldX) > positionThreshold || Math.abs(worldY) > positionThreshold || Math.abs(worldZ) > positionThreshold) {
+				continue;
+			}
+
+			if (worldX < minX || worldX > maxX || worldZ < minZ || worldZ > maxZ) {
+				continue;
+			}
+
+			if (worldY < scatterType.heightMin || worldY > scatterType.heightMax) {
+				continue;
+			}
+
+			const slopeEstimate = Math.abs(Math.sin((worldX + worldZ) * scatterType.noiseScale)) * 0.25;
+			if (slopeEstimate > scatterType.slopeMax) {
+				continue;
+			}
+
+			const scaleNoise = hashNoise(worldX * 0.5, worldZ * 0.5, seed + 19);
+			const uniformScale = (scatterType.scaleRange.min + (scatterType.scaleRange.max - scatterType.scaleRange.min) * scaleNoise) * scatterScale;
+			const rootPart = resolveRootPart(scatterType.parts);
+			const modelRootY = rootPart
+				? worldY + getPartHalfHeight(rootPart) * uniformScale - rootPart.localPosition.y
+				: worldY;
+
+			const offsetParts = applyHierarchicalOffsets(scatterType.parts, uniformScale);
+
+			// Track merged AABB for this model instance (for debug bounding boxes).
+			let modelAabbMin = null;
+			let modelAabbMax = null;
+
+			offsetParts.forEach((part, partIndex) => {
+				const finalScaleBoost = 1;
+				const finalY = modelRootY + part.localPosition.y;
+
+				const position = {
+					x: worldX + part.localPosition.x,
+					y: finalY,
+					z: worldZ + part.localPosition.z,
+				};
+				const rotation = {
+					x: part.localRotation.x,
+					y: part.localRotation.y + hashNoise(worldX, worldZ, seed + partIndex) * Math.PI * 2,
+					z: part.localRotation.z,
+				};
+				const scale = {
+					x: part.localScale.x * uniformScale * finalScaleBoost,
+					y: part.localScale.y * uniformScale * finalScaleBoost,
+					z: part.localScale.z * uniformScale * finalScaleBoost,
+				};
+
+				const modelMatrix = CreateModelMatrix({ position, rotation, scale });
+
+				const color = normalizeColor(part.textureColor || part.color);
+				const opacity = typeof part.textureOpacity === "number" ? Math.max(0, Math.min(1, part.textureOpacity)) : color.a;
+				const textureID = part.textureID || "default-grid";
+				const complexity = normalizeGeometryComplexity(part.complexity);
+
+				const batchKey = generateScatterBatchKey(part.primitive, part.dimensions, textureID, complexity);
+				if (!batchMap.has(batchKey)) {
+					batchMap.set(batchKey, {
+						primitive: typeof part.primitive === "string" ? part.primitive.toLowerCase() : "cube",
+						dimensions: { ...part.dimensions },
+						complexity: complexity,
+						textureID: textureID,
+						instances: [],
+					});
+				}
+
+				batchMap.get(batchKey).instances.push({
+					modelMatrix: modelMatrix,
+					tint: [color.r, color.g, color.b, opacity],
+				});
+
+				totalParts += 1;
+
+				// Approximate AABB contribution from this part's position and half-dimensions.
+				const hx = (part.dimensions.x * scale.x) * 0.5;
+				const hy = (part.dimensions.y * scale.y) * 0.5;
+				const hz = (part.dimensions.z * scale.z) * 0.5;
+				const pMin = { x: position.x - hx, y: position.y - hy, z: position.z - hz };
+				const pMax = { x: position.x + hx, y: position.y + hy, z: position.z + hz };
+				if (!modelAabbMin) {
+					modelAabbMin = { ...pMin };
+					modelAabbMax = { ...pMax };
+				} else {
+					modelAabbMin.x = Math.min(modelAabbMin.x, pMin.x);
+					modelAabbMin.y = Math.min(modelAabbMin.y, pMin.y);
+					modelAabbMin.z = Math.min(modelAabbMin.z, pMin.z);
+					modelAabbMax.x = Math.max(modelAabbMax.x, pMax.x);
+					modelAabbMax.y = Math.max(modelAabbMax.y, pMax.y);
+					modelAabbMax.z = Math.max(modelAabbMax.z, pMax.z);
+				}
+			});
+
+			if (modelAabbMin && debugBboxAccumulator) {
+				debugBboxAccumulator.push({
+					type: "Scatter",
+					id: `${objectMesh.id}-scatter-${scatterType.id}-${instanceIndex}`,
+					min: { ...modelAabbMin },
+					max: { ...modelAabbMax },
+				});
+			}
+
+			modelCount += 1;
+		}
+
+		if (modelCount > 0) {
+			Log(
+				"ENGINE",
+				`Scatter batch diagnostics: type=${scatterType.id}, models=${modelCount}`,
+				"log",
+				"Level"
+			);
+		}
+	});
+
+	return totalParts;
+}
+
+function BuildScatterBatches(payload) {
+	const source = payload && typeof payload === "object" ? payload : {};
+	const scatterMultiplier = toNumber(source.scatterMultiplier, GetPerformanceScatterMultiplier());
+	const world = source.world && typeof source.world === "object" ? source.world : {};
+	const batchMap = source.batchMap instanceof Map ? source.batchMap : new Map();
+	const debugBboxAccumulator = Array.isArray(source.debugBboxAccumulator) ? source.debugBboxAccumulator : null;
+
+	generateObjectScatterBatches(
+		source.objectMesh,
+		source.scatterDefinitions,
+		scatterMultiplier,
+		world,
+		toNumber(source.indexSeed, 1),
+		Array.isArray(source.explicitScatter) ? source.explicitScatter : null,
+		batchMap,
+		debugBboxAccumulator
+	);
+
+	return batchMap;
+}
+
+export { BuildScatter, BuildScatterBatches, GetPerformanceScatterMultiplier };
