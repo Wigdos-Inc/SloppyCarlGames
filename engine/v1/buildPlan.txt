@@ -96,7 +96,5 @@ JSON Validation:
 
 
 Updates:
-- Defer scatter & bbox rendering to GPU instead of CPU.
-- Render Distance. Faraway scatters replaced by bbox-sized plane
-- Frame Rate. Lock maximum frame rate.
+- Render Distance. Faraway scatter models replaced by bbox-sized cross-quad
 - Add Mushroom Scatter

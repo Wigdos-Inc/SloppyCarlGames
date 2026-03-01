@@ -9,6 +9,7 @@
 import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js";
 import { RenderLevel } from "../Render.js";
 import { Cache, IsPointerLocked, Log, pushToSession, SESSION_KEYS } from "../../core/meta.js";
+import { CONFIG } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState } from "./Camera.js";
 import { AddVector3, distanceVector3, LerpVector3, NormalizeVector3, scaleVector3 } from "../../math/Vector3.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
@@ -32,6 +33,14 @@ const levelLoop = {
 	fixedTimeStep: 1000 / 60,
 	maxFrameTime: 250,
 };
+
+function getConfiguredFrameRate() {
+	const configuredFrameRate = Number(CONFIG && CONFIG.PERFORMANCE && CONFIG.PERFORMANCE.FrameRate);
+	if (Number.isFinite(configuredFrameRate) && configuredFrameRate > 0) {
+		return configuredFrameRate;
+	}
+	return 60;
+}
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -203,6 +212,7 @@ function StartLevelLoop() {
 	levelLoop.paused = false;
 	levelLoop.lastFrameTime = performance.now();
 	levelLoop.accumulator = 0;
+	levelLoop.fixedTimeStep = 1000 / getConfiguredFrameRate();
 
 	const frame = () => {
 		if (!levelLoop.active) {
