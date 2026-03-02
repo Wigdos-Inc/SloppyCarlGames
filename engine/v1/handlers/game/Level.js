@@ -10,11 +10,17 @@ import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js
 import { RenderLevel } from "../Render.js";
 import { Cache, IsPointerLocked, Log, pushToSession, SESSION_KEYS } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
-import { InitializeCameraState, UpdateCameraState } from "./Camera.js";
-import { AddVector3, distanceVector3, LerpVector3, NormalizeVector3, scaleVector3 } from "../../math/Vector3.js";
+import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
+import { distanceVector3, LerpVector3, NormalizeVector3 } from "../../math/Vector3.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { UpdateInputEventTypes } from "../Controls.js";
 import { ValidateLevelPayload } from "../../core/validate.js";
+import { InitializePlayer, UpdatePlayer, ResolvePlayerState, GetPlayerState } from "../../player/Master.js";
+import { UpdatePlayerModelFromState } from "../../player/Model.js";
+import { ApplyPhysicsPipeline, ApplyEntityPhysics } from "./Physics.js";
+import { HandleEnemyCollisions } from "./Enemy.js";
+import { HandleCollectiblePickups } from "./Collectible.js";
+import { getSimDistanceValue } from "../../physics/Collision.js";
 
 const levelRuntimeState = {
 	payload: null,
@@ -40,10 +46,6 @@ function getConfiguredFrameRate() {
 		return configuredFrameRate;
 	}
 	return 60;
-}
-
-function toNumber(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function clonePayload(payload) {
@@ -135,39 +137,6 @@ function updateEntityMovement(entity, deltaSeconds) {
 	position.x = nextPosition.x;
 	position.y = nextPosition.y;
 	position.z = nextPosition.z;
-}
-
-function applyEntityPhysics(entity, sceneGraph, deltaSeconds) {
-	if (!entity) {
-		return;
-	}
-
-	const movement = entity.movement || {};
-	const world = sceneGraph && sceneGraph.world ? sceneGraph.world : {};
-	const deathBarrierY = toNumber(world.deathBarrierY, -25);
-	const gravityPerSecond = 9.81;
-
-	if (!entity.velocity) {
-		entity.velocity = { x: 0, y: 0, z: 0 };
-	}
-	if (!entity.transform) {
-		entity.transform = { position: { x: 0, y: 0, z: 0 } };
-	}
-	if (!entity.transform.position) {
-		entity.transform.position = { x: 0, y: 0, z: 0 };
-	}
-
-	if (movement.physics) {
-		entity.velocity.y -= gravityPerSecond * deltaSeconds;
-		entity.transform.position = AddVector3(
-			entity.transform.position,
-			scaleVector3(entity.velocity, deltaSeconds)
-		);
-		if (entity.transform.position.y < deathBarrierY) {
-			entity.transform.position.y = deathBarrierY;
-			entity.velocity.y = 0;
-		}
-	}
 }
 
 function syncEntityMeshes(sceneGraph) {
@@ -305,6 +274,13 @@ async function CreateLevel(payload, options) {
 	if (!sceneGraph.cameraConfig || typeof sceneGraph.cameraConfig !== "object") {
 		sceneGraph.cameraConfig = {};
 	}
+
+	// Initialize player if payload defines one.
+	if (sceneGraph.playerConfig) {
+		InitializePlayer(sceneGraph.playerConfig, sceneGraph);
+		Log("ENGINE", `Player initialized: character=${sceneGraph.playerConfig.character || "carl"}`, "log", "Level");
+	}
+
 	sceneGraph.cameraConfig.state = InitializeCameraState(
 		sceneGraph,
 		sceneGraph.cameraConfig,
@@ -345,20 +321,63 @@ function Update(deltaMilliseconds) {
 	const sceneGraph = levelRuntimeState.sceneGraph;
 	const entities = Array.isArray(sceneGraph.entities) ? sceneGraph.entities : [];
 
+	// === PLAYER PIPELINE ===
+	const playerState = GetPlayerState();
+	if (playerState && playerState.active) {
+		const cameraVectors = GetCameraVectors();
+
+		// 1. Input → Movement & Abilities
+		UpdatePlayer(deltaSeconds, sceneGraph, cameraVectors);
+
+		// 2. Physics pipeline (gravity, resistance, buoyancy, collision, correction)
+		ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds);
+
+		// 3. Enemy collisions (damage / attack)
+		HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds);
+
+		// 4. Collectible pickups
+		HandleCollectiblePickups(playerState, sceneGraph);
+
+		// 5. Resolve FSM state (Idle, Running, Jumping, etc.)
+		ResolvePlayerState();
+
+		// 6. Sync player model from state
+		UpdatePlayerModelFromState(playerState);
+	}
+
+	// === NON-PLAYER ENTITY UPDATE ===
+	const simDistance = getSimDistanceValue();
+	const cameraPosition = sceneGraph
+		&& sceneGraph.cameraConfig
+		&& sceneGraph.cameraConfig.state
+		&& sceneGraph.cameraConfig.state.position
+		? sceneGraph.cameraConfig.state.position
+		: (playerState && playerState.transform ? playerState.transform.position : null);
+
 	for (let index = 0; index < entities.length; index += 1) {
 		const entity = entities[index];
-		if (!entity) {
+		if (!entity || entity.type === "player") {
+			continue;
+		}
+		if (
+			cameraPosition
+			&& entity.transform
+			&& entity.transform.position
+			&& distanceVector3(cameraPosition, entity.transform.position) > simDistance
+		) {
 			continue;
 		}
 		updateEntityMovement(entity, deltaSeconds);
-		applyEntityPhysics(entity, sceneGraph, deltaSeconds);
+		ApplyEntityPhysics(entity, sceneGraph, deltaSeconds);
 	}
 
+	// === CAMERA ===
 	sceneGraph.cameraConfig.state = UpdateCameraState(
 		sceneGraph.cameraConfig.state,
 		sceneGraph,
 		sceneGraph.cameraConfig,
-		deltaSeconds
+		deltaSeconds,
+		playerState
 	);
 
 	syncEntityMeshes(sceneGraph);

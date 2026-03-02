@@ -723,6 +723,101 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 	}
 }
 
+const trailTypeColors = {
+	Player: { r: 0, g: 1, b: 1, a: 1 },
+	Boss: { r: 1, g: 0.2, b: 0.9, a: 1 },
+	Enemies: { r: 1, g: 0.6, b: 0.2, a: 1 },
+	Collectible: { r: 0.2, g: 1, b: 0.4, a: 1 },
+	Projectile: { r: 1, g: 1, b: 0.2, a: 1 },
+};
+
+function isTrailDebugEnabled(type) {
+	if (!(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL)) {
+		return false;
+	}
+	const trailMap = CONFIG.DEBUG && CONFIG.DEBUG.LEVELS ? CONFIG.DEBUG.LEVELS.Trails : null;
+	return !!(trailMap && trailMap[type] === true);
+}
+
+function classifyEntityTrailType(entity) {
+	const type = String(entity && entity.type ? entity.type : "").toLowerCase();
+	if (type.includes("player")) { return "Player"; }
+	if (type.includes("boss")) { return "Boss"; }
+	if (type.includes("collectible")) { return "Collectible"; }
+	if (type.includes("projectile")) { return "Projectile"; }
+	return "Enemies";
+}
+
+function drawVelocityTrails(renderer, sceneGraph, projection, view) {
+	if (!(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL)) {
+		return;
+	}
+	const trailMap = CONFIG.DEBUG && CONFIG.DEBUG.LEVELS ? CONFIG.DEBUG.LEVELS.Trails : null;
+	if (!trailMap) {
+		return;
+	}
+	// Quick check: any trail flag enabled?
+	const anyEnabled = Object.values(trailMap).some(Boolean);
+	if (!anyEnabled) {
+		return;
+	}
+
+	const entities = Array.isArray(sceneGraph && sceneGraph.entities) ? sceneGraph.entities : [];
+	if (entities.length === 0) {
+		return;
+	}
+
+	const gl = renderer.gl;
+	if (!renderer.debugLineShader) {
+		return;
+	}
+	if (!renderer.debugLineBuffer) {
+		return;
+	}
+
+	const shader = renderer.debugLineShader;
+	gl.useProgram(shader.program);
+	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
+	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
+	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(createIdentityMatrix()));
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
+	gl.enableVertexAttribArray(shader.attributes.position);
+	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
+
+	const TRAIL_SCALE = 0.15;
+
+	for (let i = 0; i < entities.length; i += 1) {
+		const entity = entities[i];
+		if (!entity || !entity.velocity || !entity.transform || !entity.transform.position) {
+			continue;
+		}
+
+		const trailType = classifyEntityTrailType(entity);
+		if (!isTrailDebugEnabled(trailType)) {
+			continue;
+		}
+
+		const vel = entity.velocity;
+		const speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
+		if (speedSq < 0.01) {
+			continue;
+		}
+
+		const pos = entity.transform.position;
+		const endX = pos.x + vel.x * TRAIL_SCALE;
+		const endY = pos.y + vel.y * TRAIL_SCALE;
+		const endZ = pos.z + vel.z * TRAIL_SCALE;
+
+		const vertices = new Float32Array([pos.x, pos.y, pos.z, endX, endY, endZ]);
+		const color = trailTypeColors[trailType] || { r: 1, g: 1, b: 1, a: 1 };
+
+		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
+		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+		gl.drawArrays(gl.LINES, 0, 2);
+	}
+}
+
 function createMeshBuffers(gl, mesh, shader) {
 	const geometry = mesh && mesh.geometry ? mesh.geometry : null;
 	if (!geometry || !Array.isArray(geometry.positions) || !Array.isArray(geometry.indices)) {
@@ -1041,6 +1136,7 @@ function drawScene(renderer, sceneGraph) {
 	}
 
 	drawBoundingBoxes(renderer, sceneGraph, projection, view);
+	drawVelocityTrails(renderer, sceneGraph, projection, view);
 }
 
 function RenderLevel(sceneGraph, options) {

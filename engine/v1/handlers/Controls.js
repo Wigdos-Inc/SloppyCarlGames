@@ -5,7 +5,7 @@
 import { Cache, Log, sendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { GetActiveLevel } from "./game/Level.js";
-import { HandleFreeCamInput } from "./game/Camera.js";
+import { HandleFreeCamInput, HandleDefaultCamInput } from "./game/Camera.js";
 import { HandleUiAction, resolvePrecomputedAction } from "./UI.js";
 
 const eventTypes = {
@@ -236,6 +236,8 @@ function StartInputRouter(target) {
 			const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
 			if (levelIsLoaded && freeCamEnabled) {
 				consumed = HandleFreeCamInput(event, activeLevel);
+			} else if (levelIsLoaded && !freeCamEnabled) {
+				consumed = HandleDefaultCamInput(event);
 			}
 		}
 

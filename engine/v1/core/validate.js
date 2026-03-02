@@ -35,6 +35,17 @@ function ValidateLevelPayload(payload) {
 		Log("ENGINE", `Invalid Payload. Example valid level payload: \n${JSON.stringify(exampleLevelPayload, null, 2)}`, "error", "Validation");
 		return null;
 	}
+
+	// Optional player field: if present, must be an object with at least a character string.
+	if (payload.player !== undefined && payload.player !== null) {
+		if (typeof payload.player !== "object") {
+			Log("ENGINE", "Level payload 'player' field must be an object (or omitted). Ignoring.", "warn", "Validation");
+			payload.player = null;
+		} else if (payload.player.character && typeof payload.player.character !== "string") {
+			Log("ENGINE", "Level payload 'player.character' must be a string. Defaulting to 'carl'.", "warn", "Validation");
+			payload.player.character = "carl";
+		}
+	}
 	
     return payload;
 }

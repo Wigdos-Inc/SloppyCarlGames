@@ -401,10 +401,40 @@ function handleLevelSelectInput(payload) {
 	}
 }
 
+function handlePlayerInput(payload) {
+	if (!payload || !ENGINE || !ENGINE.Player || !ENGINE.Player.Input) {
+		return;
+	}
+
+	const input = ENGINE.Player.Input;
+	const code = payload.code || "";
+
+	if (payload.type === "keydown") {
+		if (code === "KeyW") { input.forward = 1; }
+		if (code === "KeyS") { input.forward = -1; }
+		if (code === "KeyA") { input.right = -1; }
+		if (code === "KeyD") { input.right = 1; }
+		if (code === "Space") { input.jump = true; }
+		if (code === "ShiftLeft" || code === "ShiftRight") { input.boost = true; }
+		return;
+	}
+
+	if (payload.type === "keyup") {
+		if (code === "KeyW" && input.forward > 0) { input.forward = 0; }
+		if (code === "KeyS" && input.forward < 0) { input.forward = 0; }
+		if (code === "KeyA" && input.right < 0) { input.right = 0; }
+		if (code === "KeyD" && input.right > 0) { input.right = 0; }
+		if (code === "Space") { input.jump = false; }
+		if (code === "ShiftLeft" || code === "ShiftRight") { input.boost = false; }
+		return;
+	}
+}
+
 function handleUserInput(event) {
 	const payload = event && event.detail ? event.detail.payload : null;
 	handleSettingsInput(payload);
 	handleLevelSelectInput(payload);
+	handlePlayerInput(payload);
 }
 
 window.addEventListener("USER_INPUT", handleUserInput);

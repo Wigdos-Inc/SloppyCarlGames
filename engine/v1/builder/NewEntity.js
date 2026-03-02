@@ -5,11 +5,7 @@
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
 import { AddVector3, LerpVector3, NormalizeVector3 } from "../math/Vector3.js";
-import { DegreesToRadians } from "../math/Utilities.js";
-
-function toNumber(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
+import { DegreesToRadians, ToNumber } from "../math/Utilities.js";
 
 function multiplyVector3(a, b) {
 	const left = NormalizeVector3(a, { x: 1, y: 1, z: 1 });
@@ -59,9 +55,9 @@ function normalizeMovement(movement) {
 		end: NormalizeVector3(source.end, { x: 0, y: 0, z: 0 }),
 		repeat: source.repeat !== false,
 		backAndForth: source.backAndForth !== false,
-		speed: Math.max(0, toNumber(source.speed, 0)),
-		jump: Math.max(0, toNumber(source.jump, 0)),
-		jumpInterval: Math.max(0, toNumber(source.jumpInterval, 0)),
+		speed: Math.max(0, ToNumber(source.speed, 0)),
+		jump: Math.max(0, ToNumber(source.jump, 0)),
+		jumpInterval: Math.max(0, ToNumber(source.jumpInterval, 0)),
 		jumpOnSight: source.jumpOnSight === true,
 		disappear: source.disappear === true,
 		chase: source.chase === true,
@@ -109,7 +105,7 @@ function buildPart(partDefinition, entityId, index) {
 			dimensions: NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 }),
 			textureID: source.textureID || "default-grid",
 			textureColor: source.textureColor || { r: 1, g: 1, b: 1, a: 1 },
-			textureOpacity: toNumber(source.textureOpacity, 1),
+			textureOpacity: ToNumber(source.textureOpacity, 1),
 			pivot: localTransform.pivot,
 			role: "entity-part",
 			parentId: source.parentId || null,
@@ -119,6 +115,7 @@ function buildPart(partDefinition, entityId, index) {
 
 	return {
 		id: mesh.id,
+		label: source.label || null,
 		parentId: source.parentId || null,
 		children: [],
 		localTransform: cloneTransform(localTransform),
@@ -143,7 +140,7 @@ function buildDefaultModel(entityDefinition) {
 					dimensions: entityDefinition.size || { x: 1, y: 1, z: 1 },
 					textureID: entityDefinition.textureID || "default-grid",
 					textureColor: entityDefinition.textureColor || entityDefinition.color || { r: 0.9, g: 0.35, b: 0.35, a: 1 },
-					textureOpacity: toNumber(entityDefinition.textureOpacity, 1),
+					textureOpacity: ToNumber(entityDefinition.textureOpacity, 1),
 				},
 				entityDefinition.id || "entity",
 				0
@@ -257,6 +254,25 @@ function computeEntityAabb(model) {
 	};
 }
 
+function computeExpandedAabb(aabb, padding) {
+	if (!aabb || !aabb.min || !aabb.max) {
+		return null;
+	}
+	const pad = Math.max(0, ToNumber(padding, 8));
+	return {
+		min: {
+			x: aabb.min.x - pad,
+			y: aabb.min.y - pad,
+			z: aabb.min.z - pad,
+		},
+		max: {
+			x: aabb.max.x + pad,
+			y: aabb.max.y + pad,
+			z: aabb.max.z + pad,
+		},
+	};
+}
+
 function BuildEntity(definition) {
 	const source = definition && typeof definition === "object" ? definition : {};
 	const merged = mergeEntityBlueprint(source.baseBlueprint, source);
@@ -270,11 +286,12 @@ function BuildEntity(definition) {
 	applyModelPose(model);
 
 	const aabb = computeEntityAabb(model);
+	const simRadiusPadding = ToNumber(merged.simRadiusPadding, 8);
 
 	return {
 		id: merged.id || `entity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
 		type: merged.type || "entity",
-		hp: Math.max(0, toNumber(merged.hp, 1)),
+		hp: Math.max(0, ToNumber(merged.hp, 1)),
 		attacks: Array.isArray(merged.attacks) ? merged.attacks : [],
 		hardcoded: merged.hardcoded && typeof merged.hardcoded === "object" ? merged.hardcoded : {},
 		platform: merged.platform || null,
@@ -297,6 +314,8 @@ function BuildEntity(definition) {
 		mesh: model.parts.length > 0 ? model.parts[0].mesh : null,
 		collision: {
 			aabb: aabb,
+			simRadiusPadding: simRadiusPadding,
+			simRadiusAabb: computeExpandedAabb(aabb, simRadiusPadding),
 		},
 		animations: merged.animations && typeof merged.animations === "object" ? merged.animations : {},
 		state: {
@@ -320,6 +339,11 @@ function UpdateEntityModelFromTransform(entity) {
 	applyModelPose(entity.model);
 	entity.collision = entity.collision || {};
 	entity.collision.aabb = computeEntityAabb(entity.model);
+	entity.collision.simRadiusPadding = ToNumber(entity.collision.simRadiusPadding, 8);
+	entity.collision.simRadiusAabb = computeExpandedAabb(
+		entity.collision.aabb,
+		entity.collision.simRadiusPadding
+	);
 }
 
 function ResetEntityToDefaultPose(entity) {
@@ -339,6 +363,11 @@ function ResetEntityToDefaultPose(entity) {
 	applyModelPose(entity.model);
 	entity.collision = entity.collision || {};
 	entity.collision.aabb = computeEntityAabb(entity.model);
+	entity.collision.simRadiusPadding = ToNumber(entity.collision.simRadiusPadding, 8);
+	entity.collision.simRadiusAabb = computeExpandedAabb(
+		entity.collision.aabb,
+		entity.collision.simRadiusPadding
+	);
 }
 
 function SampleMovementPoint(entity, normalizedTime) {

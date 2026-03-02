@@ -99,6 +99,7 @@ function buildCreateLevelPayload(level, stage, entitiesData) {
 		entities: Array.isArray(stage.entities) ? stage.entities : [],
 		entityBlueprints: mergedBlueprints,
 		camera: stage.camera || {},
+		player: stage.player || null,
 		music: stage.music || level.music || null,
 		meta: {
 			levelId: level.id || null,

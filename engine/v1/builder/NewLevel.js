@@ -50,6 +50,10 @@ function normalizeCameraConfig(camera) {
 			),
 		},
 		distanceFromPlayer: NormalizeVector3(source.distanceFromPlayer, { x: 0, y: 20, z: 40 }),
+		// DefaultCam third-person follow camera settings.
+		distance: toNumber(source.distance, 10),
+		sensitivity: toNumber(source.sensitivity, 0.12),
+		heightOffset: toNumber(source.heightOffset, 3),
 	};
 }
 
@@ -342,6 +346,7 @@ async function BuildLevel(payload) {
 			},
 		},
 		cameraConfig: normalizeCameraConfig(source.camera),
+		playerConfig: source.player && typeof source.player === "object" ? source.player : null,
 		meta: source.meta || {},
 	};
 

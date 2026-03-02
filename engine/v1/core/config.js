@@ -16,17 +16,24 @@ let CONFIG = {
     },
     LEVELS: {
       Triggers: true,
-      FreeCam : true,
+      FreeCam : false,
       BoundingBox: {
-        Terrain   : false,
+        Terrain   : true,
         Scatter   : false,
         Entity    : false,
         EntityPart: false,
         Obstacle  : false,
-        Player    : false,
+        Player    : true,
         PlayerPart: false,
         Boss      : false,
         BossPart  : false,
+      },
+      Trails: {
+        Player     : true,
+        Boss       : false,
+        Enemies    : false,
+        Collectible: false,
+        Projectile : false,
       },
     },
     LOGGING: {
@@ -41,10 +48,10 @@ let CONFIG = {
         Game  : true,
       },
       Channel: {
-        Startup : true,
-        UI      : true,
-        Audio   : true,
-        Cutscene: true,
+        Startup : false,
+        UI      : false,
+        Audio   : false,
+        Cutscene: false,
         Controls: {
           Click: true,
           Hover: true,
@@ -65,8 +72,16 @@ let CONFIG = {
   PERFORMANCE: {
     TerrainScatter: "High",
     RenderDistance: "High",
+    SimDistance   : "High",
     Animations    : true,
     FrameRate     : 60
+  },
+  PHYSICS: {
+    Gravity   : { Enabled: true, Strength: 25 },
+    Resistance: { Enabled: true },
+    Buoyancy  : { Enabled: true },
+    Collision : { Enabled: true },
+    Correction: { Enabled: true },
   }
 };
 

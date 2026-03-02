@@ -41,6 +41,7 @@ import {
   GetActiveLevel,
   LoadLevel,
 } from "../handlers/game/Level.js";
+import { GetPlayerInput, GetPlayerState } from "../player/Master.js";
 
 /* === INITIALIZATION === */
 // Bootstraps engine subsystems and returns the public API.
@@ -100,6 +101,10 @@ function initialize() {
       LoadLevel: LoadLevel,
       Update: UpdateLevel,
       GetActiveLevel: GetActiveLevel,
+    },
+    Player: {
+      Input: GetPlayerInput(),
+      GetState: GetPlayerState,
     },
   };
 }
