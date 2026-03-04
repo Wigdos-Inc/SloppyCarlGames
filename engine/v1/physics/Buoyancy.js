@@ -8,8 +8,8 @@ function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-const BUOYANCY_FORCE = 12;
-const MAX_SINK_SPEED = 6;
+const BUOYANCY_FORCE = 0;
+const MAX_SINK_SPEED = 50;
 
 /**
  * Apply buoyancy to velocity when entity is submerged.

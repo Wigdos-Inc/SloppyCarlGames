@@ -24,7 +24,7 @@ let CONFIG = {
         EntityPart: false,
         Obstacle  : false,
         Player    : true,
-        PlayerPart: false,
+        PlayerPart: true,
         Boss      : false,
         BossPart  : false,
       },

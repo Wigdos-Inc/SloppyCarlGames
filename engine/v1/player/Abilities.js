@@ -38,7 +38,7 @@ function UpdateAbilities(playerState, input, deltaSeconds) {
 	const boost = playerState.boost;
 
 	// Activate boost.
-	if (input && input.boost && !boost.active && playerState.grounded && playerState.state !== "Stunned" && playerState.state !== "Dead") {
+	if (input && input.boost && !boost.active && playerState.state !== "Stunned" && playerState.state !== "Dead") {
 		boost.active = true;
 		boost.timer = toNumber(char.boostDuration, 1.5);
 		boost.maxSpeedMultiplier = toNumber(char.boostMultiplier, 1.8);

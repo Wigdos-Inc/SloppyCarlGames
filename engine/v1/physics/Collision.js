@@ -70,6 +70,47 @@ function BuildEntityAabbAtPosition(entityAabb, position) {
 	};
 }
 
+function getAabbCenter(aabb) {
+	if (!aabb || !aabb.min || !aabb.max) {
+		return { x: 0, y: 0, z: 0 };
+	}
+	return {
+		x: (aabb.min.x + aabb.max.x) * 0.5,
+		y: (aabb.min.y + aabb.max.y) * 0.5,
+		z: (aabb.min.z + aabb.max.z) * 0.5,
+	};
+}
+
+function computeOverlapNormal(entityAabb, targetAabb) {
+	if (!entityAabb || !targetAabb) {
+		return { x: 0, y: 1, z: 0 };
+	}
+
+	const overlapX = Math.min(entityAabb.max.x, targetAabb.max.x) - Math.max(entityAabb.min.x, targetAabb.min.x);
+	const overlapY = Math.min(entityAabb.max.y, targetAabb.max.y) - Math.max(entityAabb.min.y, targetAabb.min.y);
+	const overlapZ = Math.min(entityAabb.max.z, targetAabb.max.z) - Math.max(entityAabb.min.z, targetAabb.min.z);
+
+	if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) {
+		return { x: 0, y: 1, z: 0 };
+	}
+
+	const entityCenter = getAabbCenter(entityAabb);
+	const targetCenter = getAabbCenter(targetAabb);
+	const delta = {
+		x: entityCenter.x - targetCenter.x,
+		y: entityCenter.y - targetCenter.y,
+		z: entityCenter.z - targetCenter.z,
+	};
+
+	if (overlapY <= overlapX && overlapY <= overlapZ) {
+		return { x: 0, y: delta.y >= 0 ? 1 : -1, z: 0 };
+	}
+	if (overlapX <= overlapZ) {
+		return { x: delta.x >= 0 ? 1 : -1, y: 0, z: 0 };
+	}
+	return { x: 0, y: 0, z: delta.z >= 0 ? 1 : -1 };
+}
+
 function CheckAabbOverlapPair(aabbA, aabbB) {
 	return AABBOverlap(aabbA, aabbB);
 }
@@ -238,10 +279,21 @@ function ResolveCollisions(velocity, displacement, solids) {
 	for (let i = 0; i < solids.length; i++) {
 		const collision = solids[i];
 		const n = NormalizeVector3(collision.normal);
+		const hitTime = Math.max(0, Math.min(1, ToNumber(collision.tEntry, 0)));
+		const isGroundCandidate =
+			(collision.type === "terrain" || collision.type === "obstacle");
 
-		// Ground contact is any solid surface; steepness acceptance is handled in Correction.js.
-		if (!groundContact.hit) {
-			groundContact = { hit: true, normal: { ...n } };
+		if (isGroundCandidate) {
+			if (!groundContact.hit || n.y > groundContact.normal.y || (n.y === groundContact.normal.y && collision.tEntry < ToNumber(groundContact.tEntry, 1))) {
+				groundContact = {
+					hit: true,
+					normal: { ...n },
+					type: collision.type,
+					targetId: collision && collision.target ? collision.target.id : null,
+					targetAabb: collision && collision.target && collision.target.aabb ? collision.target.aabb : null,
+					tEntry: collision.tEntry,
+				};
+			}
 		}
 
 		// Slide: remove velocity component along collision normal.

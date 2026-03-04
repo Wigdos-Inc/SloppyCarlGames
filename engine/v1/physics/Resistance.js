@@ -9,7 +9,7 @@ function toNumber(value, fallback) {
 }
 
 const AIR_DRAG = 0.02;
-const WATER_DRAG = 0.12;
+const WATER_DRAG = 0.05;
 
 /**
  * Apply medium-based drag to a velocity vector.

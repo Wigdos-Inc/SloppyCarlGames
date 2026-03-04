@@ -39,6 +39,13 @@ function ApplySurfaceAlignment(playerState, groundContact, deltaSeconds) {
 		return;
 	}
 
+	const contactType = typeof groundContact.type === "string" ? groundContact.type : "";
+	const validGroundType = contactType === "terrain" || contactType === "obstacle";
+	if (!validGroundType) {
+		playerState.grounded = false;
+		return;
+	}
+
 	const normal = NormalizeUnitVector3(NormalizeVector3(groundContact.normal, { x: 0, y: 1, z: 0 }));
 	const previousNormal = NormalizeUnitVector3(
 		NormalizeVector3(playerState.surfaceNormal, { x: 0, y: 1, z: 0 })
