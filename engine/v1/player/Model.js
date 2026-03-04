@@ -10,19 +10,54 @@ import { NormalizeVector3, AddVector3 } from "../math/Vector3.js";
 import { DegreesToRadians, ToNumber } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
 
-function cloneTransform(transform, fallback) {
+/**
+ * Clone and normalize a transform object.
+ * @param {object} transform — source transform.
+ * @param {object} [fallback] — fallback values.
+ * @param {boolean} [rotationInRadians=false] — when true, rotation values are
+ *        already in radians and will NOT be converted from degrees. Pass true
+ *        when cloning transforms that have already been through this function
+ *        (e.g. in composeTransform, applyModelPose, or defaultPose snapshots).
+ */
+function cloneTransform(transform, fallback, rotationInRadians) {
 	const source = transform && typeof transform === "object" ? transform : {};
 	const fb = fallback && typeof fallback === "object" ? fallback : {};
 	const position = NormalizeVector3(source.position, fb.position || { x: 0, y: 0, z: 0 });
 	const rotation = NormalizeVector3(source.rotation, fb.rotation || { x: 0, y: 0, z: 0 });
-	const rotationRad = {
-		x: DegreesToRadians(rotation.x),
-		y: DegreesToRadians(rotation.y),
-		z: DegreesToRadians(rotation.z),
-	};
+	const rotationRad = rotationInRadians
+		? { x: rotation.x, y: rotation.y, z: rotation.z }
+		: {
+			x: DegreesToRadians(rotation.x),
+			y: DegreesToRadians(rotation.y),
+			z: DegreesToRadians(rotation.z),
+		};
 	const scale = NormalizeVector3(source.scale, fb.scale || { x: 1, y: 1, z: 1 });
 	const pivot = NormalizeVector3(source.pivot, fb.pivot || { x: 0, y: 0, z: 0 });
 	return { position, rotation: rotationRad, scale, pivot };
+}
+
+/**
+ * Rotate a point by Euler angles in Y → X → Z order (matches CreateModelMatrix).
+ */
+function rotateByEuler(point, rotation) {
+	let p = { x: point.x, y: point.y, z: point.z };
+
+	// Y rotation
+	const cy = Math.cos(rotation.y);
+	const sy = Math.sin(rotation.y);
+	p = { x: p.x * cy + p.z * sy, y: p.y, z: -p.x * sy + p.z * cy };
+
+	// X rotation
+	const cx = Math.cos(rotation.x);
+	const sx = Math.sin(rotation.x);
+	p = { x: p.x, y: p.y * cx - p.z * sx, z: p.y * sx + p.z * cx };
+
+	// Z rotation
+	const cz = Math.cos(rotation.z);
+	const sz = Math.sin(rotation.z);
+	p = { x: p.x * cz - p.y * sz, y: p.x * sz + p.y * cz, z: p.z };
+
+	return p;
 }
 
 function multiplyVector3(a, b) {
@@ -32,10 +67,13 @@ function multiplyVector3(a, b) {
 }
 
 function composeTransform(parentTransform, localTransform) {
-	const parent = cloneTransform(parentTransform);
-	const local = cloneTransform(localTransform);
+	// Both inputs are already in radians (outputs of cloneTransform / prior compose).
+	const parent = cloneTransform(parentTransform, null, true);
+	const local = cloneTransform(localTransform, null, true);
+	// Rotate child’s local position by parent’s rotation for correct hierarchical composition.
+	const rotatedChildPos = rotateByEuler(local.position, parent.rotation);
 	return {
-		position: AddVector3(parent.position, local.position),
+		position: AddVector3(parent.position, rotatedChildPos),
 		rotation: AddVector3(parent.rotation, local.rotation),
 		scale: multiplyVector3(parent.scale, local.scale),
 		pivot: local.pivot,
@@ -118,7 +156,8 @@ function applyModelPose(model) {
 		part.children.forEach((childId) => applyPart(childId, worldTransform));
 	};
 
-	const rootTransform = cloneTransform(model.rootTransform);
+	// rootTransform rotation comes from playerState (already in radians).
+	const rootTransform = cloneTransform(model.rootTransform, null, true);
 	model.roots.forEach((rootId) => applyPart(rootId, rootTransform));
 }
 
@@ -176,9 +215,10 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 		}
 	});
 
+	// All localTransform rotations are already in radians from buildPart.
 	model.defaultPose = {
-		rootTransform: cloneTransform(model.rootTransform),
-		parts: model.parts.map((part) => ({ id: part.id, localTransform: cloneTransform(part.localTransform) })),
+		rootTransform: cloneTransform(model.rootTransform, null, true),
+		parts: model.parts.map((part) => ({ id: part.id, localTransform: cloneTransform(part.localTransform, null, true) })),
 	};
 
 	model.index = index;

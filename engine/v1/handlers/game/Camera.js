@@ -485,7 +485,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	if (defaultCamRuntime.lookDeltaX !== 0 || defaultCamRuntime.lookDeltaY !== 0) {
 		defaultCamRuntime.yaw += defaultCamRuntime.lookDeltaX * cfg.sensitivity;
 		defaultCamRuntime.pitch = clamp(
-			defaultCamRuntime.pitch - defaultCamRuntime.lookDeltaY * cfg.sensitivity,
+			defaultCamRuntime.pitch + defaultCamRuntime.lookDeltaY * cfg.sensitivity,
 			cfg.minPitch,
 			cfg.maxPitch
 		);

@@ -314,12 +314,20 @@ function ResolveCollisions(velocity, displacement, solids) {
 	return { resolvedVelocity: vel, resolvedDisplacement: disp, groundContact };
 }
 
+let lastLoggedCollisionKey = "";
+
 function LogCollision(collision) {
 	if (!CONFIG || !CONFIG.DEBUG || CONFIG.DEBUG.ALL !== true) { return; }
 	if (!CONFIG.DEBUG.LOGGING || !CONFIG.DEBUG.LOGGING.Channel || CONFIG.DEBUG.LOGGING.Channel.Level !== true) { return; }
 
 	const targetId = collision && collision.target ? collision.target.id : "unknown";
 	const n = collision && collision.normal ? collision.normal : { x: 0, y: 0, z: 0 };
+
+	// Deduplicate: skip logging the same collision target on consecutive frames.
+	const key = `${collision.type || "solid"}:${targetId}:${n.x.toFixed(1)},${n.y.toFixed(1)},${n.z.toFixed(1)}`;
+	if (key === lastLoggedCollisionKey) { return; }
+	lastLoggedCollisionKey = key;
+
 	Log(
 		"ENGINE",
 		`Collision: ${collision.type || "solid"} with "${targetId}" | normal=(${n.x.toFixed(2)}, ${n.y.toFixed(2)}, ${n.z.toFixed(2)}) t=${ToNumber(collision.tEntry, 0).toFixed(4)}`,

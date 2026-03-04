@@ -1009,6 +1009,78 @@ function collectRenderableMeshes(sceneGraph) {
 	return terrain.concat(obstacles, triggerMeshes, entityMeshes);
 }
 
+function resolveWaterVisualMeshes(sceneGraph) {
+	const waterVisual = sceneGraph && sceneGraph.waterVisual && typeof sceneGraph.waterVisual === "object"
+		? sceneGraph.waterVisual
+		: null;
+	if (!waterVisual) {
+		return [];
+	}
+
+	const meshes = [];
+	if (waterVisual.body && waterVisual.body.geometry) {
+		meshes.push(waterVisual.body);
+	}
+	if (waterVisual.top && waterVisual.top.geometry) {
+		meshes.push(waterVisual.top);
+	}
+
+	return meshes;
+}
+
+function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue) {
+	const waterMeshes = resolveWaterVisualMeshes(sceneGraph);
+	if (waterMeshes.length === 0) {
+		return;
+	}
+
+	const gl = renderer.gl;
+	const shader = renderer.shader;
+	gl.useProgram(shader.program);
+	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
+	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
+	gl.uniform1f(shader.uniforms.fogDensity, fogDensity);
+	gl.uniform1f(shader.uniforms.far, farValue);
+	gl.uniform3f(shader.uniforms.colorShift, colorShift.r, colorShift.g, colorShift.b);
+	gl.uniform1f(shader.uniforms.underwater, underwaterValue);
+
+	gl.depthMask(false);
+	for (let index = 0; index < waterMeshes.length; index += 1) {
+		const mesh = waterMeshes[index];
+		if (!mesh || !mesh.id) {
+			continue;
+		}
+
+		let meshBuffer = renderer.meshBuffers.get(mesh.id);
+		if (!meshBuffer) {
+			meshBuffer = createMeshBuffers(gl, mesh, shader);
+			if (!meshBuffer) {
+				continue;
+			}
+			renderer.meshBuffers.set(mesh.id, meshBuffer);
+		}
+
+		const model = CreateModelMatrix(mesh.transform);
+		const color = mesh.material && mesh.material.color
+			? mesh.material.color
+			: { r: 0.25, g: 0.5, b: 0.75, a: 1 };
+		const opacity = mesh.material && typeof mesh.material.opacity === "number"
+			? mesh.material.opacity
+			: (typeof color.a === "number" ? color.a : 0.2);
+		const texture = renderer.fallbackTexture;
+
+		gl.bindVertexArray(meshBuffer.vao);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		gl.uniform1i(shader.uniforms.texture, 0);
+		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(model));
+		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, opacity);
+		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
+		gl.bindVertexArray(null);
+	}
+	gl.depthMask(true);
+}
+
 function drawScene(renderer, sceneGraph) {
 	const gl = renderer.gl;
 	const shader = renderer.shader;
@@ -1134,6 +1206,9 @@ function drawScene(renderer, sceneGraph) {
 			gl.bindVertexArray(null);
 		}
 	}
+
+	// === PASS C: Water overlay (translucent; top brighter than body) ===
+	drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue);
 
 	drawBoundingBoxes(renderer, sceneGraph, projection, view);
 	drawVelocityTrails(renderer, sceneGraph, projection, view);

@@ -22,14 +22,35 @@ function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function resolveWaterLevel(source, deathBarrierY, worldHeight) {
+	if (!source || typeof source !== "object" || !Object.prototype.hasOwnProperty.call(source, "waterLevel")) {
+		return -9999;
+	}
+
+	const level = toNumber(source.waterLevel, -9999);
+	if (level <= -9000) {
+		return -9999;
+	}
+
+	if (level < deathBarrierY || level > worldHeight) {
+		return -9999;
+	}
+
+	return level;
+}
+
 function normalizeWorld(world) {
 	const source = world && typeof world === "object" ? world : {};
+	const length = Math.max(1, toNumber(source.length, 100));
+	const width = Math.max(1, toNumber(source.width, 100));
+	const height = Math.max(1, toNumber(source.height, 40));
+	const deathBarrierY = toNumber(source.deathBarrierY, -25);
 	return {
-		length: Math.max(1, toNumber(source.length, 100)),
-		width: Math.max(1, toNumber(source.width, 100)),
-		height: Math.max(1, toNumber(source.height, 40)),
-		deathBarrierY: toNumber(source.deathBarrierY, -25),
-		waterLevel: toNumber(source.waterLevel, -9999),
+		length: length,
+		width: width,
+		height: height,
+		deathBarrierY: deathBarrierY,
+		waterLevel: resolveWaterLevel(source, deathBarrierY, height),
 		textureScale: Math.max(0.05, toNumber(source.textureScale, 1)),
 		scatterScale: Math.max(0.05, toNumber(source.scatterScale, 1)),
 	};
@@ -150,6 +171,54 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 		},
 		{ role: "trigger" }
 	);
+}
+
+function buildWaterVisualMeshes(world) {
+	if (!world || typeof world !== "object" || typeof world.waterLevel !== "number" || world.waterLevel <= -9000) {
+		return null;
+	}
+
+	const waterLength = Math.max(1, toNumber(world.length, 100));
+	const waterWidth = Math.max(1, toNumber(world.width, 100));
+	const centerX = waterLength * 0.5;
+	const centerZ = waterWidth * 0.5;
+	const waterLevel = world.waterLevel;
+	const worldBottom = toNumber(world.deathBarrierY, -25);
+	const waterBottom = Math.min(worldBottom, waterLevel - 0.1);
+	const waterHeight = Math.max(0.1, waterLevel - waterBottom);
+
+	const body = BuildObject(
+		{
+			id: `water-body-${waterLength}-${waterWidth}-${waterBottom}-${waterLevel}`,
+			primitive: "cube",
+			dimensions: { x: waterLength, y: waterHeight, z: waterWidth },
+			position: { x: centerX, y: waterBottom + waterHeight * 0.5, z: centerZ },
+			textureID: "default-grid",
+			textureColor: { r: 0.1, g: 0.28, b: 0.44, a: 1 },
+			textureOpacity: 0.2,
+			role: "water",
+		},
+		{ role: "water" }
+	);
+
+	const top = BuildObject(
+		{
+			id: `water-top-${waterLength}-${waterWidth}-${waterLevel}`,
+			primitive: "plane",
+			dimensions: { x: waterLength, y: 1, z: waterWidth },
+			position: { x: centerX, y: waterLevel + 0.02, z: centerZ },
+			textureID: "default-grid",
+			textureColor: { r: 0.38, g: 0.62, b: 0.85, a: 1 },
+			textureOpacity: 0.35,
+			role: "water",
+		},
+		{ role: "water" }
+	);
+
+	return {
+		body: body,
+		top: top,
+	};
 }
 
 function buildSceneBoundingBoxes(sceneGraph) {
@@ -329,6 +398,7 @@ async function BuildLevel(payload) {
 
 	const sceneGraph = {
 		world: world,
+		waterVisual: buildWaterVisualMeshes(world),
 		terrain: terrain,
 		obstacles: obstacleRecords,
 		entities: entities,
