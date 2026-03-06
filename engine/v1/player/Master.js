@@ -6,7 +6,7 @@
 import { NormalizeVector3 } from "../math/Vector3.js";
 import { Log } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
-import { ToNumber } from "../math/Utilities.js";
+import { ToNumber, UnitVector3 } from "../math/Utilities.js";
 import { BuildPlayerModel, UpdatePlayerModelFromState } from "./Model.js";
 import { UpdateMovement } from "./Movement.js";
 import { UpdateAbilities } from "./Abilities.js";
@@ -33,11 +33,11 @@ function createDefaultPlayerState() {
 		character: null,
 		model: null,
 		transform: {
-			position: { x: 0, y: 0, z: 0 },
-			rotation: { x: 0, y: 0, z: 0 },
+			position: new UnitVector3(0, 0, 0, "CNU"),
+			rotation: new UnitVector3(0, 0, 0, "radians"),
 			scale: { x: 1, y: 1, z: 1 },
 		},
-		velocity: { x: 0, y: 0, z: 0 },
+		velocity: new UnitVector3(0, 0, 0, "CNU"),
 		grounded: false,
 		underwater: false,
 		surfaceNormal: { x: 0, y: 1, z: 0 },
@@ -63,12 +63,12 @@ function createDefaultPlayerState() {
 			flashTimer: 0,
 		},
 		checkpoint: null,
-		spawnPosition: { x: 0, y: 0, z: 0 },
+		spawnPosition: new UnitVector3(0, 0, 0, "CNU"),
 		collision: {
-			aabb: { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } },
+			aabb: { min: new UnitVector3(0, 0, 0, "CNU"), max: new UnitVector3(0, 0, 0, "CNU") },
 			radius: 0.8,
 			simRadiusPadding: 24,
-			simRadiusAabb: { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } },
+			simRadiusAabb: { min: new UnitVector3(0, 0, 0, "CNU"), max: new UnitVector3(0, 0, 0, "CNU") },
 		},
 		mesh: null,
 		type: "player",
@@ -110,8 +110,8 @@ function InitializePlayer(playerPayload, sceneGraph) {
 	playerState = createDefaultPlayerState();
 	playerState.active = true;
 	playerState.character = character;
-	playerState.transform.position = { ...spawnPos };
-	playerState.spawnPosition = { ...spawnPos };
+	playerState.transform.position.set(spawnPos);
+	playerState.spawnPosition.set(spawnPos);
 	playerState.collectibles = ToNumber(payload.collectibles, 0);
 	playerState.collision.radius = ToNumber(character.collisionRadius, 0.8);
 	playerState.jumpStartY = spawnPos.y;
@@ -236,7 +236,7 @@ function TriggerPlayerDeath() {
 	if (!playerState) { return; }
 
 	playerState.state = "Dead";
-	playerState.velocity = { x: 0, y: 0, z: 0 };
+	playerState.velocity.set({ x: 0, y: 0, z: 0 });
 	Log("ENGINE", "Player death triggered.", "log", "Level");
 }
 
@@ -247,11 +247,11 @@ function RespawnPlayer() {
 	if (!playerState) { return; }
 
 	const respawnPos = playerState.checkpoint
-		? { ...playerState.checkpoint.position }
-		: { ...playerState.spawnPosition };
+		? playerState.checkpoint.position
+		: playerState.spawnPosition;
 
-	playerState.transform.position = respawnPos;
-	playerState.velocity = { x: 0, y: 0, z: 0 };
+	playerState.transform.position.set(respawnPos);
+	playerState.velocity.set({ x: 0, y: 0, z: 0 });
 	playerState.grounded = false;
 	playerState.state = "Idle";
 	playerState.jumpStartY = respawnPos.y;

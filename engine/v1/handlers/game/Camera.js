@@ -4,7 +4,7 @@
 // Returns ready to use Camera State
 
 import { CONFIG } from "../../core/config.js";
-import { IsPointerLocked, Log, RequestPointerLock } from "../../core/meta.js";
+import { CNU_SCALE, IsPointerLocked, Log, RequestPointerLock } from "../../core/meta.js";
 import {
 	AddVector3,
 	SubtractVector3,
@@ -15,7 +15,7 @@ import {
 	vector3Length,
 } from "../../math/Vector3.js";
 import { RayAABBIntersect } from "../../math/Physics.js";
-import { Lerp } from "../../math/Utilities.js";
+import { CNUtoWorldUnit, Lerp } from "../../math/Utilities.js";
 
 const worldUp = { x: 0, y: 1, z: 0 };
 const pitchClampDegrees = 89;
@@ -41,9 +41,9 @@ const freeCamRuntime = {
 	},
 	moveSensitivity: 0.12,
 	tuningStep: 0,
-	acceleration: 44,
+	acceleration: CNUtoWorldUnit(44),
 	dampingFactor: 0.12,
-	maxSpeed: 14,
+	maxSpeed: CNUtoWorldUnit(14),
 	lookDeltaX: 0,
 	lookDeltaY: 0,
 	wheelDelta: 0,
@@ -52,14 +52,14 @@ const defaultCamRuntime = {
 	active: false,
 	yaw: 0,
 	pitch: -15,
-	currentDistance: 10,
-	targetDistance: 10,
+	currentDistance: CNUtoWorldUnit(10),
+	targetDistance: CNUtoWorldUnit(10),
 	lookDeltaX: 0,
 	lookDeltaY: 0,
 	config: {
-		distance: 10,
+		distance: CNUtoWorldUnit(10),
 		sensitivity: 0.12,
-		heightOffset: 3,
+		heightOffset: CNUtoWorldUnit(3),
 		minPitch: -60,
 		maxPitch: 60,
 	},
@@ -74,9 +74,16 @@ function cacheCameraPosition(cameraState) {
 		&& typeof cameraState.position.z === "number"
 	) {
 		latestCameraPosition = {
-			x: cameraState.position.x,
-			y: cameraState.position.y,
-			z: cameraState.position.z,
+			worldUnit: {
+				x: cameraState.position.x,
+				y: cameraState.position.y,
+				z: cameraState.position.z,
+			},
+			cnu: {
+				x: cameraState.position.x / CNU_SCALE,
+				y: cameraState.position.y / CNU_SCALE,
+				z: cameraState.position.z / CNU_SCALE,
+			},
 		};
 		return;
 	}
@@ -90,11 +97,7 @@ function getCurrentCameraPosition() {
 		return null;
 	}
 
-	return {
-		x: latestCameraPosition.x,
-		y: latestCameraPosition.y,
-		z: latestCameraPosition.z,
-	};
+	return latestCameraPosition;
 }
 
 if (typeof window !== "undefined") {
@@ -121,7 +124,7 @@ function createForwardFromAngles(yawDegrees, pitchDegrees) {
 
 function createCameraState(seed) {
 	const source = seed && typeof seed === "object" ? seed : {};
-	const position = NormalizeVector3(source.position, { x: 0, y: 20, z: 40 });
+	const position = NormalizeVector3(source.position, { x: 0, y: CNUtoWorldUnit(20), z: CNUtoWorldUnit(40) });
 	const yaw = toNumber(source.yaw, -90);
 	const pitch = clamp(toNumber(source.pitch, -18), -pitchClampDegrees, pitchClampDegrees);
 	const forward = createForwardFromAngles(yaw, pitch);
@@ -141,7 +144,7 @@ function createCameraState(seed) {
 		target: AddVector3(position, forward),
 		fov: toNumber(source.fov, 60),
 		near: toNumber(source.near, 0.1),
-		far: toNumber(source.far, 800),
+		far: toNumber(source.far, CNUtoWorldUnit(800)),
 	};
 }
 
@@ -155,16 +158,22 @@ function updateOrientationVectors(cameraState) {
 function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 	const world = sceneGraph && sceneGraph.world ? sceneGraph.world : {};
 	const levelOpening = cameraConfig && cameraConfig.levelOpening ? cameraConfig.levelOpening : {};
+	const wLength = CNUtoWorldUnit(world.length ? world.length.value : 100);
+	const wHeight = CNUtoWorldUnit(world.height ? world.height.value : 40);
+	const wWidth = CNUtoWorldUnit(world.width ? world.width.value : 100);
 	const center = {
-		x: toNumber(world.length, 100) * 0.5,
-		y: Math.max(0, toNumber(world.height, 40) * 0.35),
-		z: toNumber(world.width, 100) * 0.5,
+		x: wLength * 0.5,
+		y: Math.max(0, wHeight * 0.35),
+		z: wWidth * 0.5,
 	};
-	const position = NormalizeVector3(levelOpening.startPosition, {
-		x: center.x,
-		y: Math.max(20, toNumber(world.height, 40) * 1.15),
-		z: center.z + Math.max(30, toNumber(world.width, 100) * 0.7),
-	});
+	const startRaw = levelOpening.startPosition ? NormalizeVector3(levelOpening.startPosition) : null;
+	const position = startRaw
+		? { x: CNUtoWorldUnit(startRaw.x), y: CNUtoWorldUnit(startRaw.y), z: CNUtoWorldUnit(startRaw.z) }
+		: {
+			x: center.x,
+			y: Math.max(CNUtoWorldUnit(20), wHeight * 1.15),
+			z: center.z + Math.max(CNUtoWorldUnit(30), wWidth * 0.7),
+		};
 	return {
 		mode: "level",
 		position: position,
@@ -172,7 +181,7 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 		up: { x: 0, y: 1, z: 0 },
 		fov: 60,
 		near: 0.1,
-		far: Math.max(200, toNumber(world.length, 100) + toNumber(world.width, 100) + toNumber(world.height, 40)),
+		far: Math.max(CNUtoWorldUnit(200), wLength + wWidth + wHeight),
 	};
 }
 
@@ -192,8 +201,8 @@ function CalculateCameraState(sceneGraph, cameraConfig) {
 
 function applyTuningStep(step) {
 	freeCamRuntime.tuningStep = clamp(step, -6, 16);
-	freeCamRuntime.maxSpeed = clamp(14 + freeCamRuntime.tuningStep * 2.5, 3, 80);
-	freeCamRuntime.acceleration = clamp(44 + freeCamRuntime.tuningStep * 10, 10, 300);
+	freeCamRuntime.maxSpeed = CNUtoWorldUnit(clamp(14 + freeCamRuntime.tuningStep * 2.5, 3, 80));
+	freeCamRuntime.acceleration = CNUtoWorldUnit(clamp(44 + freeCamRuntime.tuningStep * 10, 10, 300));
 	freeCamRuntime.dampingFactor = clamp(0.08 + freeCamRuntime.tuningStep * 0.02, 0.05, 0.92);
 
 	if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true) {
@@ -380,9 +389,16 @@ function initializeDefaultCamConfig(cameraConfig) {
 	const cam = cameraConfig && typeof cameraConfig === "object" ? cameraConfig : {};
 	const camPayload = cam.camera && typeof cam.camera === "object" ? cam.camera : cam;
 
-	defaultCamRuntime.config.distance = toNumber(camPayload.distance, 10);
+	const rawDistance = camPayload.distance && typeof camPayload.distance === "object" && typeof camPayload.distance.value === "number"
+		? camPayload.distance.value
+		: toNumber(camPayload.distance, 10);
+	const rawHeightOffset = camPayload.heightOffset && typeof camPayload.heightOffset === "object" && typeof camPayload.heightOffset.value === "number"
+		? camPayload.heightOffset.value
+		: toNumber(camPayload.heightOffset, 3);
+
+	defaultCamRuntime.config.distance = CNUtoWorldUnit(rawDistance);
 	defaultCamRuntime.config.sensitivity = toNumber(camPayload.sensitivity, toNumber(camPayload.speed, 0.12));
-	defaultCamRuntime.config.heightOffset = toNumber(camPayload.heightOffset, 3);
+	defaultCamRuntime.config.heightOffset = CNUtoWorldUnit(rawHeightOffset);
 	defaultCamRuntime.currentDistance = defaultCamRuntime.config.distance;
 	defaultCamRuntime.targetDistance = defaultCamRuntime.config.distance;
 	defaultCamRuntime.yaw = 0;
@@ -437,26 +453,35 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	let closestT = rayLen;
 	let obstructed = false;
 
-	// Check terrain.
+	// Check terrain (AABBs are in CNU, convert to world-units for ray test).
 	const terrain = Array.isArray(sceneGraph && sceneGraph.terrain) ? sceneGraph.terrain : [];
 	for (let i = 0; i < terrain.length; i++) {
 		const mesh = terrain[i];
 		if (!mesh || !mesh.worldAabb) { continue; }
-		const hit = RayAABBIntersect(playerHeadPos, rayDir, mesh.worldAabb);
+		const aabb = mesh.worldAabb;
+		const scaled = {
+			min: { x: CNUtoWorldUnit(aabb.min.x), y: CNUtoWorldUnit(aabb.min.y), z: CNUtoWorldUnit(aabb.min.z) },
+			max: { x: CNUtoWorldUnit(aabb.max.x), y: CNUtoWorldUnit(aabb.max.y), z: CNUtoWorldUnit(aabb.max.z) },
+		};
+		const hit = RayAABBIntersect(playerHeadPos, rayDir, scaled);
 		if (hit.hit && hit.t > 0 && hit.t < closestT) {
 			closestT = hit.t;
 			obstructed = true;
 		}
 	}
 
-	// Check obstacles.
+	// Check obstacles (AABBs are in CNU, convert to world-units for ray test).
 	const obstacles = Array.isArray(sceneGraph && sceneGraph.obstacles) ? sceneGraph.obstacles : [];
 	for (let i = 0; i < obstacles.length; i++) {
 		const obs = obstacles[i];
 		if (!obs) { continue; }
 		const bounds = obs.bounds || (obs.mesh && obs.mesh.worldAabb) || null;
 		if (!bounds) { continue; }
-		const hit = RayAABBIntersect(playerHeadPos, rayDir, bounds);
+		const scaled = {
+			min: { x: CNUtoWorldUnit(bounds.min.x), y: CNUtoWorldUnit(bounds.min.y), z: CNUtoWorldUnit(bounds.min.z) },
+			max: { x: CNUtoWorldUnit(bounds.max.x), y: CNUtoWorldUnit(bounds.max.y), z: CNUtoWorldUnit(bounds.max.z) },
+		};
+		const hit = RayAABBIntersect(playerHeadPos, rayDir, scaled);
 		if (hit.hit && hit.t > 0 && hit.t < closestT) {
 			closestT = hit.t;
 			obstructed = true;
@@ -466,8 +491,8 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	// Ignore scatter objects entirely.
 
 	if (obstructed) {
-		const offset = 0.3;
-		closestT = Math.max(0.5, closestT - offset);
+		const offset = CNUtoWorldUnit(0.3);
+		closestT = Math.max(CNUtoWorldUnit(0.5), closestT - offset);
 
 		if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LOGGING && CONFIG.DEBUG.LOGGING.Channel && CONFIG.DEBUG.LOGGING.Channel.Level) {
 			Log("ENGINE", `DefaultCam obstruction detected at t=${closestT.toFixed(2)}`, "log", "Level");
@@ -493,10 +518,15 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 		defaultCamRuntime.lookDeltaY = 0;
 	}
 
-	// Player position.
-	const playerPos = playerState && playerState.transform
+	// Player position (CNU → world-units).
+	const playerCNU = playerState && playerState.transform
 		? NormalizeVector3(playerState.transform.position)
-		: NormalizeVector3(null);
+		: { x: 0, y: 0, z: 0 };
+	const playerPos = {
+		x: CNUtoWorldUnit(playerCNU.x),
+		y: CNUtoWorldUnit(playerCNU.y),
+		z: CNUtoWorldUnit(playerCNU.z),
+	};
 
 	// Camera target: player position + height offset.
 	const targetPoint = {

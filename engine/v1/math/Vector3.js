@@ -1,12 +1,9 @@
 // Advanced Math Stuff
 
+import { ToNumber } from "./Utilities.js";
+
 /* === NORMALIZERS === */
 // Convert incoming values into consistent vector objects.
-
-function toNumber(value, fallback) {
-	const resolved = Number(value);
-	return Number.isFinite(resolved) ? resolved : fallback;
-}
 
 function NormalizeVector3(value, fallback) {
 	const resolvedFallback = fallback || { x: 0, y: 0, z: 0 };
@@ -16,17 +13,17 @@ function NormalizeVector3(value, fallback) {
 
 	if (Array.isArray(value)) {
 		return {
-			x: toNumber(value[0], resolvedFallback.x),
-			y: toNumber(value[1], resolvedFallback.y),
-			z: toNumber(value[2], resolvedFallback.z),
+			x: ToNumber(value[0], resolvedFallback.x),
+			y: ToNumber(value[1], resolvedFallback.y),
+			z: ToNumber(value[2], resolvedFallback.z),
 		};
 	}
 
 	if (typeof value === "object") {
 		return {
-			x: toNumber(value.x, resolvedFallback.x),
-			y: toNumber(value.y, resolvedFallback.y),
-			z: toNumber(value.z, resolvedFallback.z),
+			x: ToNumber(value.x, resolvedFallback.x),
+			y: ToNumber(value.y, resolvedFallback.y),
+			z: ToNumber(value.z, resolvedFallback.z),
 		};
 	}
 
@@ -55,7 +52,7 @@ function SubtractVector3(a, b) {
 
 function scaleVector3(vector, scalar) {
 	const resolved = NormalizeVector3(vector);
-	const factor = toNumber(scalar, 1);
+	const factor = ToNumber(scalar, 1);
 	return {
 		x: resolved.x * factor,
 		y: resolved.y * factor,
@@ -104,7 +101,7 @@ function NormalizeUnitVector3(vector) {
 function LerpVector3(start, end, t) {
 	const from = NormalizeVector3(start);
 	const to = NormalizeVector3(end);
-	const alpha = Math.max(0, Math.min(1, toNumber(t, 0)));
+	const alpha = Math.max(0, Math.min(1, ToNumber(t, 0)));
 	return {
 		x: from.x + (to.x - from.x) * alpha,
 		y: from.y + (to.y - from.y) * alpha,

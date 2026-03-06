@@ -6,6 +6,7 @@
 import { BuildObject } from "./NewObject.js";
 import { Log } from "../core/meta.js";
 import { AddVector3, NormalizeVector3 } from "../math/Vector3.js";
+import { DegreesToRadians, UnitVector3 } from "../math/Utilities.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -18,22 +19,24 @@ function mergeAabb(accumulator, bounds) {
 
 	if (!accumulator) {
 		return {
-			min: { ...bounds.min },
-			max: { ...bounds.max },
+			min: new UnitVector3(bounds.min.x, bounds.min.y, bounds.min.z, "CNU"),
+			max: new UnitVector3(bounds.max.x, bounds.max.y, bounds.max.z, "CNU"),
 		};
 	}
 
 	return {
-		min: {
-			x: Math.min(accumulator.min.x, bounds.min.x),
-			y: Math.min(accumulator.min.y, bounds.min.y),
-			z: Math.min(accumulator.min.z, bounds.min.z),
-		},
-		max: {
-			x: Math.max(accumulator.max.x, bounds.max.x),
-			y: Math.max(accumulator.max.y, bounds.max.y),
-			z: Math.max(accumulator.max.z, bounds.max.z),
-		},
+		min: new UnitVector3(
+			Math.min(accumulator.min.x, bounds.min.x),
+			Math.min(accumulator.min.y, bounds.min.y),
+			Math.min(accumulator.min.z, bounds.min.z),
+			"CNU"
+		),
+		max: new UnitVector3(
+			Math.max(accumulator.max.x, bounds.max.x),
+			Math.max(accumulator.max.y, bounds.max.y),
+			Math.max(accumulator.max.z, bounds.max.z),
+			"CNU"
+		),
 	};
 }
 

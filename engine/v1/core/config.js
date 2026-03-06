@@ -27,6 +27,10 @@ let CONFIG = {
         PlayerPart: true,
         Boss      : false,
         BossPart  : false,
+        Grid      : {
+          Visible: true,
+          Scale  : 1,
+        }
       },
       Trails: {
         Player     : true,

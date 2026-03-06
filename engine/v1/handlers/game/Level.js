@@ -13,6 +13,7 @@ import { CONFIG } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
 import { distanceVector3, LerpVector3, NormalizeVector3 } from "../../math/Vector3.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
+import { UnitVector3 } from "../../math/Utilities.js";
 import { UpdateInputEventTypes } from "../Controls.js";
 import { ValidateLevelPayload } from "../../core/validate.js";
 import { InitializePlayer, UpdatePlayer, ResolvePlayerState, GetPlayerState } from "../../player/Master.js";
@@ -103,8 +104,8 @@ function updateEntityMovement(entity, deltaSeconds) {
 	}
 
 	const movement = entity.movement;
-	const transform = entity.transform || (entity.transform = { position: { x: 0, y: 0, z: 0 } });
-	const position = transform.position || (transform.position = { x: 0, y: 0, z: 0 });
+	const transform = entity.transform || (entity.transform = { position: new UnitVector3(0, 0, 0, "CNU") });
+	const position = transform.position || (transform.position = new UnitVector3(0, 0, 0, "CNU"));
 	const state = entity.state || (entity.state = { movementProgress: 0, direction: 1 });
 
 	if (movement.speed <= 0) {
@@ -134,9 +135,7 @@ function updateEntityMovement(entity, deltaSeconds) {
 
 	const t = Math.max(0, Math.min(1, state.movementProgress));
 	const nextPosition = LerpVector3(start, end, t);
-	position.x = nextPosition.x;
-	position.y = nextPosition.y;
-	position.z = nextPosition.z;
+	position.set(nextPosition);
 }
 
 function syncEntityMeshes(sceneGraph) {
@@ -289,6 +288,10 @@ async function CreateLevel(payload, options) {
 
 	levelRuntimeState.sceneGraph = sceneGraph;
 	RefreshSceneBoundingBoxes(sceneGraph);
+
+	if (CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible) {
+		Log("ENGINE", `Debug Grid Enabled \u2014 scale: ${CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Scale} units`, "log", "Level");
+	}
 
 	RenderLevel(sceneGraph, levelRuntimeState.renderOptions);
 	StartLevelLoop();

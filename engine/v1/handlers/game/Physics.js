@@ -11,7 +11,7 @@ import {
 	scaleVector3,
 	vector3Length,
 } from "../../math/Vector3.js";
-import { ToNumber } from "../../math/Utilities.js";
+import { ToNumber, UnitVector3 } from "../../math/Utilities.js";
 import { ApplyGravity } from "../../physics/Gravity.js";
 import { ApplyResistance } from "../../physics/Resistance.js";
 import { ApplyBuoyancy } from "../../physics/Buoyancy.js";
@@ -31,8 +31,8 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 
 	const dt = ToNumber(deltaSeconds, 0);
 	const world = sceneGraph && sceneGraph.world ? sceneGraph.world : {};
-	const waterLevel = ToNumber(world.waterLevel, -9999);
-	const deathBarrierY = ToNumber(world.deathBarrierY, -25);
+	const waterLevel = world.waterLevel && typeof world.waterLevel.value === "number" ? world.waterLevel.value : -9999;
+	const deathBarrierY = world.deathBarrierY && typeof world.deathBarrierY.value === "number" ? world.deathBarrierY.value : -25;
 	const pos = playerState.transform.position;
 
 	// Determine medium.
@@ -42,15 +42,15 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	// Step 1: Gravity (if not grounded or always apply — ground correction will nullify).
 	if (!playerState.grounded) {
 		const gravityOptions = playerState.underwater ? { strengthOverride: ToNumber(CONFIG.PHYSICS.Gravity.Strength, 25) * 0.4 } : {};
-		playerState.velocity = ApplyGravity(playerState.velocity, dt, gravityOptions);
+		playerState.velocity.set(ApplyGravity(playerState.velocity, dt, gravityOptions));
 	}
 
 	// Step 2: Resistance (drag).
-	playerState.velocity = ApplyResistance(playerState.velocity, dt, medium);
+	playerState.velocity.set(ApplyResistance(playerState.velocity, dt, medium));
 
 	// Step 3: Buoyancy (underwater float).
 	if (playerState.underwater) {
-		playerState.velocity = ApplyBuoyancy(playerState.velocity, pos, waterLevel, dt);
+		playerState.velocity.set(ApplyBuoyancy(playerState.velocity, pos, waterLevel, dt));
 	}
 
 	// Step 4: Compute intended displacement.
@@ -64,7 +64,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 		const dispLenSq = displacement.x * displacement.x + displacement.y * displacement.y + displacement.z * displacement.z;
 		if (dispLenSq < 0.0001) {
 			// Standing still on ground: preserve grounded state, skip collision.
-			playerState.transform.position = AddVector3(pos, displacement);
+			playerState.transform.position.set(AddVector3(pos, displacement));
 			if (playerState.transform.position.y < deathBarrierY) {
 				playerState.transform.position.y = deathBarrierY;
 				playerState.velocity.y = 0;
@@ -94,10 +94,10 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 		solids
 	);
 
-	playerState.velocity = resolvedVelocity;
+	playerState.velocity.set(resolvedVelocity);
 
 	// Step 7: Apply displacement to position.
-	playerState.transform.position = AddVector3(pos, resolvedDisplacement);
+	playerState.transform.position.set(AddVector3(pos, resolvedDisplacement));
 
 	// Step 8: Surface alignment / correction.
 	ApplySurfaceAlignment(playerState, groundContact, dt);
@@ -130,17 +130,17 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 
 	const movement = entity.movement || {};
 	const world = sceneGraph && sceneGraph.world ? sceneGraph.world : {};
-	const deathBarrierY = ToNumber(world.deathBarrierY, -25);
+	const deathBarrierY = world.deathBarrierY && typeof world.deathBarrierY.value === "number" ? world.deathBarrierY.value : -25;
 	const dt = ToNumber(deltaSeconds, 0);
 
 	if (!entity.velocity) {
-		entity.velocity = { x: 0, y: 0, z: 0 };
+		entity.velocity = new UnitVector3(0, 0, 0, "CNU");
 	}
 	if (!entity.transform) {
-		entity.transform = { position: { x: 0, y: 0, z: 0 } };
+		entity.transform = { position: new UnitVector3(0, 0, 0, "CNU") };
 	}
 	if (!entity.transform.position) {
-		entity.transform.position = { x: 0, y: 0, z: 0 };
+		entity.transform.position = new UnitVector3(0, 0, 0, "CNU");
 	}
 
 	if (!movement.physics) {
@@ -148,7 +148,7 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 	}
 
 	// Gravity.
-	entity.velocity = ApplyGravity(entity.velocity, dt);
+	entity.velocity.set(ApplyGravity(entity.velocity, dt));
 
 	// Simple collision for physics-enabled entities.
 	const entityPos = entity.transform.position;
@@ -158,13 +158,13 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 		const { solids } = DetectCollisions(entity, displacement, sceneGraph);
 		if (solids.length > 0) {
 			const { resolvedVelocity, resolvedDisplacement } = ResolveCollisions(entity.velocity, displacement, solids);
-			entity.velocity = resolvedVelocity;
-			entity.transform.position = AddVector3(entityPos, resolvedDisplacement);
+			entity.velocity.set(resolvedVelocity);
+			entity.transform.position.set(AddVector3(entityPos, resolvedDisplacement));
 		} else {
-			entity.transform.position = AddVector3(entityPos, displacement);
+			entity.transform.position.set(AddVector3(entityPos, displacement));
 		}
 	} else {
-		entity.transform.position = AddVector3(entityPos, scaleVector3(entity.velocity, dt));
+		entity.transform.position.set(AddVector3(entityPos, scaleVector3(entity.velocity, dt)));
 	}
 
 	// Death barrier.

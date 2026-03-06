@@ -13,6 +13,7 @@ import { GetPerformanceScatterMultiplier, BuildScatterBatches } from "./NewScatt
 import { NormalizeVector3 } from "../math/Vector3.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
+import { Unit, UnitVector3 } from "../math/Utilities.js";
 import {
 	LoadEngineVisualTemplates,
 	PrepareLevelVisualResources,
@@ -46,11 +47,11 @@ function normalizeWorld(world) {
 	const height = Math.max(1, toNumber(source.height, 40));
 	const deathBarrierY = toNumber(source.deathBarrierY, -25);
 	return {
-		length: length,
-		width: width,
-		height: height,
-		deathBarrierY: deathBarrierY,
-		waterLevel: resolveWaterLevel(source, deathBarrierY, height),
+		length: new Unit(length, "CNU"),
+		width: new Unit(width, "CNU"),
+		height: new Unit(height, "CNU"),
+		deathBarrierY: new Unit(deathBarrierY, "CNU"),
+		waterLevel: new Unit(resolveWaterLevel(source, deathBarrierY, height), "CNU"),
 		textureScale: Math.max(0.05, toNumber(source.textureScale, 1)),
 		scatterScale: Math.max(0.05, toNumber(source.scatterScale, 1)),
 	};
@@ -58,23 +59,26 @@ function normalizeWorld(world) {
 
 function normalizeCameraConfig(camera) {
 	const source = camera && typeof camera === "object" ? camera : {};
+	const openStart = NormalizeVector3(
+		source.levelOpening && source.levelOpening.startPosition,
+		{ x: 0, y: 40, z: 80 }
+	);
+	const openEnd = NormalizeVector3(
+		source.levelOpening && source.levelOpening.endPosition,
+		{ x: 0, y: 40, z: 80 }
+	);
+	const distFromPlayer = NormalizeVector3(source.distanceFromPlayer, { x: 0, y: 20, z: 40 });
 	return {
 		mode: "stationary",
 		levelOpening: {
-			startPosition: NormalizeVector3(
-				source.levelOpening && source.levelOpening.startPosition,
-				{ x: 0, y: 40, z: 80 }
-			),
-			endPosition: NormalizeVector3(
-				source.levelOpening && source.levelOpening.endPosition,
-				{ x: 0, y: 40, z: 80 }
-			),
+			startPosition: new UnitVector3(openStart.x, openStart.y, openStart.z, "CNU"),
+			endPosition: new UnitVector3(openEnd.x, openEnd.y, openEnd.z, "CNU"),
 		},
-		distanceFromPlayer: NormalizeVector3(source.distanceFromPlayer, { x: 0, y: 20, z: 40 }),
+		distanceFromPlayer: new UnitVector3(distFromPlayer.x, distFromPlayer.y, distFromPlayer.z, "CNU"),
 		// DefaultCam third-person follow camera settings.
-		distance: toNumber(source.distance, 10),
+		distance: new Unit(toNumber(source.distance, 10), "CNU"),
 		sensitivity: toNumber(source.sensitivity, 0.12),
-		heightOffset: toNumber(source.heightOffset, 3),
+		heightOffset: new Unit(toNumber(source.heightOffset, 3), "CNU"),
 	};
 }
 
@@ -142,13 +146,13 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 	const end = NormalizeVector3(source.end, start);
 	const center = {
 		x: (start.x + end.x) * 0.5,
-		y: toNumber(source.y, world.height * 0.5),
+		y: toNumber(source.y, world.height.value * 0.5),
 		z: (start.z + end.z) * 0.5,
 	};
 
 	const size = {
 		x: Math.max(1, Math.abs(end.x - start.x)),
-		y: Math.max(world.height * 2, 24),
+		y: Math.max(world.height.value * 2, 24),
 		z: Math.max(1, Math.abs(end.z - start.z)),
 	};
 
@@ -174,16 +178,16 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 }
 
 function buildWaterVisualMeshes(world) {
-	if (!world || typeof world !== "object" || typeof world.waterLevel !== "number" || world.waterLevel <= -9000) {
+	if (!world || typeof world !== "object" || !world.waterLevel || world.waterLevel.value <= -9000) {
 		return null;
 	}
 
-	const waterLength = Math.max(1, toNumber(world.length, 100));
-	const waterWidth = Math.max(1, toNumber(world.width, 100));
+	const waterLength = Math.max(1, world.length.value);
+	const waterWidth = Math.max(1, world.width.value);
 	const centerX = waterLength * 0.5;
 	const centerZ = waterWidth * 0.5;
-	const waterLevel = world.waterLevel;
-	const worldBottom = toNumber(world.deathBarrierY, -25);
+	const waterLevel = world.waterLevel.value;
+	const worldBottom = world.deathBarrierY.value;
 	const waterBottom = Math.min(worldBottom, waterLevel - 0.1);
 	const waterHeight = Math.max(0.1, waterLevel - waterBottom);
 

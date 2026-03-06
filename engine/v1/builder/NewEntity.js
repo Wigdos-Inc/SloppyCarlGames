@@ -5,7 +5,7 @@
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
 import { AddVector3, LerpVector3, NormalizeVector3 } from "../math/Vector3.js";
-import { DegreesToRadians, ToNumber } from "../math/Utilities.js";
+import { DegreesToRadians, ToNumber, UnitVector3 } from "../math/Utilities.js";
 
 function multiplyVector3(a, b) {
 	const left = NormalizeVector3(a, { x: 1, y: 1, z: 1 });
@@ -17,29 +17,26 @@ function multiplyVector3(a, b) {
 	};
 }
 
-function cloneTransform(transform, fallback) {
+function cloneTransform(transform, fallback, rotationInRadians) {
 	const source = transform && typeof transform === "object" ? transform : {};
 	const resolvedFallback = fallback && typeof fallback === "object" ? fallback : {};
 	const position = NormalizeVector3(source.position, resolvedFallback.position || { x: 0, y: 0, z: 0 });
 	const rotation = NormalizeVector3(source.rotation, resolvedFallback.rotation || { x: 0, y: 0, z: 0 });
-	const rotationRad = {
-		x: DegreesToRadians(rotation.x),
-		y: DegreesToRadians(rotation.y),
-		z: DegreesToRadians(rotation.z),
-	};
+	const rotationRad = rotationInRadians
+		? { x: rotation.x, y: rotation.y, z: rotation.z }
+		: {
+			x: DegreesToRadians(rotation.x),
+			y: DegreesToRadians(rotation.y),
+			z: DegreesToRadians(rotation.z),
+		};
 	const scale = NormalizeVector3(source.scale, resolvedFallback.scale || { x: 1, y: 1, z: 1 });
 	const pivot = NormalizeVector3(source.pivot, resolvedFallback.pivot || { x: 0, y: 0, z: 0 });
-	return {
-		position: position,
-		rotation: rotationRad,
-		scale: scale,
-		pivot: pivot,
-	};
+	return { position, rotation: rotationRad, scale, pivot };
 }
 
 function composeTransform(parentTransform, localTransform) {
-	const parent = cloneTransform(parentTransform);
-	const local = cloneTransform(localTransform);
+	const parent = cloneTransform(parentTransform, null, true);
+	const local = cloneTransform(localTransform, null, true);
 	return {
 		position: AddVector3(parent.position, local.position),
 		rotation: AddVector3(parent.rotation, local.rotation),
@@ -50,9 +47,11 @@ function composeTransform(parentTransform, localTransform) {
 
 function normalizeMovement(movement) {
 	const source = movement && typeof movement === "object" ? movement : {};
+	const start = NormalizeVector3(source.start, { x: 0, y: 0, z: 0 });
+	const end = NormalizeVector3(source.end, { x: 0, y: 0, z: 0 });
 	return {
-		start: NormalizeVector3(source.start, { x: 0, y: 0, z: 0 }),
-		end: NormalizeVector3(source.end, { x: 0, y: 0, z: 0 }),
+		start: new UnitVector3(start.x, start.y, start.z, "CNU"),
+		end: new UnitVector3(end.x, end.y, end.z, "CNU"),
 		repeat: source.repeat !== false,
 		backAndForth: source.backAndForth !== false,
 		speed: Math.max(0, ToNumber(source.speed, 0)),
@@ -125,10 +124,11 @@ function buildPart(partDefinition, entityId, index) {
 }
 
 function buildDefaultModel(entityDefinition) {
+	const rotDeg = NormalizeVector3(entityDefinition.rotation, { x: 0, y: 0, z: 0 });
 	return {
 		rootTransform: {
 			position: NormalizeVector3(entityDefinition.position, { x: 0, y: 0, z: 0 }),
-			rotation: NormalizeVector3(entityDefinition.rotation, { x: 0, y: 0, z: 0 }),
+			rotation: { x: DegreesToRadians(rotDeg.x), y: DegreesToRadians(rotDeg.y), z: DegreesToRadians(rotDeg.z) },
 			scale: NormalizeVector3(entityDefinition.scale, { x: 1, y: 1, z: 1 }),
 			pivot: NormalizeVector3(entityDefinition.pivot, { x: 0, y: 0, z: 0 }),
 		},
@@ -154,11 +154,15 @@ function buildModel(entityDefinition) {
 		? entityDefinition.model
 		: null;
 
+	const rootRotDeg = sourceModel
+		? NormalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.rotation, entityDefinition.rotation || { x: 0, y: 0, z: 0 })
+		: null;
+
 	const model = sourceModel
 		? {
 			rootTransform: {
 				position: NormalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.position, entityDefinition.position || { x: 0, y: 0, z: 0 }),
-				rotation: NormalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.rotation, entityDefinition.rotation || { x: 0, y: 0, z: 0 }),
+				rotation: { x: DegreesToRadians(rootRotDeg.x), y: DegreesToRadians(rootRotDeg.y), z: DegreesToRadians(rootRotDeg.z) },
 				scale: NormalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.scale, entityDefinition.scale || { x: 1, y: 1, z: 1 }),
 				pivot: NormalizeVector3(sourceModel.rootTransform && sourceModel.rootTransform.pivot, { x: 0, y: 0, z: 0 }),
 			},
@@ -181,8 +185,8 @@ function buildModel(entityDefinition) {
 	});
 
 	model.defaultPose = {
-		rootTransform: cloneTransform(model.rootTransform),
-		parts: model.parts.map((part) => ({ id: part.id, localTransform: cloneTransform(part.localTransform) })),
+		rootTransform: cloneTransform(model.rootTransform, null, true),
+		parts: model.parts.map((part) => ({ id: part.id, localTransform: cloneTransform(part.localTransform, null, true) })),
 	};
 
 	model.index = index;
@@ -203,26 +207,24 @@ function applyModelPose(model) {
 		}
 
 		const worldTransform = composeTransform(parentTransform, part.localTransform);
-		part.mesh.transform = {
-			position: worldTransform.position,
-			rotation: worldTransform.rotation,
-			scale: worldTransform.scale,
-			pivot: worldTransform.pivot,
-		};
+		part.mesh.transform.position.set(worldTransform.position);
+		part.mesh.transform.rotation.set(worldTransform.rotation);
+		part.mesh.transform.scale = worldTransform.scale;
+		part.mesh.transform.pivot.set(worldTransform.pivot);
 		UpdateObjectWorldAabb(part.mesh);
 
 		part.children.forEach((childId) => applyPart(childId, worldTransform));
 	};
 
-	const rootTransform = cloneTransform(model.rootTransform);
+	const rootTransform = cloneTransform(model.rootTransform, null, true);
 	model.roots.forEach((rootId) => applyPart(rootId, rootTransform));
 }
 
 function computeEntityAabb(model) {
 	if (!model || !Array.isArray(model.parts) || model.parts.length === 0) {
 		return {
-			min: { x: 0, y: 0, z: 0 },
-			max: { x: 0, y: 0, z: 0 },
+			min: new UnitVector3(0, 0, 0, "CNU"),
+			max: new UnitVector3(0, 0, 0, "CNU"),
 		};
 	}
 
@@ -249,8 +251,8 @@ function computeEntityAabb(model) {
 	});
 
 	return {
-		min: { x: minX, y: minY, z: minZ },
-		max: { x: maxX, y: maxY, z: maxZ },
+		min: new UnitVector3(minX, minY, minZ, "CNU"),
+		max: new UnitVector3(maxX, maxY, maxZ, "CNU"),
 	};
 }
 
@@ -260,16 +262,8 @@ function computeExpandedAabb(aabb, padding) {
 	}
 	const pad = Math.max(0, ToNumber(padding, 8));
 	return {
-		min: {
-			x: aabb.min.x - pad,
-			y: aabb.min.y - pad,
-			z: aabb.min.z - pad,
-		},
-		max: {
-			x: aabb.max.x + pad,
-			y: aabb.max.y + pad,
-			z: aabb.max.z + pad,
-		},
+		min: new UnitVector3(aabb.min.x - pad, aabb.min.y - pad, aabb.min.z - pad, "CNU"),
+		max: new UnitVector3(aabb.max.x + pad, aabb.max.y + pad, aabb.max.z + pad, "CNU"),
 	};
 }
 
@@ -297,19 +291,24 @@ function BuildEntity(definition) {
 		platform: merged.platform || null,
 		movement: movement,
 		transform: (function() {
-			const pos = { ...startPosition };
 			const r = NormalizeVector3(merged.rotation, { x: 0, y: 0, z: 0 });
 			return {
-				position: pos,
-				rotation: {
-					x: DegreesToRadians(r.x),
-					y: DegreesToRadians(r.y),
-					z: DegreesToRadians(r.z),
-				},
+				position: new UnitVector3(startPosition.x, startPosition.y, startPosition.z, "CNU"),
+				rotation: new UnitVector3(
+					DegreesToRadians(r.x),
+					DegreesToRadians(r.y),
+					DegreesToRadians(r.z),
+					"radians"
+				),
 				scale: NormalizeVector3(merged.scale, { x: 1, y: 1, z: 1 }),
 			};
 		})(),
-		velocity: NormalizeVector3(merged.velocity, { x: 0, y: 0, z: 0 }),
+		velocity: new UnitVector3(
+			ToNumber(merged.velocity && merged.velocity.x, 0),
+			ToNumber(merged.velocity && merged.velocity.y, 0),
+			ToNumber(merged.velocity && merged.velocity.z, 0),
+			"CNU"
+		),
 		model: model,
 		mesh: model.parts.length > 0 ? model.parts[0].mesh : null,
 		collision: {

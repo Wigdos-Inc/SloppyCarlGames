@@ -98,11 +98,11 @@ function applyPlayerDamage(playerState, damageSourcePosition, sceneGraph) {
 
 	// Apply knockback impulse (direction away from damage source).
 	const knockDir = NormalizeUnitVector3(SubtractVector3(playerPos, damageSourcePosition));
-	playerState.velocity = {
+	playerState.velocity.set({
 		x: knockDir.x * KNOCKBACK_FORCE,
 		y: Math.max(knockDir.y * KNOCKBACK_FORCE, KNOCKBACK_FORCE * 0.5),
 		z: knockDir.z * KNOCKBACK_FORCE,
-	};
+	});
 
 	// Start invulnerability.
 	playerState.invulnerable.active = true;

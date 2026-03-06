@@ -19,6 +19,7 @@ import {
 	NormalizeUnitVector3,
 	SubtractVector3,
 } from "../math/Vector3.js";
+import { CNUtoWorldUnit } from "../math/Utilities.js";
 import { BuildGeometry, GenerateUVs } from "../builder/NewObject.js";
 
 /* === INTERNALS === */
@@ -193,6 +194,45 @@ function CreateModelMatrix(transform) {
 	const rotation = source.rotation || { x: 0, y: 0, z: 0 };
 	const scale = source.scale || { x: 1, y: 1, z: 1 };
 	const pivot = source.pivot || { x: 0, y: 0, z: 0 };
+
+	let matrix = createIdentityMatrix();
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix(position));
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix(pivot));
+	matrix = multiplyMatrix4(matrix, createRotationY(rotation.y || 0));
+	matrix = multiplyMatrix4(matrix, createRotationX(rotation.x || 0));
+	matrix = multiplyMatrix4(matrix, createRotationZ(rotation.z || 0));
+	matrix = multiplyMatrix4(matrix, createScaleMatrix(scale));
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix({ x: -pivot.x, y: -pivot.y, z: -pivot.z }));
+	return matrix;
+}
+
+/**
+ * Convert a CNU-space vector to WebGL world units.
+ * Handles UnitVector3 instances (via .toWorldUnit()), plain objects with .type === "CNU",
+ * and plain objects without type info (treated as CNU by default).
+ */
+function toWorldVec3(vec) {
+	if (!vec || typeof vec !== "object") {
+		return { x: 0, y: 0, z: 0 };
+	}
+	if (typeof vec.toWorldUnit === "function") {
+		return vec.toWorldUnit();
+	}
+	return { x: CNUtoWorldUnit(vec.x || 0), y: CNUtoWorldUnit(vec.y || 0), z: CNUtoWorldUnit(vec.z || 0) };
+}
+
+/**
+ * Build a model matrix converting CNU-space transform to WebGL world units.
+ * Position and pivot use .toWorldUnit(); scale is multiplied by CNU_SCALE
+ * (dimensionless multiplier applied to CNU geometry); rotation stays in radians.
+ */
+function CreateWorldUnitModelMatrix(transform) {
+	const source = transform && typeof transform === "object" ? transform : {};
+	const position = source.position ? source.position.toWorldUnit() : { x: 0, y: 0, z: 0 };
+	const rotation = source.rotation || { x: 0, y: 0, z: 0 };
+	const s = source.scale || { x: 1, y: 1, z: 1 };
+	const scale = { x: CNUtoWorldUnit(s.x), y: CNUtoWorldUnit(s.y), z: CNUtoWorldUnit(s.z) };
+	const pivot = source.pivot ? source.pivot.toWorldUnit() : { x: 0, y: 0, z: 0 };
 
 	let matrix = createIdentityMatrix();
 	matrix = multiplyMatrix4(matrix, createTranslationMatrix(position));
@@ -558,9 +598,15 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 		for (let i = 0; i < instanceCount; i += 1) {
 			const inst = batch.instances[i];
 			const offset = i * 20;
-			// Copy 16-float model matrix
-			for (let j = 0; j < 16; j += 1) {
-				instanceData[offset + j] = inst.modelMatrix[j];
+			// Copy 16-float model matrix, premultiplied by uniform CNU_SCALE.
+			// Uniform scale S applied as: S * M — multiply first 3 rows by CNU_SCALE.
+			const m = inst.modelMatrix;
+			for (let col = 0; col < 4; col += 1) {
+				const cOff = col * 4;
+				instanceData[offset + cOff + 0] = CNUtoWorldUnit(m[cOff + 0]);
+				instanceData[offset + cOff + 1] = CNUtoWorldUnit(m[cOff + 1]);
+				instanceData[offset + cOff + 2] = CNUtoWorldUnit(m[cOff + 2]);
+				instanceData[offset + cOff + 3] = m[cOff + 3];
 			}
 			// Copy 4-float tint
 			instanceData[offset + 16] = inst.tint[0];
@@ -655,8 +701,9 @@ function createBoundingBoxLineVertices(bounds) {
 		return null;
 	}
 
-	const min = bounds.min;
-	const max = bounds.max;
+	// Convert CNU bounding box coordinates to WebGL world units.
+	const min = toWorldVec3(bounds.min);
+	const max = toWorldVec3(bounds.max);
 	const p000 = [min.x, min.y, min.z];
 	const p001 = [min.x, min.y, max.z];
 	const p010 = [min.x, max.y, min.z];
@@ -671,6 +718,88 @@ function createBoundingBoxLineVertices(bounds) {
 		...p100, ...p101, ...p101, ...p111, ...p111, ...p110, ...p110, ...p100,
 		...p000, ...p100, ...p001, ...p101, ...p010, ...p110, ...p011, ...p111,
 	]);
+}
+
+function isGridDebugEnabled() {
+	if (!(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL)) {
+		return false;
+	}
+	const grid = CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.BoundingBox
+		? CONFIG.DEBUG.LEVELS.BoundingBox.Grid
+		: null;
+	return !!(grid && grid.Visible === true);
+}
+
+function createGridLineVertices(bounds, spacing) {
+	if (!bounds || !bounds.min || !bounds.max || spacing <= 0) {
+		return null;
+	}
+
+	const wMin = toWorldVec3(bounds.min);
+	const wMax = toWorldVec3(bounds.max);
+	const minX = wMin.x;
+	const minY = wMin.y;
+	const minZ = wMin.z;
+	const maxX = wMax.x;
+	const maxY = wMax.y;
+	const maxZ = wMax.z;
+	const step = CNUtoWorldUnit(spacing);
+
+	const lines = [];
+
+	// --- Top face (Y = maxY) ---
+	for (let x = minX; x <= maxX + step * 0.001; x += step) {
+		lines.push(x, maxY, minZ, x, maxY, maxZ);
+	}
+	for (let z = minZ; z <= maxZ + step * 0.001; z += step) {
+		lines.push(minX, maxY, z, maxX, maxY, z);
+	}
+
+	// --- Bottom face (Y = minY) ---
+	for (let x = minX; x <= maxX + step * 0.001; x += step) {
+		lines.push(x, minY, minZ, x, minY, maxZ);
+	}
+	for (let z = minZ; z <= maxZ + step * 0.001; z += step) {
+		lines.push(minX, minY, z, maxX, minY, z);
+	}
+
+	// --- Front face (Z = maxZ) ---
+	for (let x = minX; x <= maxX + step * 0.001; x += step) {
+		lines.push(x, minY, maxZ, x, maxY, maxZ);
+	}
+	for (let y = minY; y <= maxY + step * 0.001; y += step) {
+		lines.push(minX, y, maxZ, maxX, y, maxZ);
+	}
+
+	// --- Back face (Z = minZ) ---
+	for (let x = minX; x <= maxX + step * 0.001; x += step) {
+		lines.push(x, minY, minZ, x, maxY, minZ);
+	}
+	for (let y = minY; y <= maxY + step * 0.001; y += step) {
+		lines.push(minX, y, minZ, maxX, y, minZ);
+	}
+
+	// --- Right face (X = maxX) ---
+	for (let z = minZ; z <= maxZ + step * 0.001; z += step) {
+		lines.push(maxX, minY, z, maxX, maxY, z);
+	}
+	for (let y = minY; y <= maxY + step * 0.001; y += step) {
+		lines.push(maxX, y, minZ, maxX, y, maxZ);
+	}
+
+	// --- Left face (X = minX) ---
+	for (let z = minZ; z <= maxZ + step * 0.001; z += step) {
+		lines.push(minX, minY, z, minX, maxY, z);
+	}
+	for (let y = minY; y <= maxY + step * 0.001; y += step) {
+		lines.push(minX, y, minZ, minX, y, maxZ);
+	}
+
+	if (lines.length === 0) {
+		return null;
+	}
+
+	return new Float32Array(lines);
 }
 
 function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
@@ -718,6 +847,54 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 
 		const color = boundingBoxTypeColors[record.type] || { r: 1, g: 1, b: 1, a: 1 };
 		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
+		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+		gl.drawArrays(gl.LINES, 0, vertices.length / 3);
+	}
+}
+
+function drawGridOverlay(renderer, sceneGraph, projection, view) {
+	if (!isGridDebugEnabled()) {
+		return;
+	}
+
+	const records = Array.isArray(sceneGraph && sceneGraph.debugBoundingBoxes)
+		? sceneGraph.debugBoundingBoxes
+		: [];
+	if (records.length === 0) {
+		return;
+	}
+
+	const gl = renderer.gl;
+	if (!renderer.debugLineShader || !renderer.debugLineBuffer) {
+		return;
+	}
+
+	const gridConfig = CONFIG.DEBUG.LEVELS.BoundingBox.Grid;
+	const spacing = gridConfig.Scale;
+
+	const shader = renderer.debugLineShader;
+	gl.useProgram(shader.program);
+	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
+	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
+	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(createIdentityMatrix()));
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
+	gl.enableVertexAttribArray(shader.attributes.position);
+	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
+
+	gl.uniform4f(shader.uniforms.color, 0.5, 0.5, 0.5, 0.6);
+
+	for (let index = 0; index < records.length; index += 1) {
+		const record = records[index];
+		if (!record || !isBoundingBoxDebugEnabled(record.type)) {
+			continue;
+		}
+
+		const vertices = createGridLineVertices(record, spacing);
+		if (!vertices) {
+			continue;
+		}
+
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 		gl.drawArrays(gl.LINES, 0, vertices.length / 3);
 	}
@@ -809,7 +986,11 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 		const endY = pos.y + vel.y * TRAIL_SCALE;
 		const endZ = pos.z + vel.z * TRAIL_SCALE;
 
-		const vertices = new Float32Array([pos.x, pos.y, pos.z, endX, endY, endZ]);
+		// Convert CNU positions to world units for rendering.
+		const vertices = new Float32Array([
+			CNUtoWorldUnit(pos.x), CNUtoWorldUnit(pos.y), CNUtoWorldUnit(pos.z),
+			CNUtoWorldUnit(endX), CNUtoWorldUnit(endY), CNUtoWorldUnit(endZ),
+		]);
 		const color = trailTypeColors[trailType] || { r: 1, g: 1, b: 1, a: 1 };
 
 		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
@@ -1060,7 +1241,7 @@ function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farVa
 			renderer.meshBuffers.set(mesh.id, meshBuffer);
 		}
 
-		const model = CreateModelMatrix(mesh.transform);
+		const model = CreateWorldUnitModelMatrix(mesh.transform);
 		const color = mesh.material && mesh.material.color
 			? mesh.material.color
 			: { r: 0.25, g: 0.5, b: 0.75, a: 1 };
@@ -1096,32 +1277,39 @@ function drawScene(renderer, sceneGraph) {
 	const cameraState = sceneGraph && sceneGraph.cameraConfig && sceneGraph.cameraConfig.state
 		? sceneGraph.cameraConfig.state
 		: {
-			position: { x: 0, y: 40, z: 80 },
+			position: { x: 0, y: CNUtoWorldUnit(40), z: CNUtoWorldUnit(80) },
 			target: { x: 0, y: 0, z: 0 },
 			up: { x: 0, y: 1, z: 0 },
 			fov: 60,
 			near: 0.1,
-			far: 500,
+			far: CNUtoWorldUnit(500),
 		};
+
+	// Camera is already in world-unit space from Camera.js.
+	const camPos = cameraState.position;
+	const camTarget = cameraState.target;
+	const camNear = cameraState.near || 0.1;
+	const camFar = cameraState.far || CNUtoWorldUnit(500);
 
 	const projection = createPerspectiveMatrix(
 		cameraState.fov || 60,
 		renderer.canvas.width / renderer.canvas.height,
-		cameraState.near || 0.1,
-		cameraState.far || 500
+		camNear,
+		camFar
 	);
 	const view = createLookAtMatrix(
-		cameraState.position,
-		cameraState.target,
+		camPos,
+		camTarget,
 		cameraState.up || { x: 0, y: 1, z: 0 }
 	);
 
-	const underwater = sceneGraph && sceneGraph.world
-		? cameraState.position.y < (sceneGraph.world.waterLevel || -9999)
-		: false;
+	const waterLevelCNU = sceneGraph && sceneGraph.world && sceneGraph.world.waterLevel
+		? sceneGraph.world.waterLevel.value
+		: -9999;
+	const underwater = cameraState.position.y < CNUtoWorldUnit(waterLevelCNU);
 	const fogDensity = underwater ? 0.85 : 0.2;
 	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
-	const farValue = cameraState.far || 500;
+	const farValue = camFar;
 	const underwaterValue = underwater ? 1 : 0;
 
 	if (
@@ -1159,7 +1347,7 @@ function drawScene(renderer, sceneGraph) {
 			renderer.meshBuffers.set(mesh.id, meshBuffer);
 		}
 
-		const model = CreateModelMatrix(mesh.transform);
+		const model = CreateWorldUnitModelMatrix(mesh.transform);
 		const color = mesh.material && mesh.material.color
 			? mesh.material.color
 			: { r: 0.8, g: 0.8, b: 0.8, a: 1 };
@@ -1211,6 +1399,7 @@ function drawScene(renderer, sceneGraph) {
 	drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue);
 
 	drawBoundingBoxes(renderer, sceneGraph, projection, view);
+	drawGridOverlay(renderer, sceneGraph, projection, view);
 	drawVelocityTrails(renderer, sceneGraph, projection, view);
 }
 

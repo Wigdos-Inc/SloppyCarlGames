@@ -499,10 +499,19 @@ function sendEvent(eventName, payload) {
   window.dispatchEvent(new CustomEvent(eventName, { detail: detail }));
 }
 
+/* === CNU === */
+// CarlNet Unit Scale: 1 CNU = ~1 Meter.
+// All engine measurement values are expressed in CNUs.
+// Multiply by CNU_SCALE when converting to WebGL world-space units (Done through Utilities.js classes).
+// TLDR: 1 CNU = CNU_SCALE WebGL Units
+
+const CNU_SCALE = 10;
+
 /* === EXPORTS === */
 // Public metadata API for engine modules.
 
 export {
+  CNU_SCALE,
   Log,
   logAll,
   LogCache,

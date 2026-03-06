@@ -145,12 +145,10 @@ function applyModelPose(model) {
 		if (!part) { return; }
 
 		const worldTransform = composeTransform(parentTransform, part.localTransform);
-		part.mesh.transform = {
-			position: worldTransform.position,
-			rotation: worldTransform.rotation,
-			scale: worldTransform.scale,
-			pivot: worldTransform.pivot,
-		};
+		part.mesh.transform.position.set(worldTransform.position);
+		part.mesh.transform.rotation.set(worldTransform.rotation);
+		part.mesh.transform.scale = worldTransform.scale;
+		part.mesh.transform.pivot.set(worldTransform.pivot);
 		UpdateObjectWorldAabb(part.mesh);
 
 		part.children.forEach((childId) => applyPart(childId, worldTransform));
@@ -254,12 +252,18 @@ function UpdatePlayerModelFromState(playerState) {
 
 	// Update collision AABB from model.
 	playerState.collision = playerState.collision || {};
-	playerState.collision.aabb = computePlayerAabb(playerState.model);
+	const aabb = computePlayerAabb(playerState.model);
+	playerState.collision.aabb.min.set(aabb.min);
+	playerState.collision.aabb.max.set(aabb.max);
 	playerState.collision.simRadiusPadding = ToNumber(playerState.collision.simRadiusPadding, 24);
-	playerState.collision.simRadiusAabb = computeExpandedAabb(
+	const expanded = computeExpandedAabb(
 		playerState.collision.aabb,
 		playerState.collision.simRadiusPadding
 	);
+	if (expanded) {
+		playerState.collision.simRadiusAabb.min.set(expanded.min);
+		playerState.collision.simRadiusAabb.max.set(expanded.max);
+	}
 
 	// Update mesh reference for rendering.
 	playerState.mesh = playerState.model.parts && playerState.model.parts[0]

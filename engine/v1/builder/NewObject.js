@@ -5,7 +5,7 @@
 import { NormalizeVector3 } from "../math/Vector3.js";
 import { Log } from "../core/meta.js";
 import { BuildScatter, GetPerformanceScatterMultiplier } from "./NewScatter.js";
-import { DegreesToRadians } from "../math/Utilities.js";
+import { DegreesToRadians, UnitVector3 } from "../math/Utilities.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -445,7 +445,7 @@ function transformPoint(localPoint, transform) {
 function computeWorldAabbFromGeometry(positions, transform) {
 	if (!Array.isArray(positions) || positions.length < 3) {
 		const p = NormalizeVector3(transform && transform.position, { x: 0, y: 0, z: 0 });
-		return { min: { ...p }, max: { ...p } };
+		return { min: new UnitVector3(p.x, p.y, p.z, "CNU"), max: new UnitVector3(p.x, p.y, p.z, "CNU") };
 	}
 
 	let minX = Infinity;
@@ -466,8 +466,8 @@ function computeWorldAabbFromGeometry(positions, transform) {
 	}
 
 	return {
-		min: { x: minX, y: minY, z: minZ },
-		max: { x: maxX, y: maxY, z: maxZ },
+		min: new UnitVector3(minX, minY, minZ, "CNU"),
+		max: new UnitVector3(maxX, maxY, maxZ, "CNU"),
 	};
 }
 
@@ -651,11 +651,15 @@ function BuildObject(definition, options) {
 	const complexity = normalizeGeometryComplexity(source.complexity || resolvedOptions.complexity);
 	const texture = normalizeTextureDescriptor(source, resolvedOptions);
 	const scatter = normalizeScatterRequests(source);
-	const size = NormalizeVector3(source.dimensions || source.size, { x: 1, y: 1, z: 1 });
-	const position = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const rotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
+	const sizeRaw = NormalizeVector3(source.dimensions || source.size, { x: 1, y: 1, z: 1 });
+	const size = new UnitVector3(sizeRaw.x, sizeRaw.y, sizeRaw.z, "CNU");
+	const posRaw = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
+	const position = new UnitVector3(posRaw.x, posRaw.y, posRaw.z, "CNU");
+	const rotRaw = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
+	const rotation = new UnitVector3(rotRaw.x, rotRaw.y, rotRaw.z, "radians");
 	const scale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
-	const pivot = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
+	const pivotRaw = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
+	const pivot = new UnitVector3(pivotRaw.x, pivotRaw.y, pivotRaw.z, "CNU");
 	const geometry = BuildGeometry(shape, size, complexity);
 	const uvs = GenerateUVs(geometry.positions, geometry);
 	const bounds = computeBounds(geometry.positions);
