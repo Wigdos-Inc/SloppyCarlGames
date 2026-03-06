@@ -1042,6 +1042,26 @@ function createMeshBuffers(gl, mesh, shader) {
 	};
 }
 
+function getMeshBufferKey(mesh) {
+	if (!mesh || !mesh.geometry) {
+		return null;
+	}
+
+	const meshId = typeof mesh.id === "string" && mesh.id.length > 0 ? mesh.id : "mesh";
+	const primitive = typeof mesh.primitive === "string"
+		? mesh.primitive.toLowerCase()
+		: (typeof mesh.shape === "string" ? mesh.shape.toLowerCase() : "cube");
+	const complexity = typeof mesh.complexity === "string"
+		? mesh.complexity.toLowerCase()
+		: (mesh.detail && typeof mesh.detail.complexity === "string" ? mesh.detail.complexity.toLowerCase() : "medium");
+	const dims = mesh.dimensions && typeof mesh.dimensions === "object" ? mesh.dimensions : null;
+	const dx = dims && typeof dims.x === "number" ? dims.x : 1;
+	const dy = dims && typeof dims.y === "number" ? dims.y : 1;
+	const dz = dims && typeof dims.z === "number" ? dims.z : 1;
+
+	return `${meshId}|${primitive}|${dx}|${dy}|${dz}|${complexity}`;
+}
+
 function createFallbackTexture(gl) {
 	const texture = gl.createTexture();
 	if (!texture) {
@@ -1228,17 +1248,18 @@ function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farVa
 	gl.depthMask(false);
 	for (let index = 0; index < waterMeshes.length; index += 1) {
 		const mesh = waterMeshes[index];
-		if (!mesh || !mesh.id) {
+		const meshBufferKey = getMeshBufferKey(mesh);
+		if (!meshBufferKey) {
 			continue;
 		}
 
-		let meshBuffer = renderer.meshBuffers.get(mesh.id);
+		let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
 		if (!meshBuffer) {
 			meshBuffer = createMeshBuffers(gl, mesh, shader);
 			if (!meshBuffer) {
 				continue;
 			}
-			renderer.meshBuffers.set(mesh.id, meshBuffer);
+			renderer.meshBuffers.set(meshBufferKey, meshBuffer);
 		}
 
 		const model = CreateWorldUnitModelMatrix(mesh.transform);
@@ -1334,17 +1355,18 @@ function drawScene(renderer, sceneGraph) {
 	const meshes = collectRenderableMeshes(sceneGraph);
 	for (let index = 0; index < meshes.length; index += 1) {
 		const mesh = meshes[index];
-		if (!mesh || !mesh.id) {
+		const meshBufferKey = getMeshBufferKey(mesh);
+		if (!meshBufferKey) {
 			continue;
 		}
 
-		let meshBuffer = renderer.meshBuffers.get(mesh.id);
+		let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
 		if (!meshBuffer) {
 			meshBuffer = createMeshBuffers(gl, mesh, shader);
 			if (!meshBuffer) {
 				continue;
 			}
-			renderer.meshBuffers.set(mesh.id, meshBuffer);
+			renderer.meshBuffers.set(meshBufferKey, meshBuffer);
 		}
 
 		const model = CreateWorldUnitModelMatrix(mesh.transform);

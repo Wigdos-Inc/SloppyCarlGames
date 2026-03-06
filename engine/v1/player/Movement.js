@@ -67,20 +67,21 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 
 	const dt = ToNumber(deltaSeconds, 0);
 	const char = playerState.character;
+	const meta = char && char.meta ? char.meta : {};
 
 	// Resolve effective stats (may be modified by boost).
 	const boostActive = playerState.boost && playerState.boost.active;
-	const maxSpeed = ToNumber(char.maxSpeed, 18) * (boostActive ? ToNumber(playerState.boost.maxSpeedMultiplier, 1) : 1);
-	const accel = ToNumber(char.acceleration, 45) * (boostActive ? ToNumber(playerState.boost.accelMultiplier, 1) : 1);
-	const decel = ToNumber(char.deceleration, 30);
-	const jumpForce = ToNumber(char.jumpForce, 14);
+	const maxSpeed = ToNumber(meta.maxSpeed, 18) * (boostActive ? ToNumber(playerState.boost.maxSpeedMultiplier, 1) : 1);
+	const accel = ToNumber(meta.acceleration, 45) * (boostActive ? ToNumber(playerState.boost.accelMultiplier, 1) : 1);
+	const decel = ToNumber(meta.deceleration, 30);
+	const jumpForce = ToNumber(meta.jumpForce, 14);
 
 	// Air control modifier.
 	let controlMultiplier = 1;
 	if (!playerState.grounded) {
 		controlMultiplier = playerState.underwater
-			? ToNumber(char.underwaterAirControl, 0.7)
-			: ToNumber(char.airControl, 0.4);
+			? ToNumber(meta.underwaterAirControl, 0.7)
+			: ToNumber(meta.airControl, 0.4);
 	}
 
 	const surfaceNormal = NormalizeVector3(playerState.surfaceNormal, { x: 0, y: 1, z: 0 });

@@ -109,6 +109,36 @@ function LerpVector3(start, end, t) {
 	};
 }
 
+function MultiplyVector3(a, b) {
+	const left = NormalizeVector3(a, { x: 1, y: 1, z: 1 });
+	const right = NormalizeVector3(b, { x: 1, y: 1, z: 1 });
+	return { x: left.x * right.x, y: left.y * right.y, z: left.z * right.z };
+}
+
+/**
+ * Rotate a point by Euler angles in Y → X → Z order (matches CreateModelMatrix).
+ * All rotation values must be in radians.
+ */
+function RotateByEuler(point, rotation) {
+	const p0 = NormalizeVector3(point);
+	const r = NormalizeVector3(rotation);
+
+	// Y rotation
+	const cy = Math.cos(r.y);
+	const sy = Math.sin(r.y);
+	const p1 = { x: p0.x * cy + p0.z * sy, y: p0.y, z: -p0.x * sy + p0.z * cy };
+
+	// X rotation
+	const cx = Math.cos(r.x);
+	const sx = Math.sin(r.x);
+	const p2 = { x: p1.x, y: p1.y * cx - p1.z * sx, z: p1.y * sx + p1.z * cx };
+
+	// Z rotation
+	const cz = Math.cos(r.z);
+	const sz = Math.sin(r.z);
+	return { x: p2.x * cz - p2.y * sz, y: p2.x * sz + p2.y * cz, z: p2.z };
+}
+
 /* === EXPORTS === */
 // Public math helpers.
 
@@ -117,10 +147,12 @@ export {
 	AddVector3,
 	SubtractVector3,
 	scaleVector3,
+	MultiplyVector3,
 	DotVector3,
 	CrossVector3,
 	vector3Length,
 	distanceVector3,
 	NormalizeUnitVector3,
 	LerpVector3,
+	RotateByEuler,
 };

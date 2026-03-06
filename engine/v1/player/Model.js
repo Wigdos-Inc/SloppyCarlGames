@@ -6,7 +6,7 @@
 // Used by Master.js to pass on model data
 
 import { BuildObject, UpdateObjectWorldAabb } from "../builder/NewObject.js";
-import { NormalizeVector3, AddVector3 } from "../math/Vector3.js";
+import { NormalizeVector3, AddVector3, RotateByEuler, MultiplyVector3 } from "../math/Vector3.js";
 import { DegreesToRadians, ToNumber } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
 
@@ -37,45 +37,32 @@ function cloneTransform(transform, fallback, rotationInRadians) {
 }
 
 /**
- * Rotate a point by Euler angles in Y → X → Z order (matches CreateModelMatrix).
+ * Compute the center offset for a face on a box with the given dimensions.
  */
-function rotateByEuler(point, rotation) {
-	let p = { x: point.x, y: point.y, z: point.z };
-
-	// Y rotation
-	const cy = Math.cos(rotation.y);
-	const sy = Math.sin(rotation.y);
-	p = { x: p.x * cy + p.z * sy, y: p.y, z: -p.x * sy + p.z * cy };
-
-	// X rotation
-	const cx = Math.cos(rotation.x);
-	const sx = Math.sin(rotation.x);
-	p = { x: p.x, y: p.y * cx - p.z * sx, z: p.y * sx + p.z * cx };
-
-	// Z rotation
-	const cz = Math.cos(rotation.z);
-	const sz = Math.sin(rotation.z);
-	p = { x: p.x * cz - p.y * sz, y: p.x * sz + p.y * cz, z: p.z };
-
-	return p;
-}
-
-function multiplyVector3(a, b) {
-	const left = NormalizeVector3(a, { x: 1, y: 1, z: 1 });
-	const right = NormalizeVector3(b, { x: 1, y: 1, z: 1 });
-	return { x: left.x * right.x, y: left.y * right.y, z: left.z * right.z };
+function getFaceCenterOffset(dimensions, faceType) {
+	const hx = dimensions.x * 0.5;
+	const hy = dimensions.y * 0.5;
+	const hz = dimensions.z * 0.5;
+	switch (faceType) {
+		case "top": return { x: 0, y: hy, z: 0 };
+		case "bottom": return { x: 0, y: -hy, z: 0 };
+		case "front": return { x: 0, y: 0, z: hz };
+		case "back": return { x: 0, y: 0, z: -hz };
+		case "left": return { x: -hx, y: 0, z: 0 };
+		case "right": return { x: hx, y: 0, z: 0 };
+		default: return { x: 0, y: 0, z: 0 };
+	}
 }
 
 function composeTransform(parentTransform, localTransform) {
 	// Both inputs are already in radians (outputs of cloneTransform / prior compose).
 	const parent = cloneTransform(parentTransform, null, true);
 	const local = cloneTransform(localTransform, null, true);
-	// Rotate child’s local position by parent’s rotation for correct hierarchical composition.
-	const rotatedChildPos = rotateByEuler(local.position, parent.rotation);
+	const rotatedChildPos = RotateByEuler(local.position, parent.rotation);
 	return {
 		position: AddVector3(parent.position, rotatedChildPos),
 		rotation: AddVector3(parent.rotation, local.rotation),
-		scale: multiplyVector3(parent.scale, local.scale),
+		scale: MultiplyVector3(parent.scale, local.scale),
 		pivot: local.pivot,
 	};
 }
@@ -108,7 +95,10 @@ function buildPart(partDefinition, entityId, index) {
 		id: mesh.id,
 		label: source.label || null,
 		parentId: source.parentId || null,
+		anchorPoint: source.anchorPoint || "center",
+		attachmentPoint: source.attachmentPoint || null,
 		children: [],
+		dimensions: NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 }),
 		localTransform: cloneTransform(localTransform),
 		defaultLocalTransform: cloneTransform(localTransform),
 		mesh: mesh,
@@ -193,12 +183,13 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 	const partsArray = Array.isArray(modelDef.parts) ? modelDef.parts : [];
 	const entityId = charDef.id || "player";
 	const pos = NormalizeVector3(spawnPosition, { x: 0, y: 0, z: 0 });
+	const defRootTransform = modelDef.rootTransform && typeof modelDef.rootTransform === "object" ? modelDef.rootTransform : {};
 
 	const model = {
 		rootTransform: {
 			position: { ...pos },
 			rotation: { x: 0, y: 0, z: 0 },
-			scale: { x: 1, y: 1, z: 1 },
+			scale: NormalizeVector3(defRootTransform.scale, { x: 1, y: 1, z: 1 }),
 			pivot: { x: 0, y: 0, z: 0 },
 		},
 		parts: partsArray.map((part, index) => buildPart(part, entityId, index)),
@@ -208,19 +199,37 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 	const index = {};
 	model.parts.forEach((part) => { index[part.id] = part; });
 	model.parts.forEach((part) => {
-		if (part.parentId && index[part.parentId]) {
+		if (part.parentId && part.parentId !== "root" && index[part.parentId]) {
 			index[part.parentId].children.push(part.id);
 		}
 	});
 
-	// All localTransform rotations are already in radians from buildPart.
+	// Ground-up positioning with anchor/attachment faces.
+	model.parts.forEach((part) => {
+		if (part.parentId === "root") {
+			// Root part: anchor at bottom, offset up by half height.
+			const halfY = part.dimensions.y * 0.5;
+			part.localTransform.position.y = halfY + part.localTransform.position.y;
+		} else if (part.parentId && index[part.parentId]) {
+			const parent = index[part.parentId];
+			const attachOffset = getFaceCenterOffset(parent.dimensions, part.attachmentPoint || "top");
+			const anchorOffset = getFaceCenterOffset(part.dimensions, part.anchorPoint || "center");
+			part.localTransform.position = {
+				x: attachOffset.x - anchorOffset.x + part.localTransform.position.x,
+				y: attachOffset.y - anchorOffset.y + part.localTransform.position.y,
+				z: attachOffset.z - anchorOffset.z + part.localTransform.position.z,
+			};
+		}
+	});
+
+	// Snapshot default transforms AFTER ground-up positioning.
 	model.defaultPose = {
 		rootTransform: cloneTransform(model.rootTransform, null, true),
 		parts: model.parts.map((part) => ({ id: part.id, localTransform: cloneTransform(part.localTransform, null, true) })),
 	};
 
 	model.index = index;
-	model.roots = model.parts.filter((part) => !part.parentId).map((part) => part.id);
+	model.roots = model.parts.filter((part) => part.parentId === "root").map((part) => part.id);
 
 	applyModelPose(model);
 	Log("ENGINE", `Player model built: ${entityId} with ${model.parts.length} parts.`, "log", "Level");

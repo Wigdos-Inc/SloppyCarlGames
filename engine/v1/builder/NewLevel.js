@@ -67,14 +67,12 @@ function normalizeCameraConfig(camera) {
 		source.levelOpening && source.levelOpening.endPosition,
 		{ x: 0, y: 40, z: 80 }
 	);
-	const distFromPlayer = NormalizeVector3(source.distanceFromPlayer, { x: 0, y: 20, z: 40 });
 	return {
 		mode: "stationary",
 		levelOpening: {
 			startPosition: new UnitVector3(openStart.x, openStart.y, openStart.z, "CNU"),
 			endPosition: new UnitVector3(openEnd.x, openEnd.y, openEnd.z, "CNU"),
 		},
-		distanceFromPlayer: new UnitVector3(distFromPlayer.x, distFromPlayer.y, distFromPlayer.z, "CNU"),
 		// DefaultCam third-person follow camera settings.
 		distance: new Unit(toNumber(source.distance, 10), "CNU"),
 		sensitivity: toNumber(source.sensitivity, 0.12),
@@ -223,6 +221,25 @@ function buildWaterVisualMeshes(world) {
 		body: body,
 		top: top,
 	};
+}
+
+function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
+	const map = {};
+	const addSurface = (def) => {
+		if (!def || !def.id) return;
+		const pos = def.position || { x: 0, y: 0, z: 0 };
+		const dims = def.dimensions || { x: 1, y: 1, z: 1 };
+		const scale = def.scale || { x: 1, y: 1, z: 1 };
+		map[def.id] = {
+			position: { x: toNumber(pos.x, 0), y: toNumber(pos.y, 0), z: toNumber(pos.z, 0) },
+			dimensions: { x: toNumber(dims.x, 1), y: toNumber(dims.y, 1), z: toNumber(dims.z, 1) },
+			scale: { x: toNumber(scale.x, 1), y: toNumber(scale.y, 1), z: toNumber(scale.z, 1) },
+			topY: toNumber(pos.y, 0) + toNumber(dims.y, 1) * toNumber(scale.y, 1) * 0.5,
+		};
+	};
+	if (Array.isArray(terrainDefinitions)) terrainDefinitions.forEach(addSurface);
+	if (Array.isArray(obstacleDefinitions)) obstacleDefinitions.forEach(addSurface);
+	return map;
 }
 
 function buildSceneBoundingBoxes(sceneGraph) {
@@ -393,8 +410,10 @@ async function BuildLevel(payload) {
 		Log("ENGINE", `Trigger group created: count=${triggers.length}`, "log", "Level");
 	}
 
+	const surfaceMap = buildSurfaceMap(terrainDefinitions, obstacleDefinitions);
+
 	const entities = entityDefinitions.map((entity, index) =>
-		BuildEntity(buildEntityInput(entity, index, blueprintMap))
+		BuildEntity(buildEntityInput(entity, index, blueprintMap), surfaceMap)
 	);
 	if (entities.length > 0) {
 		Log("ENGINE", `Entity group created: count=${entities.length}`, "log", "Level");

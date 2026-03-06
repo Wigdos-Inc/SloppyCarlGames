@@ -17,9 +17,22 @@
                         "width": 80,
                         "height": 40,
                         "deathBarrierY": -20,
-                        "waterLevel": 6,
+                        "waterLevel": 5,
                         "textureScale": 2,
                         "scatterScale": 1
+                    },
+                    "camera": {
+                        "distance": 5,
+                        "sensitivity": 0.12,
+                        "heightOffset": 1.5,
+                        "levelOpening": {
+                            "startPosition": { "x": 60, "y": 52, "z": 112 },
+                            "endPosition": { "x": 60, "y": 52, "z": 112 }
+                        }
+                    },
+                    "player": {
+                        "character": "carl",
+                        "spawnPosition": { "x": 30, "y": 5, "z": 40 }
                     },
                     "terrain": {
                         "objects": [
@@ -61,8 +74,8 @@
                             {
                                 "id": "platform-b",
                                 "primitive": "cube",
-                                "dimensions": { "x": 20, "y": 2, "z": 20 },
-                                "position": { "x": 90, "y": 12, "z": 52 },
+                                "dimensions": { "x": 10, "y": 2, "z": 5 },
+                                "position": { "x": 90, "y": 5, "z": 52 },
                                 "texture": {
                                     "textureID": "stone-block",
                                     "shape": "circle",
@@ -123,9 +136,7 @@
                                 "opacity": 1,
                                 "density": 1
                             },
-                            "scatter": [
-                                { "typeID": "pebbles", "density": 0.1 }
-                            ],
+                            "scatter": [],
                             "destructible": true
                         }
                     ],
@@ -133,10 +144,15 @@
                         {
                             "id": "enemy-01",
                             "blueprintId": "enemy.scout-drone",
-                            "position": { "x": 22, "y": 10, "z": 22 },
+                            "spawnSurfaceId": "platform-a",
+                            "rootTransform": {
+                                "position": { "x": 3, "y": 0, "z": 2 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 }
+                            },
                             "movement": {
-                                "start": { "x": 20, "y": 10, "z": 20 },
-                                "end": { "x": 35, "y": 10, "z": 28 },
+                                "start": { "x": -5, "y": 0, "z": -4 },
+                                "end": { "x": 10, "y": 0, "z": 4 },
                                 "repeat": true,
                                 "backAndForth": true,
                                 "speed": 6,
@@ -147,11 +163,16 @@
                         {
                             "id": "enemy-02",
                             "blueprintId": "enemy.scout-drone",
-                            "position": { "x": 88, "y": 14, "z": 52 },
+                            "spawnSurfaceId": "platform-b",
+                            "rootTransform": {
+                                "position": { "x": 2, "y": 8, "z": 0 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 }
+                            },
                             "hp": 8,
                             "movement": {
-                                "start": { "x": 84, "y": 14, "z": 46 },
-                                "end": { "x": 96, "y": 14, "z": 58 },
+                                "start": { "x": -6, "y": 8, "z": -6 },
+                                "end": { "x": 6, "y": 8, "z": 6 },
                                 "repeat": true,
                                 "backAndForth": true,
                                 "speed": 5,
@@ -164,13 +185,18 @@
                         {
                             "id": "npc-01",
                             "blueprintId": "npc.engineer",
-                            "position": { "x": 16, "y": 2, "z": 14 },
+                            "spawnSurfaceId": "ground-main",
+                            "rootTransform": {
+                                "position": { "x": -6, "y": 0, "z": -7 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 }
+                            },
                             "movement": {
-                                "start": { "x": 16, "y": 2, "z": 14 },
-                                "end": { "x": 22, "y": 2, "z": 18 },
+                                "start": { "x": -10, "y": 0, "z": -10 },
+                                "end": { "x": -2, "y": 0, "z": -3 },
                                 "repeat": true,
                                 "backAndForth": true,
-                                "speed": 1.8,
+                                "speed": 1.2,
                                 "physics": false
                             },
                             "dialogue": ["Keep your eye on that beacon."]
@@ -178,72 +204,22 @@
                         {
                             "id": "collectible-01",
                             "blueprintId": "collectible.orb",
-                            "position": { "x": 60, "y": 18, "z": 40 },
+                            "spawnSurfaceId": "ground-main",
+                            "rootTransform": {
+                                "position": { "x": 0, "y": 5, "z": 0 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 }
+                            },
                             "movement": {
-                                "start": { "x": 60, "y": 18, "z": 40 },
-                                "end": { "x": 60, "y": 19.5, "z": 40 },
+                                "start": { "x": 0, "y": 17, "z": 0 },
+                                "end": { "x": 0, "y": 18.5, "z": 0 },
                                 "repeat": true,
                                 "backAndForth": true,
                                 "speed": 0.9,
                                 "physics": false
                             }
-                        },
-                        {
-                            "id": "projectile-preview",
-                            "type": "projectile",
-                            "hp": 1,
-                            "position": { "x": 64, "y": 14, "z": 44 },
-                            "movement": {
-                                "start": { "x": 64, "y": 14, "z": 44 },
-                                "end": { "x": 72, "y": 14, "z": 44 },
-                                "repeat": true,
-                                "backAndForth": true,
-                                "speed": 4,
-                                "physics": false
-                            },
-                            "model": {
-                                "rootTransform": {
-                                    "position": { "x": 0, "y": 0, "z": 0 },
-                                    "rotation": { "x": 0, "y": 0, "z": 0 },
-                                    "scale": { "x": 1, "y": 1, "z": 1 }
-                                },
-                                "parts": [
-                                    {
-                                        "id": "pulse",
-                                        "primitive": "sphere",
-                                        "dimensions": { "x": 0.45, "y": 0.45, "z": 0.45 },
-                                        "localPosition": { "x": 0, "y": 0.25, "z": 0 },
-                                        "localRotation": { "x": 0, "y": 0, "z": 0 },
-                                        "localScale": { "x": 1, "y": 1, "z": 1 },
-                                        "texture": {
-                                            "textureID": "energy-core",
-                                            "color": { "r": 0.78, "g": 0.98, "b": 1, "a": 1 },
-                                            "opacity": 0.95,
-                                            "density": 1
-                                        }
-                                    }
-                                ]
-                            }
                         }
-                    ],
-                    "camera": {
-                        "distance": 12,
-                        "sensitivity": 0.12,
-                        "heightOffset": 3,
-                        "levelOpening": {
-                            "startPosition": { "x": 60, "y": 52, "z": 112 },
-                            "endPosition": { "x": 60, "y": 52, "z": 112 }
-                        },
-                        "distanceFromPlayer": {
-                            "x": 0,
-                            "y": 28,
-                            "z": 72
-                        }
-                    },
-                    "player": {
-                        "character": "carl",
-                        "spawnPosition": { "x": 30, "y": 5, "z": 40 }
-                    }
+                    ]
                 }
             ]
         }

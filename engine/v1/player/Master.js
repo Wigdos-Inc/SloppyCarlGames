@@ -113,7 +113,7 @@ function InitializePlayer(playerPayload, sceneGraph) {
 	playerState.transform.position.set(spawnPos);
 	playerState.spawnPosition.set(spawnPos);
 	playerState.collectibles = ToNumber(payload.collectibles, 0);
-	playerState.collision.radius = ToNumber(character.collisionRadius, 0.8);
+	playerState.collision.radius = ToNumber(character.meta && character.meta.collisionRadius, 0.8);
 	playerState.jumpStartY = spawnPos.y;
 	playerState.jumpApexY = spawnPos.y;
 

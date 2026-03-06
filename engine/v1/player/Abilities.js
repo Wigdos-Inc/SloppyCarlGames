@@ -4,10 +4,7 @@
 
 import { Log } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
-
-function toNumber(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
+import { ToNumber } from "../math/Utilities.js";
 
 /**
  * Update ability systems: boost and invulnerability.
@@ -22,8 +19,9 @@ function toNumber(value, fallback) {
 function UpdateAbilities(playerState, input, deltaSeconds) {
 	if (!playerState || !playerState.character) { return; }
 
-	const dt = toNumber(deltaSeconds, 0);
+	const dt = ToNumber(deltaSeconds, 0);
 	const char = playerState.character;
+	const meta = char && char.meta ? char.meta : {};
 
 	// === BOOST SYSTEM ===
 	if (!playerState.boost) {
@@ -40,9 +38,9 @@ function UpdateAbilities(playerState, input, deltaSeconds) {
 	// Activate boost.
 	if (input && input.boost && !boost.active && playerState.state !== "Stunned" && playerState.state !== "Dead") {
 		boost.active = true;
-		boost.timer = toNumber(char.boostDuration, 1.5);
-		boost.maxSpeedMultiplier = toNumber(char.boostMultiplier, 1.8);
-		boost.accelMultiplier = toNumber(char.boostAccelMultiplier, 2.2);
+		boost.timer = ToNumber(meta.boostDuration, 1.5);
+		boost.maxSpeedMultiplier = ToNumber(meta.boostMultiplier, 1.8);
+		boost.accelMultiplier = ToNumber(meta.boostAccelMultiplier, 2.2);
 		playerState.attackFlag = true;
 
 		if (playerState.state !== "Jumping" && playerState.state !== "Falling") {

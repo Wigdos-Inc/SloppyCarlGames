@@ -505,7 +505,7 @@ function sendEvent(eventName, payload) {
 // Multiply by CNU_SCALE when converting to WebGL world-space units (Done through Utilities.js classes).
 // TLDR: 1 CNU = CNU_SCALE WebGL Units
 
-const CNU_SCALE = 10;
+const CNU_SCALE = 1;
 
 /* === EXPORTS === */
 // Public metadata API for engine modules.
