@@ -210,6 +210,42 @@ function applyHierarchicalOffsets(parts, uniformScale) {
 	return updatedParts;
 }
 
+function areRootPartsWithinParentBounds(parts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ) {
+	if (!Array.isArray(parts) || parts.length === 0) {
+		return true;
+	}
+
+	for (let partIndex = 0; partIndex < parts.length; partIndex += 1) {
+		const part = parts[partIndex];
+		if (!part || part.level !== 0) {
+			continue;
+		}
+
+		const scaledWidth = part.dimensions.x * part.localScale.x * uniformScale;
+		const scaledDepth = part.dimensions.z * part.localScale.z * uniformScale;
+		const yawJitter = hashNoise(worldX, worldZ, seed + partIndex) * Math.PI * 2;
+		const yaw = part.localRotation.y + yawJitter;
+		const cosYaw = Math.abs(Math.cos(yaw));
+		const sinYaw = Math.abs(Math.sin(yaw));
+
+		// Compute world-space AABB extents for the root part's X/Z footprint after yaw.
+		const halfWidth = (scaledWidth * cosYaw + scaledDepth * sinYaw) * 0.5;
+		const halfDepth = (scaledWidth * sinYaw + scaledDepth * cosYaw) * 0.5;
+		const centerX = worldX + part.localPosition.x;
+		const centerZ = worldZ + part.localPosition.z;
+		const partMinX = centerX - halfWidth;
+		const partMaxX = centerX + halfWidth;
+		const partMinZ = centerZ - halfDepth;
+		const partMaxZ = centerZ + halfDepth;
+
+		if (partMinX < minX || partMaxX > maxX || partMinZ < minZ || partMaxZ > maxZ) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 function generateObjectScatter(objectMesh, scatterDefinitions, scatterMultiplier, world, indexSeed, explicitRequests, buildObject) {
 	if (scatterMultiplier <= 0) {
 		return [];
@@ -299,14 +335,17 @@ function generateObjectScatter(objectMesh, scatterDefinitions, scatterMultiplier
 
 			const scaleNoise = hashNoise(worldX * 0.5, worldZ * 0.5, seed + 19);
 			const uniformScale = (scatterType.scaleRange.min + (scatterType.scaleRange.max - scatterType.scaleRange.min) * scaleNoise) * scatterScale;
-			const rootPart = resolveRootPart(scatterType.parts);
+			const offsetParts = applyHierarchicalOffsets(scatterType.parts, uniformScale);
+			if (!areRootPartsWithinParentBounds(offsetParts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ)) {
+				continue;
+			}
+			const rootPart = resolveRootPart(offsetParts);
 			const modelRootY = rootPart
 				? worldY + getPartHalfHeight(rootPart) * uniformScale - rootPart.localPosition.y
 				: worldY;
 			let modelAabb = null;
 
 			// Apply hierarchical offsets to parts for this instance
-			const offsetParts = applyHierarchicalOffsets(scatterType.parts, uniformScale);
 
 			offsetParts.forEach((part, partIndex) => {
 				typeCount += 1;
@@ -486,12 +525,14 @@ function generateObjectScatterBatches(objectMesh, scatterDefinitions, scatterMul
 
 			const scaleNoise = hashNoise(worldX * 0.5, worldZ * 0.5, seed + 19);
 			const uniformScale = (scatterType.scaleRange.min + (scatterType.scaleRange.max - scatterType.scaleRange.min) * scaleNoise) * scatterScale;
-			const rootPart = resolveRootPart(scatterType.parts);
+			const offsetParts = applyHierarchicalOffsets(scatterType.parts, uniformScale);
+			if (!areRootPartsWithinParentBounds(offsetParts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ)) {
+				continue;
+			}
+			const rootPart = resolveRootPart(offsetParts);
 			const modelRootY = rootPart
 				? worldY + getPartHalfHeight(rootPart) * uniformScale - rootPart.localPosition.y
 				: worldY;
-
-			const offsetParts = applyHierarchicalOffsets(scatterType.parts, uniformScale);
 
 			// Track merged AABB for this model instance (for debug bounding boxes).
 			let modelAabbMin = null;

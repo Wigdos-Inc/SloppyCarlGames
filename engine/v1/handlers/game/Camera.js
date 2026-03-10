@@ -508,7 +508,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 
 	// Apply mouse look.
 	if (defaultCamRuntime.lookDeltaX !== 0 || defaultCamRuntime.lookDeltaY !== 0) {
-		defaultCamRuntime.yaw += defaultCamRuntime.lookDeltaX * cfg.sensitivity;
+		defaultCamRuntime.yaw -= defaultCamRuntime.lookDeltaX * cfg.sensitivity;
 		defaultCamRuntime.pitch = clamp(
 			defaultCamRuntime.pitch + defaultCamRuntime.lookDeltaY * cfg.sensitivity,
 			cfg.minPitch,

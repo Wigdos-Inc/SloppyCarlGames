@@ -186,7 +186,7 @@ function buildWaterVisualMeshes(world) {
 	const centerZ = waterWidth * 0.5;
 	const waterLevel = world.waterLevel.value;
 	const worldBottom = world.deathBarrierY.value;
-	const waterBottom = Math.min(worldBottom, waterLevel - 0.1);
+	const waterBottom = Math.max(0, Math.min(worldBottom, waterLevel - 0.1));
 	const waterHeight = Math.max(0.1, waterLevel - waterBottom);
 
 	const body = BuildObject(
