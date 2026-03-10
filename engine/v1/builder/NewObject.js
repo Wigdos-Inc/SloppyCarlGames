@@ -5,7 +5,7 @@
 import { NormalizeVector3 } from "../math/Vector3.js";
 import { Log } from "../core/meta.js";
 import { BuildScatter, GetPerformanceScatterMultiplier } from "./NewScatter.js";
-import { DegreesToRadians, UnitVector3 } from "../math/Utilities.js";
+import { UnitVector3 } from "../math/Utilities.js";
 
 function toNumber(value, fallback) {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -408,15 +408,10 @@ function createRotationZ(radians) {
 
 function CreateModelMatrix(transform) {
 	const source = transform && typeof transform === "object" ? transform : {};
-	const position = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const rotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
-	const rotationRadians = {
-		x: DegreesToRadians(rotation.x),
-		y: DegreesToRadians(rotation.y),
-		z: DegreesToRadians(rotation.z),
-	};
+	const position = source.position;
+	const rotation = source.rotation.type === "degrees" ? source.rotation.toRadians() : source.rotation;
 	const scale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
-	const pivot = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
+	const pivot = source.pivot;
 
 	let matrix = createIdentityMatrix();
 	matrix = multiplyMatrix4(matrix, createTranslationMatrix(position));
@@ -652,19 +647,23 @@ function BuildObject(definition, options) {
 	const complexity = normalizeGeometryComplexity(source.complexity || resolvedOptions.complexity);
 	const texture = normalizeTextureDescriptor(source, resolvedOptions);
 	const scatter = normalizeScatterRequests(source);
-	const sizeRaw = NormalizeVector3(source.dimensions || source.size, { x: 1, y: 1, z: 1 });
-	const size = new UnitVector3(sizeRaw.x, sizeRaw.y, sizeRaw.z, "CNU");
-	const posRaw = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const rotRaw = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
-	const rotation = new UnitVector3(rotRaw.x, rotRaw.y, rotRaw.z, "radians");
+	const dimSource = source.dimensions || source.size;
+	const size = dimSource;
+	const posRaw = source.position;
+	let rotation;
+	if (source.rotation.type === "degrees") {
+		const rad = source.rotation.toRadians();
+		rotation = new UnitVector3(rad.x, rad.y, rad.z, "radians");
+	} else {
+		rotation = source.rotation;
+	}
 	const scale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
 	const isBottomAnchored = role === "terrain" || role === "obstacle";
 	const anchoredY = isBottomAnchored
-		? posRaw.y + (sizeRaw.y * scale.y * 0.5)
+		? posRaw.y + (size.y * scale.y * 0.5)
 		: posRaw.y;
 	const position = new UnitVector3(posRaw.x, anchoredY, posRaw.z, "CNU");
-	const pivotRaw = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
-	const pivot = new UnitVector3(pivotRaw.x, pivotRaw.y, pivotRaw.z, "CNU");
+	const pivot = source.pivot;
 	const geometry = BuildGeometry(shape, size, complexity);
 	const uvs = GenerateUVs(geometry.positions, geometry);
 	const bounds = computeBounds(geometry.positions);

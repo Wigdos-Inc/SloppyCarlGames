@@ -104,8 +104,8 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 
 	// Step 9: Death barrier check.
 	if (playerState.transform.position.y < deathBarrierY) {
-		playerState.transform.position.y = deathBarrierY;
-		playerState.velocity.y = 0;
+		playerState.transform.position.set({ y: deathBarrierY });
+		playerState.velocity.set({ y: 0 });
 		// Signal death — will be handled by the state machine or Enemy.js.
 		if (playerState.state !== "Dead") {
 			Log("ENGINE", "Player hit death barrier.", "log", "Level");
@@ -169,8 +169,8 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 
 	// Death barrier.
 	if (entity.transform.position.y < deathBarrierY) {
-		entity.transform.position.y = deathBarrierY;
-		entity.velocity.y = 0;
+		entity.transform.position.set({ y: deathBarrierY });
+		entity.velocity.set({ y: 0 });
 	}
 }
 

@@ -13,7 +13,6 @@ import { GetPerformanceScatterMultiplier, BuildScatterBatches } from "./NewScatt
 import { NormalizeVector3 } from "../math/Vector3.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { Unit, UnitVector3 } from "../math/Utilities.js";
 import {
 	LoadEngineVisualTemplates,
 	PrepareLevelVisualResources,
@@ -42,16 +41,24 @@ function resolveWaterLevel(source, deathBarrierY, worldHeight) {
 
 function normalizeWorld(world) {
 	const source = world && typeof world === "object" ? world : {};
-	const length = Math.max(1, toNumber(source.length, 100));
-	const width = Math.max(1, toNumber(source.width, 100));
-	const height = Math.max(1, toNumber(source.height, 40));
-	const deathBarrierY = toNumber(source.deathBarrierY, -25);
+	const length = source.length;
+	const width = source.width;
+	const height = source.height;
+	const deathBarrierY = source.deathBarrierY;
+
+	// Clamp minimum dimension values.
+	if (length.value < 1) length.value = 1;
+	if (width.value < 1) width.value = 1;
+	if (height.value < 1) height.value = 1;
+
+	const waterLevel = source.waterLevel;
+
 	return {
-		length: new Unit(length, "CNU"),
-		width: new Unit(width, "CNU"),
-		height: new Unit(height, "CNU"),
-		deathBarrierY: new Unit(deathBarrierY, "CNU"),
-		waterLevel: new Unit(resolveWaterLevel(source, deathBarrierY, height), "CNU"),
+		length: length,
+		width: width,
+		height: height,
+		deathBarrierY: deathBarrierY,
+		waterLevel: waterLevel,
 		textureScale: Math.max(0.05, toNumber(source.textureScale, 1)),
 		scatterScale: Math.max(0.05, toNumber(source.scatterScale, 1)),
 	};
@@ -59,24 +66,21 @@ function normalizeWorld(world) {
 
 function normalizeCameraConfig(camera) {
 	const source = camera && typeof camera === "object" ? camera : {};
-	const openStart = NormalizeVector3(
-		source.levelOpening && source.levelOpening.startPosition,
-		{ x: 0, y: 40, z: 80 }
-	);
-	const openEnd = NormalizeVector3(
-		source.levelOpening && source.levelOpening.endPosition,
-		{ x: 0, y: 40, z: 80 }
-	);
+	// Values arrive as Unit/UnitVector3 instances from normalize.js.
+	const levelOpening = source.levelOpening && typeof source.levelOpening === "object" ? source.levelOpening : {};
+	const startPosition = levelOpening.startPosition;
+	const endPosition = levelOpening.endPosition;
+
 	return {
 		mode: "stationary",
 		levelOpening: {
-			startPosition: new UnitVector3(openStart.x, openStart.y, openStart.z, "CNU"),
-			endPosition: new UnitVector3(openEnd.x, openEnd.y, openEnd.z, "CNU"),
+			startPosition: startPosition,
+			endPosition: endPosition,
 		},
 		// DefaultCam third-person follow camera settings.
-		distance: new Unit(toNumber(source.distance, 10), "CNU"),
+		distance: source.distance,
 		sensitivity: toNumber(source.sensitivity, 0.12),
-		heightOffset: new Unit(toNumber(source.heightOffset, 3), "CNU"),
+		heightOffset: source.heightOffset,
 	};
 }
 

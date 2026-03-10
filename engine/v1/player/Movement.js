@@ -117,13 +117,12 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	hVel = ClampVelocity(hVel, maxSpeed);
 
 	// Reassemble velocity.
-	playerState.velocity.x = hVel.x;
-	playerState.velocity.z = hVel.z;
+	playerState.velocity.set({ x: hVel.x, z: hVel.z });
 	// Vertical velocity is preserved (physics handles gravity).
 
 	// === JUMP ===
 	if (input && input.jump && playerState.grounded && playerState.state !== "Stunned" && playerState.state !== "Dead") {
-		playerState.velocity.y = jumpForce;
+		playerState.velocity.set({ y: jumpForce });
 		playerState.grounded = false;
 		const jumpStartY = ToNumber(
 			playerState.transform && playerState.transform.position ? playerState.transform.position.y : 0,
@@ -139,7 +138,7 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	// Rotate player yaw toward movement direction (no camera-lock on model).
 	if (hasInput) {
 		const targetYaw = Math.atan2(direction.x, direction.z);
-		playerState.transform.rotation.y = targetYaw;
+		playerState.transform.rotation.set({ y: targetYaw });
 	}
 }
 

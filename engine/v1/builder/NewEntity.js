@@ -7,7 +7,7 @@
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
 import { AddVector3, LerpVector3, MultiplyVector3, NormalizeVector3, RotateByEuler } from "../math/Vector3.js";
-import { DegreesToRadians, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
+import { ToNumber, UnitVector3 } from "../math/Utilities.js";
 
 /* === FACE / ANCHOR UTILITIES === */
 
@@ -140,28 +140,47 @@ function getRemappedFaceOffset(dimensions, faceType, faceMap) {
 function cloneTransform(transform, fallback, rotationInRadians) {
 	const source = transform && typeof transform === "object" ? transform : {};
 	const resolvedFallback = fallback && typeof fallback === "object" ? fallback : {};
-	const position = NormalizeVector3(source.position, resolvedFallback.position || { x: 0, y: 0, z: 0 });
-	const rotation = NormalizeVector3(source.rotation, resolvedFallback.rotation || { x: 0, y: 0, z: 0 });
-	const rotationRad = rotationInRadians
-		? { x: rotation.x, y: rotation.y, z: rotation.z }
-		: {
-			x: DegreesToRadians(rotation.x),
-			y: DegreesToRadians(rotation.y),
-			z: DegreesToRadians(rotation.z),
-		};
-	const scale = NormalizeVector3(source.scale, resolvedFallback.scale || { x: 1, y: 1, z: 1 });
-	const pivot = NormalizeVector3(source.pivot, resolvedFallback.pivot || { x: 0, y: 0, z: 0 });
-	return { position, rotation: rotationRad, scale, pivot };
+	const fbPos = resolvedFallback.position || { x: 0, y: 0, z: 0 };
+	const fbRot = resolvedFallback.rotation || { x: 0, y: 0, z: 0 };
+	const fbScale = resolvedFallback.scale || { x: 1, y: 1, z: 1 };
+	const fbPivot = resolvedFallback.pivot || { x: 0, y: 0, z: 0 };
+
+	const srcPos = source.position || fbPos;
+	const srcRot = source.rotation || fbRot;
+	const srcScale = source.scale || fbScale;
+	const srcPivot = source.pivot || fbPivot;
+
+	const position = new UnitVector3(ToNumber(srcPos.x, fbPos.x), ToNumber(srcPos.y, fbPos.y), ToNumber(srcPos.z, fbPos.z), "cnu");
+	const scale = {
+		x: ToNumber(srcScale.x, fbScale.x),
+		y: ToNumber(srcScale.y, fbScale.y),
+		z: ToNumber(srcScale.z, fbScale.z),
+	};
+	const pivot = new UnitVector3(ToNumber(srcPivot.x, fbPivot.x), ToNumber(srcPivot.y, fbPivot.y), ToNumber(srcPivot.z, fbPivot.z), "cnu");
+
+	let rotation;
+	if (rotationInRadians) {
+		rotation = new UnitVector3(ToNumber(srcRot.x, fbRot.x), ToNumber(srcRot.y, fbRot.y), ToNumber(srcRot.z, fbRot.z), "radians");
+	} else {
+		const rotDeg = new UnitVector3(ToNumber(srcRot.x, fbRot.x), ToNumber(srcRot.y, fbRot.y), ToNumber(srcRot.z, fbRot.z), "degrees");
+		rotDeg.toRadians(true);
+		rotation = rotDeg;
+	}
+
+	return { position, rotation, scale, pivot };
 }
 
 function composeTransform(parentTransform, localTransform) {
 	const parent = cloneTransform(parentTransform, null, true);
 	const local = cloneTransform(localTransform, null, true);
 	const rotatedChildPos = RotateByEuler(local.position, parent.rotation);
+	const composedPos = AddVector3(parent.position, rotatedChildPos);
+	const composedRot = AddVector3(parent.rotation, local.rotation);
+	const composedScale = MultiplyVector3(parent.scale, local.scale);
 	return {
-		position: AddVector3(parent.position, rotatedChildPos),
-		rotation: AddVector3(parent.rotation, local.rotation),
-		scale: MultiplyVector3(parent.scale, local.scale),
+		position: new UnitVector3(composedPos.x, composedPos.y, composedPos.z, "cnu"),
+		rotation: new UnitVector3(composedRot.x, composedRot.y, composedRot.z, "radians"),
+		scale: composedScale,
 	};
 }
 
@@ -239,34 +258,16 @@ function buildPart(partDefinition, entityId, index) {
 		{ role: "entity-part" }
 	);
 
-	// Normalize source values into Unit/UnitVector3 instances.
-	const localPosition = new UnitVector3(
-		ToNumber(source.localPosition && source.localPosition.x, 0),
-		ToNumber(source.localPosition && source.localPosition.y, 0),
-		ToNumber(source.localPosition && source.localPosition.z, 0),
-		"CNU"
-	);
-	const localRotationDeg = new UnitVector3(
-		ToNumber(source.localRotation && source.localRotation.x, 0),
-		ToNumber(source.localRotation && source.localRotation.y, 0),
-		ToNumber(source.localRotation && source.localRotation.z, 0),
-		"degrees"
-	);
+	// Data arrives as UnitVector3 from normalize.js.
+	const localPosition = source.localPosition;
+	const localRotationDeg = source.localRotation;
 	// Step 1 (partial): convert degrees to radians.
-	localRotationDeg.toRadians(true);
+	if (localRotationDeg.type === "degrees") {
+		localRotationDeg.toRadians(true);
+	}
 
-	const localScale = new UnitVector3(
-		ToNumber(source.localScale && source.localScale.x, 1),
-		ToNumber(source.localScale && source.localScale.y, 1),
-		ToNumber(source.localScale && source.localScale.z, 1),
-		"CNU"
-	);
-	const dimensions = new UnitVector3(
-		ToNumber(source.dimensions && source.dimensions.x, 1),
-		ToNumber(source.dimensions && source.dimensions.y, 1),
-		ToNumber(source.dimensions && source.dimensions.z, 1),
-		"CNU"
-	);
+	const localScale = NormalizeVector3(source.localScale, { x: 1, y: 1, z: 1 });
+	const dimensions = source.dimensions;
 
 	const resolvedParentId = source.parentId || null;
 	const anchorPoint = normalizeFace(source.anchorPoint, resolvedParentId === "root" ? "bottom" : "center");
@@ -288,13 +289,13 @@ function buildPart(partDefinition, entityId, index) {
 		defaultLocalTransform: {
 			position: new UnitVector3(localPosition.x, localPosition.y, localPosition.z, "CNU"),
 			rotation: new UnitVector3(localRotationDeg.x, localRotationDeg.y, localRotationDeg.z, "radians"),
-			scale: new UnitVector3(localScale.x, localScale.y, localScale.z, "CNU"),
+			scale: { x: localScale.x, y: localScale.y, z: localScale.z },
 		},
 		dimensions: dimensions,
 		// World-space built position/rotation/scale — computed by the pipeline, used for mesh output.
 		builtPosition: new UnitVector3(0, 0, 0, "CNU"),
 		builtRotation: new UnitVector3(0, 0, 0, "radians"),
-		builtScale: new UnitVector3(1, 1, 1, "CNU"),
+		builtScale: { x: 1, y: 1, z: 1 },
 		builtDimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "CNU"),
 		faceMap: null,
 		mesh: mesh,
@@ -338,25 +339,12 @@ function buildModel(entityDefinition, surfaceMap) {
 		: sourceModel.rootTransform && typeof sourceModel.rootTransform === "object"
 			? sourceModel.rootTransform
 			: {};
-	const rtPosition = new UnitVector3(
-		ToNumber(rtSource.position && rtSource.position.x, 0),
-		ToNumber(rtSource.position && rtSource.position.y, 0),
-		ToNumber(rtSource.position && rtSource.position.z, 0),
-		"CNU"
-	);
-	const rtRotation = new UnitVector3(
-		ToNumber(rtSource.rotation && rtSource.rotation.x, 0),
-		ToNumber(rtSource.rotation && rtSource.rotation.y, 0),
-		ToNumber(rtSource.rotation && rtSource.rotation.z, 0),
-		"degrees"
-	);
-	rtRotation.toRadians(true);
-	const rtScale = new UnitVector3(
-		ToNumber(rtSource.scale && rtSource.scale.x, 1),
-		ToNumber(rtSource.scale && rtSource.scale.y, 1),
-		ToNumber(rtSource.scale && rtSource.scale.z, 1),
-		"CNU"
-	);
+	const rtPosition = rtSource.position;
+	const rtRotation = rtSource.rotation;
+	if (rtRotation.type === "degrees") {
+		rtRotation.toRadians(true);
+	}
+	const rtScale = NormalizeVector3(rtSource.scale, { x: 1, y: 1, z: 1 });
 
 	// Build all parts (each part wraps its own values in Unit/UnitVector3).
 	const parts = Array.isArray(sourceModel.parts)
@@ -409,22 +397,20 @@ function buildModel(entityDefinition, surfaceMap) {
 		const scaledHalfHeight = dims.y * combinedScale.y * 0.5;
 
 		// Set localTransform.position: grounding + localPosition (model-local, relative to rootTransform).
-		rootPart.localTransform.position = new UnitVector3(
-			localPos.x,
-			scaledHalfHeight + localPos.y,
-			localPos.z,
-			"CNU"
-		);
+		rootPart.localTransform.position.set({
+			x: localPos.x,
+			y: scaledHalfHeight + localPos.y,
+			z: localPos.z,
+		});
 
 		// localTransform.rotation and localTransform.scale stay as-is from buildPart.
 
 		// Store builtDimensions (scaled) for child attachment offset computation.
-		rootPart.builtDimensions = new UnitVector3(
-			dims.x * combinedScale.x,
-			dims.y * combinedScale.y,
-			dims.z * combinedScale.z,
-			"CNU"
-		);
+		rootPart.builtDimensions.set({
+			x: dims.x * combinedScale.x,
+			y: dims.y * combinedScale.y,
+			z: dims.z * combinedScale.z,
+		});
 	}
 
 	// --- Process non-root parts in BFS order ---
@@ -476,22 +462,20 @@ function buildModel(entityDefinition, surfaceMap) {
 		};
 
 		// Position: attachment offset on parent - scaled anchor offset on part + localPosition.
-		part.localTransform.position = new UnitVector3(
-			attachOffset.x - scaledAnchorOffset.x + localPos.x,
-			attachOffset.y - scaledAnchorOffset.y + localPos.y,
-			attachOffset.z - scaledAnchorOffset.z + localPos.z,
-			"CNU"
-		);
+		part.localTransform.position.set({
+			x: attachOffset.x - scaledAnchorOffset.x + localPos.x,
+			y: attachOffset.y - scaledAnchorOffset.y + localPos.y,
+			z: attachOffset.z - scaledAnchorOffset.z + localPos.z,
+		});
 
 		// localTransform.rotation and localTransform.scale stay as-is from buildPart.
 
 		// Store builtDimensions (scaled) for child attachment offset computation.
-		part.builtDimensions = new UnitVector3(
-			partDims.x * combinedScale.x,
-			partDims.y * combinedScale.y,
-			partDims.z * combinedScale.z,
-			"CNU"
-		);
+		part.builtDimensions.set({
+			x: partDims.x * combinedScale.x,
+			y: partDims.y * combinedScale.y,
+			z: partDims.z * combinedScale.z,
+		});
 		part.faceMap = remapFacesAfterRotation(part.localTransform.rotation);
 
 		// Enqueue children.
@@ -510,7 +494,7 @@ function buildModel(entityDefinition, surfaceMap) {
 				surfacePosition.z + rtPosition.z,
 				"CNU"
 			),
-			rotation: { x: rtRotation.x, y: rtRotation.y, z: rtRotation.z },
+			rotation: new UnitVector3(rtRotation.x, rtRotation.y, rtRotation.z, "radians"),
 			scale: { x: rtScale.x, y: rtScale.y, z: rtScale.z },
 		},
 		spawnSurfaceId: spawnSurfaceId,
@@ -668,31 +652,11 @@ function BuildEntity(definition, surfaceMap) {
 		platform: merged.platform || null,
 		movement: movement,
 		transform: {
-			position: new UnitVector3(
-				model.rootTransform.position.x,
-				model.rootTransform.position.y,
-				model.rootTransform.position.z,
-				"CNU"
-			),
-			rotation: new UnitVector3(
-				model.rootTransform.rotation.x,
-				model.rootTransform.rotation.y,
-				model.rootTransform.rotation.z,
-				"radians"
-			),
-			scale: new UnitVector3(
-				model.rootTransform.scale.x,
-				model.rootTransform.scale.y,
-				model.rootTransform.scale.z,
-				"CNU"
-			),
+			position: model.rootTransform.position,
+			rotation: model.rootTransform.rotation,
+			scale: NormalizeVector3(model.rootTransform.scale, { x: 1, y: 1, z: 1 }),
 		},
-		velocity: new UnitVector3(
-			ToNumber(merged.velocity && merged.velocity.x, 0),
-			ToNumber(merged.velocity && merged.velocity.y, 0),
-			ToNumber(merged.velocity && merged.velocity.z, 0),
-			"CNU"
-		),
+		velocity: merged.velocity,
 		model: model,
 		mesh: model.parts.length > 0 ? model.parts[0].mesh : null,
 		collision: {
@@ -715,9 +679,12 @@ function UpdateEntityModelFromTransform(entity) {
 		return;
 	}
 
-	entity.model.rootTransform.position = NormalizeVector3(entity.transform && entity.transform.position, { x: 0, y: 0, z: 0 });
-	entity.model.rootTransform.rotation = NormalizeVector3(entity.transform && entity.transform.rotation, { x: 0, y: 0, z: 0 });
-	entity.model.rootTransform.scale = NormalizeVector3(entity.transform && entity.transform.scale, { x: 1, y: 1, z: 1 });
+	entity.model.rootTransform.position.set(entity.transform && entity.transform.position ? entity.transform.position : { x: 0, y: 0, z: 0 });
+	entity.model.rootTransform.rotation.set(entity.transform && entity.transform.rotation ? entity.transform.rotation : { x: 0, y: 0, z: 0 });
+	entity.model.rootTransform.scale = NormalizeVector3(
+		entity.transform && entity.transform.scale ? entity.transform.scale : null,
+		{ x: 1, y: 1, z: 1 }
+	);
 
 	applyModelPose(entity.model);
 	entity.collision = entity.collision || {};

@@ -15,7 +15,7 @@ import {
 	vector3Length,
 } from "../../math/Vector3.js";
 import { RayAABBIntersect } from "../../math/Physics.js";
-import { CNUtoWorldUnit, Lerp } from "../../math/Utilities.js";
+import { CNUtoWorldUnit, Lerp, Unit, UnitVector3 } from "../../math/Utilities.js";
 
 const worldUp = { x: 0, y: 1, z: 0 };
 const pitchClampDegrees = 89;
@@ -41,9 +41,9 @@ const freeCamRuntime = {
 	},
 	moveSensitivity: 0.12,
 	tuningStep: 0,
-	acceleration: CNUtoWorldUnit(44),
+	acceleration: new Unit(44, "cnu").toWorldUnit(),
 	dampingFactor: 0.12,
-	maxSpeed: CNUtoWorldUnit(14),
+	maxSpeed: new Unit(14, "cnu").toWorldUnit(),
 	lookDeltaX: 0,
 	lookDeltaY: 0,
 	wheelDelta: 0,
@@ -52,14 +52,14 @@ const defaultCamRuntime = {
 	active: false,
 	yaw: 0,
 	pitch: -15,
-	currentDistance: CNUtoWorldUnit(10),
-	targetDistance: CNUtoWorldUnit(10),
+	currentDistance: new Unit(10, "cnu").toWorldUnit(),
+	targetDistance: new Unit(10, "cnu").toWorldUnit(),
 	lookDeltaX: 0,
 	lookDeltaY: 0,
 	config: {
-		distance: CNUtoWorldUnit(10),
+		distance: new Unit(10, "cnu").toWorldUnit(),
 		sensitivity: 0.12,
-		heightOffset: CNUtoWorldUnit(3),
+		heightOffset: new Unit(3, "cnu").toWorldUnit(),
 		minPitch: -60,
 		maxPitch: 60,
 	},
@@ -124,7 +124,7 @@ function createForwardFromAngles(yawDegrees, pitchDegrees) {
 
 function createCameraState(seed) {
 	const source = seed && typeof seed === "object" ? seed : {};
-	const position = NormalizeVector3(source.position, { x: 0, y: CNUtoWorldUnit(20), z: CNUtoWorldUnit(40) });
+	const position = NormalizeVector3(source.position, { x: 0, y: new Unit(20, "cnu").toWorldUnit(), z: new Unit(40, "cnu").toWorldUnit() });
 	const yaw = toNumber(source.yaw, -90);
 	const pitch = clamp(toNumber(source.pitch, -18), -pitchClampDegrees, pitchClampDegrees);
 	const forward = createForwardFromAngles(yaw, pitch);
@@ -144,7 +144,7 @@ function createCameraState(seed) {
 		target: AddVector3(position, forward),
 		fov: toNumber(source.fov, 60),
 		near: toNumber(source.near, 0.1),
-		far: toNumber(source.far, CNUtoWorldUnit(800)),
+		far: toNumber(source.far, new Unit(800, "cnu").toWorldUnit()),
 	};
 }
 
@@ -158,21 +158,31 @@ function updateOrientationVectors(cameraState) {
 function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 	const world = sceneGraph && sceneGraph.world ? sceneGraph.world : {};
 	const levelOpening = cameraConfig && cameraConfig.levelOpening ? cameraConfig.levelOpening : {};
-	const wLength = CNUtoWorldUnit(world.length ? world.length.value : 100);
-	const wHeight = CNUtoWorldUnit(world.height ? world.height.value : 40);
-	const wWidth = CNUtoWorldUnit(world.width ? world.width.value : 100);
+	const wLength = world.length && typeof world.length.toWorldUnit === "function"
+		? world.length.toWorldUnit()
+		: CNUtoWorldUnit(world.length ? world.length.value || world.length : 100);
+	const wHeight = world.height && typeof world.height.toWorldUnit === "function"
+		? world.height.toWorldUnit()
+		: CNUtoWorldUnit(world.height ? world.height.value || world.height : 40);
+	const wWidth = world.width && typeof world.width.toWorldUnit === "function"
+		? world.width.toWorldUnit()
+		: CNUtoWorldUnit(world.width ? world.width.value || world.width : 100);
 	const center = {
 		x: wLength * 0.5,
 		y: Math.max(0, wHeight * 0.35),
 		z: wWidth * 0.5,
 	};
-	const startRaw = levelOpening.startPosition ? NormalizeVector3(levelOpening.startPosition) : null;
+	const startRaw = levelOpening.startPosition ? levelOpening.startPosition : null;
 	const position = startRaw
-		? { x: CNUtoWorldUnit(startRaw.x), y: CNUtoWorldUnit(startRaw.y), z: CNUtoWorldUnit(startRaw.z) }
+		? {
+			x: typeof startRaw.toWorldUnit === "function" ? startRaw.toWorldUnit().x : CNUtoWorldUnit(startRaw.x),
+			y: typeof startRaw.toWorldUnit === "function" ? startRaw.toWorldUnit().y : CNUtoWorldUnit(startRaw.y),
+			z: typeof startRaw.toWorldUnit === "function" ? startRaw.toWorldUnit().z : CNUtoWorldUnit(startRaw.z),
+		}
 		: {
 			x: center.x,
-			y: Math.max(CNUtoWorldUnit(20), wHeight * 1.15),
-			z: center.z + Math.max(CNUtoWorldUnit(30), wWidth * 0.7),
+			y: Math.max(new Unit(20, "cnu").toWorldUnit(), wHeight * 1.15),
+			z: center.z + Math.max(new Unit(30, "cnu").toWorldUnit(), wWidth * 0.7),
 		};
 	return {
 		mode: "level",
@@ -181,7 +191,7 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 		up: { x: 0, y: 1, z: 0 },
 		fov: 60,
 		near: 0.1,
-		far: Math.max(CNUtoWorldUnit(200), wLength + wWidth + wHeight),
+		far: Math.max(new Unit(200, "cnu").toWorldUnit(), wLength + wWidth + wHeight),
 	};
 }
 
@@ -201,8 +211,8 @@ function CalculateCameraState(sceneGraph, cameraConfig) {
 
 function applyTuningStep(step) {
 	freeCamRuntime.tuningStep = clamp(step, -6, 16);
-	freeCamRuntime.maxSpeed = CNUtoWorldUnit(clamp(14 + freeCamRuntime.tuningStep * 2.5, 3, 80));
-	freeCamRuntime.acceleration = CNUtoWorldUnit(clamp(44 + freeCamRuntime.tuningStep * 10, 10, 300));
+	freeCamRuntime.maxSpeed = new Unit(clamp(14 + freeCamRuntime.tuningStep * 2.5, 3, 80), "cnu").toWorldUnit();
+	freeCamRuntime.acceleration = new Unit(clamp(44 + freeCamRuntime.tuningStep * 10, 10, 300), "cnu").toWorldUnit();
 	freeCamRuntime.dampingFactor = clamp(0.08 + freeCamRuntime.tuningStep * 0.02, 0.05, 0.92);
 
 	if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true) {
@@ -396,9 +406,13 @@ function initializeDefaultCamConfig(cameraConfig) {
 		? camPayload.heightOffset.value
 		: toNumber(camPayload.heightOffset, 3);
 
-	defaultCamRuntime.config.distance = CNUtoWorldUnit(rawDistance);
+	defaultCamRuntime.config.distance = typeof camPayload.distance?.toWorldUnit === "function"
+		? camPayload.distance.toWorldUnit()
+		: new Unit(rawDistance, "cnu").toWorldUnit();
 	defaultCamRuntime.config.sensitivity = toNumber(camPayload.sensitivity, toNumber(camPayload.speed, 0.12));
-	defaultCamRuntime.config.heightOffset = CNUtoWorldUnit(rawHeightOffset);
+	defaultCamRuntime.config.heightOffset = typeof camPayload.heightOffset?.toWorldUnit === "function"
+		? camPayload.heightOffset.toWorldUnit()
+		: new Unit(rawHeightOffset, "cnu").toWorldUnit();
 	defaultCamRuntime.currentDistance = defaultCamRuntime.config.distance;
 	defaultCamRuntime.targetDistance = defaultCamRuntime.config.distance;
 	defaultCamRuntime.yaw = 0;
@@ -460,8 +474,8 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 		if (!mesh || !mesh.worldAabb) { continue; }
 		const aabb = mesh.worldAabb;
 		const scaled = {
-			min: { x: CNUtoWorldUnit(aabb.min.x), y: CNUtoWorldUnit(aabb.min.y), z: CNUtoWorldUnit(aabb.min.z) },
-			max: { x: CNUtoWorldUnit(aabb.max.x), y: CNUtoWorldUnit(aabb.max.y), z: CNUtoWorldUnit(aabb.max.z) },
+			min: typeof aabb.min.toWorldUnit === "function" ? aabb.min.toWorldUnit() : { x: CNUtoWorldUnit(aabb.min.x), y: CNUtoWorldUnit(aabb.min.y), z: CNUtoWorldUnit(aabb.min.z) },
+			max: typeof aabb.max.toWorldUnit === "function" ? aabb.max.toWorldUnit() : { x: CNUtoWorldUnit(aabb.max.x), y: CNUtoWorldUnit(aabb.max.y), z: CNUtoWorldUnit(aabb.max.z) },
 		};
 		const hit = RayAABBIntersect(playerHeadPos, rayDir, scaled);
 		if (hit.hit && hit.t > 0 && hit.t < closestT) {
@@ -478,8 +492,8 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 		const bounds = obs.bounds || (obs.mesh && obs.mesh.worldAabb) || null;
 		if (!bounds) { continue; }
 		const scaled = {
-			min: { x: CNUtoWorldUnit(bounds.min.x), y: CNUtoWorldUnit(bounds.min.y), z: CNUtoWorldUnit(bounds.min.z) },
-			max: { x: CNUtoWorldUnit(bounds.max.x), y: CNUtoWorldUnit(bounds.max.y), z: CNUtoWorldUnit(bounds.max.z) },
+			min: typeof bounds.min.toWorldUnit === "function" ? bounds.min.toWorldUnit() : { x: CNUtoWorldUnit(bounds.min.x), y: CNUtoWorldUnit(bounds.min.y), z: CNUtoWorldUnit(bounds.min.z) },
+			max: typeof bounds.max.toWorldUnit === "function" ? bounds.max.toWorldUnit() : { x: CNUtoWorldUnit(bounds.max.x), y: CNUtoWorldUnit(bounds.max.y), z: CNUtoWorldUnit(bounds.max.z) },
 		};
 		const hit = RayAABBIntersect(playerHeadPos, rayDir, scaled);
 		if (hit.hit && hit.t > 0 && hit.t < closestT) {
@@ -491,8 +505,8 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	// Ignore scatter objects entirely.
 
 	if (obstructed) {
-		const offset = CNUtoWorldUnit(0.3);
-		closestT = Math.max(CNUtoWorldUnit(0.5), closestT - offset);
+		const offset = new Unit(0.3, "cnu").toWorldUnit();
+		closestT = Math.max(new Unit(0.5, "cnu").toWorldUnit(), closestT - offset);
 
 		if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LOGGING && CONFIG.DEBUG.LOGGING.Channel && CONFIG.DEBUG.LOGGING.Channel.Level) {
 			Log("ENGINE", `DefaultCam obstruction detected at t=${closestT.toFixed(2)}`, "log", "Level");
@@ -519,14 +533,15 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	}
 
 	// Player position (CNU → world-units).
-	const playerCNU = playerState && playerState.transform
-		? NormalizeVector3(playerState.transform.position)
+	const playerPos = playerState && playerState.transform && playerState.transform.position
+		? (typeof playerState.transform.position.toWorldUnit === "function"
+			? playerState.transform.position.toWorldUnit()
+			: {
+				x: CNUtoWorldUnit(playerState.transform.position.x),
+				y: CNUtoWorldUnit(playerState.transform.position.y),
+				z: CNUtoWorldUnit(playerState.transform.position.z),
+			})
 		: { x: 0, y: 0, z: 0 };
-	const playerPos = {
-		x: CNUtoWorldUnit(playerCNU.x),
-		y: CNUtoWorldUnit(playerCNU.y),
-		z: CNUtoWorldUnit(playerCNU.z),
-	};
 
 	// Camera target: player position + height offset.
 	const targetPoint = {

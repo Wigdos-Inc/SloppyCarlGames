@@ -86,13 +86,13 @@ function ApplySurfaceAlignment(playerState, groundContact, deltaSeconds) {
 		const snapTolerance = ToNumber(config.GroundSnapTolerance, DEFAULT_GROUND_SNAP_TOLERANCE);
 
 		if (Math.abs(deltaY) <= snapTolerance) {
-			playerState.transform.position.y = desiredPosY;
+			playerState.transform.position.set({ y: desiredPosY });
 		}
 	}
 
 	// Correct vertical velocity: remove downward component upon ground contact.
 	if (playerState.velocity.y < 0) {
-		playerState.velocity.y = 0;
+		playerState.velocity.set({ y: 0 });
 	}
 
 	// Project forward velocity onto the surface plane to preserve movement speed on slopes.
@@ -109,11 +109,11 @@ function ApplySurfaceAlignment(playerState, groundContact, deltaSeconds) {
 		const projected = NormalizeUnitVector3(SubtractVector3(forwardDir, scaleVector3(normal, dot)));
 
 		// Scale projected direction to maintain original horizontal speed.
-		playerState.velocity.x = projected.x * horizontalSpeed;
-		playerState.velocity.z = projected.z * horizontalSpeed;
-
-		// Adjust vertical velocity to follow slope naturally.
-		playerState.velocity.y = projected.y * horizontalSpeed;
+		playerState.velocity.set({
+			x: projected.x * horizontalSpeed,
+			y: projected.y * horizontalSpeed,
+			z: projected.z * horizontalSpeed,
+		});
 	}
 
 	// Align player rotation to surface.

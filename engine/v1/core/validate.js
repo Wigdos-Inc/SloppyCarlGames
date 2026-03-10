@@ -4,6 +4,7 @@
 
 
 import { Log } from "./meta.js";
+import { NormalizeLevelPayload } from "./normalize.js";
 
 // Example valid payloads
 const exampleMenuUIPayload = {};
@@ -46,8 +47,8 @@ function ValidateLevelPayload(payload) {
 			payload.player.character = "carl";
 		}
 	}
-	
-    return payload;
+
+	return NormalizeLevelPayload(payload);
 }
 
 

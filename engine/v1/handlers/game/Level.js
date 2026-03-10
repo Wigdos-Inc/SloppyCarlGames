@@ -112,8 +112,8 @@ function updateEntityMovement(entity, deltaSeconds) {
 		return;
 	}
 
-	const start = NormalizeVector3(movement.start, { x: 0, y: 0, z: 0 });
-	const end = NormalizeVector3(movement.end, start);
+	const start = movement.start;
+	const end = movement.end;
 	const distance = distanceVector3(start, end);
 	if (distance <= 0.0001) {
 		return;
@@ -160,8 +160,16 @@ function syncEntityMeshes(sceneGraph) {
 			entity.mesh.transform = {};
 		}
 
-		entity.mesh.transform.position = { ...entity.transform.position };
-		entity.mesh.transform.rotation = { ...entity.transform.rotation };
+		if (entity.mesh.transform.position && typeof entity.mesh.transform.position.set === "function") {
+			entity.mesh.transform.position.set(entity.transform.position);
+		} else {
+			entity.mesh.transform.position = { ...entity.transform.position };
+		}
+		if (entity.mesh.transform.rotation && typeof entity.mesh.transform.rotation.set === "function") {
+			entity.mesh.transform.rotation.set(entity.transform.rotation);
+		} else {
+			entity.mesh.transform.rotation = { ...entity.transform.rotation };
+		}
 		entity.mesh.transform.scale = { ...entity.transform.scale };
 	}
 }
