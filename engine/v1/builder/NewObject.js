@@ -646,6 +646,7 @@ function BuildGeometry(shape, size, complexity) {
 function BuildObject(definition, options) {
 	const source = definition && typeof definition === "object" ? definition : {};
 	const resolvedOptions = options && typeof options === "object" ? options : {};
+	const role = source.role || resolvedOptions.role || "terrain";
 	const shapeSource = typeof source.shape === "string" ? source.shape : source.primitive;
 	const shape = typeof shapeSource === "string" ? shapeSource.toLowerCase() : "cube";
 	const complexity = normalizeGeometryComplexity(source.complexity || resolvedOptions.complexity);
@@ -654,10 +655,14 @@ function BuildObject(definition, options) {
 	const sizeRaw = NormalizeVector3(source.dimensions || source.size, { x: 1, y: 1, z: 1 });
 	const size = new UnitVector3(sizeRaw.x, sizeRaw.y, sizeRaw.z, "CNU");
 	const posRaw = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const position = new UnitVector3(posRaw.x, posRaw.y, posRaw.z, "CNU");
 	const rotRaw = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
 	const rotation = new UnitVector3(rotRaw.x, rotRaw.y, rotRaw.z, "radians");
 	const scale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
+	const isBottomAnchored = role === "terrain" || role === "obstacle";
+	const anchoredY = isBottomAnchored
+		? posRaw.y + (sizeRaw.y * scale.y * 0.5)
+		: posRaw.y;
+	const position = new UnitVector3(posRaw.x, anchoredY, posRaw.z, "CNU");
 	const pivotRaw = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
 	const pivot = new UnitVector3(pivotRaw.x, pivotRaw.y, pivotRaw.z, "CNU");
 	const geometry = BuildGeometry(shape, size, complexity);
@@ -686,7 +691,7 @@ function BuildObject(definition, options) {
 		shape: shape,
 		primitive: shape,
 		complexity: complexity,
-		role: source.role || resolvedOptions.role || "terrain",
+		role: role,
 		transform: transform,
 		geometry: {
 			positions: geometry.positions,

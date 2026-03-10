@@ -13,6 +13,7 @@ import {
 import { Clamp, ToNumber } from "../math/Utilities.js";
 
 const DEFAULT_MAX_SURFACE_DELTA_DEGREES = 35;
+const DEFAULT_GROUND_SNAP_TOLERANCE = 0.12;
 
 /**
  * Post-collision surface alignment for Sonic-style slope running.
@@ -64,6 +65,30 @@ function ApplySurfaceAlignment(playerState, groundContact, deltaSeconds) {
 
 	playerState.grounded = true;
 	playerState.surfaceNormal = { x: normal.x, y: normal.y, z: normal.z };
+
+	// Snap tiny residual hover gaps to the contacted surface top.
+	// Swept resolution can leave a small separation when grounded.
+	if (
+		playerState.transform &&
+		playerState.transform.position &&
+		playerState.collision &&
+		playerState.collision.aabb &&
+		groundContact.targetAabb &&
+		normal.y > 0.5
+	) {
+		const entityAabb = playerState.collision.aabb;
+		const currentPosY = ToNumber(playerState.transform.position.y, 0);
+		const centerY = (ToNumber(entityAabb.min.y, 0) + ToNumber(entityAabb.max.y, 0)) * 0.5;
+		const halfY = (ToNumber(entityAabb.max.y, 0) - ToNumber(entityAabb.min.y, 0)) * 0.5;
+		const bottomOffsetFromTransform = (centerY - currentPosY) - halfY;
+		const desiredPosY = ToNumber(groundContact.targetAabb.max.y, currentPosY) - bottomOffsetFromTransform;
+		const deltaY = desiredPosY - currentPosY;
+		const snapTolerance = ToNumber(config.GroundSnapTolerance, DEFAULT_GROUND_SNAP_TOLERANCE);
+
+		if (Math.abs(deltaY) <= snapTolerance) {
+			playerState.transform.position.y = desiredPosY;
+		}
+	}
 
 	// Correct vertical velocity: remove downward component upon ground contact.
 	if (playerState.velocity.y < 0) {

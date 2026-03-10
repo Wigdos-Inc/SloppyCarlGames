@@ -142,15 +142,17 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 	const source = triggerDefinition && typeof triggerDefinition === "object" ? triggerDefinition : {};
 	const start = NormalizeVector3(source.start, { x: 0, y: 0, z: 0 });
 	const end = NormalizeVector3(source.end, start);
+	const triggerY = toNumber(source.y, toNumber(start.y, 0));
+	const triggerHeight = world.height.value - triggerY;
 	const center = {
 		x: (start.x + end.x) * 0.5,
-		y: toNumber(source.y, world.height.value * 0.5),
+		y: triggerY + triggerHeight * 0.5,
 		z: (start.z + end.z) * 0.5,
 	};
 
 	const size = {
 		x: Math.max(1, Math.abs(end.x - start.x)),
-		y: Math.max(world.height.value * 2, 24),
+		y: triggerHeight,
 		z: Math.max(1, Math.abs(end.z - start.z)),
 	};
 
@@ -234,7 +236,7 @@ function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
 			position: { x: toNumber(pos.x, 0), y: toNumber(pos.y, 0), z: toNumber(pos.z, 0) },
 			dimensions: { x: toNumber(dims.x, 1), y: toNumber(dims.y, 1), z: toNumber(dims.z, 1) },
 			scale: { x: toNumber(scale.x, 1), y: toNumber(scale.y, 1), z: toNumber(scale.z, 1) },
-			topY: toNumber(pos.y, 0) + toNumber(dims.y, 1) * toNumber(scale.y, 1) * 0.5,
+			topY: toNumber(pos.y, 0) + toNumber(dims.y, 1) * toNumber(scale.y, 1),
 		};
 	};
 	if (Array.isArray(terrainDefinitions)) terrainDefinitions.forEach(addSurface);

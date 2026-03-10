@@ -56,16 +56,27 @@ function BuildEntityAabbAtPosition(entityAabb, position) {
 	}
 	const halfExtents = getHalfExtents(entityAabb);
 	const pos = NormalizeVector3(position);
+	const aabbCenter = getAabbCenter(entityAabb);
+	const centerOffset = {
+		x: aabbCenter.x - pos.x,
+		y: aabbCenter.y - pos.y,
+		z: aabbCenter.z - pos.z,
+	};
+	const centerPos = {
+		x: pos.x + centerOffset.x,
+		y: pos.y + centerOffset.y,
+		z: pos.z + centerOffset.z,
+	};
 	return {
 		min: {
-			x: pos.x - halfExtents.x,
-			y: pos.y - halfExtents.y,
-			z: pos.z - halfExtents.z,
+			x: centerPos.x - halfExtents.x,
+			y: centerPos.y - halfExtents.y,
+			z: centerPos.z - halfExtents.z,
 		},
 		max: {
-			x: pos.x + halfExtents.x,
-			y: pos.y + halfExtents.y,
-			z: pos.z + halfExtents.z,
+			x: centerPos.x + halfExtents.x,
+			y: centerPos.y + halfExtents.y,
+			z: centerPos.z + halfExtents.z,
 		},
 	};
 }
@@ -131,7 +142,18 @@ function CheckSweptAabbPair(position, displacement, entityAabb, targetAabb) {
 	const pos = NormalizeVector3(position);
 	const vel = NormalizeVector3(displacement);
 	const halfExtents = getHalfExtents(entityAabb);
-	return SweptAABB(pos, vel, halfExtents, targetAabb);
+	const aabbCenter = getAabbCenter(entityAabb);
+	const centerOffset = {
+		x: aabbCenter.x - pos.x,
+		y: aabbCenter.y - pos.y,
+		z: aabbCenter.z - pos.z,
+	};
+	const centerPos = {
+		x: pos.x + centerOffset.x,
+		y: pos.y + centerOffset.y,
+		z: pos.z + centerOffset.z,
+	};
+	return SweptAABB(centerPos, vel, halfExtents, targetAabb);
 }
 
 function collectCollidables(sceneGraph, simRadiusAabb) {

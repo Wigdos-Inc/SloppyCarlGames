@@ -1355,6 +1355,7 @@ function drawScene(renderer, sceneGraph) {
 	const meshes = collectRenderableMeshes(sceneGraph);
 	for (let index = 0; index < meshes.length; index += 1) {
 		const mesh = meshes[index];
+		const isTriggerMesh = mesh && mesh.role === "trigger";
 		const meshBufferKey = getMeshBufferKey(mesh);
 		if (!meshBufferKey) {
 			continue;
@@ -1385,7 +1386,13 @@ function drawScene(renderer, sceneGraph) {
 		gl.uniform1i(shader.uniforms.texture, 0);
 		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(model));
 		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, opacity);
+		if (isTriggerMesh) {
+			gl.depthMask(false);
+		}
 		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
+		if (isTriggerMesh) {
+			gl.depthMask(true);
+		}
 		gl.bindVertexArray(null);
 	}
 
