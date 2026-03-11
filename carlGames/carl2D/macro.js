@@ -44,11 +44,11 @@ const GAME_CONFIG = {
     STARTING_LIVES: 3,            // Number of lives at start
     
     // Grace period
-    GRACE_PERIOD_SECONDS: 3,      // Reduced spawn rate for first N seconds
+    GRACE_PERIOD_SECONDS: 5,      // Reduced spawn rate for first N seconds
     GRACE_PERIOD_SPAWN_CHANCE: 0.5, // 50% chance to skip spawn during grace period
     
     // Enemy spawning (these will be scaled)
-    MAX_TOTAL_ENEMIES: 20,        // Hard cap on total enemies (increased for more challenge)
+    MAX_TOTAL_ENEMIES: 30,        // Hard cap on total enemies (increased for more challenge)
     get ENEMY_SAFE_RADIUS() { return 400 * SCALE; },       // Min distance from Carl for spawning enemies
     get PLATFORM_START_SAFE_ZONE() { return 1000 * SCALE; }, // No platforms spawn within this distance of start (increased from 1200)
     get PLATFORM_CRAB_SAFE_RADIUS() { return 2000 * SCALE; }, // Safe radius for crab spawning near start
@@ -109,7 +109,7 @@ const CARL_CONFIG = {
     SPEED_BOOST_DURATION: 300,    // Frames
     
     // Invincibility
-    INVINCIBLE_DURATION: 96,      // Frames after getting hit
+    INVINCIBLE_DURATION: 60,      // Frames after getting hit
     
     // Visuals
     TENTACLE_COUNT: 8,

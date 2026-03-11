@@ -30,6 +30,34 @@ class Particle {
             
             this.vx = xComponent * baseSpeedX * speedMultiplier;
             this.vy = yComponent * baseSpeedY * speedMultiplier;
+        } else if (type === 'pearl_burst') {
+            // Radial explosion outward in all directions
+            let angle = random(TWO_PI);
+            let speed = random(2.5, 7.0) * SCALE;
+            this.vx = cos(angle) * speed;
+            this.vy = sin(angle) * speed;
+        } else if (type === 'steam') {
+            // Float upward and scatter slightly
+            this.vx = random(-1.5, 1.5) * SCALE;
+            this.vy = random(-4.5, -1.5) * SCALE;
+        } else if (type === 'debris') {
+            // Grey shards scatter outward (fishhook breaking)
+            let angle = random(TWO_PI);
+            let speed = random(1.5, 4.5);
+            this.vx = cos(angle) * speed * scaleX;
+            this.vy = sin(angle) * speed * scaleY - 1.5 * scaleY;
+        } else if (type === 'fire') {
+            // Fiery explosion particles (mine/bomb)
+            let angle = random(TWO_PI);
+            let speed = random(2, 6.5);
+            this.vx = cos(angle) * speed * scaleX;
+            this.vy = sin(angle) * speed * scaleY - random(1, 3) * scaleY; // upward bias
+        } else if (type === 'electric') {
+            // Fast electric scatter in all directions (jellyfish)
+            let angle = random(TWO_PI);
+            let speed = random(3, 8);
+            this.vx = cos(angle) * speed * scaleX;
+            this.vy = sin(angle) * speed * scaleY;
         } else {
             this.vx = random(-3, 3) * scaleX;
             this.vy = random(-3, 3) * scaleY;
@@ -39,15 +67,82 @@ class Particle {
         else if (type === 'boost') this.color = color(255, 255, 0);
         else if (type === 'powerup') this.color = color(255, 220, 0);
         else if (type === 'shield') this.color = color(100, 200, 255);
+        else if (type === 'pearl') this.color = color(255, 130, 20);
+        else if (type === 'pearl_burst') this.color = color(255, floor(random(50, 160)), 0);
+        else if (type === 'steam') this.color = color(190, 190, 195);
+        else if (type === 'debris') this.color = color(floor(random(120, 185)), floor(random(120, 185)), floor(random(130, 195)));
+        else if (type === 'fire') this.color = color(255, floor(random(50, 210)), 0);
+        else if (type === 'electric') this.color = color(floor(random(80, 200)), floor(random(180, 255)), 255);
         else this.color = color(150, 200, 255);
+
+        // Per-type fade rate and gravity (overrides for steam and pearl_burst)
+        this.fadeRate = 5;
+        this.gravity = 0.2;
+        if (type === 'pearl_burst') {
+            this.size = random(8, 22) * SCALE;
+            this.fadeRate = 9;
+            this.gravity = 0.15;
+        } else if (type === 'steam') {
+            this.size = random(18, 40) * SCALE;
+            this.fadeRate = 7;
+            this.gravity = 0.04;
+        } else if (type === 'debris') {
+            this.size = random(4, 10) * SCALE;
+            this.fadeRate = 6;
+            this.gravity = 0.3;
+        } else if (type === 'fire') {
+            this.size = random(10, 24) * SCALE;
+            this.fadeRate = 8;
+            this.gravity = -0.08; // float upward slightly
+        } else if (type === 'electric') {
+            this.size = random(4, 9) * SCALE;
+            this.fadeRate = 12; // fast fade
+            this.gravity = 0.0;
+        }
     }
     update() {
-        this.x += this.vx; this.y += this.vy; this.vy += 0.2; this.life -= 5;
+        this.x += this.vx; this.y += this.vy; this.vy += this.gravity; this.life -= this.fadeRate;
         if (this.life <= 0) this.toRemove = true;
     }
     draw() {
         push(); translate(0, -game.cameraY);
         this.color.setAlpha(this.life); fill(this.color); noStroke(); circle(this.x, this.y, this.size);
+        pop();
+    }
+}
+
+// ========== UNDERWATER SHOCKWAVE ==========
+class Shockwave {
+    constructor(x, y) {
+        this.x = x; this.y = y;
+        this.progress = 0;  // 0→1: expand, 1→2: implode
+        this.toRemove = false;
+        this.maxR = 200 * SCALE;
+    }
+    update() {
+        this.progress += 0.045;
+        if (this.progress >= 2.0) this.toRemove = true;
+    }
+    draw() {
+        let r, alpha, weight;
+        if (this.progress <= 1.0) {
+            r = this.maxR * this.progress;
+            alpha = map(this.progress, 0, 1, 200, 80);
+            weight = map(this.progress, 0, 1, 5, 2.5) * SCALE;
+        } else {
+            r = this.maxR * (2.0 - this.progress);
+            alpha = map(this.progress, 1, 2, 80, 0);
+            weight = 2 * SCALE;
+        }
+        push();
+        translate(0, -game.cameraY);
+        noFill();
+        stroke(0, 10, 35, alpha);
+        strokeWeight(weight);
+        circle(this.x, this.y, r * 2);
+        stroke(0, 20, 55, alpha * 0.45);
+        strokeWeight(max(1, weight * 0.6));
+        circle(this.x, this.y, r * 1.55);
         pop();
     }
 }
@@ -147,8 +242,8 @@ class BackgroundLayer {
 class Cloud {
     constructor(x, y) {
         this.x = x !== undefined ? x : random(-width, width * 2);
-        this.y = y !== undefined ? y : random(game.surfaceGoal - height, game.surfaceGoal - 100 * scaleY);
-        this.size = random(60, 120) * SCALE;
+        this.y = y !== undefined ? y : random(game.surfaceGoal - 2000 * scaleY, game.surfaceGoal - 100 * scaleY);
+        this.size = random(160, 340) * SCALE;
         this.speed = random(0.3, 0.8) * scaleX;
         this.puffCount = floor(random(3, 6));
         this.puffs = [];
@@ -166,7 +261,7 @@ class Cloud {
         // Wrap around when off screen
         if (this.x > width + this.size * 2) {
             this.x = -this.size * 2;
-            this.y = random(game.surfaceGoal - height, game.surfaceGoal - 100 * scaleY);
+            this.y = random(game.surfaceGoal - 2000 * scaleY, game.surfaceGoal - 100 * scaleY);
         }
     }
     
@@ -184,6 +279,90 @@ class Cloud {
             ellipse(this.x + puff.offsetX, this.y + puff.offsetY, puff.size, puff.size * 0.8);
         }
         
+        pop();
+    }
+}
+
+// ========== CLOUD CEILING LAYER ==========
+// A thick, dense cloud band above the boss fight area.
+// Carl drifts into it during the pearl windup; above it the sky is dark.
+class CloudLayer {
+    constructor() {
+        this.centerY  = game.surfaceGoal - 2350 * scaleY;
+        this.halfThick = 300 * scaleY;
+        this.puffs = [];
+        for (let i = 0; i < 120; i++) {
+            this.puffs.push({
+                x:     random(-width * 0.1, width * 1.1),
+                yOff:  random(-this.halfThick, this.halfThick),
+                w:     random(250, 700) * SCALE,
+                h:     random(100, 280) * SCALE,
+                alpha: floor(random(160, 235))
+            });
+        }
+    }
+
+    draw() {
+        push();
+        translate(0, -game.cameraY);
+        noStroke();
+
+        let topY  = this.centerY - this.halfThick;
+        let botY  = this.centerY + this.halfThick;
+        let fadeH = this.halfThick * 0.7;
+
+        // Base gradient fill — creates solid core with soft top/bottom edges
+        let grad = drawingContext.createLinearGradient(0, topY - fadeH, 0, botY + fadeH);
+        grad.addColorStop(0,    'rgba(225,235,255,0)');
+        grad.addColorStop(0.22, 'rgba(225,235,255,210)');
+        grad.addColorStop(0.78, 'rgba(225,235,255,210)');
+        grad.addColorStop(1,    'rgba(225,235,255,0)');
+        drawingContext.fillStyle = grad;
+        drawingContext.fillRect(0, topY - fadeH, width, (botY + fadeH) - (topY - fadeH));
+
+        // Puffs for fluffy texture
+        for (let p of this.puffs) {
+            fill(255, 255, 255, p.alpha);
+            ellipse(p.x, this.centerY + p.yOff, p.w, p.h);
+        }
+
+        pop();
+    }
+}
+
+// ========== STAR FIELD ==========
+class StarField {
+    constructor() {
+        // Stars populate world-space well above the cloud ceiling
+        const cloudTop = game.surfaceGoal - 2650 * scaleY;
+        this.cloudTop = cloudTop;
+        this.stars = [];
+        for (let i = 0; i < 220; i++) {
+            this.stars.push({
+                x:     random(0, width),
+                y:     random(cloudTop - 8000 * scaleY, cloudTop - 60 * scaleY),
+                size:  random(2, 5.5) * SCALE,
+                phase: random(TWO_PI),
+                speed: random(0.03, 0.09)
+            });
+        }
+    }
+
+    draw() {
+        // Skip entirely when the camera is well below the cloud layer
+        if (game.cameraY > this.cloudTop + height) return;
+        push();
+        translate(0, -game.cameraY);
+        noStroke();
+        for (let s of this.stars) {
+            if (s.y < game.cameraY - 100 || s.y > game.cameraY + height + 100) continue;
+            // Twinkle: amplitude keeps stars visible but shimmering
+            let twinkle = 0.65 + 0.35 * sin(frameCount * s.speed + s.phase);
+            // Fade out near/inside the cloud layer; fully bright further above
+            let fadeAlpha = constrain(map(s.y, this.cloudTop, this.cloudTop - 320 * scaleY, 0, 1), 0, 1);
+            fill(255, 255, 220, 255 * twinkle * fadeAlpha);
+            circle(s.x, s.y, s.size);
+        }
         pop();
     }
 }
@@ -217,9 +396,16 @@ class Bubble {
 function drawBackground() {
     let depth = map(carl.y, game.seaLevel, game.surfaceGoal, 0, 1);
     depth = constrain(depth, 0, 1);
-    let c1 = lerpColor(color(4, 30, 66), color(100, 180, 220), depth);
-    let c2 = lerpColor(color(10, 77, 104), color(150, 200, 240), depth);
-    let c3 = lerpColor(color(26, 123, 160), color(180, 220, 255), depth);
+
+    // Sky darkens to deep night blue once Carl is above the cloud ceiling
+    const CLOUD_LAYER_BOT = game.surfaceGoal - 2050 * scaleY;
+    const CLOUD_LAYER_TOP = game.surfaceGoal - 2650 * scaleY;
+    let aboveCloud = constrain(map(carl.y, CLOUD_LAYER_BOT, CLOUD_LAYER_TOP - 300 * scaleY, 0, 1), 0, 1);
+
+    let c1 = lerpColor(lerpColor(color(4, 30, 66), color(100, 180, 220), depth), color(5, 10, 40), aboveCloud);
+    let c2 = lerpColor(lerpColor(color(10, 77, 104), color(150, 200, 240), depth), color(8, 18, 60), aboveCloud);
+    let c3 = lerpColor(lerpColor(color(26, 123, 160), color(180, 220, 255), depth), color(15, 35, 90), aboveCloud);
+
     for (let y = 0; y < height; y++) {
         let inter = map(y, 0, height, 0, 1);
         let c = inter < 0.5 ? lerpColor(c1, c2, inter * 2) : lerpColor(c2, c3, (inter - 0.5) * 2);

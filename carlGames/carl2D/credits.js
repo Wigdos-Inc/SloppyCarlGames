@@ -27,13 +27,15 @@ const CreditsSystem = {
             height: 0,
             items: [
                 { title: 'Carl Design', credit: 'Gemini Nano Banana Pro' },
-                { title: 'Carl Sprite', credit: 'Claude Sonnet 4.5' },
+                { title: 'Carl Sprite', credit: 'Claude Opus 4.6' },
                 { title: 'Carl Main Theme', credit: 'NoteGPT' },
                 { title: 'Sun Battle Theme', credit: 'Suno' },
+                { title: 'Super Carl Theme', credit: 'Suno' },
                 { title: 'Credits Themes', credit: 'Suno & NoteGPT' },
                 { title: 'SFX', credit: 'ElevenLabs' },
                 { title: 'Gameplay', credit: 'Claude Sonnet 4.5' },
-                { title: 'Level Design', credit: 'Claude Sonnet 4.5' }
+                { title: 'Level Design', credit: 'Claude Sonnet 4.5' },
+                { title: 'Debugging', credit: 'Claude Sonnet 4.6' }
             ]
         },
         thankYou: {
@@ -210,12 +212,12 @@ const CreditsSystem = {
         
         textSize(44 * SCALE);
         textStyle(NORMAL);
-        text('The Urgent Slug Urchin', width / 2, textY);
+        text('IS', width / 2, textY);
         textY += 60 * SCALE;
         
         textSize(60 * SCALE);
         textStyle(BOLD);
-        text('2D', width / 2, textY);
+        text('MOBILE', width / 2, textY);
     },
     
     drawCreditsGroup() {
@@ -273,11 +275,11 @@ const CreditsSystem = {
         
         textSize(44 * SCALE);
         textStyle(NORMAL);
-        text('The Urgent Slug Urchin', width / 2, centerY + imgSize + 110 * SCALE);
+        text('IS', width / 2, centerY + imgSize + 110 * SCALE);
         
         textSize(60 * SCALE);
         textStyle(BOLD);
-        text('2D', width / 2, centerY + imgSize + 170 * SCALE);
+        text('MOBILE', width / 2, centerY + imgSize + 170 * SCALE);
         
         // Controls hint
         fill(150, 150, 150, this.finalFadeAlpha);

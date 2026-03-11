@@ -5,9 +5,11 @@
 "use strict";
 
 // ========== DEBUG MODE ==========
-let DEBUG = false;
+let DEBUG = sessionStorage.getItem('carlDebug') === 'true';
+if (DEBUG) console.log('DEBUG mode restored from session');
 window.debug = function() {
     DEBUG = !DEBUG;
+    sessionStorage.setItem('carlDebug', DEBUG);
     console.log(`DEBUG mode ${DEBUG ? 'ENABLED' : 'DISABLED'}`);
     console.log('Features: Boss skip (Y key), console logs');
 };
@@ -19,11 +21,13 @@ function setup() {
     calculateScale(); // Calculate scaling based on window size
     loadSounds();
     initGame();
+    // Re-apply saved volume now that p5's outputVolume() is available
+    if (window.VolumeControl) window.VolumeControl.apply(window.VolumeControl.getVolume());
 }
 
 function draw() {
-    // Only update time if actually playing (not waiting or paused)
-    if (game.state === 'playing') {
+    // Only update time if actually playing (not waiting or paused) and timer is not frozen
+    if (game.state === 'playing' && !game.timerFrozen) {
         game.currentTime = (Date.now() - game.startTime) / 1000;
     }
 
@@ -55,6 +59,8 @@ function draw() {
     for (let bubble of background.bubbles) { bubble.update(); bubble.draw(); }
     // Update and draw clouds above water
     for (let cloud of background.clouds) { cloud.update(); cloud.draw(); }
+    // Draw stars (behind everything — Carl, clouds, cloud layer)
+    if (background.starField) background.starField.draw();
 
     // If we are in the end cutscene, drive camera/visuals and skip normal simulation.
     if (game.winSequenceActive) {
@@ -71,9 +77,15 @@ function draw() {
         // Draw world objects (platforms can be hidden via fade overlay)
         for (let platform of platforms) platform.draw();
         for (let powerup of powerups) powerup.draw();
-        for (let enemy of enemies) enemy.draw();
+        if (game.pearlPowerup) game.pearlPowerup.draw();
+        for (let enemy of enemies) {
+            drawingContext.globalAlpha = enemy.fadeAlpha / 255;
+            enemy.draw();
+            drawingContext.globalAlpha = 1.0;
+        }
         for (let particle of particles) particle.draw();
         carl.draw();
+        if (background.cloudLayer) background.cloudLayer.draw();
         drawWaterSurface();
         drawSurfaceIndicator();
         updateHUD();
@@ -98,7 +110,8 @@ function draw() {
                 game.musicFadeAmount = map(distToSurface, 0, 1000 * scaleY, 0, 1);
                 game.musicFadeAmount = constrain(game.musicFadeAmount, 0, 1);
                 if (window.gameMusic && window.gameMusicLoaded) {
-                    window.gameMusic.setVolume(0.5 * game.musicFadeAmount);
+                    let userMaxVol = window.VolumeControl ? window.VolumeControl.getVolume() / 100 : 1.0;
+                    window.gameMusic.setVolume(userMaxVol * game.musicFadeAmount);
                 }
             }
         }
@@ -171,7 +184,7 @@ function draw() {
                         
                         // Start boss music
                         if (window.bossMusic && window.bossMusicLoaded) {
-                            window.bossMusic.setVolume(0.5);
+                            window.bossMusic.setVolume(1.0);
                             window.bossMusic.loop();
                         }
                         
@@ -196,9 +209,15 @@ function draw() {
                 let targetY = boss.y - height / 2;
                 game.cameraY = targetY;
             } else {
-                // During boss fight, offset camera to show both Carl and sun
-                let cameraOffset = 300 * scaleY; // Offset camera above Carl
-                game.cameraY = lerp(game.cameraY, carl.y - height / 2 - cameraOffset, 0.1);
+                // During boss fight, offset camera to show both Carl and sun.
+                // During pearl dash follow Carl tightly so he doesn't leave the screen.
+                let cameraOffset = 300 * scaleY;
+                let lerpFactor = 0.1;
+                if (carl.pearlDash) {
+                    cameraOffset = 80 * scaleY; // minimal offset so water stays in view
+                    lerpFactor = 0.35;           // snap the camera much faster
+                }
+                game.cameraY = lerp(game.cameraY, carl.y - height / 2 - cameraOffset, lerpFactor);
             }
         } else {
             game.cameraY = lerp(game.cameraY, carl.y - height / 2, 0.1);
@@ -276,6 +295,14 @@ function draw() {
         
         if (game.bossMode && !bossDefeated) {
             spawnSideEnemies(); // Allow sharks and bombs when underwater
+            // Powerup spawn opportunity every 5 seconds once the boss fight is active
+            if (game.bossSpawned) {
+                bossPowerupTimer++;
+                if (bossPowerupTimer >= 300) { // 300 frames = 5 seconds at 60fps
+                    bossPowerupTimer = 0;
+                    trySpawnBossPowerup();
+                }
+            }
         } else if (!game.bossMode) {
             // Regular mode - spawn all enemy types
             spawnFloatingEnemies();
@@ -293,7 +320,12 @@ function draw() {
             powerups[i].update();
             if (powerups[i] && powerups[i].toRemove) powerups.splice(i, 1);
         }
-        
+
+        // Update pearl powerup during active boss fight
+        if (game.bossMode && game.pearlPowerup && !bossDefeated) {
+            game.pearlPowerup.update();
+        }
+
         for (let i = enemies.length - 1; i >= 0; i--) {
             if (!enemies[i]) continue; // Safety check before update
             enemies[i].update();
@@ -308,6 +340,7 @@ function draw() {
                 carl.hit();
                 // Don't remove the boss when hit - it has its own health system
                 if (enemies[i].type !== 'sunboss') {
+                    spawnEnemyDeathParticles(enemies[i]);
                     enemies.splice(i, 1);
                 }
                 continue;
@@ -326,9 +359,15 @@ function draw() {
     
     for (let platform of platforms) platform.draw();
     for (let powerup of powerups) powerup.draw();
-    for (let enemy of enemies) enemy.draw();
+    if (game.pearlPowerup) game.pearlPowerup.draw();
+    for (let enemy of enemies) {
+        drawingContext.globalAlpha = enemy.fadeAlpha / 255;
+        enemy.draw();
+        drawingContext.globalAlpha = 1.0;
+    }
     for (let particle of particles) particle.draw();
     carl.draw();
+    if (background.cloudLayer) background.cloudLayer.draw();
     drawWaterSurface();
     drawSurfaceIndicator();
     
@@ -582,11 +621,31 @@ function initGame() {
     game.bossIntroTimer = 0;
     game.musicFading = false;
     game.musicFadeAmount = 1.0;
+
+    // Reset win/credits sequence state
+    game.winSequenceActive = false;
+    game.winSequenceTimer = 0;
+    game.winSequencePhase = 0;
+    game.winSequenceData = { startCameraY: 0, sunX: 0, sunY: 0, sunSize: 0, supernovaProgress: 0, fadeAlpha: 0 };
+    if (typeof CreditsSystem !== 'undefined') {
+        CreditsSystem.active = false;
+        CreditsSystem.finished = false;
+    }
     
     // Reset hard mode tracking
     game.sideCampingTimer = 0;
     game.hardModeActive = false;
-    
+
+    // Reset boss powerup spawn timer
+    bossPowerupTimer = 0;
+
+    // Reset pearl powerup
+    game.pearlPowerup = null;
+
+    // Reset timer freeze and color
+    game.timerFrozen = false;
+    game.timerColor = null;
+
     // Reset lives hue effect
     game.livesHueTimer = 0;
     game.livesHueType = 'none';
@@ -606,8 +665,11 @@ function initGame() {
     // Spawn bubbles across the full screen height around the starting position
     for (let i = 0; i < 50; i++) background.bubbles.push(new Bubble(random(width), random(game.cameraY, game.cameraY + height)));
     background.clouds = [];
-    // Spawn clouds above the water surface
-    for (let i = 0; i < 15; i++) background.clouds.push(new Cloud());
+    // Spawn drifting clouds across the extended vertical range above water
+    for (let i = 0; i < 30; i++) background.clouds.push(new Cloud());
+    // Thick cloud ceiling layer above the boss fight area
+    background.cloudLayer = new CloudLayer();
+    background.starField = new StarField();
     document.getElementById('pause-menu').classList.add('hidden');
     document.getElementById('gameover-menu').classList.add('hidden');
     // Don't start background music here - will be started when game actually begins
@@ -623,11 +685,14 @@ window.startGamePlay = function() {
 function updateHUD() {
     // Hide HUD during credits
     const hudElement = document.getElementById('hud');
+    const livesDisplay = document.getElementById('lives-display');
     if (game.winSequenceActive && game.winSequencePhase >= 4) {
         if (hudElement) hudElement.style.display = 'none';
+        if (livesDisplay) livesDisplay.style.display = 'none';
         return;
     } else {
         if (hudElement) hudElement.style.display = 'flex';
+        if (livesDisplay) livesDisplay.style.display = '';
     }
     
     // Hide pause button during cutscenes (boss intro and defeat)
@@ -640,7 +705,7 @@ function updateHUD() {
                 bossDefeated = true;
             }
         }
-        if (game.bossIntroActive || game.winSequenceActive || bossDefeated) {
+        if (game.bossIntroActive || game.winSequenceActive || bossDefeated || (carl && carl.pearlDash)) {
             pauseButton.style.visibility = 'hidden';
         } else {
             pauseButton.style.visibility = 'visible';
@@ -653,7 +718,21 @@ function updateHUD() {
     let milliseconds = Math.floor((game.currentTime % 1) * 1000);
     let timeString = `${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
     
-    document.getElementById('distance').textContent = timeString;
+    const distanceEl = document.getElementById('distance');
+    distanceEl.textContent = timeString;
+    if (DEBUG && game.timerColor) {
+        distanceEl.style.color = '#888888';
+        distanceEl.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
+    } else if (game.timerColor === 'gold') {
+        distanceEl.style.color = '#FFD700';
+        distanceEl.style.textShadow = '0 0 8px rgba(255, 215, 0, 0.8), 2px 2px 4px rgba(0,0,0,0.8)';
+    } else if (game.timerColor === 'red') {
+        distanceEl.style.color = '#FF4444';
+        distanceEl.style.textShadow = '0 0 8px rgba(255, 68, 68, 0.8), 2px 2px 4px rgba(0,0,0,0.8)';
+    } else {
+        distanceEl.style.color = '';
+        distanceEl.style.textShadow = '';
+    }
     document.getElementById('speed').textContent = carl.speedBoost.toFixed(1) + 'x';
     
     // Update lives with color animation
@@ -689,19 +768,30 @@ function updateHUD() {
     }
     
     // Display best time
+    const highscoreEl = document.getElementById('highscore');
     if (game.bestTime !== null) {
         let bestMinutes = Math.floor(game.bestTime / 60);
         let bestSeconds = Math.floor(game.bestTime % 60);
         let bestMilliseconds = Math.floor((game.bestTime % 1) * 1000);
         let bestTimeString = `${bestMinutes}:${bestSeconds.toString().padStart(2, '0')}.${bestMilliseconds.toString().padStart(3, '0')}`;
-        document.getElementById('highscore').textContent = bestTimeString;
+        highscoreEl.textContent = bestTimeString;
+        // Gold if the player just set a new best this run
+        if (game.timerColor === 'gold') {
+            highscoreEl.style.color = '#FFD700';
+            highscoreEl.style.textShadow = '0 0 8px rgba(255, 215, 0, 0.8), 2px 2px 4px rgba(0,0,0,0.8)';
+        } else {
+            highscoreEl.style.color = '';
+            highscoreEl.style.textShadow = '';
+        }
     } else {
-        document.getElementById('highscore').textContent = '--:--:---';
+        highscoreEl.textContent = '--:--:---';
+        highscoreEl.style.color = '';
+        highscoreEl.style.textShadow = '';
     }
 }
 
 function pauseGame() {
-    if (game.state === 'playing') {
+    if (game.state === 'playing' && !(carl && carl.pearlDash)) {
         game.state = 'paused';
         game.pauseStartTime = Date.now();
         document.getElementById('pause-menu').classList.remove('hidden');
@@ -733,8 +823,37 @@ function resumeGame() {
     }
 }
 
+// ========== ENEMY DEATH PARTICLES ==========
+function spawnEnemyDeathParticles(enemy) {
+    let x = enemy.x, y = enemy.y;
+    switch (enemy.type) {
+        case 'fishhook':
+            for (let i = 0; i < 15; i++)
+                particles.push(new Particle(x + random(-14, 14) * SCALE, y + random(-14, 14) * SCALE, 'debris'));
+            break;
+        case 'mine':
+        case 'bomb':
+            for (let i = 0; i < 35; i++)
+                particles.push(new Particle(x + random(-22, 22) * SCALE, y + random(-22, 22) * SCALE, 'fire'));
+            particles.push(new Shockwave(x, y));
+            break;
+        case 'jellyfish':
+        case 'sidejellyfish':
+            for (let i = 0; i < 15; i++)
+                particles.push(new Particle(x + random(-14, 14) * SCALE, y + random(-10, 10) * SCALE, 'hit'));
+            for (let i = 0; i < 20; i++)
+                particles.push(new Particle(x + random(-16, 16) * SCALE, y + random(-12, 12) * SCALE, 'electric'));
+            break;
+        case 'shark':
+        case 'urchin':
+        case 'crab':
+            for (let i = 0; i < 20; i++)
+                particles.push(new Particle(x + random(-14, 14) * SCALE, y + random(-14, 14) * SCALE, 'hit'));
+            break;
+    }
+}
+
 function gameOver() {
-    game.state = 'gameover';
     // Stop whichever music is playing
     if (game.bossMode && window.bossMusic && window.bossMusicLoaded) {
         window.bossMusic.stop();
@@ -765,12 +884,6 @@ function winGame() {
     }
     sounds.play('win');
     
-    // Check if this is a new best time
-    if (game.bestTime === null || game.currentTime < game.bestTime) {
-        game.bestTime = game.currentTime;
-        localStorage.setItem('carlBestTime', game.bestTime.toString());
-    }
-    
     let minutes = Math.floor(game.currentTime / 60);
     let seconds = Math.floor(game.currentTime % 60);
     let milliseconds = Math.floor((game.currentTime % 1) * 1000);
@@ -790,7 +903,11 @@ function winGame() {
 function restartGame() {
     document.getElementById('gameover-menu').classList.add('hidden');
     // Stop any music that might be playing
+    if (window.superCarlMusic && window.superCarlMusicLoaded) {
+        try { window.superCarlMusic.stop(); } catch (e) {}
+    }
     if (window.bossMusic && window.bossMusicLoaded) {
+        window.bossMusic.setVolume(1.0); // reset gain so it's clean for the next run
         window.bossMusic.stop();
     }
     if (window.gameMusic && window.gameMusicLoaded) {
@@ -801,7 +918,7 @@ function restartGame() {
     game.startTime = Date.now();
     // Start regular music from the beginning
     if (window.gameMusic && window.gameMusicLoaded) {
-        window.gameMusic.setVolume(0.5);
+        window.gameMusic.setVolume(1.0);
         window.gameMusic.loop();
     }
     loop();
@@ -814,10 +931,14 @@ function returnToTitle() {
         menuOverlay.classList.remove('hidden');
         
         // Stop all music when returning to main menu
+        if (window.superCarlMusic && window.superCarlMusicLoaded) {
+            try { window.superCarlMusic.stop(); } catch (e) {}
+        }
         if (window.gameMusic && window.gameMusicLoaded) {
             window.gameMusic.stop();
         }
         if (window.bossMusic && window.bossMusicLoaded) {
+            window.bossMusic.setVolume(1.0); // reset gain for next run
             window.bossMusic.stop();
         }
         if (window.credits1Music && window.credits1Loaded) {
@@ -860,8 +981,8 @@ function keyPressed() {
     }
     
     if (key === CONTROLS.PAUSE || key === 'Escape' || key === 'p' || key === 'P') {
-        // Prevent pausing during any cutscene (boss intro, boss defeat, or win sequence)
-        if (game.bossIntroActive || game.winSequenceActive) {
+        // Prevent pausing during any cutscene (boss intro, boss defeat, win sequence, or pearl dash)
+        if (game.bossIntroActive || game.winSequenceActive || (carl && carl.pearlDash)) {
             return false;
         }
         // Also prevent pausing if boss is defeated (flashing/growing phase)
@@ -875,11 +996,62 @@ function keyPressed() {
         if (game.state === 'playing') pauseGame();
         else if (game.state === 'paused') resumeGame();
     }
+    // Hold mode: spacebar held activates vertical lock (released = cancelled)
+    if (key === ' ' && carl && game.state === 'playing' && !carl.pearlDash) {
+        let isAboveWater = game.bossMode && carl.y < game.surfaceGoal;
+        if (!isAboveWater) {
+            carl.holdMode = true;
+            carl.holdActivatedByTouch = false;
+            carl.holdY = carl.y;
+        }
+    }
+    // Cancel hold mode when a vertical key is pressed
+    if (carl && (CONTROLS.UP.includes(key) || CONTROLS.DOWN.includes(key))) {
+        carl.holdMode = false;
+    }
     if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) return false;
 }
 
 function keyReleased() {
     keys[key] = false;
+    // Release hold mode when spacebar is released (keyboard-activated hold only)
+    if (key === ' ' && carl && !carl.holdActivatedByTouch) {
+        carl.holdMode = false;
+    }
+}
+
+function mousePressed() {
+    if (game.state !== 'playing' || !carl || carl.pearlDash) return;
+    let isAboveWater = game.bossMode && carl.y < game.surfaceGoal;
+    if (isAboveWater) return;
+
+    let tapX = touches.length > 0 ? touches[0].x : mouseX;
+    let tapY = touches.length > 0 ? touches[0].y : mouseY;
+
+    // Don't intercept pause button taps
+    let pauseButton = document.getElementById('pause-button');
+    if (pauseButton) {
+        let clickedEl = document.elementFromPoint(tapX, tapY);
+        if (clickedEl && (clickedEl === pauseButton || pauseButton.contains(clickedEl))) return;
+    }
+
+    // Tap on Carl activates hold mode (released via mouseReleased/touchEnded)
+    let carlScreenX = carl.x;
+    let carlScreenY = carl.y - game.cameraY;
+    if (dist(tapX, tapY, carlScreenX, carlScreenY) < carl.size * 1.5) {
+        carl.holdMode = true;
+        carl.holdActivatedByTouch = true;
+        carl.holdY = carl.y;
+        carl.holdTouchStartScreenY = tapY;
+        return false;
+    }
+}
+
+function mouseReleased() {
+    // Deactivate touch-activated hold mode when finger/mouse releases
+    if (carl && carl.holdActivatedByTouch) {
+        carl.holdMode = false;
+    }
 }
 
 function windowResized() {
@@ -919,6 +1091,7 @@ function loadSounds() {
         () => { 
             if (DEBUG) console.log('Game music (carlMainTheme) loaded successfully');
             window.gameMusicLoaded = true;
+            window.gameMusic.playMode('untildone');
         },
         (err) => { 
             if (DEBUG) console.log('Failed to load game music:', err);
@@ -961,6 +1134,18 @@ function loadSounds() {
         }
     );
     
+    // Load super-Carl powerup music (plays during pearl dash)
+    window.superCarlMusic = loadSound('sounds/superCarl.mp3',
+        () => {
+            if (DEBUG) console.log('Super Carl music loaded successfully');
+            window.superCarlMusicLoaded = true;
+        },
+        (err) => {
+            if (DEBUG) console.log('Failed to load super Carl music:', err);
+            window.superCarlMusicLoaded = false;
+        }
+    );
+
     // Load credits music
     window.credits1Music = loadSound('sounds/credits1.mp3',
         () => {

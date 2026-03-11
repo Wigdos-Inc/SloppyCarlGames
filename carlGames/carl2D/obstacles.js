@@ -19,7 +19,8 @@ class Platform {
         // 0.25-0.30: 2 crabs (5%)
         // 0.30-0.40: speed powerup (10%)
         // 0.40-0.50: shield powerup (10%)
-        // 0.50-1.00: nothing (50%)
+        // 0.50-0.55: heal powerup (2%)
+        // 0.55-1.00: nothing (48%)
         let spawnRoll = random();
         let spawnType = 'nothing';
         let crabCount = 0;
@@ -34,6 +35,8 @@ class Platform {
             spawnType = 'speed';
         } else if (spawnRoll < 0.50) {
             spawnType = 'shield';
+        } else if (spawnRoll < 0.52) {
+            spawnType = 'heal';
         }
         
         // Spawn crabs if rolled
@@ -68,8 +71,11 @@ class Platform {
             }
         }
         
-        // Spawn powerup if rolled (only if no powerup already exists)
-        if ((spawnType === 'speed' || spawnType === 'shield') && powerups.length === 0) {
+        // Spawn powerup if rolled (only if no powerup already exists; heal always spawns)
+        if (spawnType === 'heal') {
+            let powerupSize = 35 * SCALE;
+            powerups.push(new Powerup(this.x + this.width / 2, this.y - powerupSize - 10 * scaleY, 'heal'));
+        } else if ((spawnType === 'speed' || spawnType === 'shield') && powerups.length === 0) {
             let powerupSize = 30 * SCALE;
             powerups.push(new Powerup(this.x + this.width / 2, this.y - powerupSize - 10 * scaleY, spawnType));
         }
@@ -134,15 +140,18 @@ function countEnemyType(type) {
 class Enemy {
     constructor(type, x, y) {
         this.type = type; this.x = x; this.y = y; this.toRemove = false; this.animFrame = random(TWO_PI);
+        this.fadeAlpha = 255; // On-screen spawns override to 0 for fade-in
     }
     update() {
         this.animFrame += 0.1;
+        if (this.fadeAlpha < 255) this.fadeAlpha = Math.min(255, this.fadeAlpha + 15);
         // Remove enemies far off-screen to allow new ones to spawn
         // Measure from center of screen for even distribution
         let screenCenterY = game.cameraY + height / 2;
         if (abs(this.y - screenCenterY) > height * GAME_CONFIG.ENEMY_REMOVAL_DISTANCE) this.toRemove = true;
     }
     checkCollision(carl) {
+        if (this.fadeAlpha < 255) return false;
         let d = dist(this.x, this.y, carl.x, carl.y);
         return d < (this.size + carl.size) * 0.7;
     }
@@ -152,6 +161,7 @@ class Jellyfish extends Enemy {
     constructor(x, y) {
         super('jellyfish', x, y);
         this.size = 40 * SCALE; this.bobSpeed = 0.05; this.bobAmount = 30 * scaleY; this.baseY = y;
+        this.fadeAlpha = 0;
     }
     update() {
         super.update();
@@ -221,7 +231,7 @@ class Crab extends Enemy {
 class Mine extends Enemy {
     constructor(x, y) {
         super('mine', x, y);
-        this.size = 35 * SCALE; this.rotationSpeed = 0.02; this.rotation = 0;
+        this.size = 35 * SCALE; this.rotationSpeed = 0.02; this.rotation = 0; this.fadeAlpha = 0;
     }
     update() {
         super.update(); this.rotation += this.rotationSpeed;
@@ -244,7 +254,7 @@ class Mine extends Enemy {
 class Urchin extends Enemy {
     constructor(x, y) {
         super('urchin', x, y);
-        this.size = 45 * SCALE; this.spikeCount = 16;
+        this.size = 45 * SCALE; this.spikeCount = 16; this.fadeAlpha = 0;
     }
     draw() {
         push(); translate(this.x, this.y - game.cameraY);
@@ -777,6 +787,13 @@ class Powerup {
             carl.applySpeedBoost(CARL_CONFIG.SPEED_BOOST_DURATION);
         } else if (this.type === 'shield') {
             carl.hasShield = true;
+        } else if (this.type === 'heal') {
+            if (game.lives < GAME_CONFIG.STARTING_LIVES) {
+                game.lives++;
+            }
+            carl.healEffectTimer = 80;
+            game.livesHueTimer = 80;
+            game.livesHueType = 'heal';
         }
         for (let i = 0; i < 15; i++) particles.push(new Particle(this.x, this.y, 'powerup'));
     }
@@ -790,6 +807,9 @@ class Powerup {
         } else if (this.type === 'shield') {
             fill(100, 200, 255, 100); noStroke(); circle(0, 0, this.size * 1.5);
             fill(100, 180, 255);
+        } else if (this.type === 'heal') {
+            fill(50, 255, 120, 100); noStroke(); circle(0, 0, this.size * 1.5);
+            fill(60, 220, 100);
         }
         
         beginShape();
@@ -807,6 +827,8 @@ class Powerup {
             text('⚡', 0, 0);
         } else if (this.type === 'shield') {
             text('🛡', 0, 0);
+        } else if (this.type === 'heal') {
+            fill(255); text('♥', 0, 0);
         }
         pop();
     }

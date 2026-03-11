@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carl the Urgent Slug Urchin 2D Light</title>
+    <title>Carl is Mobile</title>
     <link rel="icon" type="image/png" href="carl.png">
     
     <!-- p5.js Library -->
@@ -28,13 +28,18 @@
     <div id="main-menu-overlay">
         <div id="ocean-bg"></div>
 
+        <div id="menu-volume-control">
+            <label for="menu-volume-slider">VOLUME</label>
+            <input type="range" id="menu-volume-slider" class="volume-slider" min="0" max="100" value="100">
+        </div>
+
         <div id="title-container">
             <img id="carl-character" src="carl.png" alt="Carl the Urgent Slug Urchin">
             <h1 id="game-title">CARL</h1>
-            <p id="subtitle">The Urgent Slug Urchin</p>
-            <p id="subtitle-2d">2D</p>
-            <p id="version-credit">Version 1.1.2: <strong>HARD MODE UPDATE</strong></p>
-            <p id="dev-credit">Made by Claude Sonnet 4.5</p>
+            <p id="subtitle">IS</p>
+            <p id="subtitle-2d">MOBILE</p>
+            <p id="version-credit">Version 2.0: <strong>SUPER CARL</strong></p>
+            <p id="dev-credit">Made by Claude Sonnet</p>
             <button id="start-button">Start Adventure</button>
         </div>
         <div id="wigdos-credit">Wigdos Studios Inc.</div>
@@ -66,9 +71,13 @@
         <div id="pause-menu" class="menu-overlay hidden">
             <div class="menu-content">
                 <h2>PAUSED</h2>
-                <p>Press SPACE or ESC to resume</p>
+                <p>Press ESC to resume</p>
                 <button onclick="resumeGame()">Resume</button>
                 <button onclick="returnToTitle()">Main Menu</button>
+                <div id="pause-volume-control">
+                    <h3 class="volume-label">VOLUME</h3>
+                    <input type="range" id="pause-volume-slider" class="volume-slider" min="0" max="100" value="100">
+                </div>
             </div>
         </div>
 
@@ -94,8 +103,17 @@
             document.removeEventListener('click', handleUserInteraction);
             document.removeEventListener('keydown', handleUserInteraction);
             
-            // Now play the intro sequence
-            playIntroSequence();
+            // Skip intro animation if already played this session, but still fade out the black overlay
+            if (sessionStorage.getItem('carlIntroPlayed') === 'true') {
+                const introOverlay = document.getElementById('intro-overlay');
+                if (introOverlay) {
+                    introOverlay.classList.add('fade-out');
+                    setTimeout(() => introOverlay.remove(), 1000);
+                }
+            } else {
+                sessionStorage.setItem('carlIntroPlayed', 'true');
+                playIntroSequence();
+            }
         }
         
         // ========== INTRO SEQUENCE ==========
@@ -209,12 +227,65 @@
             
             document.getElementById('start-button').addEventListener('click', startGame);
             createBubbles();
+            VolumeControl.init();
         });
 
         // Reload page on window resize
         window.addEventListener('resize', function() {
             location.reload();
         });
+
+        // ========== VOLUME CONTROL ==========
+        const VolumeControl = {
+            STORAGE_KEY: 'carlVolume',
+
+            getVolume() {
+                const saved = localStorage.getItem(this.STORAGE_KEY);
+                return saved !== null ? parseFloat(saved) : 100;
+            },
+
+            apply(val) {
+                const v = val / 100;
+                // p5.sound in this version uses outputVolume(), not masterVolume()
+                if (typeof outputVolume === 'function') {
+                    outputVolume(v, 0);
+                }
+            },
+
+            syncSliders(val) {
+                const menuSlider = document.getElementById('menu-volume-slider');
+                const pauseSlider = document.getElementById('pause-volume-slider');
+                if (menuSlider) menuSlider.value = val;
+                if (pauseSlider) pauseSlider.value = val;
+            },
+
+            init() {
+                const vol = this.getVolume();
+                this.syncSliders(vol);
+                // masterVolume is a p5 global - apply once p5 is ready
+                // (safe to call immediately since p5.sound loads before this script)
+                this.apply(vol);
+
+                const self = this;
+                const setupSlider = (id) => {
+                    const slider = document.getElementById(id);
+                    if (!slider) return;
+                    slider.addEventListener('input', () => {
+                        const v = parseFloat(slider.value);
+                        self.apply(v);
+                        self.syncSliders(v);
+                    });
+                    slider.addEventListener('change', () => {
+                        localStorage.setItem(self.STORAGE_KEY, slider.value);
+                    });
+                };
+
+                setupSlider('menu-volume-slider');
+                setupSlider('pause-volume-slider');
+            }
+        };
+        // Also expose for game.js to call after p5 setup if needed
+        window.VolumeControl = VolumeControl;
     </script>
 
     <!-- Game Logic -->

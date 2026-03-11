@@ -9,8 +9,8 @@ class SunBoss extends Enemy {
     constructor(x, y) {
         super('sunboss', x, y);
         this.size = 150 * SCALE;
-        this.health = DEBUG ? 1 : 20;
-        this.maxHealth = DEBUG ? 1 : 20;
+        this.health = DEBUG ? 6 : 20;
+        this.maxHealth = DEBUG ? 6 : 20;
         this.invincible = false;
         this.invincibleTimer = 0;
         this.attackCooldown = 0;
@@ -94,22 +94,51 @@ class SunBoss extends Enemy {
         if (this.health <= 0 && !this.defeated) {
             this.defeated = true;
             this.defeatTimer = 0;
+            // End pearl dash if it was active when boss died
+            if (typeof carl !== 'undefined' && carl && carl.pearlDash) {
+                carl.pearlDash = false;
+                carl.pearlDashShooting = false;
+                carl.isInvincible = false;
+                carl.invincibleTimer = 0;
+            }
+            // Freeze the timer right now
+            game.currentTime = (Date.now() - game.startTime) / 1000;
+            game.timerFrozen = true;
+            // Determine if this is a new best time and set timer color (debug runs don't count)
+            let isNewBest = !DEBUG && (game.bestTime === null || game.currentTime < game.bestTime);
+            if (isNewBest) {
+                game.bestTime = game.currentTime;
+                localStorage.setItem('carlBestTime', game.bestTime.toString());
+                game.timerColor = 'gold';
+            } else {
+                game.timerColor = 'red';
+            }
             // Disable Carl's movement and damage
             if (typeof carl !== 'undefined' && carl) {
                 carl.defeatedBoss = true;
             }
-            // Fade out boss music and start rumble
+            // Fade out boss music and start rumble.
+            // If bossMusic was paused (e.g. during the super-carl dash) just stop it
+            // directly — fading a paused track corrupts the gain node for the next run.
             if (window.bossMusic && window.bossMusicLoaded) {
-                window.bossMusic.setVolume(0.5);
-                let fadeInterval = setInterval(() => {
-                    let vol = window.bossMusic.getVolume();
-                    if (vol > 0.05) {
-                        window.bossMusic.setVolume(vol - 0.05);
-                    } else {
-                        window.bossMusic.stop();
-                        clearInterval(fadeInterval);
-                    }
-                }, 50);
+                const musicWasPlaying = window.bossMusic.isPlaying();
+                if (musicWasPlaying) {
+                    window.bossMusic.setVolume(0.5);
+                    let fadeInterval = setInterval(() => {
+                        let vol = window.bossMusic.getVolume();
+                        if (vol > 0.05) {
+                            window.bossMusic.setVolume(vol - 0.05);
+                        } else {
+                            window.bossMusic.setVolume(1.0); // reset gain before stopping
+                            window.bossMusic.stop();
+                            clearInterval(fadeInterval);
+                        }
+                    }, 50);
+                } else {
+                    // Was paused; restore gain to a clean state then stop
+                    window.bossMusic.setVolume(1.0);
+                    window.bossMusic.stop();
+                }
             }
             if (window.rumbleSound && window.rumbleSoundLoaded) {
                 window.rumbleSound.setVolume(0.7);
@@ -241,9 +270,16 @@ class SunBoss extends Enemy {
         // Check if Carl collides with the sun boss
         let d = dist(this.x, this.y, carl.x, carl.y);
         if (d < (this.size * 0.6 + carl.size) * 0.7) {
-            // Carl hits the sun - damage the boss but also hurt Carl
-            this.takeDamage();
-            return true; // This will trigger Carl.hit()
+            // Pearl dash: deal heavy damage, Carl is unharmed
+            if (carl.pearlDash && !carl.pearlPassedSun) {
+                carl.pearlPassedSun = true;
+                this.takeHeavyDamage(5);
+                return false;
+            } else if (!carl.pearlDash) {
+                // Normal collision - damage boss and hurt Carl
+                this.takeDamage();
+                return true;
+            }
         }
         return false;
     }
@@ -257,6 +293,16 @@ class SunBoss extends Enemy {
             for (let i = 0; i < 10; i++) {
                 particles.push(new Particle(this.x, this.y, 'hit'));
             }
+        }
+    }
+
+    takeHeavyDamage(amount) {
+        // Bypass invincibility - pearl dash deals direct heavy damage
+        this.health = max(0, this.health - amount);
+        this.invincible = true;
+        this.invincibleTimer = 30;
+        for (let i = 0; i < 30; i++) {
+            particles.push(new Particle(this.x, this.y, 'hit'));
         }
     }
     
@@ -421,6 +467,82 @@ class Fireball extends Enemy {
     }
 }
 
+// ========== PEARL POWERUP ==========
+class PearlPowerup {
+    constructor(x, y) {
+        this.x = x;
+        this.baseY = y;
+        this.y = y;
+        this.animFrame = 0;
+        this.size = 35 * SCALE;
+        this.active = true;
+        this.respawnTimer = 0;
+    }
+
+    update() {
+        if (!this.active) {
+            this.respawnTimer--;
+            if (this.respawnTimer <= 0) {
+                this.active = true;
+                this.y = this.baseY;
+                this.animFrame = 0;
+            }
+            return;
+        }
+        this.animFrame += 0.04;
+        this.y = this.baseY + sin(this.animFrame) * 12 * scaleY;
+        // Check collection (not while already in a pearl dash)
+        if (!carl.pearlDash) {
+            let d = dist(this.x, this.y, carl.x, carl.y);
+            if (d < this.size + carl.size) {
+                this.active = false;
+                this.respawnTimer = 1800; // 30 seconds at 60 fps
+                carl.startPearlDash();
+                for (let i = 0; i < 25; i++) {
+                    particles.push(new Particle(this.x, this.y, 'powerup'));
+                }
+            }
+        }
+    }
+
+    draw() {
+        if (!this.active) return;
+        push();
+        translate(this.x, this.y - game.cameraY);
+        // Outer pulsing glow
+        let pulse = sin(this.animFrame * 2) * 0.15 + 1.0;
+        noStroke();
+        fill(255, 200, 100, 40 * pulse);
+        circle(0, 0, this.size * 3.0 * pulse);
+        fill(255, 180, 80, 50 * pulse);
+        circle(0, 0, this.size * 2.0 * pulse);
+        // Pearl body with iridescent sheen
+        rotate(this.animFrame * 0.3);
+        let grad = drawingContext.createRadialGradient(
+            -this.size * 0.25, -this.size * 0.25, 0,
+            0, 0, this.size * 0.72
+        );
+        grad.addColorStop(0, '#FFFFFF');
+        grad.addColorStop(0.3, '#FFF5E0');
+        grad.addColorStop(0.65, '#F0DEB0');
+        grad.addColorStop(1, '#D4B880');
+        drawingContext.fillStyle = grad;
+        noStroke();
+        circle(0, 0, this.size * 1.4);
+        // Iridescent shimmer spot
+        let shimmer = sin(this.animFrame * 4) * 0.5 + 0.5;
+        fill(255, 120 + shimmer * 80, 180 + shimmer * 75, 80 + shimmer * 50);
+        circle(-this.size * 0.18, -this.size * 0.22, this.size * 0.45);
+        // Star emblem
+        fill(255, 200, 50);
+        noStroke();
+        textAlign(CENTER, CENTER);
+        textSize(18 * SCALE);
+        text('✦', 0, 0);
+        pop();
+    }
+}
+
 // ========== BOSS PLATFORM GENERATION ==========
 function generateBossPlatforms() {
     // Don't use procedural generation - platforms are created manually in initGame
@@ -476,4 +598,38 @@ function createBossPlatforms() {
     for (let platform of platforms) {
         platform.bossPlatform = true;
     }
+
+    // Create the pearl powerup above all platforms, floating in the center
+    let pearlY = game.surfaceGoal - verticalSpacing * 8.8;
+    game.pearlPowerup = new PearlPowerup(width / 2, pearlY);
+}
+
+// ========== BOSS FIGHT POWERUP SPAWNING ==========
+function trySpawnBossPowerup() {
+    // 10% chance for a powerup to spawn
+    if (random() > 0.1) return;
+
+    // Randomly choose speed or shield
+    let type = random() < 0.5 ? 'speed' : 'shield';
+
+    // Autofail if this type already exists anywhere on a platform
+    for (let p of powerups) {
+        if (p.type === type) return;
+    }
+
+    // Collect all above-water boss platforms
+    let bossPlatforms = platforms.filter(p => p.bossPlatform && p.y < game.surfaceGoal);
+    if (bossPlatforms.length === 0) return;
+
+    // Pick a random platform
+    let platform = bossPlatforms[floor(random(bossPlatforms.length))];
+
+    // Autofail if the chosen platform already has any powerup on it
+    for (let p of powerups) {
+        if (p.x >= platform.x && p.x <= platform.x + platform.width) return;
+    }
+
+    // Spawn the powerup centered on the platform surface
+    let powerupSize = 30 * SCALE;
+    powerups.push(new Powerup(platform.x + platform.width / 2, platform.y - powerupSize - 10 * scaleY, type));
 }

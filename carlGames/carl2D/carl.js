@@ -50,7 +50,14 @@ let game = {
         sunSize: 0,
         supernovaProgress: 0,
         fadeAlpha: 0
-    }
+    },
+
+    // Timer freeze + color on boss defeat
+    timerFrozen: false,
+    timerColor: null,
+
+    // Pearl powerup during boss fight
+    pearlPowerup: null
 };
 
 let carl;
@@ -65,6 +72,7 @@ let sounds = { backgroundMusic: null, jump: null, boost: null, hit: null, death:
 let lastPlatformY = 0;
 let platformGap = 600;
 let waterHealTimer = 0; // Timer for water healing
+let bossPowerupTimer = 0; // Timer for boss fight powerup spawn opportunities
 
 // ========== CARL CHARACTER ==========
 class Carl {
@@ -81,6 +89,15 @@ class Carl {
         this.jumping = false; // Track if Carl is in a jump
         this.wasAboveWater = false; // Track water surface crossing for logging
         this.healEffectTimer = 0; // Visual indicator when healed
+        this.holdMode = false;          // Vertical position lock
+        this.holdY = 0;                 // World Y to hold at
+        this.holdActivatedByTouch = false;
+        this.holdTouchStartScreenY = 0;
+        this.pearlDash = false;       // Pearl powerup dash mode
+        this.pearlDashTimer = 0;      // Frame counter for dash phases
+        this.pearlDashStartTime = 0;  // millis() timestamp when dash began
+        this.pearlDashShooting = false; // true once the downward shoot phase starts
+        this.pearlPassedSun = false;  // Ensures sun takes damage only once per dash
         this.tentacles = [];
         for (let i = 0; i < CARL_CONFIG.TENTACLE_COUNT; i++) {
             this.tentacles.push({ angle: (TWO_PI / CARL_CONFIG.TENTACLE_COUNT) * i, length: CARL_CONFIG.TENTACLE_LENGTH, wave: random(TWO_PI) });
@@ -94,7 +111,73 @@ class Carl {
             this.vy = 0;
             return; // Exit early, don't process any movement
         }
-        
+
+        // Pearl dash override - player loses control, Carl shoots straight down
+        if (this.pearlDash) {
+            this.pearlDashTimer++;
+            const PEARL_WINDUP_MS = 3000; // exactly 3 real seconds
+            let elapsed = millis() - this.pearlDashStartTime;
+
+            // Wind-up: drift slowly upward while radial burst particles intensify over 3 seconds.
+            if (elapsed < PEARL_WINDUP_MS) {
+                this.vx = 0;
+                this.vy = -18 * scaleY; // slow upward drift
+                this.x += this.vx;
+                this.y += this.vy;
+                particles.push(new Particle(this.x, this.y, 'pearl_burst'));
+                this.animFrame += this.animSpeed;
+                return;
+            }
+
+            // First frame of dash phase: flip the flag so draw() shows trail immediately
+            if (!this.pearlDashShooting) {
+                this.pearlDashShooting = true;
+            }
+
+            // Shoot straight down – speed is higher to remain ~3 s since wind-up gained altitude
+            this.vx = 0;
+            this.vy = 26 * scaleY;
+            this.x += this.vx;
+            this.y += this.vy;
+            // Screen wrap
+            if (this.x < -this.size) this.x = width + this.size;
+            if (this.x > width + this.size) this.x = -this.size;
+            // Trail particles: random X jitter but always directly above Carl (no vx influence)
+            if (frameCount % 2 === 0) {
+                particles.push(new Particle(
+                    this.x + random(-12, 12) * SCALE,
+                    this.y - random(15, 45) * scaleY,
+                    'pearl'
+                ));
+            }
+            // End dash as soon as Carl reaches the water
+            if (this.y >= game.surfaceGoal) {
+                this.y = game.surfaceGoal;
+                this.pearlDash = false;
+                this.isInvincible = true;
+                this.invincibleTimer = 60; // Brief invincibility after landing
+                this.vx = 0;
+                this.vy = 26 * scaleY; // carry downward momentum into the water (matches dash speed)
+                // Stop super-Carl track and resume the boss battle music
+                if (window.superCarlMusic && window.superCarlMusicLoaded) {
+                    try { window.superCarlMusic.stop(); } catch (e) {}
+                }
+                if (window.bossMusic && window.bossMusicLoaded) {
+                    try { window.bossMusic.play(); } catch (e) {}
+                }
+                // Steam burst from the impact point
+                for (let i = 0; i < 35; i++) {
+                    particles.push(new Particle(this.x + random(-70, 70) * SCALE, this.y, 'steam'));
+                }
+                // A few orange sparks for punch
+                for (let i = 0; i < 12; i++) {
+                    particles.push(new Particle(this.x + random(-30, 30) * SCALE, this.y, 'pearl_burst'));
+                }
+            }
+            this.animFrame += this.animSpeed;
+            return;
+        }
+
         // Block input during boss defeat sequence, but allow falling
         let bossDefeated = false;
         if (game.bossMode) {
@@ -162,6 +245,15 @@ class Carl {
                             this.vy = CARL_CONFIG.JUMP_POWER;
                             this.jumping = true;
                             this.onPlatform = null;
+                        } else if (this.holdMode && this.holdActivatedByTouch) {
+                            // Check if vertical drag has exceeded threshold to cancel hold
+                            let currentScreenY = touches.length > 0 ? touches[0].y : mouseY;
+                            if (abs(currentScreenY - this.holdTouchStartScreenY) > 60) {
+                                this.holdMode = false;
+                                if (dy < 0 && !isAboveWater) this.vy -= accelY;
+                                else if (dy > 0) this.vy += accelY;
+                            }
+                            // else: hold active, skip vertical movement
                         } else if (dy < 0 && !isAboveWater) {
                             this.vy -= accelY; // Only allow upward acceleration underwater
                         } else if (dy > 0) {
@@ -173,13 +265,22 @@ class Carl {
                 // Keyboard controls
                 if (CONTROLS.LEFT.some(k => keys[k])) this.vx -= accelX;
                 if (CONTROLS.RIGHT.some(k => keys[k])) this.vx += accelX;
-                if (CONTROLS.UP.some(k => keys[k]) && !isAboveWater) this.vy -= accelY; // Disable upward acceleration above water (jumping is handled separately)
-                if (CONTROLS.DOWN.some(k => keys[k])) this.vy += accelY;
+                // Cancel hold mode on vertical input
+                if (CONTROLS.UP.some(k => keys[k]) || CONTROLS.DOWN.some(k => keys[k])) {
+                    this.holdMode = false;
+                }
+                if (!this.holdMode) {
+                    if (CONTROLS.UP.some(k => keys[k]) && !isAboveWater) this.vy -= accelY; // Disable upward acceleration above water (jumping is handled separately)
+                    if (CONTROLS.DOWN.some(k => keys[k])) this.vy += accelY;
+                }
             }
         }
         
         // Check if Carl is above water in boss mode for physics adjustments
         let isAboveWater = game.bossMode && this.y < game.surfaceGoal;
+        
+        // Cancel hold mode when above water (jumping sequence)
+        if (isAboveWater) this.holdMode = false;
         
         // Apply friction and water resistance only when underwater
         if (!isAboveWater) {
@@ -199,7 +300,13 @@ class Carl {
             this.vy *= 0.998;
         }
         
-        this.vy += this.gravity;
+        // Hold mode: spring-lock vertical position instead of applying gravity
+        if (this.holdMode && !isAboveWater) {
+            this.vy *= 0.5; // Extra strong vertical damping
+            this.vy += (this.holdY - this.y) * 0.15; // Spring back to hold position
+        } else {
+            this.vy += this.gravity;
+        }
         
         let maxSpd = this.maxSpeed * this.speedBoost;
         let maxSpdY = 28 * scaleY * this.speedBoost; // Vertical max speed should scale with scaleY
@@ -336,13 +443,35 @@ class Carl {
         sounds.play('boost');
         for (let i = 0; i < 20; i++) particles.push(new Particle(this.x, this.y, 'boost'));
     }
-    
+
+    startPearlDash() {
+        this.pearlDash = true;
+        this.pearlDashTimer = 0;
+        this.pearlDashStartTime = millis();
+        this.pearlDashShooting = false;
+        this.pearlPassedSun = false;
+        this.isInvincible = true;
+        this.invincibleTimer = 9999; // Will be replaced when dash ends
+        this.vx = 0;
+        this.vy = 0;
+        // Pause boss battle music and play the super-Carl track
+        if (window.bossMusic && window.bossMusicLoaded) {
+            try { window.bossMusic.pause(); } catch (e) {}
+        }
+        if (window.superCarlMusic && window.superCarlMusicLoaded) {
+            try { window.superCarlMusic.setVolume(1.0); window.superCarlMusic.play(); } catch (e) {}
+        }
+        for (let i = 0; i < 20; i++) {
+            particles.push(new Particle(this.x + random(-this.size, this.size), this.y + random(-this.size, this.size), 'pearl'));
+        }
+    }
+
     draw() {
         push();
         translate(this.x, this.y - game.cameraY);
         rotate(this.rotation);
         
-        if (this.isInvincible && frameCount % 10 < 5) { pop(); return; }
+        if (this.isInvincible && !this.pearlDash && frameCount % 10 < 5) { pop(); return; }
         
         // Heal effect visual
         if (this.healEffectTimer > 0) {
@@ -407,54 +536,223 @@ class Carl {
             pop();
         }
         
-        for (let i = 0; i < this.tentacles.length; i++) {
-            let t = this.tentacles[i];
-            let waveOffset = sin(this.animFrame + t.wave) * 5 * SCALE;
-            let tentacleLength = t.length + waveOffset;
-            let endX = cos(t.angle) * tentacleLength;
-            let endY = sin(t.angle) * tentacleLength;
-            let grad = drawingContext.createLinearGradient(0, 0, endX, endY);
-            grad.addColorStop(0, '#8b5dbf');
-            grad.addColorStop(1, '#c98dd9');
-            strokeWeight(6 * SCALE);
-            drawingContext.strokeStyle = grad;
-            line(0, 0, endX, endY);
-            noStroke(); fill(100, 60, 130);
-            for (let j = 0; j < 3; j++) {
-                let t_pos = (j + 1) / 4;
-                circle(endX * t_pos, endY * t_pos, 4 * SCALE);
-            }
+        // Compute pearl intensity: 0→1 over 3s wind-up, then holds at 1 during dash.
+        // Drives all gradual color transitions and glow opacity.
+        const PEARL_WINDUP_MS = 3000;
+        let pearlIntensity = 0;
+        if (this.pearlDash) {
+            let elapsed = millis() - this.pearlDashStartTime;
+            pearlIntensity = this.pearlDashShooting ? 1.0 : constrain(elapsed / PEARL_WINDUP_MS, 0, 1);
         }
-        
-        let bodyGrad = drawingContext.createRadialGradient(0, -5, 5, 0, 0, this.size * 0.6);
-        bodyGrad.addColorStop(0, '#b19cd9');
-        bodyGrad.addColorStop(0.5, '#8b5dbf');
-        bodyGrad.addColorStop(1, '#6b4a9e');
-        noStroke();
-        drawingContext.fillStyle = bodyGrad;
-        ellipse(0, 0, this.size * 1.2, this.size);
-        
-        stroke(100, 60, 130, 150); strokeWeight(3 * SCALE); noFill();
-        for (let i = 0; i < 3; i++) { let offset = i * 8 * SCALE - 8 * SCALE; arc(offset, 0, 15 * SCALE, 15 * SCALE, 0, PI); }
-        
-        fill(90, 50, 120); noStroke();
-        for (let i = 0; i < 12; i++) {
-            let spikeAngle = (PI / 12) * i + PI * 0.3;
-            let spikeX = cos(spikeAngle) * (this.size * 0.45);
-            let spikeY = sin(spikeAngle) * (this.size * 0.35);
-            let spikeSize = (8 + sin(this.animFrame + i) * 2) * SCALE;
-            push(); translate(spikeX, spikeY); rotate(spikeAngle);
-            triangle(-spikeSize/2, 0, spikeSize/2, 0, 0, -spikeSize * 1.5);
+        // Channel lerp helper: blends from purple value 'a' toward orange value 'b'
+        let lc = (a, b) => Math.round(a + (b - a) * pearlIntensity);
+
+        // Outer glow fades in during wind-up; velocity trail extends behind during dash
+        if (pearlIntensity > 0) {
+            push();
+            noStroke();
+            fill(255, 140, 0, pearlIntensity * 90);
+            circle(0, 0, this.size * 2.8);
+            // Trail: visible from the exact same frame pearlDashShooting flips true
+            if (this.pearlDashShooting) {
+                push();
+                rotate(-this.rotation); // undo the parent rotate(this.rotation)
+                for (let i = 1; i <= 6; i++) {
+                    let trailAlpha = map(i, 1, 6, 125, 8);
+                    let trailSize = map(i, 1, 6, 2.4, 0.7);
+                    fill(255, max(50, 180 - i * 22), 0, trailAlpha);
+                    circle(0, -this.size * i * 1.4, this.size * trailSize);
+                }
+                pop();
+            }
             pop();
         }
-        
-        fill(255); ellipse(-12 * SCALE, -8 * SCALE, 16 * SCALE, 20 * SCALE); ellipse(12 * SCALE, -8 * SCALE, 16 * SCALE, 20 * SCALE);
-        let pupilX = constrain(this.vx * 2 * SCALE, -3 * SCALE, 3 * SCALE);
-        let pupilY = constrain(this.vy * 0.5 * SCALE, -3 * SCALE, 3 * SCALE);
-        fill(50, 180, 100); ellipse(-12 * SCALE + pupilX, -8 * SCALE + pupilY, 8 * SCALE, 10 * SCALE); ellipse(12 * SCALE + pupilX, -8 * SCALE + pupilY, 8 * SCALE, 10 * SCALE);
-        fill(255, 255, 255, 200); ellipse(-14 * SCALE + pupilX, -10 * SCALE + pupilY, 3 * SCALE, 3 * SCALE); ellipse(10 * SCALE + pupilX, -10 * SCALE + pupilY, 3 * SCALE, 3 * SCALE);
-        stroke(80, 40, 100); strokeWeight(2 * SCALE); noFill(); arc(0, 2 * SCALE, 20 * SCALE, 15 * SCALE, 0, PI);
-        strokeWeight(1 * SCALE); line(-6 * SCALE, 2 * SCALE, -6 * SCALE, 6 * SCALE); line(-2 * SCALE, 2 * SCALE, -2 * SCALE, 6 * SCALE); line(2 * SCALE, 2 * SCALE, 2 * SCALE, 6 * SCALE); line(6 * SCALE, 2 * SCALE, 6 * SCALE, 6 * SCALE);
+
+        // === COLOR SCHEME (lerps from purple to orange during pearl dash) ===
+        let bodyR = lc(128, 255), bodyG = lc(60, 140), bodyB = lc(180, 0);
+        let bodyLightR = lc(177, 255), bodyLightG = lc(156, 218), bodyLightB = lc(217, 160);
+        let bodyDarkR = lc(80, 180), bodyDarkG = lc(40, 60), bodyDarkB = lc(120, 0);
+        let tentBaseR = lc(100, 180), tentBaseG = lc(50, 70), tentBaseB = lc(160, 20);
+        let tentLightR = lc(160, 255), tentLightG = lc(100, 160), tentLightB = lc(200, 80);
+        let tentDotR = lc(70, 160), tentDotG = lc(30, 50), tentDotB = lc(100, 10);
+        let spikeR = lc(90, 165), spikeG = lc(50, 70), spikeB = lc(120, 15);
+        let earR = lc(110, 200), earG = lc(55, 80), earB = lc(150, 10);
+        let earInnerR = lc(170, 255), earInnerG = lc(120, 180), earInnerB = lc(190, 100);
+        let s = this.size * 0.7; // sprite scale (70% of hitbox size)
+
+        // === 1. TENTACLES (behind body) — 9 wavy bezier tentacles ===
+        // Skip the bottom 45° arc: that's ±22.5° around straight down (HALF_PI).
+        // Spread 9 tentacles equally across the remaining 315° (7/8 of a circle).
+        let tentGapAngle = PI * 0.125; // 22.5° in radians
+        let tentArcStart = HALF_PI + tentGapAngle; // just past bottom-right
+        let tentArcSpan = TWO_PI - tentGapAngle * 2; // 315°
+        // Movement intensity drives tentacle animation (0 when still, 1 at full speed)
+        let speed = sqrt(this.vx * this.vx + this.vy * this.vy);
+        let moveIntensity = constrain(speed / (this.maxSpeed * 0.5), 0, 1);
+        for (let i = 0; i < 9; i++) {
+            let angle = tentArcStart + (tentArcSpan / 9) * (i + 0.5);
+            // Erratic multi-frequency waves — each tentacle has its own chaotic phase
+            let f = frameCount;
+            let wave  = (sin(f * 0.55 + i * 2.3) * 0.6
+                       + sin(f * 1.1  + i * 1.1) * 0.25
+                       + sin(f * 0.28 + i * 3.7) * 0.15) * s * 0.22 * moveIntensity;
+            let wave2 = (cos(f * 0.48 + i * 1.9) * 0.6
+                       + cos(f * 0.97 + i * 2.5) * 0.25
+                       + cos(f * 0.33 + i * 0.9) * 0.15) * s * 0.18 * moveIntensity;
+
+            // Origin on body edge
+            let ox = cos(angle) * s * 0.55;
+            let oy = sin(angle) * s * 0.55;
+
+            // Tentacle length — erratic length pulsing when moving
+            let tentLen = s * 0.85
+                + (sin(f * 0.42 + i * 1.7) * 0.6 + sin(f * 0.87 + i * 2.9) * 0.4)
+                  * s * 0.18 * moveIntensity;
+            let ex = cos(angle) * (s * 0.55 + tentLen) + wave;
+            let ey = sin(angle) * (s * 0.55 + tentLen) + wave2;
+
+            // Control points — independently erratic for wild curves
+            let cp1Wave = (sin(f * 0.73 + i * 1.4) * 0.7 + sin(f * 1.3 + i * 2.1) * 0.3) * s * 0.18 * moveIntensity;
+            let cp2Wave = (cos(f * 0.61 + i * 2.8) * 0.7 + cos(f * 1.05 + i * 1.6) * 0.3) * s * 0.16 * moveIntensity;
+            let cx1 = ox + cos(angle + 0.4) * tentLen * 0.4 + cp1Wave;
+            let cy1 = oy + sin(angle + 0.4) * tentLen * 0.4 + cp1Wave * 0.8;
+            let cx2 = ox + cos(angle - 0.3) * tentLen * 0.75 + cp2Wave;
+            let cy2 = oy + sin(angle - 0.3) * tentLen * 0.75 + cp2Wave * 0.8;
+
+            // Thick outer stroke
+            noFill();
+            stroke(tentBaseR, tentBaseG, tentBaseB);
+            strokeWeight(5 * SCALE);
+            bezier(ox, oy, cx1, cy1, cx2, cy2, ex, ey);
+
+            // Lighter inner highlight stroke
+            stroke(tentLightR, tentLightG, tentLightB, 120);
+            strokeWeight(2.5 * SCALE);
+            bezier(ox, oy, cx1, cy1, cx2, cy2, ex, ey);
+
+            // Suction dots along the tentacle curve
+            noStroke();
+            fill(tentDotR, tentDotG, tentDotB);
+            for (let j = 1; j <= 5; j++) {
+                let t = j / 6;
+                let px = bezierPoint(ox, cx1, cx2, ex, t);
+                let py = bezierPoint(oy, cy1, cy2, ey, t);
+                let dotSize = map(j, 1, 5, 4, 2.5) * SCALE;
+                circle(px, py, dotSize);
+            }
+        }
+
+        // === 2. BODY (circular with radial gradient) ===
+        noStroke();
+        // Shadow under body
+        fill(bodyDarkR, bodyDarkG, bodyDarkB);
+        circle(0, s * 0.03, s * 1.34);
+        // Main body circle with gradient
+        let bodyGrad = drawingContext.createRadialGradient(
+            -s * 0.15, -s * 0.15, s * 0.05,
+            0, 0, s * 0.65
+        );
+        bodyGrad.addColorStop(0, `rgb(${bodyLightR},${bodyLightG},${bodyLightB})`);
+        bodyGrad.addColorStop(0.5, `rgb(${bodyR},${bodyG},${bodyB})`);
+        bodyGrad.addColorStop(1, `rgb(${bodyDarkR},${bodyDarkG},${bodyDarkB})`);
+        drawingContext.fillStyle = bodyGrad;
+        circle(0, 0, s * 1.3);
+        // Swirl markings on body
+        noFill();
+        stroke(bodyDarkR, bodyDarkG, bodyDarkB, 80);
+        strokeWeight(2 * SCALE);
+        arc(-s * 0.15, s * 0.1, s * 0.35, s * 0.35, PI * 0.3, PI * 1.5);
+        arc(s * 0.1, s * 0.05, s * 0.25, s * 0.25, PI * 1.2, PI * 2.5);
+
+        // Lighter stomach oval
+        noStroke();
+        fill(bodyLightR, bodyLightG, bodyLightB, 120);
+        ellipse(0, s * 0.18, s * 0.55, s * 0.45);
+
+        // === 3. SPIKES (16 small triangles around body) ===
+        fill(spikeR, spikeG, spikeB);
+        noStroke();
+        for (let i = 0; i < 16; i++) {
+            let spikeAngle = (TWO_PI / 16) * i;
+            let sx = cos(spikeAngle) * s * 0.6;
+            let sy = sin(spikeAngle) * s * 0.6;
+            let spikeLen = s * 0.12 + sin(this.animFrame + i * 0.8) * s * 0.02;
+            push();
+            translate(sx, sy);
+            rotate(spikeAngle);
+            triangle(-s * 0.04, 0, s * 0.04, 0, 0, -spikeLen);
+            pop();
+        }
+
+        // === 4. EARS (cat-like triangles on top) ===
+        noStroke();
+        // Left ear
+        fill(earR, earG, earB);
+        push();
+        translate(-s * 0.35, -s * 0.55);
+        rotate(-0.15);
+        triangle(-s * 0.12, s * 0.1, s * 0.12, s * 0.1, 0, -s * 0.22);
+        fill(earInnerR, earInnerG, earInnerB);
+        triangle(-s * 0.06, s * 0.08, s * 0.06, s * 0.08, 0, -s * 0.14);
+        pop();
+        // Right ear
+        fill(earR, earG, earB);
+        push();
+        translate(s * 0.35, -s * 0.55);
+        rotate(0.15);
+        triangle(-s * 0.12, s * 0.1, s * 0.12, s * 0.1, 0, -s * 0.22);
+        fill(earInnerR, earInnerG, earInnerB);
+        triangle(-s * 0.06, s * 0.08, s * 0.06, s * 0.08, 0, -s * 0.14);
+        pop();
+
+        // === 5. EYES (large expressive cartoon eyes) ===
+        let pupilOffsetX = constrain(this.vx * 2, -3, 3) * SCALE;
+        let pupilOffsetY = constrain(this.vy * 0.5, -3, 3) * SCALE;
+        let eyeLX = -s * 0.25, eyeRX = s * 0.25, eyeY = -s * 0.15;
+        // White eyeballs
+        fill(255);
+        noStroke();
+        ellipse(eyeLX, eyeY, s * 0.35, s * 0.4);
+        ellipse(eyeRX, eyeY, s * 0.35, s * 0.4);
+        // Green irises
+        fill(50, 180, 100);
+        ellipse(eyeLX + pupilOffsetX, eyeY + pupilOffsetY, s * 0.18, s * 0.22);
+        ellipse(eyeRX + pupilOffsetX, eyeY + pupilOffsetY, s * 0.18, s * 0.22);
+        // Black pupils
+        fill(0);
+        ellipse(eyeLX + pupilOffsetX, eyeY + pupilOffsetY, s * 0.09, s * 0.11);
+        ellipse(eyeRX + pupilOffsetX, eyeY + pupilOffsetY, s * 0.09, s * 0.11);
+        // White highlight dots
+        fill(255, 255, 255, 220);
+        ellipse(eyeLX - s * 0.04 + pupilOffsetX * 0.3, eyeY - s * 0.06 + pupilOffsetY * 0.3, s * 0.07, s * 0.07);
+        ellipse(eyeRX - s * 0.04 + pupilOffsetX * 0.3, eyeY - s * 0.06 + pupilOffsetY * 0.3, s * 0.07, s * 0.07);
+
+        // === 6. MOUTH (mischievous grin with teeth) ===
+        // White mouth interior
+        fill(255);
+        noStroke();
+        arc(0, s * 0.08, s * 0.45, s * 0.3, 0.1, PI - 0.1, CHORD);
+        // Mouth outline
+        stroke(lc(80, 140), lc(40, 50), lc(100, 10));
+        strokeWeight(2.5 * SCALE);
+        noFill();
+        arc(0, s * 0.08, s * 0.45, s * 0.3, 0.1, PI - 0.1);
+        // Small triangular teeth along the top of the smile
+        fill(255);
+        noStroke();
+        for (let i = 0; i < 5; i++) {
+            let t = map(i, 0, 4, 0.35, PI - 0.35);
+            let tx = cos(t) * s * 0.225;
+            let ty = s * 0.08;
+            triangle(tx - s * 0.025, ty, tx + s * 0.025, ty, tx, ty + s * 0.05);
+        }
+
+        // === 7. FEET (stick out below body) ===
+        fill(bodyDarkR, bodyDarkG, bodyDarkB);
+        noStroke();
+        ellipse(-s * 0.2, s * 0.68, s * 0.2, s * 0.16);
+        ellipse(s * 0.2, s * 0.68, s * 0.2, s * 0.16);
+
         pop();
     }
     
@@ -477,6 +775,16 @@ class Carl {
                 sounds.play('hit');
                 for (let i = 0; i < 15; i++) particles.push(new Particle(this.x, this.y, 'hit'));
                 
+                // Blood in the water: spawn a shark from the side furthest from Carl at max speed (only underwater)
+                if (this.y > game.surfaceGoal) {
+                    let sharkFromLeft = this.x > width / 2;
+                    let sharkX = sharkFromLeft ? -70 * SCALE : width + 70 * SCALE;
+                    let sharkDir = sharkFromLeft ? 1 : -1;
+                    let bloodShark = new Shark(sharkX, this.y, sharkDir);
+                    bloodShark.speed = ENEMY_CONFIG.SHARK_SPEED * 2.5 * (game.bossMode ? 1.5 : 1.0);
+                    enemies.push(bloodShark);
+                }
+
                 // Reset water healing timer when taking damage
                 waterHealTimer = 0;
                 
@@ -489,5 +797,7 @@ class Carl {
         this.x = width / 2; this.y = game.seaLevel; this.vx = 0; this.vy = 0;
         this.rotation = 0; this.isInvincible = false; this.invincibleTimer = 0;
         this.speedBoost = 1.0; this.boostTimer = 0; this.hasShield = false;
+        this.holdMode = false;
+        this.pearlDash = false; this.pearlDashTimer = 0; this.pearlDashStartTime = 0; this.pearlDashShooting = false; this.pearlPassedSun = false;
     }
 }
