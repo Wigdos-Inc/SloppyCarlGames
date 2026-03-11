@@ -109,7 +109,7 @@ const CARL_CONFIG = {
     SPEED_BOOST_DURATION: 300,    // Frames
     
     // Invincibility
-    INVINCIBLE_DURATION: 60,      // Frames after getting hit
+    INVINCIBLE_DURATION: 70,      // Frames after getting hit
     
     // Visuals
     TENTACLE_COUNT: 8,
