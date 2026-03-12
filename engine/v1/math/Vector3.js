@@ -50,7 +50,7 @@ function SubtractVector3(a, b) {
 	};
 }
 
-function scaleVector3(vector, scalar) {
+function ScaleVector3(vector, scalar) {
 	const resolved = NormalizeVector3(vector);
 	const factor = ToNumber(scalar, 1);
 	return {
@@ -76,18 +76,18 @@ function CrossVector3(a, b) {
 	};
 }
 
-function vector3Length(vector) {
+function Vector3Length(vector) {
 	const resolved = NormalizeVector3(vector);
 	return Math.hypot(resolved.x, resolved.y, resolved.z);
 }
 
-function distanceVector3(a, b) {
-	return vector3Length(SubtractVector3(a, b));
+function DistanceVector3(a, b) {
+	return Vector3Length(SubtractVector3(a, b));
 }
 
 function NormalizeUnitVector3(vector) {
 	const resolved = NormalizeVector3(vector);
-	const length = vector3Length(resolved);
+	const length = Vector3Length(resolved);
 	if (length <= 0.000001) {
 		return { x: 0, y: 0, z: 0 };
 	}
@@ -146,12 +146,12 @@ export {
 	NormalizeVector3,
 	AddVector3,
 	SubtractVector3,
-	scaleVector3,
+	ScaleVector3,
 	MultiplyVector3,
 	DotVector3,
 	CrossVector3,
-	vector3Length,
-	distanceVector3,
+	Vector3Length,
+	DistanceVector3,
 	NormalizeUnitVector3,
 	LerpVector3,
 	RotateByEuler,

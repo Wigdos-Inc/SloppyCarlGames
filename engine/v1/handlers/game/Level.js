@@ -8,10 +8,10 @@
 
 import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js";
 import { RenderLevel } from "../Render.js";
-import { Cache, IsPointerLocked, Log, pushToSession, SESSION_KEYS } from "../../core/meta.js";
+import { Cache, IsPointerLocked, Log, PushToSession, SESSION_KEYS } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
-import { distanceVector3, LerpVector3, NormalizeVector3 } from "../../math/Vector3.js";
+import { DistanceVector3, LerpVector3, NormalizeVector3 } from "../../math/Vector3.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { UnitVector3 } from "../../math/Utilities.js";
 import { UpdateInputEventTypes } from "../Controls.js";
@@ -21,7 +21,7 @@ import { UpdatePlayerModelFromState } from "../../player/Model.js";
 import { ApplyPhysicsPipeline, ApplyEntityPhysics } from "./Physics.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
-import { getSimDistanceValue } from "../../physics/Collision.js";
+import { GetSimDistanceValue } from "../../physics/Collision.js";
 
 const levelRuntimeState = {
 	payload: null,
@@ -49,31 +49,18 @@ function getConfiguredFrameRate() {
 	return 60;
 }
 
-function clonePayload(payload) {
-	if (!payload || typeof payload !== "object") {
-		return null;
-	}
-	try {
-		return JSON.parse(JSON.stringify(payload));
-	} catch (error) {
-		void error;
-		return null;
-	}
-}
-
 function cacheLevelPayload(payload) {
-	const cachedPayload = clonePayload(payload);
-	if (!cachedPayload) {
+	if (!payload || typeof payload !== "object") {
 		return null;
 	}
 
 	if (Cache && Cache.Level) {
-		Cache.Level.lastPayload = cachedPayload;
-		pushToSession(SESSION_KEYS.Cache, Cache);
+		Cache.Level.lastPayload = payload;
+		PushToSession(SESSION_KEYS.Cache, Cache);
 	}
 
-	levelRuntimeState.payload = cachedPayload;
-	return cachedPayload;
+	levelRuntimeState.payload = payload;
+	return payload;
 }
 
 function buildIncomingPayloadSummary(payload) {
@@ -114,7 +101,7 @@ function updateEntityMovement(entity, deltaSeconds) {
 
 	const start = NormalizeVector3(movement.start, { x: 0, y: 0, z: 0 });
 	const end = NormalizeVector3(movement.end, start);
-	const distance = distanceVector3(start, end);
+	const distance = DistanceVector3(start, end);
 	if (distance <= 0.0001) {
 		return;
 	}
@@ -349,7 +336,7 @@ function Update(deltaMilliseconds) {
 	}
 
 	// === NON-PLAYER ENTITY UPDATE ===
-	const simDistance = getSimDistanceValue();
+	const simDistance = GetSimDistanceValue();
 	const cameraPosition = sceneGraph
 		&& sceneGraph.cameraConfig
 		&& sceneGraph.cameraConfig.state
@@ -366,7 +353,7 @@ function Update(deltaMilliseconds) {
 			cameraPosition
 			&& entity.transform
 			&& entity.transform.position
-			&& distanceVector3(cameraPosition, entity.transform.position) > simDistance
+			&& DistanceVector3(cameraPosition, entity.transform.position) > simDistance
 		) {
 			continue;
 		}

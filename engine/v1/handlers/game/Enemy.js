@@ -4,14 +4,14 @@
 // Uses builder/NewEntity.js to build enemy projectile attacks.
 
 import { CONFIG } from "../../core/config.js";
-import { Log, sendEvent } from "../../core/meta.js";
+import { Log, SendEvent } from "../../core/meta.js";
 import {
 	SubtractVector3,
 	NormalizeUnitVector3,
-	distanceVector3,
+	DistanceVector3,
 } from "../../math/Vector3.js";
 import { ToNumber } from "../../math/Utilities.js";
-import { getSimDistanceValue, CheckEntityAabbOverlap } from "../../physics/Collision.js";
+import { GetSimDistanceValue, CheckEntityAabbOverlap } from "../../physics/Collision.js";
 import { TriggerPlayerDeath, RespawnPlayer } from "../../player/Master.js";
 
 const KNOCKBACK_FORCE = 12;
@@ -35,7 +35,7 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 	const cameraPos = sceneGraph && sceneGraph.cameraConfig && sceneGraph.cameraConfig.state
 		? sceneGraph.cameraConfig.state.position
 		: playerPos;
-	const activityRadius = getSimDistanceValue();
+	const activityRadius = GetSimDistanceValue();
 	const playerAabb = playerState.collision && playerState.collision.aabb ? playerState.collision.aabb : null;
 
 	if (!playerAabb) { return; }
@@ -47,7 +47,7 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 
 		// SimDistance gate is camera-relative; only qualified entities enter this collision pass.
 		const entityPos = entity.transform ? entity.transform.position : { x: 0, y: 0, z: 0 };
-		if (cameraPos && distanceVector3(cameraPos, entityPos) > activityRadius) { continue; }
+		if (cameraPos && DistanceVector3(cameraPos, entityPos) > activityRadius) { continue; }
 
 		if (!CheckEntityAabbOverlap(playerState, entity)) { continue; }
 
@@ -64,7 +64,7 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 				// Remove enemy from scene.
 				entities.splice(i, 1);
 				Log("ENGINE", `Enemy "${entity.id}" destroyed.`, "log", "Level");
-				sendEvent("ENEMY_DESTROYED", { id: entity.id });
+				SendEvent("ENEMY_DESTROYED", { id: entity.id });
 			}
 		} else if (!playerState.invulnerable.active) {
 			// === PLAYER TAKES DAMAGE ===
@@ -114,21 +114,21 @@ function applyPlayerDamage(playerState, damageSourcePosition, sceneGraph) {
 	playerState.state = "Stunned";
 	playerState.grounded = false;
 
-	sendEvent("PLAYER_DAMAGED", { collectibles: playerState.collectibles, dropped: dropCount });
+	SendEvent("PLAYER_DAMAGED", { collectibles: playerState.collectibles, dropped: dropCount });
 }
 
 async function triggerDeathSequence(playerState, sceneGraph) {
 	TriggerPlayerDeath();
 
-	sendEvent("PLAYER_DEATH", {});
+	SendEvent("PLAYER_DEATH", {});
 
 	// Wait for death animation / minimum duration.
-	sendEvent("FADE_OUT", { duration: 500 });
+	SendEvent("FADE_OUT", { duration: 500 });
 
 	// Use setTimeout to allow the fade to play, then respawn.
 	setTimeout(() => {
 		RespawnPlayer();
-		sendEvent("FADE_IN", { duration: 500 });
+		SendEvent("FADE_IN", { duration: 500 });
 	}, DEATH_WAIT_MS);
 }
 

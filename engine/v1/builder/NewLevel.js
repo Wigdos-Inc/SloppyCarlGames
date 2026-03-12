@@ -13,72 +13,11 @@ import { GetPerformanceScatterMultiplier, BuildScatterBatches } from "./NewScatt
 import { NormalizeVector3 } from "../math/Vector3.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { Unit, UnitVector3 } from "../math/Utilities.js";
+import { ToNumber } from "../math/Utilities.js";
 import {
 	LoadEngineVisualTemplates,
 	PrepareLevelVisualResources,
 } from "./NewTexture.js";
-
-function toNumber(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function resolveWaterLevel(source, deathBarrierY, worldHeight) {
-	if (!source || typeof source !== "object" || !Object.prototype.hasOwnProperty.call(source, "waterLevel")) {
-		return -9999;
-	}
-
-	const level = toNumber(source.waterLevel, -9999);
-	if (level <= -9000) {
-		return -9999;
-	}
-
-	if (level < deathBarrierY || level > worldHeight) {
-		return -9999;
-	}
-
-	return level;
-}
-
-function normalizeWorld(world) {
-	const source = world && typeof world === "object" ? world : {};
-	const length = Math.max(1, toNumber(source.length, 100));
-	const width = Math.max(1, toNumber(source.width, 100));
-	const height = Math.max(1, toNumber(source.height, 40));
-	const deathBarrierY = toNumber(source.deathBarrierY, -25);
-	return {
-		length: new Unit(length, "CNU"),
-		width: new Unit(width, "CNU"),
-		height: new Unit(height, "CNU"),
-		deathBarrierY: new Unit(deathBarrierY, "CNU"),
-		waterLevel: new Unit(resolveWaterLevel(source, deathBarrierY, height), "CNU"),
-		textureScale: Math.max(0.05, toNumber(source.textureScale, 1)),
-		scatterScale: Math.max(0.05, toNumber(source.scatterScale, 1)),
-	};
-}
-
-function normalizeCameraConfig(camera) {
-	const source = camera && typeof camera === "object" ? camera : {};
-	const openStart = NormalizeVector3(
-		source.levelOpening && source.levelOpening.startPosition,
-		{ x: 0, y: 40, z: 80 }
-	);
-	const openEnd = NormalizeVector3(
-		source.levelOpening && source.levelOpening.endPosition,
-		{ x: 0, y: 40, z: 80 }
-	);
-	return {
-		mode: "stationary",
-		levelOpening: {
-			startPosition: new UnitVector3(openStart.x, openStart.y, openStart.z, "CNU"),
-			endPosition: new UnitVector3(openEnd.x, openEnd.y, openEnd.z, "CNU"),
-		},
-		// DefaultCam third-person follow camera settings.
-		distance: new Unit(toNumber(source.distance, 10), "CNU"),
-		sensitivity: toNumber(source.sensitivity, 0.12),
-		heightOffset: new Unit(toNumber(source.heightOffset, 3), "CNU"),
-	};
-}
 
 function resolveEntityBlueprintMap(payload) {
 	const map = {};
@@ -142,7 +81,7 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 	const source = triggerDefinition && typeof triggerDefinition === "object" ? triggerDefinition : {};
 	const start = NormalizeVector3(source.start, { x: 0, y: 0, z: 0 });
 	const end = NormalizeVector3(source.end, start);
-	const triggerY = toNumber(source.y, toNumber(start.y, 0));
+	const triggerY = ToNumber(source.y, ToNumber(start.y, 0));
 	const triggerHeight = world.height.value - triggerY;
 	const center = {
 		x: (start.x + end.x) * 0.5,
@@ -233,10 +172,10 @@ function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
 		const dims = def.dimensions || { x: 1, y: 1, z: 1 };
 		const scale = def.scale || { x: 1, y: 1, z: 1 };
 		map[def.id] = {
-			position: { x: toNumber(pos.x, 0), y: toNumber(pos.y, 0), z: toNumber(pos.z, 0) },
-			dimensions: { x: toNumber(dims.x, 1), y: toNumber(dims.y, 1), z: toNumber(dims.z, 1) },
-			scale: { x: toNumber(scale.x, 1), y: toNumber(scale.y, 1), z: toNumber(scale.z, 1) },
-			topY: toNumber(pos.y, 0) + toNumber(dims.y, 1) * toNumber(scale.y, 1),
+			position: { x: ToNumber(pos.x, 0), y: ToNumber(pos.y, 0), z: ToNumber(pos.z, 0) },
+			dimensions: { x: ToNumber(dims.x, 1), y: ToNumber(dims.y, 1), z: ToNumber(dims.z, 1) },
+			scale: { x: ToNumber(scale.x, 1), y: ToNumber(scale.y, 1), z: ToNumber(scale.z, 1) },
+			topY: ToNumber(pos.y, 0) + ToNumber(dims.y, 1) * ToNumber(scale.y, 1),
 		};
 	};
 	if (Array.isArray(terrainDefinitions)) terrainDefinitions.forEach(addSurface);
@@ -311,7 +250,7 @@ function RefreshSceneBoundingBoxes(sceneGraph) {
 
 async function BuildLevel(payload) {
 	const source = payload && typeof payload === "object" ? payload : {};
-	const world = normalizeWorld(source.world);
+	const world = source.world;
 	const terrainDefinitions = source.terrain && Array.isArray(source.terrain.objects)
 		? source.terrain.objects
 		: [];
@@ -440,7 +379,7 @@ async function BuildLevel(payload) {
 				particleHook: null,
 			},
 		},
-		cameraConfig: normalizeCameraConfig(source.camera),
+		cameraConfig: source.camera,
 		playerConfig: source.player && typeof source.player === "object" ? source.player : null,
 		meta: source.meta || {},
 	};

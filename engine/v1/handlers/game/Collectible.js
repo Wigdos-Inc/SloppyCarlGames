@@ -4,9 +4,9 @@
 // Uses player/Master.js and/or UI.js to engage Collectible Effects
 
 import { CONFIG } from "../../core/config.js";
-import { Log, sendEvent } from "../../core/meta.js";
-import { distanceVector3 } from "../../math/Vector3.js";
-import { getSimDistanceValue, CheckEntityAabbOverlap } from "../../physics/Collision.js";
+import { Log, SendEvent } from "../../core/meta.js";
+import { DistanceVector3 } from "../../math/Vector3.js";
+import { GetSimDistanceValue, CheckEntityAabbOverlap } from "../../physics/Collision.js";
 
 /**
  * Check for collectible pickups — player AABB overlapping collectible entities.
@@ -23,7 +23,7 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 	const cameraPos = sceneGraph && sceneGraph.cameraConfig && sceneGraph.cameraConfig.state
 		? sceneGraph.cameraConfig.state.position
 		: playerPos;
-	const activityRadius = getSimDistanceValue();
+	const activityRadius = GetSimDistanceValue();
 	const playerAabb = playerState.collision && playerState.collision.aabb ? playerState.collision.aabb : null;
 
 	if (!playerAabb) { return; }
@@ -35,7 +35,7 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 
 		// SimDistance gate is camera-relative; only qualified entities enter this collision pass.
 		const entityPos = entity.transform ? entity.transform.position : { x: 0, y: 0, z: 0 };
-		if (cameraPos && distanceVector3(cameraPos, entityPos) > activityRadius) { continue; }
+		if (cameraPos && DistanceVector3(cameraPos, entityPos) > activityRadius) { continue; }
 
 		if (!CheckEntityAabbOverlap(playerState, entity)) { continue; }
 
@@ -52,7 +52,7 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 		// Remove from scene.
 		entities.splice(i, 1);
 
-		sendEvent("COLLECTIBLE_PICKED_UP", {
+		SendEvent("COLLECTIBLE_PICKED_UP", {
 			id: entity.id,
 			total: playerState.collectibles,
 		});

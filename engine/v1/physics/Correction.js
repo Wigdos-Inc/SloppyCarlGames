@@ -7,7 +7,7 @@ import {
 	NormalizeVector3,
 	DotVector3,
 	SubtractVector3,
-	scaleVector3,
+	ScaleVector3,
 	NormalizeUnitVector3,
 } from "../math/Vector3.js";
 import { Clamp, ToNumber } from "../math/Utilities.js";
@@ -106,7 +106,7 @@ function ApplySurfaceAlignment(playerState, groundContact, deltaSeconds) {
 
 		// Project forward onto the surface plane.
 		const dot = DotVector3(forwardDir, normal);
-		const projected = NormalizeUnitVector3(SubtractVector3(forwardDir, scaleVector3(normal, dot)));
+		const projected = NormalizeUnitVector3(SubtractVector3(forwardDir, ScaleVector3(normal, dot)));
 
 		// Scale projected direction to maintain original horizontal speed.
 		playerState.velocity.x = projected.x * horizontalSpeed;

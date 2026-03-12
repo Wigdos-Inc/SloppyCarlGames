@@ -8,8 +8,8 @@ import { Log } from "../../core/meta.js";
 import {
 	NormalizeVector3,
 	AddVector3,
-	scaleVector3,
-	vector3Length,
+	ScaleVector3,
+	Vector3Length,
 } from "../../math/Vector3.js";
 import { ToNumber, UnitVector3 } from "../../math/Utilities.js";
 import { ApplyGravity } from "../../physics/Gravity.js";
@@ -54,7 +54,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	}
 
 	// Step 4: Compute intended displacement.
-	const displacement = scaleVector3(playerState.velocity, dt);
+	const displacement = ScaleVector3(playerState.velocity, dt);
 
 	// Step 4b: Grounded stability.
 	// When grounded with negligible displacement, skip the full collision pipeline.
@@ -154,7 +154,7 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 	const entityPos = entity.transform.position;
 
 	if (entity.collision && entity.collision.aabb) {
-		const displacement = scaleVector3(entity.velocity, dt);
+		const displacement = ScaleVector3(entity.velocity, dt);
 		const { solids } = DetectCollisions(entity, displacement, sceneGraph);
 		if (solids.length > 0) {
 			const { resolvedVelocity, resolvedDisplacement } = ResolveCollisions(entity.velocity, displacement, solids);
@@ -164,7 +164,7 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 			entity.transform.position.set(AddVector3(entityPos, displacement));
 		}
 	} else {
-		entity.transform.position.set(AddVector3(entityPos, scaleVector3(entity.velocity, dt)));
+		entity.transform.position.set(AddVector3(entityPos, ScaleVector3(entity.velocity, dt)));
 	}
 
 	// Death barrier.

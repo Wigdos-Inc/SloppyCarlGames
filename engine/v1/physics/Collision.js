@@ -7,13 +7,13 @@ import { Log } from "../core/meta.js";
 import {
 	NormalizeVector3,
 	SubtractVector3,
-	scaleVector3,
+	ScaleVector3,
 	DotVector3,
 } from "../math/Vector3.js";
 import { SweptAABB, AABBOverlap } from "../math/Physics.js";
 import { ToNumber } from "../math/Utilities.js";
 
-function getSimDistanceValue() {
+function GetSimDistanceValue() {
 	const raw = CONFIG && CONFIG.PERFORMANCE ? CONFIG.PERFORMANCE.SimDistance : "High";
 	if (raw === "Low") { return 35; }
 	if (raw === "Medium") { return 60; }
@@ -321,13 +321,13 @@ function ResolveCollisions(velocity, displacement, solids) {
 		// Slide: remove velocity component along collision normal.
 		const velDotN = DotVector3(vel, n);
 		if (velDotN < 0) {
-			vel = SubtractVector3(vel, scaleVector3(n, velDotN));
+			vel = SubtractVector3(vel, ScaleVector3(n, velDotN));
 		}
 
 		// Adjust displacement similarly.
 		const dispDotN = DotVector3(disp, n);
 		if (dispDotN < 0) {
-			disp = SubtractVector3(disp, scaleVector3(n, dispDotN));
+			disp = SubtractVector3(disp, ScaleVector3(n, dispDotN));
 		}
 
 		LogCollision(collision);
@@ -364,7 +364,7 @@ export {
 	DetectCollisions,
 	ResolveCollisions,
 	collectCollidables,
-	getSimDistanceValue,
+	GetSimDistanceValue,
 	getHalfExtents,
 	ExpandAabb,
 	BuildEntityAabbAtPosition,

@@ -7,9 +7,9 @@ import {
 	NormalizeVector3,
 	AddVector3,
 	SubtractVector3,
-	scaleVector3,
+	ScaleVector3,
 	DotVector3,
-	vector3Length,
+	Vector3Length,
 	NormalizeUnitVector3,
 } from "./Vector3.js";
 
@@ -26,12 +26,12 @@ function ApplyAcceleration(velocity, direction, acceleration, dt) {
 	const dir = NormalizeVector3(direction);
 	const accel = toNumber(acceleration, 0);
 	const delta = toNumber(dt, 0);
-	return AddVector3(vel, scaleVector3(dir, accel * delta));
+	return AddVector3(vel, ScaleVector3(dir, accel * delta));
 }
 
 function ApplyDeceleration(velocity, deceleration, dt) {
 	const vel = NormalizeVector3(velocity);
-	const speed = vector3Length(vel);
+	const speed = Vector3Length(vel);
 	if (speed <= 0.0001) {
 		return { x: 0, y: 0, z: 0 };
 	}
@@ -40,17 +40,17 @@ function ApplyDeceleration(velocity, deceleration, dt) {
 	if (newSpeed <= 0.0001) {
 		return { x: 0, y: 0, z: 0 };
 	}
-	return scaleVector3(NormalizeUnitVector3(vel), newSpeed);
+	return ScaleVector3(NormalizeUnitVector3(vel), newSpeed);
 }
 
 function ClampVelocity(velocity, maxSpeed) {
 	const vel = NormalizeVector3(velocity);
-	const speed = vector3Length(vel);
+	const speed = Vector3Length(vel);
 	const cap = toNumber(maxSpeed, Infinity);
 	if (speed <= cap || speed <= 0.0001) {
 		return vel;
 	}
-	return scaleVector3(NormalizeUnitVector3(vel), cap);
+	return ScaleVector3(NormalizeUnitVector3(vel), cap);
 }
 
 function ApplyImpulse(velocity, impulse) {
@@ -63,14 +63,14 @@ function ProjectOntoPlane(vector, normal) {
 	const v = NormalizeVector3(vector);
 	const n = NormalizeUnitVector3(NormalizeVector3(normal));
 	const d = DotVector3(v, n);
-	return SubtractVector3(v, scaleVector3(n, d));
+	return SubtractVector3(v, ScaleVector3(n, d));
 }
 
 function ReflectVector3(velocity, normal) {
 	const v = NormalizeVector3(velocity);
 	const n = NormalizeUnitVector3(NormalizeVector3(normal));
 	const d = DotVector3(v, n);
-	return SubtractVector3(v, scaleVector3(n, 2 * d));
+	return SubtractVector3(v, ScaleVector3(n, 2 * d));
 }
 
 /* === AABB OVERLAP === */

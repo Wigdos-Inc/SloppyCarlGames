@@ -1,7 +1,7 @@
 // Maintains Full Cutscene State.
 // Handles startup intro cinematics (pre-rendered video or in-engine payloads).
 
-import { Wait, Log, sendEvent, Cursor } from "../core/meta.js";
+import { Wait, Log, SendEvent, Cursor } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { RenderPayload } from "./Render.js";
 import { UIElement } from "../builder/NewUI.js";
@@ -205,7 +205,7 @@ async function playEngineCutscene(payload, options) {
 	const fadeLeadSeconds =
 		payload && typeof payload.fadeLeadSeconds === "number" ? payload.fadeLeadSeconds : 0.5;
 
-	sendEvent("IntroCinematicStart", data || null);
+	SendEvent("IntroCinematicStart", data || null);
 	if (typeof durationSeconds === "number") {
 		// Fade to black before the end of the cutscene.
 		const waitMs = Math.max(0, (durationSeconds - fadeLeadSeconds) * 1000);

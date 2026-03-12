@@ -16,7 +16,7 @@ const SESSION_KEYS = {
   SplashPlayed: "ENGINE_SPLASH_PLAYED",
 };
 
-function readFromSession(key, fallback) {
+function ReadFromSession(key, fallback) {
   if (typeof sessionStorage === "undefined") {
     return fallback;
   }
@@ -32,7 +32,7 @@ function readFromSession(key, fallback) {
   }
 }
 
-function pushToSession(key, value) {
+function PushToSession(key, value) {
   if (typeof sessionStorage !== "undefined") {
     try {
       sessionStorage.setItem(key, JSON.stringify(value));
@@ -57,9 +57,9 @@ function clearSessionStorage() {
 /* === STATE === */
 // Stored log history.
 
-const logs = pushToSession(
+const logs = PushToSession(
   SESSION_KEYS.Logs,
-  readFromSession(SESSION_KEYS.Logs, {
+  ReadFromSession(SESSION_KEYS.Logs, {
     All: [],
     Engine: [],
     Game: [],
@@ -85,9 +85,9 @@ if (!Array.isArray(logs.Other)) {
 }
 
 // Cache last known payloads for quick lookups.
-const Cache = pushToSession(
+const Cache = PushToSession(
   SESSION_KEYS.Cache,
-  readFromSession(SESSION_KEYS.Cache, {
+  ReadFromSession(SESSION_KEYS.Cache, {
     UI: {
       lastPayload: null,
       screenID: null,
@@ -372,7 +372,7 @@ function Log(source, message, level, channel) {
     logs.Other.push(entry);
   }
 
-  pushToSession(SESSION_KEYS.Logs, logs);
+  PushToSession(SESSION_KEYS.Logs, logs);
 
   // Skip console output when debug gating fails.
   if (!shouldLog(entry.source, entry.channel, entry.level, entry.message)) {
@@ -387,7 +387,7 @@ function Log(source, message, level, channel) {
 }
 
 // Replay all stored logs in order.
-function logAll() {
+function LogAll() {
   const allEntries = Array.isArray(logs.All)
     ? logs.All
     : [
@@ -478,7 +478,7 @@ function ExitGame() {
   }
 }
 
-function sendEvent(eventName, payload) {
+function SendEvent(eventName, payload) {
   // Guard against invalid event usage.
   if (typeof eventName !== "string" || eventName.length === 0) {
     Log("ENGINE", "Meta.SendEvent requires a non-empty event name.", "error", "Meta");
@@ -513,16 +513,16 @@ const CNU_SCALE = 1;
 export {
   CNU_SCALE,
   Log,
-  logAll,
+  LogAll,
   LogCache,
-  sendEvent,
+  SendEvent,
   Wait,
   IsPointerLocked,
   RequestPointerLock,
   Cache,
   Cursor,
   ExitGame,
-  pushToSession,
-  readFromSession,
+  PushToSession,
+  ReadFromSession,
   SESSION_KEYS,
 };

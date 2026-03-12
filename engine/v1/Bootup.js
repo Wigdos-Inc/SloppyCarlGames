@@ -9,7 +9,7 @@
 // Core initialization and logging.
 
 import { initialize } from "./core/ini.js";
-import { Cursor, Log, sendEvent, Wait } from "./core/meta.js";
+import { Cursor, Log, SendEvent, Wait } from "./core/meta.js";
 import { FadeElement, RemoveRoot, SetElementStyle, SetElementText } from "./handlers/Render.js";
 import { CreateUI } from "./handlers/UI.js";
 import { PlayIntroCinematic } from "./handlers/Cutscene.js";
@@ -171,7 +171,7 @@ async function runStartupSequence() {
     return played;
   };
 
-  sendEvent("CUTSCENE_REQUEST", { cutsceneId: "Opening" });
+  SendEvent("CUTSCENE_REQUEST", { cutsceneId: "Opening" });
   const introCalled = await Promise.race([
     introCalledPromise,
     Wait(250).then(() => false),
@@ -185,7 +185,7 @@ async function runStartupSequence() {
     await introDonePromise;
   }
 
-  sendEvent("UI_REQUEST", { screenId: "TitleScreen" });
+  SendEvent("UI_REQUEST", { screenId: "TitleScreen" });
   await waitForUiRender("TitleScreen", 2000);
   await FadeElement(overlayId, 0, 1);
   RemoveRoot(overlayId);

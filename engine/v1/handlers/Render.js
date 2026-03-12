@@ -1309,8 +1309,8 @@ function drawScene(renderer, sceneGraph) {
 	// Camera is already in world-unit space from Camera.js.
 	const camPos = cameraState.position;
 	const camTarget = cameraState.target;
-	const camNear = cameraState.near || 0.1;
-	const camFar = cameraState.far || CNUtoWorldUnit(500);
+	const camNear = cameraState.near.value;
+	const camFar = cameraState.far.value;
 
 	const projection = createPerspectiveMatrix(
 		cameraState.fov || 60,

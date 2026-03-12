@@ -8,10 +8,10 @@ import {
 	NormalizeUnitVector3,
 	AddVector3,
 	SubtractVector3,
-	scaleVector3,
+	ScaleVector3,
 	CrossVector3,
 	DotVector3,
-	vector3Length,
+	Vector3Length,
 } from "../math/Vector3.js";
 import { ApplyAcceleration, ApplyDeceleration, ClampVelocity, ProjectOntoPlane } from "../math/Physics.js";
 import { ToNumber } from "../math/Utilities.js";
@@ -40,11 +40,11 @@ function getMovementDirection(input, cameraVectors, surfaceNormal) {
 		: { x: 1, y: 0, z: 0 };
 
 	let dir = AddVector3(
-		scaleVector3(camFwd, fwd),
-		scaleVector3(camRight, rgt)
+		ScaleVector3(camFwd, fwd),
+		ScaleVector3(camRight, rgt)
 	);
 
-	const len = vector3Length(dir);
+	const len = Vector3Length(dir);
 	if (len < 0.001) {
 		return { direction: { x: 0, y: 0, z: 0 }, hasInput: false };
 	}
@@ -99,13 +99,13 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 		// speed is not reduced by slope physics. The illusion: speed feels flat.
 		// This is handled by not allowing horizontal speed to drop below current
 		// magnitude when the player is actively providing input and grounded.
-		const currentHSpeed = vector3Length({ x: playerState.velocity.x, y: 0, z: playerState.velocity.z });
-		const newHSpeed = vector3Length(hVel);
+		const currentHSpeed = Vector3Length({ x: playerState.velocity.x, y: 0, z: playerState.velocity.z });
+		const newHSpeed = Vector3Length(hVel);
 		if (playerState.grounded && newHSpeed < currentHSpeed && currentHSpeed <= maxSpeed) {
 			// Maintain the speed magnitude, just update direction.
 			const blendDir = NormalizeUnitVector3(hVel);
-			if (vector3Length(blendDir) > 0.001) {
-				hVel = scaleVector3(blendDir, Math.max(newHSpeed, currentHSpeed));
+			if (Vector3Length(blendDir) > 0.001) {
+				hVel = ScaleVector3(blendDir, Math.max(newHSpeed, currentHSpeed));
 			}
 		}
 	} else {

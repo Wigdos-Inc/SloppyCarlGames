@@ -7,7 +7,7 @@
 /* === IMPORTS === */
 // Rendering and audio handlers.
 
-import { Cache, Log, sendEvent, Cursor, ExitGame, pushToSession, SESSION_KEYS } from "../core/meta.js";
+import { Cache, Log, SendEvent, Cursor, ExitGame, PushToSession, SESSION_KEYS } from "../core/meta.js";
 import { BuildElements } from "../builder/NewUI.js";
 import { RenderPayload, RemoveRoot } from "./Render.js";
 import { PlayMusic } from "./Sound.js";
@@ -213,7 +213,7 @@ function HandleUiAction(action) {
 	}
 
 	if (typeof action === "string") {
-		sendEvent("UI_REQUEST", { screenId: action });
+		SendEvent("UI_REQUEST", { screenId: action });
 		return true;
 	}
 
@@ -223,12 +223,12 @@ function HandleUiAction(action) {
 	}
 
 	if (action.type === "request" && action.screenId) {
-		sendEvent("UI_REQUEST", { screenId: action.screenId });
+		SendEvent("UI_REQUEST", { screenId: action.screenId });
 		return true;
 	}
 
 	if (action.type === "event" && action.name) {
-		sendEvent(action.name, action.payload || null);
+		SendEvent(action.name, action.payload || null);
 		return true;
 	}
 
@@ -323,7 +323,7 @@ function ApplyMenuUI(payload) {
 		Cache.UI.elementIndex = {};
 		indexElements(validatedPayload.elements, Cache.UI.elementIndex);
 		Cache.UI.uiRuntime = buildUiRuntimeMapsFromIndex(Cache.UI.elementIndex);
-		pushToSession(SESSION_KEYS.Cache, Cache);
+		PushToSession(SESSION_KEYS.Cache, Cache);
 	}
 
 	const screenLabel = validatedPayload.screenId || "unknown";
@@ -362,7 +362,7 @@ function ClearUI(rootId) {
 		Cache.UI.screenID = null;
 		Cache.UI.elementIndex = {};
 		Cache.UI.uiRuntime = createUiRuntimeMaps();
-		pushToSession(SESSION_KEYS.Cache, Cache);
+		PushToSession(SESSION_KEYS.Cache, Cache);
 	}
 
 	RemoveRoot(resolvedRootId);

@@ -2,7 +2,7 @@
 
 // Allows creating, tracking, and clearing input event listeners.
 
-import { Cache, Log, sendEvent } from "../core/meta.js";
+import { Cache, Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { GetActiveLevel } from "./game/Level.js";
 import { HandleFreeCamInput, HandleDefaultCamInput } from "./game/Camera.js";
@@ -252,7 +252,7 @@ function StartInputRouter(target) {
 		}
 
 		// Always forward unconsumed events to game-level handlers.
-		sendEvent("USER_INPUT", buildInteractionPayload(event));
+		SendEvent("USER_INPUT", buildInteractionPayload(event));
 	};
 
 	Object.keys(eventTypes).forEach((eventType) => {

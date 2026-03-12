@@ -8,7 +8,7 @@ import {
 	SetElementSource,
 } from "../handlers/Render.js";
 import { PlaySfx, PlayVoice } from "../handlers/Sound.js";
-import { Log, pushToSession, readFromSession, SESSION_KEYS } from "./meta.js";
+import { Log, PushToSession, ReadFromSession, SESSION_KEYS } from "./meta.js";
 import { CONFIG } from "./config.js";
 
 /* === SEQUENCE === */
@@ -153,7 +153,7 @@ async function RunSplashSequence() {
 	const context = setupSplashSequence();
 	const skipSplash =
 		(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.SKIP && CONFIG.DEBUG.SKIP.Splash === true) ||
-		readFromSession(SESSION_KEYS.SplashPlayed, false) === true;
+		ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true;
 
 	if (skipSplash) {
 		Log("ENGINE", "Splash skipped.", "log", "Startup");
@@ -172,7 +172,7 @@ async function RunSplashSequence() {
 
 	// Final pacing after splash(es).
 	await context.wait(1000);
-	pushToSession(SESSION_KEYS.SplashPlayed, true);
+	PushToSession(SESSION_KEYS.SplashPlayed, true);
 
 	return context;
 }
