@@ -26,7 +26,8 @@ const DEFAULT_GROUND_SNAP_TOLERANCE = 0.12;
  * @param {number} deltaSeconds
  */
 function ApplySurfaceAlignment(playerState, groundContact, deltaSeconds) {
-	if (CONFIG.PHYSICS.Correction.Enabled === false) {
+	const config = CONFIG.PHYSICS.Correction;
+	if (config.Enabled === false) {
 		return;
 	}
 

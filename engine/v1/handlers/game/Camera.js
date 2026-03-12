@@ -76,6 +76,7 @@ const defaultCamRuntime = {
 	targetDistance: worldDistanceDefaults.defaultCamTargetDistance,
 	lookDeltaX: 0,
 	lookDeltaY: 0,
+	obstructionLogged: false,
 	config: {
 		distance: worldDistanceDefaults.defaultCamDistance,
 		sensitivity: 0.12,
@@ -477,8 +478,6 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	if (obstructed) {
 		const offset = worldDistanceDefaults.obstructionOffset.value;
 		closestT = Math.max(worldDistanceDefaults.obstructionMinDistance.value, closestT - offset);
-
-		Log("ENGINE", `DefaultCam obstruction detected at t=${closestT.toFixed(2)}`, "log", "Level");
 	}
 
 	return { obstructed, clippedDistance: closestT };
@@ -527,12 +526,19 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 
 	if (obstructed) {
 		defaultCamRuntime.targetDistance.value = clippedDistance;
+		if (!defaultCamRuntime.obstructionLogged) {
+			Log("ENGINE", `DefaultCam obstruction detected at t=${clippedDistance.toFixed(2)}`, "log", "Level");
+			defaultCamRuntime.obstructionLogged = true;
+		}
 	} else {
 		defaultCamRuntime.targetDistance.value = desiredDistance;
+		if (defaultCamRuntime.obstructionLogged) {
+			defaultCamRuntime.obstructionLogged = false;
+		}
 	}
 
 	// Smooth distance interpolation.
-	const lerpSpeed = obstructed ? 12 : 4;
+	const lerpSpeed = obstructed ? 100 : 4;
 	defaultCamRuntime.currentDistance.value = Lerp(
 		defaultCamRuntime.currentDistance.value,
 		defaultCamRuntime.targetDistance.value,
