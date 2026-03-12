@@ -48,6 +48,30 @@ function resolveSphereResolution(complexity) {
 	return { stacks: 12, slices: 16 };
 }
 
+function resolveCapsuleCapStacks(complexity) {
+	if (complexity === "low") {
+		return 4;
+	}
+
+	if (complexity === "high") {
+		return 8;
+	}
+
+	return 6;
+}
+
+function resolveTorusResolution(complexity) {
+	if (complexity === "low") {
+		return { majorSegments: 12, minorSegments: 8 };
+	}
+
+	if (complexity === "high") {
+		return { majorSegments: 32, minorSegments: 16 };
+	}
+
+	return { majorSegments: 20, minorSegments: 12 };
+}
+
 function normalizeColor(color) {
 	if (!color || typeof color !== "object") {
 		return { r: 0.7, g: 0.75, b: 0.85, a: 1 };
@@ -122,6 +146,55 @@ function normalizeScatterRequests(source) {
 			};
 		})
 		.filter(Boolean);
+}
+
+function normalizePrimitiveOptions(source) {
+	const primitive = source && source.primitiveOptions && typeof source.primitiveOptions === "object"
+		? source.primitiveOptions
+		: {};
+
+	const geometry = source && source.geometry && typeof source.geometry === "object"
+		? source.geometry
+		: {};
+
+	const detail = source && source.detail && typeof source.detail === "object"
+		? source.detail
+		: {};
+
+	const subdivisionsX = Math.max(
+		1,
+		Math.floor(toNumber(
+			primitive.subdivisionsX,
+			toNumber(geometry.subdivisionsX, toNumber(source && source.subdivisionsX, 1))
+		))
+	);
+	const subdivisionsZ = Math.max(
+		1,
+		Math.floor(toNumber(
+			primitive.subdivisionsZ,
+			toNumber(geometry.subdivisionsZ, toNumber(source && source.subdivisionsZ, 1))
+		))
+	);
+
+	return {
+		angle:
+			primitive.angle
+			|| primitive.rampAngle
+			|| geometry.angle
+			|| source.angle
+			|| source.rampAngle
+			|| null,
+		thickness: toNumber(
+			primitive.thickness,
+			toNumber(geometry.thickness, toNumber(detail.thickness, toNumber(source && source.thickness, 0)))
+		),
+		radius: toNumber(
+			primitive.radius,
+			toNumber(geometry.radius, toNumber(detail.radius, toNumber(source && source.radius, 0)))
+		),
+		subdivisionsX: subdivisionsX,
+		subdivisionsZ: subdivisionsZ,
+	};
 }
 
 function generateLegacyUvFromPositions(positions) {
@@ -623,13 +696,423 @@ function buildSphere(size, complexity) {
 	return { positions: positions, indices: indices };
 }
 
-function BuildGeometry(shape, size, complexity) {
+function buildCone(size, complexity) {
+	const radiusX = Math.max(0.0001, toNumber(size.x, 1)) / 2;
+	const radiusZ = Math.max(0.0001, toNumber(size.z, 1)) / 2;
+	const height = Math.max(0.0001, toNumber(size.y, 1));
+	const halfHeight = height / 2;
+	const segments = resolveCylinderSegments(normalizeGeometryComplexity(complexity));
+
+	const positions = [];
+	const indices = [];
+	const sideVertexIndices = [];
+	const baseVertexIndices = [];
+
+	const apexIndex = positions.length / 3;
+	positions.push(0, halfHeight, 0);
+	sideVertexIndices.push(apexIndex);
+
+	const sideStart = positions.length / 3;
+	for (let index = 0; index <= segments; index += 1) {
+		const ratio = index / segments;
+		const angle = ratio * Math.PI * 2;
+		const x = Math.cos(angle) * radiusX;
+		const z = Math.sin(angle) * radiusZ;
+		positions.push(x, -halfHeight, z);
+		sideVertexIndices.push(sideStart + index);
+	}
+
+	for (let index = 0; index < segments; index += 1) {
+		const current = sideStart + index;
+		const next = sideStart + index + 1;
+		indices.push(apexIndex, current, next);
+	}
+
+	const baseCenter = positions.length / 3;
+	positions.push(0, -halfHeight, 0);
+	baseVertexIndices.push(baseCenter);
+
+	const baseStart = positions.length / 3;
+	for (let index = 0; index <= segments; index += 1) {
+		const ratio = index / segments;
+		const angle = ratio * Math.PI * 2;
+		const x = Math.cos(angle) * radiusX;
+		const z = Math.sin(angle) * radiusZ;
+		positions.push(x, -halfHeight, z);
+		baseVertexIndices.push(baseStart + index);
+	}
+
+	for (let index = 0; index < segments; index += 1) {
+		const current = baseStart + index;
+		const next = baseStart + index + 1;
+		indices.push(baseCenter, next, current);
+	}
+
+	return {
+		positions: positions,
+		indices: indices,
+		faceGroups: [
+			{ normal: { x: 0, y: 1, z: 0 }, vertexIndices: sideVertexIndices },
+			{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: baseVertexIndices },
+		],
+	};
+}
+
+function buildCapsule(size, complexity) {
+	const radiusX = Math.max(0.0001, toNumber(size.x, 1)) / 2;
+	const radiusZ = Math.max(0.0001, toNumber(size.z, 1)) / 2;
+	const capRadius = Math.max(0.0001, Math.min(radiusX, radiusZ));
+	const totalHeight = Math.max(0.0001, toNumber(size.y, 1));
+	const halfHeight = totalHeight / 2;
+	const cylinderHalf = Math.max(0, halfHeight - capRadius);
+	const segments = resolveCylinderSegments(normalizeGeometryComplexity(complexity));
+	const capStacks = resolveCapsuleCapStacks(normalizeGeometryComplexity(complexity));
+
+	const positions = [];
+	const indices = [];
+	const rings = [];
+
+	const pushRing = (y, ringScaleX, ringScaleZ, groupName) => {
+		const start = positions.length / 3;
+		for (let index = 0; index <= segments; index += 1) {
+			const ratio = index / segments;
+			const angle = ratio * Math.PI * 2;
+			positions.push(Math.cos(angle) * ringScaleX, y, Math.sin(angle) * ringScaleZ);
+		}
+		rings.push({ start: start, group: groupName });
+	};
+
+	for (let stack = 0; stack <= capStacks; stack += 1) {
+		const ratio = stack / capStacks;
+		const angle = ratio * Math.PI * 0.5;
+		const ringScale = Math.sin(angle);
+		const y = cylinderHalf + Math.cos(angle) * capRadius;
+		pushRing(y, radiusX * ringScale, radiusZ * ringScale, "top");
+	}
+
+	pushRing(-cylinderHalf, radiusX, radiusZ, "body");
+
+	for (let stack = 1; stack <= capStacks; stack += 1) {
+		const ratio = stack / capStacks;
+		const angle = ratio * Math.PI * 0.5;
+		const ringScale = Math.cos(angle);
+		const y = -cylinderHalf - Math.sin(angle) * capRadius;
+		pushRing(y, radiusX * ringScale, radiusZ * ringScale, "bottom");
+	}
+
+	const topVertices = [];
+	const bodyVertices = [];
+	const bottomVertices = [];
+
+	for (let ring = 0; ring < rings.length - 1; ring += 1) {
+		const current = rings[ring];
+		const next = rings[ring + 1];
+		for (let index = 0; index < segments; index += 1) {
+			const a = current.start + index;
+			const b = current.start + index + 1;
+			const c = next.start + index;
+			const d = next.start + index + 1;
+
+			indices.push(a, c, b);
+			indices.push(b, c, d);
+
+			if (current.group === "top" && next.group === "top") {
+				topVertices.push(a, b, c, d);
+			} else if (current.group === "bottom" && next.group === "bottom") {
+				bottomVertices.push(a, b, c, d);
+			} else {
+				bodyVertices.push(a, b, c, d);
+			}
+		}
+	}
+
+	return {
+		positions: positions,
+		indices: indices,
+		faceGroups: [
+			{ normal: { x: 0, y: 1, z: 0 }, vertexIndices: topVertices },
+			{ normal: { x: 1, y: 0, z: 0 }, vertexIndices: bodyVertices },
+			{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: bottomVertices },
+		],
+	};
+}
+
+function buildTube(size, complexity, options) {
+	const outerRadiusX = Math.max(0.0002, toNumber(size.x, 1)) / 2;
+	const outerRadiusZ = Math.max(0.0002, toNumber(size.z, 1)) / 2;
+	const height = Math.max(0.0001, toNumber(size.y, 1));
+	const halfHeight = height / 2;
+	const thickness = Math.max(0.00005, toNumber(options.thickness, Math.min(outerRadiusX, outerRadiusZ) * 0.25));
+	const innerRadiusX = Math.max(0.00005, outerRadiusX - Math.min(thickness, outerRadiusX * 0.95));
+	const innerRadiusZ = Math.max(0.00005, outerRadiusZ - Math.min(thickness, outerRadiusZ * 0.95));
+	const segments = resolveCylinderSegments(normalizeGeometryComplexity(complexity));
+
+	const positions = [];
+	const indices = [];
+
+	const outerBottomStart = positions.length / 3;
+	for (let index = 0; index <= segments; index += 1) {
+		const ratio = index / segments;
+		const angle = ratio * Math.PI * 2;
+		positions.push(Math.cos(angle) * outerRadiusX, -halfHeight, Math.sin(angle) * outerRadiusZ);
+	}
+
+	const outerTopStart = positions.length / 3;
+	for (let index = 0; index <= segments; index += 1) {
+		const ratio = index / segments;
+		const angle = ratio * Math.PI * 2;
+		positions.push(Math.cos(angle) * outerRadiusX, halfHeight, Math.sin(angle) * outerRadiusZ);
+	}
+
+	const innerBottomStart = positions.length / 3;
+	for (let index = 0; index <= segments; index += 1) {
+		const ratio = index / segments;
+		const angle = ratio * Math.PI * 2;
+		positions.push(Math.cos(angle) * innerRadiusX, -halfHeight, Math.sin(angle) * innerRadiusZ);
+	}
+
+	const innerTopStart = positions.length / 3;
+	for (let index = 0; index <= segments; index += 1) {
+		const ratio = index / segments;
+		const angle = ratio * Math.PI * 2;
+		positions.push(Math.cos(angle) * innerRadiusX, halfHeight, Math.sin(angle) * innerRadiusZ);
+	}
+
+	for (let index = 0; index < segments; index += 1) {
+		const ob0 = outerBottomStart + index;
+		const ob1 = outerBottomStart + index + 1;
+		const ot0 = outerTopStart + index;
+		const ot1 = outerTopStart + index + 1;
+		indices.push(ob0, ot0, ot1);
+		indices.push(ob0, ot1, ob1);
+
+		const ib0 = innerBottomStart + index;
+		const ib1 = innerBottomStart + index + 1;
+		const it0 = innerTopStart + index;
+		const it1 = innerTopStart + index + 1;
+		indices.push(ib0, it1, it0);
+		indices.push(ib0, ib1, it1);
+
+		indices.push(ot0, ot1, it1);
+		indices.push(ot0, it1, it0);
+
+		indices.push(ob0, ib1, ob1);
+		indices.push(ob0, ib0, ib1);
+	}
+
+	const outerVertices = [];
+	const innerVertices = [];
+	const topVertices = [];
+	const bottomVertices = [];
+
+	for (let index = 0; index <= segments; index += 1) {
+		outerVertices.push(outerBottomStart + index, outerTopStart + index);
+		innerVertices.push(innerBottomStart + index, innerTopStart + index);
+		topVertices.push(outerTopStart + index, innerTopStart + index);
+		bottomVertices.push(outerBottomStart + index, innerBottomStart + index);
+	}
+
+	return {
+		positions: positions,
+		indices: indices,
+		faceGroups: [
+			{ normal: { x: 1, y: 0, z: 0 }, vertexIndices: outerVertices },
+			{ normal: { x: -1, y: 0, z: 0 }, vertexIndices: innerVertices },
+			{ normal: { x: 0, y: 1, z: 0 }, vertexIndices: topVertices },
+			{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: bottomVertices },
+		],
+	};
+}
+
+function buildTorus(size, complexity, options) {
+	const fallbackRadius = Math.max(0.0002, toNumber(size.x, 1)) / 2;
+	const fallbackThickness = Math.max(0.0001, toNumber(size.y, 1)) / 4;
+	const majorRadius = Math.max(0.0002, toNumber(options.radius, fallbackRadius));
+	const minorRadius = Math.max(0.0001, Math.min(toNumber(options.thickness, fallbackThickness), majorRadius * 0.95));
+	const resolution = resolveTorusResolution(normalizeGeometryComplexity(complexity));
+	const majorSegments = resolution.majorSegments;
+	const minorSegments = resolution.minorSegments;
+
+	const positions = [];
+	const indices = [];
+
+	for (let major = 0; major <= majorSegments; major += 1) {
+		const u = (major / majorSegments) * Math.PI * 2;
+		const cosU = Math.cos(u);
+		const sinU = Math.sin(u);
+
+		for (let minor = 0; minor <= minorSegments; minor += 1) {
+			const v = (minor / minorSegments) * Math.PI * 2;
+			const cosV = Math.cos(v);
+			const sinV = Math.sin(v);
+			const ringRadius = majorRadius + (minorRadius * cosV);
+			positions.push(ringRadius * cosU, minorRadius * sinV, ringRadius * sinU);
+		}
+	}
+
+	const stride = minorSegments + 1;
+	for (let major = 0; major < majorSegments; major += 1) {
+		for (let minor = 0; minor < minorSegments; minor += 1) {
+			const a = major * stride + minor;
+			const b = (major + 1) * stride + minor;
+			const c = a + 1;
+			const d = b + 1;
+			indices.push(a, b, c);
+			indices.push(c, b, d);
+		}
+	}
+
+	const sectorCount = Math.min(8, majorSegments);
+	const faceGroups = [];
+	for (let sector = 0; sector < sectorCount; sector += 1) {
+		const startMajor = Math.floor((sector / sectorCount) * majorSegments);
+		const endMajor = Math.floor(((sector + 1) / sectorCount) * majorSegments);
+		const vertexIndices = [];
+		for (let major = startMajor; major <= endMajor + 1; major += 1) {
+			const wrappedMajor = Math.min(major, majorSegments);
+			for (let minor = 0; minor <= minorSegments; minor += 1) {
+				vertexIndices.push((wrappedMajor * stride) + minor);
+			}
+		}
+
+		const sectorMid = ((startMajor + endMajor) * 0.5 / majorSegments) * Math.PI * 2;
+		faceGroups.push({
+			normal: { x: Math.cos(sectorMid), y: 0, z: Math.sin(sectorMid) },
+			vertexIndices: vertexIndices,
+		});
+	}
+
+	return { positions: positions, indices: indices, faceGroups: faceGroups };
+}
+
+function buildGrid(size, complexity, options) {
+	const sx = Math.max(0.0001, toNumber(size.x, 1));
+	const sz = Math.max(0.0001, toNumber(size.z, 1));
+	const normalizedComplexity = normalizeGeometryComplexity(complexity);
+	const complexitySubdivisions = normalizedComplexity === "low"
+		? 4
+		: normalizedComplexity === "high"
+			? 16
+			: 8;
+	const subdivisionsX = Math.max(1, Math.floor(toNumber(options.subdivisionsX, complexitySubdivisions)));
+	const subdivisionsZ = Math.max(1, Math.floor(toNumber(options.subdivisionsZ, complexitySubdivisions)));
+
+	const positions = [];
+	const indices = [];
+	const faceVertices = [];
+
+	for (let z = 0; z <= subdivisionsZ; z += 1) {
+		const zRatio = z / subdivisionsZ;
+		const zPosition = (zRatio - 0.5) * sz;
+		for (let x = 0; x <= subdivisionsX; x += 1) {
+			const xRatio = x / subdivisionsX;
+			const xPosition = (xRatio - 0.5) * sx;
+			const vertexIndex = positions.length / 3;
+			positions.push(xPosition, 0, zPosition);
+			faceVertices.push(vertexIndex);
+		}
+	}
+
+	const stride = subdivisionsX + 1;
+	for (let z = 0; z < subdivisionsZ; z += 1) {
+		for (let x = 0; x < subdivisionsX; x += 1) {
+			const topLeft = (z * stride) + x;
+			const topRight = topLeft + 1;
+			const bottomLeft = ((z + 1) * stride) + x;
+			const bottomRight = bottomLeft + 1;
+			indices.push(topLeft, bottomLeft, topRight);
+			indices.push(topRight, bottomLeft, bottomRight);
+		}
+	}
+
+	return {
+		positions: positions,
+		indices: indices,
+		faceGroups: [{ normal: { x: 0, y: 1, z: 0 }, vertexIndices: faceVertices }],
+	};
+}
+
+function buildRamp(size, options) {
+	const sx = Math.max(0.0001, toNumber(size.x, 1)) / 2;
+	const sy = Math.max(0.0001, toNumber(size.y, 1));
+	const sz = Math.max(0.0001, toNumber(size.z, 1)) / 2;
+
+	const baseY = -sy / 2;
+	const angle = options.angle;
+	const angleRadians = angle && typeof angle.toRadians === "function"
+		? angle.toRadians()
+		: toNumber(angle, 0);
+	const desiredRise = Math.tan(toNumber(angleRadians, 0)) * (sz * 2);
+	const rise = Math.max(0.0001, Math.min(sy, Math.abs(desiredRise) > 0 ? desiredRise : sy));
+	const backY = baseY + rise;
+
+	const positions = [
+		-sx, baseY, -sz,
+		sx, baseY, -sz,
+		sx, baseY, sz,
+		-sx, baseY, sz,
+		sx, backY, sz,
+		-sx, backY, sz,
+	];
+
+	const indices = [
+		0, 1, 2,
+		0, 2, 3,
+		3, 2, 4,
+		3, 4, 5,
+		0, 5, 4,
+		0, 4, 1,
+		0, 3, 5,
+		1, 4, 2,
+	];
+
+	const slopeNormalY = Math.cos(Math.atan2(rise, sz * 2));
+	const slopeNormalZ = -Math.sin(Math.atan2(rise, sz * 2));
+
+	return {
+		positions: positions,
+		indices: indices,
+		faceGroups: [
+			{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: [0, 1, 2, 3] },
+			{ normal: { x: 0, y: 0, z: 1 }, vertexIndices: [2, 3, 4, 5] },
+			{ normal: { x: 0, y: slopeNormalY, z: slopeNormalZ }, vertexIndices: [0, 1, 4, 5] },
+			{ normal: { x: -1, y: 0, z: 0 }, vertexIndices: [0, 3, 5] },
+			{ normal: { x: 1, y: 0, z: 0 }, vertexIndices: [1, 2, 4] },
+		],
+	};
+}
+
+function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 	if (shape === "cylinder") {
 		return buildCylinder(size, complexity);
 	}
 
 	if (shape === "sphere") {
 		return buildSphere(size, complexity);
+	}
+
+	if (shape === "capsule") {
+		return buildCapsule(size, complexity);
+	}
+
+	if (shape === "cone") {
+		return buildCone(size, complexity);
+	}
+
+	if (shape === "grid") {
+		return buildGrid(size, complexity, primitiveOptions);
+	}
+
+	if (shape === "ramp") {
+		return buildRamp(size, primitiveOptions);
+	}
+
+	if (shape === "tube") {
+		return buildTube(size, complexity, primitiveOptions);
+	}
+
+	if (shape === "torus") {
+		return buildTorus(size, complexity, primitiveOptions);
 	}
 
 	if (shape === "pyramid") {
@@ -665,7 +1148,8 @@ function BuildObject(definition, options) {
 	const position = new UnitVector3(posRaw.x, anchoredY, posRaw.z, "CNU");
 	const pivotRaw = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
 	const pivot = new UnitVector3(pivotRaw.x, pivotRaw.y, pivotRaw.z, "CNU");
-	const geometry = BuildGeometry(shape, size, complexity);
+	const primitiveOptions = normalizePrimitiveOptions(source);
+	const geometry = BuildGeometry(shape, size, complexity, primitiveOptions);
 	const uvs = GenerateUVs(geometry.positions, geometry);
 	const bounds = computeBounds(geometry.positions);
 	const vertexCount = geometry.positions.length / 3;
@@ -714,6 +1198,7 @@ function BuildObject(definition, options) {
 			texture: texture,
 			scatter: scatter,
 			complexity: complexity,
+			primitiveOptions: primitiveOptions,
 		},
 		localBounds: bounds,
 		worldAabb: worldAabb,
