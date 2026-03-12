@@ -1,3 +1,4 @@
+Finish Unit System by eyeballing correct CNU_SCALE.
 Adapt NewObject.js to adhere to the Unit System more closely.
 Hook up new object primitives and terrain grid system (perhaps even create NewTerrain.js)
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain. perhaps part of new NewTerrain.js)
