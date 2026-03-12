@@ -203,23 +203,21 @@ function buildSceneBoundingBoxes(sceneGraph) {
 		bounds.push({ type: type, id: id, min: { ...aabb.min }, max: { ...aabb.max } });
 	};
 
-	const terrain = Array.isArray(sceneGraph && sceneGraph.terrain) ? sceneGraph.terrain : [];
+	const terrain = sceneGraph.terrain;
 	terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.worldAabb));
 
-	const scatter = Array.isArray(sceneGraph && sceneGraph.scatter) ? sceneGraph.scatter : [];
+	const scatter = sceneGraph.scatter;
 	scatter.forEach((mesh) => push("Scatter", mesh.id, mesh.worldAabb));
 
 	// Per-model scatter bounding boxes from instanced batch generation.
-	const scatterDebugBounds = Array.isArray(sceneGraph && sceneGraph.scatterDebugBounds)
-		? sceneGraph.scatterDebugBounds
-		: [];
+	const scatterDebugBounds = sceneGraph.scatterDebugBounds ?? [];
 	scatterDebugBounds.forEach((record) => {
 		if (record && record.min && record.max) {
 			bounds.push({ type: record.type || "Scatter", id: record.id, min: { ...record.min }, max: { ...record.max } });
 		}
 	});
 
-	const obstacles = Array.isArray(sceneGraph && sceneGraph.obstacles) ? sceneGraph.obstacles : [];
+	const obstacles = sceneGraph.obstacles;
 	obstacles.forEach((obstacle) => {
 		push("Obstacle", obstacle.id, obstacle.bounds || null);
 		if (Array.isArray(obstacle.parts)) {
@@ -227,7 +225,7 @@ function buildSceneBoundingBoxes(sceneGraph) {
 		}
 	});
 
-	const entities = Array.isArray(sceneGraph && sceneGraph.entities) ? sceneGraph.entities : [];
+	const entities = sceneGraph.entities;
 	entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
 		push(category.whole, entity.id, entity.collision && entity.collision.aabb ? entity.collision.aabb : null);
@@ -240,10 +238,6 @@ function buildSceneBoundingBoxes(sceneGraph) {
 }
 
 function RefreshSceneBoundingBoxes(sceneGraph) {
-	if (!sceneGraph || typeof sceneGraph !== "object") {
-		return [];
-	}
-
 	sceneGraph.debugBoundingBoxes = buildSceneBoundingBoxes(sceneGraph);
 	return sceneGraph.debugBoundingBoxes;
 }
@@ -371,7 +365,7 @@ async function BuildLevel(payload) {
 		scatterBatches: scatterBatches,
 		scatterDebugBounds: scatterDebugBounds,
 		debug: {
-			showTriggerVolumes: CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.Triggers === true,
+			showTriggerVolumes: !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.Triggers === true),
 		},
 		effects: {
 			underwater: {

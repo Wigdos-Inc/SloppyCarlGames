@@ -8,12 +8,11 @@
 
 import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js";
 import { RenderLevel } from "../Render.js";
-import { Cache, IsPointerLocked, Log, PushToSession, SESSION_KEYS } from "../../core/meta.js";
+import { Cache, IsPointerLocked, Log, PushToSession, SendEvent, SESSION_KEYS } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
 import { DistanceVector3, LerpVector3, NormalizeVector3 } from "../../math/Vector3.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
-import { UnitVector3 } from "../../math/Utilities.js";
 import { UpdateInputEventTypes } from "../Controls.js";
 import { ValidateLevelPayload } from "../../core/validate.js";
 import { InitializePlayer, UpdatePlayer, ResolvePlayerState, GetPlayerState } from "../../player/Master.js";
@@ -42,7 +41,7 @@ const levelLoop = {
 };
 
 function getConfiguredFrameRate() {
-	const configuredFrameRate = Number(CONFIG && CONFIG.PERFORMANCE && CONFIG.PERFORMANCE.FrameRate);
+	const configuredFrameRate = CONFIG.PERFORMANCE.FrameRate;
 	if (Number.isFinite(configuredFrameRate) && configuredFrameRate > 0) {
 		return configuredFrameRate;
 	}
@@ -54,10 +53,8 @@ function cacheLevelPayload(payload) {
 		return null;
 	}
 
-	if (Cache && Cache.Level) {
-		Cache.Level.lastPayload = payload;
-		PushToSession(SESSION_KEYS.Cache, Cache);
-	}
+	Cache.Level.lastPayload = payload;
+	PushToSession(SESSION_KEYS.Cache, Cache);
 
 	levelRuntimeState.payload = payload;
 	return payload;
@@ -91,8 +88,8 @@ function updateEntityMovement(entity, deltaSeconds) {
 	}
 
 	const movement = entity.movement;
-	const transform = entity.transform || (entity.transform = { position: new UnitVector3(0, 0, 0, "CNU") });
-	const position = transform.position || (transform.position = new UnitVector3(0, 0, 0, "CNU"));
+	const transform = entity.transform;
+	const position = transform.position;
 	const state = entity.state || (entity.state = { movementProgress: 0, direction: 1 });
 
 	if (movement.speed <= 0) {
@@ -126,7 +123,7 @@ function updateEntityMovement(entity, deltaSeconds) {
 }
 
 function syncEntityMeshes(sceneGraph) {
-	const entities = Array.isArray(sceneGraph && sceneGraph.entities) ? sceneGraph.entities : [];
+	const entities = sceneGraph.entities;
 	for (let index = 0; index < entities.length; index += 1) {
 		const entity = entities[index];
 		if (!entity) {
@@ -155,11 +152,6 @@ function syncEntityMeshes(sceneGraph) {
 
 function StartLevelLoop() {
 	if (levelLoop.active) {
-		return;
-	}
-
-	if (typeof requestAnimationFrame !== "function" || typeof performance === "undefined") {
-		Log("ENGINE", "Level loop start aborted: animation frame API unavailable.", "warn", "Level");
 		return;
 	}
 
@@ -257,9 +249,6 @@ async function CreateLevel(payload, options) {
 	}
 
 	const sceneGraph = await BuildLevel(cachedPayload);
-	if (!sceneGraph.cameraConfig || typeof sceneGraph.cameraConfig !== "object") {
-		sceneGraph.cameraConfig = {};
-	}
 
 	// Initialize player if payload defines one.
 	if (sceneGraph.playerConfig) {
@@ -284,16 +273,10 @@ async function CreateLevel(payload, options) {
 	StartLevelLoop();
 	Log("ENGINE", "Level loop started.", "log", "Level");
 
-	if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
-		window.dispatchEvent(
-			new CustomEvent("ENGINE_LEVEL_READY", {
-				detail: {
-					levelId: cachedPayload.id || null,
-					title: cachedPayload.title || null,
-				},
-			})
-		);
-	}
+	SendEvent("ENGINE_LEVEL_READY", {
+		levelId: cachedPayload.id || null,
+		title: cachedPayload.title || null,
+	});
 
 	Log("ENGINE", `Level created: ${cachedPayload.id || "unknown"}`, "log", "Level");
 	Log("ENGINE", "Level generation finished and render initialized.", "log", "Level");
@@ -309,11 +292,11 @@ function Update(deltaMilliseconds) {
 	const deltaMs = typeof deltaMilliseconds === "number" ? deltaMilliseconds : 0;
 	const deltaSeconds = Math.max(0, deltaMs) / 1000;
 	const sceneGraph = levelRuntimeState.sceneGraph;
-	const entities = Array.isArray(sceneGraph.entities) ? sceneGraph.entities : [];
+	const entities = sceneGraph.entities;
 
 	// === PLAYER PIPELINE ===
 	const playerState = GetPlayerState();
-	if (playerState && playerState.active) {
+	if (playerState.active) {
 		const cameraVectors = GetCameraVectors();
 
 		// 1. Input → Movement & Abilities
@@ -337,21 +320,15 @@ function Update(deltaMilliseconds) {
 
 	// === NON-PLAYER ENTITY UPDATE ===
 	const simDistance = GetSimDistanceValue();
-	const cameraPosition = sceneGraph
-		&& sceneGraph.cameraConfig
-		&& sceneGraph.cameraConfig.state
-		&& sceneGraph.cameraConfig.state.position
-		? sceneGraph.cameraConfig.state.position
-		: (playerState && playerState.transform ? playerState.transform.position : null);
+	const cameraPosition = sceneGraph.cameraConfig.state.position;
 
 	for (let index = 0; index < entities.length; index += 1) {
 		const entity = entities[index];
-		if (!entity || entity.type === "player") {
+		if (entity.type === "player") {
 			continue;
 		}
 		if (
 			cameraPosition
-			&& entity.transform
 			&& entity.transform.position
 			&& DistanceVector3(cameraPosition, entity.transform.position) > simDistance
 		) {

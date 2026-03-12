@@ -571,7 +571,7 @@ function ensureSharedGeometry(renderer, primitive, dimensions, complexity) {
 // Builds per-batch VAOs and instance buffers from scatterBatches on the sceneGraph.
 
 function buildScatterInstanceBuffers(renderer, sceneGraph) {
-	const batches = sceneGraph && sceneGraph.scatterBatches ? sceneGraph.scatterBatches : null;
+	const batches = sceneGraph.scatterBatches;
 	if (!batches || batches.size === 0) {
 		renderer.scatterInstances = [];
 		renderer.scatterInstancesBuilt = true;
@@ -688,11 +688,9 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 }
 
 function isBoundingBoxDebugEnabled(type) {
-	if (!(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL)) {
-		return false;
-	}
+	if (!CONFIG.DEBUG.ALL) return false;
 
-	const debugMap = CONFIG.DEBUG && CONFIG.DEBUG.LEVELS ? CONFIG.DEBUG.LEVELS.BoundingBox : null;
+	const debugMap = CONFIG.DEBUG.LEVELS.BoundingBox;
 	return !!(debugMap && debugMap[type] === true);
 }
 
@@ -721,12 +719,8 @@ function createBoundingBoxLineVertices(bounds) {
 }
 
 function isGridDebugEnabled() {
-	if (!(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL)) {
-		return false;
-	}
-	const grid = CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.BoundingBox
-		? CONFIG.DEBUG.LEVELS.BoundingBox.Grid
-		: null;
+	if (!CONFIG.DEBUG.ALL) return false;
+	const grid = CONFIG.DEBUG.LEVELS.BoundingBox.Grid;
 	return !!(grid && grid.Visible === true);
 }
 
@@ -803,9 +797,7 @@ function createGridLineVertices(bounds, spacing) {
 }
 
 function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
-	const records = Array.isArray(sceneGraph && sceneGraph.debugBoundingBoxes)
-		? sceneGraph.debugBoundingBoxes
-		: [];
+	const records = sceneGraph.debugBoundingBoxes;
 	if (records.length === 0) {
 		return;
 	}
@@ -857,9 +849,7 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 		return;
 	}
 
-	const records = Array.isArray(sceneGraph && sceneGraph.debugBoundingBoxes)
-		? sceneGraph.debugBoundingBoxes
-		: [];
+	const records = sceneGraph.debugBoundingBoxes;
 	if (records.length === 0) {
 		return;
 	}
@@ -909,15 +899,13 @@ const trailTypeColors = {
 };
 
 function isTrailDebugEnabled(type) {
-	if (!(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL)) {
-		return false;
-	}
-	const trailMap = CONFIG.DEBUG && CONFIG.DEBUG.LEVELS ? CONFIG.DEBUG.LEVELS.Trails : null;
+	if (!CONFIG.DEBUG.ALL) return false;
+	const trailMap = CONFIG.DEBUG.LEVELS.Trails;
 	return !!(trailMap && trailMap[type] === true);
 }
 
 function classifyEntityTrailType(entity) {
-	const type = String(entity && entity.type ? entity.type : "").toLowerCase();
+	const type = String(entity.type).toLowerCase();
 	if (type.includes("player")) { return "Player"; }
 	if (type.includes("boss")) { return "Boss"; }
 	if (type.includes("collectible")) { return "Collectible"; }
@@ -926,10 +914,8 @@ function classifyEntityTrailType(entity) {
 }
 
 function drawVelocityTrails(renderer, sceneGraph, projection, view) {
-	if (!(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL)) {
-		return;
-	}
-	const trailMap = CONFIG.DEBUG && CONFIG.DEBUG.LEVELS ? CONFIG.DEBUG.LEVELS.Trails : null;
+	if (!CONFIG.DEBUG.ALL) return;
+	const trailMap = CONFIG.DEBUG.LEVELS.Trails;
 	if (!trailMap) {
 		return;
 	}
@@ -939,7 +925,7 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 		return;
 	}
 
-	const entities = Array.isArray(sceneGraph && sceneGraph.entities) ? sceneGraph.entities : [];
+	const entities = sceneGraph.entities;
 	if (entities.length === 0) {
 		return;
 	}
@@ -966,9 +952,7 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 
 	for (let i = 0; i < entities.length; i += 1) {
 		const entity = entities[i];
-		if (!entity || !entity.velocity || !entity.transform || !entity.transform.position) {
-			continue;
-		}
+
 
 		const trailType = classifyEntityTrailType(entity);
 		if (!isTrailDebugEnabled(trailType)) {
@@ -1084,9 +1068,9 @@ function ensureSceneTexture(renderer, sceneGraph, textureID) {
 	}
 
 	const gl = renderer.gl;
-	const visualResources = sceneGraph && sceneGraph.visualResources ? sceneGraph.visualResources : null;
-	const textureRegistry = visualResources && visualResources.textureRegistry ? visualResources.textureRegistry : null;
-	const entry = textureRegistry && textureRegistry[id] ? textureRegistry[id] : null;
+	const visualResources = sceneGraph.visualResources;
+	const textureRegistry = visualResources.textureRegistry;
+	const entry = textureRegistry[id];
 
 	const texture = gl.createTexture();
 	if (!texture) {
@@ -1179,28 +1163,24 @@ function syncCanvasSize(renderer) {
 }
 
 function collectRenderableMeshes(sceneGraph) {
-	const terrain = Array.isArray(sceneGraph && sceneGraph.terrain) ? sceneGraph.terrain : [];
-	const obstacles = Array.isArray(sceneGraph && sceneGraph.obstacles)
-		? sceneGraph.obstacles
-			.map((obstacle) => (obstacle && obstacle.mesh ? obstacle.mesh : obstacle))
-			.filter(Boolean)
-		: [];
-	const triggers = Array.isArray(sceneGraph && sceneGraph.triggers) ? sceneGraph.triggers : [];
-	const showTriggers = sceneGraph && sceneGraph.debug ? sceneGraph.debug.showTriggerVolumes === true : false;
-	const entities = Array.isArray(sceneGraph && sceneGraph.entities) ? sceneGraph.entities : [];
+	const terrain = sceneGraph.terrain;
+	const obstacles = sceneGraph.obstacles;
+	const triggers = sceneGraph.triggers;
+	const showTriggers = !!(sceneGraph.debug.showTriggerVolumes === true);
+	const entities = sceneGraph.entities;
 	const entityMeshes = [];
 
 	entities.forEach((entity) => {
-		if (entity && entity.model && Array.isArray(entity.model.parts)) {
+		if (entity.model && Array.isArray(entity.model.parts)) {
 			entity.model.parts.forEach((part) => {
-				if (part && part.mesh) {
+				if (part.mesh) {
 					entityMeshes.push(part.mesh);
 				}
 			});
 			return;
 		}
 
-		if (entity && entity.mesh) {
+		if (entity.mesh) {
 			entityMeshes.push(entity.mesh);
 		}
 	});
@@ -1211,9 +1191,7 @@ function collectRenderableMeshes(sceneGraph) {
 }
 
 function resolveWaterVisualMeshes(sceneGraph) {
-	const waterVisual = sceneGraph && sceneGraph.waterVisual && typeof sceneGraph.waterVisual === "object"
-		? sceneGraph.waterVisual
-		: null;
+	const waterVisual = sceneGraph.waterVisual;
 	if (!waterVisual) {
 		return [];
 	}
@@ -1295,16 +1273,7 @@ function drawScene(renderer, sceneGraph) {
 	gl.clearColor(0.04, 0.05, 0.08, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	const cameraState = sceneGraph && sceneGraph.cameraConfig && sceneGraph.cameraConfig.state
-		? sceneGraph.cameraConfig.state
-		: {
-			position: { x: 0, y: CNUtoWorldUnit(40), z: CNUtoWorldUnit(80) },
-			target: { x: 0, y: 0, z: 0 },
-			up: { x: 0, y: 1, z: 0 },
-			fov: 60,
-			near: 0.1,
-			far: CNUtoWorldUnit(500),
-		};
+	const cameraState = sceneGraph.cameraConfig.state;
 
 	// Camera is already in world-unit space from Camera.js.
 	const camPos = cameraState.position;
@@ -1324,10 +1293,7 @@ function drawScene(renderer, sceneGraph) {
 		cameraState.up || { x: 0, y: 1, z: 0 }
 	);
 
-	const waterLevelCNU = sceneGraph && sceneGraph.world && sceneGraph.world.waterLevel
-		? sceneGraph.world.waterLevel.value
-		: -9999;
-	const underwater = cameraState.position.y < CNUtoWorldUnit(waterLevelCNU);
+	const underwater = cameraState.position.y < sceneGraph.world.waterLevel.toWorldUnit();
 	const fogDensity = underwater ? 0.85 : 0.2;
 	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
 	const farValue = camFar;
@@ -1335,8 +1301,6 @@ function drawScene(renderer, sceneGraph) {
 
 	if (
 		underwater &&
-		sceneGraph &&
-		sceneGraph.effects &&
 		sceneGraph.effects.underwater &&
 		typeof sceneGraph.effects.underwater.particleHook === "function"
 	) {
@@ -1433,14 +1397,6 @@ function drawScene(renderer, sceneGraph) {
 }
 
 function RenderLevel(sceneGraph, options) {
-	if (typeof document === "undefined") {
-		return;
-	}
-
-	if (!sceneGraph || typeof sceneGraph !== "object") {
-		return;
-	}
-
 	const resolvedOptions = options && typeof options === "object" ? options : {};
 	const rootId = resolvedOptions.rootId || "engine-level-root";
 	const renderer = ensureLevelRenderer(rootId, resolvedOptions.rootStyles);

@@ -52,10 +52,10 @@ let CONFIG = {
         Game  : true,
       },
       Channel: {
-        Startup : false,
-        UI      : false,
-        Audio   : false,
-        Cutscene: false,
+        Startup : true,
+        UI      : true,
+        Audio   : true,
+        Cutscene: true,
         Controls: {
           Click: true,
           Hover: true,

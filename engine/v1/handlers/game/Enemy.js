@@ -28,25 +28,18 @@ const DEATH_WAIT_MS = 1500;
  * @param {number} deltaSeconds
  */
 function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
-	if (!playerState || !playerState.active || playerState.state === "Dead") { return; }
+	if (playerState.state === "Dead") { return; }
 
-	const entities = Array.isArray(sceneGraph && sceneGraph.entities) ? sceneGraph.entities : [];
-	const playerPos = playerState.transform.position;
-	const cameraPos = sceneGraph && sceneGraph.cameraConfig && sceneGraph.cameraConfig.state
-		? sceneGraph.cameraConfig.state.position
-		: playerPos;
+	const entities = sceneGraph.entities;
+	const cameraPos = sceneGraph.cameraConfig.state.position;
 	const activityRadius = GetSimDistanceValue();
-	const playerAabb = playerState.collision && playerState.collision.aabb ? playerState.collision.aabb : null;
-
-	if (!playerAabb) { return; }
 
 	for (let i = entities.length - 1; i >= 0; i--) {
 		const entity = entities[i];
-		if (!entity || entity.type !== "enemy") { continue; }
-		if (!entity.collision || !entity.collision.aabb) { continue; }
+		if (entity.type !== "enemy") { continue; }
 
 		// SimDistance gate is camera-relative; only qualified entities enter this collision pass.
-		const entityPos = entity.transform ? entity.transform.position : { x: 0, y: 0, z: 0 };
+		const entityPos = entity.transform.position;
 		if (cameraPos && DistanceVector3(cameraPos, entityPos) > activityRadius) { continue; }
 
 		if (!CheckEntityAabbOverlap(playerState, entity)) { continue; }
@@ -56,9 +49,7 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 			// === ENEMY TAKES DAMAGE ===
 			entity.hp = ToNumber(entity.hp, 1) - 1;
 
-			if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LOGGING && CONFIG.DEBUG.LOGGING.Channel && CONFIG.DEBUG.LOGGING.Channel.Level) {
-				Log("ENGINE", `Enemy "${entity.id}" hit by player. HP: ${entity.hp}`, "log", "Level");
-			}
+			Log("ENGINE", `Enemy "${entity.id}" hit by player. HP: ${entity.hp}`, "log", "Level");
 
 			if (entity.hp <= 0) {
 				// Remove enemy from scene.
@@ -81,9 +72,7 @@ function applyPlayerDamage(playerState, damageSourcePosition, sceneGraph) {
 	const dropCount = Math.max(0, ToNumber(playerState.collectibles, 0));
 	playerState.collectibles = 0;
 
-	if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LOGGING && CONFIG.DEBUG.LOGGING.Channel && CONFIG.DEBUG.LOGGING.Channel.Level) {
-		Log("ENGINE", `Player damaged! Lost ${dropCount} collectibles. Remaining: ${playerState.collectibles}`, "log", "Level");
-	}
+	Log("ENGINE", `Player damaged! Lost ${dropCount} collectibles. Remaining: ${playerState.collectibles}`, "log", "Level");
 
 	// TODO: Spawn collectible entities from stored count (placeholder — just log).
 	if (dropCount > 0) {

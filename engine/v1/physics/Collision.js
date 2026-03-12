@@ -14,13 +14,13 @@ import { SweptAABB, AABBOverlap } from "../math/Physics.js";
 import { ToNumber } from "../math/Utilities.js";
 
 function GetSimDistanceValue() {
-	const raw = CONFIG && CONFIG.PERFORMANCE ? CONFIG.PERFORMANCE.SimDistance : "High";
+	const raw = CONFIG.PERFORMANCE.SimDistance;
 	if (raw === "Low") { return 35; }
 	if (raw === "Medium") { return 60; }
 	return 100;
 }
 
-function getHalfExtents(aabb) {
+function GetHalfExtents(aabb) {
 	if (!aabb || !aabb.min || !aabb.max) {
 		return { x: 0.5, y: 0.5, z: 0.5 };
 	}
@@ -54,7 +54,7 @@ function BuildEntityAabbAtPosition(entityAabb, position) {
 	if (!entityAabb || !entityAabb.min || !entityAabb.max) {
 		return null;
 	}
-	const halfExtents = getHalfExtents(entityAabb);
+	const halfExtents = GetHalfExtents(entityAabb);
 	const pos = NormalizeVector3(position);
 	const aabbCenter = getAabbCenter(entityAabb);
 	const centerOffset = {
@@ -141,7 +141,7 @@ function CheckSweptAabbPair(position, displacement, entityAabb, targetAabb) {
 	}
 	const pos = NormalizeVector3(position);
 	const vel = NormalizeVector3(displacement);
-	const halfExtents = getHalfExtents(entityAabb);
+	const halfExtents = GetHalfExtents(entityAabb);
 	const aabbCenter = getAabbCenter(entityAabb);
 	const centerOffset = {
 		x: aabbCenter.x - pos.x,
@@ -156,7 +156,7 @@ function CheckSweptAabbPair(position, displacement, entityAabb, targetAabb) {
 	return SweptAABB(centerPos, vel, halfExtents, targetAabb);
 }
 
-function collectCollidables(sceneGraph, simRadiusAabb) {
+function CollectCollidables(sceneGraph, simRadiusAabb) {
 	const candidates = [];
 	const withinSimRadius = (aabb) => {
 		if (!simRadiusAabb) {
@@ -230,8 +230,7 @@ function collectCollidables(sceneGraph, simRadiusAabb) {
  * @returns {{ solids: Array, triggers: Array }}
  */
 function DetectCollisions(entity, scaledVelocity, sceneGraph) {
-	const config = CONFIG && CONFIG.PHYSICS && CONFIG.PHYSICS.Collision ? CONFIG.PHYSICS.Collision : {};
-	if (config.Enabled === false) {
+	if (CONFIG.PHYSICS.Collision.Enabled === false) {
 		return { solids: [], triggers: [] };
 	}
 
@@ -245,7 +244,7 @@ function DetectCollisions(entity, scaledVelocity, sceneGraph) {
 	const simRadiusAabb = entity && entity.collision && entity.collision.simRadiusAabb
 		? entity.collision.simRadiusAabb
 		: ExpandAabb(entityAabb, entity && entity.collision ? entity.collision.simRadiusPadding : 8);
-	const candidates = collectCollidables(sceneGraph, simRadiusAabb);
+	const candidates = CollectCollidables(sceneGraph, simRadiusAabb);
 	const entityFrameAabb = BuildEntityAabbAtPosition(entityAabb, pos);
 
 	const solids = [];
@@ -339,9 +338,6 @@ function ResolveCollisions(velocity, displacement, solids) {
 let lastLoggedCollisionKey = "";
 
 function LogCollision(collision) {
-	if (!CONFIG || !CONFIG.DEBUG || CONFIG.DEBUG.ALL !== true) { return; }
-	if (!CONFIG.DEBUG.LOGGING || !CONFIG.DEBUG.LOGGING.Channel || CONFIG.DEBUG.LOGGING.Channel.Level !== true) { return; }
-
 	const targetId = collision && collision.target ? collision.target.id : "unknown";
 	const n = collision && collision.normal ? collision.normal : { x: 0, y: 0, z: 0 };
 
@@ -363,9 +359,9 @@ function LogCollision(collision) {
 export {
 	DetectCollisions,
 	ResolveCollisions,
-	collectCollidables,
+	CollectCollidables,
 	GetSimDistanceValue,
-	getHalfExtents,
+	GetHalfExtents,
 	ExpandAabb,
 	BuildEntityAabbAtPosition,
 	CheckAabbOverlapPair,

@@ -21,8 +21,7 @@ const MAX_SINK_SPEED = 50;
  * @returns {{ x: number, y: number, z: number }}
  */
 function ApplyBuoyancy(velocity, position, waterLevel, deltaSeconds) {
-	const config = CONFIG && CONFIG.PHYSICS && CONFIG.PHYSICS.Buoyancy ? CONFIG.PHYSICS.Buoyancy : {};
-	if (config.Enabled === false) {
+	if (CONFIG.PHYSICS.Buoyancy.Enabled === false) {
 		return velocity;
 	}
 

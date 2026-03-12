@@ -242,18 +242,16 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
  * @param {object} playerState — full player state with transform and model.
  */
 function UpdatePlayerModelFromState(playerState) {
-	if (!playerState || !playerState.model) { return; }
-
 	playerState.model.rootTransform.position = NormalizeVector3(
-		playerState.transform ? playerState.transform.position : null,
+		playerState.transform.position,
 		{ x: 0, y: 0, z: 0 }
 	);
 	playerState.model.rootTransform.rotation = NormalizeVector3(
-		playerState.transform ? playerState.transform.rotation : null,
+		playerState.transform.rotation,
 		{ x: 0, y: 0, z: 0 }
 	);
 	playerState.model.rootTransform.scale = NormalizeVector3(
-		playerState.transform ? playerState.transform.scale : null,
+		playerState.transform.scale,
 		{ x: 1, y: 1, z: 1 }
 	);
 

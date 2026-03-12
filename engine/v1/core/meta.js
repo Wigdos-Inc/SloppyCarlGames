@@ -17,10 +17,6 @@ const SESSION_KEYS = {
 };
 
 function ReadFromSession(key, fallback) {
-  if (typeof sessionStorage === "undefined") {
-    return fallback;
-  }
-
   try {
     const raw = sessionStorage.getItem(key);
     if (!raw) {
@@ -33,20 +29,15 @@ function ReadFromSession(key, fallback) {
 }
 
 function PushToSession(key, value) {
-  if (typeof sessionStorage !== "undefined") {
-    try {
-      sessionStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
-      void error;
-    }
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    void error;
   }
   return value;
 }
 
 function clearSessionStorage() {
-  if (typeof sessionStorage === "undefined") {
-    return;
-  }
   try {
     sessionStorage.clear();
   } catch (error) {
@@ -132,20 +123,12 @@ function Wait(milliseconds) {
 }
 
 function IsPointerLocked() {
-  if (typeof document === "undefined") {
-    return false;
-  }
-
   return Boolean(document.pointerLockElement);
 }
 
 function RequestPointerLock(targetElement) {
-  if (typeof document === "undefined") {
-    return false;
-  }
-
   const element = targetElement || document.getElementById("engine-level-root-canvas") || document.body;
-  if (!element || typeof element.requestPointerLock !== "function") {
+  if (!element) {
     return false;
   }
 
@@ -155,11 +138,6 @@ function RequestPointerLock(targetElement) {
 
 /* === DEBUG CHECKS === */
 // Gate logging based on debug flags.
-
-function getDebugConfig() {
-  return CONFIG && CONFIG.DEBUG ? CONFIG.DEBUG : null;
-}
-
 function resolveControlsSubtypeFromMessage(message) {
   if (typeof message !== "string") {
     return null;
@@ -204,7 +182,7 @@ function resolveControlsSubtypeFromMessage(message) {
 }
 
 function shouldLog(source, channel, level, message) {
-  const debug = getDebugConfig();
+  const debug = CONFIG.DEBUG;
   // Allow logs when no debug config exists.
   if (!debug) {
     return true;
@@ -428,9 +406,6 @@ const Cursor = {
     Log("ENGINE", `Cursor shape: ${resolvedShape}`, "log", "Controls");
   },
   apply() {
-    if (typeof document === "undefined") {
-      return;
-    }
     const hidden = this.currentState !== "enabled";
     const cursorValue = hidden ? "none" : this.currentShape;
     const pointerValue = hidden ? "none" : "auto";
@@ -467,27 +442,17 @@ function ExitGame() {
   Log("ENGINE", "Exit requested.", "log", "Meta");
   clearSessionStorage();
   Cursor.changeState("hidden");
-  if (typeof document !== "undefined" && document.body) {
-    document.body.style.background = "black";
-    while (document.body.firstChild) {
-      document.body.removeChild(document.body.firstChild);
-    }
+  document.body.style.background = "black";
+  while (document.body.firstChild) {
+    document.body.removeChild(document.body.firstChild);
   }
-  if (typeof window !== "undefined" && typeof window.close === "function") {
-    window.close();
-  }
+  window.close();
 }
 
 function SendEvent(eventName, payload) {
   // Guard against invalid event usage.
   if (typeof eventName !== "string" || eventName.length === 0) {
     Log("ENGINE", "Meta.SendEvent requires a non-empty event name.", "error", "Meta");
-    return;
-  }
-
-  // Ensure a browser context exists.
-  if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") {
-    Log("ENGINE", "Meta.SendEvent is only available in a browser context.", "error", "Meta");
     return;
   }
 

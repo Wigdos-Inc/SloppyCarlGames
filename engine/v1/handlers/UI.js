@@ -113,7 +113,7 @@ function buildUiRuntimeMapsFromIndex(index) {
 }
 
 function resolvePrecomputedAction(type, targetId) {
-	if (!type || !targetId || !Cache || !Cache.UI || !Cache.UI.uiRuntime) {
+	if (!type || !targetId) {
 		return null;
 	}
 
@@ -317,14 +317,12 @@ function ApplyMenuUI(payload) {
 	}
 
 	// Cache the latest UI payload for input routing.
-	if (Cache && Cache.UI) {
-		Cache.UI.lastPayload = validatedPayload;
-		Cache.UI.screenID = validatedPayload.screenId || null;
-		Cache.UI.elementIndex = {};
-		indexElements(validatedPayload.elements, Cache.UI.elementIndex);
-		Cache.UI.uiRuntime = buildUiRuntimeMapsFromIndex(Cache.UI.elementIndex);
-		PushToSession(SESSION_KEYS.Cache, Cache);
-	}
+	Cache.UI.lastPayload = validatedPayload ?? null;
+	Cache.UI.screenID = validatedPayload?.screenId ?? null;
+	Cache.UI.elementIndex = {};
+	indexElements(validatedPayload.elements, Cache.UI.elementIndex);
+	Cache.UI.uiRuntime = buildUiRuntimeMapsFromIndex(Cache.UI.elementIndex);
+	PushToSession(SESSION_KEYS.Cache, Cache);
 
 	const screenLabel = validatedPayload.screenId || "unknown";
 	Log("ENGINE", `UI Render: ${screenLabel}`, "log", "UI");
@@ -333,13 +331,7 @@ function ApplyMenuUI(payload) {
 	Cursor.changeState("enabled");
 
 	// Notify listeners that the UI is ready.
-	if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
-		window.dispatchEvent(
-			new CustomEvent("ENGINE_UI_RENDERED", {
-				detail: { screenId: validatedPayload.screenId || null },
-			})
-		);
-	}
+	SendEvent("ENGINE_UI_RENDERED", { screenId: validatedPayload.screenId || null });
 
 	// Start UI music after render.
 	const music = validatedPayload.music;
@@ -357,13 +349,11 @@ function LoadScreen(payload) {
 function ClearUI(rootId) {
 	const resolvedRootId = rootId || "engine-ui-root";
 
-	if (Cache && Cache.UI) {
-		Cache.UI.lastPayload = null;
-		Cache.UI.screenID = null;
-		Cache.UI.elementIndex = {};
-		Cache.UI.uiRuntime = createUiRuntimeMaps();
-		PushToSession(SESSION_KEYS.Cache, Cache);
-	}
+	Cache.UI.lastPayload = null;
+	Cache.UI.screenID = null;
+	Cache.UI.elementIndex = {};
+	Cache.UI.uiRuntime = createUiRuntimeMaps();
+	PushToSession(SESSION_KEYS.Cache, Cache);
 
 	RemoveRoot(resolvedRootId);
 	Log("ENGINE", `UI cleared: ${resolvedRootId}`, "log", "UI");

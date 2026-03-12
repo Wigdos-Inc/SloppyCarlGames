@@ -27,11 +27,7 @@ let nextVoiceId = 1;
 
 function resolveVolume(channel, options) {
 	// Pull channel-specific volume from config.
-	if (!CONFIG || !CONFIG.VOLUME) {
-		return 1;
-	}
-
-	const master = typeof CONFIG.VOLUME.Master === "number" ? CONFIG.VOLUME.Master : 1;
+	const master = CONFIG.VOLUME.Master;
 	const clamp = (value) => Math.max(0, Math.min(1, value));
 	const applyMaster = (value) => clamp(master * value);
 
@@ -288,12 +284,10 @@ function UpdateActiveAudioVolumes() {
 		}
 	});
 
-	if (typeof document !== "undefined") {
-		const cutsceneVideo = document.getElementById("engine-intro-video");
-		if (cutsceneVideo) {
-			const volume = resolveVolume("Cutscene", null);
-			cutsceneVideo.volume = Math.max(0, Math.min(1, volume));
-		}
+	const cutsceneVideo = document.getElementById("engine-intro-video") ?? null;
+	if (cutsceneVideo) {
+		const volume = resolveVolume("Cutscene", null);
+		cutsceneVideo.volume = Math.max(0, Math.min(1, volume));
 	}
 }
 

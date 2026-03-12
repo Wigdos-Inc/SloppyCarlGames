@@ -204,10 +204,6 @@ function resolveTextureSize(textureDefinition, usageEntry) {
 }
 
 function buildTextureSurface(textureDefinition, resolvedSize, textureScale) {
-	if (typeof document === "undefined") {
-		return null;
-	}
-
 	const size = Number.isFinite(resolvedSize)
 		? Math.max(8, resolvedSize)
 		: (Number.isFinite(textureDefinition.size) ? Math.max(8, textureDefinition.size) : 64);
@@ -275,24 +271,19 @@ function collectTextureUsage(sceneGraph) {
 		});
 	};
 
-	const terrain = Array.isArray(sceneGraph && sceneGraph.terrain) ? sceneGraph.terrain : [];
-	terrain.forEach((mesh) => {
-		const dimensions = NormalizeVector3(mesh && mesh.dimensions, { x: 1, y: 1, z: 1 });
-		const scale = NormalizeVector3(mesh && mesh.transform && mesh.transform.scale, { x: 1, y: 1, z: 1 });
-		const span = Math.max(1, dimensions.x * scale.x, dimensions.z * scale.z);
+	sceneGraph.terrain.forEach((mesh) => {
+		const dimensions = mesh.dimensions;
+		const scale = mesh.transform.scale;
+		const span = Math.max(dimensions.x * scale.x, dimensions.z * scale.z);
 		collectMesh(mesh, { isTerrain: true, maxSpan: span });
 	});
 
-	const triggers = Array.isArray(sceneGraph && sceneGraph.triggers) ? sceneGraph.triggers : [];
-	triggers.forEach((mesh) => collectMesh(mesh, null));
-
-	const scatter = Array.isArray(sceneGraph && sceneGraph.scatter) ? sceneGraph.scatter : [];
-	scatter.forEach((mesh) => collectMesh(mesh, null));
+	sceneGraph.triggers.forEach((mesh) => collectMesh(mesh, null));
+	sceneGraph.scatter.forEach((mesh) => collectMesh(mesh, null));
 
 	// Collect texture IDs from instanced scatter batches.
-	const scatterBatches = sceneGraph && sceneGraph.scatterBatches instanceof Map ? sceneGraph.scatterBatches : null;
-	if (scatterBatches) {
-		scatterBatches.forEach((batch) => {
+	if (sceneGraph.scatterBatches) {
+		sceneGraph.scatterBatches.forEach((batch) => {
 			if (batch && typeof batch.textureID === "string" && batch.textureID.length > 0 && !usage[batch.textureID]) {
 				usage[batch.textureID] = {
 					isTerrain: false,
@@ -305,8 +296,7 @@ function collectTextureUsage(sceneGraph) {
 		});
 	}
 
-	const entities = Array.isArray(sceneGraph && sceneGraph.entities) ? sceneGraph.entities : [];
-	entities.forEach((entity) => {
+	sceneGraph.entities.forEach((entity) => {
 		if (entity && entity.model && Array.isArray(entity.model.parts)) {
 			entity.model.parts.forEach((part) => collectMesh(part.mesh, null));
 		}
@@ -393,11 +383,8 @@ function createTextureRegistry(templateRegistry, textureUsage, options) {
 async function PrepareLevelVisualResources(sceneGraph) {
 	const templates = await LoadEngineVisualTemplates();
 	const textureUsage = collectTextureUsage(sceneGraph);
-	const world = sceneGraph && sceneGraph.world && typeof sceneGraph.world === "object"
-		? sceneGraph.world
-		: {};
 	const textureRegistry = createTextureRegistry(templates, textureUsage, {
-		textureScale: toNumber(world.textureScale, 1),
+		textureScale: toNumber(sceneGraph.world.textureScale, 1),
 	});
 
 	sceneGraph.visualResources = {
@@ -405,9 +392,7 @@ async function PrepareLevelVisualResources(sceneGraph) {
 		scatterRegistry: templates.scatterTypes || {},
 	};
 
-	const scatterTypeCount = templates && templates.scatterTypes
-		? Object.keys(templates.scatterTypes).length
-		: 0;
+	const scatterTypeCount = Object.keys(templates.scatterTypes).length;
 	Log(
 		"ENGINE",
 		`Visual resources ready: textures=${Object.keys(textureRegistry).length}, scatterTypes=${scatterTypeCount}`,

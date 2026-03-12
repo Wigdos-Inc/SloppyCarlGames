@@ -20,8 +20,7 @@ const WATER_DRAG = 0.05;
  * @returns {{ x: number, y: number, z: number }}
  */
 function ApplyResistance(velocity, deltaSeconds, medium) {
-	const config = CONFIG && CONFIG.PHYSICS && CONFIG.PHYSICS.Resistance ? CONFIG.PHYSICS.Resistance : {};
-	if (config.Enabled === false) {
+	if (CONFIG.PHYSICS.Resistance.Enabled === false) {
 		return velocity;
 	}
 

@@ -152,7 +152,7 @@ async function RunSplashSequence() {
 	// Build the full splash sequence pipeline.
 	const context = setupSplashSequence();
 	const skipSplash =
-		(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.SKIP && CONFIG.DEBUG.SKIP.Splash === true) ||
+		(CONFIG.DEBUG.SKIP.Splash === true) ||
 		ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true;
 
 	if (skipSplash) {

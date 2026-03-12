@@ -46,7 +46,7 @@ import { GetPlayerInput, GetPlayerState } from "../player/Master.js";
 /* === INITIALIZATION === */
 // Bootstraps engine subsystems and returns the public API.
 
-function initialize() {
+function Initialize() {
   // Log startup checkpoints.
   Log("ENGINE", "Initializing Engine Core.", "log", "Startup");
   Log("ENGINE", "Initializing Diagnostics.", "log", "Startup");
@@ -112,4 +112,4 @@ function initialize() {
 /* === EXPORTS === */
 // Public initializer for Bootup.
 
-export { initialize };
+export { Initialize };

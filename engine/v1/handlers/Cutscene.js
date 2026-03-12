@@ -35,13 +35,8 @@ function normalizeIntroPayload(payload) {
 }
 
 async function playVideoCutscene(payload, options) {
-	if (
-		CONFIG &&
-		CONFIG.DEBUG &&
-		CONFIG.DEBUG.SKIP &&
-		CONFIG.DEBUG.SKIP.Cutscene
-	) {
-		Log("ENGINE", "Video cutscene skipped by config.", "log", "Cutscene");
+	if (CONFIG.DEBUG.SKIP.Cutscene === true) {
+		Log("ENGINE", "Video cutscene skipped by settings.", "log", "Cutscene");
 		return;
 	}
 	// Guard against missing video sources.
@@ -67,7 +62,7 @@ async function playVideoCutscene(payload, options) {
 	video.loop = payload.loop === true;
 	if (video.muted) {
 		video.volume = 0;
-	} else if (CONFIG && CONFIG.VOLUME && typeof CONFIG.VOLUME.Cutscene === "number") {
+	} else {
 		const master = typeof CONFIG.VOLUME.Master === "number" ? CONFIG.VOLUME.Master : 1;
 		const volume = Math.max(0, Math.min(1, master * CONFIG.VOLUME.Cutscene));
 		video.volume = volume;
@@ -148,10 +143,6 @@ async function playVideoCutscene(payload, options) {
 
 function ensureCutsceneCurtain(rootId) {
 	// Reuse a persistent curtain overlay for fades.
-	if (typeof document === "undefined") {
-		return null;
-	}
-
 	const root = document.getElementById(rootId);
 	if (!root) {
 		return null;
@@ -186,13 +177,8 @@ async function fadeCutsceneToBlack(options) {
 }
 
 async function playEngineCutscene(payload, options) {
-	if (
-		CONFIG &&
-		CONFIG.DEBUG &&
-		CONFIG.DEBUG.SKIP &&
-		CONFIG.DEBUG.SKIP.Cutscene
-	) {
-		Log("ENGINE", "Engine cutscene skipped by config.", "log", "Cutscene");
+	if (CONFIG.DEBUG.SKIP.Cutscene === true) {
+		Log("ENGINE", "Engine cutscene skipped by settings.", "log", "Cutscene");
 		return;
 	}
 	// Drive in-engine cutscene timelines with a simple duration flow.
@@ -228,13 +214,8 @@ async function playEngineCutscene(payload, options) {
 
 async function PlayIntroCinematic(payload, options) {
 	// Skip intros if config disables them.
-	if (
-		CONFIG &&
-		CONFIG.DEBUG &&
-		CONFIG.DEBUG.SKIP &&
-		(CONFIG.DEBUG.SKIP.Cutscene || CONFIG.DEBUG.SKIP.Intro)
-	) {
-		Log("ENGINE", "Intro cinematic skipped by config.", "log", "Cutscene");
+	if (CONFIG.DEBUG.SKIP.Cutscene === true || CONFIG.DEBUG.SKIP.Intro === true) {
+		Log("ENGINE", "Intro cinematic skipped by settings.", "log", "Cutscene");
 		return false;
 	}
 

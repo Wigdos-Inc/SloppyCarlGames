@@ -17,22 +17,11 @@ import { ToNumber } from "../math/Utilities.js";
  * @param {number} deltaSeconds
  */
 function UpdateAbilities(playerState, input, deltaSeconds) {
-	if (!playerState || !playerState.character) { return; }
-
 	const dt = ToNumber(deltaSeconds, 0);
 	const char = playerState.character;
 	const meta = char && char.meta ? char.meta : {};
 
 	// === BOOST SYSTEM ===
-	if (!playerState.boost) {
-		playerState.boost = {
-			active: false,
-			timer: 0,
-			maxSpeedMultiplier: 1,
-			accelMultiplier: 1,
-		};
-	}
-
 	const boost = playerState.boost;
 
 	// Activate boost.
@@ -48,9 +37,7 @@ function UpdateAbilities(playerState, input, deltaSeconds) {
 			playerState.state = "Boosting";
 		}
 
-		if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LOGGING && CONFIG.DEBUG.LOGGING.Channel && CONFIG.DEBUG.LOGGING.Channel.Level) {
-			Log("ENGINE", `Player boost activated: duration=${boost.timer.toFixed(2)}s`, "log", "Level");
-		}
+		Log("ENGINE", `Player boost activated: duration=${boost.timer.toFixed(2)}s`, "log", "Level");
 	}
 
 	// Tick boost timer.
@@ -67,21 +54,11 @@ function UpdateAbilities(playerState, input, deltaSeconds) {
 				playerState.state = playerState.grounded ? "Idle" : "Falling";
 			}
 
-			if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LOGGING && CONFIG.DEBUG.LOGGING.Channel && CONFIG.DEBUG.LOGGING.Channel.Level) {
-				Log("ENGINE", "Player boost deactivated.", "log", "Level");
-			}
+			Log("ENGINE", "Player boost deactivated.", "log", "Level");
 		}
 	}
 
 	// === INVULNERABILITY SYSTEM ===
-	if (!playerState.invulnerable) {
-		playerState.invulnerable = {
-			active: false,
-			timer: 0,
-			flashTimer: 0,
-		};
-	}
-
 	const invuln = playerState.invulnerable;
 
 	if (invuln.active) {

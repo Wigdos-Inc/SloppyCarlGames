@@ -9,7 +9,7 @@ function toNumber(value, fallback) {
 }
 
 function getGravityConfig() {
-	return CONFIG && CONFIG.PHYSICS && CONFIG.PHYSICS.Gravity ? CONFIG.PHYSICS.Gravity : {};
+	return CONFIG.PHYSICS.Gravity;
 }
 
 /**

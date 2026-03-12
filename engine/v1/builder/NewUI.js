@@ -14,10 +14,6 @@ class UIElement {
 	}
 	
 	get element() {
-		// Resolve the DOM element by id when available.
-		if (typeof document === "undefined") {
-			return null;
-		}
 		return document.getElementById(this.elementId);
 	}
 
@@ -86,9 +82,6 @@ class UIElement {
 	}
 
 	static removeRoot(rootId) {
-		if (typeof document === "undefined") {
-			return;
-		}
 		// Remove a root container by id.
 		Log("ENGINE", `Removed ${rootId}.`, "log", "UI");
 		const element = document.getElementById(rootId);

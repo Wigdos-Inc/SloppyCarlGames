@@ -63,8 +63,6 @@ function getMovementDirection(input, cameraVectors, surfaceNormal) {
  * @param {number} deltaSeconds
  */
 function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
-	if (!playerState || !playerState.character) { return; }
-
 	const dt = ToNumber(deltaSeconds, 0);
 	const char = playerState.character;
 	const meta = char && char.meta ? char.meta : {};
@@ -125,10 +123,7 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	if (input && input.jump && playerState.grounded && playerState.state !== "Stunned" && playerState.state !== "Dead") {
 		playerState.velocity.y = jumpForce;
 		playerState.grounded = false;
-		const jumpStartY = ToNumber(
-			playerState.transform && playerState.transform.position ? playerState.transform.position.y : 0,
-			0
-		);
+		const jumpStartY = ToNumber(playerState.transform.position.y, 0);
 		playerState.jumpStartY = jumpStartY;
 		playerState.jumpApexY = jumpStartY;
 		playerState.previousState = playerState.state;

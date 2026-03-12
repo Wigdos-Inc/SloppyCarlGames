@@ -122,13 +122,9 @@ function InitializePlayer(playerPayload, sceneGraph) {
 	UpdatePlayerModelFromState(playerState);
 
 	// Insert player as entity into sceneGraph for rendering.
-	if (sceneGraph) {
-		sceneGraph.player = playerState;
-		// Also place in entities array so the renderer and bounding box system see it.
-		if (Array.isArray(sceneGraph.entities)) {
-			sceneGraph.entities.push(playerState);
-		}
-	}
+	sceneGraph.player = playerState;
+	// Also place in entities array so the renderer and bounding box system see it.
+	sceneGraph.entities.push(playerState);
 
 	Log("ENGINE", `Player initialized: character="${character.name}" at (${spawnPos.x}, ${spawnPos.y}, ${spawnPos.z})`, "log", "Level");
 	return playerState;
@@ -149,7 +145,7 @@ function InitializePlayer(playerPayload, sceneGraph) {
  * @returns {object|null} — updated playerState, or null if no player.
  */
 function UpdatePlayer(deltaSeconds, sceneGraph, cameraVectors) {
-	if (!playerState || !playerState.active) { return null; }
+	if (!playerState.active) { return null; }
 	if (playerState.state === "Dead") { return playerState; }
 
 	const dt = ToNumber(deltaSeconds, 0);
@@ -173,7 +169,7 @@ function UpdatePlayer(deltaSeconds, sceneGraph, cameraVectors) {
  * Called from Level.js after the full pipeline.
  */
 function ResolvePlayerState() {
-	if (!playerState || !playerState.active) { return; }
+	if (!playerState.active) { return; }
 	if (playerState.state === "Dead") { return; }
 
 	const speed = Math.sqrt(
@@ -196,7 +192,7 @@ function ResolvePlayerState() {
 
 	if (!playerState.grounded) {
 		if (playerState.state === "Jumping") {
-			const currentY = ToNumber(playerState.transform && playerState.transform.position ? playerState.transform.position.y : 0, 0);
+			const currentY = ToNumber(playerState.transform.position.y, 0);
 			const jumpStartY = ToNumber(playerState.jumpStartY, currentY);
 			playerState.jumpApexY = Math.max(ToNumber(playerState.jumpApexY, currentY), currentY);
 
@@ -221,9 +217,7 @@ function ResolvePlayerState() {
 
 	// Log state transitions.
 	if (oldState !== playerState.state) {
-		if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LOGGING && CONFIG.DEBUG.LOGGING.Channel && CONFIG.DEBUG.LOGGING.Channel.Level) {
-			Log("ENGINE", `Player state: ${oldState} → ${playerState.state}`, "log", "Level");
-		}
+		Log("ENGINE", `Player state: ${oldState} → ${playerState.state}`, "log", "Level");
 		playerState.previousState = oldState;
 	}
 }
@@ -233,8 +227,6 @@ function ResolvePlayerState() {
  * Called by Enemy.js when player has no collectibles and takes damage.
  */
 function TriggerPlayerDeath() {
-	if (!playerState) { return; }
-
 	playerState.state = "Dead";
 	playerState.velocity.set({ x: 0, y: 0, z: 0 });
 	Log("ENGINE", "Player death triggered.", "log", "Level");
@@ -244,8 +236,6 @@ function TriggerPlayerDeath() {
  * Respawn the player at checkpoint or spawn position.
  */
 function RespawnPlayer() {
-	if (!playerState) { return; }
-
 	const respawnPos = playerState.checkpoint
 		? playerState.checkpoint.position
 		: playerState.spawnPosition;

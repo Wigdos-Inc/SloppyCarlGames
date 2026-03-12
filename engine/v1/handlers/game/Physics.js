@@ -11,7 +11,7 @@ import {
 	ScaleVector3,
 	Vector3Length,
 } from "../../math/Vector3.js";
-import { ToNumber, UnitVector3 } from "../../math/Utilities.js";
+import { ToNumber } from "../../math/Utilities.js";
 import { ApplyGravity } from "../../physics/Gravity.js";
 import { ApplyResistance } from "../../physics/Resistance.js";
 import { ApplyBuoyancy } from "../../physics/Buoyancy.js";
@@ -27,12 +27,12 @@ import { ApplySurfaceAlignment } from "../../physics/Correction.js";
  * @param {number} deltaSeconds
  */
 function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
-	if (!playerState || !playerState.active) { return; }
+	if (!playerState.active) { return; }
 
 	const dt = ToNumber(deltaSeconds, 0);
-	const world = sceneGraph && sceneGraph.world ? sceneGraph.world : {};
-	const waterLevel = world.waterLevel && typeof world.waterLevel.value === "number" ? world.waterLevel.value : -9999;
-	const deathBarrierY = world.deathBarrierY && typeof world.deathBarrierY.value === "number" ? world.deathBarrierY.value : -25;
+	const world = sceneGraph.world;
+	const waterLevel = world.waterLevel.value;
+	const deathBarrierY = world.deathBarrierY.value;
 	const pos = playerState.transform.position;
 
 	// Determine medium.
@@ -126,22 +126,10 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
  * @param {number} deltaSeconds
  */
 function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
-	if (!entity) { return; }
-
 	const movement = entity.movement || {};
-	const world = sceneGraph && sceneGraph.world ? sceneGraph.world : {};
-	const deathBarrierY = world.deathBarrierY && typeof world.deathBarrierY.value === "number" ? world.deathBarrierY.value : -25;
+	const world = sceneGraph.world;
+	const deathBarrierY = world.deathBarrierY.value;
 	const dt = ToNumber(deltaSeconds, 0);
-
-	if (!entity.velocity) {
-		entity.velocity = new UnitVector3(0, 0, 0, "CNU");
-	}
-	if (!entity.transform) {
-		entity.transform = { position: new UnitVector3(0, 0, 0, "CNU") };
-	}
-	if (!entity.transform.position) {
-		entity.transform.position = new UnitVector3(0, 0, 0, "CNU");
-	}
 
 	if (!movement.physics) {
 		return;
@@ -153,18 +141,14 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 	// Simple collision for physics-enabled entities.
 	const entityPos = entity.transform.position;
 
-	if (entity.collision && entity.collision.aabb) {
-		const displacement = ScaleVector3(entity.velocity, dt);
-		const { solids } = DetectCollisions(entity, displacement, sceneGraph);
-		if (solids.length > 0) {
-			const { resolvedVelocity, resolvedDisplacement } = ResolveCollisions(entity.velocity, displacement, solids);
-			entity.velocity.set(resolvedVelocity);
-			entity.transform.position.set(AddVector3(entityPos, resolvedDisplacement));
-		} else {
-			entity.transform.position.set(AddVector3(entityPos, displacement));
-		}
+	const displacement = ScaleVector3(entity.velocity, dt);
+	const { solids } = DetectCollisions(entity, displacement, sceneGraph);
+	if (solids.length > 0) {
+		const { resolvedVelocity, resolvedDisplacement } = ResolveCollisions(entity.velocity, displacement, solids);
+		entity.velocity.set(resolvedVelocity);
+		entity.transform.position.set(AddVector3(entityPos, resolvedDisplacement));
 	} else {
-		entity.transform.position.set(AddVector3(entityPos, ScaleVector3(entity.velocity, dt)));
+		entity.transform.position.set(AddVector3(entityPos, displacement));
 	}
 
 	// Death barrier.

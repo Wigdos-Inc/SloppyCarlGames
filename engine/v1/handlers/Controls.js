@@ -130,8 +130,8 @@ function UpdateInputEventTypes(options) {
 }
 
 class Controls {
-	constructor(target) {
-		this.target = target || (typeof window !== "undefined" ? window : null);
+	constructor(target = window) {
+		this.target = target;
 		this.listeners = [];
 	}
 
@@ -192,18 +192,18 @@ function buildInteractionPayload(event) {
 	// Capture a lightweight event snapshot for the game.
 	const target = event && event.target ? event.target : null;
 	return {
-		type: event && event.type ? event.type : null,
-		targetId: target && target.id ? target.id : null,
-		targetType: target && target.type ? target.type : null,
-		value: target && "value" in target ? target.value : null,
-		checked: target && "checked" in target ? target.checked : null,
-		key: event && "key" in event ? event.key : null,
-		code: event && "code" in event ? event.code : null,
-		button: event && "button" in event ? event.button : null,
+		type       : event && event.type ? event.type : null,
+		targetId   : target && target.id ? target.id : null,
+		targetType : target && target.type ? target.type : null,
+		value      : target && "value" in target ? target.value : null,
+		checked    : target && "checked" in target ? target.checked : null,
+		key        : event && "key" in event ? event.key : null,
+		code       : event && "code" in event ? event.code : null,
+		button     : event && "button" in event ? event.button : null,
 		pointerType: event && "pointerType" in event ? event.pointerType : null,
-		clientX: event && "clientX" in event ? event.clientX : null,
-		clientY: event && "clientY" in event ? event.clientY : null,
-		screenId: Cache && Cache.UI ? Cache.UI.screenID : null,
+		clientX    : event && "clientX" in event ? event.clientX : null,
+		clientY    : event && "clientY" in event ? event.clientY : null,
+		screenId   : Cache.UI.screenID,
 	};
 }
 
@@ -233,7 +233,7 @@ function StartInputRouter(target) {
 
 			const activeLevel = GetActiveLevel();
 			const levelIsLoaded = Boolean(activeLevel);
-			const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
+			const freeCamEnabled = !!(CONFIG.DEBUG.LEVELS.FreeCam === true);
 			if (levelIsLoaded && freeCamEnabled) {
 				consumed = HandleFreeCamInput(event, activeLevel);
 			} else if (levelIsLoaded && !freeCamEnabled) {

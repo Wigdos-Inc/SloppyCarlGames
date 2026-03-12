@@ -2,13 +2,13 @@
 // Purpose: initialize ENGINE via core/ini.js, show the user-start overlay, then run splash
 // and signal the game to load its startup UI. This file owns startup timing only.
 // Limits: no gameplay logic, no UI element construction details, no asset loading beyond splash.
-// Pipeline: initialize() -> CreateUI() overlay -> Controls input -> RunSplashSequence().
+// Pipeline: Initialize() -> CreateUI() overlay -> Controls input -> RunSplashSequence().
 
 
 /* === IMPORTS === */
 // Core initialization and logging.
 
-import { initialize } from "./core/ini.js";
+import { Initialize } from "./core/ini.js";
 import { Cursor, Log, SendEvent, Wait } from "./core/meta.js";
 import { FadeElement, RemoveRoot, SetElementStyle, SetElementText } from "./handlers/Render.js";
 import { CreateUI } from "./handlers/UI.js";
@@ -105,15 +105,10 @@ function waitForUserStart() {
 };
 
 function waitForUiRender(screenId, timeoutMs) {
-  if (typeof window === "undefined" || typeof window.addEventListener !== "function") {
-    return Promise.resolve();
-  }
-
   return new Promise((resolve) => {
     const timeout = Math.max(0, timeoutMs || 0);
     const onUiRendered = (event) => {
-      const resolvedId = event && event.detail ? event.detail.screenId || null : null;
-      if (!screenId || resolvedId === screenId) {
+      if (!screenId || event.detail.payload.screenId === screenId) {
         cleanup();
       }
     };
@@ -192,17 +187,30 @@ async function runStartupSequence() {
   Cursor.changeState("enabled");
 }
 
-(() => {
-  if (typeof initialize !== "function") {
-    Log("ENGINE", "Bootup failed: initialize not available.", "error", "Startup");
-    return;
+function browserContextCheck() {
+  if (
+    typeof window === "undefined" ||
+    typeof window.dispatchEvent === "undefined" ||
+    typeof document === "undefined" ||
+    typeof document.body === "undefined" ||
+    typeof console === "undefined" ||
+    typeof sessionStorage === "undefined" ||
+    typeof localStorage === "undefined" ||
+    typeof requestAnimationFrame === "undefined" ||
+    typeof performance === "undefined"
+  ) {
+    Log("ENGINE", "Bootup failed. Engine must be used in a browser context and have access to the following:\n- window\n- window.dispatchEvent\n- document\n- document.body\n- console\n- sessionStorage\n- localStorage\n- requestAnimationFrame\n- performance", "error", "Startup");
+    return false;
   }
 
-  Log("ENGINE", "Start Engine Bootup", "log", "Startup");
-  const exposed = initialize();
-  if (exposed && typeof exposed === "object") {
-    Object.assign(ENGINE, exposed);
-  }
+  return true;
+}
+
+(() => {
+  // Check for Up-to-Date Browser Context
+  if (!browserContextCheck()) return;
+
+  Object.assign(ENGINE, Initialize());
   Log("ENGINE", "Bootup complete.", "log", "Startup");
   waitForUserStart();
 })();

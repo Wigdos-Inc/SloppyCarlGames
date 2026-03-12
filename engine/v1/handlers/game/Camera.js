@@ -21,7 +21,7 @@ import { Lerp, ToNumber, Clamp, Unit, UnitVector3 } from "../../math/Utilities.j
 
 const worldUp = { x: 0, y: 1, z: 0 };
 const pitchClampDegrees = 89;
-const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
+const freeCamEnabled = !!(CONFIG.DEBUG.LEVELS.FreeCam === true);
 
 const worldDistanceDefaults = {
 	freeCamAcceleration: new Unit(44, "worldunit"),
@@ -98,7 +98,7 @@ function getCurrentCameraPosition() {
 	return latestCameraPosition;
 }
 
-if (typeof window !== "undefined") {
+if (CONFIG.DEBUG.ALL === true) {
 	window.camPos = getCurrentCameraPosition;
 }
 
@@ -150,8 +150,7 @@ function updateOrientationVectors(cameraState) {
 }
 
 function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
-	const world = sceneGraph && sceneGraph.world ? sceneGraph.world : {};
-	const levelOpening = cameraConfig && cameraConfig.levelOpening ? cameraConfig.levelOpening : {};
+	const world = sceneGraph.world;
 	const wLength = world.length.toWorldUnit();
 	const wHeight = world.height.toWorldUnit();
 	const wWidth = world.width.toWorldUnit();
@@ -162,7 +161,7 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 		"worldunit"
 	);
 	const position = new UnitVector3(0, 0, 0, "worldunit");
-	position.set(levelOpening.startPosition.toWorldUnit());
+	position.set(cameraConfig.levelOpening.startPosition.toWorldUnit());
 
 	if (position.x === 0 && position.y === 40 && position.z === 80) {
 		position.set({
@@ -203,20 +202,15 @@ function applyTuningStep(step) {
 	freeCamRuntime.acceleration.value = Clamp(44 + freeCamRuntime.tuningStep * 10, 10, 300);
 	freeCamRuntime.dampingFactor = Clamp(0.08 + freeCamRuntime.tuningStep * 0.02, 0.05, 0.92);
 
-	if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true) {
-		Log(
-			"ENGINE",
-			`FreeCam speed tuned: maxSpeed=${freeCamRuntime.maxSpeed.value.toFixed(1)}, acceleration=${freeCamRuntime.acceleration.value.toFixed(1)}, damping=${freeCamRuntime.dampingFactor.toFixed(2)}`,
-			"log",
-			"Level"
-		);
-	}
+	Log(
+		"ENGINE",
+		`FreeCam speed tuned: maxSpeed=${freeCamRuntime.maxSpeed.value.toFixed(1)}, acceleration=${freeCamRuntime.acceleration.value.toFixed(1)}, damping=${freeCamRuntime.dampingFactor.toFixed(2)}`,
+		"log",
+		"Level"
+	);
 }
 
 function releasePointerLock() {
-	if (typeof document === "undefined" || typeof document.exitPointerLock !== "function") {
-		return false;
-	}
 	if (!IsPointerLocked()) {
 		return true;
 	}
@@ -226,7 +220,7 @@ function releasePointerLock() {
 }
 
 function resolveFreeCamState(sceneGraph) {
-	if (sceneGraph && sceneGraph.cameraConfig && sceneGraph.cameraConfig.state && sceneGraph.cameraConfig.state.mode === "freecam") {
+	if (sceneGraph.cameraConfig.state.mode === "freecam") {
 		return sceneGraph.cameraConfig.state;
 	}
 
@@ -386,7 +380,7 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 /* === DEFAULT CAM (Third-Person Follow) === */
 
 function initializeDefaultCamConfig(cameraConfig) {
-	const cam = cameraConfig && typeof cameraConfig === "object" ? cameraConfig : {};
+	const cam = cameraConfig;
 	const camPayload = cam.camera && typeof cam.camera === "object" ? cam.camera : cam;
 
 	defaultCamRuntime.config.distance.value = camPayload.distance.toWorldUnit();
@@ -447,10 +441,9 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	let obstructed = false;
 
 	// Check terrain (AABBs are CNU UnitVector3 instances, convert to world-units for ray test).
-	const terrain = Array.isArray(sceneGraph && sceneGraph.terrain) ? sceneGraph.terrain : [];
+	const terrain = sceneGraph.terrain;
 	for (let i = 0; i < terrain.length; i++) {
 		const mesh = terrain[i];
-		if (!mesh || !mesh.worldAabb) { continue; }
 		const aabb = mesh.worldAabb;
 		const scaled = {
 			min: aabb.min.toWorldUnit(),
@@ -464,12 +457,10 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	}
 
 	// Check obstacles (AABBs are CNU UnitVector3 instances, convert to world-units for ray test).
-	const obstacles = Array.isArray(sceneGraph && sceneGraph.obstacles) ? sceneGraph.obstacles : [];
+	const obstacles = sceneGraph.obstacles;
 	for (let i = 0; i < obstacles.length; i++) {
 		const obs = obstacles[i];
-		if (!obs) { continue; }
-		const bounds = obs.bounds || (obs.mesh && obs.mesh.worldAabb) || null;
-		if (!bounds) { continue; }
+		const bounds = obs.bounds || obs.mesh.worldAabb;
 		const scaled = {
 			min: bounds.min.toWorldUnit(),
 			max: bounds.max.toWorldUnit(),
@@ -487,9 +478,7 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 		const offset = worldDistanceDefaults.obstructionOffset.value;
 		closestT = Math.max(worldDistanceDefaults.obstructionMinDistance.value, closestT - offset);
 
-		if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LOGGING && CONFIG.DEBUG.LOGGING.Channel && CONFIG.DEBUG.LOGGING.Channel.Level) {
-			Log("ENGINE", `DefaultCam obstruction detected at t=${closestT.toFixed(2)}`, "log", "Level");
-		}
+		Log("ENGINE", `DefaultCam obstruction detected at t=${closestT.toFixed(2)}`, "log", "Level");
 	}
 
 	return { obstructed, clippedDistance: closestT };
@@ -621,7 +610,6 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 		const state = {
 			...base,
 			mode: "defaultcam",
-		velocity: new UnitVector3(0, 0, 0, "worldunit"),
 		};
 		cacheCameraPosition(state);
 		cacheCameraVectors(state);
@@ -668,7 +656,6 @@ function UpdateCameraState(currentState, sceneGraph, cameraConfig, deltaSeconds,
 	if (!freeCamEnabled) {
 		// DefaultCam mode: follow the player.
 		const baseState = currentState || resolveDefaultLevelCamera(sceneGraph, cameraConfig);
-		if (!baseState.velocity) { baseState.velocity = new UnitVector3(0, 0, 0, "worldunit"); }
 		baseState.mode = "defaultcam";
 
 		const nextState = updateDefaultCamState(baseState, playerState, sceneGraph, deltaSeconds);
@@ -679,7 +666,7 @@ function UpdateCameraState(currentState, sceneGraph, cameraConfig, deltaSeconds,
 
 	const resolvedState = resolveFreeCamState(sceneGraph)
 		|| (currentState && currentState.mode === "freecam" ? currentState : null)
-		|| InitializeCameraState(sceneGraph, cameraConfig, sceneGraph && sceneGraph.meta ? sceneGraph.meta : null);
+		|| InitializeCameraState(sceneGraph, cameraConfig, sceneGraph.meta);
 
 	const nextState = updateFreeCamState(resolvedState, deltaSeconds);
 	cacheCameraPosition(nextState);

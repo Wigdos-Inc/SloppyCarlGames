@@ -22,7 +22,7 @@ function normalizeGeometryComplexity(value) {
 }
 
 function GetPerformanceScatterMultiplier() {
-	const level = CONFIG && CONFIG.PERFORMANCE ? CONFIG.PERFORMANCE.TerrainScatter : "Medium";
+	const level = CONFIG.PERFORMANCE.TerrainScatter;
 	if (level === "High") {
 		return 1;
 	}

@@ -16,25 +16,18 @@ import { GetSimDistanceValue, CheckEntityAabbOverlap } from "../../physics/Colli
  * @param {object} sceneGraph — active scene graph.
  */
 function HandleCollectiblePickups(playerState, sceneGraph) {
-	if (!playerState || !playerState.active || playerState.state === "Dead") { return; }
+	if (playerState.state === "Dead") { return; }
 
-	const entities = Array.isArray(sceneGraph && sceneGraph.entities) ? sceneGraph.entities : [];
-	const playerPos = playerState.transform.position;
-	const cameraPos = sceneGraph && sceneGraph.cameraConfig && sceneGraph.cameraConfig.state
-		? sceneGraph.cameraConfig.state.position
-		: playerPos;
+	const entities = sceneGraph.entities;
+	const cameraPos = sceneGraph.cameraConfig.state.position;
 	const activityRadius = GetSimDistanceValue();
-	const playerAabb = playerState.collision && playerState.collision.aabb ? playerState.collision.aabb : null;
-
-	if (!playerAabb) { return; }
 
 	for (let i = entities.length - 1; i >= 0; i--) {
 		const entity = entities[i];
-		if (!entity || entity.type !== "collectible") { continue; }
-		if (!entity.collision || !entity.collision.aabb) { continue; }
+		if (entity.type !== "collectible") { continue; }
 
 		// SimDistance gate is camera-relative; only qualified entities enter this collision pass.
-		const entityPos = entity.transform ? entity.transform.position : { x: 0, y: 0, z: 0 };
+		const entityPos = entity.transform.position;
 		if (cameraPos && DistanceVector3(cameraPos, entityPos) > activityRadius) { continue; }
 
 		if (!CheckEntityAabbOverlap(playerState, entity)) { continue; }
@@ -45,9 +38,7 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 			playerState.maxCollectibles || 999
 		);
 
-		if (CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LOGGING && CONFIG.DEBUG.LOGGING.Channel && CONFIG.DEBUG.LOGGING.Channel.Level) {
-			Log("ENGINE", `Collectible "${entity.id}" picked up. Total: ${playerState.collectibles}`, "log", "Level");
-		}
+		Log("ENGINE", `Collectible "${entity.id}" picked up. Total: ${playerState.collectibles}`, "log", "Level");
 
 		// Remove from scene.
 		entities.splice(i, 1);
