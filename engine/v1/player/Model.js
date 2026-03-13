@@ -178,10 +178,8 @@ function computePlayerAabb(model) {
  * @returns {object} — model object with rootTransform, parts[], index{}, roots[], defaultPose.
  */
 function BuildPlayerModel(characterDefinition, spawnPosition) {
-	const charDef = characterDefinition && typeof characterDefinition === "object" ? characterDefinition : {};
-	const modelDef = charDef.model && typeof charDef.model === "object" ? charDef.model : {};
-	const partsArray = Array.isArray(modelDef.parts) ? modelDef.parts : [];
-	const entityId = charDef.id || "player";
+	const modelDef = characterDefinition.model;
+	const entityId = characterDefinition.id || "player";
 	const pos = NormalizeVector3(spawnPosition, { x: 0, y: 0, z: 0 });
 	const defRootTransform = modelDef.rootTransform && typeof modelDef.rootTransform === "object" ? modelDef.rootTransform : {};
 
@@ -192,7 +190,7 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 			scale: NormalizeVector3(defRootTransform.scale, { x: 1, y: 1, z: 1 }),
 			pivot: { x: 0, y: 0, z: 0 },
 		},
-		parts: partsArray.map((part, index) => buildPart(part, entityId, index)),
+		parts: modelDef.parts.map((part, index) => buildPart(part, entityId, index)),
 	};
 
 	// Build index and parent→child links.

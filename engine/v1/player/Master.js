@@ -6,10 +6,9 @@
 import { NormalizeVector3 } from "../math/Vector3.js";
 import { Log } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
-import { ToNumber, UnitVector3 } from "../math/Utilities.js";
+import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { BuildPlayerModel, UpdatePlayerModelFromState } from "./Model.js";
 import { UpdateMovement } from "./Movement.js";
-import { UpdateAbilities } from "./Abilities.js";
 import characterData from "./characters.json" with { type: "json" };
 
 /* === PLAYER INPUT FLAGS === */
@@ -26,47 +25,43 @@ const playerInputFlags = {
 /* === PLAYER STATE === */
 
 let playerState = null;
-
-function createDefaultPlayerState() {
+function createDefaultPlayerState(playerData) {
+	const character = playerData.character;
+	const spawnPos = playerData.spawnPosition;
 	return {
-		active: false,
-		character: null,
-		model: null,
+		active: true,
+		character: character,
+		model: BuildPlayerModel(character, spawnPos),
 		transform: {
-			position: new UnitVector3(0, 0, 0, "CNU"),
+			position: spawnPos,
 			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: { x: 1, y: 1, z: 1 },
+			scale: playerData.scale,
 		},
 		velocity: new UnitVector3(0, 0, 0, "CNU"),
 		grounded: false,
 		underwater: false,
 		surfaceNormal: { x: 0, y: 1, z: 0 },
 		alignedUp: { x: 0, y: 1, z: 0 },
-		jumpStartY: 0,
-		jumpApexY: 0,
+		jumpStartY: new Unit(spawnPos.y, "cnu"),
+		jumpApexY: new Unit(spawnPos.y, "cnu"),
 		state: "Idle",
 		previousState: "Idle",
 		hp: 3,
-		collectibles: 0,
+		collectibles: playerData.collectibles || 0,
 		maxCollectibles: 100,
 		attackFlag: false,
 		modelOpacity: 1.0,
-		boost: {
-			active: false,
-			timer: 0,
-			maxSpeedMultiplier: 1,
-			accelMultiplier: 1,
-		},
+		abilities: null,
 		invulnerable: {
 			active: false,
 			timer: 0,
 			flashTimer: 0,
 		},
 		checkpoint: null,
-		spawnPosition: new UnitVector3(0, 0, 0, "CNU"),
+		spawnPosition: spawnPos,
 		collision: {
 			aabb: { min: new UnitVector3(0, 0, 0, "CNU"), max: new UnitVector3(0, 0, 0, "CNU") },
-			radius: 0.8,
+			radius: new Unit(ToNumber(playerData.collisionRadius, character.meta.collisionRadius)),
 			simRadiusPadding: 24,
 			simRadiusAabb: { min: new UnitVector3(0, 0, 0, "CNU"), max: new UnitVector3(0, 0, 0, "CNU") },
 		},
@@ -76,49 +71,26 @@ function createDefaultPlayerState() {
 	};
 }
 
-function resolveCharacter(characterId) {
-	const characters = characterData && characterData.characters ? characterData.characters : [];
-	const id = typeof characterId === "string" ? characterId : "carl";
-
-	for (let i = 0; i < characters.length; i++) {
-		if (characters[i] && characters[i].id === id) {
-			return characters[i];
-		}
-	}
-
-	// Fallback to first character.
-	return characters.length > 0 ? characters[0] : null;
-}
-
 /**
  * Initialize the player entity for a level.
- * @param {object} playerPayload — { spawnPosition, character, collectibles }
+ * @param {object} payload — { spawnPosition, character, collectibles }
  * @param {object} sceneGraph — the active scene graph.
  * @returns {object} — the initialized playerState.
  */
-function InitializePlayer(playerPayload, sceneGraph) {
-	const payload = playerPayload && typeof playerPayload === "object" ? playerPayload : {};
-	const spawnPos = NormalizeVector3(payload.spawnPosition, { x: 0, y: 5, z: 0 });
-	const characterId = payload.character || "carl";
-	const character = resolveCharacter(characterId);
+function InitializePlayer(payload, sceneGraph) {
+	console.error(payload);
+	const character = characterData[payload.character];
+	const spawnPos = payload.spawnPosition;
+	const collectibles = ToNumber(payload.collectibles, 0);
 
-	if (!character) {
-		Log("ENGINE", `Player initialization failed: character "${characterId}" not found.`, "error", "Level");
-		return null;
-	}
-
-	playerState = createDefaultPlayerState();
-	playerState.active = true;
-	playerState.character = character;
-	playerState.transform.position.set(spawnPos);
-	playerState.spawnPosition.set(spawnPos);
-	playerState.collectibles = ToNumber(payload.collectibles, 0);
-	playerState.collision.radius = ToNumber(character.meta && character.meta.collisionRadius, 0.8);
-	playerState.jumpStartY = spawnPos.y;
-	playerState.jumpApexY = spawnPos.y;
-
-	// Build player model.
-	playerState.model = BuildPlayerModel(character, spawnPos);
+	// Build Player State & Model
+	playerState = createDefaultPlayerState({
+		character: character, 
+		spawnPosition: spawnPos, 
+		scale: payload.scale,
+		collectibles: collectibles,
+		collisionRadius: character.meta.collisionRadius
+	});
 	UpdatePlayerModelFromState(playerState);
 
 	// Insert player as entity into sceneGraph for rendering.
@@ -154,8 +126,7 @@ function UpdatePlayer(deltaSeconds, sceneGraph, cameraVectors) {
 	// Step 1–2: Movement (reads input, modifies velocity).
 	UpdateMovement(playerState, input, cameraVectors, dt);
 
-	// Step 3: Abilities (boost timer, invulnerability timer, attack flag).
-	UpdateAbilities(playerState, input, dt);
+	// Step 3: Ability updates (not implemented).
 
 	// Steps 4–8 (physics, collision, correction, enemy, collectible) are called
 	// from Level.js after this function returns, so the player pipeline order is:
@@ -182,11 +153,6 @@ function ResolvePlayerState() {
 	// State transitions (priority order).
 	if (playerState.state === "Stunned") {
 		// Stay stunned until invulnerability system clears it (in Abilities.js).
-		return;
-	}
-
-	if (playerState.state === "Boosting" && playerState.boost && playerState.boost.active) {
-		// Stay boosting while boost is active.
 		return;
 	}
 

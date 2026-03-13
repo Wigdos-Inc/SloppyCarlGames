@@ -41,18 +41,10 @@ const levelLoop = {
 };
 
 function getConfiguredFrameRate() {
-	const configuredFrameRate = CONFIG.PERFORMANCE.FrameRate;
-	if (Number.isFinite(configuredFrameRate) && configuredFrameRate > 0) {
-		return configuredFrameRate;
-	}
-	return 60;
+	return CONFIG.PERFORMANCE.FrameRate;
 }
 
 function cacheLevelPayload(payload) {
-	if (!payload || typeof payload !== "object") {
-		return null;
-	}
-
 	Cache.Level.lastPayload = payload;
 	PushToSession(SESSION_KEYS.Cache, Cache);
 
@@ -61,19 +53,18 @@ function cacheLevelPayload(payload) {
 }
 
 function buildIncomingPayloadSummary(payload) {
-	const source = payload && typeof payload === "object" ? payload : {};
-	const terrainObjects = source.terrain && Array.isArray(source.terrain.objects) ? source.terrain.objects.length : 0;
-	const terrainTriggers = source.terrain && Array.isArray(source.terrain.triggers) ? source.terrain.triggers.length : 0;
-	const obstacles = Array.isArray(source.obstacles) ? source.obstacles.length : 0;
-	const entities = Array.isArray(source.entities) ? source.entities.length : 0;
-	const blueprints = source.entityBlueprints && typeof source.entityBlueprints === "object" ? source.entityBlueprints : {};
+	const terrainObjects = payload.terrain;
+	const terrainTriggers = payload.terrain.triggers.length;
+	const obstacles = payload.obstacles.length;
+	const entities = payload.entities.length;
+	const blueprints = payload.entityBlueprints && typeof payload.entityBlueprints === "object" ? payload.entityBlueprints : {};
 	const count = (key) => (Array.isArray(blueprints[key]) ? blueprints[key].length : 0);
 
 	return [
 		"Engine received level payload:",
-		`- levelId: ${source.meta && source.meta.levelId ? source.meta.levelId : source.id || "unknown"}`,
-		`- stageId: ${source.meta && source.meta.stageId ? source.meta.stageId : source.id || "unknown"}`,
-		`- world: ${source.world ? `${source.world.length || 0}x${source.world.width || 0}x${source.world.height || 0}` : "missing"}`,
+		`- levelId: ${payload.meta && payload.meta.levelId ? payload.meta.levelId : payload.id || "unknown"}`,
+		`- stageId: ${payload.meta && payload.meta.stageId ? payload.meta.stageId : payload.id || "unknown"}`,
+		`- world: ${payload.world ? `${payload.world.length || 0}x${payload.world.width || 0}x${payload.world.height || 0}` : "missing"}`,
 		`- terrainObjects: ${terrainObjects}`,
 		`- terrainTriggers: ${terrainTriggers}`,
 		`- obstacles: ${obstacles}`,

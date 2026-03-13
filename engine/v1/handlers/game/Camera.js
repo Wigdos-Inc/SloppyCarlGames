@@ -24,21 +24,23 @@ const pitchClampDegrees = 89;
 const freeCamEnabled = !!(CONFIG.DEBUG.LEVELS.FreeCam === true);
 
 const worldDistanceDefaults = {
+	freeCamStartPosition: new UnitVector3(0, 20, 40, "worldunit"),
 	freeCamAcceleration: new Unit(44, "worldunit"),
 	freeCamMaxSpeed: new Unit(14, "worldunit"),
+	freeCamStartY: new Unit(20, "worldunit"),
+	freeCamStartZ: new Unit(40, "worldunit"),
+	freeCamFar: new Unit(800, "worldunit"),
+
 	defaultCamDistance: new Unit(10, "worldunit"),
 	defaultCamHeightOffset: new Unit(3, "worldunit"),
 	defaultCamCurrentDistance: new Unit(10, "worldunit"),
 	defaultCamTargetDistance: new Unit(10, "worldunit"),
-	freeCamStartY: new Unit(20, "worldunit"),
-	freeCamStartZ: new Unit(40, "worldunit"),
-	freeCamFar: new Unit(800, "worldunit"),
 	defaultLevelMinY: new Unit(20, "worldunit"),
 	defaultLevelMinZ: new Unit(30, "worldunit"),
 	defaultLevelMinFar: new Unit(200, "worldunit"),
+
 	obstructionOffset: new Unit(0.3, "worldunit"),
 	obstructionMinDistance: new Unit(0.5, "worldunit"),
-	freeCamStartPosition: new UnitVector3(0, 20, 40, "worldunit"),
 };
 
 const persistedFreeCamStates = new Map();

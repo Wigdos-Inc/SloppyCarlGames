@@ -4,7 +4,11 @@
 
 
 import { Log } from "./meta.js";
-import { NormalizeWorldConfig, NormalizeCameraConfig } from "./normalize.js";
+import { 
+	NormalizeWorldConfig, 
+	NormalizeCameraConfig,
+	NormalizePlayerConfig
+} from "./normalize.js";
 
 // Example valid payloads
 const exampleMenuUIPayload = {};
@@ -49,8 +53,9 @@ function ValidateLevelPayload(payload) {
 	}
 
 	// Normalize world-space values into Unit/UnitVector3 instances (CNU, degrees).
-	payload.world = NormalizeWorldConfig(payload.world);
+	payload.world  = NormalizeWorldConfig(payload.world);
 	payload.camera = NormalizeCameraConfig(payload.camera);
+	payload.player = NormalizePlayerConfig(payload.player);
 
     return payload;
 }

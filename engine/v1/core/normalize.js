@@ -59,4 +59,21 @@ function NormalizeCameraConfig(camera) {
 	};
 }
 
-export { NormalizeWorldConfig, NormalizeCameraConfig };
+function NormalizePlayerConfig(player) {
+	const fallback = {
+		character: "carl",
+		spawnPosition: { x: 0, y: 0, z: 0 },
+		scale: { x: 0, y: 0, z: 0 }
+	}
+
+	const source = player && typeof player === "object" ? player : fallback;
+	const spawnPos = source.spawnPosition;
+
+	return {
+		character: source.character.toLowerCase() || "carl",
+		spawnPosition: new UnitVector3(spawnPos.x, spawnPos.y, spawnPos.z, "cnu"),
+		scale: NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 })
+	}
+}
+
+export { NormalizeWorldConfig, NormalizeCameraConfig, NormalizePlayerConfig };

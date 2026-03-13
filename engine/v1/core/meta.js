@@ -16,15 +16,16 @@ const SESSION_KEYS = {
   SplashPlayed: "ENGINE_SPLASH_PLAYED",
 };
 
-function ReadFromSession(key, fallback) {
+function ReadFromSession(key) {
   try {
     const raw = sessionStorage.getItem(key);
     if (!raw) {
-      return fallback;
+      return null;
     }
     return JSON.parse(raw);
   } catch (error) {
-    return fallback;
+    Log("ENGINE", `Couldn't read from "${key}" sessionStorage.\n\nError:\n${error}`, "error", "Meta");
+    return null;
   }
 }
 
@@ -32,6 +33,7 @@ function PushToSession(key, value) {
   try {
     sessionStorage.setItem(key, JSON.stringify(value));
   } catch (error) {
+    Log("ENGINE", `Couldn't push to "${key}" sessionStorage.\n\nError:\n${error}`, "error", "Meta");
     void error;
   }
   return value;
@@ -41,6 +43,7 @@ function clearSessionStorage() {
   try {
     sessionStorage.clear();
   } catch (error) {
+    Log("ENGINE", `Couldn't clear sessionStorage.\n\nError:\n${error}`, "error", "Meta");
     void error;
   }
 }
@@ -48,71 +51,35 @@ function clearSessionStorage() {
 /* === STATE === */
 // Stored log history.
 
-const logs = PushToSession(
-  SESSION_KEYS.Logs,
-  ReadFromSession(SESSION_KEYS.Logs, {
-    All: [],
-    Engine: [],
-    Game: [],
-    Controls: [],
-    Other: [],
-  })
-);
-
-if (!Array.isArray(logs.All)) {
-  logs.All = [];
-}
-if (!Array.isArray(logs.Engine)) {
-  logs.Engine = [];
-}
-if (!Array.isArray(logs.Game)) {
-  logs.Game = [];
-}
-if (!Array.isArray(logs.Controls)) {
-  logs.Controls = [];
-}
-if (!Array.isArray(logs.Other)) {
-  logs.Other = [];
+const logs = ReadFromSession(SESSION_KEYS.Logs) ?? {
+  all: [],
+  engine: [],
+  game: [],
+  controls: [],
+  other: [],
 }
 
 // Cache last known payloads for quick lookups.
-const Cache = PushToSession(
-  SESSION_KEYS.Cache,
-  ReadFromSession(SESSION_KEYS.Cache, {
-    UI: {
-      lastPayload: null,
-      screenID: null,
-      elementIndex: {},
-      uiRuntime: {
-        hoverOverMap: {},
-        hoverOutMap: {},
-        clickMap: {},
-        inputMap: {},
-        changeMap: {},
-        keyMap: {},
-      },
+const Cache = ReadFromSession(SESSION_KEYS.Cache) ?? {
+  UI: {
+    lastPayload: null,
+    screenID: null,
+    elementIndex: {},
+    uiRuntime: {
+      hoverOverMap: {},
+      hoverOutMap: {},
+      clickMap: {},
+      inputMap: {},
+      changeMap: {},
+      keyMap: {},
     },
-    Level: {
-      lastPayload: null,
-    },
-    Cutscene: {
-      lastPayload: null,
-    },
-  })
-);
-
-if (!Cache.UI || typeof Cache.UI !== "object") {
-  Cache.UI = {};
-}
-if (!Cache.UI.uiRuntime || typeof Cache.UI.uiRuntime !== "object") {
-  Cache.UI.uiRuntime = {
-    hoverOverMap: {},
-    hoverOutMap: {},
-    clickMap: {},
-    inputMap: {},
-    changeMap: {},
-    keyMap: {},
-  };
+  },
+  Level: {
+    lastPayload: null,
+  },
+  Cutscene: {
+    lastPayload: null,
+  },
 }
 
 // Shared delay utility for async flows.
@@ -128,10 +95,6 @@ function IsPointerLocked() {
 
 function RequestPointerLock(targetElement) {
   const element = targetElement || document.getElementById("engine-level-root-canvas") || document.body;
-  if (!element) {
-    return false;
-  }
-
   element.requestPointerLock();
   return true;
 }
@@ -139,34 +102,20 @@ function RequestPointerLock(targetElement) {
 /* === DEBUG CHECKS === */
 // Gate logging based on debug flags.
 function resolveControlsSubtypeFromMessage(message) {
-  if (typeof message !== "string") {
-    return null;
-  }
-
   const lower = message.toLowerCase();
   let eventType = null;
 
   const userInputMatch = lower.match(/user input:\s*([a-z]+)/);
-  if (userInputMatch && userInputMatch[1]) {
-    eventType = userInputMatch[1];
-  }
+  if (userInputMatch && userInputMatch[1]) eventType = userInputMatch[1];
 
   const handledMatch = lower.match(/input action handled:\s*([a-z]+)/);
-  if (!eventType && handledMatch && handledMatch[1]) {
-    eventType = handledMatch[1];
-  }
+  if (!eventType && handledMatch && handledMatch[1]) eventType = handledMatch[1];
 
-  if (!eventType) {
-    return null;
-  }
+  if (!eventType) return null;
 
-  if (eventType === "pointerover" || eventType === "pointerout" || eventType === "mousemove") {
-    return "Hover";
-  }
+  if (eventType === "pointerover" || eventType === "pointerout" || eventType === "mousemove") return "Hover";
 
-  if (eventType === "keydown" || eventType === "keyup") {
-    return "Key";
-  }
+  if (eventType === "keydown" || eventType === "keyup") return "Key";
 
   if (
     eventType === "click" ||
@@ -182,94 +131,50 @@ function resolveControlsSubtypeFromMessage(message) {
 }
 
 function shouldLog(source, channel, level, message) {
-  const debug = CONFIG.DEBUG;
-  // Allow logs when no debug config exists.
-  if (!debug) {
-    return true;
-  }
+  // Is Logging allowed?
+  const logging = CONFIG.DEBUG.LOGGING;
+  if (CONFIG.DEBUG.ALL !== true || logging.All !== true) return false;
 
-  const logging = debug.LOGGING || {};
-  if (debug.ALL !== true || logging.All !== true) {
-    return false;
-  }
-
-  const type = logging.Type || {};
-  if ((level === "log" && type.Log === false) ||
+  // Is the Logging Type allowed?
+  const type = logging.Type;
+  if (
+    (level === "log" && type.Log === false) ||
     (level === "warn" && type.Warn === false) ||
-    (level === "error" && type.Error === false)) {
+    (level === "error" && type.Error === false)
+  ) {
     return false;
   }
 
-  const sourceConfig = logging.Source || {};
-  if ((source === "ENGINE" && sourceConfig.Engine === false) ||
-    (source === "GAME" && sourceConfig.Game === false)) {
+  // Is the Logging Source allowed?
+  if ((source === "engine" && logging.Source.Engine === false) || (source === "game" && logging.Source.Game === false)) {
     return false;
   }
 
-  const channelConfig = logging.Channel || {};
-  if (channel) {
-    if (channel.startsWith("Controls")) {
-      const controlsConfig = channelConfig.Controls;
-      if (controlsConfig === false) {
-        return false;
-      }
+  if (channel.startsWith("Controls")) {
+    // Is the Controls Logging Subchannel allowed?
+    const segments = channel.split(".");
+    let subChannel = segments.length > 1 ? segments[1] : null;
+    if (!subChannel && channel === "Controls") subChannel = resolveControlsSubtypeFromMessage(message);
 
-      if (typeof controlsConfig === "object" && controlsConfig !== null) {
-        const segments = channel.split(".");
-        let subChannel = segments.length > 1 ? segments[1] : null;
-        if (!subChannel && channel === "Controls") {
-          subChannel = resolveControlsSubtypeFromMessage(message);
-        }
-        if (subChannel && controlsConfig[subChannel] === false) {
-          return false;
-        }
-        if (subChannel && controlsConfig[subChannel] === true) {
-          return true;
-        }
-      }
-    }
-
-    if (typeof channelConfig[channel] === "boolean") {
-      return channelConfig[channel];
-    }
+    if (subChannel && logging.Channel.Controls[subChannel] === false) return false;
+    if (subChannel && logging.Channel.Controls[subChannel] === true) return true;
   }
-
-  return true;
+  return logging.Channel[channel];    // Is the Logging Channel allowed?
 }
 
 function resolveLevel(level) {
-  if (level === "warn" || level === "warning") {
-    return "warn";
-  }
-
-  if (level === "error") {
-    return "error";
-  }
-
+  if (level === "warn" || level === "warning") return "warn";
+  if (level === "error") return "error";
   return "log";
 }
 
 /* === LOGGING === */
 // Main log funnel and log replay.
 
-function isValidSource(source) {
-  if (typeof source !== "string") {
-    return false;
-  }
-
-  return /^[A-Z0-9_]+$/.test(source);
-}
-
 function getMostRecentLogEntry() {
-  if (!Array.isArray(logs.All) || logs.All.length === 0) {
-    return null;
-  }
+  if (logs.All.length === 0) return null;
 
   const latest = logs.All[logs.All.length - 1];
-  if (!latest || typeof latest !== "object") {
-    return null;
-  }
-
   return latest;
 }
 
@@ -285,21 +190,17 @@ function isDuplicateOfLatest(entry) {
     return true;
   }
 
-  if (!entry || !entry.channel || !String(entry.channel).startsWith("Controls")) {
+  if (!String(entry.channel).startsWith("Controls")) {
     return false;
   }
 
-  if (!Array.isArray(logs.Controls) || logs.Controls.length === 0) {
+  if (logs.Controls.length === 0) {
     return false;
   }
 
   const startIndex = Math.max(0, logs.Controls.length - 3);
-  for (let index = logs.Controls.length - 1; index >= startIndex; index -= 1) {
+  for (let index = logs.Controls.length - 1; index >= startIndex; index--) {
     const existing = logs.Controls[index];
-    if (!existing || typeof existing !== "object") {
-      continue;
-    }
-
     if (
       existing.source === entry.source &&
       existing.channel === entry.channel &&
@@ -314,71 +215,54 @@ function isDuplicateOfLatest(entry) {
 }
 
 function Log(source, message, level, channel) {
-  let resolvedSource = source;
-  let resolvedMessage = message;
+  // Normlize payload
+  [level, message] = [level, message].map(v => v.toLowerCase());
+  source = source.toUpperCase();
 
-  // Normalize invalid source names into an engine warning.
-  if (!isValidSource(resolvedSource)) {
-    resolvedMessage = `Invalid log source "${resolvedSource}". ${resolvedMessage}`;
-    resolvedSource = "ENGINE";
+  // Normalize invalid source names into an engine error.
+  if (!/^[A-Z0-9_]+$/i.test(source)) {
+    message = `Invalid log source "${source}". ${message}`;
+    source = "engine";
+    level = "error";
   }
 
   const resolvedLevel = resolveLevel(level);
   const entry = {
-    time: Date.now(),
+    time: new Date(Date.now()).toISOString().replace("T", " | "),
     level: resolvedLevel,
-    source: resolvedSource,
+    source: source,
     channel: channel || "All",
-    message: resolvedMessage,
+    message: message,
   };
 
   // Prevent Duplicate Logs
-  if (isDuplicateOfLatest(entry)) {
-    return;
-  }
+  if (isDuplicateOfLatest(entry)) return;
 
   // Log Caching
   logs.All.push(entry);
-
-  if (entry.channel && entry.channel.startsWith("Controls")) {
-    logs.Controls.push(entry);
-  } else if (entry.source === "ENGINE") {
-    logs.Engine.push(entry);
-  } else if (entry.source === "GAME") {
-    logs.Game.push(entry);
-  } else {
-    logs.Other.push(entry);
-  }
+  if (entry.channel && entry.channel.startsWith("Controls")) logs.Controls.push(entry);
+  else if (entry.source === "ENGINE") logs.Engine.push(entry);
+  else if (entry.source === "GAME") logs.Game.push(entry);
+  else logs.Other.push(entry);
 
   PushToSession(SESSION_KEYS.Logs, logs);
 
   // Skip console output when debug gating fails.
-  if (!shouldLog(entry.source, entry.channel, entry.level, entry.message)) {
-    return;
-  }
+  if (!shouldLog(entry.source, entry.channel, entry.level, entry.message)) return;
 
   const logger = console[resolvedLevel] || console.log;
   logger(
-    `[${new Date(entry.time).toISOString()}] [${entry.source}] [${entry.channel}]`,
+    `[${entry.time}] [${entry.source}] [${entry.channel}]`,
     entry.message
   );
 }
 
 // Replay all stored logs in order.
 function LogAll() {
-  const allEntries = Array.isArray(logs.All)
-    ? logs.All
-    : [
-      ...logs.Engine,
-      ...logs.Game,
-      ...logs.Controls,
-      ...logs.Other,
-    ].sort((a, b) => a.time - b.time);
-
-  allEntries.forEach((entry) => {
+  logs.All.forEach((entry) => {
     const logger = console[entry.level] || console.log;
     logger(
-      `[${new Date(entry.time).toISOString()}] [${entry.source}] [${entry.channel}]`,
+      `[${entry.time}] [${entry.source}] [${entry.channel}]`,
       entry.message
     );
   });
@@ -443,25 +327,13 @@ function ExitGame() {
   clearSessionStorage();
   Cursor.changeState("hidden");
   document.body.style.background = "black";
-  while (document.body.firstChild) {
-    document.body.removeChild(document.body.firstChild);
-  }
+  while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
   window.close();
 }
 
 function SendEvent(eventName, payload) {
-  // Guard against invalid event usage.
-  if (typeof eventName !== "string" || eventName.length === 0) {
-    Log("ENGINE", "Meta.SendEvent requires a non-empty event name.", "error", "Meta");
-    return;
-  }
-
   // Dispatch with payload as detail.
-  const detail = {
-    payload: payload || null,
-  };
-
-  window.dispatchEvent(new CustomEvent(eventName, { detail: detail }));
+  window.dispatchEvent(new CustomEvent(eventName, { detail: payload }));
 }
 
 /* === CNU === */

@@ -168,11 +168,10 @@ function composeTransform(parentTransform, localTransform) {
 /* === MOVEMENT === */
 
 function normalizeMovement(movement, surface) {
-	const source = movement && typeof movement === "object" ? movement : {};
 	const surfacePos = NormalizeVector3(surface && surface.position, { x: 0, y: 0, z: 0 });
 	const surfaceTopY = ToNumber(surface && surface.topY, 0);
-	const localStart = NormalizeVector3(source.start, { x: 0, y: 0, z: 0 });
-	const localEnd = NormalizeVector3(source.end, { x: 0, y: 0, z: 0 });
+	const localStart = NormalizeVector3(movement.start, { x: 0, y: 0, z: 0 });
+	const localEnd = NormalizeVector3(movement.end, { x: 0, y: 0, z: 0 });
 
 	// Movement start/end are local to the spawn surface — resolve to world space.
 	// Y uses surfaceTopY (top of the surface) instead of surfacePos.y (center of the surface).
@@ -182,23 +181,23 @@ function normalizeMovement(movement, surface) {
 	return {
 		start: new UnitVector3(worldStart.x, worldStart.y, worldStart.z, "CNU"),
 		end: new UnitVector3(worldEnd.x, worldEnd.y, worldEnd.z, "CNU"),
-		repeat: source.repeat !== false,
-		backAndForth: source.backAndForth !== false,
-		speed: Math.max(0, ToNumber(source.speed, 0)),
-		jump: Math.max(0, ToNumber(source.jump, 0)),
-		jumpInterval: Math.max(0, ToNumber(source.jumpInterval, 0)),
-		jumpOnSight: source.jumpOnSight === true,
-		disappear: source.disappear === true,
-		chase: source.chase === true,
-		physics: source.physics === true,
+		repeat: movement.repeat !== false,
+		backAndForth: movement.backAndForth !== false,
+		speed: Math.max(0, ToNumber(movement.speed, 0)),
+		jump: Math.max(0, ToNumber(movement.jump, 0)),
+		jumpInterval: Math.max(0, ToNumber(movement.jumpInterval, 0)),
+		jumpOnSight: movement.jumpOnSight === true,
+		disappear: movement.disappear === true,
+		chase: movement.chase === true,
+		physics: movement.physics === true,
 	};
 }
 
 /* === BLUEPRINT MERGE === */
 
 function mergeEntityBlueprint(baseBlueprint, levelOverrides) {
-	const base = baseBlueprint && typeof baseBlueprint === "object" ? baseBlueprint : {};
-	const overrides = levelOverrides && typeof levelOverrides === "object" ? levelOverrides : {};
+	const base = baseBlueprint;
+	const overrides = levelOverrides;
 
 	return {
 		...base,
@@ -209,8 +208,8 @@ function mergeEntityBlueprint(baseBlueprint, levelOverrides) {
 				? base.attacks
 				: [],
 		model: {
-			...(base.model && typeof base.model === "object" ? base.model : {}),
-			...(overrides.model && typeof overrides.model === "object" ? overrides.model : {}),
+			...base.model,
+			...overrides.model,
 			parts: Array.isArray(overrides.model && overrides.model.parts)
 				? overrides.model.parts
 				: Array.isArray(base.model && base.model.parts)
@@ -645,8 +644,7 @@ function computeExpandedAabb(aabb, padding) {
  * @param {object} [surfaceMap] — { [surfaceId]: { position, dimensions, scale, topY } }
  */
 function BuildEntity(definition, surfaceMap) {
-	const source = definition && typeof definition === "object" ? definition : {};
-	const merged = mergeEntityBlueprint(source.baseBlueprint, source);
+	const merged = mergeEntityBlueprint(definition.baseBlueprint, definition);
 
 	// Resolve spawn surface for movement localization.
 	const spawnSurfaceId = (merged.model && merged.model.spawnSurfaceId) || merged.spawnSurfaceId || null;
