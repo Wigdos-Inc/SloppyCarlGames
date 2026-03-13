@@ -318,7 +318,7 @@ class Carl {
         
         // Track side-screen camping during level section (not boss mode)
         if (!game.bossMode && game.state === 'playing' && !game.hardModeActive) {
-            let sideZoneWidth = width * 0.15; // 15% of screen width on each side
+            let sideZoneWidth = width * 0.05; // 5% of screen width on each side
             let isOnSide = this.x < sideZoneWidth || this.x > width - sideZoneWidth;
             
             if (isOnSide) {

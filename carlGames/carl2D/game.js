@@ -956,8 +956,17 @@ function returnToTitle() {
 }
 
 // ========== INPUT HANDLERS ==========
+function isSpaceKeyInput() {
+    // p5 mirrors browser KeyboardEvent.key, which can be ' ', 'Space', or 'Spacebar'.
+    return keyCode === 32 || key === ' ' || key === 'Space' || key === 'Spacebar';
+}
+
 function keyPressed() {
     keys[key] = true;
+    if (isSpaceKeyInput()) {
+        // Keep gameplay checks stable regardless of browser key naming.
+        keys[' '] = true;
+    }
     
     // Credits controls - delegate to CreditsSystem
     if (game.winSequenceActive && game.winSequencePhase === 5) {
@@ -997,7 +1006,7 @@ function keyPressed() {
         else if (game.state === 'paused') resumeGame();
     }
     // Hold mode: spacebar held activates vertical lock (released = cancelled)
-    if (key === ' ' && carl && game.state === 'playing' && !carl.pearlDash) {
+    if (isSpaceKeyInput() && carl && game.state === 'playing' && !carl.pearlDash) {
         let isAboveWater = game.bossMode && carl.y < game.surfaceGoal;
         if (!isAboveWater) {
             carl.holdMode = true;
@@ -1009,15 +1018,20 @@ function keyPressed() {
     if (carl && (CONTROLS.UP.includes(key) || CONTROLS.DOWN.includes(key))) {
         carl.holdMode = false;
     }
-    if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) return false;
+    if (isSpaceKeyInput() || ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) return false;
 }
 
 function keyReleased() {
     keys[key] = false;
+    if (isSpaceKeyInput()) {
+        keys[' '] = false;
+    }
     // Release hold mode when spacebar is released (keyboard-activated hold only)
-    if (key === ' ' && carl && !carl.holdActivatedByTouch) {
+    if (isSpaceKeyInput() && carl && !carl.holdActivatedByTouch) {
         carl.holdMode = false;
     }
+
+    if (isSpaceKeyInput()) return false;
 }
 
 function mousePressed() {

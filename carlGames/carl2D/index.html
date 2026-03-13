@@ -38,7 +38,7 @@
             <h1 id="game-title">CARL</h1>
             <p id="subtitle">IS</p>
             <p id="subtitle-2d">MOBILE</p>
-            <p id="version-credit">Version 2.0.1: <strong>SUPER CARL</strong></p>
+            <p id="version-credit">Version 2.0.2: <strong>SUPER CARL</strong></p>
             <p id="dev-credit">Made by Claude Sonnet</p>
             <button id="start-button">Start Adventure</button>
         </div>
@@ -206,6 +206,13 @@
             // Hide main menu overlay
             const menuOverlay = document.getElementById('main-menu-overlay');
             menuOverlay.classList.add('hidden');
+
+            // Clear focus so Space keyup cannot keep re-triggering the Start button.
+            const startButton = document.getElementById('start-button');
+            if (startButton) startButton.blur();
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
             
             // Start game music when the game actually begins
             if (window.gameMusic && window.gameMusicLoaded) {
