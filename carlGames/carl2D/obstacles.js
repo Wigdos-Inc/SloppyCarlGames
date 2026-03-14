@@ -778,7 +778,8 @@ class Powerup {
             if (d < this.size + carl.size) this.collect();
         }
         // Only remove powerups when far BELOW camera (already passed), not above (not yet reached)
-        if (this.y - game.cameraY > height * 2) this.toRemove = true;
+        // During the boss fight we want powerups to persist, so skip auto-removal while bossMode is active.
+        if (!game.bossMode && this.y - game.cameraY > height * 2) this.toRemove = true;
     }
     collect() {
         this.collected = true; this.toRemove = true;
