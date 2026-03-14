@@ -38,7 +38,7 @@
             <h1 id="game-title">CARL</h1>
             <p id="subtitle">IS</p>
             <p id="subtitle-2d">MOBILE</p>
-            <p id="version-credit">Version 2.0.3: <strong>SUPER CARL</strong></p>
+            <p id="version-credit">Version 2.0.4: <strong>SUPER CARL</strong></p>
             <p id="dev-credit">Made by Claude Sonnet</p>
             <button id="start-button">Start Adventure</button>
         </div>
@@ -72,8 +72,11 @@
             <div class="menu-content">
                 <h2>PAUSED</h2>
                 <p>Press ESC to resume</p>
-                <button onclick="resumeGame()">Resume</button>
-                <button onclick="returnToTitle()">Main Menu</button>
+                <div class="menu-button-row">
+                    <button onclick="resumeGame()">Resume</button>
+                    <button onclick="restartFromPause()">Restart</button>
+                    <button onclick="returnToTitle()">Main Menu</button>
+                </div>
                 <div id="pause-volume-control">
                     <h3 class="volume-label">VOLUME</h3>
                     <input type="range" id="pause-volume-slider" class="volume-slider" min="0" max="100" value="100">
@@ -214,9 +217,10 @@
                 document.activeElement.blur();
             }
             
-            // Start game music when the game actually begins
+            // Start game music when the game actually begins (respect user volume)
             if (window.gameMusic && window.gameMusicLoaded) {
-                window.gameMusic.setVolume(0.5);
+                let userMaxVol = window.VolumeControl ? window.VolumeControl.getVolume() / 100 : 1.0;
+                window.gameMusic.setVolume(userMaxVol);
                 window.gameMusic.loop();
             }
             

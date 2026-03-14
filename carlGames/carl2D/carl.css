@@ -608,3 +608,27 @@ canvas {
     border: none;
     box-shadow: 0 0 5px rgba(0, 0, 0, 0.6);
 }
+
+/* Pause menu button row: equal widths and centered */
+.menu-button-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1vw;
+    margin: 1.2vh 0;
+    flex-wrap: wrap; /* allow whole buttons to wrap to the next line */
+}
+.menu-button-row button {
+    /* Use a responsive fixed-width range but keep text on one line */
+    width: clamp(140px, 18vw, 260px);
+    margin: 0; /* spacing handled by gap */
+    text-align: center;
+    white-space: nowrap; /* prevent text from wrapping inside the button */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    /* Use fixed horizontal padding so text measurement is consistent */
+    padding-left: 1.2rem;
+    padding-right: 1.2rem;
+}

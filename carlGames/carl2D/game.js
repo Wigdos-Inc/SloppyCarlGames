@@ -823,6 +823,23 @@ function resumeGame() {
     }
 }
 
+// Restart immediately from the pause menu
+function restartFromPause() {
+    const pauseMenu = document.getElementById('pause-menu');
+    if (pauseMenu) pauseMenu.classList.add('hidden');
+    // Stop any paused music so restartGame can start cleanly
+    if (window.bossMusic && window.bossMusicLoaded) {
+        try { window.bossMusic.setVolume(1.0); window.bossMusic.stop(); } catch (e) {}
+    }
+    if (window.gameMusic && window.gameMusicLoaded) {
+        try { window.gameMusic.stop(); } catch (e) {}
+    }
+    if (window.superCarlMusic && window.superCarlMusicLoaded) {
+        try { window.superCarlMusic.stop(); } catch (e) {}
+    }
+    restartGame();
+}
+
 // ========== ENEMY DEATH PARTICLES ==========
 function spawnEnemyDeathParticles(enemy) {
     let x = enemy.x, y = enemy.y;
@@ -918,7 +935,7 @@ function restartGame() {
     game.startTime = Date.now();
     // Start regular music from the beginning
     if (window.gameMusic && window.gameMusicLoaded) {
-        window.gameMusic.setVolume(1.0);
+        window.gameMusic.setVolume(window.VolumeControl.getVolume() / 100 || 1.0);
         window.gameMusic.loop();
     }
     loop();
