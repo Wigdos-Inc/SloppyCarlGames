@@ -146,12 +146,8 @@ async function processPayload(payloadId) {
 }
 
 function handleUiRequest(event) {
-	const payload = event && event.detail ? event.detail.payload : null;
-	if (!payload || !payload.screenId) {
-		return;
-	}
-
-	processPayload(payload.screenId);
+	if (!event.detail) return;
+	processPayload(event.detail.screenId);
 }
 
 window.addEventListener("UI_REQUEST", handleUiRequest);

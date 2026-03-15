@@ -7,7 +7,7 @@
 
 import { BuildObject, UpdateObjectWorldAabb } from "../builder/NewObject.js";
 import { NormalizeVector3, AddVector3, RotateByEuler, MultiplyVector3 } from "../math/Vector3.js";
-import { DegreesToRadians, ToNumber } from "../math/Utilities.js";
+import { ToNumber, UnitVector3 } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
 
 /**
@@ -22,18 +22,22 @@ import { Log } from "../core/meta.js";
 function cloneTransform(transform, fallback, rotationInRadians) {
 	const source = transform && typeof transform === "object" ? transform : {};
 	const fb = fallback && typeof fallback === "object" ? fallback : {};
-	const position = NormalizeVector3(source.position, fb.position || { x: 0, y: 0, z: 0 });
-	const rotation = NormalizeVector3(source.rotation, fb.rotation || { x: 0, y: 0, z: 0 });
-	const rotationRad = rotationInRadians
-		? { x: rotation.x, y: rotation.y, z: rotation.z }
-		: {
-			x: DegreesToRadians(rotation.x),
-			y: DegreesToRadians(rotation.y),
-			z: DegreesToRadians(rotation.z),
-		};
+	const positionRaw = NormalizeVector3(source.position, fb.position || { x: 0, y: 0, z: 0 });
+	const rotationRaw = NormalizeVector3(source.rotation, fb.rotation || { x: 0, y: 0, z: 0 });
+	const position = new UnitVector3(positionRaw.x, positionRaw.y, positionRaw.z, "cnu");
+	const rotation = new UnitVector3(
+		rotationRaw.x,
+		rotationRaw.y,
+		rotationRaw.z,
+		rotationInRadians ? "radians" : "degrees"
+	);
+	if (!rotationInRadians) {
+		rotation.toRadians(true);
+	}
 	const scale = NormalizeVector3(source.scale, fb.scale || { x: 1, y: 1, z: 1 });
-	const pivot = NormalizeVector3(source.pivot, fb.pivot || { x: 0, y: 0, z: 0 });
-	return { position, rotation: rotationRad, scale, pivot };
+	const pivotRaw = NormalizeVector3(source.pivot, fb.pivot || { x: 0, y: 0, z: 0 });
+	const pivot = new UnitVector3(pivotRaw.x, pivotRaw.y, pivotRaw.z, "cnu");
+	return { position, rotation, scale, pivot };
 }
 
 /**
@@ -60,8 +64,18 @@ function composeTransform(parentTransform, localTransform) {
 	const local = cloneTransform(localTransform, null, true);
 	const rotatedChildPos = RotateByEuler(local.position, parent.rotation);
 	return {
-		position: AddVector3(parent.position, rotatedChildPos),
-		rotation: AddVector3(parent.rotation, local.rotation),
+		position: new UnitVector3(
+			parent.position.x + rotatedChildPos.x,
+			parent.position.y + rotatedChildPos.y,
+			parent.position.z + rotatedChildPos.z,
+			"cnu"
+		),
+		rotation: new UnitVector3(
+			parent.rotation.x + local.rotation.x,
+			parent.rotation.y + local.rotation.y,
+			parent.rotation.z + local.rotation.z,
+			"radians"
+		),
 		scale: MultiplyVector3(parent.scale, local.scale),
 		pivot: local.pivot,
 	};
@@ -69,18 +83,27 @@ function composeTransform(parentTransform, localTransform) {
 
 function buildPart(partDefinition, entityId, index) {
 	const source = partDefinition && typeof partDefinition === "object" ? partDefinition : {};
+	const rawLocalPosition = NormalizeVector3(source.localPosition, { x: 0, y: 0, z: 0 });
+	const rawLocalRotation = NormalizeVector3(source.localRotation, { x: 0, y: 0, z: 0 });
+	const rawDimensions = NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 });
+	const dimensions = new UnitVector3(rawDimensions.x, rawDimensions.y, rawDimensions.z, "cnu");
 	const localTransform = {
-		position: NormalizeVector3(source.localPosition, { x: 0, y: 0, z: 0 }),
-		rotation: NormalizeVector3(source.localRotation, { x: 0, y: 0, z: 0 }),
+		position: new UnitVector3(rawLocalPosition.x, rawLocalPosition.y, rawLocalPosition.z, "cnu"),
+		rotation: new UnitVector3(rawLocalRotation.x, rawLocalRotation.y, rawLocalRotation.z, "degrees").toRadians(true),
 		scale: NormalizeVector3(source.localScale, { x: 1, y: 1, z: 1 }),
-		pivot: NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 }),
+		pivot: new UnitVector3(
+			ToNumber(source.pivot && source.pivot.x, 0),
+			ToNumber(source.pivot && source.pivot.y, 0),
+			ToNumber(source.pivot && source.pivot.z, 0),
+			"cnu"
+		),
 	};
 
 	const mesh = BuildObject(
 		{
 			id: source.id || `${entityId}-part-${index}`,
 			primitive: source.primitive || source.shape || "cube",
-			dimensions: NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 }),
+			dimensions: dimensions,
 			textureID: source.textureID || "default-grid",
 			textureColor: source.textureColor || { r: 1, g: 1, b: 1, a: 1 },
 			textureOpacity: ToNumber(source.textureOpacity, 1),
@@ -98,7 +121,7 @@ function buildPart(partDefinition, entityId, index) {
 		anchorPoint: source.anchorPoint || "center",
 		attachmentPoint: source.attachmentPoint || null,
 		children: [],
-		dimensions: NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 }),
+		dimensions: dimensions,
 		localTransform: cloneTransform(localTransform),
 		defaultLocalTransform: cloneTransform(localTransform),
 		mesh: mesh,
@@ -185,10 +208,10 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 
 	const model = {
 		rootTransform: {
-			position: { ...pos },
-			rotation: { x: 0, y: 0, z: 0 },
+			position: new UnitVector3(pos.x, pos.y, pos.z, "cnu"),
+			rotation: new UnitVector3(0, 0, 0, "radians"),
 			scale: NormalizeVector3(defRootTransform.scale, { x: 1, y: 1, z: 1 }),
-			pivot: { x: 0, y: 0, z: 0 },
+			pivot: new UnitVector3(0, 0, 0, "cnu"),
 		},
 		parts: modelDef.parts.map((part, index) => buildPart(part, entityId, index)),
 	};
@@ -207,16 +230,20 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 		if (part.parentId === "root") {
 			// Root part: anchor at bottom, offset up by half height.
 			const halfY = part.dimensions.y * 0.5;
-			part.localTransform.position.y = halfY + part.localTransform.position.y;
+			part.localTransform.position.set({
+				x: part.localTransform.position.x,
+				y: halfY + part.localTransform.position.y,
+				z: part.localTransform.position.z,
+			});
 		} else if (part.parentId && index[part.parentId]) {
 			const parent = index[part.parentId];
 			const attachOffset = getFaceCenterOffset(parent.dimensions, part.attachmentPoint || "top");
 			const anchorOffset = getFaceCenterOffset(part.dimensions, part.anchorPoint || "center");
-			part.localTransform.position = {
+			part.localTransform.position.set({
 				x: attachOffset.x - anchorOffset.x + part.localTransform.position.x,
 				y: attachOffset.y - anchorOffset.y + part.localTransform.position.y,
 				z: attachOffset.z - anchorOffset.z + part.localTransform.position.z,
-			};
+			});
 		}
 	});
 
@@ -240,14 +267,8 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
  * @param {object} playerState — full player state with transform and model.
  */
 function UpdatePlayerModelFromState(playerState) {
-	playerState.model.rootTransform.position = NormalizeVector3(
-		playerState.transform.position,
-		{ x: 0, y: 0, z: 0 }
-	);
-	playerState.model.rootTransform.rotation = NormalizeVector3(
-		playerState.transform.rotation,
-		{ x: 0, y: 0, z: 0 }
-	);
+	playerState.model.rootTransform.position.set(playerState.transform.position);
+	playerState.model.rootTransform.rotation.set(playerState.transform.rotation);
 	playerState.model.rootTransform.scale = NormalizeVector3(
 		playerState.transform.scale,
 		{ x: 1, y: 1, z: 1 }

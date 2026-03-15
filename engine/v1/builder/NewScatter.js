@@ -1,7 +1,7 @@
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { NormalizeVector3 } from "../math/Vector3.js";
-import { DegreesToRadians } from "../math/Utilities.js";
+import { DegreesToRadians, UnitVector3 } from "../math/Utilities.js";
 import { CreateModelMatrix } from "./NewObject.js";
 
 function toNumber(value, fallback) {
@@ -129,17 +129,15 @@ function ResolveScatterType(templateRegistry, scatterTypeID) {
 		parts: Array.isArray(definition.parts)
 			? definition.parts.map((part) => {
 				const texture = part && part.texture && typeof part.texture === "object" ? part.texture : null;
+				const dimensions = NormalizeVector3(part.dimensions, { x: 0.5, y: 0.5, z: 0.5 });
+				const localPosition = NormalizeVector3(part.localPosition, { x: 0, y: 0, z: 0 });
 				const localRot = NormalizeVector3(part.localRotation, { x: 0, y: 0, z: 0 });
 				return {
 					...part,
 					complexity: normalizeGeometryComplexity(part.complexity),
-					dimensions: NormalizeVector3(part.dimensions, { x: 0.5, y: 0.5, z: 0.5 }),
-					localPosition: NormalizeVector3(part.localPosition, { x: 0, y: 0, z: 0 }),
-					localRotation: {
-						x: DegreesToRadians(localRot.x),
-						y: DegreesToRadians(localRot.y),
-						z: DegreesToRadians(localRot.z),
-					},
+					dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
+					localPosition: new UnitVector3(localPosition.x, localPosition.y, localPosition.z, "cnu"),
+					localRotation: part.localRotation,
 					localScale: NormalizeVector3(part.localScale, { x: 1, y: 1, z: 1 }),
 					texture: texture,
 					textureID: texture && texture.textureID ? texture.textureID : part.textureID,

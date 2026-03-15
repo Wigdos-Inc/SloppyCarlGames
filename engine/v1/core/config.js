@@ -62,6 +62,7 @@ let CONFIG = {
           Key  : true,
         },
         Level: true,
+        Validation: true,
       },
     },
   },

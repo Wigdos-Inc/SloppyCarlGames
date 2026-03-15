@@ -4,10 +4,8 @@
 import { ENGINE } from "../../Bootup.js";
 
 function handleCutsceneRequest(event) {
-	const payload = event && event.detail ? event.detail.payload : null;
-	if (!payload || payload.cutsceneId !== "Opening") {
-		return;
-	}
+	const payload = event.detail;
+	if (!payload) return;
 
 	const introSrc = new URL("./rendered/Opening.mp4", import.meta.url).href;
 

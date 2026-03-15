@@ -233,7 +233,7 @@ async function requestLevelLoad(payload) {
 }
 
 function handleLevelRequest(event) {
-	const request = event && event.detail ? event.detail.payload || null : null;
+	const request = event.detail;
 	const startPayload = request || { levelIndex: 0, stageIndex: 0 };
 	startGame(startPayload);
 	void requestLevelLoad(startPayload);
@@ -431,7 +431,7 @@ function handlePlayerInput(payload) {
 }
 
 function handleUserInput(event) {
-	const payload = event && event.detail ? event.detail.payload : null;
+	const payload = event.detail;
 	handleSettingsInput(payload);
 	handleLevelSelectInput(payload);
 	handlePlayerInput(payload);

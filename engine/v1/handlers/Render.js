@@ -51,24 +51,13 @@ function ensureRoot(rootId, rootStyles) {
 // Renders payloads built by the UI builder.
 
 function RenderPayload(payload) {
-	// Guard against invalid payloads.
-	if (!payload || typeof payload !== "object") {
-		return;
-	}
-
-	const rootId = payload.rootId || defaultUiRootId;
-	const root = ensureRoot(rootId, payload.rootStyles);
+	const root = ensureRoot(payload.rootId, payload.rootStyles);
 
 	// Replace existing contents by default.
-	if (payload.replace !== false) {
-		root.innerHTML = "";
-	}
+	if (payload.replace !== false) root.innerHTML = "";
 
 	// Append pre-built elements when provided.
-	const elements = payload.elements;
-	if (elements && typeof elements === "object" && "nodeType" in elements) {
-		root.appendChild(elements);
-	}
+	root.appendChild(payload.elements);
 }
 
 /* === LEVEL === */
@@ -1293,7 +1282,8 @@ function drawScene(renderer, sceneGraph) {
 		cameraState.up || { x: 0, y: 1, z: 0 }
 	);
 
-	const underwater = cameraState.position.y < sceneGraph.world.waterLevel.toWorldUnit();
+	const waterLevelWorldUnits = sceneGraph.world.waterLevel ? sceneGraph.world.waterLevel.toWorldUnit() : null;
+	const underwater = waterLevelWorldUnits !== null && cameraState.position.y < waterLevelWorldUnits;
 	const fogDensity = underwater ? 0.85 : 0.2;
 	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
 	const farValue = camFar;

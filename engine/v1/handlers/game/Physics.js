@@ -31,12 +31,12 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 
 	const dt = ToNumber(deltaSeconds, 0);
 	const world = sceneGraph.world;
-	const waterLevel = world.waterLevel.value;
+	const waterLevel = world.waterLevel ? world.waterLevel.value : null;
 	const deathBarrierY = world.deathBarrierY.value;
 	const pos = playerState.transform.position;
 
 	// Determine medium.
-	playerState.underwater = pos.y < waterLevel;
+	playerState.underwater = waterLevel !== null && pos.y < waterLevel;
 	const medium = playerState.underwater ? "water" : "air";
 
 	// Step 1: Gravity (if not grounded or always apply — ground correction will nullify).

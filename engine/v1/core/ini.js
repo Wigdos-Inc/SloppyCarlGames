@@ -39,7 +39,6 @@ import {
   CreateLevel,
   Update as UpdateLevel,
   GetActiveLevel,
-  LoadLevel,
 } from "../handlers/game/Level.js";
 import { GetPlayerInput, GetPlayerState } from "../player/Master.js";
 
@@ -98,7 +97,6 @@ function Initialize() {
     },
     Level: {
       CreateLevel: CreateLevel,
-      LoadLevel: LoadLevel,
       Update: UpdateLevel,
       GetActiveLevel: GetActiveLevel,
     },

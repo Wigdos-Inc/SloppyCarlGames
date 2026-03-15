@@ -166,14 +166,6 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 	const position = new UnitVector3(0, 0, 0, "worldunit");
 	position.set(cameraConfig.levelOpening.startPosition.toWorldUnit());
 
-	if (position.x === 0 && position.y === 40 && position.z === 80) {
-		position.set({
-			x: center.x,
-			y: Math.max(worldDistanceDefaults.defaultLevelMinY.value, wHeight * 1.15),
-			z: center.z + Math.max(worldDistanceDefaults.defaultLevelMinZ.value, wWidth * 0.7),
-		});
-	}
-
 	return {
 		mode: "level",
 		position: position,
@@ -383,12 +375,9 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 /* === DEFAULT CAM (Third-Person Follow) === */
 
 function initializeDefaultCamConfig(cameraConfig) {
-	const cam = cameraConfig;
-	const camPayload = cam.camera && typeof cam.camera === "object" ? cam.camera : cam;
-
-	defaultCamRuntime.config.distance.value = camPayload.distance.toWorldUnit();
-	defaultCamRuntime.config.sensitivity = ToNumber(camPayload.sensitivity, ToNumber(camPayload.speed, 0.12));
-	defaultCamRuntime.config.heightOffset.value = camPayload.heightOffset.toWorldUnit();
+	defaultCamRuntime.config.distance.value = cameraConfig.distance.toWorldUnit();
+	defaultCamRuntime.config.sensitivity = ToNumber(cameraConfig.sensitivity, ToNumber(cameraConfig.speed, 0.12));
+	defaultCamRuntime.config.heightOffset.value = cameraConfig.heightOffset.toWorldUnit();
 	defaultCamRuntime.currentDistance.value = defaultCamRuntime.config.distance.value;
 	defaultCamRuntime.targetDistance.value = defaultCamRuntime.config.distance.value;
 	defaultCamRuntime.yaw = 0;
@@ -592,12 +581,8 @@ let latestCameraForward = null;
 let latestCameraRight = null;
 
 function cacheCameraVectors(cameraState) {
-	if (cameraState && cameraState.forward) {
-		latestCameraForward = { ...cameraState.forward };
-	}
-	if (cameraState && cameraState.right) {
-		latestCameraRight = { ...cameraState.right };
-	}
+	latestCameraForward = { ...cameraState.forward };
+	latestCameraRight = { ...cameraState.right };
 }
 
 function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {

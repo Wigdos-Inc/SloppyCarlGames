@@ -78,7 +78,6 @@ function createDefaultPlayerState(playerData) {
  * @returns {object} — the initialized playerState.
  */
 function InitializePlayer(payload, sceneGraph) {
-	console.error(payload);
 	const character = characterData[payload.character];
 	const spawnPos = payload.spawnPosition;
 	const collectibles = ToNumber(payload.collectibles, 0);
@@ -210,8 +209,8 @@ function RespawnPlayer() {
 	playerState.velocity.set({ x: 0, y: 0, z: 0 });
 	playerState.grounded = false;
 	playerState.state = "Idle";
-	playerState.jumpStartY = respawnPos.y;
-	playerState.jumpApexY = respawnPos.y;
+	playerState.jumpStartY.value = respawnPos.y;
+	playerState.jumpApexY.value = respawnPos.y;
 	playerState.attackFlag = false;
 	playerState.modelOpacity = 1.0;
 	playerState.boost = { active: false, timer: 0, maxSpeedMultiplier: 1, accelMultiplier: 1 };
