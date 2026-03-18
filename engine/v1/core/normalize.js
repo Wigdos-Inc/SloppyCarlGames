@@ -1,3 +1,6 @@
+// Normalization of Game Payloads for Engine use
+// Exclusively called by validate.js
+
 import { NormalizeVector3 } from "../math/Vector3.js";
 import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { Log } from "./meta.js";
@@ -240,32 +243,160 @@ function normalizeArray(value) {
 	return Array.isArray(value) ? value : [];
 }
 
+function isFiniteNumber(value) {
+	return typeof value === "number" && Number.isFinite(value);
+}
+
+function isVector3Like(value) {
+	// Check if value matches vector structure: { x,y,z }
+	return value
+		&& typeof value === "object"
+		&& !Array.isArray(value)
+		&& isFiniteNumber(value.x)
+		&& isFiniteNumber(value.y)
+		&& isFiniteNumber(value.z);
+}
+
+function normalizeGeometryComplexity(value, contextPath) {
+	// Check if complexity is provided.
+	if (typeof value !== "string") {
+		Log("ENGINE", `Object payload ${contextPath} missing complexity; defaulted to 'medium'.`, "warn", "Validation");
+		return "medium";
+	}
+
+	// Check if complexity matches expected values
+	const normalized = value.trim().toLowerCase();
+	if (normalized === "low" || normalized === "high" || normalized === "medium") return normalized;
+
+	Log("ENGINE", `Object payload ${contextPath} complexity '${value}' invalid; defaulted to 'medium'.`, "warn", "Validation");
+	return "medium";
+}
+
+function normalizeShapeAlias(source, contextPath) {
+	const shape = normalizeString(source.shape, "");
+	if (shape.length > 0) return shape.toLowerCase();
+
+	const primitive = normalizeString(source.primitive, "");
+	if (primitive.length > 0) return primitive.toLowerCase();
+
+	Log(
+		"ENGINE", 
+		`Object payload ${contextPath} missing 'shape' or 'primitive' definition; defaulted to 'cube'.`, 
+		"warn", 
+		"Validation"
+	);
+	return "cube";
+}
+
+function normalizeVector3WithWarning(value, fallback, contextPath, fieldName) {
+	if (!isVector3Like(value)) {
+		Log(
+			"ENGINE", 
+			`Object payload ${contextPath} ${fieldName} malformed or missing; defaulted to (${fallback.x}, ${fallback.y}, ${fallback.z}).`, 
+			"warn", 
+			"Validation"
+		);
+	}
+
+	return NormalizeVector3(value, fallback);
+}
+
+function normalizePrimitiveOptions(source, contextPath) {
+	const src = normalizeObject(source);
+	const rawPrimitive = source && source.primitiveOptions;
+	const rawGeometry = source && source.geometry;
+	const rawDetail = source && source.detail;
+
+	if (
+		rawPrimitive !== undefined && 
+		(typeof rawPrimitive !== "object" || Array.isArray(rawPrimitive) || rawPrimitive === null)
+	) {
+		Log(
+			"ENGINE", 
+			`Object payload ${contextPath} primitiveOptions malformed; defaulted to empty object.`, 
+			"warn", 
+			"Validation"
+		);
+	}
+	if (
+		rawGeometry !== undefined && 
+		(typeof rawGeometry !== "object" || Array.isArray(rawGeometry) || rawGeometry === null)
+	) {
+		Log(
+			"ENGINE", 
+			`Object payload ${contextPath} geometry malformed; geometry aliases ignored.`, 
+			"warn", 
+			"Validation"
+		);
+	}
+	if (
+		rawDetail !== undefined && 
+		(typeof rawDetail !== "object" || Array.isArray(rawDetail) || rawDetail === null)
+	) {
+		Log(
+			"ENGINE", 
+			`Object payload ${contextPath} detail malformed; detail aliases ignored.`, 
+			"warn", 
+			"Validation"
+		);
+	}
+
+	const primitive = normalizeObject(src.primitiveOptions);
+	const geometry = normalizeObject(src.geometry);
+	const detail = normalizeObject(src.detail);
+
+	return {
+		angle: primitive.angle || primitive.rampAngle || geometry.angle || src.angle || src.rampAngle || null,
+		thickness: ToNumber(primitive.thickness, ToNumber(geometry.thickness, ToNumber(detail.thickness, ToNumber(src.thickness, 0)))),
+		radius: ToNumber(primitive.radius, ToNumber(geometry.radius, ToNumber(detail.radius, ToNumber(src.radius, 0)))),
+		subdivisionsX: Math.max(1, Math.floor(ToNumber(primitive.subdivisionsX, ToNumber(geometry.subdivisionsX, ToNumber(src.subdivisionsX, 1))))),
+		subdivisionsZ: Math.max(1, Math.floor(ToNumber(primitive.subdivisionsZ, ToNumber(geometry.subdivisionsZ, ToNumber(src.subdivisionsZ, 1))))),
+	};
+}
+
+function normalizeScatterForDetail(source, detail, contextPath) {
+	if (Array.isArray(detail.scatter)) {
+		return normalizeScatterRequests(detail.scatter, `${contextPath}.detail.scatter`);
+	}
+
+	if (source.scatter !== undefined) {
+		if (Array.isArray(source.scatter)) {
+			return normalizeScatterRequests(source.scatter, `${contextPath}.scatter`);
+		}
+
+		Log("ENGINE", `Object payload ${contextPath} scatter malformed; defaulted to empty array.`, "warn", "Validation");
+	}
+
+	return [];
+}
+
 function normalizeTerrainObject(definition, index) {
 	const source = normalizeObject(definition);
-	const position = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const dimensions = NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 });
-	const texture = normalizeObject(source.texture);
+	const position = normalizeVector3WithWarning(source.position, { x: 0, y: 0, z: 0 }, `terrain[${index}]`, "position");
+	const dimensions = normalizeVector3WithWarning(source.dimensions || source.size, { x: 1, y: 1, z: 1 }, `terrain[${index}]`, "dimensions");
+	const rotation = normalizeVector3WithWarning(source.rotation, { x: 0, y: 0, z: 0 }, `terrain[${index}]`, "rotation");
+	const pivot = normalizeVector3WithWarning(source.pivot, { x: 0, y: 0, z: 0 }, `terrain[${index}]`, "pivot");
 	const detail = normalizeObject(source.detail);
-	const textureColor = normalizeObject(texture.color);
-	const fallbackTextureColor = normalizeObject(source.textureColor);
-	const resolvedTextureColor = Object.keys(textureColor).length > 0
-		? textureColor
-		: (Object.keys(fallbackTextureColor).length > 0 ? fallbackTextureColor : { r: 1, g: 1, b: 1, a: 1 });
+	const texture = normalizeTextureDescriptor(source, { textureID: "grass-soft", defaultColor: { r: 0.28, g: 0.58, b: 0.42, a: 1 } }, `terrain[${index}]`);
+	const shape = normalizeShapeAlias(source, `terrain[${index}]`);
+	const complexity = normalizeGeometryComplexity(source.complexity, `terrain[${index}]`);
+	const primitiveOptions = normalizePrimitiveOptions(source, `terrain[${index}]`);
+
 	return {
 		...source,
 		id: normalizeString(source.id, `terrain-${index}`),
+		shape: shape,
+		complexity: complexity,
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
+		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
 		scale: NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 }),
-		texture: {
-			...texture,
-			textureID: normalizeString(texture.textureID, normalizeString(source.textureID, "grass-soft")),
-			color: resolvedTextureColor,
-			opacity: ToNumber(texture.opacity, ToNumber(source.textureOpacity, 1)),
-		},
+		pivot: new UnitVector3(pivot.x, pivot.y, pivot.z, "cnu"),
+		primitiveOptions: primitiveOptions,
+		texture: texture,
 		detail: {
 			...detail,
-			scatter: normalizeArray(detail.scatter),
+			scatter: normalizeScatterForDetail(source, detail, `terrain[${index}]`),
 		},
 	};
 }
@@ -310,32 +441,134 @@ function normalizeTrigger(definition, index) {
 
 function normalizeObstacle(definition, index) {
 	const source = normalizeObject(definition);
-	const position = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const dimensions = NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 });
-	const texture = normalizeObject(source.texture);
+	const position = normalizeVector3WithWarning(source.position, { x: 0, y: 0, z: 0 }, `obstacle[${index}]`, "position");
+	const dimensions = normalizeVector3WithWarning(source.dimensions || source.size, { x: 1, y: 1, z: 1 }, `obstacle[${index}]`, "dimensions");
+	const rotation = normalizeVector3WithWarning(source.rotation, { x: 0, y: 0, z: 0 }, `obstacle[${index}]`, "rotation");
+	const pivot = normalizeVector3WithWarning(source.pivot, { x: 0, y: 0, z: 0 }, `obstacle[${index}]`, "pivot");
 	const detail = normalizeObject(source.detail);
+	const texture = normalizeTextureDescriptor(source, { textureID: "default-grid" }, `obstacle[${index}]`);
+	const shape = normalizeShapeAlias(source, `obstacle[${index}]`);
+	const complexity = normalizeGeometryComplexity(source.complexity, `obstacle[${index}]`);
+	const primitiveOptions = normalizePrimitiveOptions(source, `obstacle[${index}]`);
+
+	// Normalize optional parts for multi-part obstacles so builders can assume canonical shapes
+	const parts = Array.isArray(source.parts)
+		? source.parts.map((part, pIndex) => {
+			const p = normalizeObject(part);
+			const dims = NormalizeVector3(p.dimensions || p.size, { x: 1, y: 1, z: 1 });
+			const localPosition = NormalizeVector3(p.localPosition, { x: 0, y: 0, z: 0 });
+			const localRotation = NormalizeVector3(p.localRotation, { x: 0, y: 0, z: 0 });
+			const texture = normalizeTextureDescriptor(p, { textureID: "default-grid" }, `obstacle[${index}].parts[${pIndex}]`);
+			return {
+				...p,
+				id: normalizeString(p.id, `${normalizeString(source.id, `obstacle-${index}`)}-part-${pIndex}`),
+				shape: normalizeShapeAlias(p, `obstacle[${index}].parts[${pIndex}]`),
+				complexity: normalizeGeometryComplexity(p.complexity, `obstacle[${index}].parts[${pIndex}]`),
+				dimensions: new UnitVector3(dims.x, dims.y, dims.z, "cnu"),
+				localPosition: new UnitVector3(localPosition.x, localPosition.y, localPosition.z, "cnu"),
+				localRotation: new UnitVector3(localRotation.x, localRotation.y, localRotation.z, "degrees").toRadians(true),
+				localScale: NormalizeVector3(p.localScale, { x: 1, y: 1, z: 1 }),
+				primitiveOptions: normalizePrimitiveOptions(p, `obstacle[${index}].parts[${pIndex}]`),
+				texture: texture,
+				detail: {
+					...normalizeObject(p.detail),
+					scatter: normalizeScatterForDetail(p, normalizeObject(p.detail), `obstacle[${index}].parts[${pIndex}]`),
+				},
+			};
+		})
+		: [];
+
 	return {
 		...source,
 		id: normalizeString(source.id, `obstacle-${index}`),
+		shape: shape,
+		complexity: complexity,
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
+		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
 		scale: NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 }),
-		texture: {
-			...texture,
-			textureID: normalizeString(texture.textureID, normalizeString(source.textureID, "default-grid")),
-			color: normalizeObject(texture.color),
-			opacity: ToNumber(texture.opacity, ToNumber(source.textureOpacity, 1)),
-		},
+		pivot: new UnitVector3(pivot.x, pivot.y, pivot.z, "cnu"),
+		primitiveOptions: primitiveOptions,
+		texture: texture,
 		detail: {
 			...detail,
-			scatter: normalizeArray(detail.scatter),
+			scatter: normalizeScatterForDetail(source, detail, `obstacle[${index}]`),
 		},
+		parts: parts,
 	};
+}
+
+// Mesh/Object normalization for builders
+function normalizeColorDescriptor(color, contextPath, fallback = { r: 1, g: 1, b: 1, a: 1 }) {
+	const source = normalizeObject(color);
+	if (Object.keys(source).length === 0) return fallback;
+	const r = ToNumber(source.r, fallback.r);
+	const g = ToNumber(source.g, fallback.g);
+	const b = ToNumber(source.b, fallback.b);
+	const a = ToNumber(source.a, fallback.a);
+	if ([r, g, b, a].some((v) => !Number.isFinite(v))) {
+		Log("ENGINE", `Object payload ${contextPath} color malformed; defaulting to fallback.`, "warn", "Validation");
+		return fallback;
+	}
+	return { r: Math.max(0, Math.min(1, r)), g: Math.max(0, Math.min(1, g)), b: Math.max(0, Math.min(1, b)), a: Math.max(0, Math.min(1, a)) };
+}
+
+function normalizeTextureShape(shape) {
+	if (typeof shape !== "string") return null;
+	const value = shape.trim().toLowerCase();
+	return value.length > 0 ? value : null;
+}
+
+function normalizeTextureDescriptor(source, options, contextPath) {
+	const src = normalizeObject(source);
+	const textureFromSource = src.texture && typeof src.texture === "object" ? src.texture : null;
+	const baseTextureID = (textureFromSource && typeof textureFromSource.textureID === "string" && textureFromSource.textureID)
+		? textureFromSource.textureID
+		: (normalizeString(src.textureID, normalizeString(options && options.textureID, "default-grid")));
+	const shape = normalizeTextureShape(textureFromSource && textureFromSource.shape);
+	const color = normalizeColorDescriptor((textureFromSource && textureFromSource.color) || src.textureColor || src.color || (options && options.defaultColor), contextPath + ".color");
+	const opacitySource = textureFromSource && typeof textureFromSource.opacity === "number" ? textureFromSource.opacity : src.textureOpacity;
+	const opacity = ToNumber(opacitySource, 1);
+	if (!Number.isFinite(opacity)) {
+		Log("ENGINE", `Object payload ${contextPath} texture.opacity malformed; defaulted to 1.`, "warn", "Validation");
+	}
+	const densitySource = textureFromSource && typeof textureFromSource.density === "number" ? textureFromSource.density : src.textureDensity;
+	const materialTextureID = shape ? `${baseTextureID}::shape=${shape}` : baseTextureID;
+
+	return {
+		textureID: baseTextureID,
+		baseTextureID: baseTextureID,
+		materialTextureID: materialTextureID,
+		shape: shape,
+		color: color,
+		opacity: Math.max(0, Math.min(1, ToNumber(opacity, 1))),
+		density: Math.max(0, ToNumber(densitySource, 1)),
+	};
+}
+
+function normalizeScatterRequests(source, contextPath) {
+	if (!source || !Array.isArray(source)) return [];
+	const out = [];
+	for (let i = 0; i < source.length; i += 1) {
+		const entry = source[i];
+		if (!entry || typeof entry !== "object") {
+			Log("ENGINE", `Object payload ${contextPath}[${i}] malformed scatter entry dropped.`, "warn", "Validation");
+			continue;
+		}
+		if (typeof entry.typeID !== "string" || entry.typeID.length === 0) {
+			Log("ENGINE", `Object payload ${contextPath}[${i}] scatter missing typeID; entry dropped.`, "warn", "Validation");
+			continue;
+		}
+		out.push({ typeID: entry.typeID, density: Math.max(0, ToNumber(entry.density, 0)) });
+	}
+	return out;
 }
 
 function buildDefaultEntityModel(source, entityId) {
 	const rotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
-	const dimensions = NormalizeVector3(source.size, { x: 1, y: 1, z: 1 });
+	const dimensions = NormalizeVector3(source.dimensions || source.size, { x: 1, y: 1, z: 1 });
+	const shape = normalizeShapeAlias(source, `${entityId}.defaultModelPart`);
+	const texture = normalizeTextureDescriptor(source, { textureID: "default-grid", defaultColor: { r: 0.9, g: 0.35, b: 0.35, a: 1 } }, `${entityId}.defaultModelPart`);
 	return {
 		spawnSurfaceId: source.spawnSurfaceId || null,
 		rootTransform: {
@@ -353,11 +586,16 @@ function buildDefaultEntityModel(source, entityId) {
 				localPosition: new UnitVector3(0, 0, 0, "cnu"),
 				localRotation: new UnitVector3(0, 0, 0, "radians"),
 				localScale: { x: 1, y: 1, z: 1 },
-				primitive: source.shape || "cube",
+				shape: shape,
+				complexity: "medium",
 				dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
-				textureID: source.textureID || "default-grid",
-				textureColor: source.textureColor || source.color || { r: 0.9, g: 0.35, b: 0.35, a: 1 },
-				textureOpacity: ToNumber(source.textureOpacity, 1),
+				texture: texture,
+				textureID: texture.textureID,
+				textureColor: texture.color,
+				textureOpacity: texture.opacity,
+				pivot: new UnitVector3(0, 0, 0, "cnu"),
+				primitiveOptions: normalizePrimitiveOptions(source, `${entityId}.defaultModelPart`),
+				detail: { scatter: [] },
 			},
 		],
 	};
@@ -384,11 +622,17 @@ function normalizeEntityModelPart(part, entityId, index) {
 	const dimensions = NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 });
 	const localPosition = NormalizeVector3(source.localPosition, { x: 0, y: 0, z: 0 });
 	const localRotation = NormalizeVector3(source.localRotation, { x: 0, y: 0, z: 0 });
-	const textureColor = normalizeObject(source.textureColor);
+	const texture = normalizeTextureDescriptor(source, { textureID: "default-grid" }, `${entityId}.parts[${index}]`);
+	const shape = normalizeShapeAlias(source, `${entityId}.parts[${index}]`);
+	const complexity = normalizeGeometryComplexity(source.complexity, `${entityId}.parts[${index}]`);
+	const pivot = normalizeVector3WithWarning(source.pivot, { x: 0, y: 0, z: 0 }, `${entityId}.parts[${index}]`, "pivot");
+	const primitiveOptions = normalizePrimitiveOptions(source, `${entityId}.parts[${index}]`);
 
 	return {
 		...source,
 		id: normalizeString(source.id, `${entityId}-part-${index}`),
+		shape: shape,
+		complexity: complexity,
 		parentId: normalizeString(source.parentId, "root"),
 		anchorPoint: normalizeString(source.anchorPoint, source.parentId === "root" ? "bottom" : "center"),
 		attachmentPoint: normalizeString(source.attachmentPoint, "top"),
@@ -396,9 +640,16 @@ function normalizeEntityModelPart(part, entityId, index) {
 		localRotation: new UnitVector3(localRotation.x, localRotation.y, localRotation.z, "degrees").toRadians(true),
 		localScale: NormalizeVector3(source.localScale, { x: 1, y: 1, z: 1 }),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
-		textureID: normalizeString(source.textureID, "default-grid"),
-		textureColor: Object.keys(textureColor).length > 0 ? textureColor : { r: 1, g: 1, b: 1, a: 1 },
-		textureOpacity: ToNumber(source.textureOpacity, 1),
+		pivot: new UnitVector3(pivot.x, pivot.y, pivot.z, "cnu"),
+		rotation: new UnitVector3(0, 0, 0, "radians"),
+		scale: { x: 1, y: 1, z: 1 },
+		position: new UnitVector3(0, 0, 0, "cnu"),
+		primitiveOptions: primitiveOptions,
+		texture: texture,
+		detail: { scatter: [] },
+		textureID: texture.textureID,
+		textureColor: texture.color,
+		textureOpacity: texture.opacity,
 	};
 }
 

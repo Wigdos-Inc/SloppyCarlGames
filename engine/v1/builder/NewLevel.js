@@ -79,12 +79,24 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 	return BuildObject(
 		{
 			id: source.id,
-			primitive: "cube",
+			shape: "cube",
+			complexity: "medium",
 			dimensions: size,
 			position: center,
-			textureID: "default-grid",
-			textureColor: color,
-			textureOpacity: color.a,
+			rotation: new UnitVector3(0, 0, 0, "radians"),
+			scale: { x: 1, y: 1, z: 1 },
+			pivot: new UnitVector3(0, 0, 0, "cnu"),
+			primitiveOptions: {},
+			texture: {
+				textureID: "default-grid",
+				baseTextureID: "default-grid",
+				materialTextureID: "default-grid",
+				shape: null,
+				color: color,
+				opacity: color.a,
+				density: 1,
+			},
+			detail: { scatter: [] },
 			role: "trigger",
 			trigger: {
 				type: source.type,
@@ -111,12 +123,24 @@ function buildWaterVisualMeshes(world) {
 	const body = BuildObject(
 		{
 			id: `water-body-${waterLength}-${waterWidth}-${waterBottom}-${waterLevel}`,
-			primitive: "cube",
+			shape: "cube",
+			complexity: "medium",
 			dimensions: new UnitVector3( waterLength, waterHeight, waterWidth, "cnu"),
 			position: new UnitVector3(centerX, waterBottom + waterHeight * 0.5, centerZ, "cnu"),
-			textureID: "default-grid",
-			textureColor: { r: 0.1, g: 0.28, b: 0.44, a: 1 },
-			textureOpacity: 0.2,
+			rotation: new UnitVector3(0, 0, 0, "radians"),
+			scale: { x: 1, y: 1, z: 1 },
+			pivot: new UnitVector3(0, 0, 0, "cnu"),
+			primitiveOptions: {},
+			texture: {
+				textureID: "default-grid",
+				baseTextureID: "default-grid",
+				materialTextureID: "default-grid",
+				shape: null,
+				color: { r: 0.1, g: 0.28, b: 0.44, a: 1 },
+				opacity: 0.2,
+				density: 1,
+			},
+			detail: { scatter: [] },
 			role: "water",
 		},
 		{ role: "water" }
@@ -125,12 +149,24 @@ function buildWaterVisualMeshes(world) {
 	const top = BuildObject(
 		{
 			id: `water-top-${waterLength}-${waterWidth}-${waterLevel}`,
-			primitive: "plane",
+			shape: "plane",
+			complexity: "medium",
 			dimensions: new UnitVector3(waterLength, 1, waterWidth, "cnu"),
 			position: new UnitVector3( centerX, waterLevel + 0.02, centerZ, "cnu"),
-			textureID: "default-grid",
-			textureColor: { r: 0.38, g: 0.62, b: 0.85, a: 1 },
-			textureOpacity: 0.35,
+			rotation: new UnitVector3(0, 0, 0, "radians"),
+			scale: { x: 1, y: 1, z: 1 },
+			pivot: new UnitVector3(0, 0, 0, "cnu"),
+			primitiveOptions: {},
+			texture: {
+				textureID: "default-grid",
+				baseTextureID: "default-grid",
+				materialTextureID: "default-grid",
+				shape: null,
+				color: { r: 0.38, g: 0.62, b: 0.85, a: 1 },
+				opacity: 0.35,
+				density: 1,
+			},
+			detail: { scatter: [] },
 			role: "water",
 		},
 		{ role: "water" }
@@ -225,14 +261,10 @@ async function BuildLevel(payload) {
 			{
 				...terrainObject,
 				id: terrainObject.id,
-				primitive: terrainObject.primitive || terrainObject.shape,
 				role: "terrain",
-				texture: terrainObject.texture,
 			},
 			{
 				role: "terrain",
-				defaultColor: { r: 0.28, g: 0.58, b: 0.42, a: 1 },
-				textureID: "grass-soft",
 			}
 		);
 

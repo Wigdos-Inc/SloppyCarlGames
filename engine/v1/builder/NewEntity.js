@@ -6,8 +6,8 @@
 // Uses NewObject.js for Model Parts
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
-import { AddVector3, LerpVector3, MultiplyVector3, NormalizeVector3, RotateByEuler } from "../math/Vector3.js";
-import { DegreesToRadians, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
+import { AddVector3, LerpVector3, MultiplyVector3, RotateByEuler } from "../math/Vector3.js";
+import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 
 /* === FACE / ANCHOR UTILITIES === */
 
@@ -156,12 +156,11 @@ function composeTransform(parentTransform, localTransform) {
 /* === MOVEMENT === */
 
 function normalizeMovement(movement, surface) {
-	const surfacePos = surface.position;
-	const surfaceTopY = surface.topY;
 	// Movement start/end are local to the spawn surface — resolve to world space.
 	// Y uses surfaceTopY (top of the surface) instead of surfacePos.y (center of the surface).
-	movement.start.set(AddVector3({ x: surfacePos.x, y: surfaceTopY, z: surfacePos.z }, movement.start));
-	movement.end.set(AddVector3({ x: surfacePos.x, y: surfaceTopY, z: surfacePos.z }, movement.end));
+	const surfacePos = surface.position;
+	movement.start.set(AddVector3({ x: surfacePos.x, y: surface.topY, z: surfacePos.z }, movement.start));
+	movement.end.set(AddVector3({ x: surfacePos.x, y: surface.topY, z: surfacePos.z }, movement.end));
 
 	return {
 		start: movement.start,
@@ -212,18 +211,21 @@ function buildPart(partDefinition, entityId, index) {
 	const mesh = BuildObject(
 		{
 			id: source.id || `${entityId}-part-${index}`,
-			primitive: source.primitive || source.shape,
+			shape: source.shape,
+			complexity: source.complexity,
 			dimensions: source.dimensions,
-			textureID: source.textureID,
-			textureColor: source.textureColor,
-			textureOpacity: source.textureOpacity,
+			position: new UnitVector3(0, 0, 0, "cnu"),
+			rotation: new UnitVector3(0, 0, 0, "radians"),
+			scale: { x: 1, y: 1, z: 1 },
+			pivot: source.pivot,
+			primitiveOptions: source.primitiveOptions,
+			texture: source.texture,
+			detail: source.detail,
 			role: "entity-part",
 			parentId: source.parentId || null,
 		},
 		{ role: "entity-part" }
 	);
-
-	const dimensions = source.dimensions;
 
 	const resolvedParentId = source.parentId || null;
 	const anchorPoint = normalizeFace(source.anchorPoint, resolvedParentId === "root" ? "bottom" : "center");
@@ -258,18 +260,7 @@ function buildPart(partDefinition, entityId, index) {
 	};
 }
 
-/* === SURFACE RESOLUTION === */
-
-/**
- * Resolve spawn surface data from the surface map.
- * Returns { position, dimensions, scale, topY } or a zero-default if not found.
- */
-function resolveSpawnSurface(spawnSurfaceId, surfaceMap) {
-	return surfaceMap[spawnSurfaceId];
-}
-
-/* === 14-STEP MODEL BUILD PIPELINE === */
-// DEBUG, YOU HERE, DO THIS, NEXT, TODO
+/* === MODEL BUILDING === */
 
 function buildModel(entityDefinition, surfaceMap) {
 	const sourceModel = entityDefinition.model;
@@ -298,7 +289,7 @@ function buildModel(entityDefinition, surfaceMap) {
 
 	// Resolve spawn surface.
 	const spawnSurfaceId = sourceModel.spawnSurfaceId || entityDefinition.spawnSurfaceId;
-	const surface = resolveSpawnSurface(spawnSurfaceId, surfaceMap);
+	const surface = surfaceMap[spawnSurfaceId];
 	const surfaceTopY = surface.topY;
 	const surfacePosition = surface.position;
 
@@ -406,16 +397,14 @@ function buildModel(entityDefinition, surfaceMap) {
 
 	// --- Assemble model with world-space rootTransform ---
 	// Factor 1 (spawn surface position) + Factor 2 (rootTransform.position) = world position.
+	const rootPosition = rtPosition.clone();
+	rootPosition.set(AddVector3(surfacePosition, rtPosition));
+
 	const model = {
 		rootTransform: {
-			position: new UnitVector3(
-				surfacePosition.x + rtPosition.x,
-				surfaceTopY + rtPosition.y,
-				surfacePosition.z + rtPosition.z,
-				"CNU"
-			),
+			position: rootPosition,
 			rotation: rtRotation,
-			scale: { x: rtScale.x, y: rtScale.y, z: rtScale.z },
+			scale: rtScale,
 		},
 		spawnSurfaceId: spawnSurfaceId,
 		surfacePosition: surfacePosition,
@@ -429,10 +418,10 @@ function buildModel(entityDefinition, surfaceMap) {
 
 	// Snapshot default pose for ResetEntityToDefaultPose.
 	model.defaultPose = {
-		rootTransform: cloneTransform(model.rootTransform, null, true),
+		rootTransform: cloneTransform(model.rootTransform, null),
 		parts: parts.map((part) => ({
 			id: part.id,
-			localTransform: cloneTransform(part.localTransform, null, true),
+			localTransform: cloneTransform(part.localTransform, null),
 		})),
 	};
 
@@ -450,12 +439,12 @@ function applyModelPose(model) {
 		part.mesh.transform.position.set(worldTransform.position);
 		part.mesh.transform.rotation.set(worldTransform.rotation);
 		part.mesh.transform.scale = worldTransform.scale;
-		UpdateObjectWorldAabb(part.mesh);
+		part.mesh.worldAabb = UpdateObjectWorldAabb(part.mesh);
 
 		part.children.forEach((childId) => applyPart(childId, worldTransform));
 	};
 
-	const rootTransform = cloneTransform(model.rootTransform, null, true);
+	const rootTransform = cloneTransform(model.rootTransform, null);
 	model.roots.forEach((rootId) => applyPart(rootId, rootTransform));
 }
 
@@ -510,15 +499,11 @@ function BuildEntity(definition, surfaceMap) {
 
 	// Resolve spawn surface for movement localization.
 	const spawnSurfaceId = merged.model.spawnSurfaceId || merged.spawnSurfaceId;
-	const surface = resolveSpawnSurface(spawnSurfaceId, surfaceMap);
-
+	const surface = surfaceMap[spawnSurfaceId];
 	const movement = normalizeMovement(merged.movement, surface);
-
 	const model = buildModel(merged, surfaceMap);
-
 	const aabb = computeEntityAabb(model);
 	const simRadiusPadding = ToNumber(merged.simRadiusPadding, 8);
-
 	const rootTrans = model.rootTransform;
 
 	return {
@@ -530,26 +515,11 @@ function BuildEntity(definition, surfaceMap) {
 		platform: merged.platform,
 		movement: movement,
 		transform: {
-			position: new UnitVector3(
-				rootTrans.position.x,
-				rootTrans.position.y,
-				rootTrans.position.z,
-				"cnu"
-			),
-			rotation: new UnitVector3(
-				rootTrans.rotation.x,
-				rootTrans.rotation.y,
-				rootTrans.rotation.z,
-				"radians"
-			),
-			scale: NormalizeVector3(rootTrans.scale, { x: 1, y: 1, z: 1 }),
+			position: rootTrans.position,
+			rotation: rootTrans.rotation,
+			scale: rootTrans.scale,
 		},
-		velocity: new UnitVector3(
-			ToNumber(merged.velocity.x, 0),
-			ToNumber(merged.velocity.y, 0),
-			ToNumber(merged.velocity.z, 0),
-			"cnu"
-		),
+		velocity: merged.velocity,
 		model: model,
 		mesh: model.parts[0].mesh,
 		collision: {
@@ -568,8 +538,8 @@ function BuildEntity(definition, surfaceMap) {
 }
 
 function UpdateEntityModelFromTransform(entity) {
-	entity.model.rootTransform.position = entity.transform.position;
-	entity.model.rootTransform.rotation = entity.transform.rotation;
+	entity.model.rootTransform.position.set(entity.transform.position);
+	entity.model.rootTransform.rotation.set(entity.transform.rotation);
 	entity.model.rootTransform.scale = entity.transform.scale;
 
 	applyModelPose(entity.model);
@@ -582,11 +552,22 @@ function UpdateEntityModelFromTransform(entity) {
 }
 
 function ResetEntityToDefaultPose(entity) {
-	entity.model.rootTransform = cloneTransform(entity.model.defaultPose.rootTransform, null, true);
+	// Mutate existing instances to preserve object identity (avoid breaking references).
+	const defaultRoot = entity.model.defaultPose.rootTransform;
+	const targetRoot = entity.model.rootTransform;
+
+	targetRoot.position.set(defaultRoot.position);
+	targetRoot.rotation.set(defaultRoot.rotation);
+	targetRoot.scale = defaultRoot.scale;
+	targetRoot.pivot.set(defaultRoot.pivot);
+
 	const byId = entity.model.index;
 	entity.model.defaultPose.parts.forEach((posePart) => {
 		const part = byId[posePart.id];
-		part.localTransform = cloneTransform(posePart.localTransform, null, true);
+		const src = posePart.localTransform;
+		part.localTransform.position.set(src.position);
+		part.localTransform.rotation.set(src.rotation);
+		part.localTransform.scale = src.scale;
 	});
 
 	applyModelPose(entity.model);

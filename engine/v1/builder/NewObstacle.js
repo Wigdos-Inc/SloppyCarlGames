@@ -5,12 +5,8 @@
 
 import { BuildObject } from "./NewObject.js";
 import { Log } from "../core/meta.js";
-import { AddVector3, NormalizeVector3 } from "../math/Vector3.js";
-import { DegreesToRadians, UnitVector3 } from "../math/Utilities.js";
-
-function toNumber(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
+import { AddVector3, MultiplyVector3 } from "../math/Vector3.js";
+import { ToNumber, UnitVector3 } from "../math/Utilities.js";
 
 function mergeAabb(accumulator, bounds) {
 	if (!bounds) {
@@ -41,26 +37,27 @@ function mergeAabb(accumulator, bounds) {
 }
 
 function buildObstacleParts(source, index, options) {
-	const resolvedOptions = options && typeof options === "object" ? options : {};
 	if (!Array.isArray(source.parts) || source.parts.length === 0) {
 		const single = BuildObject(
 			{
-				...source,
-				id: source.id || `obstacle-${index}`,
-				primitive: source.primitive || source.shape || "cube",
-				texture: source.texture || {
-					textureID: source.textureID || "stone-block",
-					color: source.textureColor || { r: 1, g: 1, b: 1, a: 1 },
-					opacity: typeof source.textureOpacity === "number" ? source.textureOpacity : 1,
-				},
+				id: source.id,
+				shape: source.shape,
+				complexity: source.complexity,
+				dimensions: source.dimensions,
+				position: source.position,
+				rotation: source.rotation,
+				scale: source.scale,
+				pivot: source.pivot,
+				primitiveOptions: source.primitiveOptions,
+				texture: source.texture,
+				detail: source.detail,
 				role: "obstacle",
 			},
 			{
 				role: "obstacle",
-				textureID: "stone-block",
-				scatterContext: resolvedOptions.scatterContext
+				scatterContext: options.scatterContext
 					? {
-						...resolvedOptions.scatterContext,
+						...options.scatterContext,
 						indexSeed: 500 + index,
 					}
 					: null,
@@ -69,66 +66,52 @@ function buildObstacleParts(source, index, options) {
 		return [single];
 	}
 
-	const rootPosition = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const rootRotationRaw = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
-	const rootRotation = {
-		x: DegreesToRadians(rootRotationRaw.x),
-		y: DegreesToRadians(rootRotationRaw.y),
-		z: DegreesToRadians(rootRotationRaw.z),
-	};
-	const rootScale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
+	// At this point `source` and `source.parts` are expected to be normalized by core/normalize.js
+	// Assume `source.position`, `source.rotation`, `source.pivot`, and part.localPosition/localRotation
+	// are `UnitVector3` instances. Compose world-space transforms by cloning and mutating UnitVector3 instances.
+	const rootScale = source.scale; // Vector3
 
 	return source.parts.map((part, partIndex) => {
-		const partSource = part && typeof part === "object" ? part : {};
 		const inheritedTexture = source.texture || null;
-		const inheritedScatter = Array.isArray(source.scatter) ? source.scatter : [];
-		const partScatterContext = resolvedOptions.scatterContext
+		const inheritedScatter = source.detail && Array.isArray(source.detail.scatter) ? source.detail.scatter : [];
+		const partScatterContext = options.scatterContext
 			? {
-				...resolvedOptions.scatterContext,
+				...options.scatterContext,
 				indexSeed: 700 + (index * 100) + partIndex,
 			}
 			: null;
-		const localRot = NormalizeVector3(partSource.localRotation, { x: 0, y: 0, z: 0 });
-		const localRotRad = {
-			x: DegreesToRadians(localRot.x),
-			y: DegreesToRadians(localRot.y),
-			z: DegreesToRadians(localRot.z),
-		};
+
+		const scatterList = Array.isArray(part.detail && part.detail.scatter) ? part.detail.scatter : (partIndex === 0 ? inheritedScatter : []);
+
+		// Compute world-space position & rotation (preserve UnitVector3 instances via set)
+		const worldPos = source.position;
+		const worldRot = source.rotation;
+
 		return BuildObject(
 			{
-				...partSource,
-				id: partSource.id || `${source.id || `obstacle-${index}`}-part-${partIndex}`,
-				primitive: partSource.primitive || partSource.shape || "cube",
-				position: AddVector3(rootPosition, NormalizeVector3(partSource.localPosition, { x: 0, y: 0, z: 0 })),
-				rotation: AddVector3(rootRotation, NormalizeVector3(localRotRad, { x: 0, y: 0, z: 0 })),
-				scale: {
-					x: rootScale.x * NormalizeVector3(partSource.localScale, { x: 1, y: 1, z: 1 }).x,
-					y: rootScale.y * NormalizeVector3(partSource.localScale, { x: 1, y: 1, z: 1 }).y,
-					z: rootScale.z * NormalizeVector3(partSource.localScale, { x: 1, y: 1, z: 1 }).z,
-				},
-				texture: partSource.texture || inheritedTexture || {
-					textureID: partSource.textureID || source.textureID || "stone-block",
-					color: partSource.textureColor || source.textureColor || { r: 1, g: 1, b: 1, a: 1 },
-					opacity: typeof partSource.textureOpacity === "number"
-						? partSource.textureOpacity
-						: (typeof source.textureOpacity === "number" ? source.textureOpacity : 1),
-				},
-				scatter: Array.isArray(partSource.scatter)
-					? partSource.scatter
-					: (partIndex === 0 ? inheritedScatter : []),
+				...part,
+				id: part.id || `${source.id}-part-${partIndex}`,
+				shape: part.shape,
+				complexity: part.complexity,
+				dimensions: part.dimensions,
+				position: worldPos.set(AddVector3(worldPos, part.localPosition)),
+				rotation: worldRot.set(AddVector3(worldRot, part.localRotation)),
+				scale: MultiplyVector3(rootScale, part.localScale),
+				pivot: source.pivot,
+				primitiveOptions: part.primitiveOptions,
+				texture: part.texture || inheritedTexture,
+				detail: { scatter: scatterList },
 				role: "obstacle",
 			},
 			{
 				role: "obstacle",
-				textureID: "stone-block",
 				scatterContext: partScatterContext,
 			}
 		);
 	});
 }
 
-function BuildObstacle(definition, index, options) {
-	const source = definition && typeof definition === "object" ? definition : {};
+function BuildObstacle(source, index, options) {
 	const parts = buildObstacleParts(source, index, options);
 	let bounds = null;
 	parts.forEach((part) => {
@@ -138,12 +121,12 @@ function BuildObstacle(definition, index, options) {
 	const mesh = parts[0] || null;
 
 	return {
-		id: source.id || (mesh ? mesh.id : `obstacle-${index}`),
+		id: source.id,
 		mesh: mesh,
 		parts: parts,
 		bounds: bounds,
 		destructible: source.destructible === true,
-		hp: Math.max(1, toNumber(source.hp, 1)),
+		hp: Math.max(1, ToNumber(source.hp, 1)),
 		static: source.static !== false,
 		scatter: Array.isArray(source.scatter) ? source.scatter : [],
 		state: {
