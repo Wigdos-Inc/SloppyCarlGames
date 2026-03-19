@@ -4,19 +4,20 @@ engine/
 
     core/
       config.js // Global engine configuration values (and settings application)
-      ini.js // INI-style config parsing/initialization helpers (creates a global ENGINE to export to the game)
-      meta.js // Metadata utilities (versioning, manifest helpers)
-      splash.js // Splash screen management
-      validate.js // Validation utilities for configs/assets
+      ini.js // Initialize exportable ENGINE API for games.
+      meta.js // Engine-wide utilities (functions, constants, APIs, etc)
+      validate.js // Validation utilities for game payloads.
+      normalize.js // Data normalization of validated game payloads for engine use.
 
     builder/
       NewBoss.js // Builder for creating boss entities
-      NewEntity.js // Builder for generic entity creation (anything that supports being animated)
+      NewEntity.js // Builder for generic entity model creation (anything that supports being animated)
       NewLevel.js // Builder for creating levels from incoming data (uses most other builders)
-      NewObject.js // Builder of 3D objects (mainly to be used in other builders)
+      NewObject.js // Builder of 3D meshes (mainly to be used by other builders)
       NewObstacle.js // Builder of obstacles
-      NewTexture.js // Builder of 2D and 3D textures for 3D objects
+      NewTexture.js // Procedurally generated texture mapping onto meshes.
       NewUI.js // Builder of UI components
+      NewScatter.js // Procedurally generated static object scatter models placed onto meshes.
       templates/
         characters.json // Character template definitions for builder
         enemies.json // Enemy template definitions
@@ -24,21 +25,21 @@ engine/
         projectiles.json // Projectile template definitions
 
     handlers/
-      Controls.js // Handles inputs from ui/level cache or sends inputs to game (input manager)
+      Controls.js // Handles inputs from ui/level cache or sends inputs to game if unconsumed (input manager)
       Cutscene.js // Cutscene orchestration handler (cutscene manager)
       Render.js // Displays everything to the game (end of all visual pipelines)
       Sound.js // Sound manager and helpers
       UI.js // UI handler (UI state manager)
 
       game/
-        Animation.js // Level entity animation handler
+        Animation.js // Level entity animation handler based on entity states
         Boss.js // Boss behavior handler
-        Camera.js // Camera management for levels
+        Camera.js // Camera management for levels and cutscenes
         Collectible.js // Collectible item behavior
         Enemy.js // Enemy behavior handler
         Level.js // Level lifecycle and orchestration (entire level state manager)
         Physics.js // Game physics glue for handlers (physics pipeline manager)
-        Texture.js // Texture and sprite loading/management for game objects
+        Texture.js // Custom texture and sprite loading onto meshes.
 
       menu/
         Splash.js // Manages splash screens on game startup
@@ -50,11 +51,13 @@ engine/
       Animation.js // Cutscene-specific animation handler
       AudioSync.js // Sync audio with cutscene timelines (make sure audio plays at right time and speed)
       Scene.js // Cutscene scene management
+      Master.js // Cutscene state manager.
 
     math/
       Curves.js // Curve utilities (e.g., bezier helpers)
       Forces.js // Force calculation helpers
       Vector3.js // 3D vector math utilities
+      Utilities.js // Utility math functions (includes Unit classes).
 
     physics/
       Buoyancy.js // Buoyancy force calculations
@@ -65,50 +68,16 @@ engine/
       Resistance.js // Air/Water Resistance/drag computations
 
     player/
-      Abilities.js // Player ability definitions, handler and logic
-      Animation.js // Player animation controller (state manager)
+      Abilities.js // Player ability definitions and applications.
+      Animation.js // Player-specific animation handler.
       Master.js // Player master controller (player state manager)
-      Model.js // Player model/data representation (uses builder for player model)
+      Model.js // Player model/data representation (uses NewEntity builder for player model)
       Movement.js // Movement handler for player
       characters.json // Player character presets
 
-    assets/
-      engine/
-        carlNetEngine.png // Engine branding/art
-        carlNetEngine.mp3 // Engine audio/branding
-      carlStudios/
-        splat.mp3 // studio effect
-        sloppyCarl.png // studio art
-        sloppyCarl.mp3 // studio audio
-      characters/
-        carl/
-          carl.png // Carl character sprite
-          carl_wave.png // Carl wave sprite
-
-    testGame/
-      main.js // Central test game logic
-      output.html // Test game visual output
-      menus/
-        ui.js // UI logic for testGame
-        ui.json // UI payloads
-      audio/
-        titleTheme.mp3 // audio assets for testGame
-        levelTheme.mp3
-        creditsTheme.mp3
-        bossTheme.mp3
-      cutscene/
-        cutscene.js // Cutscene logic for testGame
-        cutscene.json // Cutscene payloads
-        rendered/
-          Opening.mp4 // Rendered opening cutscene video
-      levels/
-        levels.json // Level payloads
-        level.js // Level logic for testGame
-        level1.png // Level artwork for level select
-        level2.parsing
-
 Notes:
-- Builders create 2D HTML elements and 3D WebGL Objects and are called by state managers.
-  - Textures.js pastes 2D textures onto 3D objects for detail and creates 3D textures (using NewObject.js) for depth (grass, pebbles, etc)
-- Helpers are state managers and helper functions to simplify pipeline. Most can be called from anywhere.
+- Builders create 2D HTML elements and 3D WebGL2 meshes and are called by state managers.
+- Helpers are state managers and helper functions to simplify pipeline.
+  - Games are only allowed to interact with helpers accepting payloads (e.g. UI.js or Level.js).
+  - Game payloads must first be validated and normalized through validate.js before the data is usable.
 - Render.js is the only file allowed to display visual elements to the game.

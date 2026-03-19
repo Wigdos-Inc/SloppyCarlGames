@@ -2,205 +2,44 @@
 
 // Called by anything that wants any 3D object or wants to build models.
 
-import { NormalizeVector3 } from "../math/Vector3.js";
 import { Log } from "../core/meta.js";
 import { BuildScatter, GetPerformanceScatterMultiplier } from "./NewScatter.js";
-import { DegreesToRadians, UnitVector3 } from "../math/Utilities.js";
-
-function toNumber(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function normalizeGeometryComplexity(value) {
-	if (typeof value !== "string") {
-		return "medium";
-	}
-
-	const normalized = value.trim().toLowerCase();
-	if (normalized === "low" || normalized === "high") {
-		return normalized;
-	}
-
-	return "medium";
-}
+import { ToNumber, UnitVector3 } from "../math/Utilities.js";
 
 function resolveCylinderSegments(complexity) {
-	if (complexity === "low") {
-		return 8;
+	switch (complexity) {
+		case "low": return 8;
+		case "high": return 16;
+		default: return 12;
 	}
-
-	if (complexity === "high") {
-		return 16;
-	}
-
-	return 12;
 }
 
 function resolveSphereResolution(complexity) {
-	if (complexity === "low") {
-		return { stacks: 6, slices: 8 };
+	switch(complexity) {
+		case "low": return { stacks: 6, slices: 8 };
+		case "high": return { stacks: 18, slices: 24 };
+		default: return { stacks: 12, slices: 16 };
 	}
-
-	if (complexity === "high") {
-		return { stacks: 18, slices: 24 };
-	}
-
-	return { stacks: 12, slices: 16 };
 }
 
 function resolveCapsuleCapStacks(complexity) {
-	if (complexity === "low") {
-		return 4;
+	switch(complexity) {
+		case "low": return 4;
+		case "high": return 8;
+		default: return 6;
 	}
-
-	if (complexity === "high") {
-		return 8;
-	}
-
-	return 6;
 }
 
 function resolveTorusResolution(complexity) {
-	if (complexity === "low") {
-		return { majorSegments: 12, minorSegments: 8 };
+	switch(complexity) {
+		case "low": return { majorSegments: 12, minorSegments: 8 };
+		case "high": return { majorSegments: 32, minorSegments: 16 };
+		default: return { majorSegments: 20, minorSegments: 12 };
 	}
-
-	if (complexity === "high") {
-		return { majorSegments: 32, minorSegments: 16 };
-	}
-
-	return { majorSegments: 20, minorSegments: 12 };
-}
-
-function normalizeColor(color) {
-	if (!color || typeof color !== "object") {
-		return { r: 0.7, g: 0.75, b: 0.85, a: 1 };
-	}
-
-	const clamp = (value) => Math.max(0, Math.min(1, toNumber(value, 1)));
-	return {
-		r: clamp(color.r),
-		g: clamp(color.g),
-		b: clamp(color.b),
-		a: clamp(color.a),
-	};
-}
-
-function normalizeTextureShape(shape) {
-	if (typeof shape !== "string") {
-		return null;
-	}
-
-	const value = shape.trim().toLowerCase();
-	return value.length > 0 ? value : null;
-}
-
-function normalizeTextureDescriptor(source, options) {
-	const texture = source && source.texture && typeof source.texture === "object"
-		? source.texture
-		: null;
-	const baseTextureID = (texture && typeof texture.textureID === "string" && texture.textureID)
-		? texture.textureID
-		: (source.textureID || options.textureID || "default-grid");
-	const shape = normalizeTextureShape(texture && texture.shape);
-	const color = normalizeColor(
-		(texture && texture.color) || source.textureColor || source.color || options.defaultColor
-	);
-	const opacitySource = texture && typeof texture.opacity === "number"
-		? texture.opacity
-		: source.textureOpacity;
-	const opacity = Math.max(0, Math.min(1, toNumber(opacitySource, 1)));
-	const densitySource = texture && typeof texture.density === "number"
-		? texture.density
-		: null;
-	const materialTextureID = shape
-		? `${baseTextureID}::shape=${shape}`
-		: baseTextureID;
-
-	return {
-		textureID: baseTextureID,
-		baseTextureID: baseTextureID,
-		materialTextureID: materialTextureID,
-		shape: shape,
-		color: color,
-		opacity: opacity,
-		density: Math.max(0, toNumber(densitySource, 1)),
-	};
-}
-
-function normalizeScatterRequests(source) {
-	if (!source || !Array.isArray(source.scatter)) {
-		return [];
-	}
-
-	return source.scatter
-		.map((entry) => {
-			const request = entry && typeof entry === "object" ? entry : null;
-			if (!request || typeof request.typeID !== "string" || request.typeID.length === 0) {
-				return null;
-			}
-
-			return {
-				typeID: request.typeID,
-				density: Math.max(0, toNumber(request.density, 0)),
-			};
-		})
-		.filter(Boolean);
-}
-
-function normalizePrimitiveOptions(source) {
-	const primitive = source && source.primitiveOptions && typeof source.primitiveOptions === "object"
-		? source.primitiveOptions
-		: {};
-
-	const geometry = source && source.geometry && typeof source.geometry === "object"
-		? source.geometry
-		: {};
-
-	const detail = source && source.detail && typeof source.detail === "object"
-		? source.detail
-		: {};
-
-	const subdivisionsX = Math.max(
-		1,
-		Math.floor(toNumber(
-			primitive.subdivisionsX,
-			toNumber(geometry.subdivisionsX, toNumber(source && source.subdivisionsX, 1))
-		))
-	);
-	const subdivisionsZ = Math.max(
-		1,
-		Math.floor(toNumber(
-			primitive.subdivisionsZ,
-			toNumber(geometry.subdivisionsZ, toNumber(source && source.subdivisionsZ, 1))
-		))
-	);
-
-	return {
-		angle:
-			primitive.angle
-			|| primitive.rampAngle
-			|| geometry.angle
-			|| source.angle
-			|| source.rampAngle
-			|| null,
-		thickness: toNumber(
-			primitive.thickness,
-			toNumber(geometry.thickness, toNumber(detail.thickness, toNumber(source && source.thickness, 0)))
-		),
-		radius: toNumber(
-			primitive.radius,
-			toNumber(geometry.radius, toNumber(detail.radius, toNumber(source && source.radius, 0)))
-		),
-		subdivisionsX: subdivisionsX,
-		subdivisionsZ: subdivisionsZ,
-	};
 }
 
 function generateLegacyUvFromPositions(positions) {
-	if (!Array.isArray(positions) || positions.length < 3) {
-		return [];
-	}
+	if (positions.length < 3) return [];
 
 	let minX = Infinity;
 	let minY = Infinity;
@@ -343,7 +182,7 @@ function GenerateUVs(positions, geometry) {
 }
 
 function computeBounds(positions) {
-	if (!Array.isArray(positions) || positions.length < 3) {
+	if (positions.length < 3) {
 		return {
 			min: { x: -0.5, y: -0.5, z: -0.5 },
 			max: { x: 0.5, y: 0.5, z: 0.5 },
@@ -480,24 +319,16 @@ function createRotationZ(radians) {
 }
 
 function CreateModelMatrix(transform) {
-	const source = transform && typeof transform === "object" ? transform : {};
-	const position = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const rotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
-	const rotationRadians = {
-		x: DegreesToRadians(rotation.x),
-		y: DegreesToRadians(rotation.y),
-		z: DegreesToRadians(rotation.z),
-	};
-	const scale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
-	const pivot = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
+	// transform positions/pivots may be UnitVector3 (CNU) — convert to world units for matrix math.
+	const pivot = transform.pivot.toWorldUnit();
 
 	let matrix = createIdentityMatrix();
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(position));
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix(transform.position.toWorldUnit()));
 	matrix = multiplyMatrix4(matrix, createTranslationMatrix(pivot));
-	matrix = multiplyMatrix4(matrix, createRotationY(rotation.y || 0));
-	matrix = multiplyMatrix4(matrix, createRotationX(rotation.x || 0));
-	matrix = multiplyMatrix4(matrix, createRotationZ(rotation.z || 0));
-	matrix = multiplyMatrix4(matrix, createScaleMatrix(scale));
+	matrix = multiplyMatrix4(matrix, createRotationY(transform.rotation.y));
+	matrix = multiplyMatrix4(matrix, createRotationX(transform.rotation.x));
+	matrix = multiplyMatrix4(matrix, createRotationZ(transform.rotation.z));
+	matrix = multiplyMatrix4(matrix, createScaleMatrix(transform.scale));
 	matrix = multiplyMatrix4(matrix, createTranslationMatrix({ x: -pivot.x, y: -pivot.y, z: -pivot.z }));
 	return matrix;
 }
@@ -516,10 +347,7 @@ function transformPoint(localPoint, transform) {
 }
 
 function computeWorldAabbFromGeometry(positions, transform) {
-	if (!Array.isArray(positions) || positions.length < 3) {
-		const p = NormalizeVector3(transform && transform.position, { x: 0, y: 0, z: 0 });
-		return { min: new UnitVector3(p.x, p.y, p.z, "CNU"), max: new UnitVector3(p.x, p.y, p.z, "CNU") };
-	}
+	if (positions.length < 3) return { min: transform.position.clone(), max: transform.position.clone() };
 
 	let minX = Infinity;
 	let minY = Infinity;
@@ -539,15 +367,15 @@ function computeWorldAabbFromGeometry(positions, transform) {
 	}
 
 	return {
-		min: new UnitVector3(minX, minY, minZ, "CNU"),
-		max: new UnitVector3(maxX, maxY, maxZ, "CNU"),
+		min: new UnitVector3(minX, minY, minZ, "cnu"),
+		max: new UnitVector3(maxX, maxY, maxZ, "cnu"),
 	};
 }
 
 function buildCube(size) {
-	const sx = Math.max(0.0001, toNumber(size.x, 1)) / 2;
-	const sy = Math.max(0.0001, toNumber(size.y, 1)) / 2;
-	const sz = Math.max(0.0001, toNumber(size.z, 1)) / 2;
+	const sx = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
+	const sy = Math.max(0.0001, ToNumber(size.y, 1)) / 2;
+	const sz = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
 
 	const positions = [
 		-sx, -sy, sz, sx, -sy, sz, sx, sy, sz, -sx, sy, sz,
@@ -580,9 +408,9 @@ function buildCube(size) {
 }
 
 function buildPyramid(size) {
-	const sx = Math.max(0.0001, toNumber(size.x, 1)) / 2;
-	const sy = Math.max(0.0001, toNumber(size.y, 1));
-	const sz = Math.max(0.0001, toNumber(size.z, 1)) / 2;
+	const sx = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
+	const sy = Math.max(0.0001, ToNumber(size.y, 1));
+	const sz = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
 
 	const positions = [
 		-sx, 0, sz,
@@ -605,8 +433,8 @@ function buildPyramid(size) {
 }
 
 function buildPlane(size) {
-	const sx = Math.max(0.0001, toNumber(size.x, 1)) / 2;
-	const sz = Math.max(0.0001, toNumber(size.z, 1)) / 2;
+	const sx = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
+	const sz = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
 
 	return {
 		positions: [
@@ -621,11 +449,11 @@ function buildPlane(size) {
 }
 
 function buildCylinder(size, complexity) {
-	const radiusX = Math.max(0.0001, toNumber(size.x, 1)) / 2;
-	const radiusZ = Math.max(0.0001, toNumber(size.z, 1)) / 2;
-	const height = Math.max(0.0001, toNumber(size.y, 1));
+	const radiusX = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
+	const radiusZ = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
+	const height = Math.max(0.0001, ToNumber(size.y, 1));
 	const halfHeight = height / 2;
-	const segments = resolveCylinderSegments(normalizeGeometryComplexity(complexity));
+	const segments = resolveCylinderSegments(complexity);
 
 	const positions = [];
 	const indices = [];
@@ -661,10 +489,10 @@ function buildCylinder(size, complexity) {
 }
 
 function buildSphere(size, complexity) {
-	const radiusX = Math.max(0.0001, toNumber(size.x, 1)) / 2;
-	const radiusY = Math.max(0.0001, toNumber(size.y, 1)) / 2;
-	const radiusZ = Math.max(0.0001, toNumber(size.z, 1)) / 2;
-	const resolution = resolveSphereResolution(normalizeGeometryComplexity(complexity));
+	const radiusX = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
+	const radiusY = Math.max(0.0001, ToNumber(size.y, 1)) / 2;
+	const radiusZ = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
+	const resolution = resolveSphereResolution(complexity);
 	const stacks = resolution.stacks;
 	const slices = resolution.slices;
 
@@ -697,11 +525,11 @@ function buildSphere(size, complexity) {
 }
 
 function buildCone(size, complexity) {
-	const radiusX = Math.max(0.0001, toNumber(size.x, 1)) / 2;
-	const radiusZ = Math.max(0.0001, toNumber(size.z, 1)) / 2;
-	const height = Math.max(0.0001, toNumber(size.y, 1));
+	const radiusX = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
+	const radiusZ = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
+	const height = Math.max(0.0001, ToNumber(size.y, 1));
 	const halfHeight = height / 2;
-	const segments = resolveCylinderSegments(normalizeGeometryComplexity(complexity));
+	const segments = resolveCylinderSegments(complexity);
 
 	const positions = [];
 	const indices = [];
@@ -759,14 +587,14 @@ function buildCone(size, complexity) {
 }
 
 function buildCapsule(size, complexity) {
-	const radiusX = Math.max(0.0001, toNumber(size.x, 1)) / 2;
-	const radiusZ = Math.max(0.0001, toNumber(size.z, 1)) / 2;
+	const radiusX = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
+	const radiusZ = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
 	const capRadius = Math.max(0.0001, Math.min(radiusX, radiusZ));
-	const totalHeight = Math.max(0.0001, toNumber(size.y, 1));
+	const totalHeight = Math.max(0.0001, ToNumber(size.y, 1));
 	const halfHeight = totalHeight / 2;
 	const cylinderHalf = Math.max(0, halfHeight - capRadius);
-	const segments = resolveCylinderSegments(normalizeGeometryComplexity(complexity));
-	const capStacks = resolveCapsuleCapStacks(normalizeGeometryComplexity(complexity));
+	const segments = resolveCylinderSegments(complexity);
+	const capStacks = resolveCapsuleCapStacks(complexity);
 
 	const positions = [];
 	const indices = [];
@@ -838,14 +666,14 @@ function buildCapsule(size, complexity) {
 }
 
 function buildTube(size, complexity, options) {
-	const outerRadiusX = Math.max(0.0002, toNumber(size.x, 1)) / 2;
-	const outerRadiusZ = Math.max(0.0002, toNumber(size.z, 1)) / 2;
-	const height = Math.max(0.0001, toNumber(size.y, 1));
+	const outerRadiusX = Math.max(0.0002, ToNumber(size.x, 1)) / 2;
+	const outerRadiusZ = Math.max(0.0002, ToNumber(size.z, 1)) / 2;
+	const height = Math.max(0.0001, ToNumber(size.y, 1));
 	const halfHeight = height / 2;
-	const thickness = Math.max(0.00005, toNumber(options.thickness, Math.min(outerRadiusX, outerRadiusZ) * 0.25));
+	const thickness = Math.max(0.00005, ToNumber(options.thickness, Math.min(outerRadiusX, outerRadiusZ) * 0.25));
 	const innerRadiusX = Math.max(0.00005, outerRadiusX - Math.min(thickness, outerRadiusX * 0.95));
 	const innerRadiusZ = Math.max(0.00005, outerRadiusZ - Math.min(thickness, outerRadiusZ * 0.95));
-	const segments = resolveCylinderSegments(normalizeGeometryComplexity(complexity));
+	const segments = resolveCylinderSegments(complexity);
 
 	const positions = [];
 	const indices = [];
@@ -925,11 +753,11 @@ function buildTube(size, complexity, options) {
 }
 
 function buildTorus(size, complexity, options) {
-	const fallbackRadius = Math.max(0.0002, toNumber(size.x, 1)) / 2;
-	const fallbackThickness = Math.max(0.0001, toNumber(size.y, 1)) / 4;
-	const majorRadius = Math.max(0.0002, toNumber(options.radius, fallbackRadius));
-	const minorRadius = Math.max(0.0001, Math.min(toNumber(options.thickness, fallbackThickness), majorRadius * 0.95));
-	const resolution = resolveTorusResolution(normalizeGeometryComplexity(complexity));
+	const fallbackRadius = Math.max(0.0002, ToNumber(size.x, 1)) / 2;
+	const fallbackThickness = Math.max(0.0001, ToNumber(size.y, 1)) / 4;
+	const majorRadius = Math.max(0.0002, ToNumber(options.radius, fallbackRadius));
+	const minorRadius = Math.max(0.0001, Math.min(ToNumber(options.thickness, fallbackThickness), majorRadius * 0.95));
+	const resolution = resolveTorusResolution(complexity);
 	const majorSegments = resolution.majorSegments;
 	const minorSegments = resolution.minorSegments;
 
@@ -986,16 +814,15 @@ function buildTorus(size, complexity, options) {
 }
 
 function buildGrid(size, complexity, options) {
-	const sx = Math.max(0.0001, toNumber(size.x, 1));
-	const sz = Math.max(0.0001, toNumber(size.z, 1));
-	const normalizedComplexity = normalizeGeometryComplexity(complexity);
-	const complexitySubdivisions = normalizedComplexity === "low"
+	const sx = Math.max(0.0001, ToNumber(size.x, 1));
+	const sz = Math.max(0.0001, ToNumber(size.z, 1));
+	const complexitySubdivisions = complexity === "low"
 		? 4
-		: normalizedComplexity === "high"
+		: complexity === "high"
 			? 16
 			: 8;
-	const subdivisionsX = Math.max(1, Math.floor(toNumber(options.subdivisionsX, complexitySubdivisions)));
-	const subdivisionsZ = Math.max(1, Math.floor(toNumber(options.subdivisionsZ, complexitySubdivisions)));
+	const subdivisionsX = Math.max(1, Math.floor(ToNumber(options.subdivisionsX, complexitySubdivisions)));
+	const subdivisionsZ = Math.max(1, Math.floor(ToNumber(options.subdivisionsZ, complexitySubdivisions)));
 
 	const positions = [];
 	const indices = [];
@@ -1033,16 +860,16 @@ function buildGrid(size, complexity, options) {
 }
 
 function buildRamp(size, options) {
-	const sx = Math.max(0.0001, toNumber(size.x, 1)) / 2;
-	const sy = Math.max(0.0001, toNumber(size.y, 1));
-	const sz = Math.max(0.0001, toNumber(size.z, 1)) / 2;
+	const sx = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
+	const sy = Math.max(0.0001, ToNumber(size.y, 1));
+	const sz = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
 
 	const baseY = -sy / 2;
 	const angle = options.angle;
 	const angleRadians = angle && typeof angle.toRadians === "function"
 		? angle.toRadians()
-		: toNumber(angle, 0);
-	const desiredRise = Math.tan(toNumber(angleRadians, 0)) * (sz * 2);
+		: ToNumber(angle, 0);
+	const desiredRise = Math.tan(ToNumber(angleRadians, 0)) * (sz * 2);
 	const rise = Math.max(0.0001, Math.min(sy, Math.abs(desiredRise) > 0 ? desiredRise : sy));
 	const backY = baseY + rise;
 
@@ -1126,30 +953,16 @@ function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 	return buildCube(size);
 }
 
-function BuildObject(definition, options) {
-	const source = definition && typeof definition === "object" ? definition : {};
-	const resolvedOptions = options && typeof options === "object" ? options : {};
-	const role = source.role || resolvedOptions.role || "terrain";
-	const shapeSource = typeof source.shape === "string" ? source.shape : source.primitive;
-	const shape = typeof shapeSource === "string" ? shapeSource.toLowerCase() : "cube";
-	const complexity = normalizeGeometryComplexity(source.complexity || resolvedOptions.complexity);
-	const texture = normalizeTextureDescriptor(source, resolvedOptions);
-	const scatter = normalizeScatterRequests(source);
-	const sizeRaw = NormalizeVector3(source.dimensions || source.size, { x: 1, y: 1, z: 1 });
-	const size = new UnitVector3(sizeRaw.x, sizeRaw.y, sizeRaw.z, "CNU");
-	const posRaw = NormalizeVector3(source.position, { x: 0, y: 0, z: 0 });
-	const rotRaw = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
-	const rotation = new UnitVector3(rotRaw.x, rotRaw.y, rotRaw.z, "radians");
-	const scale = NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 });
-	const isBottomAnchored = role === "terrain" || role === "obstacle";
-	const anchoredY = isBottomAnchored
-		? posRaw.y + (sizeRaw.y * scale.y * 0.5)
-		: posRaw.y;
-	const position = new UnitVector3(posRaw.x, anchoredY, posRaw.z, "CNU");
-	const pivotRaw = NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 });
-	const pivot = new UnitVector3(pivotRaw.x, pivotRaw.y, pivotRaw.z, "CNU");
-	const primitiveOptions = normalizePrimitiveOptions(source);
-	const geometry = BuildGeometry(shape, size, complexity, primitiveOptions);
+function BuildObject(source, options) {
+	// Upstream must supply normalized/canonical objects (UnitVector3 for world-space values).
+	// Mandatory fields are used directly; optional fields are assumed normalized.
+	const shape = source.shape.toLowerCase();
+	const complexity = source.complexity;
+
+	// Upstream must provide normalized texture, scatter and primitive option objects.
+	// Expect world-space values to be provided as UnitVector3 instances already.
+	const primitiveOptions = source.primitiveOptions;
+	const geometry = BuildGeometry(shape, source.dimensions, complexity, primitiveOptions);
 	const uvs = GenerateUVs(geometry.positions, geometry);
 	const bounds = computeBounds(geometry.positions);
 	const vertexCount = geometry.positions.length / 3;
@@ -1162,20 +975,21 @@ function BuildObject(definition, options) {
 		);
 	}
 	const transform = {
-		position: position,
-		rotation: rotation,
-		scale: scale,
-		pivot: pivot,
+		position: source.position,         // UnitVector3
+		rotation: source.rotation,         // UnitVector3
+		scale: source.scale,               // Vector3
+		pivot: source.pivot,               // UnitVector3
 	};
 	const worldAabb = computeWorldAabbFromGeometry(geometry.positions, transform);
+	const texture = source.texture;
 
 	const mesh = {
-		id: source.id || `object-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+		id: source.id,
 		type: "mesh3d",
 		shape: shape,
 		primitive: shape,
 		complexity: complexity,
-		role: role,
+		role: source.role,
 		transform: transform,
 		geometry: {
 			positions: geometry.positions,
@@ -1190,47 +1004,36 @@ function BuildObject(definition, options) {
 			transparent: texture.opacity < 1,
 		},
 		meta: {
-			trigger: source.trigger || null,
-			platform: source.platform || null,
-			parentId: source.parentId || null,
+			trigger: source.trigger,
+			platform: source.platform,
+			parentId: source.parentId,
 		},
 		detail: {
 			texture: texture,
-			scatter: scatter,
+			scatter: source.detail.scatter,
 			complexity: complexity,
 			primitiveOptions: primitiveOptions,
 		},
 		localBounds: bounds,
 		worldAabb: worldAabb,
-		dimensions: size,
+		dimensions: source.dimensions,
 	};
 
-	const scatterContext = resolvedOptions.scatterContext && typeof resolvedOptions.scatterContext === "object"
-		? resolvedOptions.scatterContext
-		: null;
-	if (scatterContext && Array.isArray(mesh.detail.scatter) && mesh.detail.scatter.length > 0) {
+	const scatterContext = options.scatterContext;
+	if (scatterContext && mesh.detail.scatter.length > 0) {
 		const generatedScatter = BuildScatter({
 			objectMesh: mesh,
-			scatterDefinitions: scatterContext.scatterDefinitions,
-			scatterMultiplier: toNumber(scatterContext.scatterMultiplier, GetPerformanceScatterMultiplier()),
+			scatterMultiplier: ToNumber(scatterContext.scatterMultiplier, GetPerformanceScatterMultiplier()),
 			world: scatterContext.world,
-			indexSeed: toNumber(scatterContext.indexSeed, 1),
+			indexSeed: ToNumber(scatterContext.indexSeed, 1),
 			explicitScatter: mesh.detail.scatter,
 			buildObject: BuildObject,
 		});
 
 		if (generatedScatter.length > 0) {
-			mesh.meta.scatter = {
-				count: generatedScatter.length,
-			};
-
-			if (Array.isArray(scatterContext.scatterAccumulator)) {
-				scatterContext.scatterAccumulator.push(...generatedScatter);
-			}
-
-			if (typeof scatterContext.onScatterGenerated === "function") {
-				scatterContext.onScatterGenerated(mesh, generatedScatter);
-			}
+			mesh.meta.scatter = { count: generatedScatter.length };
+			scatterContext.scatterAccumulator?.push(...generatedScatter);
+			scatterContext.onScatterGenerated?.(mesh, generatedScatter);
 		}
 	}
 
@@ -1238,11 +1041,7 @@ function BuildObject(definition, options) {
 }
 
 function UpdateObjectWorldAabb(mesh) {
-	if (!mesh || !mesh.geometry || !Array.isArray(mesh.geometry.positions)) {
-		return null;
-	}
-
-	mesh.worldAabb = computeWorldAabbFromGeometry(mesh.geometry.positions, mesh.transform || null);
+	mesh.worldAabb = computeWorldAabbFromGeometry(mesh.geometry.positions, mesh.transform);
 	return mesh.worldAabb;
 }
 

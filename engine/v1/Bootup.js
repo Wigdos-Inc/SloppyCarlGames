@@ -13,7 +13,7 @@ import { Cursor, Log, SendEvent, Wait } from "./core/meta.js";
 import { FadeElement, RemoveRoot, SetElementStyle, SetElementText } from "./handlers/Render.js";
 import { CreateUI } from "./handlers/UI.js";
 import { PlayIntroCinematic } from "./handlers/Cutscene.js";
-import { RunSplashSequence } from "./core/splash.js";
+import { RunSplashSequence } from "./handlers/menu/Splash.js";
 
 /* === GLOBALS === */
 // Single global entry point for the game.
@@ -108,7 +108,7 @@ function waitForUiRender(screenId, timeoutMs) {
   return new Promise((resolve) => {
     const timeout = Math.max(0, timeoutMs || 0);
     const onUiRendered = (event) => {
-      if (!screenId || event.detail.payload.screenId === screenId) {
+      if (!screenId || event.detail.screenId === screenId) {
         cleanup();
       }
     };
@@ -127,8 +127,8 @@ function waitForUiRender(screenId, timeoutMs) {
 
 async function runStartupSequence() {
   Cursor.changeState("hidden");
-  const context = await RunSplashSequence();
-  const overlayId = context && context.overlayId ? context.overlayId : "engine-startup-overlay";
+  const context = await RunSplashSequence() ?? null;
+  const overlayId = context.overlayId;
 
   const introPromise = new Promise((resolve) => {
     introResolve = resolve;

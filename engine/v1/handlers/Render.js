@@ -51,24 +51,13 @@ function ensureRoot(rootId, rootStyles) {
 // Renders payloads built by the UI builder.
 
 function RenderPayload(payload) {
-	// Guard against invalid payloads.
-	if (!payload || typeof payload !== "object") {
-		return;
-	}
-
-	const rootId = payload.rootId || defaultUiRootId;
-	const root = ensureRoot(rootId, payload.rootStyles);
+	const root = ensureRoot(payload.rootId, payload.rootStyles);
 
 	// Replace existing contents by default.
-	if (payload.replace !== false) {
-		root.innerHTML = "";
-	}
+	if (payload.replace !== false) root.innerHTML = "";
 
 	// Append pre-built elements when provided.
-	const elements = payload.elements;
-	if (elements && typeof elements === "object" && "nodeType" in elements) {
-		root.appendChild(elements);
-	}
+	root.appendChild(payload.elements);
 }
 
 /* === LEVEL === */
@@ -1164,11 +1153,20 @@ function syncCanvasSize(renderer) {
 
 function collectRenderableMeshes(sceneGraph) {
 	const terrain = sceneGraph.terrain;
-	const obstacles = sceneGraph.obstacles;
+	const obstacleRecords = sceneGraph.obstacles;
+	const obstacleMeshes = [];
 	const triggers = sceneGraph.triggers;
 	const showTriggers = !!(sceneGraph.debug.showTriggerVolumes === true);
 	const entities = sceneGraph.entities;
 	const entityMeshes = [];
+
+	obstacleRecords.forEach((record) => {
+		record.parts.forEach((part) => {
+			if (part && part.geometry) {
+				obstacleMeshes.push(part);
+			}
+		});
+	});
 
 	entities.forEach((entity) => {
 		if (entity.model && Array.isArray(entity.model.parts)) {
@@ -1187,7 +1185,7 @@ function collectRenderableMeshes(sceneGraph) {
 
 	const triggerMeshes = showTriggers ? triggers : [];
 	// Scatter is excluded — rendered via instanced path.
-	return terrain.concat(obstacles, triggerMeshes, entityMeshes);
+	return terrain.concat(obstacleMeshes, triggerMeshes, entityMeshes);
 }
 
 function resolveWaterVisualMeshes(sceneGraph) {
@@ -1293,7 +1291,8 @@ function drawScene(renderer, sceneGraph) {
 		cameraState.up || { x: 0, y: 1, z: 0 }
 	);
 
-	const underwater = cameraState.position.y < sceneGraph.world.waterLevel.toWorldUnit();
+	const waterLevelWorldUnits = sceneGraph.world.waterLevel ? sceneGraph.world.waterLevel.toWorldUnit() : null;
+	const underwater = waterLevelWorldUnits !== null && cameraState.position.y < waterLevelWorldUnits;
 	const fogDensity = underwater ? 0.85 : 0.2;
 	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
 	const farValue = camFar;

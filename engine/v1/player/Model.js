@@ -6,8 +6,8 @@
 // Used by Master.js to pass on model data
 
 import { BuildObject, UpdateObjectWorldAabb } from "../builder/NewObject.js";
-import { NormalizeVector3, AddVector3, RotateByEuler, MultiplyVector3 } from "../math/Vector3.js";
-import { DegreesToRadians, ToNumber } from "../math/Utilities.js";
+import { NormalizeVector3, AddVector3, SubtractVector3, RotateByEuler, MultiplyVector3 } from "../math/Vector3.js";
+import { UnitVector3 } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
 
 /**
@@ -19,21 +19,12 @@ import { Log } from "../core/meta.js";
  *        when cloning transforms that have already been through this function
  *        (e.g. in composeTransform, applyModelPose, or defaultPose snapshots).
  */
-function cloneTransform(transform, fallback, rotationInRadians) {
-	const source = transform && typeof transform === "object" ? transform : {};
-	const fb = fallback && typeof fallback === "object" ? fallback : {};
-	const position = NormalizeVector3(source.position, fb.position || { x: 0, y: 0, z: 0 });
-	const rotation = NormalizeVector3(source.rotation, fb.rotation || { x: 0, y: 0, z: 0 });
-	const rotationRad = rotationInRadians
-		? { x: rotation.x, y: rotation.y, z: rotation.z }
-		: {
-			x: DegreesToRadians(rotation.x),
-			y: DegreesToRadians(rotation.y),
-			z: DegreesToRadians(rotation.z),
-		};
-	const scale = NormalizeVector3(source.scale, fb.scale || { x: 1, y: 1, z: 1 });
-	const pivot = NormalizeVector3(source.pivot, fb.pivot || { x: 0, y: 0, z: 0 });
-	return { position, rotation: rotationRad, scale, pivot };
+function cloneTransform(transform) {
+	const position = transform.position.clone();
+	const rotation = transform.rotation.clone();
+	const pivot    = transform.pivot.clone();
+	const scale    = NormalizeVector3(transform.scale, { x: 1, y: 1, z: 1 });
+	return { position, rotation, scale, pivot };
 }
 
 /**
@@ -55,36 +46,43 @@ function getFaceCenterOffset(dimensions, faceType) {
 }
 
 function composeTransform(parentTransform, localTransform) {
-	// Both inputs are already in radians (outputs of cloneTransform / prior compose).
-	const parent = cloneTransform(parentTransform, null, true);
-	const local = cloneTransform(localTransform, null, true);
+	const parent = cloneTransform(parentTransform);
+	const local = cloneTransform(localTransform);
 	const rotatedChildPos = RotateByEuler(local.position, parent.rotation);
 	return {
-		position: AddVector3(parent.position, rotatedChildPos),
-		rotation: AddVector3(parent.rotation, local.rotation),
+		position: local.position.set(AddVector3(parent.position, rotatedChildPos)),
+		rotation: local.rotation.set(AddVector3(parent.rotation, local.rotation)),
 		scale: MultiplyVector3(parent.scale, local.scale),
 		pivot: local.pivot,
 	};
 }
 
-function buildPart(partDefinition, entityId, index) {
-	const source = partDefinition && typeof partDefinition === "object" ? partDefinition : {};
+function buildPart(source, entityId, index) {
+	const pos = source.localPosition;
+	const rot = source.localRotation;
+	const dim = source.dimensions;
+	const piv = source.pivot;
+	const dimensions = new UnitVector3(dim.x, dim.y, dim.z, "cnu");
 	const localTransform = {
-		position: NormalizeVector3(source.localPosition, { x: 0, y: 0, z: 0 }),
-		rotation: NormalizeVector3(source.localRotation, { x: 0, y: 0, z: 0 }),
-		scale: NormalizeVector3(source.localScale, { x: 1, y: 1, z: 1 }),
-		pivot: NormalizeVector3(source.pivot, { x: 0, y: 0, z: 0 }),
+		position: new UnitVector3(pos.x, pos.y, pos.z, "cnu"),
+		rotation: new UnitVector3(rot.x, rot.y, rot.z, "degrees").toRadians(true),
+		scale: source.localScale,
+		pivot: new UnitVector3(piv.x, piv.y, piv.z, "cnu"),
 	};
 
 	const mesh = BuildObject(
 		{
 			id: source.id || `${entityId}-part-${index}`,
-			primitive: source.primitive || source.shape || "cube",
-			dimensions: NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 }),
-			textureID: source.textureID || "default-grid",
-			textureColor: source.textureColor || { r: 1, g: 1, b: 1, a: 1 },
-			textureOpacity: ToNumber(source.textureOpacity, 1),
+			shape: source.shape,
+			complexity: source.complexity,
+			dimensions: dimensions,
+			position: new UnitVector3(0, 0, 0, "cnu"),
+			rotation: new UnitVector3(0, 0, 0, "radians"),
+			scale: { x: 1, y: 1, z: 1 },
 			pivot: localTransform.pivot,
+			primitiveOptions: source.primitiveOptions,
+			texture: source.texture,
+			detail: source.detail,
 			role: "entity-part",
 			parentId: source.parentId || null,
 		},
@@ -98,7 +96,7 @@ function buildPart(partDefinition, entityId, index) {
 		anchorPoint: source.anchorPoint || "center",
 		attachmentPoint: source.attachmentPoint || null,
 		children: [],
-		dimensions: NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 }),
+		dimensions: dimensions,
 		localTransform: cloneTransform(localTransform),
 		defaultLocalTransform: cloneTransform(localTransform),
 		mesh: mesh,
@@ -106,10 +104,7 @@ function buildPart(partDefinition, entityId, index) {
 }
 
 function computeExpandedAabb(aabb, padding) {
-	if (!aabb || !aabb.min || !aabb.max) {
-		return null;
-	}
-	const pad = Math.max(0, ToNumber(padding, 24));
+	const pad = Math.max(0, padding);
 	return {
 		min: {
 			x: aabb.min.x - pad,
@@ -125,10 +120,6 @@ function computeExpandedAabb(aabb, padding) {
 }
 
 function applyModelPose(model) {
-	if (!model || !Array.isArray(model.parts)) {
-		return;
-	}
-
 	const byId = model.index || {};
 	const applyPart = (partId, parentTransform) => {
 		const part = byId[partId];
@@ -145,21 +136,16 @@ function applyModelPose(model) {
 	};
 
 	// rootTransform rotation comes from playerState (already in radians).
-	const rootTransform = cloneTransform(model.rootTransform, null, true);
+	const rootTransform = cloneTransform(model.rootTransform);
 	model.roots.forEach((rootId) => applyPart(rootId, rootTransform));
 }
 
 function computePlayerAabb(model) {
-	if (!model || !Array.isArray(model.parts) || model.parts.length === 0) {
-		return { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
-	}
-
 	let minX = Infinity, minY = Infinity, minZ = Infinity;
 	let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
 
 	model.parts.forEach((part) => {
-		const bounds = part.mesh && part.mesh.worldAabb ? part.mesh.worldAabb : null;
-		if (!bounds) { return; }
+		const bounds = part.mesh.worldAabb;
 		if (bounds.min.x < minX) { minX = bounds.min.x; }
 		if (bounds.min.y < minY) { minY = bounds.min.y; }
 		if (bounds.min.z < minZ) { minZ = bounds.min.z; }
@@ -178,19 +164,18 @@ function computePlayerAabb(model) {
  * @returns {object} — model object with rootTransform, parts[], index{}, roots[], defaultPose.
  */
 function BuildPlayerModel(characterDefinition, spawnPosition) {
-	const modelDef = characterDefinition.model;
-	const entityId = characterDefinition.id || "player";
-	const pos = NormalizeVector3(spawnPosition, { x: 0, y: 0, z: 0 });
-	const defRootTransform = modelDef.rootTransform && typeof modelDef.rootTransform === "object" ? modelDef.rootTransform : {};
+	const entityId = characterDefinition.id;
+	const pos = spawnPosition;
+	const defRootTransform = characterDefinition.model.rootTransform;
 
 	const model = {
 		rootTransform: {
-			position: { ...pos },
-			rotation: { x: 0, y: 0, z: 0 },
+			position: new UnitVector3(pos.x, pos.y, pos.z, "cnu"),
+			rotation: new UnitVector3(0, 0, 0, "radians"),
 			scale: NormalizeVector3(defRootTransform.scale, { x: 1, y: 1, z: 1 }),
-			pivot: { x: 0, y: 0, z: 0 },
+			pivot: new UnitVector3(0, 0, 0, "cnu"),
 		},
-		parts: modelDef.parts.map((part, index) => buildPart(part, entityId, index)),
+		parts: characterDefinition.model.parts.map((part, index) => buildPart(part, entityId, index)),
 	};
 
 	// Build index and parent→child links.
@@ -204,26 +189,22 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 
 	// Ground-up positioning with anchor/attachment faces.
 	model.parts.forEach((part) => {
-		if (part.parentId === "root") {
-			// Root part: anchor at bottom, offset up by half height.
-			const halfY = part.dimensions.y * 0.5;
-			part.localTransform.position.y = halfY + part.localTransform.position.y;
-		} else if (part.parentId && index[part.parentId]) {
+		if (part.parentId === "root") part.localTransform.position.y += part.dimensions.y * 0.5;
+		else if (part.parentId && index[part.parentId]) {
 			const parent = index[part.parentId];
 			const attachOffset = getFaceCenterOffset(parent.dimensions, part.attachmentPoint || "top");
 			const anchorOffset = getFaceCenterOffset(part.dimensions, part.anchorPoint || "center");
-			part.localTransform.position = {
-				x: attachOffset.x - anchorOffset.x + part.localTransform.position.x,
-				y: attachOffset.y - anchorOffset.y + part.localTransform.position.y,
-				z: attachOffset.z - anchorOffset.z + part.localTransform.position.z,
-			};
+			part.localTransform.position.set(AddVector3(
+				SubtractVector3(attachOffset, anchorOffset), 
+				part.localTransform.position
+			));
 		}
 	});
 
 	// Snapshot default transforms AFTER ground-up positioning.
 	model.defaultPose = {
-		rootTransform: cloneTransform(model.rootTransform, null, true),
-		parts: model.parts.map((part) => ({ id: part.id, localTransform: cloneTransform(part.localTransform, null, true) })),
+		rootTransform: cloneTransform(model.rootTransform),
+		parts: model.parts.map((part) => ({ id: part.id, localTransform: cloneTransform(part.localTransform) })),
 	};
 
 	model.index = index;
@@ -240,27 +221,16 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
  * @param {object} playerState — full player state with transform and model.
  */
 function UpdatePlayerModelFromState(playerState) {
-	playerState.model.rootTransform.position = NormalizeVector3(
-		playerState.transform.position,
-		{ x: 0, y: 0, z: 0 }
-	);
-	playerState.model.rootTransform.rotation = NormalizeVector3(
-		playerState.transform.rotation,
-		{ x: 0, y: 0, z: 0 }
-	);
-	playerState.model.rootTransform.scale = NormalizeVector3(
-		playerState.transform.scale,
-		{ x: 1, y: 1, z: 1 }
-	);
+	playerState.model.rootTransform.position.set(playerState.transform.position);
+	playerState.model.rootTransform.rotation.set(playerState.transform.rotation);
+	playerState.model.rootTransform.scale = playerState.transform.scale;
 
 	applyModelPose(playerState.model);
 
 	// Update collision AABB from model.
-	playerState.collision = playerState.collision || {};
 	const aabb = computePlayerAabb(playerState.model);
 	playerState.collision.aabb.min.set(aabb.min);
 	playerState.collision.aabb.max.set(aabb.max);
-	playerState.collision.simRadiusPadding = ToNumber(playerState.collision.simRadiusPadding, 24);
 	const expanded = computeExpandedAabb(
 		playerState.collision.aabb,
 		playerState.collision.simRadiusPadding
@@ -271,9 +241,7 @@ function UpdatePlayerModelFromState(playerState) {
 	}
 
 	// Update mesh reference for rendering.
-	playerState.mesh = playerState.model.parts && playerState.model.parts[0]
-		? playerState.model.parts[0].mesh
-		: null;
+	playerState.mesh = playerState.model.parts[0].mesh;
 }
 
 /* === EXPORTS === */

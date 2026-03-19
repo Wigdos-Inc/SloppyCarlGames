@@ -172,9 +172,9 @@ function resolveLevel(level) {
 // Main log funnel and log replay.
 
 function getMostRecentLogEntry() {
-  if (logs.All.length === 0) return null;
+  if (logs.all.length === 0) return null;
 
-  const latest = logs.All[logs.All.length - 1];
+  const latest = logs.all[logs.all.length - 1];
   return latest;
 }
 
@@ -194,13 +194,13 @@ function isDuplicateOfLatest(entry) {
     return false;
   }
 
-  if (logs.Controls.length === 0) {
+  if (logs.controls.length === 0) {
     return false;
   }
 
-  const startIndex = Math.max(0, logs.Controls.length - 3);
-  for (let index = logs.Controls.length - 1; index >= startIndex; index--) {
-    const existing = logs.Controls[index];
+  const startIndex = Math.max(0, logs.controls.length - 3);
+  for (let index = logs.controls.length - 1; index >= startIndex; index--) {
+    const existing = logs.controls[index];
     if (
       existing.source === entry.source &&
       existing.channel === entry.channel &&
@@ -239,11 +239,11 @@ function Log(source, message, level, channel) {
   if (isDuplicateOfLatest(entry)) return;
 
   // Log Caching
-  logs.All.push(entry);
-  if (entry.channel && entry.channel.startsWith("Controls")) logs.Controls.push(entry);
-  else if (entry.source === "ENGINE") logs.Engine.push(entry);
-  else if (entry.source === "GAME") logs.Game.push(entry);
-  else logs.Other.push(entry);
+  logs.all.push(entry);
+  if (entry.channel && entry.channel.startsWith("Controls")) logs.controls.push(entry);
+  else if (entry.source === "ENGINE") logs.engine.push(entry);
+  else if (entry.source === "GAME") logs.game.push(entry);
+  else logs.other.push(entry);
 
   PushToSession(SESSION_KEYS.Logs, logs);
 
@@ -259,7 +259,7 @@ function Log(source, message, level, channel) {
 
 // Replay all stored logs in order.
 function LogAll() {
-  logs.All.forEach((entry) => {
+  logs.all.forEach((entry) => {
     const logger = console[entry.level] || console.log;
     logger(
       `[${entry.time}] [${entry.source}] [${entry.channel}]`,

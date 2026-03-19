@@ -39,9 +39,9 @@ import {
   CreateLevel,
   Update as UpdateLevel,
   GetActiveLevel,
-  LoadLevel,
 } from "../handlers/game/Level.js";
 import { GetPlayerInput, GetPlayerState } from "../player/Master.js";
+import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3 } from "../math/Utilities.js"
 
 /* === INITIALIZATION === */
 // Bootstraps engine subsystems and returns the public API.
@@ -98,13 +98,24 @@ function Initialize() {
     },
     Level: {
       CreateLevel: CreateLevel,
-      LoadLevel: LoadLevel,
       Update: UpdateLevel,
       GetActiveLevel: GetActiveLevel,
     },
     Player: {
       Input: GetPlayerInput(),
       GetState: GetPlayerState,
+    },
+    Math: {
+      Convert: {
+        DegreesToRadians: DegreesToRadians,
+        RadiansToDegrees: RadiansToDegrees,
+        CNUtoWorldUnit: CNUtoWorldUnit,
+        WorldUnitToCNU: WorldUnitToCNU,
+      },
+      Instancing: {
+        Unit: Unit,
+        UnitVector3: UnitVector3,
+      },
     },
   };
 }

@@ -11,7 +11,7 @@ import { RenderLevel } from "../Render.js";
 import { Cache, IsPointerLocked, Log, PushToSession, SendEvent, SESSION_KEYS } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
-import { DistanceVector3, LerpVector3, NormalizeVector3 } from "../../math/Vector3.js";
+import { DistanceVector3, LerpVector3 } from "../../math/Vector3.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { UpdateInputEventTypes } from "../Controls.js";
 import { ValidateLevelPayload } from "../../core/validate.js";
@@ -57,14 +57,14 @@ function buildIncomingPayloadSummary(payload) {
 	const terrainTriggers = payload.terrain.triggers.length;
 	const obstacles = payload.obstacles.length;
 	const entities = payload.entities.length;
-	const blueprints = payload.entityBlueprints && typeof payload.entityBlueprints === "object" ? payload.entityBlueprints : {};
-	const count = (key) => (Array.isArray(blueprints[key]) ? blueprints[key].length : 0);
+	const blueprints = payload.entityBlueprints;
+	const count = (key) => blueprints[key].length;
 
 	return [
 		"Engine received level payload:",
-		`- levelId: ${payload.meta && payload.meta.levelId ? payload.meta.levelId : payload.id || "unknown"}`,
-		`- stageId: ${payload.meta && payload.meta.stageId ? payload.meta.stageId : payload.id || "unknown"}`,
-		`- world: ${payload.world ? `${payload.world.length || 0}x${payload.world.width || 0}x${payload.world.height || 0}` : "missing"}`,
+		`- levelId: ${payload.meta.levelId}`,
+		`- stageId: ${payload.meta.stageId}`,
+		`- world: ${payload.world.length}x${payload.world.width}x${payload.world.height}`,
 		`- terrainObjects: ${terrainObjects}`,
 		`- terrainTriggers: ${terrainTriggers}`,
 		`- obstacles: ${obstacles}`,
@@ -73,29 +73,43 @@ function buildIncomingPayloadSummary(payload) {
 	].join("\n");
 }
 
-function updateEntityMovement(entity, deltaSeconds) {
-	if (!entity || !entity.movement) {
-		return;
+function shouldRefreshBoundingBoxes() {
+	if (CONFIG.DEBUG.ALL !== true) {
+		return false;
 	}
 
+	const bounding = CONFIG.DEBUG.LEVELS.BoundingBox;
+	return (
+		bounding.Terrain === true ||
+		bounding.Scatter === true ||
+		bounding.Entity === true ||
+		bounding.EntityPart === true ||
+		bounding.Obstacle === true ||
+		bounding.Player === true ||
+		bounding.PlayerPart === true ||
+		bounding.Boss === true ||
+		bounding.BossPart === true ||
+		bounding.Grid.Visible === true
+	);
+}
+
+function updateEntityMovement(entity, deltaSeconds) {
 	const movement = entity.movement;
 	const transform = entity.transform;
 	const position = transform.position;
-	const state = entity.state || (entity.state = { movementProgress: 0, direction: 1 });
+	const state = entity.state;
 
-	if (movement.speed <= 0) {
-		return;
-	}
+	if (movement.speed.value <= 0) return;
 
-	const start = NormalizeVector3(movement.start, { x: 0, y: 0, z: 0 });
-	const end = NormalizeVector3(movement.end, start);
+	const start = movement.start;
+	const end = movement.end;
 	const distance = DistanceVector3(start, end);
 	if (distance <= 0.0001) {
 		return;
 	}
 
-	const step = (movement.speed * deltaSeconds) / distance;
-	state.movementProgress += step * (state.direction || 1);
+	const step = (movement.speed.value * deltaSeconds) / distance;
+	state.movementProgress += step * state.direction;
 
 	if (state.movementProgress >= 1 || state.movementProgress <= 0) {
 		if (movement.backAndForth) {
@@ -109,30 +123,17 @@ function updateEntityMovement(entity, deltaSeconds) {
 	}
 
 	const t = Math.max(0, Math.min(1, state.movementProgress));
-	const nextPosition = LerpVector3(start, end, t);
-	position.set(nextPosition);
+	position.set(LerpVector3(start, end, t));
 }
 
 function syncEntityMeshes(sceneGraph) {
-	const entities = sceneGraph.entities;
-	for (let index = 0; index < entities.length; index += 1) {
-		const entity = entities[index];
-		if (!entity) {
-			continue;
-		}
+	for (let index = 0; index < sceneGraph.entities.length; index += 1) {
+		const entity = sceneGraph.entities[index];
 
 		if (entity.model) {
 			UpdateEntityModelFromTransform(entity);
-			entity.mesh = entity.model.parts && entity.model.parts[0] ? entity.model.parts[0].mesh : null;
+			entity.mesh = entity.model.parts[0].mesh;
 			continue;
-		}
-
-		if (!entity.mesh) {
-			continue;
-		}
-
-		if (!entity.mesh.transform) {
-			entity.mesh.transform = {};
 		}
 
 		entity.mesh.transform.position = { ...entity.transform.position };
@@ -142,9 +143,7 @@ function syncEntityMeshes(sceneGraph) {
 }
 
 function StartLevelLoop() {
-	if (levelLoop.active) {
-		return;
-	}
+	if (levelLoop.active) return;
 
 	levelLoop.active = true;
 	levelLoop.paused = false;
@@ -153,30 +152,22 @@ function StartLevelLoop() {
 	levelLoop.fixedTimeStep = 1000 / getConfiguredFrameRate();
 
 	const frame = () => {
-		if (!levelLoop.active) {
-			return;
-		}
+		if (!levelLoop.active) return;
 
 		const now = performance.now();
 		let frameTime = now - levelLoop.lastFrameTime;
 		levelLoop.lastFrameTime = now;
 
-		if (frameTime > levelLoop.maxFrameTime) {
-			frameTime = levelLoop.maxFrameTime;
-		}
-
+		if (frameTime > levelLoop.maxFrameTime) frameTime = levelLoop.maxFrameTime;
 		levelLoop.accumulator += frameTime;
-		const pointerLocked = IsPointerLocked();
 
 		while (levelLoop.accumulator >= levelLoop.fixedTimeStep && !levelLoop.paused) {
-			if (pointerLocked) {
-				Update(levelLoop.fixedTimeStep);
-			}
+			if (IsPointerLocked()) Update(levelLoop.fixedTimeStep);
 			levelLoop.accumulator -= levelLoop.fixedTimeStep;
 		}
 
 		if (levelRuntimeState.sceneGraph && !levelLoop.paused) {
-			RenderLevel(levelRuntimeState.sceneGraph, levelRuntimeState.renderOptions || {});
+			RenderLevel(levelRuntimeState.sceneGraph, levelRuntimeState.renderOptions);
 		}
 
 		levelLoop.animationFrameId = requestAnimationFrame(frame);
@@ -186,16 +177,13 @@ function StartLevelLoop() {
 }
 
 function StopLevelLoop() {
-	const wasActive = levelLoop.active;
+	if (levelLoop.active) Log("ENGINE", "Level loop stopped.", "log", "Level");
+
 	levelLoop.active = false;
 
 	if (levelLoop.animationFrameId !== null && typeof cancelAnimationFrame === "function") {
 		cancelAnimationFrame(levelLoop.animationFrameId);
 		levelLoop.animationFrameId = null;
-	}
-
-	if (wasActive) {
-		Log("ENGINE", "Level loop stopped.", "log", "Level");
 	}
 }
 
@@ -211,16 +199,16 @@ async function CreateLevel(payload, options) {
 
 	// === VALIDATION & NORMALIZATION PIPELINE ===
 
-	const validatedPayload = ValidateLevelPayload(payload);
-	if (!validatedPayload) {
-		Log("ENGINE", "Level.CreateLevel aborted: invalid payload.", "warn", "Level");
+	payload = ValidateLevelPayload(payload);
+	if (!payload) {
+		Log("ENGINE", "Level.CreateLevel aborted: invalid payload.", "error", "Level");
 		return null;
 	}
 
 	// Update Input Events Engine Listens for
-	UpdateInputEventTypes({ payloadType: "level", payload: validatedPayload });
+	UpdateInputEventTypes({ payloadType: "level", payload: payload });
 
-	const cachedPayload = cacheLevelPayload(validatedPayload);
+	const cachedPayload = cacheLevelPayload(payload);
 	if (!cachedPayload) {
 		Log("ENGINE", "Level.CreateLevel aborted: payload cache failed.", "error", "Level");
 		return null;
@@ -228,15 +216,15 @@ async function CreateLevel(payload, options) {
 
 	Log("ENGINE", buildIncomingPayloadSummary(cachedPayload), "log", "Level");
 
-	const resolvedOptions = options && typeof options === "object" ? options : {};
 	levelRuntimeState.renderOptions = {
 		...levelRuntimeState.renderOptions,
-		...(resolvedOptions.renderOptions || {}),
+		...(options.renderOptions ?? {}),
 	};
 
 	if (levelLoop.active) {
 		StopLevelLoop();
 		Log("ENGINE", "Previous level loop stopped before new level creation.", "log", "Level");
+		Log("ENGINE", "Please end levels naturally before starting new ones.", "warn", "Level");
 	}
 
 	const sceneGraph = await BuildLevel(cachedPayload);
@@ -244,20 +232,27 @@ async function CreateLevel(payload, options) {
 	// Initialize player if payload defines one.
 	if (sceneGraph.playerConfig) {
 		InitializePlayer(sceneGraph.playerConfig, sceneGraph);
-		Log("ENGINE", `Player initialized: character=${sceneGraph.playerConfig.character || "carl"}`, "log", "Level");
+		Log("ENGINE", `Player initialized: character=${sceneGraph.playerConfig.character}`, "log", "Level");
 	}
 
 	sceneGraph.cameraConfig.state = InitializeCameraState(
 		sceneGraph,
 		sceneGraph.cameraConfig,
-		cachedPayload.meta || null
+		cachedPayload.meta
 	);
 
 	levelRuntimeState.sceneGraph = sceneGraph;
-	RefreshSceneBoundingBoxes(sceneGraph);
+	if (shouldRefreshBoundingBoxes()) {
+		RefreshSceneBoundingBoxes(sceneGraph);
+	}
 
 	if (CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible) {
-		Log("ENGINE", `Debug Grid Enabled \u2014 scale: ${CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Scale} units`, "log", "Level");
+		Log(
+			"ENGINE", 
+			`Debug Grid Enabled \u2014 scale: ${CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Scale} units`, 
+			"log", 
+			"Level"
+		);
 	}
 
 	RenderLevel(sceneGraph, levelRuntimeState.renderOptions);
@@ -265,11 +260,11 @@ async function CreateLevel(payload, options) {
 	Log("ENGINE", "Level loop started.", "log", "Level");
 
 	SendEvent("ENGINE_LEVEL_READY", {
-		levelId: cachedPayload.id || null,
-		title: cachedPayload.title || null,
+		levelId: cachedPayload.id,
+		title: cachedPayload.title,
 	});
 
-	Log("ENGINE", `Level created: ${cachedPayload.id || "unknown"}`, "log", "Level");
+	Log("ENGINE", `Level created: ${cachedPayload.id}`, "log", "Level");
 	Log("ENGINE", "Level generation finished and render initialized.", "log", "Level");
 	return sceneGraph;
 }
@@ -318,13 +313,7 @@ function Update(deltaMilliseconds) {
 		if (entity.type === "player") {
 			continue;
 		}
-		if (
-			cameraPosition
-			&& entity.transform.position
-			&& DistanceVector3(cameraPosition, entity.transform.position) > simDistance
-		) {
-			continue;
-		}
+		if (DistanceVector3(cameraPosition, entity.transform.position) > simDistance) continue;
 		updateEntityMovement(entity, deltaSeconds);
 		ApplyEntityPhysics(entity, sceneGraph, deltaSeconds);
 	}
@@ -339,15 +328,13 @@ function Update(deltaMilliseconds) {
 	);
 
 	syncEntityMeshes(sceneGraph);
-	RefreshSceneBoundingBoxes(sceneGraph);
+	if (shouldRefreshBoundingBoxes()) {
+		RefreshSceneBoundingBoxes(sceneGraph);
+	}
 }
 
 function GetActiveLevel() {
 	return levelRuntimeState.sceneGraph;
 }
 
-function LoadLevel(payload, options) {
-	return CreateLevel(payload, options);
-}
-
-export { CreateLevel, Update, GetActiveLevel, LoadLevel, StartLevelLoop, StopLevelLoop, PauseLevelLoop, ResumeLevelLoop };
+export { CreateLevel, Update, GetActiveLevel, StartLevelLoop, StopLevelLoop, PauseLevelLoop, ResumeLevelLoop };

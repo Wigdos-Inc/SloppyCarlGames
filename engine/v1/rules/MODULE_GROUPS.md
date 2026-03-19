@@ -107,6 +107,13 @@ handlers/      ← top-level orchestrators
 
 Dependencies flow **upward**. Lower groups must not import from higher groups. `handlers/` sits at the top and coordinates everything below.
 
+### Approved Exception: `core/normalize.js`
+
+- `core/normalize.js` may import static template JSON from `builder/templates/` strictly for payload canonicalization at the boundary.
+- This exception applies only to normalization-time lookups of allowed IDs/defaults.
+- `core/normalize.js` must not call builder runtime functions or depend on builder execution flow.
+- This exception does not apply to any other `core/` module.
+
 ---
 
 ## Placement Rule

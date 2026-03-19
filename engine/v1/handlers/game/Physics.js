@@ -31,12 +31,12 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 
 	const dt = ToNumber(deltaSeconds, 0);
 	const world = sceneGraph.world;
-	const waterLevel = world.waterLevel.value;
+	const waterLevel = world.waterLevel ? world.waterLevel.value : null;
 	const deathBarrierY = world.deathBarrierY.value;
 	const pos = playerState.transform.position;
 
 	// Determine medium.
-	playerState.underwater = pos.y < waterLevel;
+	playerState.underwater = waterLevel !== null && pos.y < waterLevel;
 	const medium = playerState.underwater ? "water" : "air";
 
 	// Step 1: Gravity (if not grounded or always apply — ground correction will nullify).
@@ -72,7 +72,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 					Log("ENGINE", "Player hit death barrier.", "log", "Level");
 				}
 			}
-			playerState.activeTriggers = [];
+			playerState.activeTriggers.length = 0;
 			return;
 		}
 
@@ -113,7 +113,10 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	}
 
 	// Store triggered volumes for game-side handling.
-	playerState.activeTriggers = triggers;
+	playerState.activeTriggers.length = 0;
+	for (let index = 0; index < triggers.length; index += 1) {
+		playerState.activeTriggers.push(triggers[index]);
+	}
 }
 
 /**

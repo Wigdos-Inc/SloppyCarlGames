@@ -16,7 +16,7 @@ let CONFIG = {
     },
     LEVELS: {
       Triggers: true,
-      FreeCam : false,
+      FreeCam : true,
       BoundingBox: {
         Terrain   : true,
         Scatter   : false,
@@ -62,6 +62,7 @@ let CONFIG = {
           Key  : true,
         },
         Level: true,
+        Validation: true,
       },
     },
   },
