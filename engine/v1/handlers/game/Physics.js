@@ -72,7 +72,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 					Log("ENGINE", "Player hit death barrier.", "log", "Level");
 				}
 			}
-			playerState.activeTriggers = [];
+			playerState.activeTriggers.length = 0;
 			return;
 		}
 
@@ -113,7 +113,10 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	}
 
 	// Store triggered volumes for game-side handling.
-	playerState.activeTriggers = triggers;
+	playerState.activeTriggers.length = 0;
+	for (let index = 0; index < triggers.length; index += 1) {
+		playerState.activeTriggers.push(triggers[index]);
+	}
 }
 
 /**

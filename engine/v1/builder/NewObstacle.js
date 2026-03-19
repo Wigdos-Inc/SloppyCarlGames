@@ -38,13 +38,15 @@ function mergeAabb(accumulator, bounds) {
 
 function buildObstacleParts(source, index, options) {
 	if (!Array.isArray(source.parts) || source.parts.length === 0) {
+		const elevatedPosition = source.position.clone();
+		elevatedPosition.y += source.dimensions.y * source.scale.y * 0.5;
 		const single = BuildObject(
 			{
 				id: source.id,
 				shape: source.shape,
 				complexity: source.complexity,
 				dimensions: source.dimensions,
-				position: source.position,
+				position: elevatedPosition,
 				rotation: source.rotation,
 				scale: source.scale,
 				pivot: source.pivot,
@@ -83,9 +85,15 @@ function buildObstacleParts(source, index, options) {
 
 		const scatterList = Array.isArray(part.detail && part.detail.scatter) ? part.detail.scatter : (partIndex === 0 ? inheritedScatter : []);
 
-		// Compute world-space position & rotation (preserve UnitVector3 instances via set)
-		const worldPos = source.position;
-		const worldRot = source.rotation;
+		const combinedScale = MultiplyVector3(rootScale, part.localScale);
+
+		// Compute world-space position & rotation without mutating source transforms.
+		const worldPos = source.position.clone();
+		worldPos.set(AddVector3(worldPos, part.localPosition));
+		worldPos.y += part.dimensions.y * combinedScale.y * 0.5;
+
+		const worldRot = source.rotation.clone();
+		worldRot.set(AddVector3(worldRot, part.localRotation));
 
 		return BuildObject(
 			{
@@ -94,9 +102,9 @@ function buildObstacleParts(source, index, options) {
 				shape: part.shape,
 				complexity: part.complexity,
 				dimensions: part.dimensions,
-				position: worldPos.set(AddVector3(worldPos, part.localPosition)),
-				rotation: worldRot.set(AddVector3(worldRot, part.localRotation)),
-				scale: MultiplyVector3(rootScale, part.localScale),
+				position: worldPos,
+				rotation: worldRot,
+				scale: combinedScale,
 				pivot: source.pivot,
 				primitiveOptions: part.primitiveOptions,
 				texture: part.texture || inheritedTexture,

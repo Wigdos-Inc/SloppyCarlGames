@@ -1153,11 +1153,20 @@ function syncCanvasSize(renderer) {
 
 function collectRenderableMeshes(sceneGraph) {
 	const terrain = sceneGraph.terrain;
-	const obstacles = sceneGraph.obstacles;
+	const obstacleRecords = sceneGraph.obstacles;
+	const obstacleMeshes = [];
 	const triggers = sceneGraph.triggers;
 	const showTriggers = !!(sceneGraph.debug.showTriggerVolumes === true);
 	const entities = sceneGraph.entities;
 	const entityMeshes = [];
+
+	obstacleRecords.forEach((record) => {
+		record.parts.forEach((part) => {
+			if (part && part.geometry) {
+				obstacleMeshes.push(part);
+			}
+		});
+	});
 
 	entities.forEach((entity) => {
 		if (entity.model && Array.isArray(entity.model.parts)) {
@@ -1176,7 +1185,7 @@ function collectRenderableMeshes(sceneGraph) {
 
 	const triggerMeshes = showTriggers ? triggers : [];
 	// Scatter is excluded — rendered via instanced path.
-	return terrain.concat(obstacles, triggerMeshes, entityMeshes);
+	return terrain.concat(obstacleMeshes, triggerMeshes, entityMeshes);
 }
 
 function resolveWaterVisualMeshes(sceneGraph) {

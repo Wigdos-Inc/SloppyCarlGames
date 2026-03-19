@@ -148,6 +148,7 @@ function collectTextureUsage(sceneGraph) {
 		isTerrain: false, 
 		maxSpan: 1, 
 		density: null, 
+		speckSize: null,
 		baseTextureID: "default-grid", 
 		shape: null 
 	}};
@@ -157,12 +158,14 @@ function collectTextureUsage(sceneGraph) {
 			isTerrain: false, 
 			maxSpan: 1, 
 			density: null, 
+			speckSize: null,
 			baseTextureID: id, 
 			shape: null 
 		};
 		const entry = usage[id];
 		if (options.isTerrain) { entry.isTerrain = true; entry.maxSpan = options.maxSpan; }
 		if (options.density || options.density === 0) entry.density = options.density;
+		if (options.speckSize || options.speckSize === 0) entry.speckSize = options.speckSize;
 		if (options.baseTextureID) entry.baseTextureID = options.baseTextureID;
 		if (options.shape) entry.shape = options.shape;
 	};
@@ -173,6 +176,7 @@ function collectTextureUsage(sceneGraph) {
 			isTerrain: options.isTerrain,
 			maxSpan: options.maxSpan,
 			density: detailTexture.density,
+			speckSize: detailTexture.speckSize,
 			baseTextureID: detailTexture.baseTextureID,
 			shape: detailTexture.shape,
 		});
@@ -198,6 +202,7 @@ function collectTextureUsage(sceneGraph) {
 		isTerrain: false, 
 		maxSpan: 1, 
 		density: null, 
+		speckSize: null,
 		baseTextureID: batch.textureID, shape: null 
 	}});
 
@@ -222,10 +227,17 @@ function createTextureRegistry(usage, options) {
 		const textureBlueprint = textureDefinitions[baseTextureID];
 		const resolvedSize = resolveTextureSize(textureBlueprint, usage[textureID]);
 		const usageDensity = usage[textureID].density;
+		const usageSpeckSize = usage[textureID].speckSize;
 		const usageShape = usageEntry.shape;
 		let resolvedTextureBlueprint = (usageDensity || usageDensity === 0)
 			? { ...textureBlueprint, density: usageDensity }
 			: { ...textureBlueprint };
+		if (usageSpeckSize || usageSpeckSize === 0) {
+			resolvedTextureBlueprint = {
+				...resolvedTextureBlueprint,
+				speckSize: usageSpeckSize,
+			};
+		}
 		if (usageShape) {
 			resolvedTextureBlueprint = {
 				...resolvedTextureBlueprint,

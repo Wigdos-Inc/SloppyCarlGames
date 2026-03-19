@@ -182,7 +182,7 @@ function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
 			position: def.position,
 			dimensions: def.dimensions,
 			scale: def.scale,
-			topY: def.position.y + def.dimensions.y * def.scale.y,
+			topY: def.position.y + (def.dimensions.y * def.scale.y * 0.5),
 		};
 	};
 	terrainDefinitions.forEach(addSurface);
@@ -253,6 +253,8 @@ async function BuildLevel(payload) {
 	const scatterDebugBounds = [];
 
 	const terrain = terrainDefinitions.map((terrainObject, index) => {
+		terrainObject.position.y += terrainObject.dimensions.y * terrainObject.scale.y * 0.5;
+
 		const terrainMesh = BuildObject(
 			{
 				...terrainObject,

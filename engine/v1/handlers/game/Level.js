@@ -73,6 +73,26 @@ function buildIncomingPayloadSummary(payload) {
 	].join("\n");
 }
 
+function shouldRefreshBoundingBoxes() {
+	if (CONFIG.DEBUG.ALL !== true) {
+		return false;
+	}
+
+	const bounding = CONFIG.DEBUG.LEVELS.BoundingBox;
+	return (
+		bounding.Terrain === true ||
+		bounding.Scatter === true ||
+		bounding.Entity === true ||
+		bounding.EntityPart === true ||
+		bounding.Obstacle === true ||
+		bounding.Player === true ||
+		bounding.PlayerPart === true ||
+		bounding.Boss === true ||
+		bounding.BossPart === true ||
+		bounding.Grid.Visible === true
+	);
+}
+
 function updateEntityMovement(entity, deltaSeconds) {
 	const movement = entity.movement;
 	const transform = entity.transform;
@@ -222,10 +242,17 @@ async function CreateLevel(payload, options) {
 	);
 
 	levelRuntimeState.sceneGraph = sceneGraph;
-	RefreshSceneBoundingBoxes(sceneGraph);
+	if (shouldRefreshBoundingBoxes()) {
+		RefreshSceneBoundingBoxes(sceneGraph);
+	}
 
 	if (CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible) {
-		Log("ENGINE", `Debug Grid Enabled \u2014 scale: ${CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Scale} units`, "log", "Level");
+		Log(
+			"ENGINE", 
+			`Debug Grid Enabled \u2014 scale: ${CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Scale} units`, 
+			"log", 
+			"Level"
+		);
 	}
 
 	RenderLevel(sceneGraph, levelRuntimeState.renderOptions);
@@ -239,7 +266,6 @@ async function CreateLevel(payload, options) {
 
 	Log("ENGINE", `Level created: ${cachedPayload.id}`, "log", "Level");
 	Log("ENGINE", "Level generation finished and render initialized.", "log", "Level");
-	console.error(sceneGraph);
 	return sceneGraph;
 }
 
@@ -302,7 +328,9 @@ function Update(deltaMilliseconds) {
 	);
 
 	syncEntityMeshes(sceneGraph);
-	RefreshSceneBoundingBoxes(sceneGraph);
+	if (shouldRefreshBoundingBoxes()) {
+		RefreshSceneBoundingBoxes(sceneGraph);
+	}
 }
 
 function GetActiveLevel() {

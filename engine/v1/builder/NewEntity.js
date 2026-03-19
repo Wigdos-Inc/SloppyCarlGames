@@ -153,12 +153,37 @@ function cloneLocalTransform(transform) {
 }
 
 function composeTransform(parentTransform, localTransform) {
-	const rotatedChildPos = RotateByEuler(localTransform.position, parentTransform.rotation);
+	const localPosition = localTransform.position.clone();
+	const localRotation = localTransform.rotation.clone();
+	const rotatedChildPos = RotateByEuler(localPosition, parentTransform.rotation);
 	return {
-		position: localTransform.position.set(AddVector3(parentTransform.position, rotatedChildPos)),
-		rotation: localTransform.rotation.set(AddVector3(parentTransform.rotation, localTransform.rotation)),
+		position: localPosition.set(AddVector3(parentTransform.position, rotatedChildPos)),
+		rotation: localRotation.set(AddVector3(parentTransform.rotation, localRotation)),
 		scale: MultiplyVector3(parentTransform.scale, localTransform.scale),
 	};
+}
+
+function getSurfaceOrigin(surface) {
+	const surfacePos = surface.position;
+	return { x: surfacePos.x, y: surface.topY, z: surfacePos.z };
+}
+
+function resolveInitialMovementProgress(movement, currentPosition) {
+	const start = movement.start;
+	const end = movement.end;
+	const dx = end.x - start.x;
+	const dy = end.y - start.y;
+	const dz = end.z - start.z;
+	const lengthSq = (dx * dx) + (dy * dy) + (dz * dz);
+	if (lengthSq <= 1e-8) {
+		return 0;
+	}
+
+	const px = currentPosition.x - start.x;
+	const py = currentPosition.y - start.y;
+	const pz = currentPosition.z - start.z;
+	const projection = ((px * dx) + (py * dy) + (pz * dz)) / lengthSq;
+	return Math.max(0, Math.min(1, projection));
 }
 
 /* === MOVEMENT === */
@@ -166,9 +191,9 @@ function composeTransform(parentTransform, localTransform) {
 function normalizeMovement(movement, surface) {
 	// Movement start/end are local to the spawn surface — resolve to world space.
 	// Y uses surfaceTopY (top of the surface) instead of surfacePos.y (center of the surface).
-	const surfacePos = surface.position;
-	movement.start.set(AddVector3({ x: surfacePos.x, y: surface.topY, z: surfacePos.z }, movement.start));
-	movement.end.set(AddVector3({ x: surfacePos.x, y: surface.topY, z: surfacePos.z }, movement.end));
+	const surfaceOrigin = getSurfaceOrigin(surface);
+	movement.start.set(AddVector3(surfaceOrigin, movement.start));
+	movement.end.set(AddVector3(surfaceOrigin, movement.end));
 
 	return {
 		start: movement.start,
@@ -298,7 +323,7 @@ function buildModel(entityDefinition, surfaceMap) {
 	// Resolve spawn surface.
 	const spawnSurfaceId = sourceModel.spawnSurfaceId || entityDefinition.spawnSurfaceId;
 	const surface = surfaceMap[spawnSurfaceId];
-	const surfacePosition = surface.position;
+	const surfaceOrigin = getSurfaceOrigin(surface);
 
 	// --- Process root parts: build localTransform in model-local space ---
 	// Root part localTransform.position is relative to rootTransform (the group origin).
@@ -405,7 +430,7 @@ function buildModel(entityDefinition, surfaceMap) {
 	// --- Assemble model with world-space rootTransform ---
 	// Factor 1 (spawn surface position) + Factor 2 (rootTransform.position) = world position.
 	const rootPosition = rtPosition.clone();
-	rootPosition.set(AddVector3(surfacePosition, rtPosition));
+	rootPosition.set(AddVector3(surfaceOrigin, rtPosition));
 
 	const model = {
 		rootTransform: {
@@ -415,7 +440,7 @@ function buildModel(entityDefinition, surfaceMap) {
 			pivot: rtSource.pivot,
 		},
 		spawnSurfaceId: spawnSurfaceId,
-		surfacePosition: surfacePosition,
+		surfacePosition: surfaceOrigin,
 		parts: parts,
 		index: index,
 		roots: rootPartIds,
@@ -510,9 +535,16 @@ function BuildEntity(definition, surfaceMap) {
 	const surface = surfaceMap[spawnSurfaceId];
 	const movement = normalizeMovement(merged.movement, surface);
 	const model = buildModel(merged, surfaceMap);
-	const aabb = computeEntityAabb(model);
 	const simRadiusPadding = ToNumber(merged.simRadiusPadding, 8);
 	const rootTrans = model.rootTransform;
+	const initialMovementProgress = resolveInitialMovementProgress(movement, rootTrans.position);
+
+	if (movement.speed.value > 0) {
+		rootTrans.position.set(LerpVector3(movement.start, movement.end, initialMovementProgress));
+		applyModelPose(model);
+	}
+
+	const aabb = computeEntityAabb(model);
 
 	return {
 		id: merged.id,
@@ -537,7 +569,7 @@ function BuildEntity(definition, surfaceMap) {
 		},
 		animations: merged.animations,
 		state: {
-			movementProgress: 0,
+			movementProgress: initialMovementProgress,
 			direction: 1,
 			lastJumpMs: 0,
 			activeAnimation: "idle",

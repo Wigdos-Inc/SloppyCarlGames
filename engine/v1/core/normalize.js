@@ -567,6 +567,9 @@ function normalizeTextureDescriptor(source, options, contextPath) {
 	const densitySource = textureFromSource && typeof textureFromSource.density === "number" 
 		? textureFromSource.density 
 		: src.textureDensity;
+	const speckSizeSource = textureFromSource && typeof textureFromSource.speckSize === "number"
+		? textureFromSource.speckSize
+		: src.textureSpeckSize;
 
 	const materialTextureID = shape ? `${baseTextureID}::shape=${shape}` : baseTextureID;
 
@@ -578,6 +581,7 @@ function normalizeTextureDescriptor(source, options, contextPath) {
 		color: color,
 		opacity: Math.max(0, Math.min(1, ToNumber(opacity, 1))),
 		density: Math.max(0, ToNumber(densitySource, 1)),
+		speckSize: Math.max(0.1, ToNumber(speckSizeSource, 1)),
 	};
 }
 

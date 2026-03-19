@@ -82,23 +82,49 @@ function resolveRootPart(parts) {
 function applyHierarchicalOffsets(parts, uniformScale) {
 	if (parts.length === 0) return parts;
 
-	// Sort parts by level ascending
-	const sortedParts = [...parts].sort((a, b) => a.level - b.level);
-	let offsetTally = 0;
-
-	return sortedParts.map((part) => {
-		const oldY = part.dimensions.y * part.localScale.y;
-		const newY = oldY * uniformScale;
-		const offset = (newY - oldY) / 2;
-		const newLocalPosition = part.localPosition.clone();
-        if (part.level > 0) newLocalPosition.y += offset + offsetTally;
-
-		offsetTally += offset;
-		return {
-			...part,
-			localPosition: newLocalPosition,
-		};
+	// Build level-wise stacks so higher levels sit on lower levels deterministically.
+	const partsByLevel = new Map();
+	parts.forEach((part) => {
+		if (!partsByLevel.has(part.level)) partsByLevel.set(part.level, []);
+		partsByLevel.get(part.level).push(part);
 	});
+
+	const levels = [...partsByLevel.keys()].sort((a, b) => a - b);
+	const adjustedByLevel = new Map();
+	let cumulativeTop = null;
+
+	levels.forEach((level) => {
+		const levelParts = partsByLevel.get(level);
+		const adjustedParts = levelParts.map((part) => {
+			const halfHeight = (part.dimensions.y * part.localScale.y * uniformScale) * 0.5;
+			const newLocalPosition = part.localPosition.clone();
+
+			if (level > 0 && cumulativeTop !== null) {
+				const currentBottom = newLocalPosition.y - halfHeight;
+				newLocalPosition.y += cumulativeTop - currentBottom;
+			}
+
+			return {
+				...part,
+				localPosition: newLocalPosition,
+			};
+		});
+
+		adjustedByLevel.set(level, adjustedParts);
+
+		let levelTop = null;
+		adjustedParts.forEach((part) => {
+			const halfHeight = (part.dimensions.y * part.localScale.y * uniformScale) * 0.5;
+			const partTop = part.localPosition.y + halfHeight;
+			levelTop = levelTop === null ? partTop : Math.max(levelTop, partTop);
+		});
+
+		if (levelTop !== null) {
+			cumulativeTop = cumulativeTop === null ? levelTop : Math.max(cumulativeTop, levelTop);
+		}
+	});
+
+	return levels.flatMap((level) => adjustedByLevel.get(level));
 }
 
 function areRootPartsWithinParentBounds(parts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ) {
@@ -142,14 +168,14 @@ function iterateScatterInstances(params, handler) {
     // If there are no requests, nothing to do
 	if (scatterRequests.length === 0) return { totalParts: 0, typeCounts: 0, modelCounts: 0 };
 
-	const topY = objectMesh.transform.position.y + (objectMesh.dimensions.y * objectMesh.transform.scale.y) * 0.5;
-	const width = Math.max(1, objectMesh.dimensions.x * objectMesh.transform.scale.x);
-	const depth = Math.max(1, objectMesh.dimensions.z * objectMesh.transform.scale.z);
+	const minX = objectMesh.worldAabb.min.x;
+	const maxX = objectMesh.worldAabb.max.x;
+	const minZ = objectMesh.worldAabb.min.z;
+	const maxZ = objectMesh.worldAabb.max.z;
+	const topY = objectMesh.worldAabb.max.y;
+	const width = Math.max(1, maxX - minX);
+	const depth = Math.max(1, maxZ - minZ);
 	const approxArea = width * depth;
-	const minX = objectMesh.transform.position.x - width * 0.5;
-	const maxX = objectMesh.transform.position.x + width * 0.5;
-	const minZ = objectMesh.transform.position.z - depth * 0.5;
-	const maxZ = objectMesh.transform.position.z + depth * 0.5;
 	const scatterScale = Math.max(0.05, world.scatterScale);
 
 	let totalParts = 0;
@@ -158,15 +184,18 @@ function iterateScatterInstances(params, handler) {
 
 	scatterRequests.forEach((request, scatterTypeIndex) => {
 		const scatterType = visualTemplates.scatterTypes[request.typeID];
-
-		// Create Unit/UnitVector3 Instances
-		scatterType.parts.forEach(part => {
+		const canonicalParts = scatterType.parts.map((part) => {
 			const dim = part.dimensions;
 			const pos = part.localPosition;
 			const rot = part.localRotation;
-			part.dimensions    = new UnitVector3(dim.x, dim.y, dim.z, "cnu");
-			part.localPosition = new UnitVector3(pos.x, pos.y, pos.z, "cnu");
-			part.localRotation = new UnitVector3(rot.x, rot.y, rot.z, "cnu")
+			const baseHalfHeight = dim.y * part.localScale.y * 0.5;
+			return {
+				...part,
+				dimensions: new UnitVector3(dim.x, dim.y, dim.z, "cnu"),
+				// Pre-lift by half-height before root/hierarchy resolution.
+				localPosition: new UnitVector3(pos.x, pos.y + baseHalfHeight, pos.z, "cnu"),
+				localRotation: new UnitVector3(rot.x, rot.y, rot.z, "degrees").toRadians(true),
+			};
 		});
 
 		const maxCount = Math.max(0, Math.floor((approxArea / 18) * request.density * scatterMultiplier));
@@ -182,8 +211,8 @@ function iterateScatterInstances(params, handler) {
 			const cluster = hashNoise(nx * 64, nz * 64, seed + 7);
 			if (cluster < scatterType.clusterThreshold) continue;
 
-			const worldX = objectMesh.transform.position.x - width * 0.5 + nx * width;
-			const worldZ = objectMesh.transform.position.z - depth * 0.5 + nz * depth;
+			const worldX = minX + nx * width;
+			const worldZ = minZ + nz * depth;
 			const worldY = topY;
 
 			// Bounds and height checks keep instances inside the parent and within allowed heights
@@ -198,7 +227,7 @@ function iterateScatterInstances(params, handler) {
 			const uniformScale = (scatterType.scaleRange.min + (scatterType.scaleRange.max - scatterType.scaleRange.min) * scaleNoise) * scatterScale;
 
 			// Compute per-part offsets for stacking / levels and validate spatial fit
-			const offsetParts = applyHierarchicalOffsets(scatterType.parts, uniformScale);
+			const offsetParts = applyHierarchicalOffsets(canonicalParts, uniformScale);
 			if (!areRootPartsWithinParentBounds(offsetParts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ)) continue;
 
 			const rootPart = resolveRootPart(offsetParts);
@@ -216,7 +245,11 @@ function iterateScatterInstances(params, handler) {
 
                 // Calculate World Position, Rotation & Scale
                 const pos = part.localPosition.clone();
-				pos.set(AddVector3(pos, { x: worldX, y: finalY, z: worldZ }));
+				pos.set({
+					x: worldX + part.localPosition.x,
+					y: finalY,
+					z: worldZ + part.localPosition.z,
+				});
 
 				const rot = part.localRotation.clone();
 				rot.y += hashNoise(worldX, worldZ, seed + partIndex) * Math.PI * 2;
@@ -261,12 +294,10 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 	if (scatterRequests.length === 0) return [];
 
 	// Engine diagnostic: report scatter bounds for this source object
-	const width = Math.max(1, objectMesh.dimensions.x * objectMesh.transform.scale.x);
-	const depth = Math.max(1, objectMesh.dimensions.z * objectMesh.transform.scale.z);
-	const minX = objectMesh.transform.position.x - width * 0.5;
-	const maxX = objectMesh.transform.position.x + width * 0.5;
-	const minZ = objectMesh.transform.position.z - depth * 0.5;
-	const maxZ = objectMesh.transform.position.z + depth * 0.5;
+	const minX = objectMesh.worldAabb.min.x;
+	const maxX = objectMesh.worldAabb.max.x;
+	const minZ = objectMesh.worldAabb.min.z;
+	const maxZ = objectMesh.worldAabb.max.z;
 	Log(
 		"ENGINE",
 		`Scatter bounds: source=${objectMesh.id}, minX=${minX.toFixed(2)}, maxX=${maxX.toFixed(2)}, minZ=${minZ.toFixed(2)}, maxZ=${maxZ.toFixed(2)}`,
@@ -326,13 +357,10 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 
 function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, batchMap, debugBboxAccumulator) {
 	// Engine diagnostic: report scatter bounds for batching
-	const topY = objectMesh.transform.position.y + (objectMesh.dimensions.y * objectMesh.transform.scale.y) * 0.5;
-	const width = Math.max(1, objectMesh.dimensions.x * objectMesh.transform.scale.x);
-	const depth = Math.max(1, objectMesh.dimensions.z * objectMesh.transform.scale.z);
-	const minX = objectMesh.transform.position.x - width * 0.5;
-	const maxX = objectMesh.transform.position.x + width * 0.5;
-	const minZ = objectMesh.transform.position.z - depth * 0.5;
-	const maxZ = objectMesh.transform.position.z + depth * 0.5;
+	const minX = objectMesh.worldAabb.min.x;
+	const maxX = objectMesh.worldAabb.max.x;
+	const minZ = objectMesh.worldAabb.min.z;
+	const maxZ = objectMesh.worldAabb.max.z;
 
 	Log(
 		"ENGINE",

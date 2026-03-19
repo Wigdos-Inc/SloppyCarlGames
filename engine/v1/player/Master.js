@@ -57,6 +57,7 @@ function createDefaultPlayerState(playerData) {
 			timer: 0,
 			flashTimer: 0,
 		},
+		activeTriggers: [],
 		checkpoint: null,
 		spawnPosition: spawnPos,
 		collision: {
