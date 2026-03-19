@@ -13,10 +13,7 @@ import { GetPerformanceScatterMultiplier, BuildScatterBatches } from "./NewScatt
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
-import {
-	LoadEngineVisualTemplates,
-	PrepareLevelVisualResources,
-} from "./NewTexture.js";
+import { PrepareLevelVisualResources } from "./NewTexture.js";
 
 function resolveEntityBlueprintMap(payload) {
 	const map = {};
@@ -252,7 +249,6 @@ async function BuildLevel(payload) {
 	const entityDefinitions = source.entities;
 	const blueprintMap = resolveEntityBlueprintMap(source);
 	const scatterMultiplier = GetPerformanceScatterMultiplier();
-	const visualTemplateRegistry = await LoadEngineVisualTemplates();
 	const scatterBatches = new Map();
 	const scatterDebugBounds = [];
 
@@ -273,7 +269,6 @@ async function BuildLevel(payload) {
 		if (scatterRequests.length > 0) {
 			BuildScatterBatches({
 				objectMesh: terrainMesh,
-				scatterDefinitions: visualTemplateRegistry,
 				scatterMultiplier: scatterMultiplier,
 				world: world,
 				indexSeed: index + 1,
@@ -299,7 +294,6 @@ async function BuildLevel(payload) {
 		if (scatterRequests.length > 0) {
 			BuildScatterBatches({
 				objectMesh: obstacleMesh,
-				scatterDefinitions: visualTemplateRegistry,
 				scatterMultiplier: scatterMultiplier,
 				world: world,
 				indexSeed: (terrainDefinitions.length + index + 1),

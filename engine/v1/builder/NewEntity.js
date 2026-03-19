@@ -7,7 +7,7 @@
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
 import { AddVector3, LerpVector3, MultiplyVector3, RotateByEuler } from "../math/Vector3.js";
-import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
+import { ToNumber, UnitVector3 } from "../math/Utilities.js";
 
 /* === FACE / ANCHOR UTILITIES === */
 
@@ -135,13 +135,21 @@ function getRemappedFaceOffset(dimensions, faceType, faceMap) {
 
 /* === TRANSFORM UTILITIES === */
 
-function cloneTransform(transform, fallback) {
-	const source = transform || fallback;
+function cloneRootTransform(transform) {
+	const source = transform;
 	const position = source.position.clone();
 	const rotation = source.rotation.clone();
 	const scale = source.scale;
 	const pivot = source.pivot.clone();
 	return { position, rotation, scale, pivot };
+}
+
+function cloneLocalTransform(transform) {
+	const source = transform;
+	const position = source.position.clone();
+	const rotation = source.rotation.clone();
+	const scale = source.scale;
+	return { position, rotation, scale };
 }
 
 function composeTransform(parentTransform, localTransform) {
@@ -290,7 +298,6 @@ function buildModel(entityDefinition, surfaceMap) {
 	// Resolve spawn surface.
 	const spawnSurfaceId = sourceModel.spawnSurfaceId || entityDefinition.spawnSurfaceId;
 	const surface = surfaceMap[spawnSurfaceId];
-	const surfaceTopY = surface.topY;
 	const surfacePosition = surface.position;
 
 	// --- Process root parts: build localTransform in model-local space ---
@@ -405,6 +412,7 @@ function buildModel(entityDefinition, surfaceMap) {
 			position: rootPosition,
 			rotation: rtRotation,
 			scale: rtScale,
+			pivot: rtSource.pivot,
 		},
 		spawnSurfaceId: spawnSurfaceId,
 		surfacePosition: surfacePosition,
@@ -418,10 +426,10 @@ function buildModel(entityDefinition, surfaceMap) {
 
 	// Snapshot default pose for ResetEntityToDefaultPose.
 	model.defaultPose = {
-		rootTransform: cloneTransform(model.rootTransform, null),
+		rootTransform: cloneRootTransform(model.rootTransform),
 		parts: parts.map((part) => ({
 			id: part.id,
-			localTransform: cloneTransform(part.localTransform, null),
+			localTransform: cloneLocalTransform(part.localTransform),
 		})),
 	};
 
@@ -444,7 +452,7 @@ function applyModelPose(model) {
 		part.children.forEach((childId) => applyPart(childId, worldTransform));
 	};
 
-	const rootTransform = cloneTransform(model.rootTransform, null);
+	const rootTransform = cloneRootTransform(model.rootTransform);
 	model.roots.forEach((rootId) => applyPart(rootId, rootTransform));
 }
 
@@ -482,8 +490,8 @@ function computeExpandedAabb(aabb, padding) {
 	}
 	const pad = Math.max(0, ToNumber(padding, 8));
 	return {
-		min: new UnitVector3(aabb.min.x - pad, aabb.min.y - pad, aabb.min.z - pad, "CNU"),
-		max: new UnitVector3(aabb.max.x + pad, aabb.max.y + pad, aabb.max.z + pad, "CNU"),
+		min: new UnitVector3(aabb.min.x - pad, aabb.min.y - pad, aabb.min.z - pad, "cnu"),
+		max: new UnitVector3(aabb.max.x + pad, aabb.max.y + pad, aabb.max.z + pad, "cnu"),
 	};
 }
 

@@ -1023,7 +1023,6 @@ function BuildObject(source, options) {
 	if (scatterContext && mesh.detail.scatter.length > 0) {
 		const generatedScatter = BuildScatter({
 			objectMesh: mesh,
-			scatterDefinitions: scatterContext.scatterDefinitions,
 			scatterMultiplier: ToNumber(scatterContext.scatterMultiplier, GetPerformanceScatterMultiplier()),
 			world: scatterContext.world,
 			indexSeed: ToNumber(scatterContext.indexSeed, 1),
@@ -1032,17 +1031,9 @@ function BuildObject(source, options) {
 		});
 
 		if (generatedScatter.length > 0) {
-			mesh.meta.scatter = {
-				count: generatedScatter.length,
-			};
-
-			if (scatterContext.scatterAccumulator) {
-				scatterContext.scatterAccumulator.push(...generatedScatter);
-			}
-
-			if (scatterContext.onScatterGenerated) {
-				scatterContext.onScatterGenerated(mesh, generatedScatter);
-			}
+			mesh.meta.scatter = { count: generatedScatter.length };
+			scatterContext.scatterAccumulator?.push(...generatedScatter);
+			scatterContext.onScatterGenerated?.(mesh, generatedScatter);
 		}
 	}
 

@@ -1,7 +1,9 @@
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { AddVector3, MultiplyVector3 } from "../math/Vector3.js";
+import { AddVector3 } from "../math/Vector3.js";
 import { CreateModelMatrix } from "./NewObject.js";
+import { Unit, UnitVector3 } from "../math/Utilities.js";
+import visualTemplates from "./templates/textures.json" with { type: "json" };
 
 // NewScatter.js
 // Responsibilities:
@@ -131,7 +133,7 @@ function areRootPartsWithinParentBounds(parts, worldX, worldZ, uniformScale, see
 // Iterate scatter instances and invoke a handler with pre-computed per-part contexts.
 // Handler receives an object: { scatterType, request, scatterTypeIndex, instanceIndex, partContexts, samplePosition, sampleDimensions }
 function iterateScatterInstances(params, handler) {
-	const { objectMesh, scatterDefinitions, scatterMultiplier, world, indexSeed, explicitRequests } = params;
+	const { objectMesh, scatterMultiplier, world, indexSeed, explicitRequests } = params;
 	if (scatterMultiplier <= 0) return { totalParts: 0, typeCounts: 0, modelCounts: 0 };
 
 	// Choose explicit requests if provided, otherwise use the canonicalized scatter list
@@ -155,7 +157,17 @@ function iterateScatterInstances(params, handler) {
 	let globalModelCount = 0;
 
 	scatterRequests.forEach((request, scatterTypeIndex) => {
-		const scatterType = scatterDefinitions.scatterTypes[request.typeID];
+		const scatterType = visualTemplates.scatterTypes[request.typeID];
+
+		// Create Unit/UnitVector3 Instances
+		scatterType.parts.forEach(part => {
+			const dim = part.dimensions;
+			const pos = part.localPosition;
+			const rot = part.localRotation;
+			part.dimensions    = new UnitVector3(dim.x, dim.y, dim.z, "cnu");
+			part.localPosition = new UnitVector3(pos.x, pos.y, pos.z, "cnu");
+			part.localRotation = new UnitVector3(rot.x, rot.y, rot.z, "cnu")
+		});
 
 		const maxCount = Math.max(0, Math.floor((approxArea / 18) * request.density * scatterMultiplier));
 		let typeCount = 0;
@@ -242,7 +254,7 @@ function iterateScatterInstances(params, handler) {
 	return { totalParts, typeCounts: globalTypeCount, modelCounts: globalModelCount };
 }
 
-function generateObjectScatter(objectMesh, scatterDefinitions, scatterMultiplier, world, indexSeed, explicitRequests, buildObject) {
+function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, buildObject) {
 	if (scatterMultiplier <= 0) return [];
 
 	const scatterRequests = (explicitRequests.length > 0) ? explicitRequests : objectMesh.detail.scatter;
@@ -264,7 +276,7 @@ function generateObjectScatter(objectMesh, scatterDefinitions, scatterMultiplier
 
 	const meshes = [];
 
-	const stats = iterateScatterInstances({ objectMesh, scatterDefinitions, scatterMultiplier, world, indexSeed, explicitRequests }, (ctx) => {
+	const stats = iterateScatterInstances({ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests }, (ctx) => {
 		const { scatterType, instanceIndex, partContexts } = ctx;
 		let modelAabb = null;
 		const startIndex = meshes.length;
@@ -312,7 +324,7 @@ function generateObjectScatter(objectMesh, scatterDefinitions, scatterMultiplier
 	return meshes;
 }
 
-function generateObjectScatterBatches(objectMesh, scatterDefinitions, scatterMultiplier, world, indexSeed, explicitRequests, batchMap, debugBboxAccumulator) {
+function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, batchMap, debugBboxAccumulator) {
 	// Engine diagnostic: report scatter bounds for batching
 	const topY = objectMesh.transform.position.y + (objectMesh.dimensions.y * objectMesh.transform.scale.y) * 0.5;
 	const width = Math.max(1, objectMesh.dimensions.x * objectMesh.transform.scale.x);
@@ -331,16 +343,16 @@ function generateObjectScatterBatches(objectMesh, scatterDefinitions, scatterMul
 
 	let totalParts = 0;
 
-	const stats = iterateScatterInstances({ objectMesh, scatterDefinitions, scatterMultiplier, world, indexSeed, explicitRequests }, (ctx) => {
+	const stats = iterateScatterInstances({ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests }, (ctx) => {
 		const { scatterType, instanceIndex, partContexts } = ctx;
 		let modelAabbMin = null;
 		let modelAabbMax = null;
 
 		partContexts.forEach(({ part, pos, rot, scale }) => {
 			const modelMatrix = CreateModelMatrix({ position: pos, rotation: rot, scale: scale, pivot: objectMesh.transform.pivot });
-			const color = part.texture.color;
-			const opacity = part.texture.opacity;
-			const textureID = part.texture.textureID;
+			const color = part.textureColor;
+			const opacity = part.textureOpacity;
+			const textureID = part.textureID;
 			const complexity = part.complexity;
 
 			const batchKey = `${part.primitive.toLowerCase()}_${part.dimensions.x}_${part.dimensions.y}_${part.dimensions.z}_${textureID}_${complexity}`;
@@ -392,11 +404,11 @@ function generateObjectScatterBatches(objectMesh, scatterDefinitions, scatterMul
 }
 
 function BuildScatter(payload) {
-	return generateObjectScatter(payload.objectMesh, payload.scatterDefinitions, payload.scatterMultiplier, payload.world, payload.indexSeed, payload.explicitScatter, payload.buildObject);
+	return generateObjectScatter(payload.objectMesh, payload.scatterMultiplier, payload.world, payload.indexSeed, payload.explicitScatter, payload.buildObject);
 }
 
 function BuildScatterBatches(payload) {
-	generateObjectScatterBatches(payload.objectMesh, payload.scatterDefinitions, payload.scatterMultiplier, payload.world, payload.indexSeed, payload.explicitScatter, payload.batchMap, payload.debugBboxAccumulator);
+	generateObjectScatterBatches(payload.objectMesh, payload.scatterMultiplier, payload.world, payload.indexSeed, payload.explicitScatter, payload.batchMap, payload.debugBboxAccumulator);
 	return payload.batchMap;
 }
 
