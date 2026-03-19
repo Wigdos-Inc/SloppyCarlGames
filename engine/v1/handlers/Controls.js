@@ -194,7 +194,8 @@ function StartInputRouter(target) {
 
 			const activeLevel = GetActiveLevel();
 			const levelIsLoaded = Boolean(activeLevel);
-			const freeCamEnabled = !!(CONFIG.DEBUG.LEVELS.FreeCam === true);
+			// FreeCam should only be enabled when global debug is on and level FreeCam is true.
+			const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
 			if (levelIsLoaded && freeCamEnabled) {
 				consumed = HandleFreeCamInput(event, activeLevel);
 			} else if (levelIsLoaded && !freeCamEnabled) {

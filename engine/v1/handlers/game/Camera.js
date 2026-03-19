@@ -21,7 +21,8 @@ import { Lerp, ToNumber, Clamp, Unit, UnitVector3 } from "../../math/Utilities.j
 
 const worldUp = { x: 0, y: 1, z: 0 };
 const pitchClampDegrees = 89;
-const freeCamEnabled = !!(CONFIG.DEBUG.LEVELS.FreeCam === true);
+// FreeCam must be explicitly enabled in levels and global debug mode must be on.
+const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true);
 
 const worldDistanceDefaults = {
 	freeCamStartPosition: new UnitVector3(0, 20, 40, "worldunit"),
