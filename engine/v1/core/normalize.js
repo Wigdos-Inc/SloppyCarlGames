@@ -692,10 +692,34 @@ function normalizeEntityModelPart(part, entityId, index) {
 	};
 }
 
-function normalizeEntityModel(model, source, entityId) {
+function normalizeEntityModel(model, source, entityId, blueprint) {
 	const modelSource = normalizeObject(model);
 	const partDefinitions = normalizeArray(modelSource.parts);
-	if (partDefinitions.length === 0) return buildDefaultEntityModel(source, entityId);
+	if (partDefinitions.length === 0) {
+		const blueprintModel = normalizeObject(blueprint && blueprint.model);
+		const blueprintParts = normalizeArray(blueprintModel.parts);
+		if (blueprintParts.length > 0) {
+			const resolvedRootTransform =
+				modelSource.rootTransform ||
+				blueprintModel.rootTransform ||
+				source.rootTransform ||
+				null;
+
+			return {
+				...blueprintModel,
+				...modelSource,
+				spawnSurfaceId:
+					modelSource.spawnSurfaceId ||
+					source.spawnSurfaceId ||
+					blueprintModel.spawnSurfaceId ||
+					null,
+				rootTransform: normalizeEntityRootTransform(resolvedRootTransform, source),
+				parts: blueprintParts.map((part, index) => normalizeEntityModelPart(part, entityId, index)),
+			};
+		}
+
+		return buildDefaultEntityModel(source, entityId);
+	}
 
 	return {
 		...modelSource,
@@ -705,10 +729,98 @@ function normalizeEntityModel(model, source, entityId) {
 	};
 }
 
-function normalizeEntityData(source, entityId) {
+function hasOwn(source, key) {
+	return Object.prototype.hasOwnProperty.call(source, key);
+}
+
+function resolveStringField(source, blueprint, key, fallback, contextPath) {
+	if (hasOwn(source, key)) {
+		if (typeof source[key] === "string" && source[key].length > 0) return source[key];
+		warnLog(`Entity payload ${contextPath} '${key}' malformed; using blueprint/default fallback.`);
+	}
+
+	if (typeof blueprint[key] === "string" && blueprint[key].length > 0) return blueprint[key];
+	return fallback;
+}
+
+function resolveNumberField(source, blueprint, key, fallback, contextPath) {
+	if (hasOwn(source, key)) {
+		const value = ToNumber(source[key], NaN);
+		if (Number.isFinite(value)) return value;
+		warnLog(`Entity payload ${contextPath} '${key}' malformed; using blueprint/default fallback.`);
+	}
+
+	const blueprintValue = ToNumber(blueprint[key], NaN);
+	if (Number.isFinite(blueprintValue)) return blueprintValue;
+	return fallback;
+}
+
+function resolveBooleanField(source, blueprint, key, fallback, contextPath) {
+	if (hasOwn(source, key)) {
+		if (typeof source[key] === "boolean") return source[key];
+		warnLog(`Entity payload ${contextPath} '${key}' malformed; using blueprint/default fallback.`);
+	}
+
+	if (typeof blueprint[key] === "boolean") return blueprint[key];
+	return fallback;
+}
+
+function resolveVector3Field(sourceValue, blueprintValue, fallback, contextPath, fieldName) {
+	if (sourceValue !== undefined) {
+		if (isVector3Like(sourceValue)) return NormalizeVector3(sourceValue, fallback);
+		warnLog(`Entity payload ${contextPath} '${fieldName}' malformed; using blueprint/default fallback.`);
+	}
+
+	if (isVector3Like(blueprintValue)) return NormalizeVector3(blueprintValue, fallback);
+	return NormalizeVector3(undefined, fallback);
+}
+
+function resolveArrayField(source, blueprint, key, contextPath) {
+	if (hasOwn(source, key)) {
+		if (Array.isArray(source[key])) return source[key];
+		warnLog(`Entity payload ${contextPath} '${key}' malformed; using blueprint/default fallback.`);
+	}
+
+	if (Array.isArray(blueprint[key])) return blueprint[key];
+	return [];
+}
+
+function resolveObjectField(source, blueprint, key, contextPath) {
+	if (hasOwn(source, key)) {
+		if (source[key] && typeof source[key] === "object" && !Array.isArray(source[key])) return source[key];
+		warnLog(`Entity payload ${contextPath} '${key}' malformed; using blueprint/default fallback.`);
+	}
+
+	const blueprintValue = blueprint[key];
+	if (blueprintValue && typeof blueprintValue === "object" && !Array.isArray(blueprintValue)) return blueprintValue;
+	return {};
+}
+
+function normalizeEntityData(source, entityId, blueprint) {
+	const blueprintSource = normalizeObject(blueprint);
 	const movementSource = normalizeObject(source.movement);
-	const movementStart = NormalizeVector3(movementSource.start, { x: 0, y: 0, z: 0 });
-	const movementEnd = NormalizeVector3(movementSource.end, movementStart);
+	const blueprintMovement = normalizeObject(blueprintSource.movement);
+	const movementStart = resolveVector3Field(
+		movementSource.start,
+		blueprintMovement.start,
+		{ x: 0, y: 0, z: 0 },
+		entityId,
+		"movement.start"
+	);
+	const movementEnd = resolveVector3Field(
+		movementSource.end,
+		blueprintMovement.end,
+		movementStart,
+		entityId,
+		"movement.end"
+	);
+	const velocityVector = resolveVector3Field(
+		source.velocity,
+		blueprintSource.velocity,
+		{ x: 0, y: 0, z: 0 },
+		entityId,
+		"velocity"
+	);
 
 	// Ensure top-level entity rootTransform (level overrides) are canonical UnitVector3 instances.
 	// Builders assume `rootTransform.position`/`rotation` are UnitVector3 and call `.clone()`/.set()
@@ -730,40 +842,50 @@ function normalizeEntityData(source, entityId) {
 	return {
 		...source,
 		id: entityId,
-		type: normalizeString(source.type, "entity"),
+		type: resolveStringField(source, blueprintSource, "type", "entity", entityId),
 		movement: {
 			...movementSource,
 			start: new UnitVector3(movementStart.x, movementStart.y, movementStart.z, "cnu"),
 			end: new UnitVector3(movementEnd.x, movementEnd.y, movementEnd.z, "cnu"),
-			repeat: movementSource.repeat !== false,
-			backAndForth: movementSource.backAndForth !== false,
-			speed: new Unit(Math.max(0, ToNumber(movementSource.speed, 0)), "cnu"),
-			jump: new Unit(Math.max(0, ToNumber(movementSource.jump, 0)), "cnu"),
-			jumpInterval: Math.max(0, ToNumber(movementSource.jumpInterval, 0)),
-			jumpOnSight: movementSource.jumpOnSight === true,
-			disappear: movementSource.disappear === true,
-			chase: movementSource.chase === true,
-			physics: movementSource.physics === true,
+			repeat: resolveBooleanField(movementSource, blueprintMovement, "repeat", true, `${entityId}.movement`),
+			backAndForth: resolveBooleanField(movementSource, blueprintMovement, "backAndForth", true, `${entityId}.movement`),
+			speed: new Unit(
+				Math.max(0, resolveNumberField(movementSource, blueprintMovement, "speed", 0, `${entityId}.movement`)),
+				"cnu"
+			),
+			jump: new Unit(
+				Math.max(0, resolveNumberField(movementSource, blueprintMovement, "jump", 0, `${entityId}.movement`)),
+				"cnu"
+			),
+			jumpInterval: Math.max(0, resolveNumberField(movementSource, blueprintMovement, "jumpInterval", 0, `${entityId}.movement`)),
+			jumpOnSight: resolveBooleanField(movementSource, blueprintMovement, "jumpOnSight", false, `${entityId}.movement`),
+			disappear: resolveBooleanField(movementSource, blueprintMovement, "disappear", false, `${entityId}.movement`),
+			chase: resolveBooleanField(movementSource, blueprintMovement, "chase", false, `${entityId}.movement`),
+			physics: resolveBooleanField(movementSource, blueprintMovement, "physics", false, `${entityId}.movement`),
 		},
-		hp: Math.max(0, ToNumber(source.hp, 1)),
-		attacks: normalizeArray(source.attacks),
-		hardcoded: normalizeObject(source.hardcoded),
-		platform: source.platform || null,
-		animations: normalizeObject(source.animations),
+		hp: Math.max(0, resolveNumberField(source, blueprintSource, "hp", 1, entityId)),
+		attacks: resolveArrayField(source, blueprintSource, "attacks", entityId),
+		hardcoded: normalizeObject(resolveObjectField(source, blueprintSource, "hardcoded", entityId)),
+		platform: hasOwn(source, "platform")
+			? source.platform
+			: (hasOwn(blueprintSource, "platform") ? blueprintSource.platform : null),
+		animations: normalizeObject(resolveObjectField(source, blueprintSource, "animations", entityId)),
 		velocity: new UnitVector3(
-			ToNumber(source.velocity && source.velocity.x, 0),
-			ToNumber(source.velocity && source.velocity.y, 0),
-			ToNumber(source.velocity && source.velocity.z, 0),
+			velocityVector.x,
+			velocityVector.y,
+			velocityVector.z,
 			"cnu"
 		),
-		model: normalizeEntityModel(source.model, source, entityId),
+		model: normalizeEntityModel(source.model, source, entityId, blueprint),
 	};
 }
 
-function normalizeEntity(definition, index) {
+function normalizeEntity(definition, index, blueprintMap) {
 	const source = normalizeObject(definition);
 	const entityId = normalizeString(source.id, `entity-${index}`);
-	return normalizeEntityData(source, entityId);
+	const blueprintId = normalizeString(source.blueprintId, "");
+	const blueprint = blueprintId.length > 0 ? normalizeObject(blueprintMap[blueprintId]) : null;
+	return normalizeEntityData(source, entityId, blueprint);
 }
 
 function normalizeBlueprintEntry(definition, index, prefix) {
@@ -781,6 +903,24 @@ function normalizeBlueprintList(list, prefix) {
 	return normalized;
 }
 
+function buildBlueprintMap(blueprintSet) {
+	const map = {};
+	const register = (list) => {
+		for (let index = 0; index < list.length; index += 1) {
+			const entry = list[index];
+			if (entry && typeof entry.id === "string" && entry.id.length > 0) map[entry.id] = entry;
+		}
+	};
+
+	register(normalizeArray(blueprintSet.enemies));
+	register(normalizeArray(blueprintSet.npcs));
+	register(normalizeArray(blueprintSet.collectibles));
+	register(normalizeArray(blueprintSet.projectiles));
+	register(normalizeArray(blueprintSet.entities));
+
+	return map;
+}
+
 function LevelPayload(payload) {
 	const source = normalizeObject(payload);
 	const terrain = normalizeObject(source.terrain);
@@ -790,6 +930,15 @@ function LevelPayload(payload) {
 	const terrainTriggers = normalizeArray(terrain.triggers);
 	const obstacles = normalizeArray(source.obstacles);
 	const entities = normalizeArray(source.entities);
+	const normalizedBlueprints = {
+		...blueprintSource,
+		enemies: normalizeBlueprintList(blueprintSource.enemies, "enemy-blueprint"),
+		npcs: normalizeBlueprintList(blueprintSource.npcs, "npc-blueprint"),
+		collectibles: normalizeBlueprintList(blueprintSource.collectibles, "collectible-blueprint"),
+		projectiles: normalizeBlueprintList(blueprintSource.projectiles, "projectile-blueprint"),
+		entities: normalizeBlueprintList(blueprintSource.entities, "entity-blueprint"),
+	};
+	const blueprintMap = buildBlueprintMap(normalizedBlueprints);
 
 	return {
 		...source,
@@ -799,15 +948,8 @@ function LevelPayload(payload) {
 			triggers: terrainTriggers.map((entry, index) => normalizeTrigger(entry, index)),
 		},
 		obstacles: obstacles.map((entry, index) => normalizeObstacle(entry, index)),
-		entities: entities.map((entry, index) => normalizeEntity(entry, index)),
-		entityBlueprints: {
-			...blueprintSource,
-			enemies: normalizeBlueprintList(blueprintSource.enemies, "enemy-blueprint"),
-			npcs: normalizeBlueprintList(blueprintSource.npcs, "npc-blueprint"),
-			collectibles: normalizeBlueprintList(blueprintSource.collectibles, "collectible-blueprint"),
-			projectiles: normalizeBlueprintList(blueprintSource.projectiles, "projectile-blueprint"),
-			entities: normalizeBlueprintList(blueprintSource.entities, "entity-blueprint"),
-		},
+		entities: entities.map((entry, index) => normalizeEntity(entry, index, blueprintMap)),
+		entityBlueprints: normalizedBlueprints,
 		meta: {
 			...metaSource,
 			levelId: normalizeString(metaSource.levelId, normalizeString(source.id, "unknown")),

@@ -228,7 +228,7 @@
             "slopeMax": 0.4,
             "parts": [
                 {
-                    "level": 1,
+                    "level": 0,
                     "primitive": "cylinder",
                     "dimensions": { "x": 0.1, "y": 0.9, "z": 0.1 },
                     "localPosition": { "x": 0, "y": 0, "z": 0 },
