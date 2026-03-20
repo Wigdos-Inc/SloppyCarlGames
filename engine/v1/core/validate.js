@@ -318,6 +318,137 @@ function ValidateMenuUIPayload(payload) {
     return payload;
 }
 
+function ValidateSplashPayload(payload) {
+	if (payload === null || payload === undefined) return null;
+
+	const normalizeSplashPresetId = (presetId) => {
+		return presetId
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "")
+			.trim();
+	};
+
+	const isAllowedSplashPresetId = (presetId) => {
+		const normalizedPresetId = normalizeSplashPresetId(presetId);
+		return (
+			normalizedPresetId === "default" ||
+			normalizedPresetId === "all" ||
+			normalizedPresetId === "sloppycarlgames" ||
+			normalizedPresetId === "sloppycarl" ||
+			normalizedPresetId === "wigdosstudios" ||
+			normalizedPresetId === "wigdos" ||
+			normalizedPresetId === "carlnetengine" ||
+			normalizedPresetId === "carlnet"
+		);
+	};
+
+	const errors = [];
+	const validateRawSplashStep = (step, index, path) => {
+		if (!isObject(step)) {
+			errors.push(`'${path}[${index}]' must be an object`);
+			return;
+		}
+
+		if (typeof step.image !== "string" || step.image.length === 0) {
+			errors.push(`'${path}[${index}].image' must be a non-empty string`);
+		}
+
+		if (Object.prototype.hasOwnProperty.call(step, "sfx")) {
+			if (!isObject(step.sfx) || typeof step.sfx.src !== "string" || step.sfx.src.length === 0) {
+				errors.push(`'${path}[${index}].sfx.src' must be a non-empty string when sfx is provided`);
+			}
+		}
+
+		if (Object.prototype.hasOwnProperty.call(step, "voice")) {
+			if (!isObject(step.voice) || typeof step.voice.src !== "string" || step.voice.src.length === 0) {
+				errors.push(`'${path}[${index}].voice.src' must be a non-empty string when voice is provided`);
+			}
+		}
+	};
+
+	if (typeof payload === "string") {
+		if (payload.length === 0) {
+			errors.push("'payload' string must be non-empty");
+		}
+		if (payload.length > 0 && !isAllowedSplashPresetId(payload)) {
+			errors.push("'payload' preset id is not supported by the engine splash handler");
+		}
+	}
+
+	if (Array.isArray(payload)) {
+		if (payload.length === 0) {
+			errors.push("'payload' sequence must not be empty");
+		} else {
+			for (let index = 0; index < payload.length; index += 1) {
+				validateRawSplashStep(payload[index], index, "payload");
+			}
+		}
+	}
+
+	if (isObject(payload)) {
+		const rawPresetId = payload.presetId || payload.splashId || payload.id;
+		const hasPreset = typeof rawPresetId === "string" && rawPresetId.length > 0;
+		const rawSequence = Array.isArray(payload.sequence)
+			? payload.sequence
+			: Array.isArray(payload.steps)
+				? payload.steps
+				: null;
+		const hasSequence = Array.isArray(rawSequence);
+
+		if (!hasPreset && !hasSequence) {
+			errors.push("'payload' must include a non-empty presetId/splashId/id or a sequence/steps array");
+		}
+
+		if (hasPreset && !isAllowedSplashPresetId(rawPresetId)) {
+			errors.push("'payload.presetId' is not supported by the engine splash handler");
+		}
+
+		if (hasSequence) {
+			if (rawSequence.length === 0) {
+				errors.push("'payload.sequence' must not be empty when provided");
+			} else {
+				for (let index = 0; index < rawSequence.length; index += 1) {
+					validateRawSplashStep(rawSequence[index], index, "payload.sequence");
+				}
+			}
+		}
+	}
+
+	if (!isObject(payload) && !Array.isArray(payload) && typeof payload !== "string") {
+		errors.push("'payload' must be a string preset id, sequence array, or splash payload object");
+	}
+
+	if (errors.length > 0) {
+		Log("ENGINE", `Splash payload rejected:\n\n${errors.join("\n")}.`, "error", "Validation");
+		return null;
+	}
+
+	const normalized = Normalize.SplashPayload(payload);
+	if (normalized === null) {
+		Log("ENGINE", "Splash payload normalization failed.", "error", "Validation");
+		return null;
+	}
+
+	if (!isObject(normalized) || !Array.isArray(normalized.sequence)) {
+		Log("ENGINE", "Splash payload normalization failed to produce required shape.", "error", "Validation");
+		return null;
+	}
+
+	if (normalized.presetId !== null && (typeof normalized.presetId !== "string" || normalized.presetId.length === 0)) {
+		Log("ENGINE", "Splash payload normalization produced invalid presetId.", "error", "Validation");
+		return null;
+	}
+
+	for (let index = 0; index < normalized.sequence.length; index += 1) {
+		const step = normalized.sequence[index];
+		if (!isObject(step) || typeof step.image !== "string" || step.image.length === 0) {
+			Log("ENGINE", `Splash payload normalization produced invalid step at sequence[${index}].`, "error", "Validation");
+			return null;
+		}
+	}
+
+	return normalized;
+}
 
 function ValidateLevelPayload(payload) {
 	const errors = [];
@@ -421,4 +552,4 @@ function ValidateLevelPayload(payload) {
 
 
 
-export { ValidateMenuUIPayload, ValidateLevelPayload };
+export { ValidateMenuUIPayload, ValidateSplashPayload, ValidateLevelPayload };

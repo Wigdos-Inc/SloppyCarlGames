@@ -163,7 +163,7 @@ function iterateScatterInstances(params, handler) {
 	if (scatterMultiplier <= 0) return { totalParts: 0, typeCounts: 0, modelCounts: 0 };
 
 	// Choose explicit requests if provided, otherwise use the canonicalized scatter list
-	const scatterRequests = (explicitRequests && explicitRequests.length > 0) ? explicitRequests : objectMesh.detail.scatter;
+	const scatterRequests = explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter;
 	
     // If there are no requests, nothing to do
 	if (scatterRequests.length === 0) return { totalParts: 0, typeCounts: 0, modelCounts: 0 };
@@ -290,7 +290,7 @@ function iterateScatterInstances(params, handler) {
 function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, buildObject) {
 	if (scatterMultiplier <= 0) return [];
 
-	const scatterRequests = (explicitRequests.length > 0) ? explicitRequests : objectMesh.detail.scatter;
+	const scatterRequests = explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter;
 	if (scatterRequests.length === 0) return [];
 
 	// Engine diagnostic: report scatter bounds for this source object
@@ -338,7 +338,6 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 		if (modelAabb) {
 			for (let i = startIndex; i < meshes.length; i += 1) {
 				const mesh = meshes[i];
-				mesh.meta = mesh.meta || {};
 				mesh.meta.scatterModelAabb = { min: { ...modelAabb.min }, max: { ...modelAabb.max } };
 			}
 		}

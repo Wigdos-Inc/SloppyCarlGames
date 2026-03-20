@@ -31,6 +31,112 @@ function MenuUIPayload(payload) {
 	};
 }
 
+function SplashPayload(payload) {
+	if (payload === null || payload === undefined) return null;
+
+	if (typeof payload === "string") {
+		const presetId = normalizeSplashPresetId(payload);
+		if (presetId.length === 0) return null;
+		return { presetId, sequence: [] };
+	}
+
+	if (Array.isArray(payload)) {
+		const sequence = normalizeSplashSequence(payload);
+		if (sequence.length === 0) {
+			warnLog("Splash payload provided an empty sequence and was ignored.");
+			return null;
+		}
+		return { presetId: null, sequence };
+	}
+
+	const source = normalizeObject(payload);
+	const presetId = normalizeSplashPresetId(source.presetId || source.splashId || source.id);
+	const inputSequence = Array.isArray(source.sequence)
+		? source.sequence
+		: Array.isArray(source.steps)
+			? source.steps
+			: [];
+	const sequence = normalizeSplashSequence(inputSequence);
+
+	if (presetId.length === 0 && sequence.length === 0) {
+		warnLog("Splash payload ignored: expected presetId/splashId or a non-empty sequence.");
+		return null;
+	}
+
+	return {
+		presetId: presetId.length > 0 ? presetId : null,
+		sequence,
+	};
+}
+
+function normalizeSplashPresetId(presetId) {
+	const normalized = normalizeString(presetId, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "")
+		.trim();
+
+	if (normalized === "default" || normalized === "all") return "default";
+	if (normalized === "sloppycarlgames" || normalized === "sloppycarl") return "sloppycarl";
+	if (normalized === "wigdosstudios" || normalized === "wigdos") return "wigdos";
+	if (normalized === "carlnetengine" || normalized === "carlnet") return "carlnet";
+
+	return "";
+}
+
+function normalizeSplashSequence(sequence) {
+	const source = normalizeArray(sequence);
+	const normalized = [];
+
+	for (let index = 0; index < source.length; index += 1) {
+		const step = normalizeSplashStep(source[index], `splash.sequence[${index}]`);
+		if (step) normalized.push(step);
+	}
+
+	return normalized;
+}
+
+function normalizeSplashStep(step, path) {
+	const source = normalizeObject(step);
+	if (Object.keys(source).length === 0) {
+		warnLog(`Splash payload dropped malformed step at '${path}'.`);
+		return null;
+	}
+
+	const name = normalizeString(source.name, "");
+	const image = normalizeString(source.image, "");
+	if (image.length === 0) {
+		warnLog(`Splash payload dropped step at '${path}' because image is required.`);
+		return null;
+	}
+
+	const sfx = normalizeSplashAudio(source.sfx);
+	const voice = normalizeSplashAudio(source.voice);
+
+	return {
+		name: name.length > 0 ? name : null,
+		image,
+		sfx,
+		voice,
+		voiceAtStart: source.voiceAtStart === true,
+		fadeInSeconds: ToNumber(source.fadeInSeconds, 0.3),
+		holdMs: Math.max(0, Math.floor(ToNumber(source.holdMs, 1000))),
+		fadeOutSeconds: ToNumber(source.fadeOutSeconds, 1),
+	};
+}
+
+function normalizeSplashAudio(audio) {
+	const source = normalizeObject(audio);
+	if (Object.keys(source).length === 0) return null;
+
+	const src = normalizeString(source.src, "");
+	if (src.length === 0) return null;
+
+	return {
+		src,
+		options: normalizeObject(source.options),
+	};
+}
+
 function normalizeMusic(music) {
 	const source = normalizeObject(music);
 	if (Object.keys(source).length === 0) return null;
@@ -68,6 +174,31 @@ function normalizeElement(element, path) {
 
 	const eventMap = normalizeActionMap(source.events, `${path}.events`);
 	const onMap = normalizeActionMap(source.on, `${path}.on`);
+
+	// Canonicalize direct shorthand event props (e.g. onClick) into the normalized events map
+	const directEventKeyMap = {
+		onClick: "click",
+		onInput: "input",
+		onChange: "change",
+		onPointerover: "pointerover",
+		onPointerout: "pointerout",
+		onPointerdown: "pointerdown",
+		onPointerup: "pointerup",
+		onKeydown: "keydown",
+		onKeyup: "keyup",
+		onWheel: "wheel",
+		onMousemove: "mousemove",
+	};
+
+	Object.keys(directEventKeyMap).forEach((directKey) => {
+		if (!Object.prototype.hasOwnProperty.call(source, directKey)) return;
+		const eventName = directEventKeyMap[directKey];
+		const normalizedAction = normalizeAction(source[directKey], `${path}.${directKey}`);
+		if (normalizedAction !== null) {
+			// Prefer existing explicit `events` entry; otherwise set from shorthand.
+			if (!eventMap[eventName]) eventMap[eventName] = normalizedAction;
+		}
+	});
 
 	return {
 		...source,
@@ -1042,5 +1173,6 @@ function playerConfig(player) {
 
 export default { 
 	MenuUIPayload, 
+	SplashPayload,
 	LevelPayload,
 };

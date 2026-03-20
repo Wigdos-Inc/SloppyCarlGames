@@ -133,8 +133,7 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 		}
 
 		// Face-based projection: choose UV plane from known face normal.
-		const normal = group.normal || { x: 0, y: 0, z: 1 };
-		const [uAxis, vAxis] = getProjectedAxesFromNormal(normal);
+		const [uAxis, vAxis] = getProjectedAxesFromNormal(group.normal);
 
 		let minU = Infinity;
 		let maxU = -Infinity;
@@ -172,7 +171,7 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 }
 
 function GenerateUVs(positions, geometry) {
-	const faceGroups = geometry && Array.isArray(geometry.faceGroups) ? geometry.faceGroups : null;
+	const faceGroups = Array.isArray(geometry.faceGroups) ? geometry.faceGroups : null;
 	if (faceGroups && faceGroups.length > 0) {
 		return generateFaceProjectedUvs(positions, faceGroups);
 	}
@@ -860,16 +859,12 @@ function buildGrid(size, complexity, options) {
 }
 
 function buildRamp(size, options) {
-	const sx = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
-	const sy = Math.max(0.0001, ToNumber(size.y, 1));
-	const sz = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
+	const sx = size.x / 2;
+	const sy = size.y;
+	const sz = size.z / 2;
 
 	const baseY = -sy / 2;
-	const angle = options.angle;
-	const angleRadians = angle && typeof angle.toRadians === "function"
-		? angle.toRadians()
-		: ToNumber(angle, 0);
-	const desiredRise = Math.tan(ToNumber(angleRadians, 0)) * (sz * 2);
+	const desiredRise = Math.tan(options.angle) * (sz * 2);
 	const rise = Math.max(0.0001, Math.min(sy, Math.abs(desiredRise) > 0 ? desiredRise : sy));
 	const backY = baseY + rise;
 
@@ -910,47 +905,19 @@ function buildRamp(size, options) {
 }
 
 function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
-	if (shape === "cylinder") {
-		return buildCylinder(size, complexity);
+	switch (shape) {
+		case "cylinder": return buildCylinder(size, complexity);
+		case "sphere"  : return buildSphere(size, complexity);
+		case "capsule" : return buildCapsule(size, complexity);
+		case "cone"    : return buildCone(size, complexity);
+		case "grid"    : return buildGrid(size, complexity, primitiveOptions);
+		case "ramp"    : return buildRamp(size, primitiveOptions);
+		case "tube"    : return buildTube(size, complexity, primitiveOptions);
+		case "torus"   : return buildTorus(size, complexity, primitiveOptions);
+		case "pyramid" : return buildPyramid(size);
+		case "plane"   : return buildPlane(size);
+		default        : return buildCube(size);
 	}
-
-	if (shape === "sphere") {
-		return buildSphere(size, complexity);
-	}
-
-	if (shape === "capsule") {
-		return buildCapsule(size, complexity);
-	}
-
-	if (shape === "cone") {
-		return buildCone(size, complexity);
-	}
-
-	if (shape === "grid") {
-		return buildGrid(size, complexity, primitiveOptions);
-	}
-
-	if (shape === "ramp") {
-		return buildRamp(size, primitiveOptions);
-	}
-
-	if (shape === "tube") {
-		return buildTube(size, complexity, primitiveOptions);
-	}
-
-	if (shape === "torus") {
-		return buildTorus(size, complexity, primitiveOptions);
-	}
-
-	if (shape === "pyramid") {
-		return buildPyramid(size);
-	}
-
-	if (shape === "plane") {
-		return buildPlane(size);
-	}
-
-	return buildCube(size);
 }
 
 function BuildObject(source, options) {

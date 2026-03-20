@@ -38,10 +38,8 @@ function ensureRoot(rootId, rootStyles) {
 		document.body.appendChild(root);
 	}
 
-	// Apply root styles when provided.
-	if (rootStyles && typeof rootStyles === "object") {
-		Object.assign(root.style, rootStyles);
-	}
+	// Apply root styles when provided (rootStyles normalized by upstream validation).
+	Object.assign(root.style, rootStyles);
 
 	return root;
 }

@@ -32,7 +32,7 @@ function indexElements(definitions, index) {
 	// Walk element tree to map ids for input routing.
 	definitions.forEach((definition) => {
 		if (definition.id) index[definition.id] = definition;
-		if (definition.children) indexElements(definition.children, index);
+		indexElements(definition.children, index);
 	});
 }
 
@@ -226,9 +226,6 @@ function ApplyMenuUI(payload) {
 
 	CreateUI(payload);
 	Cursor.changeState("enabled");
-
-	// Notify listeners that the UI is ready.
-	SendEvent("ENGINE_UI_RENDERED", { screenId: payload.screenId });
 
 	// Start UI music after render.
 	const music = payload.music;

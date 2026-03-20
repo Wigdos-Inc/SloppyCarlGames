@@ -72,7 +72,7 @@ function buildPart(source, entityId, index) {
 
 	const mesh = BuildObject(
 		{
-			id: source.id || `${entityId}-part-${index}`,
+			id: source.id,
 			shape: source.shape,
 			complexity: source.complexity,
 			dimensions: dimensions,
@@ -84,17 +84,17 @@ function buildPart(source, entityId, index) {
 			texture: source.texture,
 			detail: source.detail,
 			role: "entity-part",
-			parentId: source.parentId || null,
+			parentId: source.parentId,
 		},
 		{ role: "entity-part" }
 	);
 
 	return {
 		id: mesh.id,
-		label: source.label || null,
-		parentId: source.parentId || null,
-		anchorPoint: source.anchorPoint || "center",
-		attachmentPoint: source.attachmentPoint || null,
+		label: source.label,
+		parentId: source.parentId,
+		anchorPoint: source.anchorPoint,
+		attachmentPoint: source.attachmentPoint,
 		children: [],
 		dimensions: dimensions,
 		localTransform: cloneTransform(localTransform),

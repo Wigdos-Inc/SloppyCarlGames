@@ -75,7 +75,6 @@ function buildObstacleParts(source, index, options) {
 
 	return source.parts.map((part, partIndex) => {
 		const inheritedTexture = source.texture || null;
-		const inheritedScatter = source.detail && Array.isArray(source.detail.scatter) ? source.detail.scatter : [];
 		const partScatterContext = options.scatterContext
 			? {
 				...options.scatterContext,
@@ -83,7 +82,7 @@ function buildObstacleParts(source, index, options) {
 			}
 			: null;
 
-		const scatterList = Array.isArray(part.detail && part.detail.scatter) ? part.detail.scatter : (partIndex === 0 ? inheritedScatter : []);
+		const scatterList = part.detail.scatter.length > 0 ? part.detail.scatter : (partIndex === 0 ?  source.detail.scatter: []);
 
 		const combinedScale = MultiplyVector3(rootScale, part.localScale);
 

@@ -129,7 +129,7 @@ function remapFacesAfterRotation(rotation) {
  * The logical faceType is remapped through the faceMap before computing the offset.
  */
 function getRemappedFaceOffset(dimensions, faceType, faceMap) {
-	const resolvedFace = faceMap && faceMap[faceType] ? faceMap[faceType] : faceType;
+	const resolvedFace = faceMap[faceType] ? faceMap[faceType] : faceType;
 	return getFaceCenterOffset(dimensions, resolvedFace);
 }
 
@@ -227,9 +227,9 @@ function mergeEntityBlueprint(baseBlueprint, levelOverrides) {
 		model: {
 			...base.model,
 			...overrides.model,
-			parts: Array.isArray(overrides.model && overrides.model.parts)
+			parts: Array.isArray(overrides.model.parts)
 				? overrides.model.parts
-				: Array.isArray(base.model && base.model.parts)
+				: Array.isArray(base.model.parts)
 					? base.model.parts
 					: [],
 		},
@@ -243,7 +243,7 @@ function buildPart(partDefinition, entityId, index) {
 
 	const mesh = BuildObject(
 		{
-			id: source.id || `${entityId}-part-${index}`,
+			id: source.id,
 			shape: source.shape,
 			complexity: source.complexity,
 			dimensions: source.dimensions,
@@ -255,12 +255,12 @@ function buildPart(partDefinition, entityId, index) {
 			texture: source.texture,
 			detail: source.detail,
 			role: "entity-part",
-			parentId: source.parentId || null,
+			parentId: source.parentId,
 		},
 		{ role: "entity-part" }
 	);
 
-	const resolvedParentId = source.parentId || null;
+	const resolvedParentId = source.parentId;
 	const anchorPoint = normalizeFace(source.anchorPoint, resolvedParentId === "root" ? "bottom" : "center");
 	const attachmentPoint = normalizeFace(source.attachmentPoint, "top");
 
@@ -321,7 +321,7 @@ function buildModel(entityDefinition, surfaceMap) {
 	const rootPartIds = parts.filter((p) => p.parentId === "root").map((p) => p.id);
 
 	// Resolve spawn surface.
-	const spawnSurfaceId = sourceModel.spawnSurfaceId || entityDefinition.spawnSurfaceId;
+	const spawnSurfaceId = sourceModel.spawnSurfaceId;
 	const surface = surfaceMap[spawnSurfaceId];
 	const surfaceOrigin = getSurfaceOrigin(surface);
 

@@ -2,7 +2,7 @@
 // Purpose: initialize ENGINE via core/ini.js, show the user-start overlay, then run splash
 // and signal the game to load its startup UI. This file owns startup timing only.
 // Limits: no gameplay logic, no UI element construction details, no asset loading beyond splash.
-// Pipeline: Initialize() -> CreateUI() overlay -> Controls input -> RunSplashSequence().
+// Pipeline: Initialize() -> CreateUI() overlay -> Controls input -> Startup sequence.
 
 
 /* === IMPORTS === */
@@ -10,29 +10,56 @@
 
 import { Initialize } from "./core/ini.js";
 import { Cursor, Log, SendEvent, Wait } from "./core/meta.js";
+import { CONFIG } from "./core/config.js";
 import { FadeElement, RemoveRoot, SetElementStyle, SetElementText } from "./handlers/Render.js";
 import { CreateUI } from "./handlers/UI.js";
+import { Controls } from "./handlers/Controls.js";
 import { PlayIntroCinematic } from "./handlers/Cutscene.js";
-import { RunSplashSequence } from "./handlers/menu/Splash.js";
+import { ApplySplashScreenSequence } from "./handlers/menu/Splash.js";
 
 /* === GLOBALS === */
 // Single global entry point for the game.
 
-const root = typeof globalThis !== "undefined" ? globalThis : window;
-const ENGINE = root.ENGINE || {};
-root.ENGINE = ENGINE;
+let ENGINE = null;
 
 /* === STARTUP === */
 // Runs the boot sequence and exposes the public API.
 
 let introHandled = false;
-let introResolve = null;
 let introCalledResolve = null;
 let introDoneResolve = null;
 
+const startupOverlayID = "engine-startup-overlay";
+const startupTextID = "engine-startup-text";
+const splashRequestTimeout = 1000;
+const introRequestTimeout = 1000;
+
+function setupIntroRuntime(overlayId) {
+  const introCalledPromise = new Promise((resolve) => introCalledResolve = resolve);
+  const introDonePromise = new Promise((resolve) => introDoneResolve = resolve);
+
+  introHandled = false;
+  ENGINE.Startup.PlayIntroCinematic = async (payload) => {
+    if (introHandled) return false;
+
+    introHandled = true;
+    introCalledResolve(true);
+    const played = await PlayIntroCinematic(payload, {
+      rootId: overlayId,
+      videoId: "engine-intro-video",
+    });
+    introDoneResolve(true);
+    return played;
+  };
+
+  return {
+    introCalledPromise,
+    introDonePromise,
+  };
+}
+
 function waitForUserStart() {
-  const startupTextId = "engine-startup-text";
-  const controls = ENGINE.Controls ? new ENGINE.Controls() : null;
+  const controls = new Controls();
   let started = false;
 
   const startupOverlayStyles = {
@@ -62,19 +89,28 @@ function waitForUserStart() {
   };
 
   CreateUI({
-    rootId: "engine-startup-overlay",
+    screenId: "EngineStartup",
+    rootId: startupOverlayID,
     rootStyles: startupOverlayStyles,
     elements: [
       {
         type: "img",
         id: "engine-splash-image",
+        attributes: {},
         styles: startupImageStyles,
+        events: {},
+        on: {},
+        children: [],
       },
       {
         type: "div",
-        id: startupTextId,
+        id: startupTextID,
         text: "Click or press any key to start game",
+        attributes: {},
         styles: startupTextStyles,
+        events: {},
+        on: {},
+        children: [],
       },
     ],
   });
@@ -84,104 +120,34 @@ function waitForUserStart() {
       return;
     }
     started = true;
-    if (controls) {
-      controls.clear();
-    } else {
-      window.removeEventListener("keydown", onStart);
-      window.removeEventListener("pointerdown", onStart);
-    }
-    SetElementText(startupTextId, "");
-    SetElementStyle(startupTextId, { display: "none" });
+    controls.clear();
+    SetElementText(startupTextID, "");
+    SetElementStyle(startupTextID, { display: "none" });
     void runStartupSequence();
   };
 
-  if (controls) {
-    controls.on("keydown", onStart);
-    controls.on("pointerdown", onStart);
-  } else {
-    window.addEventListener("keydown", onStart, { once: true });
-    window.addEventListener("pointerdown", onStart, { once: true });
-  }
-};
-
-function waitForUiRender(screenId, timeoutMs) {
-  return new Promise((resolve) => {
-    const timeout = Math.max(0, timeoutMs || 0);
-    const onUiRendered = (event) => {
-      if (!screenId || event.detail.screenId === screenId) {
-        cleanup();
-      }
-    };
-    const cleanup = () => {
-      window.removeEventListener("ENGINE_UI_RENDERED", onUiRendered);
-      if (timerId) {
-        clearTimeout(timerId);
-      }
-      resolve();
-    };
-    const timerId = timeout > 0 ? setTimeout(cleanup, timeout) : null;
-
-    window.addEventListener("ENGINE_UI_RENDERED", onUiRendered);
-  });
+  controls.on("keydown", onStart);
+  controls.on("pointerdown", onStart);
 }
 
 async function runStartupSequence() {
   Cursor.changeState("hidden");
-  const context = await RunSplashSequence() ?? null;
+  const context = await ApplySplashScreenSequence({ timeoutMs: splashRequestTimeout });
   const overlayId = context.overlayId;
 
-  const introPromise = new Promise((resolve) => {
-    introResolve = resolve;
-  });
-  const introCalledPromise = new Promise((resolve) => {
-    introCalledResolve = resolve;
-  });
-  const introDonePromise = new Promise((resolve) => {
-    introDoneResolve = resolve;
-  });
-  introHandled = false;
+  if (CONFIG.DEBUG.SKIP.Intro !== true) {
+    const { introCalledPromise, introDonePromise } = setupIntroRuntime(overlayId);
 
-  if (!ENGINE.Startup) {
-    ENGINE.Startup = {};
-  }
+    SendEvent("CUTSCENE_REQUEST", { cutsceneId: "Opening" });
+    const introCalled = await Promise.race([
+      introCalledPromise,
+      Wait(introRequestTimeout).then(() => false),
+    ]);
 
-  ENGINE.Startup.PlayIntroCinematic = async (payload) => {
-    if (introHandled) {
-      return false;
-    }
-    introHandled = true;
-    if (introCalledResolve) {
-      introCalledResolve(true);
-    }
-    const played = await PlayIntroCinematic(payload, {
-      rootId: overlayId,
-      videoId: "engine-intro-video",
-    });
-    if (introResolve) {
-      introResolve(played);
-    }
-    if (introDoneResolve) {
-      introDoneResolve(true);
-    }
-    return played;
-  };
-
-  SendEvent("CUTSCENE_REQUEST", { cutsceneId: "Opening" });
-  const introCalled = await Promise.race([
-    introCalledPromise,
-    Wait(250).then(() => false),
-  ]);
-  if (!introHandled && introResolve) {
-    introHandled = true;
-    introResolve(false);
-  }
-
-  if (introCalled) {
-    await introDonePromise;
+    if (introCalled) await introDonePromise;
   }
 
   SendEvent("UI_REQUEST", { screenId: "TitleScreen" });
-  await waitForUiRender("TitleScreen", 2000);
   await FadeElement(overlayId, 0, 1);
   RemoveRoot(overlayId);
   Cursor.changeState("enabled");
@@ -210,7 +176,7 @@ function browserContextCheck() {
   // Check for Up-to-Date Browser Context
   if (!browserContextCheck()) return;
 
-  Object.assign(ENGINE, Initialize());
+  ENGINE = Initialize();
   Log("ENGINE", "Bootup complete.", "log", "Startup");
   waitForUserStart();
 })();
