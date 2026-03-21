@@ -21,6 +21,7 @@ import { ApplyPhysicsPipeline, ApplyEntityPhysics } from "./Physics.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
 import { GetSimDistanceValue } from "../../physics/Collision.js";
+import { InitializeTextureAnimation, UpdateTextureAnimation } from "./Texture.js";
 
 const levelRuntimeState = {
 	payload: null,
@@ -241,6 +242,8 @@ async function CreateLevel(payload, options) {
 		cachedPayload.meta
 	);
 
+	InitializeTextureAnimation(sceneGraph);
+
 	levelRuntimeState.sceneGraph = sceneGraph;
 	if (shouldRefreshBoundingBoxes()) {
 		RefreshSceneBoundingBoxes(sceneGraph);
@@ -310,9 +313,7 @@ function Update(deltaMilliseconds) {
 
 	for (let index = 0; index < entities.length; index += 1) {
 		const entity = entities[index];
-		if (entity.type === "player") {
-			continue;
-		}
+		if (entity.type === "player") continue;
 		if (DistanceVector3(cameraPosition, entity.transform.position) > simDistance) continue;
 		updateEntityMovement(entity, deltaSeconds);
 		ApplyEntityPhysics(entity, sceneGraph, deltaSeconds);
@@ -327,14 +328,23 @@ function Update(deltaMilliseconds) {
 		playerState
 	);
 
+	// === TEXTURE ANIMATIONS ===
+	UpdateTextureAnimation(sceneGraph, deltaMs);
+
 	syncEntityMeshes(sceneGraph);
-	if (shouldRefreshBoundingBoxes()) {
-		RefreshSceneBoundingBoxes(sceneGraph);
-	}
+	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
 }
 
 function GetActiveLevel() {
 	return levelRuntimeState.sceneGraph;
 }
 
-export { CreateLevel, Update, GetActiveLevel, StartLevelLoop, StopLevelLoop, PauseLevelLoop, ResumeLevelLoop };
+export { 
+	CreateLevel, 
+	Update, 
+	GetActiveLevel, 
+	StartLevelLoop, 
+	StopLevelLoop, 
+	PauseLevelLoop, 
+	ResumeLevelLoop 
+};

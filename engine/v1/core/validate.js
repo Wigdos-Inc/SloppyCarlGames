@@ -133,9 +133,41 @@ function validateNormalizedPlayerModelPart(part) {
 		&& typeof part.localScale.z === "number"
 		&& Number.isFinite(part.localScale.z)
 		&& isObject(part.primitiveOptions)
-		&& isObject(part.texture)
+		&& validateNormalizedTextureDescriptor(part.texture)
 		&& isObject(part.detail)
 		&& Array.isArray(part.detail.scatter)
+	);
+}
+
+function validateNormalizedTextureDescriptor(texture) {
+	return (
+		isObject(texture)
+		&& typeof texture.textureID === "string"
+		&& texture.textureID.length > 0
+		&& typeof texture.baseTextureID === "string"
+		&& texture.baseTextureID.length > 0
+		&& typeof texture.materialTextureID === "string"
+		&& texture.materialTextureID.length > 0
+		&& isObject(texture.color)
+		&& typeof texture.color.r === "number"
+		&& Number.isFinite(texture.color.r)
+		&& typeof texture.color.g === "number"
+		&& Number.isFinite(texture.color.g)
+		&& typeof texture.color.b === "number"
+		&& Number.isFinite(texture.color.b)
+		&& typeof texture.color.a === "number"
+		&& Number.isFinite(texture.color.a)
+		&& typeof texture.opacity === "number"
+		&& Number.isFinite(texture.opacity)
+		&& typeof texture.density === "number"
+		&& Number.isFinite(texture.density)
+		&& typeof texture.speckSize === "number"
+		&& Number.isFinite(texture.speckSize)
+		&& typeof texture.animated === "boolean"
+		&& typeof texture.holdTimeSpeed === "number"
+		&& Number.isFinite(texture.holdTimeSpeed)
+		&& typeof texture.blendTimeSpeed === "number"
+		&& Number.isFinite(texture.blendTimeSpeed)
 	);
 }
 
@@ -227,10 +259,10 @@ function validateNormalizedLevelCollections(payload) {
 
 	for (let index = 0; index < payload.terrain.objects.length; index += 1) {
 		const object = payload.terrain.objects[index];
-		if (!isObject(object) || typeof object.id !== "string" || !isVector3(object.position) || !isVector3(object.dimensions) || !isVector3(object.scale)) {
+		if (!isObject(object) || typeof object.id !== "string" || !isVector3(object.position) || !isVector3(object.dimensions) || !isVector3(object.scale) || !validateNormalizedTextureDescriptor(object.texture)) {
 			Log(
 				"ENGINE", 
-				`Level payload normalization failed: terrain.objects[${index}] must include id, position, dimensions, and scale.`, 
+				`Level payload normalization failed: terrain.objects[${index}] must include id, position, dimensions, scale, and canonical texture data.`, 
 				"error", 
 				"Validation"
 			);
@@ -278,10 +310,10 @@ function validateNormalizedLevelCollections(payload) {
 
 	for (let index = 0; index < payload.obstacles.length; index += 1) {
 		const obstacle = payload.obstacles[index];
-		if (!isObject(obstacle) || typeof obstacle.id !== "string" || !isVector3(obstacle.position) || !isVector3(obstacle.dimensions) || !isVector3(obstacle.scale)) {
+		if (!isObject(obstacle) || typeof obstacle.id !== "string" || !isVector3(obstacle.position) || !isVector3(obstacle.dimensions) || !isVector3(obstacle.scale) || !validateNormalizedTextureDescriptor(obstacle.texture)) {
 			Log(
 				"ENGINE", 
-				`Level payload normalization failed: obstacles[${index}] must include id, position, dimensions, and scale.`, 
+				`Level payload normalization failed: obstacles[${index}] must include id, position, dimensions, scale, and canonical texture data.`, 
 				"error", 
 				"Validation"
 			);
