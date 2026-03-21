@@ -9,7 +9,7 @@
 // Core initialization and logging.
 
 import { Initialize } from "./core/ini.js";
-import { Cursor, Log, SendEvent, Wait } from "./core/meta.js";
+import { Cache, Cursor, Log, SendEvent, Wait } from "./core/meta.js";
 import { CONFIG } from "./core/config.js";
 import { FadeElement, RemoveRoot, SetElementStyle, SetElementText } from "./handlers/Render.js";
 import { CreateUI } from "./handlers/UI.js";
@@ -148,6 +148,23 @@ async function runStartupSequence() {
   }
 
   SendEvent("UI_REQUEST", { screenId: "TitleScreen" });
+
+  // Provide a shared resolver on Cache so UI modules can notify Bootup
+  // that the TitleScreen has been applied. This avoids attaching event
+  // listeners inside engine modules (forbidden by engine rules).
+  const uiAppliedPromise = new Promise((resolve) => {
+    Cache.UI.startupUiAppliedResolve = resolve;
+
+    // Safety fallback to avoid a stuck boot sequence.
+    setTimeout(() => {
+      if (Cache.UI.startupUiAppliedResolve) Cache.UI.startupUiAppliedResolve(false);
+      Cache.UI.startupUiAppliedResolve = null;
+      resolve(false);
+    }, 2000);
+  });
+
+  await uiAppliedPromise;
+
   await FadeElement(overlayId, 0, 1);
   RemoveRoot(overlayId);
   Cursor.changeState("enabled");

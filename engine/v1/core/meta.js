@@ -333,6 +333,12 @@ function ExitGame() {
 
 function SendEvent(eventName, payload) {
   // Dispatch with payload as detail.
+  if (eventName !== "USER_INPUT") Log(
+    "ENGINE", 
+    `Event: ${eventName}\nPayload: ${JSON.stringify(payload)}`, 
+    "log", 
+    "Meta"
+  );
   window.dispatchEvent(new CustomEvent(eventName, { detail: payload }));
 }
 

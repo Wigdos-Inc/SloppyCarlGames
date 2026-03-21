@@ -193,19 +193,18 @@ function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
 function buildSceneBoundingBoxes(sceneGraph) {
 	const bounds = [];
 	const classifyEntityType = (entity) => {
-		const type = String(entity.type).toLowerCase();
-		if (type.includes("player")) {
-			return { whole: "Player", part: "PlayerPart" };
-		}
-		if (type.includes("boss")) {
-			return { whole: "Boss", part: "BossPart" };
-		}
+		const type = entity.type;
+		if (type.includes("player")) return { whole: "Player", part: "PlayerPart" };
+		if (type.includes("boss")) return { whole: "Boss", part: "BossPart" };
 		return { whole: "Entity", part: "EntityPart" };
 	};
 
-	const push = (type, id, aabb) => {
-		bounds.push({ type: type, id: id, min: { ...aabb.min }, max: { ...aabb.max } });
-	};
+	const push = (type, id, aabb) => bounds.push({ 
+		type: type, 
+		id: id, 
+		min: aabb.min, 
+		max: aabb.max 
+	});
 
 	const terrain = sceneGraph.terrain;
 	terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.worldAabb));
@@ -215,9 +214,12 @@ function buildSceneBoundingBoxes(sceneGraph) {
 
 	// Per-model scatter bounding boxes from instanced batch generation.
 	const scatterDebugBounds = sceneGraph.scatterDebugBounds ?? [];
-	scatterDebugBounds.forEach((record) => {
-		bounds.push({ type: record.type || "Scatter", id: record.id, min: { ...record.min }, max: { ...record.max } });
-	});
+	scatterDebugBounds.forEach((record) => bounds.push({ 
+		type: record.type, 
+		id: record.id, 
+		min: record.min, 
+		max: record.max 
+	}));
 
 	const obstacles = sceneGraph.obstacles;
 	obstacles.forEach((obstacle) => {

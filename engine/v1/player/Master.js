@@ -159,26 +159,17 @@ function ResolvePlayerState() {
 	if (!playerState.grounded) {
 		if (playerState.state === "Jumping") {
 			const currentY = ToNumber(playerState.transform.position.y, 0);
-			const jumpStartY = ToNumber(playerState.jumpStartY, currentY);
-			playerState.jumpApexY = Math.max(ToNumber(playerState.jumpApexY, currentY), currentY);
+			playerState.jumpApexY.value = Math.max(playerState.jumpApexY.value, currentY);
 
 			// Stay Jumping through ascent and early descent; switch to Falling
 			// only after descending below jump start height by 1 unit.
-			if (currentY <= jumpStartY - 1) {
-				playerState.state = "Falling";
-			}
-		} else {
-			playerState.state = "Falling";
-		}
+			if (currentY <= playerState.jumpStartY.value - 1) playerState.state = "Falling";
+		} else playerState.state = "Falling";
 	} else {
 		// Grounded states.
-		if (playerState.boost && playerState.boost.active) {
-			playerState.state = "Boosting";
-		} else if (speed > movementThreshold) {
-			playerState.state = "Running";
-		} else {
-			playerState.state = "Idle";
-		}
+		if (playerState.boost && playerState.boost.active) playerState.state = "Boosting";
+		else if (speed > movementThreshold) playerState.state = "Running";
+		else playerState.state = "Idle";
 	}
 
 	// Log state transitions.
