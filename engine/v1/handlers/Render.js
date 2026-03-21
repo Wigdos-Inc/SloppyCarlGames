@@ -15,7 +15,6 @@ import {
 	SubtractVector3,
 } from "../math/Vector3.js";
 import { CNUtoWorldUnit } from "../math/Utilities.js";
-import { BuildGeometry, GenerateUVs } from "../builder/NewObject.js";
 
 /* === INTERNALS === */
 // DOM helpers for rendering payloads.
@@ -437,21 +436,12 @@ function createScatterProgram(gl) {
 /* === GEOMETRY REGISTRY === */
 // Shared geometry pool: one set of GPU buffers per unique (primitive, dimensions) combo.
 
-function geometryKey(primitive, dimensions, complexity) {
-	const prm = primitive.toLowerCase();
-	const dim = dimensions;
-	const det = complexity;
-	return `${prm}_${dim.x}_${dim.y}_${dim.z}_${det}`;
-}
-
-function ensureSharedGeometry(renderer, primitive, dimensions, complexity) {
-	const key = geometryKey(primitive, dimensions, complexity);
+function ensureSharedGeometry(renderer, sceneGraph, primitiveKey) {
+	const key = primitiveKey;
 	if (renderer.geometryRegistry.has(key)) return renderer.geometryRegistry.get(key);
 
 	const gl = renderer.gl;
-	
-	const geometry = BuildGeometry(primitive, dimensions, complexity);
-	const uvs = GenerateUVs(geometry.positions, geometry);
+	const geometry = sceneGraph.visualResources.primitiveGeometry[key];
 
 	const positionBuffer = gl.createBuffer();
 	const uvBuffer = gl.createBuffer();
@@ -462,7 +452,7 @@ function ensureSharedGeometry(renderer, primitive, dimensions, complexity) {
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.positions), gl.STATIC_DRAW);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.uvs), gl.STATIC_DRAW);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geometry.indices), gl.STATIC_DRAW);
@@ -494,30 +484,13 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 	let totalInstances = 0;
 
 	batches.forEach((batch, batchKey) => {
-		if (batch.instances.length === 0) return;
+		if (batch.instanceCount === 0) return;
 
-		const geo = ensureSharedGeometry(renderer, batch.primitive, batch.dimensions, batch.complexity);
+		const geo = ensureSharedGeometry(renderer, sceneGraph, batch.primitiveKey);
 		if (!geo) return;
 
-		const instanceCount = batch.instances.length;
-		const instanceData = new Float32Array(instanceCount * 20);
-		for (let i = 0; i < instanceCount; i += 1) {
-			const inst = batch.instances[i];
-			const offset = i * 20;
-			const m = inst.modelMatrix;
-			for (let col = 0; col < 4; col += 1) {
-				const cOff = col * 4;
-				instanceData[offset + cOff + 0] = m[cOff + 0];
-				instanceData[offset + cOff + 1] = m[cOff + 1];
-				instanceData[offset + cOff + 2] = m[cOff + 2];
-				instanceData[offset + cOff + 3] = m[cOff + 3];
-			}
-			// Copy 4-float tint
-			instanceData[offset + 16] = inst.tint[0];
-			instanceData[offset + 17] = inst.tint[1];
-			instanceData[offset + 18] = inst.tint[2];
-			instanceData[offset + 19] = inst.tint[3];
-		}
+		const instanceCount = batch.instanceCount;
+		const instanceData = batch.instanceData;
 
 		const instanceBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);

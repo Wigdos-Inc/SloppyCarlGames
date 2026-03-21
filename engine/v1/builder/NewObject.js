@@ -994,7 +994,6 @@ function BuildObject(source, options) {
 			world: scatterContext.world,
 			indexSeed: ToNumber(scatterContext.indexSeed, 1),
 			explicitScatter: mesh.detail.scatter,
-			buildObject: BuildObject,
 		});
 
 		if (generatedScatter.length > 0) {

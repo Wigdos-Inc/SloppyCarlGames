@@ -9,19 +9,17 @@
 import { BuildObject } from "./NewObject.js";
 import { BuildEntity } from "./NewEntity.js";
 import { BuildObstacles } from "./NewObstacle.js";
-import { GetPerformanceScatterMultiplier, BuildScatterBatches } from "./NewScatter.js";
+import { GetPerformanceScatterMultiplier, BuildScatterBatches, BuildScatterVisualResources } from "./NewScatter.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { Unit, UnitVector3 } from "../math/Utilities.js";
+import { UnitVector3 } from "../math/Utilities.js";
 import { PrepareLevelVisualResources } from "./NewTexture.js";
 
 function resolveEntityBlueprintMap(payload) {
 	const map = {};
 	const blueprints = payload.entityBlueprints;
 
-	const registerList = (list) => {
-		list.forEach((entry) => map[entry.id] = entry);
-	};
+	const registerList = (list) => list.forEach((entry) => map[entry.id] = entry);
 
 	registerList(blueprints.enemies);
 	registerList(blueprints.npcs);
@@ -32,7 +30,7 @@ function resolveEntityBlueprintMap(payload) {
 	return map;
 }
 
-function buildEntityInput(entityDefinition, index, blueprintMap) {
+function buildEntityInput(entityDefinition, blueprintMap) {
 	const source = entityDefinition;
 	const merged = source.blueprintId
 		? { ...source, baseBlueprint: blueprintMap[source.blueprintId] }
@@ -308,8 +306,10 @@ async function BuildLevel(payload) {
 		}
 	});
 
+	const primitiveGeometry = BuildScatterVisualResources(scatterBatches);
+
 	let totalBatchInstances = 0;
-	scatterBatches.forEach((batch) => { totalBatchInstances += batch.instances.length; });
+	scatterBatches.forEach((batch) => { totalBatchInstances += batch.instanceCount; });
 	if (totalBatchInstances > 0) {
 		Log(
 			"ENGINE",
@@ -328,8 +328,8 @@ async function BuildLevel(payload) {
 
 	const surfaceMap = buildSurfaceMap(terrainDefinitions, obstacleDefinitions);
 
-	const entities = entityDefinitions.map((entity, index) =>
-		BuildEntity(buildEntityInput(entity, index, blueprintMap), surfaceMap)
+	const entities = entityDefinitions.map((entity) =>
+		BuildEntity(buildEntityInput(entity, blueprintMap), surfaceMap)
 	);
 	if (entities.length > 0) {
 		Log("ENGINE", `Entity group created: count=${entities.length}`, "log", "Level");
@@ -344,6 +344,7 @@ async function BuildLevel(payload) {
 		triggers: triggers,
 		scatter: [],
 		scatterBatches: scatterBatches,
+		scatterPrimitiveGeometry: primitiveGeometry,
 		scatterDebugBounds: scatterDebugBounds,
 		debug: {
 			showTriggerVolumes: !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.Triggers === true),

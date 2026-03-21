@@ -1,8 +1,8 @@
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { AddVector3 } from "../math/Vector3.js";
-import { CreateModelMatrix } from "./NewObject.js";
-import { Unit, UnitVector3 } from "../math/Utilities.js";
+import { BuildObject, CreateModelMatrix, BuildGeometry, GenerateUVs } from "./NewObject.js";
+import { UnitVector3 } from "../math/Utilities.js";
+import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3 } from "../math/Vector3.js";
 import visualTemplates from "./templates/textures.json" with { type: "json" };
 
 // NewScatter.js
@@ -22,6 +22,18 @@ function GetPerformanceScatterMultiplier() {
 function hashNoise(x, z, seed) {
 	const value = Math.sin(x * 12.9898 + z * 78.233 + seed * 37.719) * 43758.5453;
 	return value - Math.floor(value);
+}
+
+function primitiveGeometryKey(primitive, dimensions, complexity) {
+	const prm = primitive;
+	const dim = dimensions;
+	return `${prm}_${dim.x}_${dim.y}_${dim.z}_${complexity}`;
+}
+
+function scatterBatchKey(primitive, dimensions, textureID, complexity) {
+	const prm = primitive;
+	const dim = dimensions;
+	return `${prm}_${dim.x}_${dim.y}_${dim.z}_${textureID}_${complexity}`;
 }
 
 function mergeAabb(accumulator, bounds) {
@@ -47,19 +59,35 @@ function mergeAabb(accumulator, bounds) {
 	return accumulator;
 }
 
-function getPartHalfHeight(part) {
-	if (part.primitive.toLowerCase() === "plane") return 0;
-	return Math.max(0, part.dimensions.y * part.localScale.y * 0.5);
+// Use shared RotateByEuler from math/Vector3.js for Euler rotation (Y -> X -> Z)
+
+// Compute the half-height (vertical extent / 2) of the part after localRotation is applied.
+// Returns value in the same units as `part.dimensions` (CNU) so callers can multiply by uniformScale
+function getPartHalfHeight(part, uniformScale) {
+	if (part.primitive === "plane") return 0;
+
+	const hx = (part.dimensions.x * part.localScale.x * uniformScale) * 0.5;
+	const hy = (part.dimensions.y * part.localScale.y * uniformScale) * 0.5;
+	const hz = (part.dimensions.z * part.localScale.z * uniformScale) * 0.5;
+
+	// Columns of rotation matrix = R * basis vectors. We want the Y-row contributions, which
+	// are the y components of those columns. Use shared RotateByEuler (Y->X->Z) to rotate basis.
+	const colX = RotateByEuler({ x: 1, y: 0, z: 0 }, part.localRotation);
+	const colY = RotateByEuler({ x: 0, y: 1, z: 0 }, part.localRotation);
+	const colZ = RotateByEuler({ x: 0, y: 0, z: 1 }, part.localRotation);
+
+	const halfHeight = Math.abs(colX.y) * hx + Math.abs(colY.y) * hy + Math.abs(colZ.y) * hz;
+	return Math.max(0, halfHeight);
 }
 
-function resolveRootPart(parts) {
+function resolveRootPart(parts, uniformScale) {
 	if (parts.length === 0) return null;
 
 	const roots = parts.filter((part) => part.level === 0);
 	if (roots.length === 0) return null;
 
 	let selected = roots[0];
-	for (let index = 1; index < roots.length; index += 1) {
+	for (let index = 1; index < roots.length; index++) {
 		const candidate = roots[index];
 		if (candidate.localPosition.y < selected.localPosition.y) {
 			selected = candidate;
@@ -67,11 +95,9 @@ function resolveRootPart(parts) {
 		}
 
 		if (candidate.localPosition.y === selected.localPosition.y) {
-			const candidateHeight = getPartHalfHeight(candidate);
-			const selectedHeight = getPartHalfHeight(selected);
-			if (candidateHeight > selectedHeight) {
-				selected = candidate;
-			}
+			const candidateHeight = getPartHalfHeight(candidate, uniformScale);
+			const selectedHeight = getPartHalfHeight(selected, uniformScale);
+			if (candidateHeight > selectedHeight) selected = candidate;
 		}
 	}
 
@@ -96,7 +122,7 @@ function applyHierarchicalOffsets(parts, uniformScale) {
 	levels.forEach((level) => {
 		const levelParts = partsByLevel.get(level);
 		const adjustedParts = levelParts.map((part) => {
-			const halfHeight = (part.dimensions.y * part.localScale.y * uniformScale) * 0.5;
+			const halfHeight = getPartHalfHeight(part, uniformScale);
 			const newLocalPosition = part.localPosition.clone();
 
 			if (level > 0 && cumulativeTop !== null) {
@@ -114,7 +140,7 @@ function applyHierarchicalOffsets(parts, uniformScale) {
 
 		let levelTop = null;
 		adjustedParts.forEach((part) => {
-			const halfHeight = (part.dimensions.y * part.localScale.y * uniformScale) * 0.5;
+			const halfHeight = getPartHalfHeight(part, uniformScale);
 			const partTop = part.localPosition.y + halfHeight;
 			levelTop = levelTop === null ? partTop : Math.max(levelTop, partTop);
 		});
@@ -192,7 +218,6 @@ function iterateScatterInstances(params, handler) {
 			return {
 				...part,
 				dimensions: new UnitVector3(dim.x, dim.y, dim.z, "cnu"),
-				// Pre-lift by half-height before root/hierarchy resolution.
 				localPosition: new UnitVector3(pos.x, pos.y + baseHalfHeight, pos.z, "cnu"),
 				localRotation: new UnitVector3(rot.x, rot.y, rot.z, "degrees").toRadians(true),
 			};
@@ -230,9 +255,9 @@ function iterateScatterInstances(params, handler) {
 			const offsetParts = applyHierarchicalOffsets(canonicalParts, uniformScale);
 			if (!areRootPartsWithinParentBounds(offsetParts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ)) continue;
 
-			const rootPart = resolveRootPart(offsetParts);
+			const rootPart = resolveRootPart(offsetParts, uniformScale);
 			const modelRootY = rootPart
-				? worldY + getPartHalfHeight(rootPart) * uniformScale - rootPart.localPosition.y
+				? worldY + getPartHalfHeight(rootPart, uniformScale) - rootPart.localPosition.y
 				: worldY;
 
 			const partContexts = [];
@@ -262,11 +287,7 @@ function iterateScatterInstances(params, handler) {
 
 				if (!samplePosition) {
 					samplePosition = pos.clone();
-					sampleDimensions = {
-						x: part.dimensions.x * uniformScale,
-						y: part.dimensions.y * uniformScale,
-						z: part.dimensions.z * uniformScale,
-					};
+					sampleDimensions = ScaleVector3(part.dimensions, uniformScale);
 				}
 
 				partContexts.push({ part, partIndex, pos, rot, scale });
@@ -287,7 +308,7 @@ function iterateScatterInstances(params, handler) {
 	return { totalParts, typeCounts: globalTypeCount, modelCounts: globalModelCount };
 }
 
-function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, buildObject) {
+function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests) {
 	if (scatterMultiplier <= 0) return [];
 
 	const scatterRequests = explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter;
@@ -313,7 +334,7 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 		const startIndex = meshes.length;
 
 		partContexts.forEach(({ part, pos, rot, scale }, partIndex) => {
-			const scatterMesh = buildObject(
+			const scatterMesh = BuildObject(
 				{
 					id: `${objectMesh.id}-scatter-${scatterType.id}-${instanceIndex}-${partIndex}`,
 					shape: part.primitive,
@@ -381,26 +402,28 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 			const opacity = part.textureOpacity;
 			const textureID = part.textureID;
 			const complexity = part.complexity;
+			const primitiveKey = primitiveGeometryKey(part.primitive, part.dimensions, complexity);
 
-			const batchKey = `${part.primitive.toLowerCase()}_${part.dimensions.x}_${part.dimensions.y}_${part.dimensions.z}_${textureID}_${complexity}`;
+			const batchKey = scatterBatchKey(part.primitive, part.dimensions, textureID, complexity);
 			if (!batchMap.has(batchKey)) {
 				batchMap.set(batchKey, {
 					primitive: part.primitive.toLowerCase(),
 					dimensions: { ...part.dimensions },
 					complexity: complexity,
+					primitiveKey: primitiveKey,
 					textureID: textureID,
 					instances: [],
+					instanceCount: 0,
+					instanceData: null,
 				});
 			}
 
 			batchMap.get(batchKey).instances.push({ modelMatrix: modelMatrix, tint: [color.r, color.g, color.b, opacity] });
 			totalParts += 1;
 
-			const hx = (part.dimensions.x * scale.x) * 0.5;
-			const hy = (part.dimensions.y * scale.y) * 0.5;
-			const hz = (part.dimensions.z * scale.z) * 0.5;
-			const pMin = { x: pos.x - hx, y: pos.y - hy, z: pos.z - hz };
-			const pMax = { x: pos.x + hx, y: pos.y + hy, z: pos.z + hz };
+			const half = ScaleVector3(MultiplyVector3(part.dimensions, scale), 0.5);
+			const pMin = SubtractVector3(pos, half);
+			const pMax = AddVector3(pos, half);
 			if (!modelAabbMin) {
 				modelAabbMin = { ...pMin };
 				modelAabbMax = { ...pMax };
@@ -430,8 +453,62 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 	return totalParts;
 }
 
+function packScatterBatchInstances(batch) {
+	const instanceCount = batch.instances.length;
+	const data = new Float32Array(instanceCount * 20);
+
+	for (let i = 0; i < instanceCount; i++) {
+		const instance = batch.instances[i];
+		const offset = i * 20;
+		const matrix = instance.modelMatrix;
+
+		data[offset + 0] = matrix[0];
+		data[offset + 1] = matrix[1];
+		data[offset + 2] = matrix[2];
+		data[offset + 3] = matrix[3];
+		data[offset + 4] = matrix[4];
+		data[offset + 5] = matrix[5];
+		data[offset + 6] = matrix[6];
+		data[offset + 7] = matrix[7];
+		data[offset + 8] = matrix[8];
+		data[offset + 9] = matrix[9];
+		data[offset + 10] = matrix[10];
+		data[offset + 11] = matrix[11];
+		data[offset + 12] = matrix[12];
+		data[offset + 13] = matrix[13];
+		data[offset + 14] = matrix[14];
+		data[offset + 15] = matrix[15];
+		data[offset + 16] = instance.tint[0];
+		data[offset + 17] = instance.tint[1];
+		data[offset + 18] = instance.tint[2];
+		data[offset + 19] = instance.tint[3];
+	}
+
+	batch.instanceCount = instanceCount;
+	batch.instanceData = data;
+}
+
+function BuildScatterVisualResources(scatterBatches) {
+	const primitiveGeometry = {};
+
+	scatterBatches.forEach((batch) => {
+		packScatterBatchInstances(batch);
+
+		if (!primitiveGeometry[batch.primitiveKey]) {
+			const geometry = BuildGeometry(batch.primitive, batch.dimensions, batch.complexity);
+			primitiveGeometry[batch.primitiveKey] = {
+				positions: geometry.positions,
+				indices: geometry.indices,
+				uvs: GenerateUVs(geometry.positions, geometry),
+			};
+		}
+	});
+
+	return primitiveGeometry;
+}
+
 function BuildScatter(payload) {
-	return generateObjectScatter(payload.objectMesh, payload.scatterMultiplier, payload.world, payload.indexSeed, payload.explicitScatter, payload.buildObject);
+	return generateObjectScatter(payload.objectMesh, payload.scatterMultiplier, payload.world, payload.indexSeed, payload.explicitScatter);
 }
 
 function BuildScatterBatches(payload) {
@@ -439,4 +516,4 @@ function BuildScatterBatches(payload) {
 	return payload.batchMap;
 }
 
-export { BuildScatter, BuildScatterBatches, GetPerformanceScatterMultiplier };
+export { BuildScatter, BuildScatterBatches, BuildScatterVisualResources, GetPerformanceScatterMultiplier };

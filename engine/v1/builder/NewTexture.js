@@ -275,6 +275,7 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	sceneGraph.visualResources = {
 		textureRegistry: textureRegistry,
 		scatterRegistry: visualTemplates.scatterTypes,
+		primitiveGeometry: sceneGraph.scatterPrimitiveGeometry,
 	};
 
 	const textureCount = Object.keys(textureRegistry).length;
