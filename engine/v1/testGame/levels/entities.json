@@ -155,7 +155,10 @@
 							"color": { "r": 0.65, "g": 0.95, "b": 1, "a": 1 },
 							"opacity": 1,
 							"density": 1,
-							"speckSize": 1
+							"speckSize": 1,
+							"animated": true,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
 						},
 						"detail": {
 							"scatter": []

@@ -840,12 +840,20 @@ function createFallbackTexture(gl) {
 
 function ensureSceneTexture(renderer, sceneGraph, textureID) {
 	const id = textureID;
-	if (renderer.textures.has(id)) return renderer.textures.get(id);
-
 	const gl = renderer.gl;
 	const visualResources = sceneGraph.visualResources;
 	const textureRegistry = visualResources.textureRegistry;
 	const entry = textureRegistry[id];
+
+	if (renderer.textures.has(id)) {
+		const cachedTexture = renderer.textures.get(id);
+		if (entry.dirty === true) {
+			gl.bindTexture(gl.TEXTURE_2D, cachedTexture);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.source);
+			entry.dirty = false;
+		}
+		return cachedTexture;
+	}
 
 	const texture = gl.createTexture();
 	if (!texture) return renderer.fallbackTexture;
@@ -856,6 +864,7 @@ function ensureSceneTexture(renderer, sceneGraph, textureID) {
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	entry.dirty = false;
 
 	renderer.textures.set(id, texture);
 	return texture;

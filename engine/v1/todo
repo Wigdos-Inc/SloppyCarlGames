@@ -1,5 +1,6 @@
+Loosen normalization by allowing more property name variants
 Remove Forbidden Normalization and Defensive Checks downstream.
 Finish Unit System by eyeballing correct CNU_SCALE.
-Hook up new object primitives and terrain grid system (perhaps even create NewTerrain.js)
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain. perhaps part of new NewTerrain.js)
+Build new test level (prompt in notepad).
 Fix weird movement bug when inverting movement input

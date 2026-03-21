@@ -701,6 +701,15 @@ function normalizeTextureDescriptor(source, options, contextPath) {
 	const speckSizeSource = textureFromSource && typeof textureFromSource.speckSize === "number"
 		? textureFromSource.speckSize
 		: src.textureSpeckSize;
+	const animatedSource = textureFromSource && typeof textureFromSource.animated === "boolean"
+		? textureFromSource.animated
+		: src.textureAnimated;
+	const holdTimeSpeedSource = textureFromSource && typeof textureFromSource.holdTimeSpeed === "number"
+		? textureFromSource.holdTimeSpeed
+		: src.textureHoldTimeSpeed;
+	const blendTimeSpeedSource = textureFromSource && typeof textureFromSource.blendTimeSpeed === "number"
+		? textureFromSource.blendTimeSpeed
+		: src.textureBlendTimeSpeed;
 
 	const materialTextureID = shape ? `${baseTextureID}::shape=${shape}` : baseTextureID;
 
@@ -713,6 +722,9 @@ function normalizeTextureDescriptor(source, options, contextPath) {
 		opacity: Math.max(0, Math.min(1, ToNumber(opacity, 1))),
 		density: Math.max(0, ToNumber(densitySource, 1)),
 		speckSize: Math.max(0.1, ToNumber(speckSizeSource, 1)),
+		animated: animatedSource === true,
+		holdTimeSpeed: Math.max(0.05, Math.min(10, ToNumber(holdTimeSpeedSource, 1))),
+		blendTimeSpeed: Math.max(0.05, Math.min(10, ToNumber(blendTimeSpeedSource, 1))),
 	};
 }
 

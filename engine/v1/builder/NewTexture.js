@@ -142,12 +142,19 @@ function buildTextureSurface(textureDefinition, resolvedSize, textureScale) {
 	return canvas;
 }
 
+function BuildTextureSurface(textureDefinition, resolvedSize, textureScale) {
+	return buildTextureSurface(textureDefinition, resolvedSize, textureScale);
+}
+
 function collectTextureUsage(sceneGraph) {
 	const usage = { "default-grid": { 
 		isTerrain: false, 
 		maxSpan: 1, 
 		density: null, 
 		speckSize: null,
+		animatedRequested: false,
+		holdTimeSpeed: 1,
+		blendTimeSpeed: 1,
 		baseTextureID: "default-grid", 
 		shape: null 
 	}};
@@ -158,6 +165,9 @@ function collectTextureUsage(sceneGraph) {
 			maxSpan: 1, 
 			density: null, 
 			speckSize: null,
+			animatedRequested: false,
+			holdTimeSpeed: 1,
+			blendTimeSpeed: 1,
 			baseTextureID: id, 
 			shape: null 
 		};
@@ -167,17 +177,34 @@ function collectTextureUsage(sceneGraph) {
 		if (options.speckSize || options.speckSize === 0) entry.speckSize = options.speckSize;
 		if (options.baseTextureID) entry.baseTextureID = options.baseTextureID;
 		if (options.shape) entry.shape = options.shape;
+		if (options.animatedRequested === true) entry.animatedRequested = true;
+		if (options.holdTimeSpeed || options.holdTimeSpeed === 0) {
+			entry.holdTimeSpeed = options.holdTimeSpeed;
+		}
+		if (options.blendTimeSpeed || options.blendTimeSpeed === 0) {
+			entry.blendTimeSpeed = options.blendTimeSpeed;
+		}
 	};
 
-	const collectMesh = (mesh, options) => {
+	const collectMesh = (mesh, options, ownerKey) => {
 		const detailTexture = mesh.detail.texture;
-		register(mesh.material.textureID, {
+		let materialTextureID = mesh.material.textureID;
+		const animatedRequested = detailTexture.animated === true;
+		if (animatedRequested) {
+			materialTextureID = `${mesh.material.textureID}::animated=${ownerKey}`;
+			mesh.material.textureID = materialTextureID;
+		}
+
+		register(materialTextureID, {
 			isTerrain: options.isTerrain,
 			maxSpan: options.maxSpan,
 			density: detailTexture.density,
 			speckSize: detailTexture.speckSize,
 			baseTextureID: detailTexture.baseTextureID,
 			shape: detailTexture.shape,
+			animatedRequested: animatedRequested,
+			holdTimeSpeed: detailTexture.holdTimeSpeed,
+			blendTimeSpeed: detailTexture.blendTimeSpeed,
 		});
 	};
 
@@ -185,15 +212,15 @@ function collectTextureUsage(sceneGraph) {
 		const dimensions = mesh.dimensions;
 		const scale = mesh.transform.scale;
 		const span = Math.max(dimensions.x * scale.x, dimensions.z * scale.z);
-		collectMesh(mesh, { isTerrain: true, maxSpan: span });
+		collectMesh(mesh, { isTerrain: true, maxSpan: span }, mesh.id);
 	});
 
 	const nonTerrainOptions = { isTerrain: false, maxSpan: 1 };
-	sceneGraph.triggers.forEach((mesh) => collectMesh(mesh, nonTerrainOptions));
-	sceneGraph.scatter.forEach((mesh) => collectMesh(mesh, nonTerrainOptions));
+	sceneGraph.triggers.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id));
+	sceneGraph.scatter.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id));
 	sceneGraph.obstacles.forEach((obstacle) => {
-		collectMesh(obstacle.mesh, nonTerrainOptions);
-		obstacle.parts.forEach((part) => collectMesh(part, nonTerrainOptions));
+		collectMesh(obstacle.mesh, nonTerrainOptions, obstacle.mesh.id);
+		obstacle.parts.forEach((part) => collectMesh(part, nonTerrainOptions, part.id));
 	});
 
 	// Include any water visual meshes so their textures are registered as well.
@@ -201,21 +228,27 @@ function collectTextureUsage(sceneGraph) {
 		const waterMeshes = [];
 		if (sceneGraph.waterVisual.body) waterMeshes.push(sceneGraph.waterVisual.body);
 		if (sceneGraph.waterVisual.top) waterMeshes.push(sceneGraph.waterVisual.top);
-		waterMeshes.forEach((mesh) => collectMesh(mesh, nonTerrainOptions));
+		waterMeshes.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id));
 	}
 
 	// Collect texture IDs from instanced scatter batches.
-	sceneGraph.scatterBatches.forEach((batch) => { usage[batch.textureID] = { 
-		isTerrain: false, 
-		maxSpan: 1, 
-		density: null, 
-		speckSize: null,
-		baseTextureID: batch.textureID, shape: null 
-	}});
+	sceneGraph.scatterBatches.forEach((batch) => {
+		register(batch.textureID, {
+			isTerrain: false,
+			maxSpan: 1,
+			density: null,
+			speckSize: null,
+			baseTextureID: batch.textureID,
+			shape: null,
+			animatedRequested: false,
+			holdTimeSpeed: 1,
+			blendTimeSpeed: 1,
+		});
+	});
 
 	// Collect & register mesh for each part of each entity.
 	sceneGraph.entities.forEach((entity) => {
-		entity.model.parts.forEach((part) => collectMesh(part.mesh, nonTerrainOptions));
+		entity.model.parts.forEach((part) => collectMesh(part.mesh, nonTerrainOptions, part.mesh.id));
 	});
 
 	return usage;
@@ -251,14 +284,44 @@ function createTextureRegistry(usage, options) {
 				shape: usageShape,
 			};
 		}
+
+		const animatedRequested = usageEntry.animatedRequested === true;
+		const templateAnimation = textureBlueprint.animation;
+		const templateSupportsAnimation = templateAnimation.able === true;
+		const animated = animatedRequested && templateSupportsAnimation;
+		if (animatedRequested && !templateSupportsAnimation) {
+			Log(
+				"ENGINE",
+				`'${baseTextureID}' does not support animation.\nSource: '${textureID}'`,
+				"warn",
+				"Level"
+			);
+		}
+
+		// Speed multipliers.
+		const holdTimeSpeed = usageEntry.holdTimeSpeed;
+		const blendTimeSpeed = usageEntry.blendTimeSpeed;
+
+		// Animation stage time in seconds
+		const holdTime = templateAnimation.holdTime;
+		const blendTime = templateAnimation.blendTime;
+		
 		const source = buildTextureSurface(resolvedTextureBlueprint, resolvedSize, textureScale);
 		registry[textureID] = {
 			id: textureID,
 			definition: {
 				...resolvedTextureBlueprint,
 				size: resolvedSize,
+				holdTimeSpeed: holdTimeSpeed,
+				blendTimeSpeed: blendTimeSpeed,
+				animation: {
+					able: animated,
+					holdTime: holdTime,
+					blendTime: blendTime,
+				},
 			},
 			source: source,
+			dirty: false,
 		};
 	});
 
@@ -297,4 +360,4 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	return sceneGraph;
 }
 
-export { PrepareLevelVisualResources };
+export { PrepareLevelVisualResources, BuildTextureSurface };
