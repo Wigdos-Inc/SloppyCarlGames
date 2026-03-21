@@ -860,6 +860,15 @@ function normalizeEntityModel(model, source, entityId, blueprint) {
 	};
 }
 
+function normalizePlayerModelParts(player) {
+	const source = normalizeObject(player);
+	const sourceModel = normalizeObject(source.model);
+	const directParts = normalizeArray(source.parts);
+	const modelParts = normalizeArray(sourceModel.parts);
+	const selectedParts = directParts.length > 0 ? directParts : modelParts;
+	return selectedParts.map((part, index) => normalizeEntityModelPart(part, "player", index));
+}
+
 function hasOwn(source, key) {
 	return Object.prototype.hasOwnProperty.call(source, key);
 }
@@ -1001,12 +1010,7 @@ function normalizeEntityData(source, entityId, blueprint) {
 			? source.platform
 			: (hasOwn(blueprintSource, "platform") ? blueprintSource.platform : null),
 		animations: normalizeObject(resolveObjectField(source, blueprintSource, "animations", entityId)),
-		velocity: new UnitVector3(
-			velocityVector.x,
-			velocityVector.y,
-			velocityVector.z,
-			"cnu"
-		),
+		velocity: new UnitVector3(velocityVector.x, velocityVector.y, velocityVector.z, "cnu"),
 		model: normalizeEntityModel(source.model, source, entityId, blueprint),
 	};
 }
@@ -1160,6 +1164,42 @@ function playerConfig(player) {
 
 	const source = normalizeObject(player);
 	const spawnPos = NormalizeVector3(source.spawnPosition, fallback.spawnPosition);
+	const modelParts = normalizePlayerModelParts(source);
+	
+	// Normalize optional meta overrides provided by payload (do not instantiate Units here;
+	// character.meta in characters.json uses plain numbers and builders expect raw numbers)
+	const rawMeta = normalizeObject(source.meta);
+	const metaOverrides = {};
+	const metaKeys = Object.keys(rawMeta);
+	for (let i = 0; i < metaKeys.length; i += 1) {
+		const key = metaKeys[i];
+		const val = rawMeta[key];
+		if (isVector3Like(val)) {
+			metaOverrides[key] = NormalizeVector3(val, { x: 0, y: 0, z: 0 });
+		} else if (typeof val === 'number' || (!isNaN(Number(val)) && val !== null && val !== undefined)) {
+			const n = ToNumber(val, NaN);
+			if (Number.isFinite(n)) metaOverrides[key] = n;
+		} else if (typeof val === 'boolean' || typeof val === 'string') {
+			metaOverrides[key] = val;
+		}
+	}
+	// Provide a canonical list of override strings so downstream modules can rely
+	// on a normalized, presence-guaranteed array instead of doing defensive checks.
+	// Each entry is formatted for logging (e.g. "key: value").
+	const metaList = [];
+	const rawMetaKeys2 = Object.keys(rawMeta);
+	for (let i2 = 0; i2 < rawMetaKeys2.length; i2 += 1) {
+		const k = rawMetaKeys2[i2];
+		const v = metaOverrides[k];
+		let sval;
+		try {
+			sval = (typeof v === "object") ? JSON.stringify(v) : String(v);
+		} catch (e) {
+			sval = String(v);
+		}
+		metaList.push(`${k}: ${sval}`);
+	}
+	metaOverrides.list = metaList;
 	const resolvedCharacter = typeof source.character === "string" && source.character.length > 0
 		? source.character.toLowerCase()
 		: fallback.character;
@@ -1167,7 +1207,9 @@ function playerConfig(player) {
 	return {
 		character: resolvedCharacter,
 		spawnPosition: new UnitVector3(spawnPos.x, spawnPos.y, spawnPos.z, "cnu"),
-		scale: NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 })
+		scale: NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 }),
+		modelParts: modelParts,
+		metaOverrides: metaOverrides,
 	}
 }
 

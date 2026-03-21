@@ -993,10 +993,11 @@ function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farVa
 
 		const model = createWorldUnitModelMatrix(mesh.transform);
 		const color = mesh.material.color;
+		const texture = ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID);
 
 		gl.bindVertexArray(meshBuffer.vao);
 		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, renderer.fallbackTexture);
+		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.uniform1i(shader.uniforms.texture, 0);
 		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(model));
 		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, mesh.material.opacity);

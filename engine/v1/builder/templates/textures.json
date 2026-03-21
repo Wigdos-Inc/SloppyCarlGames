@@ -54,6 +54,15 @@
             "speckSize": 1,
             "primary": "#4d95c9",
             "secondary": "#2b5f8d"
+        },
+        "sea-surface": {
+            "id": "sea-surface",
+            "size": 64,
+            "pattern": "noise",
+            "density": 1,
+            "speckSize": 2,
+            "primary": "#1e90ff",
+            "secondary": "#0b3d91"
         }
     },
     "scatterTypes": {

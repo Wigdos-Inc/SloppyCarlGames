@@ -8,7 +8,7 @@ import { Log } from "../core/meta.js";
 
 function parseHexColor(hex) {
 	// Builders assume templates are canonicalized upstream; minimal parsing only.
-	const value = (hex || "").replace("#", "").trim();
+	const value = (hex).replace("#", "").trim();
 	const r = Number.parseInt(value.slice(0, 2), 16);
 	const g = Number.parseInt(value.slice(2, 4), 16);
 	const b = Number.parseInt(value.slice(4, 6), 16);
@@ -125,7 +125,7 @@ function toPowerOfTwoSize(value) {
 
 function resolveTextureSize(textureDefinition, usageEntry) {
 	const baseSize = textureDefinition.size;
-	if (!usageEntry || usageEntry.isTerrain !== true) return toPowerOfTwoSize(baseSize);
+	if (usageEntry.isTerrain !== true) return toPowerOfTwoSize(baseSize);
 
 	const scaleMultiplier = Math.max(1, Math.min(8, usageEntry.maxSpan / 24));
 	return toPowerOfTwoSize(baseSize * scaleMultiplier);
@@ -137,7 +137,6 @@ function buildTextureSurface(textureDefinition, resolvedSize, textureScale) {
 	canvas.width = size;
 	canvas.height = size;
 	const context = canvas.getContext("2d");
-	if (!context) return null;
 
 	drawPattern(context, size, textureDefinition, textureScale);
 	return canvas;
@@ -196,6 +195,14 @@ function collectTextureUsage(sceneGraph) {
 		collectMesh(obstacle.mesh, nonTerrainOptions);
 		obstacle.parts.forEach((part) => collectMesh(part, nonTerrainOptions));
 	});
+
+	// Include any water visual meshes so their textures are registered as well.
+	if (sceneGraph.waterVisual) {
+		const waterMeshes = [];
+		if (sceneGraph.waterVisual.body) waterMeshes.push(sceneGraph.waterVisual.body);
+		if (sceneGraph.waterVisual.top) waterMeshes.push(sceneGraph.waterVisual.top);
+		waterMeshes.forEach((mesh) => collectMesh(mesh, nonTerrainOptions));
+	}
 
 	// Collect texture IDs from instanced scatter batches.
 	sceneGraph.scatterBatches.forEach((batch) => { usage[batch.textureID] = { 

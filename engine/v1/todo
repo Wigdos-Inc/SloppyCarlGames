@@ -1,7 +1,5 @@
 Remove Forbidden Normalization and Defensive Checks downstream.
-Refactor scatter generation to vertexes are stored in sceneGraph (this allows Render.js mesh rebuilding to be removed)
 Finish Unit System by eyeballing correct CNU_SCALE.
 Hook up new object primitives and terrain grid system (perhaps even create NewTerrain.js)
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain. perhaps part of new NewTerrain.js)
-Move core/splash.js code into handlers/menu/Splash.js
 Fix weird movement bug when inverting movement input

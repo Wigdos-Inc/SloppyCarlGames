@@ -57,7 +57,7 @@ function composeTransform(parentTransform, localTransform) {
 	};
 }
 
-function buildPart(source, entityId, index) {
+function buildPart(source) {
 	const pos = source.localPosition;
 	const rot = source.localRotation;
 	const dim = source.dimensions;

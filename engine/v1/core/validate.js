@@ -106,10 +106,63 @@ function validateNormalizedCamera(camera) {
 	);
 }
 
-function validateNormalizedPlayer(player) {
+function validateNormalizedPlayerModelPart(part) {
 	return (
-		isObject(player)
-		&& typeof player.character === "string"
+		isObject(part)
+		&& typeof part.id === "string"
+		&& part.id.length > 0
+		&& typeof part.shape === "string"
+		&& part.shape.length > 0
+		&& typeof part.complexity === "string"
+		&& part.complexity.length > 0
+		&& typeof part.parentId === "string"
+		&& part.parentId.length > 0
+		&& typeof part.anchorPoint === "string"
+		&& part.anchorPoint.length > 0
+		&& typeof part.attachmentPoint === "string"
+		&& part.attachmentPoint.length > 0
+		&& isUnitVector3(part.localPosition, "cnu")
+		&& isUnitVector3(part.localRotation, "radians")
+		&& isUnitVector3(part.dimensions, "cnu")
+		&& isUnitVector3(part.pivot, "cnu")
+		&& isObject(part.localScale)
+		&& typeof part.localScale.x === "number"
+		&& Number.isFinite(part.localScale.x)
+		&& typeof part.localScale.y === "number"
+		&& Number.isFinite(part.localScale.y)
+		&& typeof part.localScale.z === "number"
+		&& Number.isFinite(part.localScale.z)
+		&& isObject(part.primitiveOptions)
+		&& isObject(part.texture)
+		&& isObject(part.detail)
+		&& Array.isArray(part.detail.scatter)
+	);
+}
+
+function validateNormalizedPlayer(player) {
+	if (!isObject(player)) {
+		return false;
+	}
+
+	if (!Array.isArray(player.modelParts)) {
+		return false;
+	}
+
+	for (let index = 0; index < player.modelParts.length; index += 1) {
+		if (!validateNormalizedPlayerModelPart(player.modelParts[index])) {
+			return false;
+		}
+	}
+	// Optional metaOverrides must normalize to an object if present; collisionHalfExtents should be vector-like if present
+	if (player.metaOverrides !== undefined) {
+		if (!isObject(player.metaOverrides)) return false;
+		if (player.metaOverrides.collisionHalfExtents !== undefined) {
+			if (!isVector3(player.metaOverrides.collisionHalfExtents)) return false;
+		}
+	}
+
+	return (
+		typeof player.character === "string"
 		&& player.character.length > 0
 		&& isUnitVector3(player.spawnPosition, "cnu")
 		&& isObject(player.scale)

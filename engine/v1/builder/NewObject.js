@@ -812,52 +812,6 @@ function buildTorus(size, complexity, options) {
 	return { positions: positions, indices: indices, faceGroups: faceGroups };
 }
 
-function buildGrid(size, complexity, options) {
-	const sx = Math.max(0.0001, ToNumber(size.x, 1));
-	const sz = Math.max(0.0001, ToNumber(size.z, 1));
-	const complexitySubdivisions = complexity === "low"
-		? 4
-		: complexity === "high"
-			? 16
-			: 8;
-	const subdivisionsX = Math.max(1, Math.floor(ToNumber(options.subdivisionsX, complexitySubdivisions)));
-	const subdivisionsZ = Math.max(1, Math.floor(ToNumber(options.subdivisionsZ, complexitySubdivisions)));
-
-	const positions = [];
-	const indices = [];
-	const faceVertices = [];
-
-	for (let z = 0; z <= subdivisionsZ; z += 1) {
-		const zRatio = z / subdivisionsZ;
-		const zPosition = (zRatio - 0.5) * sz;
-		for (let x = 0; x <= subdivisionsX; x += 1) {
-			const xRatio = x / subdivisionsX;
-			const xPosition = (xRatio - 0.5) * sx;
-			const vertexIndex = positions.length / 3;
-			positions.push(xPosition, 0, zPosition);
-			faceVertices.push(vertexIndex);
-		}
-	}
-
-	const stride = subdivisionsX + 1;
-	for (let z = 0; z < subdivisionsZ; z += 1) {
-		for (let x = 0; x < subdivisionsX; x += 1) {
-			const topLeft = (z * stride) + x;
-			const topRight = topLeft + 1;
-			const bottomLeft = ((z + 1) * stride) + x;
-			const bottomRight = bottomLeft + 1;
-			indices.push(topLeft, bottomLeft, topRight);
-			indices.push(topRight, bottomLeft, bottomRight);
-		}
-	}
-
-	return {
-		positions: positions,
-		indices: indices,
-		faceGroups: [{ normal: { x: 0, y: 1, z: 0 }, vertexIndices: faceVertices }],
-	};
-}
-
 function buildRamp(size, options) {
 	const sx = size.x / 2;
 	const sy = size.y;
@@ -910,7 +864,6 @@ function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 		case "sphere"  : return buildSphere(size, complexity);
 		case "capsule" : return buildCapsule(size, complexity);
 		case "cone"    : return buildCone(size, complexity);
-		case "grid"    : return buildGrid(size, complexity, primitiveOptions);
 		case "ramp"    : return buildRamp(size, primitiveOptions);
 		case "tube"    : return buildTube(size, complexity, primitiveOptions);
 		case "torus"   : return buildTorus(size, complexity, primitiveOptions);
