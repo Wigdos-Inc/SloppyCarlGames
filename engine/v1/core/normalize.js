@@ -5,16 +5,66 @@ import { NormalizeVector3 } from "../math/Vector3.js";
 import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { Log } from "./meta.js";
 import visualTemplates from "../builder/templates/textures.json" with { type: "json" };
+import aliasMap from "./aliases.json" with { type: "json" };
 
 function warnLog(string) {
 	Log("ENGINE", string, "warn", "Validation");
+}
+
+function normalizeKey(key) {
+	return String(key).toLowerCase().replace(/[-_]/g, "");
+}
+
+function getAliasValue(source, aliases, fallback = undefined) {
+	const src = normalizeObject(source);
+	if (Object.keys(src).length === 0) return fallback;
+
+	const lookup = {};
+	const keys = Object.keys(src);
+	for (let i = 0; i < keys.length; i += 1) {
+		const key = keys[i];
+		const normalized = normalizeKey(key);
+		if (!Object.prototype.hasOwnProperty.call(lookup, normalized)) lookup[normalized] = src[key];
+	}
+
+	for (let i = 0; i < aliases.length; i += 1) {
+		const normalized = normalizeKey(aliases[i]);
+		if (Object.prototype.hasOwnProperty.call(lookup, normalized)) return lookup[normalized];
+	}
+
+	return fallback;
+}
+
+function hasAliasValue(source, aliases) {
+	const sentinel = Symbol("missing");
+	return getAliasValue(source, aliases, sentinel) !== sentinel;
+}
+
+function alias(path) {
+	const segments = path.split(".");
+	let result = aliasMap;
+	for (let index = 0; index < segments.length; index += 1) {
+		result = result[segments[index]];
+	}
+	return result;
+}
+
+function getByAlias(source, aliasPath, fallback = undefined) {
+	return getAliasValue(source, alias(aliasPath), fallback);
+}
+
+function hasByAlias(source, aliasPath) {
+	return hasAliasValue(source, alias(aliasPath));
 }
 
 /* === UI Data === */
 
 function MenuUIPayload(payload) {
 	const source = normalizeObject(payload);
-	const rawElements = normalizeArray(source.elements);
+	const rawElements = normalizeArray(getByAlias(source, "menu.elements", []));
+	const screenId = normalizeString(getByAlias(source, "menu.screenId", ""), "");
+	const rootId = normalizeString(getByAlias(source, "menu.rootId", "engine-ui-root"), "engine-ui-root");
+	const musicSource = getByAlias(source, "menu.music", null);
 	const elements = [];
 
 	for (let i = 0; i < rawElements.length; i += 1) {
@@ -24,10 +74,10 @@ function MenuUIPayload(payload) {
 
 	return {
 		...source,
-		screenId: normalizeString(source.screenId, ""),
-		rootId: normalizeString(source.rootId, "engine-ui-root"),
+		screenId,
+		rootId,
 		elements,
-		music: normalizeMusic(source.music),
+		music: normalizeMusic(musicSource),
 	};
 }
 
@@ -50,12 +100,10 @@ function SplashPayload(payload) {
 	}
 
 	const source = normalizeObject(payload);
-	const presetId = normalizeSplashPresetId(source.presetId || source.splashId || source.id);
-	const inputSequence = Array.isArray(source.sequence)
-		? source.sequence
-		: Array.isArray(source.steps)
-			? source.steps
-			: [];
+	const presetValue = getByAlias(source, "splash.presetId", "");
+	const presetId = normalizeSplashPresetId(presetValue);
+	const sequenceSource = getByAlias(source, "splash.sequence", []);
+	const inputSequence = Array.isArray(sequenceSource) ? sequenceSource : [];
 	const sequence = normalizeSplashSequence(inputSequence);
 
 	if (presetId.length === 0 && sequence.length === 0) {
@@ -102,25 +150,29 @@ function normalizeSplashStep(step, path) {
 		return null;
 	}
 
-	const name = normalizeString(source.name, "");
-	const image = normalizeString(source.image, "");
+	const name = normalizeString(getByAlias(source, "splash.step.name", ""), "");
+	const image = normalizeString(getByAlias(source, "splash.step.image", ""), "");
 	if (image.length === 0) {
 		warnLog(`Splash payload dropped step at '${path}' because image is required.`);
 		return null;
 	}
 
-	const sfx = normalizeSplashAudio(source.sfx);
-	const voice = normalizeSplashAudio(source.voice);
+	const sfx = normalizeSplashAudio(getByAlias(source, "splash.step.sfx", null));
+	const voice = normalizeSplashAudio(getByAlias(source, "splash.step.voice", null));
+	const voiceAtStartSource = getByAlias(source, "splash.step.voiceAtStart", false);
+	const fadeInSource = getByAlias(source, "splash.step.fadeInSeconds", 0.3);
+	const holdMsSource = getByAlias(source, "splash.step.holdMs", 1000);
+	const fadeOutSource = getByAlias(source, "splash.step.fadeOutSeconds", 1);
 
 	return {
 		name: name.length > 0 ? name : null,
 		image,
 		sfx,
 		voice,
-		voiceAtStart: source.voiceAtStart === true,
-		fadeInSeconds: ToNumber(source.fadeInSeconds, 0.3),
-		holdMs: Math.max(0, Math.floor(ToNumber(source.holdMs, 1000))),
-		fadeOutSeconds: ToNumber(source.fadeOutSeconds, 1),
+		voiceAtStart: voiceAtStartSource === true,
+		fadeInSeconds: ToNumber(fadeInSource, 0.3),
+		holdMs: Math.max(0, Math.floor(ToNumber(holdMsSource, 1000))),
+		fadeOutSeconds: ToNumber(fadeOutSource, 1),
 	};
 }
 
@@ -128,12 +180,12 @@ function normalizeSplashAudio(audio) {
 	const source = normalizeObject(audio);
 	if (Object.keys(source).length === 0) return null;
 
-	const src = normalizeString(source.src, "");
+	const src = normalizeString(getByAlias(source, "splash.audio.src", ""), "");
 	if (src.length === 0) return null;
 
 	return {
-		src,
-		options: normalizeObject(source.options),
+		src: normalizeAudioSource(src),
+		options: normalizeObject(getByAlias(source, "splash.audio.options", {})),
 	};
 }
 
@@ -141,8 +193,8 @@ function normalizeMusic(music) {
 	const source = normalizeObject(music);
 	if (Object.keys(source).length === 0) return null;
 
-	const name = normalizeString(source.name, "");
-	const src = normalizeString(source.src, "");
+	const name = normalizeString(getByAlias(source, "music.name", ""), "");
+	const src = normalizeString(getByAlias(source, "music.src", ""), "");
 	if (name.length === 0 || src.length === 0) {
 		warnLog("UI payload music config ignored: 'name' and 'src' are both required when music is provided.");
 		return null;
@@ -151,8 +203,27 @@ function normalizeMusic(music) {
 	return {
 		...source,
 		name,
-		src,
+		src: normalizeAudioSource(src),
 	};
+}
+
+function normalizeAudioSource(source) {
+	if (typeof source !== "string" || source.length === 0) return source;
+
+	let normalized = source.replace(/^(\.\.\/)+/, "");
+
+	try {
+		const url = new URL(normalized, import.meta.url);
+		const marker = "/audio/";
+		const markerIndex = url.pathname.toLowerCase().lastIndexOf(marker);
+		if (markerIndex >= 0) {
+			normalized = url.pathname.slice(markerIndex + 1);
+		}
+	} catch (error) {
+		// leave normalized as-is for relative paths
+	}
+
+	return normalized;
 }
 
 function normalizeElement(element, path) {
@@ -163,49 +234,54 @@ function normalizeElement(element, path) {
 	}
 
 	const children = [];
-	const sourceChildren = normalizeArray(source.children);
+	const sourceChildren = normalizeArray(getByAlias(source, "element.children", []));
 	for (let i = 0; i < sourceChildren.length; i += 1) {
 		const normalized = normalizeElement(sourceChildren[i], `${path}.children[${i}]`);
 		if (normalized) children.push(normalized);
 	}
 
-	const attributes = normalizeObject(source.attributes);
-	const styles = normalizeObject(source.styles);
+	const attributes = normalizeObject(getByAlias(source, "element.attributes", {}));
+	const styles = normalizeObject(getByAlias(source, "element.styles", {}));
 
-	const eventMap = normalizeActionMap(source.events, `${path}.events`);
-	const onMap = normalizeActionMap(source.on, `${path}.on`);
+	const eventMap = normalizeActionMap(getByAlias(source, "element.events", {}), `${path}.events`);
+	const onMap = normalizeActionMap(getByAlias(source, "element.on", {}), `${path}.on`);
 
 	// Canonicalize direct shorthand event props (e.g. onClick) into the normalized events map
 	const directEventKeyMap = {
-		onClick: "click",
-		onInput: "input",
-		onChange: "change",
-		onPointerover: "pointerover",
-		onPointerout: "pointerout",
-		onPointerdown: "pointerdown",
-		onPointerup: "pointerup",
-		onKeydown: "keydown",
-		onKeyup: "keyup",
-		onWheel: "wheel",
-		onMousemove: "mousemove",
+		onclick: "click",
+		oninput: "input",
+		onchange: "change",
+		onpointerover: "pointerover",
+		onpointerout: "pointerout",
+		onpointerdown: "pointerdown",
+		onpointerup: "pointerup",
+		onkeydown: "keydown",
+		onkeyup: "keyup",
+		onwheel: "wheel",
+		onmousemove: "mousemove",
 	};
 
-	Object.keys(directEventKeyMap).forEach((directKey) => {
-		if (!Object.prototype.hasOwnProperty.call(source, directKey)) return;
-		const eventName = directEventKeyMap[directKey];
+	const sourceKeys = Object.keys(source);
+	for (let i = 0; i < sourceKeys.length; i += 1) {
+		const directKey = sourceKeys[i];
+		const eventName = directEventKeyMap[normalizeKey(directKey)];
+		if (!eventName) continue;
 		const normalizedAction = normalizeAction(source[directKey], `${path}.${directKey}`);
 		if (normalizedAction !== null) {
 			// Prefer existing explicit `events` entry; otherwise set from shorthand.
 			if (!eventMap[eventName]) eventMap[eventName] = normalizedAction;
 		}
-	});
+	}
 
 	return {
 		...source,
-		type: normalizeString(source.type, "div"),
-		id: normalizeString(source.id, undefined),
-		className: normalizeString(source.className, undefined),
-		text: typeof source.text === "string" ? source.text : source.text !== undefined ? String(source.text) : undefined,
+		type: normalizeString(getByAlias(source, "element.type", "div"), "div"),
+		id: normalizeString(getByAlias(source, "element.id", undefined), undefined),
+		className: normalizeString(getByAlias(source, "element.className", undefined), undefined),
+		text: (() => {
+			const textValue = getByAlias(source, "element.text", undefined);
+			return typeof textValue === "string" ? textValue : textValue !== undefined ? String(textValue) : undefined;
+		})(),
 		attributes,
 		styles,
 		events: eventMap,
@@ -261,49 +337,57 @@ function normalizeAction(action, path) {
 		return null;
 	}
 
-	if (action.type === "ui") {
-		if (!action.payload || typeof action.payload !== "object") {
+	const actionSource = normalizeObject(action);
+	const actionType = normalizeString(getByAlias(actionSource, "action.type", ""), "");
+
+	if (actionType === "ui") {
+		const uiPayload = normalizeObject(getByAlias(actionSource, "action.payload", {}));
+		if (Object.keys(uiPayload).length === 0) {
 			warnLog(`UI payload dropped invalid 'ui' action at '${path}': missing object payload.`);
 			return null;
 		}
-		return { ...action };
+		return { ...actionSource, type: "ui", payload: uiPayload };
 	}
 
-	if (action.type === "request") {
-		if (typeof action.screenId !== "string" || action.screenId.length === 0) {
+	if (actionType === "request") {
+		const screenId = normalizeString(getByAlias(actionSource, "action.screenId", ""), "");
+		if (screenId.length === 0) {
 			warnLog(`UI payload dropped invalid 'request' action at '${path}': missing screenId.`);
 			return null;
 		}
-		return { ...action, screenId: action.screenId };
+		return { ...actionSource, type: "request", screenId };
 	}
 
-	if (action.type === "event") {
-		if (typeof action.name !== "string" || action.name.length === 0) {
+	if (actionType === "event") {
+		const eventName = normalizeString(getByAlias(actionSource, "action.name", ""), "");
+		if (eventName.length === 0) {
 			warnLog(`UI payload dropped invalid 'event' action at '${path}': missing event name.`);
 			return null;
 		}
-		return { ...action, name: action.name };
+		return { ...actionSource, type: "event", name: eventName };
 	}
 
-	if (action.type === "exit") return { ...action };
+	if (actionType === "exit") return { ...actionSource, type: "exit" };
 
-	if (action.type === "style") {
-		if (typeof action.targetId !== "string" || action.targetId.length === 0) {
+	if (actionType === "style") {
+		const targetId = normalizeString(getByAlias(actionSource, "action.targetId", ""), "");
+		if (targetId.length === 0) {
 			warnLog(`UI payload dropped invalid 'style' action at '${path}': missing targetId.`);
 			return null;
 		}
 
-		const stylesSource = normalizeObject(action.styles);
+		const stylesSource = normalizeObject(getByAlias(actionSource, "action.styles", {}));
 		const styles = Object.keys(stylesSource).length > 0 ? { ...stylesSource } : null;
 		if (!styles) {
 			warnLog(`UI payload dropped invalid 'style' action at '${path}': missing styles object.`);
 			return null;
 		}
 
-		styles.classList = normalizeStyleClassList(styles.classList);
+		styles.classList = normalizeStyleClassList(getByAlias(stylesSource, "action.classList", styles.classList));
 		return {
-			...action,
-			targetId: action.targetId,
+			...actionSource,
+			type: "style",
+			targetId,
 			styles,
 		};
 	}
@@ -327,13 +411,13 @@ function normalizeStyleClassList(classListConfig) {
 
 	const source = normalizeObject(classListConfig);
 	if (Object.keys(source).length > 0) {
-		const addClasses = normalizeArray(source.add);
+		const addClasses = normalizeArray(getByAlias(source, "styleClassList.add", []));
 		for (let index = 0; index < addClasses.length; index += 1) {
 			const className = addClasses[index];
 			if (typeof className === "string" && className.length > 0) add.push(className);
 		}
 
-		const removeClasses = normalizeArray(source.remove);
+		const removeClasses = normalizeArray(getByAlias(source, "styleClassList.remove", []));
 		for (let index = 0; index < removeClasses.length; index += 1) {
 			const className = removeClasses[index];
 			if (typeof className === "string" && className.length > 0) remove.push(className);
@@ -386,10 +470,10 @@ function normalizeGeometryComplexity(value, contextPath) {
 }
 
 function normalizeShapeAlias(source, contextPath) {
-	const shape = normalizeString(source.shape, "");
+	const shape = normalizeString(getByAlias(source, "shape.shape", ""), "");
 	if (shape.length > 0) return shape.toLowerCase();
 
-	const primitive = normalizeString(source.primitive, "");
+	const primitive = normalizeString(getByAlias(source, "shape.primitive", ""), "");
 	if (primitive.length > 0) return primitive.toLowerCase();
 
 	warnLog(`Object payload ${contextPath} missing 'shape' or 'primitive' definition; defaulted to 'cube'.`);
@@ -409,9 +493,9 @@ function normalizeVector3WithWarning(value, fallback, contextPath, fieldName) {
 
 function normalizePrimitiveOptions(source, contextPath) {
 	const src = normalizeObject(source);
-	const rawPrimitive = source && source.primitiveOptions;
-	const rawGeometry = source && source.geometry;
-	const rawDetail = source && source.detail;
+	const rawPrimitive = getByAlias(src, "primitive.options", undefined);
+	const rawGeometry = getByAlias(src, "primitive.geometry", undefined);
+	const rawDetail = getByAlias(src, "primitive.detail", undefined);
 
 	if (
 		rawPrimitive !== undefined && 
@@ -432,9 +516,9 @@ function normalizePrimitiveOptions(source, contextPath) {
 		warnLog(`Object payload ${contextPath} detail malformed; detail aliases ignored.`);
 	}
 
-	const primitive = normalizeObject(src.primitiveOptions);
-	const geometry = normalizeObject(src.geometry);
-	const detail = normalizeObject(src.detail);
+	const primitive = normalizeObject(rawPrimitive);
+	const geometry = normalizeObject(rawGeometry);
+	const detail = normalizeObject(rawDetail);
 
 	return {
 		angle: primitive.angle || primitive.rampAngle || geometry.angle || src.angle || src.rampAngle || null,
@@ -465,31 +549,31 @@ function normalizeScatterForDetail(source, detail, contextPath) {
 
 function normalizeTerrainObject(definition, index) {
 	const source = normalizeObject(definition);
-	const detail = normalizeObject(source.detail);
+	const detail = normalizeObject(getByAlias(source, "detail.value", {}));
 	const shape = normalizeShapeAlias(source, `terrain[${index}]`);
-	const complexity = normalizeGeometryComplexity(source.complexity, `terrain[${index}]`);
+	const complexity = normalizeGeometryComplexity(getByAlias(source, "geometry.complexity", undefined), `terrain[${index}]`);
 	const primitiveOptions = normalizePrimitiveOptions(source, `terrain[${index}]`);
 
 	const position = normalizeVector3WithWarning(
-		source.position, 
+		getByAlias(source, "vector.position", undefined), 
 		{ x: 0, y: 0, z: 0 }, 
 		`terrain[${index}]`, 
 		"position"
 	);
 	const dimensions = normalizeVector3WithWarning(
-		source.dimensions || source.size, 
+		getByAlias(source, "vector.dimensions", undefined), 
 		{ x: 1, y: 1, z: 1 }, 
 		`terrain[${index}]`, 
 		"dimensions"
 	);
 	const rotation = normalizeVector3WithWarning(
-		source.rotation, 
+		getByAlias(source, "vector.rotation", undefined), 
 		{ x: 0, y: 0, z: 0 }, 
 		`terrain[${index}]`, 
 		"rotation"
 	);
 	const pivot = normalizeVector3WithWarning(
-		source.pivot, 
+		getByAlias(source, "vector.pivot", undefined), 
 		{ x: 0, y: 0, z: 0 }, 
 		`terrain[${index}]`,
 		"pivot"
@@ -522,19 +606,20 @@ function normalizeTerrainObject(definition, index) {
 
 function normalizeTrigger(definition, index) {
 	const source = normalizeObject(definition);
-	const start = NormalizeVector3(source.start, { x: 0, y: 0, z: 0 });
-	const end = NormalizeVector3(source.end, start);
-	const triggerType = normalizeString(source.type, "");
-	const payload = normalizeObject(source.payload);
+	const start = NormalizeVector3(getByAlias(source, "vector.start", undefined), { x: 0, y: 0, z: 0 });
+	const end = NormalizeVector3(getByAlias(source, "vector.end", undefined), start);
+	const triggerType = normalizeString(getByAlias(source, "trigger.type", ""), "");
+	const payload = normalizeObject(getByAlias(source, "trigger.payload", {}));
 
-	if (source.payload !== undefined && Object.keys(payload).length === 0) warnLog(`
+	if (hasByAlias(source, "trigger.payload") && Object.keys(payload).length === 0) warnLog(`
 		Trigger '${normalizeString(source.id, `trigger-${index}`)}' 
 		payload was malformed and was normalized to an empty object.
 	`);
 
 	let activateOnce = true;
-	if (typeof source.activateOnce === "boolean") activateOnce = source.activateOnce;
-	else if (source.activateOnce !== undefined) warnLog(`
+	const activateOnceSource = getByAlias(source, "trigger.activateOnce", undefined);
+	if (typeof activateOnceSource === "boolean") activateOnce = activateOnceSource;
+	else if (activateOnceSource !== undefined) warnLog(`
 		Trigger '${normalizeString(source.id, `trigger-${index}`)}' 
 		activateOnce was malformed and defaulted to true.
 	`);
@@ -552,31 +637,31 @@ function normalizeTrigger(definition, index) {
 
 function normalizeObstacle(definition, index) {
 	const source = normalizeObject(definition);
-	const detail = normalizeObject(source.detail);
+	const detail = normalizeObject(getByAlias(source, "detail.value", {}));
 	const texture = normalizeTextureDescriptor(source, { textureID: "default-grid" }, `obstacle[${index}]`);
 	const shape = normalizeShapeAlias(source, `obstacle[${index}]`);
-	const complexity = normalizeGeometryComplexity(source.complexity, `obstacle[${index}]`);
+	const complexity = normalizeGeometryComplexity(getByAlias(source, "geometry.complexity", undefined), `obstacle[${index}]`);
 	const primitiveOptions = normalizePrimitiveOptions(source, `obstacle[${index}]`);
 
 	const position = normalizeVector3WithWarning(
-		source.position, 
+		getByAlias(source, "vector.position", undefined), 
 		{ x: 0, y: 0, z: 0 }, 
 		`obstacle[${index}]`, "position"
 	);
 	const dimensions = normalizeVector3WithWarning(
-		source.dimensions || source.size,
+		getByAlias(source, "vector.dimensions", undefined),
 		{ x: 1, y: 1, z: 1 }, 
 		`obstacle[${index}]`, 
 		"dimensions"
 	);
 	const rotation = normalizeVector3WithWarning(
-		source.rotation, 
+		getByAlias(source, "vector.rotation", undefined), 
 		{ x: 0, y: 0, z: 0 }, 
 		`obstacle[${index}]`, 
 		"rotation"
 	);
 	const pivot = normalizeVector3WithWarning(
-		source.pivot, 
+		getByAlias(source, "vector.pivot", undefined), 
 		{ x: 0, y: 0, z: 0 }, 
 		`obstacle[${index}]`, 
 		"pivot"
@@ -586,9 +671,9 @@ function normalizeObstacle(definition, index) {
 	const parts = Array.isArray(source.parts)
 		? source.parts.map((part, pIndex) => {
 			const p = normalizeObject(part);
-			const dims = NormalizeVector3(p.dimensions || p.size, { x: 1, y: 1, z: 1 });
-			const localPosition = NormalizeVector3(p.localPosition, { x: 0, y: 0, z: 0 });
-			const localRotation = NormalizeVector3(p.localRotation, { x: 0, y: 0, z: 0 });
+			const dims = NormalizeVector3(getByAlias(p, "vector.dimensionsCompact", undefined), { x: 1, y: 1, z: 1 });
+			const localPosition = NormalizeVector3(getByAlias(p, "entityPart.localPosition", undefined), { x: 0, y: 0, z: 0 });
+			const localRotation = NormalizeVector3(getByAlias(p, "entityPart.localRotation", undefined), { x: 0, y: 0, z: 0 });
 			const partTexture = normalizeTextureDescriptor(
 				p, { textureID: "default-grid" }, 
 				`obstacle[${index}].parts[${pIndex}]`
@@ -597,7 +682,7 @@ function normalizeObstacle(definition, index) {
 				...p,
 				id: normalizeString(p.id, `${normalizeString(source.id, `obstacle-${index}`)}-part-${pIndex}`),
 				shape: normalizeShapeAlias(p, `obstacle[${index}].parts[${pIndex}]`),
-				complexity: normalizeGeometryComplexity(p.complexity, `obstacle[${index}].parts[${pIndex}]`),
+				complexity: normalizeGeometryComplexity(getByAlias(p, "geometry.complexity", undefined), `obstacle[${index}].parts[${pIndex}]`),
 				dimensions: new UnitVector3(dims.x, dims.y, dims.z, "cnu"),
 				localPosition: new UnitVector3(localPosition.x, localPosition.y, localPosition.z, "cnu"),
 				localRotation: new UnitVector3(
@@ -645,10 +730,10 @@ function normalizeObstacle(definition, index) {
 function normalizeColorDescriptor(color, contextPath, fallback = { r: 1, g: 1, b: 1, a: 1 }) {
 	const source = normalizeObject(color);
 	if (Object.keys(source).length === 0) return fallback;
-	const r = ToNumber(source.r, fallback.r);
-	const g = ToNumber(source.g, fallback.g);
-	const b = ToNumber(source.b, fallback.b);
-	const a = ToNumber(source.a, fallback.a);
+	const r = ToNumber(getByAlias(source, "color.r", fallback.r), fallback.r);
+	const g = ToNumber(getByAlias(source, "color.g", fallback.g), fallback.g);
+	const b = ToNumber(getByAlias(source, "color.b", fallback.b), fallback.b);
+	const a = ToNumber(getByAlias(source, "color.a", fallback.a), fallback.a);
 	if ([r, g, b, a].some((v) => !Number.isFinite(v))) {
 		warnLog(`Object payload ${contextPath} color malformed; defaulting to fallback.`);
 		return fallback;
@@ -669,47 +754,50 @@ function normalizeTextureShape(shape) {
 
 function normalizeTextureDescriptor(source, options, contextPath) {
 	const src = normalizeObject(source);
-	const textureFromSource = src.texture && typeof src.texture === "object" ? src.texture : null;
-	const shape = normalizeTextureShape(textureFromSource && textureFromSource.shape);
+	const textureCandidate = getByAlias(src, "texture.texture", null);
+	const textureFromSource = textureCandidate && typeof textureCandidate === "object" ? textureCandidate : null;
+	const shape = normalizeTextureShape(
+		(textureFromSource && getByAlias(textureFromSource, "texture.shape", null))
+	);
 
 	const color = normalizeColorDescriptor(
-		(textureFromSource && textureFromSource.color) || 
-		src.textureColor || src.color || 
+		(textureFromSource && getByAlias(textureFromSource, "texture.color", null)) || 
+		getByAlias(src, "texture.colorFallback", null) || 
 		(options && options.defaultColor), contextPath + ".color"
 	);
 
-	const opacitySource = textureFromSource && typeof textureFromSource.opacity === "number" 
-		? textureFromSource.opacity 
-		: src.textureOpacity;
+	const opacitySource = textureFromSource && typeof getByAlias(textureFromSource, "texture.opacity", undefined) === "number" 
+		? getByAlias(textureFromSource, "texture.opacity", undefined)
+		: getByAlias(src, "texture.opacityFallback", undefined);
 	const opacity = ToNumber(opacitySource, 1);
 	if (!Number.isFinite(opacity)) warnLog(`Object payload ${contextPath} texture.opacity malformed; defaulted to 1.`);
 
 	let baseTextureID = (
 		textureFromSource && 
-		typeof textureFromSource.textureID === "string" && 
-		textureFromSource.textureID
+		typeof getByAlias(textureFromSource, "texture.textureId", undefined) === "string" && 
+		getByAlias(textureFromSource, "texture.textureId", undefined)
 	)
-		? textureFromSource.textureID
-		: (normalizeString(src.textureID, normalizeString(options && options.textureID, "default-grid")));
+		? getByAlias(textureFromSource, "texture.textureId", undefined)
+		: (normalizeString(getByAlias(src, "texture.textureId", normalizeString(options && options.textureID, "default-grid")), normalizeString(options && options.textureID, "default-grid")));
 	if (!Object.prototype.hasOwnProperty.call(visualTemplates.textures, baseTextureID)) {
 		warnLog(`Object payload ${contextPath} unknown textureID '${baseTextureID}'; defaulted to 'default-grid'.`);
 		baseTextureID = "default-grid";
 	}
-	const densitySource = textureFromSource && typeof textureFromSource.density === "number" 
-		? textureFromSource.density 
-		: src.textureDensity;
-	const speckSizeSource = textureFromSource && typeof textureFromSource.speckSize === "number"
-		? textureFromSource.speckSize
-		: src.textureSpeckSize;
-	const animatedSource = textureFromSource && typeof textureFromSource.animated === "boolean"
-		? textureFromSource.animated
-		: src.textureAnimated;
-	const holdTimeSpeedSource = textureFromSource && typeof textureFromSource.holdTimeSpeed === "number"
-		? textureFromSource.holdTimeSpeed
-		: src.textureHoldTimeSpeed;
-	const blendTimeSpeedSource = textureFromSource && typeof textureFromSource.blendTimeSpeed === "number"
-		? textureFromSource.blendTimeSpeed
-		: src.textureBlendTimeSpeed;
+	const densitySource = textureFromSource && typeof getByAlias(textureFromSource, "texture.density", undefined) === "number" 
+		? getByAlias(textureFromSource, "texture.density", undefined)
+		: getByAlias(src, "texture.densityFallback", undefined);
+	const speckSizeSource = textureFromSource && typeof getByAlias(textureFromSource, "texture.speckSize", undefined) === "number"
+		? getByAlias(textureFromSource, "texture.speckSize", undefined)
+		: getByAlias(src, "texture.speckSizeFallback", undefined);
+	const animatedSource = textureFromSource && typeof getByAlias(textureFromSource, "texture.animated", undefined) === "boolean"
+		? getByAlias(textureFromSource, "texture.animated", undefined)
+		: getByAlias(src, "texture.animatedFallback", undefined);
+	const holdTimeSpeedSource = textureFromSource && typeof getByAlias(textureFromSource, "texture.holdTimeSpeed", undefined) === "number"
+		? getByAlias(textureFromSource, "texture.holdTimeSpeed", undefined)
+		: getByAlias(src, "texture.holdTimeSpeedFallback", undefined);
+	const blendTimeSpeedSource = textureFromSource && typeof getByAlias(textureFromSource, "texture.blendTimeSpeed", undefined) === "number"
+		? getByAlias(textureFromSource, "texture.blendTimeSpeed", undefined)
+		: getByAlias(src, "texture.blendTimeSpeedFallback", undefined);
 
 	const materialTextureID = shape ? `${baseTextureID}::shape=${shape}` : baseTextureID;
 
@@ -737,22 +825,25 @@ function normalizeScatterRequests(source, contextPath) {
 			warnLog(`Object payload ${contextPath}[${i}] malformed scatter entry dropped.`);
 			continue;
 		}
-		if (typeof entry.typeID !== "string" || entry.typeID.length === 0) {
+		const typeID = normalizeString(getByAlias(entry, "scatter.typeID", ""), "");
+		if (typeID.length === 0) {
 			warnLog(`Object payload ${contextPath}[${i}] scatter missing typeID; entry dropped.`);
 			continue;
 		}
-		out.push({ typeID: entry.typeID, density: Math.max(0, ToNumber(entry.density, 0)) });
+		const densityValue = getByAlias(entry, "scatter.density", 0);
+		out.push({ typeID: typeID, density: Math.max(0, ToNumber(densityValue, 0)) });
 	}
 	return out;
 }
 
 function buildDefaultEntityModel(source, entityId) {
-	const rotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
-	const dimensions = NormalizeVector3(source.dimensions || source.size, { x: 1, y: 1, z: 1 });
+	const rotation = NormalizeVector3(getByAlias(source, "vector.rotation", undefined), { x: 0, y: 0, z: 0 });
+	const dimensions = NormalizeVector3(getByAlias(source, "vector.dimensionsShort", undefined), { x: 1, y: 1, z: 1 });
 	const shape = normalizeShapeAlias(source, `${entityId}.defaultModelPart`);
 	const texture = normalizeTextureDescriptor(source, { textureID: "default-grid", defaultColor: { r: 0.9, g: 0.35, b: 0.35, a: 1 } }, `${entityId}.defaultModelPart`);
+	const spawnSurfaceId = normalizeString(getByAlias(source, "entity.spawnSurfaceId", ""), "");
 	return {
-		spawnSurfaceId: source.spawnSurfaceId || null,
+		spawnSurfaceId: spawnSurfaceId.length > 0 ? spawnSurfaceId : null,
 		rootTransform: {
 			position: new UnitVector3(0, 0, 0, "cnu"),
 			rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
@@ -785,29 +876,31 @@ function buildDefaultEntityModel(source, entityId) {
 
 function normalizeEntityRootTransform(rootTransform, source) {
 	const transform = normalizeObject(rootTransform);
-	const sourceRotation = NormalizeVector3(source.rotation, { x: 0, y: 0, z: 0 });
-	const position = NormalizeVector3(transform.position, { x: 0, y: 0, z: 0 });
-	const rotation = NormalizeVector3(transform.rotation, sourceRotation);
-	const pivot = NormalizeVector3(transform.pivot, { x: 0, y: 0, z: 0 });
+	const sourceRotation = NormalizeVector3(getByAlias(source, "vector.rotationBasic", undefined), { x: 0, y: 0, z: 0 });
+	const position = NormalizeVector3(getByAlias(transform, "transform.position", undefined), { x: 0, y: 0, z: 0 });
+	const rotation = NormalizeVector3(getByAlias(transform, "vector.rotation", undefined), sourceRotation);
+	const pivot = NormalizeVector3(getByAlias(transform, "vector.pivot", undefined), { x: 0, y: 0, z: 0 });
+	const scaleSource = getByAlias(transform, "transform.scale", undefined);
+	const fallbackScaleSource = getByAlias(source, "transform.scale", { x: 1, y: 1, z: 1 });
 
 	return {
 		...transform,
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
-		scale: NormalizeVector3(transform.scale, NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 })),
+		scale: NormalizeVector3(scaleSource, NormalizeVector3(fallbackScaleSource, { x: 1, y: 1, z: 1 })),
 		pivot: new UnitVector3(pivot.x, pivot.y, pivot.z, "cnu"),
 	};
 }
 
 function normalizeEntityModelPart(part, entityId, index) {
 	const source = normalizeObject(part);
-	const dimensions = NormalizeVector3(source.dimensions, { x: 1, y: 1, z: 1 });
-	const localPosition = NormalizeVector3(source.localPosition, { x: 0, y: 0, z: 0 });
-	const localRotation = NormalizeVector3(source.localRotation, { x: 0, y: 0, z: 0 });
+	const dimensions = NormalizeVector3(getByAlias(source, "vector.dimensionsCompact", undefined), { x: 1, y: 1, z: 1 });
+	const localPosition = NormalizeVector3(getByAlias(source, "entityPart.localPosition", undefined), { x: 0, y: 0, z: 0 });
+	const localRotation = NormalizeVector3(getByAlias(source, "entityPart.localRotation", undefined), { x: 0, y: 0, z: 0 });
 	const texture = normalizeTextureDescriptor(source, { textureID: "default-grid" }, `${entityId}.parts[${index}]`);
 	const shape = normalizeShapeAlias(source, `${entityId}.parts[${index}]`);
-	const complexity = normalizeGeometryComplexity(source.complexity, `${entityId}.parts[${index}]`);
-	const pivot = normalizeVector3WithWarning(source.pivot, { x: 0, y: 0, z: 0 }, `${entityId}.parts[${index}]`, "pivot");
+	const complexity = normalizeGeometryComplexity(getByAlias(source, "geometry.complexity", undefined), `${entityId}.parts[${index}]`);
+	const pivot = normalizeVector3WithWarning(getByAlias(source, "vector.pivot", undefined), { x: 0, y: 0, z: 0 }, `${entityId}.parts[${index}]`, "pivot");
 	const primitiveOptions = normalizePrimitiveOptions(source, `${entityId}.parts[${index}]`);
 
 	return {
@@ -815,12 +908,12 @@ function normalizeEntityModelPart(part, entityId, index) {
 		id: normalizeString(source.id, `${entityId}-part-${index}`),
 		shape: shape,
 		complexity: complexity,
-		parentId: normalizeString(source.parentId, "root"),
-		anchorPoint: normalizeString(source.anchorPoint, source.parentId === "root" ? "bottom" : "center"),
-		attachmentPoint: normalizeString(source.attachmentPoint, "top"),
+		parentId: normalizeString(getByAlias(source, "entityPart.parentId", "root"), "root"),
+		anchorPoint: normalizeString(getByAlias(source, "entityPart.anchorPoint", source.parentId === "root" ? "bottom" : "center"), source.parentId === "root" ? "bottom" : "center"),
+		attachmentPoint: normalizeString(getByAlias(source, "entityPart.attachmentPoint", "top"), "top"),
 		localPosition: new UnitVector3(localPosition.x, localPosition.y, localPosition.z, "cnu"),
 		localRotation: new UnitVector3(localRotation.x, localRotation.y, localRotation.z, "degrees").toRadians(true),
-		localScale: NormalizeVector3(source.localScale, { x: 1, y: 1, z: 1 }),
+		localScale: NormalizeVector3(getByAlias(source, "entityPart.localScale", undefined), { x: 1, y: 1, z: 1 }),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
 		pivot: new UnitVector3(pivot.x, pivot.y, pivot.z, "cnu"),
 		rotation: new UnitVector3(0, 0, 0, "radians"),
@@ -838,8 +931,11 @@ function normalizeEntityModelPart(part, entityId, index) {
 function normalizeEntityModel(model, source, entityId, blueprint) {
 	const modelSource = normalizeObject(model);
 	const partDefinitions = normalizeArray(modelSource.parts);
+	const modelSpawnSurfaceId = normalizeString(getByAlias(modelSource, "entity.spawnSurfaceId", ""), "");
+	const sourceSpawnSurfaceId = normalizeString(getByAlias(source, "entity.spawnSurfaceId", ""), "");
 	if (partDefinitions.length === 0) {
 		const blueprintModel = normalizeObject(blueprint && blueprint.model);
+		const blueprintSpawnSurfaceId = normalizeString(getByAlias(blueprintModel, "entity.spawnSurfaceId", ""), "");
 		const blueprintParts = normalizeArray(blueprintModel.parts);
 		if (blueprintParts.length > 0) {
 			const resolvedRootTransform =
@@ -851,11 +947,7 @@ function normalizeEntityModel(model, source, entityId, blueprint) {
 			return {
 				...blueprintModel,
 				...modelSource,
-				spawnSurfaceId:
-					modelSource.spawnSurfaceId ||
-					source.spawnSurfaceId ||
-					blueprintModel.spawnSurfaceId ||
-					null,
+				spawnSurfaceId: modelSpawnSurfaceId || sourceSpawnSurfaceId || blueprintSpawnSurfaceId || null,
 				rootTransform: normalizeEntityRootTransform(resolvedRootTransform, source),
 				parts: blueprintParts.map((part, index) => normalizeEntityModelPart(part, entityId, index)),
 			};
@@ -866,7 +958,7 @@ function normalizeEntityModel(model, source, entityId, blueprint) {
 
 	return {
 		...modelSource,
-		spawnSurfaceId: modelSource.spawnSurfaceId || source.spawnSurfaceId || null,
+		spawnSurfaceId: modelSpawnSurfaceId || sourceSpawnSurfaceId || null,
 		rootTransform: normalizeEntityRootTransform(modelSource.rootTransform, source),
 		parts: partDefinitions.map((part, index) => normalizeEntityModelPart(part, entityId, index)),
 	};
@@ -875,8 +967,8 @@ function normalizeEntityModel(model, source, entityId, blueprint) {
 function normalizePlayerModelParts(player) {
 	const source = normalizeObject(player);
 	const sourceModel = normalizeObject(source.model);
-	const directParts = normalizeArray(source.parts);
-	const modelParts = normalizeArray(sourceModel.parts);
+	const directParts = normalizeArray(getByAlias(source, "entity.parts", []));
+	const modelParts = normalizeArray(getByAlias(sourceModel, "entity.parts", []));
 	const selectedParts = directParts.length > 0 ? directParts : modelParts;
 	return selectedParts.map((part, index) => normalizeEntityModelPart(part, "player", index));
 }
@@ -885,35 +977,40 @@ function hasOwn(source, key) {
 	return Object.prototype.hasOwnProperty.call(source, key);
 }
 
-function resolveStringField(source, blueprint, key, fallback, contextPath) {
-	if (hasOwn(source, key)) {
-		if (typeof source[key] === "string" && source[key].length > 0) return source[key];
+function resolveStringField(source, blueprint, key, fallback, contextPath, aliases = []) {
+	const sourceValue = getAliasValue(source, [key, ...aliases], undefined);
+	if (sourceValue !== undefined) {
+		if (typeof sourceValue === "string" && sourceValue.length > 0) return sourceValue;
 		warnLog(`Entity payload ${contextPath} '${key}' malformed; using blueprint/default fallback.`);
 	}
 
-	if (typeof blueprint[key] === "string" && blueprint[key].length > 0) return blueprint[key];
+	const blueprintValue = getAliasValue(blueprint, [key, ...aliases], undefined);
+	if (typeof blueprintValue === "string" && blueprintValue.length > 0) return blueprintValue;
 	return fallback;
 }
 
-function resolveNumberField(source, blueprint, key, fallback, contextPath) {
-	if (hasOwn(source, key)) {
-		const value = ToNumber(source[key], NaN);
+function resolveNumberField(source, blueprint, key, fallback, contextPath, aliases = []) {
+	const sourceValue = getAliasValue(source, [key, ...aliases], undefined);
+	if (sourceValue !== undefined) {
+		const value = ToNumber(sourceValue, NaN);
 		if (Number.isFinite(value)) return value;
 		warnLog(`Entity payload ${contextPath} '${key}' malformed; using blueprint/default fallback.`);
 	}
 
-	const blueprintValue = ToNumber(blueprint[key], NaN);
+	const blueprintValue = ToNumber(getAliasValue(blueprint, [key, ...aliases], undefined), NaN);
 	if (Number.isFinite(blueprintValue)) return blueprintValue;
 	return fallback;
 }
 
-function resolveBooleanField(source, blueprint, key, fallback, contextPath) {
-	if (hasOwn(source, key)) {
-		if (typeof source[key] === "boolean") return source[key];
+function resolveBooleanField(source, blueprint, key, fallback, contextPath, aliases = []) {
+	const sourceValue = getAliasValue(source, [key, ...aliases], undefined);
+	if (sourceValue !== undefined) {
+		if (typeof sourceValue === "boolean") return sourceValue;
 		warnLog(`Entity payload ${contextPath} '${key}' malformed; using blueprint/default fallback.`);
 	}
 
-	if (typeof blueprint[key] === "boolean") return blueprint[key];
+	const blueprintValue = getAliasValue(blueprint, [key, ...aliases], undefined);
+	if (typeof blueprintValue === "boolean") return blueprintValue;
 	return fallback;
 }
 
@@ -950,25 +1047,25 @@ function resolveObjectField(source, blueprint, key, contextPath) {
 
 function normalizeEntityData(source, entityId, blueprint) {
 	const blueprintSource = normalizeObject(blueprint);
-	const movementSource = normalizeObject(source.movement);
-	const blueprintMovement = normalizeObject(blueprintSource.movement);
+	const movementSource = normalizeObject(getByAlias(source, "entity.movement", {}));
+	const blueprintMovement = normalizeObject(getByAlias(blueprintSource, "entity.movement", {}));
 	const movementStart = resolveVector3Field(
-		movementSource.start,
-		blueprintMovement.start,
+		getByAlias(movementSource, "vector.start", undefined),
+		getByAlias(blueprintMovement, "vector.start", undefined),
 		{ x: 0, y: 0, z: 0 },
 		entityId,
 		"movement.start"
 	);
 	const movementEnd = resolveVector3Field(
-		movementSource.end,
-		blueprintMovement.end,
+		getByAlias(movementSource, "vector.end", undefined),
+		getByAlias(blueprintMovement, "vector.end", undefined),
 		movementStart,
 		entityId,
 		"movement.end"
 	);
 	const velocityVector = resolveVector3Field(
-		source.velocity,
-		blueprintSource.velocity,
+		getByAlias(source, "entity.velocity", undefined),
+		getByAlias(blueprintSource, "entity.velocity", undefined),
 		{ x: 0, y: 0, z: 0 },
 		entityId,
 		"velocity"
@@ -994,33 +1091,37 @@ function normalizeEntityData(source, entityId, blueprint) {
 	return {
 		...source,
 		id: entityId,
-		type: resolveStringField(source, blueprintSource, "type", "entity", entityId),
+		type: resolveStringField(source, blueprintSource, "type", "entity", entityId, ["entityType", "typeName"]),
 		movement: {
 			...movementSource,
 			start: new UnitVector3(movementStart.x, movementStart.y, movementStart.z, "cnu"),
 			end: new UnitVector3(movementEnd.x, movementEnd.y, movementEnd.z, "cnu"),
-			repeat: resolveBooleanField(movementSource, blueprintMovement, "repeat", true, `${entityId}.movement`),
-			backAndForth: resolveBooleanField(movementSource, blueprintMovement, "backAndForth", true, `${entityId}.movement`),
+			repeat: resolveBooleanField(movementSource, blueprintMovement, "repeat", true, `${entityId}.movement`, ["loop"]),
+			backAndForth: resolveBooleanField(movementSource, blueprintMovement, "backAndForth", true, `${entityId}.movement`, ["pingPong", "yoyo"]),
 			speed: new Unit(
-				Math.max(0, resolveNumberField(movementSource, blueprintMovement, "speed", 0, `${entityId}.movement`)),
+				Math.max(0, resolveNumberField(movementSource, blueprintMovement, "speed", 0, `${entityId}.movement`, ["moveSpeed", "velocity", "maxSpeed"])),
 				"cnu"
 			),
 			jump: new Unit(
-				Math.max(0, resolveNumberField(movementSource, blueprintMovement, "jump", 0, `${entityId}.movement`)),
+				Math.max(0, resolveNumberField(movementSource, blueprintMovement, "jump", 0, `${entityId}.movement`, ["jumpStrength", "jumpHeight"])),
 				"cnu"
 			),
-			jumpInterval: Math.max(0, resolveNumberField(movementSource, blueprintMovement, "jumpInterval", 0, `${entityId}.movement`)),
-			jumpOnSight: resolveBooleanField(movementSource, blueprintMovement, "jumpOnSight", false, `${entityId}.movement`),
+			jumpInterval: Math.max(0, resolveNumberField(movementSource, blueprintMovement, "jumpInterval", 0, `${entityId}.movement`, ["jumpDelay", "jumpCooldown"])),
+			jumpOnSight: resolveBooleanField(movementSource, blueprintMovement, "jumpOnSight", false, `${entityId}.movement`, ["jumpOnSee", "jumpOnPlayer"]),
 			disappear: resolveBooleanField(movementSource, blueprintMovement, "disappear", false, `${entityId}.movement`),
 			chase: resolveBooleanField(movementSource, blueprintMovement, "chase", false, `${entityId}.movement`),
 			physics: resolveBooleanField(movementSource, blueprintMovement, "physics", false, `${entityId}.movement`),
 		},
-		hp: Math.max(0, resolveNumberField(source, blueprintSource, "hp", 1, entityId)),
-		attacks: resolveArrayField(source, blueprintSource, "attacks", entityId),
+		hp: Math.max(0, resolveNumberField(source, blueprintSource, "hp", 1, entityId, ["health", "hitPoints", "life"])),
+		attacks: (() => {
+			const sourceAttacks = getByAlias(source, "entity.attacks", undefined);
+			const blueprintAttacks = getByAlias(blueprintSource, "entity.attacks", undefined);
+			if (Array.isArray(sourceAttacks)) return sourceAttacks;
+			if (Array.isArray(blueprintAttacks)) return blueprintAttacks;
+			return [];
+		})(),
 		hardcoded: normalizeObject(resolveObjectField(source, blueprintSource, "hardcoded", entityId)),
-		platform: hasOwn(source, "platform")
-			? source.platform
-			: (hasOwn(blueprintSource, "platform") ? blueprintSource.platform : null),
+		platform: getByAlias(source, "entity.platform", getByAlias(blueprintSource, "entity.platform", null)),
 		animations: normalizeObject(resolveObjectField(source, blueprintSource, "animations", entityId)),
 		velocity: new UnitVector3(velocityVector.x, velocityVector.y, velocityVector.z, "cnu"),
 		model: normalizeEntityModel(source.model, source, entityId, blueprint),
@@ -1029,22 +1130,22 @@ function normalizeEntityData(source, entityId, blueprint) {
 
 function normalizeEntity(definition, index, blueprintMap) {
 	const source = normalizeObject(definition);
-	const entityId = normalizeString(source.id, `entity-${index}`);
-	const blueprintId = normalizeString(source.blueprintId, "");
+	const entityId = normalizeString(getByAlias(source, "entity.id", `entity-${index}`), `entity-${index}`);
+	const blueprintId = normalizeString(getByAlias(source, "entity.blueprintId", ""), "");
 	const blueprint = blueprintId.length > 0 ? normalizeObject(blueprintMap[blueprintId]) : null;
 	return normalizeEntityData(source, entityId, blueprint);
 }
 
 function normalizeBlueprintEntry(definition, index, prefix) {
 	const source = normalizeObject(definition);
-	const entityId = normalizeString(source.id, `${prefix}-${index}`);
+	const entityId = normalizeString(getByAlias(source, "entity.id", `${prefix}-${index}`), `${prefix}-${index}`);
 	return normalizeEntityData(source, entityId);
 }
 
 function normalizeBlueprintList(list, prefix) {
 	const source = Array.isArray(list) ? list : [];
 	const normalized = [];
-	for (let index = 0; index < source.length; index += 1) {
+	for (let index = 0; index < source.length; index++) {
 		normalized.push(normalizeBlueprintEntry(source[index], index, prefix));
 	}
 	return normalized;
@@ -1053,7 +1154,7 @@ function normalizeBlueprintList(list, prefix) {
 function buildBlueprintMap(blueprintSet) {
 	const map = {};
 	const register = (list) => {
-		for (let index = 0; index < list.length; index += 1) {
+		for (let index = 0; index < list.length; index++) {
 			const entry = list[index];
 			if (entry && typeof entry.id === "string" && entry.id.length > 0) map[entry.id] = entry;
 		}
@@ -1070,13 +1171,13 @@ function buildBlueprintMap(blueprintSet) {
 
 function LevelPayload(payload) {
 	const source = normalizeObject(payload);
-	const terrain = normalizeObject(source.terrain);
-	const blueprintSource = normalizeObject(source.entityBlueprints);
+	const terrain = normalizeObject(getByAlias(source, "level.terrain", {}));
+	const blueprintSource = normalizeObject(getByAlias(source, "level.entityBlueprints", {}));
 	const metaSource = normalizeObject(source.meta);
-	const terrainObjects = normalizeArray(terrain.objects);
-	const terrainTriggers = normalizeArray(terrain.triggers);
-	const obstacles = normalizeArray(source.obstacles);
-	const entities = normalizeArray(source.entities);
+	const terrainObjects = normalizeArray(getByAlias(terrain, "level.objects", []));
+	const terrainTriggers = normalizeArray(getByAlias(terrain, "level.triggers", []));
+	const obstacles = normalizeArray(getByAlias(source, "level.obstacles", []));
+	const entities = normalizeArray(getByAlias(source, "level.entities", []));
 	const normalizedBlueprints = {
 		...blueprintSource,
 		enemies: normalizeBlueprintList(blueprintSource.enemies, "enemy-blueprint"),
@@ -1099,8 +1200,8 @@ function LevelPayload(payload) {
 		entityBlueprints: normalizedBlueprints,
 		meta: {
 			...metaSource,
-			levelId: normalizeString(metaSource.levelId, normalizeString(source.id, "unknown")),
-			stageId: normalizeString(metaSource.stageId, normalizeString(source.id, "unknown")),
+			levelId: normalizeString(getByAlias(metaSource, "meta.levelId", normalizeString(source.id, "unknown")), normalizeString(source.id, "unknown")),
+			stageId: normalizeString(getByAlias(metaSource, "meta.stageId", normalizeString(source.id, "unknown")), normalizeString(source.id, "unknown")),
 		},
 		world: worldConfig(source.world),
 		camera: cameraConfig(source.camera),
@@ -1110,10 +1211,10 @@ function LevelPayload(payload) {
 
 function worldConfig(world) {
 	const source = normalizeObject(world);
-	const length = Math.max(1, ToNumber(source.length, 100));
-	const width = Math.max(1, ToNumber(source.width, 100));
-	const height = Math.max(1, ToNumber(source.height, 40));
-	const deathBarrierY = ToNumber(source.deathBarrierY, -25);
+	const length = Math.max(1, ToNumber(getByAlias(source, "world.length", 100), 100));
+	const width = Math.max(1, ToNumber(getByAlias(source, "world.width", 100), 100));
+	const height = Math.max(1, ToNumber(getByAlias(source, "world.height", 40), 40));
+	const deathBarrierY = ToNumber(getByAlias(source, "world.deathBarrierY", -25), -25);
 	const resolvedWaterLevel = resolveWaterLevel(source, deathBarrierY, height);
 
 	return {
@@ -1122,15 +1223,15 @@ function worldConfig(world) {
 		height: new Unit(height, "cnu"),
 		deathBarrierY: new Unit(deathBarrierY, "cnu"),
 		waterLevel: resolvedWaterLevel === null ? null : new Unit(resolvedWaterLevel, "cnu"),
-		textureScale: Math.max(0.05, ToNumber(source.textureScale, 1)),
-		scatterScale: Math.max(0.05, ToNumber(source.scatterScale, 1)),
+		textureScale: Math.max(0.05, ToNumber(getByAlias(source, "world.textureScale", 1), 1)),
+		scatterScale: Math.max(0.05, ToNumber(getByAlias(source, "world.scatterScale", 1), 1)),
 	};
 }
 
 function resolveWaterLevel(source, deathBarrierY, worldHeight) {
-	if (!Object.prototype.hasOwnProperty.call(source, "waterLevel")) return null;
+	if (!hasByAlias(source, "world.waterLevel")) return null;
 
-	const level = Number(source.waterLevel);
+	const level = Number(getByAlias(source, "world.waterLevel", null));
 	if (!Number.isFinite(level)) {
 		warnLog("World waterLevel was malformed and has been normalized to null.");
 		return null;
@@ -1146,12 +1247,13 @@ function resolveWaterLevel(source, deathBarrierY, worldHeight) {
 
 function cameraConfig(camera) {
 	const source = normalizeObject(camera);
+	const levelOpening = normalizeObject(getByAlias(source, "camera.levelOpening", {}));
 	const openStart = NormalizeVector3(
-		source.levelOpening && source.levelOpening.startPosition,
+		getByAlias(levelOpening, "camera.startPosition", undefined),
 		{ x: 0, y: 40, z: 80 }
 	);
 	const openEnd = NormalizeVector3(
-		source.levelOpening && source.levelOpening.endPosition,
+		getByAlias(levelOpening, "camera.endPosition", undefined),
 		{ x: 0, y: 40, z: 80 }
 	);
 
@@ -1161,9 +1263,9 @@ function cameraConfig(camera) {
 			startPosition: new UnitVector3(openStart.x, openStart.y, openStart.z, "cnu"),
 			endPosition: new UnitVector3(openEnd.x, openEnd.y, openEnd.z, "cnu"),
 		},
-		distance: new Unit(ToNumber(source.distance, 10), "cnu"),
-		sensitivity: ToNumber(source.sensitivity, 0.12),
-		heightOffset: new Unit(ToNumber(source.heightOffset, 3), "cnu"),
+		distance: new Unit(ToNumber(getByAlias(source, "camera.distance", 10), 10), "cnu"),
+		sensitivity: ToNumber(getByAlias(source, "camera.sensitivity", 0.12), 0.12),
+		heightOffset: new Unit(ToNumber(getByAlias(source, "camera.heightOffset", 3), 3), "cnu"),
 	};
 }
 
@@ -1175,25 +1277,23 @@ function playerConfig(player) {
 	}
 
 	const source = normalizeObject(player);
-	const spawnPos = NormalizeVector3(source.spawnPosition, fallback.spawnPosition);
+	const spawnPos = NormalizeVector3(getByAlias(source, "player.spawnPosition", undefined), fallback.spawnPosition);
 	const modelParts = normalizePlayerModelParts(source);
 	
 	// Normalize optional meta overrides provided by payload (do not instantiate Units here;
 	// character.meta in characters.json uses plain numbers and builders expect raw numbers)
-	const rawMeta = normalizeObject(source.meta);
+	const rawMeta = normalizeObject(getByAlias(source, "player.meta", {}));
 	const metaOverrides = {};
 	const metaKeys = Object.keys(rawMeta);
 	for (let i = 0; i < metaKeys.length; i += 1) {
 		const key = metaKeys[i];
 		const val = rawMeta[key];
-		if (isVector3Like(val)) {
-			metaOverrides[key] = NormalizeVector3(val, { x: 0, y: 0, z: 0 });
-		} else if (typeof val === 'number' || (!isNaN(Number(val)) && val !== null && val !== undefined)) {
+		if (isVector3Like(val)) metaOverrides[key] = NormalizeVector3(val, { x: 0, y: 0, z: 0 });
+		else if (typeof val === 'number' || (!isNaN(Number(val)) && val !== null && val !== undefined)) {
 			const n = ToNumber(val, NaN);
 			if (Number.isFinite(n)) metaOverrides[key] = n;
-		} else if (typeof val === 'boolean' || typeof val === 'string') {
-			metaOverrides[key] = val;
-		}
+		} 
+		else if (typeof val === 'boolean' || typeof val === 'string') metaOverrides[key] = val;
 	}
 	// Provide a canonical list of override strings so downstream modules can rely
 	// on a normalized, presence-guaranteed array instead of doing defensive checks.
@@ -1212,14 +1312,15 @@ function playerConfig(player) {
 		metaList.push(`${k}: ${sval}`);
 	}
 	metaOverrides.list = metaList;
-	const resolvedCharacter = typeof source.character === "string" && source.character.length > 0
-		? source.character.toLowerCase()
+	const characterSource = getByAlias(source, "entity.character", undefined);
+	const resolvedCharacter = typeof characterSource === "string" && characterSource.length > 0
+		? characterSource.toLowerCase()
 		: fallback.character;
 
 	return {
 		character: resolvedCharacter,
 		spawnPosition: new UnitVector3(spawnPos.x, spawnPos.y, spawnPos.z, "cnu"),
-		scale: NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 }),
+		scale: NormalizeVector3(getByAlias(source, "player.scale", undefined), { x: 1, y: 1, z: 1 }),
 		modelParts: modelParts,
 		metaOverrides: metaOverrides,
 	}

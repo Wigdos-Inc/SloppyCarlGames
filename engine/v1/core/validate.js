@@ -367,8 +367,13 @@ function validateNormalizedLevelCollections(payload) {
 	return true;
 }
 
-
 function ValidateMenuUIPayload(payload) {
+	// Accept common top-level aliases so validation accepts variant payloads
+	if (isObject(payload)) {
+		if (!Array.isArray(payload.elements) && Array.isArray(payload.items)) payload.elements = payload.items;
+		if (!payload.rootId && (typeof payload.root === "string")) payload.rootId = payload.root;
+		if (!payload.screenId && (typeof payload.screen === "string")) payload.screenId = payload.screen;
+	}
 	const errors = [];
 	if (!isObject(payload)) {
 		errors.push("payload must be an object");
@@ -384,7 +389,7 @@ function ValidateMenuUIPayload(payload) {
 
 	if (errors.length > 0) {
 		Log("ENGINE", `Invalid Payload. Example valid menuUI payload: \n${JSON.stringify(exampleMenuUIPayload, null, 2)}`, "error", "Validation");
-		Log("ENGINE", `Menu UI payload rejected:\n\n${errors.join("\n")}.`, "error", "Validation");
+		Log("ENGINE", `Menu UI payload rejected:\n- ${errors.join("\n- ")}.`, "error", "Validation");
 		return null;
 	}
 
@@ -439,14 +444,28 @@ function ValidateSplashPayload(payload) {
 		}
 
 		if (Object.prototype.hasOwnProperty.call(step, "sfx")) {
-			if (!isObject(step.sfx) || typeof step.sfx.src !== "string" || step.sfx.src.length === 0) {
-				errors.push(`'${path}[${index}].sfx.src' must be a non-empty string when sfx is provided`);
+			if (!isObject(step.sfx)) {
+				errors.push(`'${path}[${index}].sfx' must be an object when provided`);
+			} else {
+				const hasSfxSrc = (typeof step.sfx.src === "string" && step.sfx.src.length > 0)
+					|| (typeof step.sfx.file === "string" && step.sfx.file.length > 0)
+					|| (typeof step.sfx.url === "string" && step.sfx.url.length > 0)
+					|| (typeof step.sfx.path === "string" && step.sfx.path.length > 0)
+					|| (typeof step.sfx.source === "string" && step.sfx.source.length > 0);
+				if (!hasSfxSrc) errors.push(`'${path}[${index}].sfx' must include a non-empty src/file/url/path/source`);
 			}
 		}
 
 		if (Object.prototype.hasOwnProperty.call(step, "voice")) {
-			if (!isObject(step.voice) || typeof step.voice.src !== "string" || step.voice.src.length === 0) {
-				errors.push(`'${path}[${index}].voice.src' must be a non-empty string when voice is provided`);
+			if (!isObject(step.voice)) {
+				errors.push(`'${path}[${index}].voice' must be an object when provided`);
+			} else {
+				const hasVoiceSrc = (typeof step.voice.src === "string" && step.voice.src.length > 0)
+					|| (typeof step.voice.file === "string" && step.voice.file.length > 0)
+					|| (typeof step.voice.url === "string" && step.voice.url.length > 0)
+					|| (typeof step.voice.path === "string" && step.voice.path.length > 0)
+					|| (typeof step.voice.source === "string" && step.voice.source.length > 0);
+				if (!hasVoiceSrc) errors.push(`'${path}[${index}].voice' must include a non-empty src/file/url/path/source`);
 			}
 		}
 	};

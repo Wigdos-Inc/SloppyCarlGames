@@ -12,7 +12,7 @@
             },
             "music": {
                 "name": "TITLE_THEME",
-                "src": "../audio/titleTheme.mp3",
+                "source": "audio/titleTheme.mp3",
                 "loop": true
             },
             "elements": [
@@ -136,7 +136,7 @@
                                         "textShadow": "0 4px 0 #10325d, 0 0 20px rgba(0,255,255,0.75)",
                                         "marginTop": "-8px"
                                     },
-                                    "text": "Engine - v0.11"
+                                    "text": "Engine - v0.11.1"
                                 }
                             ]
                         },
