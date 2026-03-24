@@ -145,10 +145,6 @@ class UnitVector3 {
 	clone() {
 		return new UnitVector3(this.x, this.y, this.z, this.type);
 	}
-
-	clone() {
-		return new UnitVector3(this.x, this.y, this.z, this.type);
-	}
 }
 
 // Converts radians to degrees
