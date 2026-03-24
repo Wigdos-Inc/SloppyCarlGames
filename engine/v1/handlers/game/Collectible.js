@@ -28,14 +28,14 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 
 		// SimDistance gate is camera-relative; only qualified entities enter this collision pass.
 		const entityPos = entity.transform.position;
-		if (cameraPos && DistanceVector3(cameraPos, entityPos) > activityRadius) { continue; }
+		if (DistanceVector3(cameraPos, entityPos) > activityRadius) continue;
 
-		if (!CheckEntityAabbOverlap(playerState, entity)) { continue; }
+		if (!CheckEntityAabbOverlap(playerState, entity)) continue;
 
 		// Pickup!
 		playerState.collectibles = Math.min(
 			playerState.collectibles + 1,
-			playerState.maxCollectibles || 999
+			playerState.maxCollectibles
 		);
 
 		Log("ENGINE", `Collectible "${entity.id}" picked up. Total: ${playerState.collectibles}`, "log", "Level");

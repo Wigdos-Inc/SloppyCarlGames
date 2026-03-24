@@ -4,6 +4,21 @@
 			"id": "enemy.scout-drone",
 			"type": "enemy",
 			"hp": 6,
+			"movement": {
+				"start": { "x": 0, "y": 0, "z": 0 },
+				"end": { "x": 0, "y": 0, "z": 0 },
+				"repeat": true,
+				"backAndForth": true,
+				"speed": 0,
+				"jump": 0,
+				"jumpInterval": 0,
+				"jumpOnSight": false,
+				"disappear": false,
+				"chase": false,
+				"physics": false
+			},
+			"velocity": { "x": 0, "y": 0, "z": 0 },
+			"platform": null,
 			"attacks": [
 				{
 					"id": "pulse-bolt",
@@ -22,61 +37,132 @@
 				"damage": { "loop": false }
 			},
 			"model": {
+				"spawnSurfaceId": null,
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
 				"parts": [
 					{
 						"id": "core",
 						"parentId": "root",
 						"anchorPoint": "bottom",
-						"primitive": "cube",
+						"attachmentPoint": "top",
+						"shape": "cube",
+						"complexity": "medium",
 						"dimensions": { "x": 1.8, "y": 1.2, "z": 1.8 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
-						"textureID": "metal-panel",
-						"textureColor": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
-						"textureOpacity": 1
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"primitiveOptions": {
+							"thickness": 0,
+							"radius": 0,
+							"subdivisionsX": 1,
+							"subdivisionsZ": 1
+						},
+						"texture": {
+							"textureID": "metal-panel",
+							"color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1
+						},
+						"detail": {
+							"scatter": []
+						}
 					},
 					{
 						"id": "left-arm",
 						"parentId": "core",
 						"anchorPoint": "top",
 						"attachmentPoint": "left",
-						"primitive": "cylinder",
+						"shape": "cylinder",
+						"complexity": "medium",
 						"dimensions": { "x": 0.35, "y": 1, "z": 0.35 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
-						"textureID": "metal-panel",
-						"textureColor": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
-						"textureOpacity": 1
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"primitiveOptions": {
+							"thickness": 0,
+							"radius": 0,
+							"subdivisionsX": 1,
+							"subdivisionsZ": 1
+						},
+						"texture": {
+							"textureID": "metal-panel",
+							"color": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1
+						},
+						"detail": {
+							"scatter": []
+						}
 					},
 					{
 						"id": "right-arm",
 						"parentId": "core",
 						"anchorPoint": "top",
 						"attachmentPoint": "right",
-						"primitive": "cylinder",
+						"shape": "cylinder",
+						"complexity": "medium",
 						"dimensions": { "x": 0.35, "y": 1, "z": 0.35 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
-						"textureID": "metal-panel",
-						"textureColor": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
-						"textureOpacity": 1
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"primitiveOptions": {
+							"thickness": 0,
+							"radius": 0,
+							"subdivisionsX": 1,
+							"subdivisionsZ": 1
+						},
+						"texture": {
+							"textureID": "metal-panel",
+							"color": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1
+						},
+						"detail": {
+							"scatter": []
+						}
 					},
 					{
 						"id": "eye",
 						"parentId": "core",
 						"anchorPoint": "center",
 						"attachmentPoint": "front",
-						"primitive": "sphere",
+						"shape": "sphere",
+						"complexity": "medium",
 						"dimensions": { "x": 0.5, "y": 0.5, "z": 0.5 },
 						"localPosition": { "x": 0, "y": 0.1, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
-						"textureID": "energy-core",
-						"textureColor": { "r": 0.65, "g": 0.95, "b": 1, "a": 1 },
-						"textureOpacity": 1
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"primitiveOptions": {
+							"thickness": 0,
+							"radius": 0,
+							"subdivisionsX": 1,
+							"subdivisionsZ": 1
+						},
+						"texture": {
+							"textureID": "energy-core",
+							"color": { "r": 0.65, "g": 0.95, "b": 1, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": true,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"detail": {
+							"scatter": []
+						}
 					}
 				]
 			}
@@ -87,6 +173,21 @@
 			"id": "npc.engineer",
 			"type": "npc",
 			"hp": 10,
+			"movement": {
+				"start": { "x": 0, "y": 0, "z": 0 },
+				"end": { "x": 0, "y": 0, "z": 0 },
+				"repeat": true,
+				"backAndForth": true,
+				"speed": 0,
+				"jump": 0,
+				"jumpInterval": 0,
+				"jumpOnSight": false,
+				"disappear": false,
+				"chase": false,
+				"physics": false
+			},
+			"velocity": { "x": 0, "y": 0, "z": 0 },
+			"platform": null,
 			"attacks": [],
 			"hardcoded": {
 				"interactable": true
@@ -97,33 +198,71 @@
 				"talking": { "loop": true }
 			},
 			"model": {
+				"spawnSurfaceId": null,
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
 				"parts": [
 					{
 						"id": "body",
 						"parentId": "root",
 						"anchorPoint": "bottom",
-						"primitive": "cube",
+						"attachmentPoint": "top",
+						"shape": "cube",
+						"complexity": "medium",
 						"dimensions": { "x": 1.2, "y": 2.1, "z": 0.9 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
-						"textureID": "wood-plank",
-						"textureColor": { "r": 0.95, "g": 0.88, "b": 0.78, "a": 1 },
-						"textureOpacity": 1
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"primitiveOptions": {
+							"thickness": 0,
+							"radius": 0,
+							"subdivisionsX": 1,
+							"subdivisionsZ": 1
+						},
+						"texture": {
+							"textureID": "wood-plank",
+							"color": { "r": 0.95, "g": 0.88, "b": 0.78, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1
+						},
+						"detail": {
+							"scatter": []
+						}
 					},
 					{
 						"id": "head",
 						"parentId": "body",
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
-						"primitive": "sphere",
+						"shape": "sphere",
+						"complexity": "medium",
 						"dimensions": { "x": 0.9, "y": 0.9, "z": 0.9 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
-						"textureID": "wood-plank",
-						"textureColor": { "r": 1, "g": 0.9, "b": 0.8, "a": 1 },
-						"textureOpacity": 1
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"primitiveOptions": {
+							"thickness": 0,
+							"radius": 0,
+							"subdivisionsX": 1,
+							"subdivisionsZ": 1
+						},
+						"texture": {
+							"textureID": "wood-plank",
+							"color": { "r": 1, "g": 0.9, "b": 0.8, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1
+						},
+						"detail": {
+							"scatter": []
+						}
 					}
 				]
 			}
@@ -134,6 +273,21 @@
 			"id": "collectible.orb",
 			"type": "collectible",
 			"hp": 1,
+			"movement": {
+				"start": { "x": 0, "y": 0, "z": 0 },
+				"end": { "x": 0, "y": 0, "z": 0 },
+				"repeat": true,
+				"backAndForth": true,
+				"speed": 0,
+				"jump": 0,
+				"jumpInterval": 0,
+				"jumpOnSight": false,
+				"disappear": false,
+				"chase": false,
+				"physics": false
+			},
+			"velocity": { "x": 0, "y": 0, "z": 0 },
+			"platform": null,
 			"attacks": [],
 			"hardcoded": {
 				"grant": "energy",
@@ -143,19 +297,42 @@
 				"idle": { "loop": true }
 			},
 			"model": {
+				"spawnSurfaceId": null,
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
 				"parts": [
 					{
 						"id": "orb",
 						"parentId": "root",
 						"anchorPoint": "bottom",
-						"primitive": "sphere",
+						"attachmentPoint": "top",
+						"shape": "sphere",
+						"complexity": "medium",
 						"dimensions": { "x": 0.9, "y": 0.9, "z": 0.9 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
-						"textureID": "energy-core",
-						"textureColor": { "r": 0.75, "g": 1, "b": 1, "a": 1 },
-						"textureOpacity": 1
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"primitiveOptions": {
+							"thickness": 0,
+							"radius": 0,
+							"subdivisionsX": 1,
+							"subdivisionsZ": 1
+						},
+						"texture": {
+							"textureID": "energy-core",
+							"color": { "r": 0.75, "g": 1, "b": 1, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1
+						},
+						"detail": {
+							"scatter": []
+						}
 					}
 				]
 			}
@@ -166,6 +343,21 @@
 			"id": "projectile.pulse",
 			"type": "projectile",
 			"hp": 1,
+			"movement": {
+				"start": { "x": 0, "y": 0, "z": 0 },
+				"end": { "x": 0, "y": 0, "z": 0 },
+				"repeat": true,
+				"backAndForth": true,
+				"speed": 0,
+				"jump": 0,
+				"jumpInterval": 0,
+				"jumpOnSight": false,
+				"disappear": false,
+				"chase": false,
+				"physics": false
+			},
+			"velocity": { "x": 0, "y": 0, "z": 0 },
+			"platform": null,
 			"attacks": [],
 			"hardcoded": {
 				"damage": 1,
@@ -175,22 +367,46 @@
 				"idle": { "loop": true }
 			},
 			"model": {
+				"spawnSurfaceId": null,
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
 				"parts": [
 					{
 						"id": "bolt",
 						"parentId": "root",
 						"anchorPoint": "center",
-						"primitive": "sphere",
+						"attachmentPoint": "top",
+						"shape": "sphere",
+						"complexity": "medium",
 						"dimensions": { "x": 0.4, "y": 0.4, "z": 0.4 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
-						"textureID": "energy-core",
-						"textureColor": { "r": 0.7, "g": 0.95, "b": 1, "a": 1 },
-						"textureOpacity": 0.95
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"primitiveOptions": {
+							"thickness": 0,
+							"radius": 0,
+							"subdivisionsX": 1,
+							"subdivisionsZ": 1
+						},
+						"texture": {
+							"textureID": "energy-core",
+							"color": { "r": 0.7, "g": 0.95, "b": 1, "a": 1 },
+							"opacity": 0.95,
+							"density": 1,
+							"speckSize": 1
+						},
+						"detail": {
+							"scatter": []
+						}
 					}
 				]
 			}
 		}
-	]
+	],
+	"entities": []
 }

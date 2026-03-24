@@ -9,19 +9,17 @@
 import { BuildObject } from "./NewObject.js";
 import { BuildEntity } from "./NewEntity.js";
 import { BuildObstacles } from "./NewObstacle.js";
-import { GetPerformanceScatterMultiplier, BuildScatterBatches } from "./NewScatter.js";
+import { GetPerformanceScatterMultiplier, BuildScatterBatches, BuildScatterVisualResources } from "./NewScatter.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { Unit, UnitVector3 } from "../math/Utilities.js";
+import { UnitVector3 } from "../math/Utilities.js";
 import { PrepareLevelVisualResources } from "./NewTexture.js";
 
 function resolveEntityBlueprintMap(payload) {
 	const map = {};
 	const blueprints = payload.entityBlueprints;
 
-	const registerList = (list) => {
-		list.forEach((entry) => map[entry.id] = entry);
-	};
+	const registerList = (list) => list.forEach((entry) => map[entry.id] = entry);
 
 	registerList(blueprints.enemies);
 	registerList(blueprints.npcs);
@@ -32,7 +30,7 @@ function resolveEntityBlueprintMap(payload) {
 	return map;
 }
 
-function buildEntityInput(entityDefinition, index, blueprintMap) {
+function buildEntityInput(entityDefinition, blueprintMap) {
 	const source = entityDefinition;
 	const merged = source.blueprintId
 		? { ...source, baseBlueprint: blueprintMap[source.blueprintId] }
@@ -92,6 +90,10 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 				color: color,
 				opacity: color.a,
 				density: 1,
+				speckSize: 1,
+				animated: false,
+				holdTimeSpeed: 1,
+				blendTimeSpeed: 1,
 			},
 			detail: { scatter: [] },
 			role: "trigger",
@@ -136,6 +138,10 @@ function buildWaterVisualMeshes(world) {
 				color: { r: 0.1, g: 0.28, b: 0.44, a: 1 },
 				opacity: 0.2,
 				density: 1,
+				speckSize: 1,
+				animated: false,
+				holdTimeSpeed: 1,
+				blendTimeSpeed: 1,
 			},
 			detail: { scatter: [] },
 			role: "water",
@@ -155,13 +161,17 @@ function buildWaterVisualMeshes(world) {
 			pivot: new UnitVector3(0, 0, 0, "cnu"),
 			primitiveOptions: {},
 			texture: {
-				textureID: "default-grid",
-				baseTextureID: "default-grid",
-				materialTextureID: "default-grid",
-				shape: null,
+				textureID: "sea-surface",
+				baseTextureID: "sea-surface",
+				materialTextureID: "sea-surface",
+				shape: "square",
 				color: { r: 0.38, g: 0.62, b: 0.85, a: 1 },
 				opacity: 0.35,
 				density: 1,
+				speckSize: 2,
+				animated: true,
+				holdTimeSpeed: 1,
+				blendTimeSpeed: 1,
 			},
 			detail: { scatter: [] },
 			role: "water",
@@ -193,19 +203,18 @@ function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
 function buildSceneBoundingBoxes(sceneGraph) {
 	const bounds = [];
 	const classifyEntityType = (entity) => {
-		const type = String(entity.type).toLowerCase();
-		if (type.includes("player")) {
-			return { whole: "Player", part: "PlayerPart" };
-		}
-		if (type.includes("boss")) {
-			return { whole: "Boss", part: "BossPart" };
-		}
+		const type = entity.type;
+		if (type.includes("player")) return { whole: "Player", part: "PlayerPart" };
+		if (type.includes("boss")) return { whole: "Boss", part: "BossPart" };
 		return { whole: "Entity", part: "EntityPart" };
 	};
 
-	const push = (type, id, aabb) => {
-		bounds.push({ type: type, id: id, min: { ...aabb.min }, max: { ...aabb.max } });
-	};
+	const push = (type, id, aabb) => bounds.push({ 
+		type: type, 
+		id: id, 
+		min: aabb.min, 
+		max: aabb.max 
+	});
 
 	const terrain = sceneGraph.terrain;
 	terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.worldAabb));
@@ -215,9 +224,12 @@ function buildSceneBoundingBoxes(sceneGraph) {
 
 	// Per-model scatter bounding boxes from instanced batch generation.
 	const scatterDebugBounds = sceneGraph.scatterDebugBounds ?? [];
-	scatterDebugBounds.forEach((record) => {
-		bounds.push({ type: record.type || "Scatter", id: record.id, min: { ...record.min }, max: { ...record.max } });
-	});
+	scatterDebugBounds.forEach((record) => bounds.push({ 
+		type: record.type, 
+		id: record.id, 
+		min: record.min, 
+		max: record.max 
+	}));
 
 	const obstacles = sceneGraph.obstacles;
 	obstacles.forEach((obstacle) => {
@@ -287,7 +299,6 @@ async function BuildLevel(payload) {
 	}
 
 	const obstacleRecords = BuildObstacles(obstacleDefinitions, {});
-	const obstacles = obstacleRecords.map((record) => record.mesh);
 
 	// Generate scatter batches for obstacles that have scatter.
 	obstacleRecords.forEach((record, index) => {
@@ -306,8 +317,10 @@ async function BuildLevel(payload) {
 		}
 	});
 
+	const primitiveGeometry = BuildScatterVisualResources(scatterBatches);
+
 	let totalBatchInstances = 0;
-	scatterBatches.forEach((batch) => { totalBatchInstances += batch.instances.length; });
+	scatterBatches.forEach((batch) => { totalBatchInstances += batch.instanceCount; });
 	if (totalBatchInstances > 0) {
 		Log(
 			"ENGINE",
@@ -326,8 +339,8 @@ async function BuildLevel(payload) {
 
 	const surfaceMap = buildSurfaceMap(terrainDefinitions, obstacleDefinitions);
 
-	const entities = entityDefinitions.map((entity, index) =>
-		BuildEntity(buildEntityInput(entity, index, blueprintMap), surfaceMap)
+	const entities = entityDefinitions.map((entity) =>
+		BuildEntity(buildEntityInput(entity, blueprintMap), surfaceMap)
 	);
 	if (entities.length > 0) {
 		Log("ENGINE", `Entity group created: count=${entities.length}`, "log", "Level");
@@ -342,6 +355,7 @@ async function BuildLevel(payload) {
 		triggers: triggers,
 		scatter: [],
 		scatterBatches: scatterBatches,
+		scatterPrimitiveGeometry: primitiveGeometry,
 		scatterDebugBounds: scatterDebugBounds,
 		debug: {
 			showTriggerVolumes: !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.Triggers === true),

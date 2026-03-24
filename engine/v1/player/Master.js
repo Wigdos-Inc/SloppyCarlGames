@@ -62,7 +62,7 @@ function createDefaultPlayerState(playerData) {
 		spawnPosition: spawnPos,
 		collision: {
 			aabb: { min: new UnitVector3(0, 0, 0, "CNU"), max: new UnitVector3(0, 0, 0, "CNU") },
-			radius: new Unit(ToNumber(playerData.collisionRadius, character.meta.collisionRadius)),
+			radius: new Unit(ToNumber(playerData.collisionRadius, character.meta.collisionRadius), "cnu"),
 			simRadiusPadding: 24,
 			simRadiusAabb: { min: new UnitVector3(0, 0, 0, "CNU"), max: new UnitVector3(0, 0, 0, "CNU") },
 		},
@@ -74,22 +74,38 @@ function createDefaultPlayerState(playerData) {
 
 /**
  * Initialize the player entity for a level.
- * @param {object} payload — { spawnPosition, character, collectibles }
+ * @param {object} payload — { spawnPosition, character, modelParts, collectibles }
  * @param {object} sceneGraph — the active scene graph.
  * @returns {object} — the initialized playerState.
  */
 function InitializePlayer(payload, sceneGraph) {
-	const character = characterData[payload.character];
+	const characterProfile = characterData[payload.character] || characterData.carl;
+	const hasCustomParts = payload.modelParts.length > 0;
+	const mergedMeta = {
+		...characterProfile.meta,
+		...(payload.metaOverrides || {}),
+	};
+	const effectiveCharacter = {
+		...characterProfile,
+		meta: mergedMeta,
+		model: hasCustomParts
+			? { ...characterProfile.model, parts: payload.modelParts }
+			: characterProfile.model,
+	};
+
+	// Log meta overrides using the normalized, formatted list from the payload.
+	Log("ENGINE", `Player meta overrides applied:\n- ${payload.metaOverrides.list.join('\n- ')}`, "log", "Player");
+
 	const spawnPos = payload.spawnPosition;
 	const collectibles = ToNumber(payload.collectibles, 0);
 
 	// Build Player State & Model
 	playerState = createDefaultPlayerState({
-		character: character, 
+		character: effectiveCharacter,
 		spawnPosition: spawnPos, 
 		scale: payload.scale,
 		collectibles: collectibles,
-		collisionRadius: character.meta.collisionRadius
+		collisionRadius: effectiveCharacter.meta.collisionRadius
 	});
 	UpdatePlayerModelFromState(playerState);
 
@@ -98,7 +114,11 @@ function InitializePlayer(payload, sceneGraph) {
 	// Also place in entities array so the renderer and bounding box system see it.
 	sceneGraph.entities.push(playerState);
 
-	Log("ENGINE", `Player initialized: character="${character.name}" at (${spawnPos.x}, ${spawnPos.y}, ${spawnPos.z})`, "log", "Level");
+	const sourceType = hasCustomParts
+		? "custom-model"
+		: (characterData[payload.character] ? "profile" : "fallback");
+
+	Log("ENGINE", `Player initialized: character="${effectiveCharacter.name}" source="${sourceType}" at (${spawnPos.x}, ${spawnPos.y}, ${spawnPos.z})`, "log", "Player");
 	return playerState;
 }
 
@@ -159,31 +179,22 @@ function ResolvePlayerState() {
 	if (!playerState.grounded) {
 		if (playerState.state === "Jumping") {
 			const currentY = ToNumber(playerState.transform.position.y, 0);
-			const jumpStartY = ToNumber(playerState.jumpStartY, currentY);
-			playerState.jumpApexY = Math.max(ToNumber(playerState.jumpApexY, currentY), currentY);
+			playerState.jumpApexY.value = Math.max(playerState.jumpApexY.value, currentY);
 
 			// Stay Jumping through ascent and early descent; switch to Falling
 			// only after descending below jump start height by 1 unit.
-			if (currentY <= jumpStartY - 1) {
-				playerState.state = "Falling";
-			}
-		} else {
-			playerState.state = "Falling";
-		}
+			if (currentY <= playerState.jumpStartY.value - 1) playerState.state = "Falling";
+		} else playerState.state = "Falling";
 	} else {
 		// Grounded states.
-		if (playerState.boost && playerState.boost.active) {
-			playerState.state = "Boosting";
-		} else if (speed > movementThreshold) {
-			playerState.state = "Running";
-		} else {
-			playerState.state = "Idle";
-		}
+		if (playerState.boost && playerState.boost.active) playerState.state = "Boosting";
+		else if (speed > movementThreshold) playerState.state = "Running";
+		else playerState.state = "Idle";
 	}
 
 	// Log state transitions.
 	if (oldState !== playerState.state) {
-		Log("ENGINE", `Player state: ${oldState} → ${playerState.state}`, "log", "Level");
+		Log("ENGINE", `Player state: ${oldState} → ${playerState.state}`, "log", "Player");
 		playerState.previousState = oldState;
 	}
 }
@@ -195,7 +206,7 @@ function ResolvePlayerState() {
 function TriggerPlayerDeath() {
 	playerState.state = "Dead";
 	playerState.velocity.set({ x: 0, y: 0, z: 0 });
-	Log("ENGINE", "Player death triggered.", "log", "Level");
+	Log("ENGINE", "Player death triggered.", "log", "Player");
 }
 
 /**
@@ -218,7 +229,7 @@ function RespawnPlayer() {
 	playerState.invulnerable = { active: false, timer: 0, flashTimer: 0 };
 
 	UpdatePlayerModelFromState(playerState);
-	Log("ENGINE", `Player respawned at (${respawnPos.x.toFixed(1)}, ${respawnPos.y.toFixed(1)}, ${respawnPos.z.toFixed(1)})`, "log", "Level");
+	Log("ENGINE", `Player respawned at (${respawnPos.x.toFixed(1)}, ${respawnPos.y.toFixed(1)}, ${respawnPos.z.toFixed(1)})`, "log", "Player");
 }
 
 function GetPlayerState() {

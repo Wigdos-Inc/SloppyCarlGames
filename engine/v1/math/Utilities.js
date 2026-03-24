@@ -94,7 +94,7 @@ class UnitVector3 {
 			}
 			return converted;
 		}
-		return { x: this.x, y: this.y, z: this.z };
+		return this;
 	}
 
 	toCNU(replace = false) {
@@ -109,7 +109,7 @@ class UnitVector3 {
 			}
 			return converted;
 		}
-		return { x: this.x, y: this.y, z: this.z };
+		return this;
 	}
 
 	toRadians(replace = false) {
@@ -124,7 +124,7 @@ class UnitVector3 {
 			}
 			return converted;
 		}
-		return { x: this.x, y: this.y, z: this.z };
+		return this;
 	}
 
 	toDegrees(replace = false) {
@@ -139,7 +139,11 @@ class UnitVector3 {
 			}
 			return converted;
 		}
-		return { x: this.x, y: this.y, z: this.z };
+		return this;
+	}
+
+	clone() {
+		return new UnitVector3(this.x, this.y, this.z, this.type);
 	}
 
 	clone() {

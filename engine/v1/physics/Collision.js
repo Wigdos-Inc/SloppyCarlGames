@@ -9,6 +9,7 @@ import {
 	SubtractVector3,
 	ScaleVector3,
 	DotVector3,
+	AddVector3,
 } from "../math/Vector3.js";
 import { SweptAABB, AABBOverlap } from "../math/Physics.js";
 import { ToNumber } from "../math/Utilities.js";
@@ -68,16 +69,8 @@ function BuildEntityAabbAtPosition(entityAabb, position) {
 		z: pos.z + centerOffset.z,
 	};
 	return {
-		min: {
-			x: centerPos.x - halfExtents.x,
-			y: centerPos.y - halfExtents.y,
-			z: centerPos.z - halfExtents.z,
-		},
-		max: {
-			x: centerPos.x + halfExtents.x,
-			y: centerPos.y + halfExtents.y,
-			z: centerPos.z + halfExtents.z,
-		},
+		min: SubtractVector3(centerPos, halfExtents),
+		max: AddVector3(centerPos, halfExtents),
 	};
 }
 

@@ -21,7 +21,8 @@ import { Lerp, ToNumber, Clamp, Unit, UnitVector3 } from "../../math/Utilities.j
 
 const worldUp = { x: 0, y: 1, z: 0 };
 const pitchClampDegrees = 89;
-const freeCamEnabled = !!(CONFIG.DEBUG.LEVELS.FreeCam === true);
+// FreeCam must be explicitly enabled in levels and global debug mode must be on.
+const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true);
 
 const worldDistanceDefaults = {
 	freeCamStartPosition: new UnitVector3(0, 20, 40, "worldunit"),
@@ -101,9 +102,7 @@ function getCurrentCameraPosition() {
 	return latestCameraPosition;
 }
 
-if (CONFIG.DEBUG.ALL === true) {
-	window.camPos = getCurrentCameraPosition;
-}
+if (CONFIG.DEBUG.ALL === true) window.camPos = getCurrentCameraPosition;
 
 function createForwardFromAngles(yawDegrees, pitchDegrees) {
 	const yaw = (yawDegrees * Math.PI) / 180;
@@ -116,7 +115,7 @@ function createForwardFromAngles(yawDegrees, pitchDegrees) {
 }
 
 function createCameraState(seed) {
-	const source = seed && typeof seed === "object" ? seed : {};
+	const source = seed;
 	const position = worldDistanceDefaults.freeCamStartPosition;
 	position.set(source.position);
 	const yaw = ToNumber(source.yaw, -90);
@@ -126,7 +125,12 @@ function createCameraState(seed) {
 	const up = NormalizeUnitVector3(CrossVector3(right, forward));
 	const velocity = new UnitVector3(0, 0, 0, "worldunit");
 	velocity.set(source.velocity);
-	const target = new UnitVector3(position.x + forward.x, position.y + forward.y, position.z + forward.z, "worldunit");
+	const target = new UnitVector3(
+		position.x + forward.x, 
+		position.y + forward.y, 
+		position.z + forward.z, 
+		"worldunit"
+	);
 
 	return {
 		position: position,
@@ -390,17 +394,11 @@ function initializeDefaultCamConfig(cameraConfig) {
 }
 
 function HandleDefaultCamInput(eventLike) {
-	if (!defaultCamRuntime.active || !eventLike || typeof eventLike !== "object") {
-		return false;
-	}
-
-	const eventType = eventLike.type || null;
-	const eventCode = eventLike.code || null;
+	const eventType = eventLike.type;
+	const eventCode = eventLike.code;
 
 	if (eventType === "pointerdown") {
-		if (RequestPointerLock()) {
-			Log("ENGINE", "DefaultCam pointer lock requested.", "log", "Level");
-		}
+		if (RequestPointerLock()) Log("ENGINE", "DefaultCam pointer lock requested.", "log", "Level");
 		return true;
 	}
 
@@ -610,9 +608,10 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 		return state;
 	}
 
-	const levelId = payloadMeta && payloadMeta.levelId ? payloadMeta.levelId : "unknown-level";
-	const stageId = payloadMeta && payloadMeta.stageId ? payloadMeta.stageId : "unknown-stage";
-	const levelKey = `${levelId}:${stageId}`;
+	// Check if game uses stages at all and store key
+	const levelKey = payloadMeta.stageId 
+		? `${payloadMeta.levelId}:${payloadMeta.stageId}`
+		: payloadMeta.levelId;
 
 	freeCamRuntime.active = true;
 	freeCamRuntime.levelKey = levelKey;

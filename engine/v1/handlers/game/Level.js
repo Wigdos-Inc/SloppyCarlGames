@@ -21,6 +21,7 @@ import { ApplyPhysicsPipeline, ApplyEntityPhysics } from "./Physics.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
 import { GetSimDistanceValue } from "../../physics/Collision.js";
+import { InitializeTextureAnimation, UpdateTextureAnimation } from "./Texture.js";
 
 const levelRuntimeState = {
 	payload: null,
@@ -40,9 +41,7 @@ const levelLoop = {
 	maxFrameTime: 250,
 };
 
-function getConfiguredFrameRate() {
-	return CONFIG.PERFORMANCE.FrameRate;
-}
+const frameRate = CONFIG.PERFORMANCE.FrameRate;
 
 function cacheLevelPayload(payload) {
 	Cache.Level.lastPayload = payload;
@@ -149,7 +148,7 @@ function StartLevelLoop() {
 	levelLoop.paused = false;
 	levelLoop.lastFrameTime = performance.now();
 	levelLoop.accumulator = 0;
-	levelLoop.fixedTimeStep = 1000 / getConfiguredFrameRate();
+	levelLoop.fixedTimeStep = 1000 / frameRate;
 
 	const frame = () => {
 		if (!levelLoop.active) return;
@@ -166,7 +165,7 @@ function StartLevelLoop() {
 			levelLoop.accumulator -= levelLoop.fixedTimeStep;
 		}
 
-		if (levelRuntimeState.sceneGraph && !levelLoop.paused) {
+		if (!levelLoop.paused) {
 			RenderLevel(levelRuntimeState.sceneGraph, levelRuntimeState.renderOptions);
 		}
 
@@ -181,7 +180,7 @@ function StopLevelLoop() {
 
 	levelLoop.active = false;
 
-	if (levelLoop.animationFrameId !== null && typeof cancelAnimationFrame === "function") {
+	if (levelLoop.animationFrameId !== null) {
 		cancelAnimationFrame(levelLoop.animationFrameId);
 		levelLoop.animationFrameId = null;
 	}
@@ -241,6 +240,8 @@ async function CreateLevel(payload, options) {
 		cachedPayload.meta
 	);
 
+	InitializeTextureAnimation(sceneGraph);
+
 	levelRuntimeState.sceneGraph = sceneGraph;
 	if (shouldRefreshBoundingBoxes()) {
 		RefreshSceneBoundingBoxes(sceneGraph);
@@ -270,12 +271,7 @@ async function CreateLevel(payload, options) {
 }
 
 function Update(deltaMilliseconds) {
-	if (!levelRuntimeState.sceneGraph) {
-		Log("ENGINE", "Level.Update skipped: no active sceneGraph.", "warn", "Level");
-		return;
-	}
-
-	const deltaMs = typeof deltaMilliseconds === "number" ? deltaMilliseconds : 0;
+	const deltaMs = deltaMilliseconds;
 	const deltaSeconds = Math.max(0, deltaMs) / 1000;
 	const sceneGraph = levelRuntimeState.sceneGraph;
 	const entities = sceneGraph.entities;
@@ -310,9 +306,7 @@ function Update(deltaMilliseconds) {
 
 	for (let index = 0; index < entities.length; index += 1) {
 		const entity = entities[index];
-		if (entity.type === "player") {
-			continue;
-		}
+		if (entity.type === "player") continue;
 		if (DistanceVector3(cameraPosition, entity.transform.position) > simDistance) continue;
 		updateEntityMovement(entity, deltaSeconds);
 		ApplyEntityPhysics(entity, sceneGraph, deltaSeconds);
@@ -327,14 +321,23 @@ function Update(deltaMilliseconds) {
 		playerState
 	);
 
+	// === TEXTURE ANIMATIONS ===
+	UpdateTextureAnimation(sceneGraph, deltaMs);
+
 	syncEntityMeshes(sceneGraph);
-	if (shouldRefreshBoundingBoxes()) {
-		RefreshSceneBoundingBoxes(sceneGraph);
-	}
+	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
 }
 
 function GetActiveLevel() {
 	return levelRuntimeState.sceneGraph;
 }
 
-export { CreateLevel, Update, GetActiveLevel, StartLevelLoop, StopLevelLoop, PauseLevelLoop, ResumeLevelLoop };
+export { 
+	CreateLevel, 
+	Update, 
+	GetActiveLevel, 
+	StartLevelLoop, 
+	StopLevelLoop, 
+	PauseLevelLoop, 
+	ResumeLevelLoop 
+};

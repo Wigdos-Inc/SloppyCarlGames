@@ -9,37 +9,32 @@ import { AddVector3, MultiplyVector3 } from "../math/Vector3.js";
 import { ToNumber, UnitVector3 } from "../math/Utilities.js";
 
 function mergeAabb(accumulator, bounds) {
-	if (!bounds) {
-		return accumulator;
-	}
-
 	if (!accumulator) {
 		return {
-			min: new UnitVector3(bounds.min.x, bounds.min.y, bounds.min.z, "CNU"),
-			max: new UnitVector3(bounds.max.x, bounds.max.y, bounds.max.z, "CNU"),
+			min: bounds.min.clone(),
+			max: bounds.max.clone(),
 		};
 	}
 
-	return {
-		min: new UnitVector3(
-			Math.min(accumulator.min.x, bounds.min.x),
-			Math.min(accumulator.min.y, bounds.min.y),
-			Math.min(accumulator.min.z, bounds.min.z),
-			"CNU"
-		),
-		max: new UnitVector3(
-			Math.max(accumulator.max.x, bounds.max.x),
-			Math.max(accumulator.max.y, bounds.max.y),
-			Math.max(accumulator.max.z, bounds.max.z),
-			"CNU"
-		),
-	};
+	accumulator.min.set(
+		Math.min(accumulator.min.x, bounds.min.x),
+		Math.min(accumulator.min.y, bounds.min.y),
+		Math.min(accumulator.min.z, bounds.min.z)
+	);
+	accumulator.max.set(
+		Math.max(accumulator.max.x, bounds.max.x),
+		Math.max(accumulator.max.y, bounds.max.y),
+		Math.max(accumulator.max.z, bounds.max.z)
+	)
+
+	return accumulator;
 }
 
 function buildObstacleParts(source, index, options) {
-	if (!Array.isArray(source.parts) || source.parts.length === 0) {
+	if (source.parts.length === 0) {
 		const elevatedPosition = source.position.clone();
 		elevatedPosition.y += source.dimensions.y * source.scale.y * 0.5;
+
 		const single = BuildObject(
 			{
 				id: source.id,
@@ -74,8 +69,7 @@ function buildObstacleParts(source, index, options) {
 	const rootScale = source.scale; // Vector3
 
 	return source.parts.map((part, partIndex) => {
-		const inheritedTexture = source.texture || null;
-		const inheritedScatter = source.detail && Array.isArray(source.detail.scatter) ? source.detail.scatter : [];
+		const inheritedTexture = source.texture;
 		const partScatterContext = options.scatterContext
 			? {
 				...options.scatterContext,
@@ -83,7 +77,9 @@ function buildObstacleParts(source, index, options) {
 			}
 			: null;
 
-		const scatterList = Array.isArray(part.detail && part.detail.scatter) ? part.detail.scatter : (partIndex === 0 ? inheritedScatter : []);
+		const scatterList = part.detail.scatter.length > 0 
+			? part.detail.scatter 
+			: (partIndex === 0 ? source.detail.scatter: []);
 
 		const combinedScale = MultiplyVector3(rootScale, part.localScale);
 
@@ -98,7 +94,7 @@ function buildObstacleParts(source, index, options) {
 		return BuildObject(
 			{
 				...part,
-				id: part.id || `${source.id}-part-${partIndex}`,
+				id: part.id,
 				shape: part.shape,
 				complexity: part.complexity,
 				dimensions: part.dimensions,
@@ -122,29 +118,26 @@ function buildObstacleParts(source, index, options) {
 function BuildObstacle(source, index, options) {
 	const parts = buildObstacleParts(source, index, options);
 	let bounds = null;
-	parts.forEach((part) => {
-		bounds = mergeAabb(bounds, part.worldAabb || null);
-	});
+	parts.forEach((part) => bounds = mergeAabb(bounds, part.worldAabb));
 
-	const mesh = parts[0] || null;
+	const mesh = parts[0];
 
 	return {
 		id: source.id,
 		mesh: mesh,
 		parts: parts,
 		bounds: bounds,
-		destructible: source.destructible === true,
-		hp: Math.max(1, ToNumber(source.hp, 1)),
-		static: source.static !== false,
-		scatter: Array.isArray(source.scatter) ? source.scatter : [],
+		destructible: source.destructible,
+		hp: source.hp,
+		static: source.static,
+		scatter: source.scatter,
 		state: {
 			destroyed: false,
 		},
 	};
 }
 
-function BuildObstacles(definitions, options) {
-	const source = Array.isArray(definitions) ? definitions : [];
+function BuildObstacles(source, options) {
 	const built = source.map((definition, index) => BuildObstacle(definition, index, options));
 	if (built.length > 0) {
 		const destructibleCount = built.filter((entry) => entry.destructible === true).length;

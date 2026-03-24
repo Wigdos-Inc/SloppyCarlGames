@@ -28,7 +28,7 @@ const DEATH_WAIT_MS = 1500;
  * @param {number} deltaSeconds
  */
 function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
-	if (playerState.state === "Dead") { return; }
+	if (playerState.state === "Dead") return;
 
 	const entities = sceneGraph.entities;
 	const cameraPos = sceneGraph.cameraConfig.state.position;
@@ -36,18 +36,18 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 
 	for (let i = entities.length - 1; i >= 0; i--) {
 		const entity = entities[i];
-		if (entity.type !== "enemy") { continue; }
+		if (entity.type !== "enemy") continue;
 
 		// SimDistance gate is camera-relative; only qualified entities enter this collision pass.
 		const entityPos = entity.transform.position;
-		if (cameraPos && DistanceVector3(cameraPos, entityPos) > activityRadius) { continue; }
+		if (DistanceVector3(cameraPos, entityPos) > activityRadius) continue;
 
-		if (!CheckEntityAabbOverlap(playerState, entity)) { continue; }
+		if (!CheckEntityAabbOverlap(playerState, entity)) continue;
 
 		// Collision occurred.
 		if (playerState.attackFlag) {
 			// === ENEMY TAKES DAMAGE ===
-			entity.hp = ToNumber(entity.hp, 1) - 1;
+			entity.hp--;
 
 			Log("ENGINE", `Enemy "${entity.id}" hit by player. HP: ${entity.hp}`, "log", "Level");
 

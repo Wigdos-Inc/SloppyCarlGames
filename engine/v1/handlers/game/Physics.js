@@ -27,16 +27,14 @@ import { ApplySurfaceAlignment } from "../../physics/Correction.js";
  * @param {number} deltaSeconds
  */
 function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
-	if (!playerState.active) { return; }
-
 	const dt = ToNumber(deltaSeconds, 0);
 	const world = sceneGraph.world;
-	const waterLevel = world.waterLevel ? world.waterLevel.value : null;
+	const waterLevel = world.waterLevel;
 	const deathBarrierY = world.deathBarrierY.value;
 	const pos = playerState.transform.position;
 
 	// Determine medium.
-	playerState.underwater = waterLevel !== null && pos.y < waterLevel;
+	playerState.underwater = waterLevel && pos.y < waterLevel;
 	const medium = playerState.underwater ? "water" : "air";
 
 	// Step 1: Gravity (if not grounded or always apply — ground correction will nullify).
@@ -129,22 +127,20 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
  * @param {number} deltaSeconds
  */
 function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
-	const movement = entity.movement || {};
+	const movement = entity.movement;
 	const world = sceneGraph.world;
 	const deathBarrierY = world.deathBarrierY.value;
-	const dt = ToNumber(deltaSeconds, 0);
 
-	if (!movement.physics) {
-		return;
-	}
+	// Check if Physics are Enabled for this entity.
+	if (!movement.physics) return;
 
 	// Gravity.
-	entity.velocity.set(ApplyGravity(entity.velocity, dt));
+	entity.velocity.set(ApplyGravity(entity.velocity, deltaSeconds));
 
 	// Simple collision for physics-enabled entities.
 	const entityPos = entity.transform.position;
 
-	const displacement = ScaleVector3(entity.velocity, dt);
+	const displacement = ScaleVector3(entity.velocity, deltaSeconds);
 	const { solids } = DetectCollisions(entity, displacement, sceneGraph);
 	if (solids.length > 0) {
 		const { resolvedVelocity, resolvedDisplacement } = ResolveCollisions(entity.velocity, displacement, solids);

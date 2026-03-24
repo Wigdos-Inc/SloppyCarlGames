@@ -39,75 +39,130 @@
                         "objects": [
                             {
                                 "id": "ground-main",
-                                "primitive": "cube",
+                                "shape": "cube",
+                                "complexity": "medium",
                                 "dimensions": { "x": 120, "y": 2, "z": 80 },
                                 "position": { "x": 60, "y": 0, "z": 40 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
                                 "texture": {
                                     "textureID": "grass-soft",
                                     "shape": "circle",
                                     "color": { "r": 1, "g": 1, "b": 1, "a": 1 },
                                     "opacity": 1,
-                                    "density": 10
+                                    "density": 8,
+                                    "speckSize": 3
                                 },
-                                "scatter": [
-                                    { "typeID": "grass", "density": 10 },
-                                    { "typeID": "pebbles", "density": 0.7 },
-                                    { "typeID": "bushes", "density": 0.4 },
-                                    { "typeID": "leaves", "density": 0.1 },
-                                    { "typeID": "twigs", "density": 0.3 }
-                                ]
+                                "detail": {
+                                    "scatter": [
+                                        { "typeID": "grass", "density": 10 },
+                                        { "typeID": "pebbles", "density": 0.7 },
+                                        { "typeID": "bushes", "density": 0.4 },
+                                        { "typeID": "leaves", "density": 0.1 },
+                                        { "typeID": "twigs", "density": 0.3 }
+                                    ]
+                                }
                             },
                             {
                                 "id": "platform-a",
-                                "primitive": "cube",
+                                "shape": "cube",
+                                "complexity": "medium",
                                 "dimensions": { "x": 18, "y": 2, "z": 18 },
                                 "position": { "x": 25, "y": 8, "z": 24 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
                                 "texture": {
                                     "textureID": "stone-block",
                                     "color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
                                     "opacity": 1,
-                                    "density": 1
+                                    "density": 1,
+                                    "speckSize": 1
                                 },
-                                "scatter": [
-                                    { "typeID": "pebbles", "density": 0.3 }
-                                ]
+                                "detail": {
+                                    "scatter": [
+                                        { "typeID": "pebbles", "density": 0.3 }
+                                    ]
+                                }
                             },
                             {
                                 "id": "platform-b",
-                                "primitive": "cube",
+                                "shape": "cube",
+                                "complexity": "medium",
                                 "dimensions": { "x": 10, "y": 2, "z": 5 },
                                 "position": { "x": 90, "y": 5, "z": 52 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
                                 "texture": {
                                     "textureID": "stone-block",
                                     "shape": "circle",
                                     "color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
                                     "opacity": 1,
-                                    "density": 1
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": true,
+                                    "holdTimeSpeed": 1.25,
+                                    "blendTimeSpeed": 1.25
                                 },
-                                "scatter": [
-                                    { "typeID": "pebbles", "density": 0.8 }
-                                ]
+                                "detail": {
+                                    "scatter": [
+                                        { "typeID": "pebbles", "density": 0.8 }
+                                    ]
+                                }
                             },
                             {
                                 "id": "beacon",
-                                "primitive": "pyramid",
+                                "shape": "pyramid",
+                                "complexity": "medium",
                                 "dimensions": { "x": 10, "y": 14, "z": 10 },
                                 "position": { "x": 60, "y": 2, "z": 40 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
                                 "texture": {
                                     "textureID": "metal-panel",
                                     "color": { "r": 0.95, "g": 0.9, "b": 1, "a": 1 },
                                     "opacity": 1,
-                                    "density": 1
+                                    "density": 1,
+                                    "speckSize": 1
                                 },
-                                "scatter": []
+                                "detail": {
+                                    "scatter": []
+                                }
                             }
                         ],
                         "triggers": [
                             {
                                 "id": "trigger-intro-dialogue",
+                                "type": "dialogue",
                                 "start": { "x": 10, "y": 0, "z": 10 },
                                 "end": { "x": 20, "y": 0, "z": 20 },
-                                "type": "dialogue",
                                 "payload": {
                                     "lineId": "dlg.intro.01"
                                 },
@@ -115,9 +170,9 @@
                             },
                             {
                                 "id": "trigger-beacon-cutscene",
+                                "type": "cutscene",
                                 "start": { "x": 55, "y": 0, "z": 35 },
                                 "end": { "x": 65, "y": 0, "z": 45 },
-                                "type": "cutscene",
                                 "payload": {
                                     "cutsceneId": "BeaconReveal"
                                 },
@@ -128,28 +183,43 @@
                     "obstacles": [
                         {
                             "id": "crate-stack",
-                            "primitive": "cube",
+                            "shape": "cube",
+                            "complexity": "medium",
                             "dimensions": { "x": 4, "y": 4, "z": 4 },
                             "position": { "x": 44, "y": 2, "z": 30 },
+                            "rotation": { "x": 0, "y": 0, "z": 0 },
+                            "scale": { "x": 1, "y": 1, "z": 1 },
+                            "pivot": { "x": 0, "y": 0, "z": 0 },
+                            "primitiveOptions": {
+                                "thickness": 0,
+                                "radius": 0,
+                                "subdivisionsX": 1,
+                                "subdivisionsZ": 1
+                            },
                             "texture": {
                                 "textureID": "wood-plank",
                                 "color": { "r": 0.96, "g": 0.93, "b": 0.87, "a": 1 },
                                 "opacity": 1,
-                                "density": 1
+                                "density": 1,
+                                "speckSize": 1
                             },
-                            "scatter": [],
+                            "detail": {
+                                "scatter": []
+                            },
                             "destructible": true
                         }
                     ],
                     "entities": [
                         {
                             "id": "enemy-01",
+                            "type": "enemy",
                             "blueprintId": "enemy.scout-drone",
                             "spawnSurfaceId": "platform-a",
                             "rootTransform": {
                                 "position": { "x": 3, "y": 0, "z": 2 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
-                                "scale": { "x": 1, "y": 1, "z": 1 }
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 }
                             },
                             "movement": {
                                 "start": { "x": -5, "y": 0, "z": -4 },
@@ -163,12 +233,14 @@
                         },
                         {
                             "id": "enemy-02",
+                            "type": "enemy",
                             "blueprintId": "enemy.scout-drone",
                             "spawnSurfaceId": "platform-b",
                             "rootTransform": {
                                 "position": { "x": 2, "y": 8, "z": 0 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
-                                "scale": { "x": 1, "y": 1, "z": 1 }
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 }
                             },
                             "hp": 8,
                             "movement": {
@@ -185,12 +257,14 @@
                         },
                         {
                             "id": "npc-01",
+                            "type": "npc",
                             "blueprintId": "npc.engineer",
                             "spawnSurfaceId": "ground-main",
                             "rootTransform": {
                                 "position": { "x": -6, "y": 0, "z": -7 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
-                                "scale": { "x": 1, "y": 1, "z": 1 }
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 }
                             },
                             "movement": {
                                 "start": { "x": -10, "y": 0, "z": -10 },
@@ -204,12 +278,14 @@
                         },
                         {
                             "id": "collectible-01",
+                            "type": "collectible",
                             "blueprintId": "collectible.orb",
                             "spawnSurfaceId": "ground-main",
                             "rootTransform": {
                                 "position": { "x": 0, "y": 5, "z": 0 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
-                                "scale": { "x": 1, "y": 1, "z": 1 }
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 }
                             },
                             "movement": {
                                 "start": { "x": 0, "y": 17, "z": 0 },

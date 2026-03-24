@@ -124,8 +124,9 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 		playerState.velocity.y = jumpForce;
 		playerState.grounded = false;
 		const jumpStartY = ToNumber(playerState.transform.position.y, 0);
-		playerState.jumpStartY = jumpStartY;
-		playerState.jumpApexY = jumpStartY;
+		// Player jump Y values are Unit instances—mutate their `.value`.
+		playerState.jumpStartY.value = jumpStartY;
+		playerState.jumpApexY.value = jumpStartY;
 		playerState.previousState = playerState.state;
 		playerState.state = "Jumping";
 	}

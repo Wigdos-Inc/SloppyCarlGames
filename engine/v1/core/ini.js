@@ -40,6 +40,8 @@ import {
   Update as UpdateLevel,
   GetActiveLevel,
 } from "../handlers/game/Level.js";
+import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
+import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
 import { GetPlayerInput, GetPlayerState } from "../player/Master.js";
 import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3 } from "../math/Utilities.js"
 
@@ -79,6 +81,13 @@ function Initialize() {
     Input: {
       Router: inputRouter,
       StartInputRouter: StartInputRouter,
+    },
+    Cutscene: {
+      PlayEngineCutscene: PlayEngineCutscene,
+      PlayRenderedCutscene: PlayRenderedCutscene,
+    },
+    Startup: {
+      ProvideSplashScreenPayload: ProvideSplashScreenPayload,
     },
     UI: {
       ApplyMenuUI: ApplyMenuUI,

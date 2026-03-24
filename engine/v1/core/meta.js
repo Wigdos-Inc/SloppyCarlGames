@@ -19,9 +19,7 @@ const SESSION_KEYS = {
 function ReadFromSession(key) {
   try {
     const raw = sessionStorage.getItem(key);
-    if (!raw) {
-      return null;
-    }
+    if (!raw) return null;
     return JSON.parse(raw);
   } catch (error) {
     Log("ENGINE", `Couldn't read from "${key}" sessionStorage.\n\nError:\n${error}`, "error", "Meta");
@@ -333,6 +331,12 @@ function ExitGame() {
 
 function SendEvent(eventName, payload) {
   // Dispatch with payload as detail.
+  if (eventName !== "USER_INPUT") Log(
+    "ENGINE", 
+    `Event: ${eventName}\nPayload: ${JSON.stringify(payload)}`, 
+    "log", 
+    "Meta"
+  );
   window.dispatchEvent(new CustomEvent(eventName, { detail: payload }));
 }
 

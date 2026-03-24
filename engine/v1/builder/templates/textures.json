@@ -4,6 +4,7 @@
             "id": "default-grid",
             "size": 64,
             "pattern": "grid",
+            "animation": { "able": false, "holdTime": 2, "blendTime": 1 },
             "primary": "#a6b9cc",
             "secondary": "#6f8299"
         },
@@ -11,6 +12,7 @@
             "id": "grass-soft",
             "size": 64,
             "pattern": "noise",
+            "animation": { "able": false, "holdTime": 2, "blendTime": 1 },
             "density": 1,
             "speckSize": 1,
             "primary": "#5da85a",
@@ -20,6 +22,7 @@
             "id": "stone-block",
             "size": 64,
             "pattern": "noise",
+            "animation": { "able": false, "holdTime": 2, "blendTime": 1 },
             "density": 1,
             "speckSize": 1,
             "primary": "#9aa0ad",
@@ -29,6 +32,7 @@
             "id": "metal-panel",
             "size": 64,
             "pattern": "stripes",
+            "animation": { "able": false, "holdTime": 2, "blendTime": 1 },
             "primary": "#8a9ba9",
             "secondary": "#5f6d7d"
         },
@@ -36,6 +40,7 @@
             "id": "wood-plank",
             "size": 64,
             "pattern": "stripes",
+            "animation": { "able": false, "holdTime": 2000, "blendTime": 1000 },
             "primary": "#986b43",
             "secondary": "#704527"
         },
@@ -43,6 +48,7 @@
             "id": "energy-core",
             "size": 64,
             "pattern": "radial",
+            "animation": { "able": true, "holdTime": 2, "blendTime": 1 },
             "primary": "#7ff8ff",
             "secondary": "#3f60ff"
         },
@@ -50,10 +56,21 @@
             "id": "water-surface",
             "size": 64,
             "pattern": "noise",
+            "animation": { "able": true, "holdTime": 2, "blendTime": 1 },
             "density": 1,
             "speckSize": 1,
             "primary": "#4d95c9",
             "secondary": "#2b5f8d"
+        },
+        "sea-surface": {
+            "id": "sea-surface",
+            "size": 64,
+            "pattern": "noise",
+            "animation": { "able": true, "holdTime": 0, "blendTime": 2 },
+            "density": 1,
+            "speckSize": 2,
+            "primary": "#1e90ff",
+            "secondary": "#0b3d91"
         }
     },
     "scatterTypes": {
@@ -164,7 +181,7 @@
                     "primitive": "sphere",
                     "complexity": "low",
                     "dimensions": { "x": 2.2, "y": 1.2, "z": 2.2 },
-                    "localPosition": { "x": 0, "y": -0.1, "z": 0 },
+                    "localPosition": { "x": 0, "y": -0.05, "z": 0 },
                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                     "localScale": { "x": 1, "y": 1, "z": 1 },
                     "textureID": "grass-soft",
@@ -228,7 +245,7 @@
             "slopeMax": 0.4,
             "parts": [
                 {
-                    "level": 1,
+                    "level": 0,
                     "primitive": "cylinder",
                     "dimensions": { "x": 0.1, "y": 0.9, "z": 0.1 },
                     "localPosition": { "x": 0, "y": 0, "z": 0 },

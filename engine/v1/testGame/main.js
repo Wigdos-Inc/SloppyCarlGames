@@ -7,6 +7,17 @@ await import("./menus/ui.js");
 await import("./cutscene/cutscene.js");
 const { RequestLevelCreate } = await import("./levels/level.js");
 
+function resolveStartupSplashPayload() {
+	return {
+		presetId: "default",
+	};
+}
+
+function handleSplashRequest() {
+	ENGINE.Startup.ProvideSplashScreenPayload(resolveStartupSplashPayload());
+}
+
+
 const SETTINGS_KEY = "settings";
 const SAVE_KEY = "saveData";
 
@@ -437,6 +448,7 @@ function handleUserInput(event) {
 	handlePlayerInput(payload);
 }
 
+window.addEventListener("SPLASH_REQUEST", handleSplashRequest);
 window.addEventListener("USER_INPUT", handleUserInput);
 window.addEventListener("DELETE_SAVE_DATA", handleDeleteSave);
 window.addEventListener("LEVEL_REQUEST", handleLevelRequest);

@@ -63,6 +63,8 @@ let CONFIG = {
         },
         Level: true,
         Validation: true,
+        Meta: true,
+        Player: true,
       },
     },
   },

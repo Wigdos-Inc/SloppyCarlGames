@@ -32,7 +32,7 @@ function indexElements(definitions, index) {
 	// Walk element tree to map ids for input routing.
 	definitions.forEach((definition) => {
 		if (definition.id) index[definition.id] = definition;
-		if (definition.children) indexElements(definition.children, index);
+		indexElements(definition.children, index);
 	});
 }
 
@@ -81,7 +81,7 @@ function buildUiRuntimeMapsFromIndex(index) {
 	return runtime;
 }
 
-function resolvePrecomputedAction(type, targetId) {
+function ResolvePrecomputedAction(type, targetId) {
 	const runtime = Cache.UI.uiRuntime;
 	switch (type) {
 		case "pointerover": return runtime.hoverOverMap[targetId];
@@ -227,12 +227,17 @@ function ApplyMenuUI(payload) {
 	CreateUI(payload);
 	Cursor.changeState("enabled");
 
-	// Notify listeners that the UI is ready.
-	SendEvent("ENGINE_UI_RENDERED", { screenId: payload.screenId });
-
 	// Start UI music after render.
 	const music = payload.music;
 	if (music) PlayMusic(music.name, music.src, music);
+
+	// Notify engine consumers that the UI has been rendered and music (if any) started.
+	const resolvedRootId = payload.rootId || "engine-ui-root";
+	SendEvent("ENGINE_UI_RENDERED", { screenId: payload.screenId, rootId: resolvedRootId });
+
+	// If a boot sequence is awaiting the UI application, resolve it here.
+	if (Cache.UI.startupUiAppliedResolve) Cache.UI.startupUiAppliedResolve(true);
+	Cache.UI.startupUiAppliedResolve = null;
 }
 
 function LoadScreen(payload) {
@@ -257,4 +262,4 @@ function ClearUI(rootId) {
 /* === EXPORTS === */
 // Public UI API for engine modules.
 
-export { CreateUI, ApplyMenuUI, LoadScreen, ClearUI, HandleUiAction, resolvePrecomputedAction }; 
+export { CreateUI, ApplyMenuUI, LoadScreen, ClearUI, HandleUiAction, ResolvePrecomputedAction }; 

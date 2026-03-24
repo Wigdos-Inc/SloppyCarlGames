@@ -1,26 +1,27 @@
 // Test game intro cinematic handler.
 // Listens for the engine intro request and provides Opening.mp4.
 
+import { Log } from "../../core/meta.js";
 import { ENGINE } from "../../Bootup.js";
 
-function handleCutsceneRequest(event) {
-	const payload = event.detail;
-	if (!payload) return;
+function playIntroCinematic(event) {
+	if (!event.detail || event.detail.cutsceneId !== "Opening") {
+		return;
+	}
 
 	const introSrc = new URL("./rendered/Opening.mp4", import.meta.url).href;
 
-	if (ENGINE && typeof ENGINE.Log === "function") {
-		ENGINE.Log(
-			"GAME",
-			"Sent Intro cinematic Payload: Opening.mp4",
-			"log",
-			"Cutscene"
-		);
-	}
+	Log(
+		"GAME",
+		"Sent Intro cinematic Payload: Opening.mp4",
+		"log",
+		"Cutscene"
+	);
 
-	if (ENGINE && ENGINE.Startup && typeof ENGINE.Startup.PlayIntroCinematic === "function") {
-		ENGINE.Startup.PlayIntroCinematic(introSrc);
-	}
+	ENGINE.Cutscene.PlayRenderedCutscene({
+		type: "rendered",
+		source: introSrc,
+	});
 }
 
-window.addEventListener("CUTSCENE_REQUEST", handleCutsceneRequest);
+window.addEventListener("CUTSCENE_REQUEST", playIntroCinematic);

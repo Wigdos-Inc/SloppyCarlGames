@@ -6,7 +6,7 @@ import { Cache, Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { GetActiveLevel } from "./game/Level.js";
 import { HandleFreeCamInput, HandleDefaultCamInput } from "./game/Camera.js";
-import { HandleUiAction, resolvePrecomputedAction } from "./UI.js";
+import { HandleUiAction, ResolvePrecomputedAction } from "./UI.js";
 
 const eventTypes = {
 	pointerover: false,
@@ -37,9 +37,7 @@ const directEventNameMap = {
 };
 
 function resetEventTypes() {
-	Object.keys(eventTypes).forEach((key) => {
-		eventTypes[key] = false;
-	});
+	Object.keys(eventTypes).forEach((key) => eventTypes[key] = false);
 }
 
 function setEventType(type, enabled) {
@@ -55,11 +53,11 @@ function scanUiDefinitionsForEvents(definitions) {
 
 	definitions.forEach((definition) => {
 		Object.keys(definition.events).forEach((eventName) => {
-			if (definition.events[eventName]) markEventFromDefinitionEventName(eventName);
+			markEventFromDefinitionEventName(eventName);
 		});
 
 		Object.keys(definition.on).forEach((eventName) => {
-			if (definition.on[eventName]) markEventFromDefinitionEventName(eventName);
+			markEventFromDefinitionEventName(eventName);
 		});
 
 		Object.keys(directEventNameMap).forEach((directKey) => {
@@ -97,11 +95,7 @@ class Controls {
 	}
 
 	on(type, handler, options) {
-		if (!this.target || !type || typeof handler !== "function") {
-			return () => {};
-		}
-
-		const once = options && options.once === true;
+		const once = options?.once === true;
 		// Wrap once-only handlers so they self-remove.
 		const wrapped = once
 			? (...args) => {
@@ -118,10 +112,6 @@ class Controls {
 	}
 
 	off(type, handler) {
-		if (!this.target || !type || typeof handler !== "function") {
-			return;
-		}
-
 		const index = this.listeners.findIndex(
 			(item) => item.type === type && item.wrapped === handler
 		);
@@ -134,10 +124,6 @@ class Controls {
 	}
 
 	clear() {
-		if (!this.target) {
-			return;
-		}
-
 		this.listeners.forEach((listener) => {
 			this.target.removeEventListener(
 				listener.type,
@@ -154,16 +140,16 @@ function buildInteractionPayload(event) {
 	const target = event.target;
 	return {
 		type       : event.type,
-		targetId   : target?.id || null,
-		targetType : target?.type || null,
-		value      : target && "value" in target ? target.value : null,
-		checked    : target && "checked" in target ? target.checked : null,
-		key        : "key" in event ? event.key : null,
-		code       : "code" in event ? event.code : null,
-		button     : "button" in event ? event.button : null,
-		pointerType: "pointerType" in event ? event.pointerType : null,
-		clientX    : "clientX" in event ? event.clientX : null,
-		clientY    : "clientY" in event ? event.clientY : null,
+		targetId   : target?.id ?? null,
+		targetType : target?.type ?? null,
+		value      : target?.value ?? null,
+		checked    : target?.checked ?? null,
+		key        : event.key ?? null,
+		code       : event.code ?? null,
+		button     : event.button ?? null,
+		pointerType: event.pointerType ?? null,
+		clientX    : event.clientX ?? null,
+		clientY    : event.clientY ?? null,
 		screenId   : Cache.UI.screenID,
 	};
 }
@@ -174,11 +160,11 @@ function StartInputRouter(target) {
 
 	const handler = (event) => {
 		const type = event.type;
-		const targetId = event.target?.id || null;
+		const targetId = event.target?.id ?? null;
 		let consumed = false;
 
 		if (eventTypes[type] === true) {
-			const action = resolvePrecomputedAction(type, targetId);
+			const action = ResolvePrecomputedAction(type, targetId);
 			if (action) {
 				consumed = HandleUiAction(action);
 				if (consumed) {
@@ -194,12 +180,10 @@ function StartInputRouter(target) {
 
 			const activeLevel = GetActiveLevel();
 			const levelIsLoaded = Boolean(activeLevel);
-			const freeCamEnabled = !!(CONFIG.DEBUG.LEVELS.FreeCam === true);
-			if (levelIsLoaded && freeCamEnabled) {
-				consumed = HandleFreeCamInput(event, activeLevel);
-			} else if (levelIsLoaded && !freeCamEnabled) {
-				consumed = HandleDefaultCamInput(event);
-			}
+			// FreeCam should only be enabled when global debug is on and level FreeCam is true.
+			const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true);
+			if (levelIsLoaded && freeCamEnabled) consumed = HandleFreeCamInput(event, activeLevel);
+			else if (levelIsLoaded && !freeCamEnabled) consumed = HandleDefaultCamInput(event);
 		}
 
 		if (consumed) {

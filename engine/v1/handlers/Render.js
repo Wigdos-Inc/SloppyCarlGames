@@ -2,11 +2,6 @@
 
 // End of any visual pipeline to display contents to Game (document.body)
 
-/* === CONSTANTS === */
-// Element ids and defaults for engine rendering.
-
-const defaultUiRootId = "engine-ui-root";
-
 /* === IMPORTS === */
 // UI element builder.
 
@@ -20,14 +15,13 @@ import {
 	SubtractVector3,
 } from "../math/Vector3.js";
 import { CNUtoWorldUnit } from "../math/Utilities.js";
-import { BuildGeometry, GenerateUVs } from "../builder/NewObject.js";
 
 /* === INTERNALS === */
 // DOM helpers for rendering payloads.
 
 function ensureRoot(rootId, rootStyles) {
 	// Resolve or create the UI root container.
-	const resolvedRootId = rootId || defaultUiRootId;
+	const resolvedRootId = rootId;
 	let root = document.getElementById(resolvedRootId);
 	if (!root) {
 		root = document.createElement("div");
@@ -38,10 +32,8 @@ function ensureRoot(rootId, rootStyles) {
 		document.body.appendChild(root);
 	}
 
-	// Apply root styles when provided.
-	if (rootStyles && typeof rootStyles === "object") {
-		Object.assign(root.style, rootStyles);
-	}
+	// Apply root styles when provided (rootStyles normalized by upstream validation).
+	Object.assign(root.style, rootStyles);
 
 	return root;
 }
@@ -52,12 +44,8 @@ function ensureRoot(rootId, rootStyles) {
 
 function RenderPayload(payload) {
 	const root = ensureRoot(payload.rootId, payload.rootStyles);
-
-	// Replace existing contents by default.
-	if (payload.replace !== false) root.innerHTML = "";
-
-	// Append pre-built elements when provided.
-	root.appendChild(payload.elements);
+	if (payload.replace !== false) root.innerHTML = "";      // Replace existing contents by default.
+	root.appendChild(payload.elements);                      // Append pre-built elements when provided.
 }
 
 /* === LEVEL === */
@@ -177,59 +165,22 @@ function createRotationZ(radians) {
 	];
 }
 
-function CreateModelMatrix(transform) {
-	const source = transform && typeof transform === "object" ? transform : {};
-	const position = source.position || { x: 0, y: 0, z: 0 };
-	const rotation = source.rotation || { x: 0, y: 0, z: 0 };
-	const scale = source.scale || { x: 1, y: 1, z: 1 };
-	const pivot = source.pivot || { x: 0, y: 0, z: 0 };
-
-	let matrix = createIdentityMatrix();
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(position));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(pivot));
-	matrix = multiplyMatrix4(matrix, createRotationY(rotation.y || 0));
-	matrix = multiplyMatrix4(matrix, createRotationX(rotation.x || 0));
-	matrix = multiplyMatrix4(matrix, createRotationZ(rotation.z || 0));
-	matrix = multiplyMatrix4(matrix, createScaleMatrix(scale));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix({ x: -pivot.x, y: -pivot.y, z: -pivot.z }));
-	return matrix;
-}
-
-/**
- * Convert a CNU-space vector to WebGL world units.
- * Handles UnitVector3 instances (via .toWorldUnit()), plain objects with .type === "CNU",
- * and plain objects without type info (treated as CNU by default).
- */
-function toWorldVec3(vec) {
-	if (!vec || typeof vec !== "object") {
-		return { x: 0, y: 0, z: 0 };
-	}
-	if (typeof vec.toWorldUnit === "function") {
-		return vec.toWorldUnit();
-	}
-	return { x: CNUtoWorldUnit(vec.x || 0), y: CNUtoWorldUnit(vec.y || 0), z: CNUtoWorldUnit(vec.z || 0) };
-}
-
 /**
  * Build a model matrix converting CNU-space transform to WebGL world units.
  * Position and pivot use .toWorldUnit(); scale is multiplied by CNU_SCALE
  * (dimensionless multiplier applied to CNU geometry); rotation stays in radians.
  */
-function CreateWorldUnitModelMatrix(transform) {
-	const source = transform && typeof transform === "object" ? transform : {};
-	const position = source.position ? source.position.toWorldUnit() : { x: 0, y: 0, z: 0 };
-	const rotation = source.rotation || { x: 0, y: 0, z: 0 };
-	const s = source.scale || { x: 1, y: 1, z: 1 };
-	const scale = { x: CNUtoWorldUnit(s.x), y: CNUtoWorldUnit(s.y), z: CNUtoWorldUnit(s.z) };
-	const pivot = source.pivot ? source.pivot.toWorldUnit() : { x: 0, y: 0, z: 0 };
+function createWorldUnitModelMatrix(source) {
+	const rotation = source.rotation;
+	const pivot = source.pivot.toWorldUnit();
 
 	let matrix = createIdentityMatrix();
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(position));
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix(source.position.toWorldUnit()));
 	matrix = multiplyMatrix4(matrix, createTranslationMatrix(pivot));
-	matrix = multiplyMatrix4(matrix, createRotationY(rotation.y || 0));
-	matrix = multiplyMatrix4(matrix, createRotationX(rotation.x || 0));
-	matrix = multiplyMatrix4(matrix, createRotationZ(rotation.z || 0));
-	matrix = multiplyMatrix4(matrix, createScaleMatrix(scale));
+	matrix = multiplyMatrix4(matrix, createRotationY(rotation.y));
+	matrix = multiplyMatrix4(matrix, createRotationX(rotation.x));
+	matrix = multiplyMatrix4(matrix, createRotationZ(rotation.z));
+	matrix = multiplyMatrix4(matrix, createScaleMatrix(source.scale));
 	matrix = multiplyMatrix4(matrix, createTranslationMatrix({ x: -pivot.x, y: -pivot.y, z: -pivot.z }));
 	return matrix;
 }
@@ -237,11 +188,13 @@ function CreateWorldUnitModelMatrix(transform) {
 function createShader(gl, type, source) {
 	const shader = gl.createShader(type);
 	if (!shader) {
+		Log("ENGINE", `Shader creation failed (type ${type})`, "error", "Render");
 		return null;
 	}
 	gl.shaderSource(shader, source);
 	gl.compileShader(shader);
 	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+		Log("ENGINE", `Shader compile error: ${gl.getShaderInfoLog(shader)}`, "error", "Render");
 		gl.deleteShader(shader);
 		return null;
 	}
@@ -295,12 +248,11 @@ function createProgram(gl) {
 
 	const vertex = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
 	const fragment = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-	if (!vertex || !fragment) {
-		return null;
-	}
+	if (!vertex || !fragment) return null;
 
 	const program = gl.createProgram();
 	if (!program) {
+		Log("ENGINE", "WebGL program creation failed", "error", "Render");
 		return null;
 	}
 
@@ -309,6 +261,7 @@ function createProgram(gl) {
 	gl.linkProgram(program);
 
 	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+		Log("ENGINE", `Program link error: ${gl.getProgramInfoLog(program)}`, "error", "Render");
 		gl.deleteProgram(program);
 		return null;
 	}
@@ -451,14 +404,10 @@ function createScatterProgram(gl) {
 
 	const vertex = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
 	const fragment = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-	if (!vertex || !fragment) {
-		return null;
-	}
+	if (!vertex || !fragment) return null;
 
 	const program = gl.createProgram();
-	if (!program) {
-		return null;
-	}
+	if (!program) return null;
 
 	gl.attachShader(program, vertex);
 	gl.attachShader(program, fragment);
@@ -487,60 +436,23 @@ function createScatterProgram(gl) {
 /* === GEOMETRY REGISTRY === */
 // Shared geometry pool: one set of GPU buffers per unique (primitive, dimensions) combo.
 
-function normalizeGeometryComplexity(value) {
-	if (typeof value !== "string") {
-		return "medium";
-	}
-
-	const normalized = value.trim().toLowerCase();
-	if (normalized === "low" || normalized === "high") {
-		return normalized;
-	}
-
-	return "medium";
-}
-
-function geometryKey(primitive, dimensions, complexity) {
-	const p = typeof primitive === "string" ? primitive.toLowerCase() : "cube";
-	const dx = dimensions && typeof dimensions.x === "number" ? dimensions.x : 1;
-	const dy = dimensions && typeof dimensions.y === "number" ? dimensions.y : 1;
-	const dz = dimensions && typeof dimensions.z === "number" ? dimensions.z : 1;
-	const detail = normalizeGeometryComplexity(complexity);
-	return `${p}_${dx}_${dy}_${dz}_${detail}`;
-}
-
-function ensureSharedGeometry(renderer, primitive, dimensions, complexity) {
-	const key = geometryKey(primitive, dimensions, complexity);
-	if (renderer.geometryRegistry.has(key)) {
-		return renderer.geometryRegistry.get(key);
-	}
+function ensureSharedGeometry(renderer, sceneGraph, primitiveKey) {
+	const key = primitiveKey;
+	if (renderer.geometryRegistry.has(key)) return renderer.geometryRegistry.get(key);
 
 	const gl = renderer.gl;
-	const shape = typeof primitive === "string" ? primitive.toLowerCase() : "cube";
-	const size = {
-		x: dimensions && typeof dimensions.x === "number" ? dimensions.x : 1,
-		y: dimensions && typeof dimensions.y === "number" ? dimensions.y : 1,
-		z: dimensions && typeof dimensions.z === "number" ? dimensions.z : 1,
-	};
-
-	const geometry = BuildGeometry(shape, size, normalizeGeometryComplexity(complexity));
-	const uvs = GenerateUVs(geometry.positions, geometry);
+	const geometry = sceneGraph.visualResources.primitiveGeometry[key];
 
 	const positionBuffer = gl.createBuffer();
 	const uvBuffer = gl.createBuffer();
 	const indexBuffer = gl.createBuffer();
-	if (!positionBuffer || !uvBuffer || !indexBuffer) {
-		return null;
-	}
+	if (!positionBuffer || !uvBuffer || !indexBuffer) return null;
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.positions), gl.STATIC_DRAW);
 
-	const resolvedUvs = Array.isArray(uvs) && uvs.length / 2 === geometry.positions.length / 3
-		? uvs
-		: new Array((geometry.positions.length / 3) * 2).fill(0);
 	gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(resolvedUvs), gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.uvs), gl.STATIC_DRAW);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geometry.indices), gl.STATIC_DRAW);
@@ -561,7 +473,7 @@ function ensureSharedGeometry(renderer, primitive, dimensions, complexity) {
 
 function buildScatterInstanceBuffers(renderer, sceneGraph) {
 	const batches = sceneGraph.scatterBatches;
-	if (!batches || batches.size === 0) {
+	if (batches.size === 0) {
 		renderer.scatterInstances = [];
 		renderer.scatterInstancesBuilt = true;
 		return;
@@ -572,37 +484,13 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 	let totalInstances = 0;
 
 	batches.forEach((batch, batchKey) => {
-		if (!batch || !Array.isArray(batch.instances) || batch.instances.length === 0) {
-			return;
-		}
+		if (batch.instanceCount === 0) return;
 
-		const geo = ensureSharedGeometry(renderer, batch.primitive, batch.dimensions, batch.complexity);
-		if (!geo) {
-			return;
-		}
+		const geo = ensureSharedGeometry(renderer, sceneGraph, batch.primitiveKey);
+		if (!geo) return;
 
-		const instanceCount = batch.instances.length;
-		// 20 floats per instance: 16 (mat4 model) + 4 (tint rgba)
-		const instanceData = new Float32Array(instanceCount * 20);
-		for (let i = 0; i < instanceCount; i += 1) {
-			const inst = batch.instances[i];
-			const offset = i * 20;
-			// Copy 16-float model matrix, premultiplied by uniform CNU_SCALE.
-			// Uniform scale S applied as: S * M — multiply first 3 rows by CNU_SCALE.
-			const m = inst.modelMatrix;
-			for (let col = 0; col < 4; col += 1) {
-				const cOff = col * 4;
-				instanceData[offset + cOff + 0] = CNUtoWorldUnit(m[cOff + 0]);
-				instanceData[offset + cOff + 1] = CNUtoWorldUnit(m[cOff + 1]);
-				instanceData[offset + cOff + 2] = CNUtoWorldUnit(m[cOff + 2]);
-				instanceData[offset + cOff + 3] = m[cOff + 3];
-			}
-			// Copy 4-float tint
-			instanceData[offset + 16] = inst.tint[0];
-			instanceData[offset + 17] = inst.tint[1];
-			instanceData[offset + 18] = inst.tint[2];
-			instanceData[offset + 19] = inst.tint[3];
-		}
+		const instanceCount = batch.instanceCount;
+		const instanceData = batch.instanceData;
 
 		const instanceBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
@@ -677,20 +565,16 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 }
 
 function isBoundingBoxDebugEnabled(type) {
-	if (!CONFIG.DEBUG.ALL) return false;
-
-	const debugMap = CONFIG.DEBUG.LEVELS.BoundingBox;
-	return !!(debugMap && debugMap[type] === true);
+	return !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox[type]);
+}
+function isGridDebugEnabled() {
+	return !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible);
 }
 
 function createBoundingBoxLineVertices(bounds) {
-	if (!bounds || !bounds.min || !bounds.max) {
-		return null;
-	}
-
 	// Convert CNU bounding box coordinates to WebGL world units.
-	const min = toWorldVec3(bounds.min);
-	const max = toWorldVec3(bounds.max);
+	const min = bounds.min.toWorldUnit();
+	const max = bounds.max.toWorldUnit();
 	const p000 = [min.x, min.y, min.z];
 	const p001 = [min.x, min.y, max.z];
 	const p010 = [min.x, max.y, min.z];
@@ -707,19 +591,9 @@ function createBoundingBoxLineVertices(bounds) {
 	]);
 }
 
-function isGridDebugEnabled() {
-	if (!CONFIG.DEBUG.ALL) return false;
-	const grid = CONFIG.DEBUG.LEVELS.BoundingBox.Grid;
-	return !!(grid && grid.Visible === true);
-}
-
 function createGridLineVertices(bounds, spacing) {
-	if (!bounds || !bounds.min || !bounds.max || spacing <= 0) {
-		return null;
-	}
-
-	const wMin = toWorldVec3(bounds.min);
-	const wMax = toWorldVec3(bounds.max);
+	const wMin = bounds.min.toWorldUnit();
+	const wMax = bounds.max.toWorldUnit();
 	const minX = wMin.x;
 	const minY = wMin.y;
 	const minZ = wMin.z;
@@ -731,79 +605,42 @@ function createGridLineVertices(bounds, spacing) {
 	const lines = [];
 
 	// --- Top face (Y = maxY) ---
-	for (let x = minX; x <= maxX + step * 0.001; x += step) {
-		lines.push(x, maxY, minZ, x, maxY, maxZ);
-	}
-	for (let z = minZ; z <= maxZ + step * 0.001; z += step) {
-		lines.push(minX, maxY, z, maxX, maxY, z);
-	}
+	for (let x = minX; x <= maxX + step * 0.001; x += step) lines.push(x, maxY, minZ, x, maxY, maxZ);
+	for (let z = minZ; z <= maxZ + step * 0.001; z += step) lines.push(minX, maxY, z, maxX, maxY, z);
 
 	// --- Bottom face (Y = minY) ---
-	for (let x = minX; x <= maxX + step * 0.001; x += step) {
-		lines.push(x, minY, minZ, x, minY, maxZ);
-	}
-	for (let z = minZ; z <= maxZ + step * 0.001; z += step) {
-		lines.push(minX, minY, z, maxX, minY, z);
-	}
+	for (let x = minX; x <= maxX + step * 0.001; x += step) lines.push(x, minY, minZ, x, minY, maxZ);
+	for (let z = minZ; z <= maxZ + step * 0.001; z += step) lines.push(minX, minY, z, maxX, minY, z);
 
 	// --- Front face (Z = maxZ) ---
-	for (let x = minX; x <= maxX + step * 0.001; x += step) {
-		lines.push(x, minY, maxZ, x, maxY, maxZ);
-	}
-	for (let y = minY; y <= maxY + step * 0.001; y += step) {
-		lines.push(minX, y, maxZ, maxX, y, maxZ);
-	}
+	for (let x = minX; x <= maxX + step * 0.001; x += step) lines.push(x, minY, maxZ, x, maxY, maxZ);
+	for (let y = minY; y <= maxY + step * 0.001; y += step) lines.push(minX, y, maxZ, maxX, y, maxZ);
 
 	// --- Back face (Z = minZ) ---
-	for (let x = minX; x <= maxX + step * 0.001; x += step) {
-		lines.push(x, minY, minZ, x, maxY, minZ);
-	}
-	for (let y = minY; y <= maxY + step * 0.001; y += step) {
-		lines.push(minX, y, minZ, maxX, y, minZ);
-	}
+	for (let x = minX; x <= maxX + step * 0.001; x += step) lines.push(x, minY, minZ, x, maxY, minZ);
+	for (let y = minY; y <= maxY + step * 0.001; y += step) lines.push(minX, y, minZ, maxX, y, minZ);
 
 	// --- Right face (X = maxX) ---
-	for (let z = minZ; z <= maxZ + step * 0.001; z += step) {
-		lines.push(maxX, minY, z, maxX, maxY, z);
-	}
-	for (let y = minY; y <= maxY + step * 0.001; y += step) {
-		lines.push(maxX, y, minZ, maxX, y, maxZ);
-	}
+	for (let z = minZ; z <= maxZ + step * 0.001; z += step) lines.push(maxX, minY, z, maxX, maxY, z);
+	for (let y = minY; y <= maxY + step * 0.001; y += step) lines.push(maxX, y, minZ, maxX, y, maxZ);
 
 	// --- Left face (X = minX) ---
-	for (let z = minZ; z <= maxZ + step * 0.001; z += step) {
-		lines.push(minX, minY, z, minX, maxY, z);
-	}
-	for (let y = minY; y <= maxY + step * 0.001; y += step) {
-		lines.push(minX, y, minZ, minX, y, maxZ);
-	}
+	for (let z = minZ; z <= maxZ + step * 0.001; z += step) lines.push(minX, minY, z, minX, maxY, z);
+	for (let y = minY; y <= maxY + step * 0.001; y += step) lines.push(minX, y, minZ, minX, y, maxZ);
 
-	if (lines.length === 0) {
-		return null;
-	}
-
+	if (lines.length === 0) return null;
 	return new Float32Array(lines);
 }
 
 function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 	const records = sceneGraph.debugBoundingBoxes;
-	if (records.length === 0) {
-		return;
-	}
+	if (records.length === 0) return;
 
 	const gl = renderer.gl;
-	if (!renderer.debugLineShader) {
-		renderer.debugLineShader = createLineProgram(gl);
-	}
-	if (!renderer.debugLineShader) {
-		return;
-	}
-	if (!renderer.debugLineBuffer) {
-		renderer.debugLineBuffer = gl.createBuffer();
-	}
-	if (!renderer.debugLineBuffer) {
-		return;
-	}
+	if (!renderer.debugLineShader) renderer.debugLineShader = createLineProgram(gl);
+	if (!renderer.debugLineShader) return;
+	if (!renderer.debugLineBuffer) renderer.debugLineBuffer = gl.createBuffer();
+	if (!renderer.debugLineBuffer) return;
 
 	const shader = renderer.debugLineShader;
 	gl.useProgram(shader.program);
@@ -817,16 +654,12 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 
 	for (let index = 0; index < records.length; index += 1) {
 		const record = records[index];
-		if (!record || !isBoundingBoxDebugEnabled(record.type)) {
-			continue;
-		}
+		if (!isBoundingBoxDebugEnabled(record.type)) continue;
 
 		const vertices = createBoundingBoxLineVertices(record);
-		if (!vertices) {
-			continue;
-		}
+		if (!vertices) continue;
 
-		const color = boundingBoxTypeColors[record.type] || { r: 1, g: 1, b: 1, a: 1 };
+		const color = boundingBoxTypeColors[record.type];
 		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 		gl.drawArrays(gl.LINES, 0, vertices.length / 3);
@@ -834,19 +667,13 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 }
 
 function drawGridOverlay(renderer, sceneGraph, projection, view) {
-	if (!isGridDebugEnabled()) {
-		return;
-	}
+	if (!isGridDebugEnabled()) return;
 
 	const records = sceneGraph.debugBoundingBoxes;
-	if (records.length === 0) {
-		return;
-	}
+	if (records.length === 0) return;
 
 	const gl = renderer.gl;
-	if (!renderer.debugLineShader || !renderer.debugLineBuffer) {
-		return;
-	}
+	if (!renderer.debugLineShader || !renderer.debugLineBuffer) return;
 
 	const gridConfig = CONFIG.DEBUG.LEVELS.BoundingBox.Grid;
 	const spacing = gridConfig.Scale;
@@ -865,14 +692,10 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 
 	for (let index = 0; index < records.length; index += 1) {
 		const record = records[index];
-		if (!record || !isBoundingBoxDebugEnabled(record.type)) {
-			continue;
-		}
+		if (!isBoundingBoxDebugEnabled(record.type)) continue;
 
 		const vertices = createGridLineVertices(record, spacing);
-		if (!vertices) {
-			continue;
-		}
+		if (!vertices) continue;
 
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 		gl.drawArrays(gl.LINES, 0, vertices.length / 3);
@@ -888,13 +711,11 @@ const trailTypeColors = {
 };
 
 function isTrailDebugEnabled(type) {
-	if (!CONFIG.DEBUG.ALL) return false;
-	const trailMap = CONFIG.DEBUG.LEVELS.Trails;
-	return !!(trailMap && trailMap[type] === true);
+	return !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.Trails[type]);
 }
 
 function classifyEntityTrailType(entity) {
-	const type = String(entity.type).toLowerCase();
+	const type = entity.type;
 	if (type.includes("player")) { return "Player"; }
 	if (type.includes("boss")) { return "Boss"; }
 	if (type.includes("collectible")) { return "Collectible"; }
@@ -905,27 +726,16 @@ function classifyEntityTrailType(entity) {
 function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 	if (!CONFIG.DEBUG.ALL) return;
 	const trailMap = CONFIG.DEBUG.LEVELS.Trails;
-	if (!trailMap) {
-		return;
-	}
+	
 	// Quick check: any trail flag enabled?
 	const anyEnabled = Object.values(trailMap).some(Boolean);
-	if (!anyEnabled) {
-		return;
-	}
+	if (!anyEnabled) return;
 
 	const entities = sceneGraph.entities;
-	if (entities.length === 0) {
-		return;
-	}
+	if (entities.length === 0) return;
 
 	const gl = renderer.gl;
-	if (!renderer.debugLineShader) {
-		return;
-	}
-	if (!renderer.debugLineBuffer) {
-		return;
-	}
+	if (!renderer.debugLineShader || !renderer.debugLineBuffer) return;
 
 	const shader = renderer.debugLineShader;
 	gl.useProgram(shader.program);
@@ -937,34 +747,29 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 	gl.enableVertexAttribArray(shader.attributes.position);
 	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
 
-	const TRAIL_SCALE = 0.15;
+	const trailScale = 0.15;
 
 	for (let i = 0; i < entities.length; i += 1) {
 		const entity = entities[i];
 
-
 		const trailType = classifyEntityTrailType(entity);
-		if (!isTrailDebugEnabled(trailType)) {
-			continue;
-		}
+		if (!isTrailDebugEnabled(trailType)) continue;
 
 		const vel = entity.velocity;
 		const speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
-		if (speedSq < 0.01) {
-			continue;
-		}
+		if (speedSq < 0.01) continue;
 
 		const pos = entity.transform.position;
-		const endX = pos.x + vel.x * TRAIL_SCALE;
-		const endY = pos.y + vel.y * TRAIL_SCALE;
-		const endZ = pos.z + vel.z * TRAIL_SCALE;
+		const endX = pos.x + vel.x * trailScale;
+		const endY = pos.y + vel.y * trailScale;
+		const endZ = pos.z + vel.z * trailScale;
 
 		// Convert CNU positions to world units for rendering.
 		const vertices = new Float32Array([
 			CNUtoWorldUnit(pos.x), CNUtoWorldUnit(pos.y), CNUtoWorldUnit(pos.z),
 			CNUtoWorldUnit(endX), CNUtoWorldUnit(endY), CNUtoWorldUnit(endZ),
 		]);
-		const color = trailTypeColors[trailType] || { r: 1, g: 1, b: 1, a: 1 };
+		const color = trailTypeColors[trailType];
 
 		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
@@ -973,15 +778,13 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 }
 
 function createMeshBuffers(gl, mesh, shader) {
-	const geometry = mesh && mesh.geometry ? mesh.geometry : null;
-	if (!geometry || !Array.isArray(geometry.positions) || !Array.isArray(geometry.indices)) {
-		return null;
-	}
+	const geometry = mesh.geometry;
 
 	const positionBuffer = gl.createBuffer();
 	const uvBuffer = gl.createBuffer();
 	const indexBuffer = gl.createBuffer();
 	if (!positionBuffer || !uvBuffer || !indexBuffer) {
+		Log("ENGINE", "WebGL buffer creation failed", "error", "Render");
 		return null;
 	}
 
@@ -993,9 +796,7 @@ function createMeshBuffers(gl, mesh, shader) {
 	gl.enableVertexAttribArray(shader.attributes.position);
 	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
 
-	const uvs = Array.isArray(geometry.uvs) && geometry.uvs.length / 2 === geometry.positions.length / 3
-		? geometry.uvs
-		: new Array((geometry.positions.length / 3) * 2).fill(0);
+	const uvs = geometry.uvs;
 	gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
 	gl.enableVertexAttribArray(shader.attributes.uv);
@@ -1016,30 +817,17 @@ function createMeshBuffers(gl, mesh, shader) {
 }
 
 function getMeshBufferKey(mesh) {
-	if (!mesh || !mesh.geometry) {
-		return null;
-	}
+	const meshId = mesh.id;
+	const prim = mesh.primitive;
+	const comp = mesh.complexity;
+	const dim = mesh.dimensions;
 
-	const meshId = typeof mesh.id === "string" && mesh.id.length > 0 ? mesh.id : "mesh";
-	const primitive = typeof mesh.primitive === "string"
-		? mesh.primitive.toLowerCase()
-		: (typeof mesh.shape === "string" ? mesh.shape.toLowerCase() : "cube");
-	const complexity = typeof mesh.complexity === "string"
-		? mesh.complexity.toLowerCase()
-		: (mesh.detail && typeof mesh.detail.complexity === "string" ? mesh.detail.complexity.toLowerCase() : "medium");
-	const dims = mesh.dimensions && typeof mesh.dimensions === "object" ? mesh.dimensions : null;
-	const dx = dims && typeof dims.x === "number" ? dims.x : 1;
-	const dy = dims && typeof dims.y === "number" ? dims.y : 1;
-	const dz = dims && typeof dims.z === "number" ? dims.z : 1;
-
-	return `${meshId}|${primitive}|${dx}|${dy}|${dz}|${complexity}`;
+	return `${meshId}|${prim}|${dim.x}|${dim.y}|${dim.z}|${comp}`;
 }
 
 function createFallbackTexture(gl) {
 	const texture = gl.createTexture();
-	if (!texture) {
-		return null;
-	}
+	if (!texture) return null;
 	gl.bindTexture(gl.TEXTURE_2D, texture);
 	const pixel = new Uint8Array([255, 255, 255, 255]);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
@@ -1051,31 +839,32 @@ function createFallbackTexture(gl) {
 }
 
 function ensureSceneTexture(renderer, sceneGraph, textureID) {
-	const id = textureID || "default-grid";
-	if (renderer.textures.has(id)) {
-		return renderer.textures.get(id);
-	}
-
+	const id = textureID;
 	const gl = renderer.gl;
 	const visualResources = sceneGraph.visualResources;
 	const textureRegistry = visualResources.textureRegistry;
 	const entry = textureRegistry[id];
 
-	const texture = gl.createTexture();
-	if (!texture) {
-		return renderer.fallbackTexture;
+	if (renderer.textures.has(id)) {
+		const cachedTexture = renderer.textures.get(id);
+		if (entry.dirty === true) {
+			gl.bindTexture(gl.TEXTURE_2D, cachedTexture);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.source);
+			entry.dirty = false;
+		}
+		return cachedTexture;
 	}
 
+	const texture = gl.createTexture();
+	if (!texture) return renderer.fallbackTexture;
+
 	gl.bindTexture(gl.TEXTURE_2D, texture);
-	if (entry && entry.source) {
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.source);
-	} else {
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([200, 200, 200, 255]));
-	}
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.source);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	entry.dirty = false;
 
 	renderer.textures.set(id, texture);
 	return texture;
@@ -1083,9 +872,7 @@ function ensureSceneTexture(renderer, sceneGraph, textureID) {
 
 function ensureLevelRenderer(rootId, rootStyles) {
 	const existing = levelRendererCache.get(rootId);
-	if (existing) {
-		return existing;
-	}
+	if (existing) return existing;
 
 	const root = ensureRoot(rootId, {
 		position: "fixed",
@@ -1109,9 +896,7 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	}
 
 	const shader = createProgram(gl);
-	if (!shader) {
-		return null;
-	}
+	if (!shader) return null;
 
 	const scatterShader = createScatterProgram(gl);
 	if (!scatterShader) {
@@ -1143,8 +928,8 @@ function ensureLevelRenderer(rootId, rootStyles) {
 
 function syncCanvasSize(renderer) {
 	const canvas = renderer.canvas;
-	const width = Math.max(1, canvas.clientWidth || canvas.offsetWidth || window.innerWidth || 1);
-	const height = Math.max(1, canvas.clientHeight || canvas.offsetHeight || window.innerHeight || 1);
+	const width = canvas.clientWidth;
+	const height = canvas.clientHeight;
 	if (canvas.width !== width || canvas.height !== height) {
 		canvas.width = width;
 		canvas.height = height;
@@ -1160,56 +945,36 @@ function collectRenderableMeshes(sceneGraph) {
 	const entities = sceneGraph.entities;
 	const entityMeshes = [];
 
-	obstacleRecords.forEach((record) => {
-		record.parts.forEach((part) => {
-			if (part && part.geometry) {
-				obstacleMeshes.push(part);
-			}
-		});
-	});
+	obstacleRecords.forEach((record) => record.parts.forEach((part) => obstacleMeshes.push(part)));
 
 	entities.forEach((entity) => {
-		if (entity.model && Array.isArray(entity.model.parts)) {
-			entity.model.parts.forEach((part) => {
-				if (part.mesh) {
-					entityMeshes.push(part.mesh);
-				}
-			});
+		if (entity.model) {
+			entity.model.parts.forEach((part) => entityMeshes.push(part.mesh));
 			return;
 		}
-
-		if (entity.mesh) {
-			entityMeshes.push(entity.mesh);
-		}
+		entityMeshes.push(entity.mesh);
 	});
 
 	const triggerMeshes = showTriggers ? triggers : [];
+
 	// Scatter is excluded — rendered via instanced path.
 	return terrain.concat(obstacleMeshes, triggerMeshes, entityMeshes);
 }
 
 function resolveWaterVisualMeshes(sceneGraph) {
 	const waterVisual = sceneGraph.waterVisual;
-	if (!waterVisual) {
-		return [];
-	}
+	if (!waterVisual) return [];
 
 	const meshes = [];
-	if (waterVisual.body && waterVisual.body.geometry) {
-		meshes.push(waterVisual.body);
-	}
-	if (waterVisual.top && waterVisual.top.geometry) {
-		meshes.push(waterVisual.top);
-	}
+	if (waterVisual.body && waterVisual.body.geometry) meshes.push(waterVisual.body);
+	if (waterVisual.top && waterVisual.top.geometry) meshes.push(waterVisual.top);
 
 	return meshes;
 }
 
 function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue) {
 	const waterMeshes = resolveWaterVisualMeshes(sceneGraph);
-	if (waterMeshes.length === 0) {
-		return;
-	}
+	if (waterMeshes.length === 0) return;
 
 	const gl = renderer.gl;
 	const shader = renderer.shader;
@@ -1232,27 +997,19 @@ function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farVa
 		let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
 		if (!meshBuffer) {
 			meshBuffer = createMeshBuffers(gl, mesh, shader);
-			if (!meshBuffer) {
-				continue;
-			}
 			renderer.meshBuffers.set(meshBufferKey, meshBuffer);
 		}
 
-		const model = CreateWorldUnitModelMatrix(mesh.transform);
-		const color = mesh.material && mesh.material.color
-			? mesh.material.color
-			: { r: 0.25, g: 0.5, b: 0.75, a: 1 };
-		const opacity = mesh.material && typeof mesh.material.opacity === "number"
-			? mesh.material.opacity
-			: (typeof color.a === "number" ? color.a : 0.2);
-		const texture = renderer.fallbackTexture;
+		const model = createWorldUnitModelMatrix(mesh.transform);
+		const color = mesh.material.color;
+		const texture = ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID);
 
 		gl.bindVertexArray(meshBuffer.vao);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.uniform1i(shader.uniforms.texture, 0);
 		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(model));
-		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, opacity);
+		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, mesh.material.opacity);
 		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
 		gl.bindVertexArray(null);
 	}
@@ -1273,29 +1030,23 @@ function drawScene(renderer, sceneGraph) {
 
 	const cameraState = sceneGraph.cameraConfig.state;
 
-	// Camera is already in world-unit space from Camera.js.
-	const camPos = cameraState.position;
-	const camTarget = cameraState.target;
-	const camNear = cameraState.near.value;
-	const camFar = cameraState.far.value;
-
 	const projection = createPerspectiveMatrix(
-		cameraState.fov || 60,
+		cameraState.fov,
 		renderer.canvas.width / renderer.canvas.height,
-		camNear,
-		camFar
+		cameraState.near.value,
+		cameraState.far.value
 	);
 	const view = createLookAtMatrix(
-		camPos,
-		camTarget,
-		cameraState.up || { x: 0, y: 1, z: 0 }
+		cameraState.position,
+		cameraState.target,
+		cameraState.up
 	);
 
 	const waterLevelWorldUnits = sceneGraph.world.waterLevel ? sceneGraph.world.waterLevel.toWorldUnit() : null;
 	const underwater = waterLevelWorldUnits !== null && cameraState.position.y < waterLevelWorldUnits;
 	const fogDensity = underwater ? 0.85 : 0.2;
 	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
-	const farValue = camFar;
+	const farValue = cameraState.far.value;
 	const underwaterValue = underwater ? 1 : 0;
 
 	if (
@@ -1318,53 +1069,36 @@ function drawScene(renderer, sceneGraph) {
 	const meshes = collectRenderableMeshes(sceneGraph);
 	for (let index = 0; index < meshes.length; index += 1) {
 		const mesh = meshes[index];
-		const isTriggerMesh = mesh && mesh.role === "trigger";
+		const isTriggerMesh = mesh.role === "trigger";
 		const meshBufferKey = getMeshBufferKey(mesh);
-		if (!meshBufferKey) {
-			continue;
-		}
 
 		let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
 		if (!meshBuffer) {
 			meshBuffer = createMeshBuffers(gl, mesh, shader);
-			if (!meshBuffer) {
-				continue;
-			}
+			if (!meshBuffer) continue;
 			renderer.meshBuffers.set(meshBufferKey, meshBuffer);
 		}
 
-		const model = CreateWorldUnitModelMatrix(mesh.transform);
-		const color = mesh.material && mesh.material.color
-			? mesh.material.color
-			: { r: 0.8, g: 0.8, b: 0.8, a: 1 };
-		const opacity = mesh.material && typeof mesh.material.opacity === "number"
-			? mesh.material.opacity
-			: (typeof color.a === "number" ? color.a : 1);
-		const textureID = mesh.material && mesh.material.textureID ? mesh.material.textureID : "default-grid";
-		const texture = ensureSceneTexture(renderer, sceneGraph, textureID) || renderer.fallbackTexture;
+		const model = createWorldUnitModelMatrix(mesh.transform);
+		const color = mesh.material.color;
+		const texture = ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID);
 
 		gl.bindVertexArray(meshBuffer.vao);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.uniform1i(shader.uniforms.texture, 0);
 		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(model));
-		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, opacity);
-		if (isTriggerMesh) {
-			gl.depthMask(false);
-		}
+		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, mesh.material.opacity);
+		if (isTriggerMesh) gl.depthMask(false);
 		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
-		if (isTriggerMesh) {
-			gl.depthMask(true);
-		}
+		if (isTriggerMesh) gl.depthMask(true);
 		gl.bindVertexArray(null);
 	}
 
 	// === PASS B: Instanced scatter rendering ===
-	if (!renderer.scatterInstancesBuilt) {
-		buildScatterInstanceBuffers(renderer, sceneGraph);
-	}
+	if (!renderer.scatterInstancesBuilt) buildScatterInstanceBuffers(renderer, sceneGraph);
 
-	if (renderer.scatterInstances && renderer.scatterInstances.length > 0) {
+	if (renderer.scatterInstances.length > 0) {
 		const scatterShader = renderer.scatterShader;
 		gl.useProgram(scatterShader.program);
 		gl.uniformMatrix4fv(scatterShader.uniforms.projection, false, new Float32Array(projection));
@@ -1376,7 +1110,7 @@ function drawScene(renderer, sceneGraph) {
 
 		for (let batchIndex = 0; batchIndex < renderer.scatterInstances.length; batchIndex += 1) {
 			const batch = renderer.scatterInstances[batchIndex];
-			const texture = ensureSceneTexture(renderer, sceneGraph, batch.textureID) || renderer.fallbackTexture;
+			const texture = ensureSceneTexture(renderer, sceneGraph, batch.textureID);
 
 			gl.bindVertexArray(batch.vao);
 			gl.activeTexture(gl.TEXTURE0);
@@ -1396,12 +1130,10 @@ function drawScene(renderer, sceneGraph) {
 }
 
 function RenderLevel(sceneGraph, options) {
-	const resolvedOptions = options && typeof options === "object" ? options : {};
-	const rootId = resolvedOptions.rootId || "engine-level-root";
+	const resolvedOptions = options;
+	const rootId = resolvedOptions.rootId;
 	const renderer = ensureLevelRenderer(rootId, resolvedOptions.rootStyles);
-	if (!renderer) {
-		return;
-	}
+	if (!renderer) return;
 
 	drawScene(renderer, sceneGraph);
 }

@@ -1,83 +1,47 @@
 // Maintains Full Cutscene State.
 // Handles startup intro cinematics (pre-rendered video or in-engine payloads).
 
-import { Wait, Log, SendEvent, Cursor } from "../core/meta.js";
+import { Wait, Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { RenderPayload } from "./Render.js";
 import { UIElement } from "../builder/NewUI.js";
+import { ValidateCutscenePayload } from "../core/validate.js";
 
-function normalizeIntroPayload(payload) {
-	// Normalize raw payloads into a consistent shape.
-	if (!payload) {
-		return null;
-	}
+const defaultCutsceneConfig = {
+	rootId: "engine-startup-overlay",
+	videoId: "engine-intro-video",
+	fallbackWaitMs: null,
+	fadeOutSeconds: 0.5,
+};
 
-	if (typeof payload === "string") {
-		return { type: "video", src: payload };
-	}
-
-	if (typeof payload !== "object") {
-		return null;
-	}
-
-	if (payload.type === "video" || payload.src || payload.videoSrc) {
-		return {
-			type: "video",
-			src: payload.src || payload.videoSrc,
-			muted: payload.muted,
-			loop: payload.loop,
-			fit: payload.fit,
-			fadeOutSeconds: payload.fadeOutSeconds,
-		};
-	}
-
-	return { type: "cutscene", payload: payload };
-}
-
-async function playVideoCutscene(payload, options) {
-	if (CONFIG.DEBUG.SKIP.Cutscene === true) {
-		Log("ENGINE", "Video cutscene skipped by settings.", "log", "Cutscene");
-		return;
-	}
-	// Guard against missing video sources.
-	if (!payload || !payload.src) {
-		return;
-	}
-
-	const rootId = (options && options.rootId) || "engine-startup-overlay";
-	const videoId = (options && options.videoId) || "engine-intro-video";
-	const fadeOutSeconds =
-		typeof payload.fadeOutSeconds === "number" ? payload.fadeOutSeconds : 0.5;
-	const fadeLeadSeconds =
-		typeof payload.fadeLeadSeconds === "number" ? payload.fadeLeadSeconds : 0.5;
+async function playRenderedCutsceneInternal(payload, options) {
+	const videoId = options.videoId;
+	const fadeOutSeconds = payload.fadeOutSeconds;
+	const fadeLeadSeconds = payload.fadeLeadSeconds;
 
 	// Build the video element and container styling.
 	const video = document.createElement("video");
 	video.id = videoId;
-	video.src = payload.src;
+	video.src = payload.source;
 	video.autoplay = true;
 	video.playsInline = true;
 	video.controls = false;
-	video.muted = payload.muted === true;
-	video.loop = payload.loop === true;
-	if (video.muted) {
-		video.volume = 0;
-	} else {
-		const master = typeof CONFIG.VOLUME.Master === "number" ? CONFIG.VOLUME.Master : 1;
-		const volume = Math.max(0, Math.min(1, master * CONFIG.VOLUME.Cutscene));
-		video.volume = volume;
-	}
+	video.muted = payload.muted;
+	video.loop = payload.loop;
 	video.style.position = "absolute";
 	video.style.inset = "0";
 	video.style.width = "100%";
 	video.style.height = "100%";
-	video.style.objectFit = payload.fit || "cover";
+	video.style.objectFit = payload.fit;
 	video.style.opacity = "1";
+
+	if (video.muted) video.volume = 0;
+	else video.volume = Math.max(0, Math.min(1, CONFIG.VOLUME.Master * CONFIG.VOLUME.Cutscene));
 
 	const fragment = document.createDocumentFragment();
 	fragment.appendChild(video);
 	RenderPayload({
-		rootId: rootId,
+		rootId: options.rootId,
 		rootStyles: {
 			position: "fixed",
 			inset: "0",
@@ -163,85 +127,50 @@ function ensureCutsceneCurtain(rootId) {
 	return curtain;
 }
 
+// Fade the curtain overlay to black.
 async function fadeCutsceneToBlack(options) {
-	// Fade the curtain overlay to black.
-	const rootId = (options && options.rootId) || "engine-startup-overlay";
-	const fadeOutSeconds =
-		options && typeof options.fadeOutSeconds === "number" ? options.fadeOutSeconds : 0.5;
-	const curtain = ensureCutsceneCurtain(rootId);
-	if (!curtain) {
-		return;
-	}
+	const curtain = ensureCutsceneCurtain(options.rootId);
 	const curtainElement = UIElement.get(curtain.id);
-	await curtainElement.fadeTo(1, fadeOutSeconds);
+	await curtainElement.fadeTo(1, options.fadeOutSeconds);
 }
 
-async function playEngineCutscene(payload, options) {
+async function playEngineCutsceneInternal(payload, options) {
+	const durationSeconds = payload.durationSeconds;
+	const fadeLeadSeconds = payload.fadeLeadSeconds;
+
+	// Fade to black before the end of the cutscene.
+	const waitMs = Math.max(0, (durationSeconds - fadeLeadSeconds) * 1000);
+	await Wait(waitMs);
+	await fadeCutsceneToBlack(options);
+	await Wait(fadeLeadSeconds * 1000);
+	await Wait(1000);
+	return;
+}
+
+async function PlayRenderedCutscene(payload, options = defaultCutsceneConfig) {
+	const resolved = ValidateCutscenePayload(payload, "rendered");
+	if (resolved === null) return false;
+
+	if (CONFIG.DEBUG.SKIP.Cutscene === true) {
+		Log("ENGINE", "Rendered cutscene skipped by settings.", "log", "Cutscene");
+		return false;
+	}
+
+	await playRenderedCutsceneInternal(resolved, options);
+	return true;
+}
+
+async function PlayEngineCutscene(payload, options = defaultCutsceneConfig) {
+	const resolved = ValidateCutscenePayload(payload, "engine");
+	if (resolved === null) return false;
+
 	if (CONFIG.DEBUG.SKIP.Cutscene === true) {
 		Log("ENGINE", "Engine cutscene skipped by settings.", "log", "Cutscene");
-		return;
-	}
-	// Drive in-engine cutscene timelines with a simple duration flow.
-	const data = payload && payload.payload ? payload.payload : payload;
-	const durationSeconds = payload && typeof payload.durationSeconds === "number"
-		? payload.durationSeconds
-		: null;
-	const fallbackWaitMs =
-		options && typeof options.fallbackWaitMs === "number" ? options.fallbackWaitMs : null;
-	const fadeLeadSeconds =
-		payload && typeof payload.fadeLeadSeconds === "number" ? payload.fadeLeadSeconds : 0.5;
-
-	SendEvent("IntroCinematicStart", data || null);
-	if (typeof durationSeconds === "number") {
-		// Fade to black before the end of the cutscene.
-		const waitMs = Math.max(0, (durationSeconds - fadeLeadSeconds) * 1000);
-		await Wait(waitMs);
-		await fadeCutsceneToBlack(options);
-		await Wait(fadeLeadSeconds * 1000);
-		await Wait(1000);
-		return;
-	}
-
-	if (typeof fallbackWaitMs === "number") {
-		// Best-effort fade timing when only a fallback wait exists.
-		const waitMs = Math.max(0, fallbackWaitMs - 500);
-		await Wait(waitMs);
-		await fadeCutsceneToBlack(options);
-		await Wait(500);
-		await Wait(1000);
-	}
-}
-
-async function PlayIntroCinematic(payload, options) {
-	// Skip intros if config disables them.
-	if (CONFIG.DEBUG.SKIP.Cutscene === true || CONFIG.DEBUG.SKIP.Intro === true) {
-		Log("ENGINE", "Intro cinematic skipped by settings.", "log", "Cutscene");
 		return false;
 	}
 
-	// Normalize and log the incoming payload.
-	const resolved = normalizeIntroPayload(payload);
-	if (!resolved) {
-		return false;
-	}
-
-	const label = resolved.type === "video" ? resolved.src : "intro-cutscene";
-	Log("ENGINE", `Intro cinematic start: ${resolved.type} ${label}`, "log", "Cutscene");
-	Cursor.changeState("hidden");
-
-	try {
-		if (resolved.type === "video") {
-			await playVideoCutscene(resolved, options);
-			Log("ENGINE", `Intro cinematic end: ${resolved.type} ${label}`, "log", "Cutscene");
-			return true;
-		}
-
-		await playEngineCutscene(resolved, options);
-		Log("ENGINE", `Intro cinematic end: ${resolved.type} ${label}`, "log", "Cutscene");
-		return true;
-	} finally {
-		Cursor.changeState("enabled");
-	}
+	await playEngineCutsceneInternal(resolved, options);
+	return true;
 }
 
-export { PlayIntroCinematic };
+export { PlayEngineCutscene, PlayRenderedCutscene };

@@ -13,8 +13,11 @@ import {
 	SetElementSource,
 } from "../Render.js";
 import { PlaySfx, PlayVoice } from "../Sound.js";
-import { Log, PushToSession, ReadFromSession, SESSION_KEYS } from "../../core/meta.js";
+import { Log, PushToSession, ReadFromSession, SendEvent, SESSION_KEYS } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
+import { ValidateSplashPayload } from "../../core/validate.js";
+
+let pendingSplashResolve = null;
 
 /* === SEQUENCE === */
 // Runs the built-in splash and transitions to the title screen.
@@ -53,6 +56,7 @@ function getCarlStudiosSequence() {
 					.href,
 				options: { id: "SLOPPY_CARL" },
 			},
+			voiceAtStart: false,
 			fadeInSeconds: 0.3,
 			holdMs: 600,
 			fadeOutSeconds: 1,
@@ -69,6 +73,9 @@ function getWigdosStudiosSequence() {
 				"../../assets/wigdosStudios/wigdosPublisher.png",
 				import.meta.url
 			).href,
+			sfx: null,
+			voice: null,
+			voiceAtStart: false,
 			fadeInSeconds: 0.5,
 			holdMs: 2000,
 			fadeOutSeconds: 1,
@@ -91,6 +98,7 @@ function getCarlNetEngineSequence() {
 				options: { id: "CARLNET_ENGINE" },
 			},
 			voiceAtStart: true,
+			sfx: null,
 			fadeInSeconds: 0.3,
 			holdMs: 2500,
 			fadeOutSeconds: 1,
@@ -98,78 +106,78 @@ function getCarlNetEngineSequence() {
 	];
 }
 
-// Execute each splash step in order.
-async function runSequenceSteps(sequence, context) {
-	for (let index = 0; index < sequence.length; index += 1) {
-		const step = sequence[index];
-		if (step.name) {
-			Log(
-				"ENGINE",
-				`Splash stage start: ${step.name}.`,
-				"log",
-				"Startup"
-			);
-		}
-
-		// Swap the splash image when provided.
-		if (step.image) {
-			SetElementSource(context.imageId, step.image);
-		}
-
-		// Play SFX tied to the splash stage.
-		if (step.sfx && step.sfx.src) {
-			PlaySfx(step.sfx.src, step.sfx.options);
-		}
-
-		// Trigger voice-over at the start of a step.
-		if (step.voiceAtStart && step.voice && step.voice.src) {
-			PlayVoice(step.voice.src, step.voice.options);
-		}
-
-		// Fade in the splash image.
-		if (typeof step.fadeInSeconds === "number") {
-			await FadeElement(context.imageId, 1, step.fadeInSeconds);
-		}
-
-		// Hold the image on screen.
-		if (typeof step.holdMs === "number") {
-			await context.wait(step.holdMs);
-		}
-
-		// Play voice-over after the hold.
-		if (!step.voiceAtStart && step.voice && step.voice.src) {
-			await PlayVoice(step.voice.src, step.voice.options);
-		}
-
-		if (typeof step.fadeOutSeconds === "number") {
-			// Fade out the splash image.
-			await FadeElement(context.imageId, 0, step.fadeOutSeconds);
-		}
-
-		// Pause between splash steps.
-		if (index < sequence.length - 1) {
-			await context.wait(1000);
-		}
-	}
-}
-
-async function RunSplashSequence() {
-	// Build the full splash sequence pipeline.
-	const context = setupSplashSequence();
-	const skipSplash =
-		(CONFIG.DEBUG.SKIP.Splash === true) ||
-		ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true;
-
-	if (skipSplash) {
-		Log("ENGINE", "Splash skipped.", "log", "Startup");
-		return context;
-	}
+function getDefaultSequence() {
 	const providers = [
 		getCarlStudiosSequence,
 		getWigdosStudiosSequence,
 		getCarlNetEngineSequence,
 	];
-	const steps = providers.flatMap((provider) => provider());
+
+	return providers.flatMap((provider) => provider());
+}
+
+function getBuiltInSequenceById(presetId) {
+	switch (presetId) {
+		case "sloppycarl": return getCarlStudiosSequence();
+		case "wigdos"    : return getWigdosStudiosSequence();
+		case "carlnet"   : return getCarlNetEngineSequence();
+		case "default"   : return getDefaultSequence();
+		default          : return getDefaultSequence();
+	}
+}
+
+function resolveSplashSteps(requestedSplashPayload) {
+	if (!requestedSplashPayload) return getDefaultSequence();
+
+	if (requestedSplashPayload.presetId) {
+		return getBuiltInSequenceById(requestedSplashPayload.presetId);
+	}
+
+	return requestedSplashPayload.sequence;
+}
+
+// Execute each splash step in order.
+async function runSequenceSteps(sequence, context) {
+	for (let index = 0; index < sequence.length; index++) {
+		const step = sequence[index];
+		Log(
+			"ENGINE",
+			`Splash stage start: ${step.name}.`,
+			"log",
+			"Startup"
+		);
+
+		SetElementSource(context.imageId, step.image);
+
+		if (step.sfx !== null) PlaySfx(step.sfx.src, step.sfx.options);
+
+		if (step.voiceAtStart) PlayVoice(step.voice.src, step.voice.options);
+
+		await FadeElement(context.imageId, 1, step.fadeInSeconds);
+
+		await context.wait(step.holdMs);
+
+		if (!step.voiceAtStart && step.voice !== null) await PlayVoice(step.voice.src, step.voice.options);
+
+		await FadeElement(context.imageId, 0, step.fadeOutSeconds);
+
+		// Pause between splash steps.
+		if (index < sequence.length - 1) await context.wait(1000);
+	}
+}
+
+async function runSplashSequence(requestedSplashPayload) {
+	// Build the full splash sequence pipeline.
+	const context = setupSplashSequence();
+
+	if (
+		(CONFIG.DEBUG.SKIP.Splash === true) ||
+		ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true
+	) {
+		Log("ENGINE", "Splash scren sequence skipped.", "log", "Startup");
+		return context;
+	}
+	const steps = resolveSplashSteps(requestedSplashPayload);
 
 	// Initial pacing before the first splash.
 	await context.wait(1000);
@@ -182,7 +190,38 @@ async function RunSplashSequence() {
 	return context;
 }
 
+function requestSplashPayload(timeoutMs) {
+	SendEvent("SPLASH_REQUEST", { timeoutMs: timeoutMs });
+
+	return new Promise((resolve) => {
+		const finish = (payload) => {
+			pendingSplashResolve = null;
+			clearTimeout(timeoutId);
+			resolve(payload);
+		};
+
+		pendingSplashResolve = finish;
+		const timeoutId = setTimeout(() => finish(null), timeoutMs);
+	});
+}
+
+function ProvideSplashScreenPayload(payload) {
+	if (!pendingSplashResolve) {
+		Log("ENGINE", "No splash screens were requested. Ignoring payload.", "warn", "Startup");
+		return false;
+	}
+
+	pendingSplashResolve(payload);
+	return true;
+}
+
+async function ApplySplashScreenSequence(options) {
+	const rawPayload = await requestSplashPayload(options.timeoutMs);
+	const payload = ValidateSplashPayload(rawPayload);
+	return runSplashSequence(payload);
+}
+
 /* === EXPORTS === */
 // Public splash sequence for Bootup.
 
-export { RunSplashSequence };
+export { ApplySplashScreenSequence, ProvideSplashScreenPayload };
