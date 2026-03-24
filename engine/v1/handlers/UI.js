@@ -81,7 +81,7 @@ function buildUiRuntimeMapsFromIndex(index) {
 	return runtime;
 }
 
-function resolvePrecomputedAction(type, targetId) {
+function ResolvePrecomputedAction(type, targetId) {
 	const runtime = Cache.UI.uiRuntime;
 	switch (type) {
 		case "pointerover": return runtime.hoverOverMap[targetId];
@@ -262,4 +262,4 @@ function ClearUI(rootId) {
 /* === EXPORTS === */
 // Public UI API for engine modules.
 
-export { CreateUI, ApplyMenuUI, LoadScreen, ClearUI, HandleUiAction, resolvePrecomputedAction }; 
+export { CreateUI, ApplyMenuUI, LoadScreen, ClearUI, HandleUiAction, ResolvePrecomputedAction }; 

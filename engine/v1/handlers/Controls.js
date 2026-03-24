@@ -6,7 +6,7 @@ import { Cache, Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { GetActiveLevel } from "./game/Level.js";
 import { HandleFreeCamInput, HandleDefaultCamInput } from "./game/Camera.js";
-import { HandleUiAction, resolvePrecomputedAction } from "./UI.js";
+import { HandleUiAction, ResolvePrecomputedAction } from "./UI.js";
 
 const eventTypes = {
 	pointerover: false,
@@ -164,7 +164,7 @@ function StartInputRouter(target) {
 		let consumed = false;
 
 		if (eventTypes[type] === true) {
-			const action = resolvePrecomputedAction(type, targetId);
+			const action = ResolvePrecomputedAction(type, targetId);
 			if (action) {
 				consumed = HandleUiAction(action);
 				if (consumed) {
@@ -181,12 +181,9 @@ function StartInputRouter(target) {
 			const activeLevel = GetActiveLevel();
 			const levelIsLoaded = Boolean(activeLevel);
 			// FreeCam should only be enabled when global debug is on and level FreeCam is true.
-			const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS?.FreeCam === true);
-			if (levelIsLoaded && freeCamEnabled) {
-				consumed = HandleFreeCamInput(event, activeLevel);
-			} else if (levelIsLoaded && !freeCamEnabled) {
-				consumed = HandleDefaultCamInput(event);
-			}
+			const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true);
+			if (levelIsLoaded && freeCamEnabled) consumed = HandleFreeCamInput(event, activeLevel);
+			else if (levelIsLoaded && !freeCamEnabled) consumed = HandleDefaultCamInput(event);
 		}
 
 		if (consumed) {

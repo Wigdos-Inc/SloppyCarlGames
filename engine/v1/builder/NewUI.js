@@ -47,11 +47,10 @@ class UIElement {
 			"UI"
 		);
 
-		const fadeDuration = Math.max(0, durationSeconds || 0);
-		this.element.style.transition = `opacity ${fadeDuration}s ease`;
+		this.element.style.transition = `opacity ${durationSeconds}s ease`;
 		this.element.style.opacity = String(targetOpacity);
 
-		return Wait(fadeDuration * 1000);
+		return Wait(durationSeconds * 1000);
 	}
 
 	remove() {
@@ -89,21 +88,16 @@ function BuildElement(definition) {
 	if ("checked" in definition) element.checked = Boolean(definition.checked);
 
 	if (definition.src && elementType === "img") element.src = definition.src;
-
 	Object.assign(element.style, definition.styles);
 
 	// Recursively append child elements (definitions.children is normalized to an array).
-	definition.children.forEach((child) => {
-		element.appendChild(BuildElement(child));
-	});
-
+	definition.children.forEach((child) => element.appendChild(BuildElement(child)));
 	return element;
 }
 
 function collectElementIds(definition, ids) {
 	// Gather ids for logging and input routing. `definition` is normalized.
 	if (definition.id) ids.push(definition.id);
-
 	definition.children.forEach((child) => collectElementIds(child, ids));
 }
 
@@ -119,7 +113,7 @@ function BuildElements(definitions, menuId) {
 	});
 
 	const resolvedMenuId = menuId || "unknown";
-	Log("ENGINE", `Building ${resolvedMenuId}: ${ids.join(", ")}`, "log", "UI");
+	Log("ENGINE", `Building ${resolvedMenuId}:\n- ${ids.join("\n- ")}`, "log", "UI");
 
 	return fragment;
 }

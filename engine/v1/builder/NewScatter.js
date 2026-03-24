@@ -1,16 +1,43 @@
-import { CONFIG } from "../core/config.js";
-import { Log } from "../core/meta.js";
-import { BuildObject, CreateModelMatrix, BuildGeometry, GenerateUVs } from "./NewObject.js";
-import { UnitVector3 } from "../math/Utilities.js";
-import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3 } from "../math/Vector3.js";
-import visualTemplates from "./templates/textures.json" with { type: "json" };
-
 // NewScatter.js
 // Responsibilities:
 // - Generate per-object scatter instances and instance batches
 // - Preserve Unit/UnitVector3 instances (do not re-instance downstream)
 // - Assume payload is canonical (normalized at the boundary); avoid defensive checks
 // - Centralize sampling logic in `iterateScatterInstances`
+
+import { CONFIG } from "../core/config.js";
+import { Log } from "../core/meta.js";
+import { BuildObject, CreateModelMatrix, BuildGeometry, GenerateUVs } from "./NewObject.js";
+import { Unit, UnitVector3 } from "../math/Utilities.js";
+import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3, NormalizeVector3 } from "../math/Vector3.js";
+import visualTemplates from "./templates/textures.json" with { type: "json" };
+
+// Normalize JSON templates into UnitVector3 instances
+(function normalizeVisualTemplates() {
+  	const types = visualTemplates.scatterTypes;
+  	for (const key in types) {
+  	  	types[key].parts.forEach((part) => {
+  	  	  	part.dimensions = new UnitVector3(
+				part.dimensions.x, 
+				part.dimensions.y, 
+				part.dimensions.z, 
+				"cnu"
+			);
+  	  	  	part.localPosition = new UnitVector3(
+				part.localPosition.x, 
+				part.localPosition.y, 
+				part.localPosition.z, 
+				"cnu"
+			);
+  	  	  	part.localRotation = new UnitVector3(
+				part.localRotation.x, 
+				part.localRotation.y, 
+				part.localRotation.z, 
+				"degrees"
+			).toRadians(true);
+  	  	});
+  	}
+})();
 
 function GetPerformanceScatterMultiplier() {
 	const level = CONFIG.PERFORMANCE.TerrainScatter;
@@ -66,9 +93,6 @@ function mergeAabb(accumulator, bounds) {
 function getPartHalfHeight(part, uniformScale) {
 	if (part.primitive === "plane") return 0;
 
-	const hx = (part.dimensions.x * part.localScale.x * uniformScale) * 0.5;
-	const hy = (part.dimensions.y * part.localScale.y * uniformScale) * 0.5;
-	const hz = (part.dimensions.z * part.localScale.z * uniformScale) * 0.5;
 
 	// Columns of rotation matrix = R * basis vectors. We want the Y-row contributions, which
 	// are the y components of those columns. Use shared RotateByEuler (Y->X->Z) to rotate basis.
@@ -76,25 +100,24 @@ function getPartHalfHeight(part, uniformScale) {
 	const colY = RotateByEuler({ x: 0, y: 1, z: 0 }, part.localRotation);
 	const colZ = RotateByEuler({ x: 0, y: 0, z: 1 }, part.localRotation);
 
-	const halfHeight = Math.abs(colX.y) * hx + Math.abs(colY.y) * hy + Math.abs(colZ.y) * hz;
+	const h = ScaleVector3(MultiplyVector3(part.dimensions, part.localScale), uniformScale * 0.5);
+	const halfHeight = Math.abs(colX.y) * h.x + Math.abs(colY.y) * h.y + Math.abs(colZ.y) * h.z;
 	return Math.max(0, halfHeight);
 }
 
 function resolveRootPart(parts, uniformScale) {
-	if (parts.length === 0) return null;
-
 	const roots = parts.filter((part) => part.level === 0);
 	if (roots.length === 0) return null;
 
 	let selected = roots[0];
 	for (let index = 1; index < roots.length; index++) {
 		const candidate = roots[index];
-		if (candidate.localPosition.y < selected.localPosition.y) {
+		if (candidate.stackY < selected.stackY) {
 			selected = candidate;
 			continue;
 		}
 
-		if (candidate.localPosition.y === selected.localPosition.y) {
+		if (candidate.stackY === selected.stackY) {
 			const candidateHeight = getPartHalfHeight(candidate, uniformScale);
 			const selectedHeight = getPartHalfHeight(selected, uniformScale);
 			if (candidateHeight > selectedHeight) selected = candidate;
@@ -104,7 +127,8 @@ function resolveRootPart(parts, uniformScale) {
 	return selected;
 }
 
-// Applies hierarchical Y-offsets to scatter model parts based on their level and scaling.
+// Computes hierarchical stack positions independently from authored localPosition.
+// localPosition is applied later as a final per-part post-offset.
 function applyHierarchicalOffsets(parts, uniformScale) {
 	if (parts.length === 0) return parts;
 
@@ -123,16 +147,13 @@ function applyHierarchicalOffsets(parts, uniformScale) {
 		const levelParts = partsByLevel.get(level);
 		const adjustedParts = levelParts.map((part) => {
 			const halfHeight = getPartHalfHeight(part, uniformScale);
-			const newLocalPosition = part.localPosition.clone();
+			let stackY = halfHeight;
 
-			if (level > 0 && cumulativeTop !== null) {
-				const currentBottom = newLocalPosition.y - halfHeight;
-				newLocalPosition.y += cumulativeTop - currentBottom;
-			}
+			if (level > 0 && cumulativeTop !== null) stackY += cumulativeTop;
 
 			return {
 				...part,
-				localPosition: newLocalPosition,
+				stackY,
 			};
 		});
 
@@ -141,13 +162,13 @@ function applyHierarchicalOffsets(parts, uniformScale) {
 		let levelTop = null;
 		adjustedParts.forEach((part) => {
 			const halfHeight = getPartHalfHeight(part, uniformScale);
-			const partTop = part.localPosition.y + halfHeight;
+			const partTop = part.stackY + halfHeight;
 			levelTop = levelTop === null ? partTop : Math.max(levelTop, partTop);
 		});
 
-		if (levelTop !== null) {
-			cumulativeTop = cumulativeTop === null ? levelTop : Math.max(cumulativeTop, levelTop);
-		}
+		if (levelTop !== null) cumulativeTop = cumulativeTop === null 
+			? levelTop 
+			: Math.max(cumulativeTop, levelTop);
 	});
 
 	return levels.flatMap((level) => adjustedByLevel.get(level));
@@ -211,15 +232,15 @@ function iterateScatterInstances(params, handler) {
 	scatterRequests.forEach((request, scatterTypeIndex) => {
 		const scatterType = visualTemplates.scatterTypes[request.typeID];
 		const canonicalParts = scatterType.parts.map((part) => {
-			const dim = part.dimensions;
-			const pos = part.localPosition;
-			const rot = part.localRotation;
-			const baseHalfHeight = dim.y * part.localScale.y * 0.5;
+			const dim = part.dimensions.clone();
+			const pos = part.localPosition.clone();
+			const rot = part.localRotation.clone();
+
 			return {
 				...part,
-				dimensions: new UnitVector3(dim.x, dim.y, dim.z, "cnu"),
-				localPosition: new UnitVector3(pos.x, pos.y + baseHalfHeight, pos.z, "cnu"),
-				localRotation: new UnitVector3(rot.x, rot.y, rot.z, "degrees").toRadians(true),
+				dimensions: dim,
+				localPosition: pos,
+				localRotation: rot,
 			};
 		});
 
@@ -257,7 +278,7 @@ function iterateScatterInstances(params, handler) {
 
 			const rootPart = resolveRootPart(offsetParts, uniformScale);
 			const modelRootY = rootPart
-				? worldY + getPartHalfHeight(rootPart, uniformScale) - rootPart.localPosition.y
+				? worldY + getPartHalfHeight(rootPart, uniformScale) - rootPart.stackY
 				: worldY;
 
 			const partContexts = [];
@@ -265,29 +286,24 @@ function iterateScatterInstances(params, handler) {
 			let sampleDimensions = null;
 
 			offsetParts.forEach((part, partIndex) => {
-				typeCount += 1;
-				const finalY = modelRootY + part.localPosition.y;
+				typeCount++;
 
-                // Calculate World Position, Rotation & Scale
-                const pos = part.localPosition.clone();
-				pos.set({
-					x: worldX + part.localPosition.x,
-					y: finalY,
-					z: worldZ + part.localPosition.z,
-				});
+				// Calculate World Position
+				const pos = part.localPosition.clone();
+				const addPos = { x: worldX, y: modelRootY + part.stackY, z: worldZ };
+				pos.set(AddVector3(pos, addPos));
 
+				// Calculate World Rotation
 				const rot = part.localRotation.clone();
 				rot.y += hashNoise(worldX, worldZ, seed + partIndex) * Math.PI * 2;
 
-				const scale = {
-					x: part.localScale.x * uniformScale,
-					y: part.localScale.y * uniformScale,
-					z: part.localScale.z * uniformScale,
-				};
+				// Calculate World Scale
+				const scale = ScaleVector3(part.localScale, uniformScale);
 
 				if (!samplePosition) {
 					samplePosition = pos.clone();
-					sampleDimensions = ScaleVector3(part.dimensions, uniformScale);
+					sampleDimensions = part.dimensions.clone();
+					sampleDimensions.set(ScaleVector3(part.dimensions, uniformScale));
 				}
 
 				partContexts.push({ part, partIndex, pos, rot, scale });

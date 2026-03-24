@@ -16,20 +16,18 @@ function mergeAabb(accumulator, bounds) {
 		};
 	}
 
-	return {
-		min: new UnitVector3(
-			Math.min(accumulator.min.x, bounds.min.x),
-			Math.min(accumulator.min.y, bounds.min.y),
-			Math.min(accumulator.min.z, bounds.min.z),
-			"cnu"
-		),
-		max: new UnitVector3(
-			Math.max(accumulator.max.x, bounds.max.x),
-			Math.max(accumulator.max.y, bounds.max.y),
-			Math.max(accumulator.max.z, bounds.max.z),
-			"cnu"
-		),
-	};
+	accumulator.min.set(
+		Math.min(accumulator.min.x, bounds.min.x),
+		Math.min(accumulator.min.y, bounds.min.y),
+		Math.min(accumulator.min.z, bounds.min.z)
+	);
+	accumulator.max.set(
+		Math.max(accumulator.max.x, bounds.max.x),
+		Math.max(accumulator.max.y, bounds.max.y),
+		Math.max(accumulator.max.z, bounds.max.z)
+	)
+
+	return accumulator;
 }
 
 function buildObstacleParts(source, index, options) {
@@ -79,7 +77,9 @@ function buildObstacleParts(source, index, options) {
 			}
 			: null;
 
-		const scatterList = part.detail.scatter.length > 0 ? part.detail.scatter : (partIndex === 0 ?  source.detail.scatter: []);
+		const scatterList = part.detail.scatter.length > 0 
+			? part.detail.scatter 
+			: (partIndex === 0 ? source.detail.scatter: []);
 
 		const combinedScale = MultiplyVector3(rootScale, part.localScale);
 
@@ -94,7 +94,7 @@ function buildObstacleParts(source, index, options) {
 		return BuildObject(
 			{
 				...part,
-				id: part.id || `${source.id}-part-${partIndex}`,
+				id: part.id,
 				shape: part.shape,
 				complexity: part.complexity,
 				dimensions: part.dimensions,

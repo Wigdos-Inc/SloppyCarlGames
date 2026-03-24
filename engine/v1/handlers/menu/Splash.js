@@ -17,9 +17,6 @@ import { Log, PushToSession, ReadFromSession, SendEvent, SESSION_KEYS } from "..
 import { CONFIG } from "../../core/config.js";
 import { ValidateSplashPayload } from "../../core/validate.js";
 
-const SPLASH_REQUEST_EVENT = "SPLASH_REQUEST";
-const DEFAULT_SPLASH_TIMEOUT = 1000;
-
 let pendingSplashResolve = null;
 
 /* === SEQUENCE === */
@@ -141,7 +138,7 @@ function resolveSplashSteps(requestedSplashPayload) {
 
 // Execute each splash step in order.
 async function runSequenceSteps(sequence, context) {
-	for (let index = 0; index < sequence.length; index += 1) {
+	for (let index = 0; index < sequence.length; index++) {
 		const step = sequence[index];
 		Log(
 			"ENGINE",
@@ -165,21 +162,19 @@ async function runSequenceSteps(sequence, context) {
 		await FadeElement(context.imageId, 0, step.fadeOutSeconds);
 
 		// Pause between splash steps.
-		if (index < sequence.length - 1) {
-			await context.wait(1000);
-		}
+		if (index < sequence.length - 1) await context.wait(1000);
 	}
 }
 
-async function RunSplashSequence(requestedSplashPayload) {
+async function runSplashSequence(requestedSplashPayload) {
 	// Build the full splash sequence pipeline.
 	const context = setupSplashSequence();
-	const skipSplash =
-		(CONFIG.DEBUG.SKIP.Splash === true) ||
-		ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true;
 
-	if (skipSplash) {
-		Log("ENGINE", "Splash skipped.", "log", "Startup");
+	if (
+		(CONFIG.DEBUG.SKIP.Splash === true) ||
+		ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true
+	) {
+		Log("ENGINE", "Splash scren sequence skipped.", "log", "Startup");
 		return context;
 	}
 	const steps = resolveSplashSteps(requestedSplashPayload);
@@ -196,9 +191,7 @@ async function RunSplashSequence(requestedSplashPayload) {
 }
 
 function requestSplashPayload(timeoutMs) {
-	const resolvedTimeout = timeoutMs || DEFAULT_SPLASH_TIMEOUT;
-
-	SendEvent(SPLASH_REQUEST_EVENT, { timeoutMs: resolvedTimeout });
+	SendEvent("SPLASH_REQUEST", { timeoutMs: timeoutMs });
 
 	return new Promise((resolve) => {
 		const finish = (payload) => {
@@ -208,28 +201,27 @@ function requestSplashPayload(timeoutMs) {
 		};
 
 		pendingSplashResolve = finish;
-
-		const timeoutId = setTimeout(() => {
-			finish(null);
-		}, resolvedTimeout);
+		const timeoutId = setTimeout(() => finish(null), timeoutMs);
 	});
 }
 
 function ProvideSplashScreenPayload(payload) {
-	if (!pendingSplashResolve) return false;
+	if (!pendingSplashResolve) {
+		Log("ENGINE", "No splash screens were requested. Ignoring payload.", "warn", "Startup");
+		return false;
+	}
 
 	pendingSplashResolve(payload);
 	return true;
 }
 
 async function ApplySplashScreenSequence(options) {
-	const requestOptions = options || {};
-	const rawPayload = await requestSplashPayload(requestOptions.timeoutMs || DEFAULT_SPLASH_TIMEOUT);
+	const rawPayload = await requestSplashPayload(options.timeoutMs);
 	const payload = ValidateSplashPayload(rawPayload);
-	return RunSplashSequence(payload);
+	return runSplashSequence(payload);
 }
 
 /* === EXPORTS === */
 // Public splash sequence for Bootup.
 
-export { RunSplashSequence, ApplySplashScreenSequence, ProvideSplashScreenPayload };
+export { ApplySplashScreenSequence, ProvideSplashScreenPayload };

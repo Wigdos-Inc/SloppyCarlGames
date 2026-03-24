@@ -41,9 +41,7 @@ const levelLoop = {
 	maxFrameTime: 250,
 };
 
-function getConfiguredFrameRate() {
-	return CONFIG.PERFORMANCE.FrameRate;
-}
+const frameRate = CONFIG.PERFORMANCE.FrameRate;
 
 function cacheLevelPayload(payload) {
 	Cache.Level.lastPayload = payload;
@@ -150,7 +148,7 @@ function StartLevelLoop() {
 	levelLoop.paused = false;
 	levelLoop.lastFrameTime = performance.now();
 	levelLoop.accumulator = 0;
-	levelLoop.fixedTimeStep = 1000 / getConfiguredFrameRate();
+	levelLoop.fixedTimeStep = 1000 / frameRate;
 
 	const frame = () => {
 		if (!levelLoop.active) return;
@@ -167,7 +165,7 @@ function StartLevelLoop() {
 			levelLoop.accumulator -= levelLoop.fixedTimeStep;
 		}
 
-		if (levelRuntimeState.sceneGraph && !levelLoop.paused) {
+		if (!levelLoop.paused) {
 			RenderLevel(levelRuntimeState.sceneGraph, levelRuntimeState.renderOptions);
 		}
 
@@ -182,7 +180,7 @@ function StopLevelLoop() {
 
 	levelLoop.active = false;
 
-	if (levelLoop.animationFrameId !== null && typeof cancelAnimationFrame === "function") {
+	if (levelLoop.animationFrameId !== null) {
 		cancelAnimationFrame(levelLoop.animationFrameId);
 		levelLoop.animationFrameId = null;
 	}
@@ -273,12 +271,7 @@ async function CreateLevel(payload, options) {
 }
 
 function Update(deltaMilliseconds) {
-	if (!levelRuntimeState.sceneGraph) {
-		Log("ENGINE", "Level.Update skipped: no active sceneGraph.", "warn", "Level");
-		return;
-	}
-
-	const deltaMs = typeof deltaMilliseconds === "number" ? deltaMilliseconds : 0;
+	const deltaMs = deltaMilliseconds;
 	const deltaSeconds = Math.max(0, deltaMs) / 1000;
 	const sceneGraph = levelRuntimeState.sceneGraph;
 	const entities = sceneGraph.entities;

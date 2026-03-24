@@ -19,9 +19,7 @@ const SESSION_KEYS = {
 function ReadFromSession(key) {
   try {
     const raw = sessionStorage.getItem(key);
-    if (!raw) {
-      return null;
-    }
+    if (!raw) return null;
     return JSON.parse(raw);
   } catch (error) {
     Log("ENGINE", `Couldn't read from "${key}" sessionStorage.\n\nError:\n${error}`, "error", "Meta");
