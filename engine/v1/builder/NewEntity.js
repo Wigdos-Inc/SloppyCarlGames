@@ -6,29 +6,17 @@
 // Uses NewObject.js for Model Parts
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
-import { AddVector3, LerpVector3, MultiplyVector3, RotateByEuler } from "../math/Vector3.js";
+import { AddVector3, LerpVector3, MultiplyVector3, RotateByEuler, SubtractVector3 } from "../math/Vector3.js";
 import { ToNumber, UnitVector3 } from "../math/Utilities.js";
 
-/* === FACE / ANCHOR UTILITIES === */
-
-const VALID_FACES = ["front", "back", "left", "right", "top", "bottom", "center"];
-
-function normalizeFace(value, fallback) {
-	if (typeof value === "string") {
-		const lower = value.trim().toLowerCase();
-		if (VALID_FACES.includes(lower)) return lower;
-	}
-	return fallback;
-}
-
 // Canonical face normal directions (unit vectors for each face).
-const FACE_NORMALS = {
-	top:    { x:  0, y:  1, z:  0 },
+const faceNormals = {
+	top   : { x:  0, y:  1, z:  0 },
 	bottom: { x:  0, y: -1, z:  0 },
-	front:  { x:  0, y:  0, z:  1 },
-	back:   { x:  0, y:  0, z: -1 },
-	left:   { x: -1, y:  0, z:  0 },
-	right:  { x:  1, y:  0, z:  0 },
+	front : { x:  0, y:  0, z:  1 },
+	back  : { x:  0, y:  0, z: -1 },
+	left  : { x: -1, y:  0, z:  0 },
+	right : { x:  1, y:  0, z:  0 },
 };
 
 /**
@@ -73,12 +61,12 @@ function remapFacesAfterRotation(rotation) {
 
 	const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
 	const remap = {};
-	const faceNames = Object.keys(FACE_NORMALS);
+	const faceNames = Object.keys(faceNormals);
 	const claimed = new Set();
 
 	// Rotate each canonical face normal → find the world axis it best aligns with.
 	const rotatedEntries = faceNames.map((name) => {
-		const rotated = RotateByEuler(FACE_NORMALS[name], rotation);
+		const rotated = RotateByEuler(faceNormals[name], rotation);
 		return { name, rotated };
 	});
 
@@ -261,8 +249,9 @@ function buildPart(partDefinition, entityId, index) {
 	);
 
 	const resolvedParentId = source.parentId;
-	const anchorPoint = normalizeFace(source.anchorPoint, resolvedParentId === "root" ? "bottom" : "center");
-	const attachmentPoint = normalizeFace(source.attachmentPoint, "top");
+	const validFaces = ["front", "back", "left", "right", "top", "bottom", "center"];
+	const anchorPoint = (validFaces.includes(source.anchorPoint)) ? source.anchorPoint : resolvedParentId === "root" ? "bottom" : "center";
+	const attachmentPoint = (validFaces.includes(source.attachmentPoint)) ? source.attachmentPoint  : "top";
 
 	return {
 		id: mesh.id,
@@ -342,11 +331,7 @@ function buildModel(entityDefinition, surfaceMap) {
 		rootPart.faceMap = remapFacesAfterRotation(localRot);
 
 		// Combined scale for dimensions computation.
-		const combinedScale = {
-			x: rtScale.x * localScale.x,
-			y: rtScale.y * localScale.y,
-			z: rtScale.z * localScale.z,
-		};
+		const combinedScale = MultiplyVector3(rtScale, localScale);
 
 		// Grounding: half-height of scaled part so bottom face sits at Y=0 in model-local space.
 		const scaledHalfHeight = dims.y * combinedScale.y * 0.5;
@@ -361,19 +346,13 @@ function buildModel(entityDefinition, surfaceMap) {
 		// localTransform.rotation and localTransform.scale stay as-is from buildPart.
 
 		// Store builtDimensions (scaled) for child attachment offset computation.
-		rootPart.builtDimensions.set({
-			x: dims.x * combinedScale.x,
-			y: dims.y * combinedScale.y,
-			z: dims.z * combinedScale.z,
-		});
+		rootPart.builtDimensions.set(MultiplyVector3(dims, combinedScale));
 	}
 
 	const processQueue = [];
 	for (const rootPartId of rootPartIds) {
 		const rootPart = index[rootPartId];
-		for (const childId of rootPart.children) {
-			processQueue.push(childId);
-		}
+		for (const childId of rootPart.children) processQueue.push(childId);
 	}
 
 	const processed = new Set(rootPartIds);
@@ -398,33 +377,17 @@ function buildModel(entityDefinition, surfaceMap) {
 
 		// Part's anchor point offset (in part's unscaled dimensions), then scaled.
 		const anchorOffset = getFaceCenterOffset(partDims, part.anchorPoint);
-		const scaledAnchorOffset = {
-			x: anchorOffset.x * combinedScale.x,
-			y: anchorOffset.y * combinedScale.y,
-			z: anchorOffset.z * combinedScale.z,
-		};
+		const scaledAnchorOffset = MultiplyVector3(anchorOffset, combinedScale);
 
 		// Position: attachment offset on parent - scaled anchor offset on part + localPosition.
-		part.localTransform.position.set({
-			x: attachOffset.x - scaledAnchorOffset.x + localPos.x,
-			y: attachOffset.y - scaledAnchorOffset.y + localPos.y,
-			z: attachOffset.z - scaledAnchorOffset.z + localPos.z,
-		});
-
-		// localTransform.rotation and localTransform.scale stay as-is from buildPart.
+		part.localTransform.position.set(AddVector3(SubtractVector3(attachOffset, scaledAnchorOffset), localPos));
 
 		// Store builtDimensions (scaled) for child attachment offset computation.
-		part.builtDimensions.set({
-			x: partDims.x * combinedScale.x,
-			y: partDims.y * combinedScale.y,
-			z: partDims.z * combinedScale.z,
-		});
+		part.builtDimensions.set(MultiplyVector3(partDims, combinedScale));
 		part.faceMap = remapFacesAfterRotation(part.localTransform.rotation);
 
 		// Enqueue children.
-		for (const childId of part.children) {
-			processQueue.push(childId);
-		}
+		for (const childId of part.children) processQueue.push(childId);
 	}
 
 	// --- Assemble model with world-space rootTransform ---
@@ -504,19 +467,15 @@ function computeEntityAabb(model) {
 	});
 
 	return {
-		min: new UnitVector3(minX, minY, minZ, "CNU"),
-		max: new UnitVector3(maxX, maxY, maxZ, "CNU"),
+		min: new UnitVector3(minX, minY, minZ, "cnu"),
+		max: new UnitVector3(maxX, maxY, maxZ, "cnu"),
 	};
 }
 
 function computeExpandedAabb(aabb, padding) {
-	if (!aabb || !aabb.min || !aabb.max) {
-		return null;
-	}
-	const pad = Math.max(0, ToNumber(padding, 8));
 	return {
-		min: new UnitVector3(aabb.min.x - pad, aabb.min.y - pad, aabb.min.z - pad, "cnu"),
-		max: new UnitVector3(aabb.max.x + pad, aabb.max.y + pad, aabb.max.z + pad, "cnu"),
+		min: new UnitVector3(aabb.min.x - padding, aabb.min.y - padding, aabb.min.z - padding, "cnu"),
+		max: new UnitVector3(aabb.max.x + padding, aabb.max.y + padding, aabb.max.z + padding, "cnu"),
 	};
 }
 

@@ -299,7 +299,6 @@ async function BuildLevel(payload) {
 	}
 
 	const obstacleRecords = BuildObstacles(obstacleDefinitions, {});
-	const obstacles = obstacleRecords.map((record) => record.mesh);
 
 	// Generate scatter batches for obstacles that have scatter.
 	obstacleRecords.forEach((record, index) => {

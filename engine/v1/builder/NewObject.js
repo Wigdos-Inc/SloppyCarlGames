@@ -119,20 +119,11 @@ function getVertexVector(positions, vertexIndex) {
 }
 
 function generateFaceProjectedUvs(positions, faceGroups) {
-	if (!Array.isArray(positions) || positions.length < 3) {
-		return [];
-	}
-
 	const vertexCount = positions.length / 3;
 	const uvs = new Array(vertexCount * 2).fill(0);
 
-	for (let groupIndex = 0; groupIndex < faceGroups.length; groupIndex += 1) {
+	for (let groupIndex = 0; groupIndex < faceGroups.length; groupIndex++) {
 		const group = faceGroups[groupIndex];
-		if (!group || !Array.isArray(group.vertexIndices) || group.vertexIndices.length === 0) {
-			continue;
-		}
-
-		// Face-based projection: choose UV plane from known face normal.
 		const [uAxis, vAxis] = getProjectedAxesFromNormal(group.normal);
 
 		let minU = Infinity;
@@ -140,7 +131,7 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 		let minV = Infinity;
 		let maxV = -Infinity;
 
-		for (let index = 0; index < group.vertexIndices.length; index += 1) {
+		for (let index = 0; index < group.vertexIndices.length; index++) {
 			const vertexIndex = group.vertexIndices[index];
 			const vertex = getVertexVector(positions, vertexIndex);
 			const u = vertex[uAxis];
@@ -156,7 +147,7 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 		const spanU = rawSpanU === 0 ? 1 : rawSpanU;
 		const spanV = rawSpanV === 0 ? 1 : rawSpanV;
 
-		for (let index = 0; index < group.vertexIndices.length; index += 1) {
+		for (let index = 0; index < group.vertexIndices.length; index++) {
 			const vertexIndex = group.vertexIndices[index];
 			const vertex = getVertexVector(positions, vertexIndex);
 			const normalizedU = (vertex[uAxis] - minU) / spanU;
@@ -171,10 +162,8 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 }
 
 function GenerateUVs(positions, geometry) {
-	const faceGroups = Array.isArray(geometry.faceGroups) ? geometry.faceGroups : null;
-	if (faceGroups && faceGroups.length > 0) {
-		return generateFaceProjectedUvs(positions, faceGroups);
-	}
+	const faceGroups = geometry.faceGroups;
+	if (faceGroups && faceGroups.length > 0) return generateFaceProjectedUvs(positions, faceGroups);
 
 	// Keep shared fallback behavior for primitives without explicit face groups.
 	return generateLegacyUvFromPositions(positions);
@@ -210,36 +199,6 @@ function computeBounds(positions) {
 	return {
 		min: { x: minX, y: minY, z: minZ },
 		max: { x: maxX, y: maxY, z: maxZ },
-	};
-}
-
-function rotateX(vector, radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
-	return {
-		x: vector.x,
-		y: vector.y * c - vector.z * s,
-		z: vector.y * s + vector.z * c,
-	};
-}
-
-function rotateY(vector, radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
-	return {
-		x: vector.x * c + vector.z * s,
-		y: vector.y,
-		z: -vector.x * s + vector.z * c,
-	};
-}
-
-function rotateZ(vector, radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
-	return {
-		x: vector.x * c - vector.y * s,
-		y: vector.x * s + vector.y * c,
-		z: vector.z,
 	};
 }
 

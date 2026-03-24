@@ -1,5 +1,5 @@
-Loosen normalization by allowing more property name variants
 Remove Forbidden Normalization and Defensive Checks downstream.
+- Fix Collision Bug
 Finish Unit System by eyeballing correct CNU_SCALE.
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain. perhaps part of new NewTerrain.js)
 Build new test level (prompt in notepad).
