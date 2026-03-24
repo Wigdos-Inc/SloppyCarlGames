@@ -36,7 +36,7 @@ function getAliasValue(source, aliases, fallback = undefined) {
 }
 
 function hasAliasValue(source, aliases) {
-	const sentinel = Symbol("missing");
+	const sentinel = undefined;
 	return getAliasValue(source, aliases, sentinel) !== sentinel;
 }
 
@@ -425,6 +425,127 @@ function normalizeStyleClassList(classListConfig) {
 	}
 
 	return { add, remove };
+}
+
+function normalizeRenderedCutscenePayload(payload) {
+	const source = normalizeObject(payload);
+	const missing = undefined;
+	const rawRenderedSource = getByAlias(source, "cutscene.rendered.source", missing);
+	const rawFit = getByAlias(source, "cutscene.rendered.fit", missing);
+	const rawFadeOutSeconds = getByAlias(source, "cutscene.rendered.fadeOutSeconds", missing);
+	const rawFadeLeadSeconds = getByAlias(source, "cutscene.rendered.fadeLeadSeconds", missing);
+	const rawMuted = getByAlias(source, "cutscene.rendered.muted", missing);
+	const rawLoop = getByAlias(source, "cutscene.rendered.loop", missing);
+
+	const renderedSource = normalizeString(rawRenderedSource, "");
+	if (rawRenderedSource === missing || renderedSource.length === 0) {
+		warnLog("Cutscene payload rendered.source missing or malformed; defaulted to empty string.");
+	}
+
+	const fit = normalizeString(rawFit, "cover");
+	if (rawFit === missing || fit === "cover" && rawFit !== "cover") {
+		warnLog("Cutscene payload rendered.fit missing or malformed; defaulted to 'cover'.");
+	}
+
+	const parsedFadeOutSeconds = ToNumber(rawFadeOutSeconds, NaN);
+	const fadeOutSeconds = Number.isFinite(parsedFadeOutSeconds)
+		? Math.max(0, parsedFadeOutSeconds)
+		: 0.5;
+	if (rawFadeOutSeconds === missing || !Number.isFinite(parsedFadeOutSeconds) || parsedFadeOutSeconds < 0) {
+		warnLog("Cutscene payload rendered.fadeOutSeconds missing or malformed; defaulted to 0.5.");
+	}
+
+	const parsedFadeLeadSeconds = ToNumber(rawFadeLeadSeconds, NaN);
+	const fadeLeadSeconds = Number.isFinite(parsedFadeLeadSeconds)
+		? Math.max(0, parsedFadeLeadSeconds)
+		: 0.5;
+	if (rawFadeLeadSeconds === missing || !Number.isFinite(parsedFadeLeadSeconds) || parsedFadeLeadSeconds < 0) {
+		warnLog("Cutscene payload rendered.fadeLeadSeconds missing or malformed; defaulted to 0.5.");
+	}
+
+	const muted = rawMuted === true;
+	if (rawMuted === missing || typeof rawMuted !== "boolean") {
+		warnLog("Cutscene payload rendered.muted missing or malformed; defaulted to false.");
+	}
+
+	const loop = rawLoop === true;
+	if (rawLoop === missing || typeof rawLoop !== "boolean") {
+		warnLog("Cutscene payload rendered.loop missing or malformed; defaulted to false.");
+	}
+
+	return {
+		type: "rendered",
+		source: renderedSource,
+		muted,
+		loop,
+		fit,
+		fadeOutSeconds,
+		fadeLeadSeconds,
+	};
+}
+
+function normalizeEngineCutscenePayload(payload) {
+	const source = normalizeObject(payload);
+	const missing = undefined;
+	const rawDurationSeconds = getByAlias(source, "cutscene.engine.durationSeconds", missing);
+	const rawFallbackWaitMs = getByAlias(source, "cutscene.engine.fallbackWaitMs", missing);
+	const rawFadeLeadSeconds = getByAlias(source, "cutscene.engine.fadeLeadSeconds", missing);
+	const rawFadeOutSeconds = getByAlias(source, "cutscene.engine.fadeOutSeconds", missing);
+	const parsedDurationSeconds = rawDurationSeconds === missing
+		? NaN
+		: ToNumber(rawDurationSeconds, NaN);
+	const parsedFallbackWaitMs = rawFallbackWaitMs === missing
+		? NaN
+		: ToNumber(rawFallbackWaitMs, NaN);
+	const durationSeconds = Number.isFinite(parsedDurationSeconds)
+		? Math.max(0, parsedDurationSeconds)
+		: 0;
+	if (rawDurationSeconds === missing || !Number.isFinite(parsedDurationSeconds) || parsedDurationSeconds < 0) {
+		warnLog("Cutscene payload engine.durationSeconds missing or malformed; defaulted to 0.");
+	}
+
+	const fallbackWaitMs = Number.isFinite(parsedFallbackWaitMs)
+		? Math.max(0, Math.floor(parsedFallbackWaitMs))
+		: 0;
+	if (rawFallbackWaitMs === missing || !Number.isFinite(parsedFallbackWaitMs) || parsedFallbackWaitMs < 0) {
+		warnLog("Cutscene payload engine.fallbackWaitMs missing or malformed; defaulted to 0.");
+	}
+
+	const parsedFadeLeadSeconds = ToNumber(rawFadeLeadSeconds, NaN);
+	const fadeLeadSeconds = Number.isFinite(parsedFadeLeadSeconds)
+		? Math.max(0, parsedFadeLeadSeconds)
+		: 0.5;
+	if (rawFadeLeadSeconds === missing || !Number.isFinite(parsedFadeLeadSeconds) || parsedFadeLeadSeconds < 0) {
+		warnLog("Cutscene payload engine.fadeLeadSeconds missing or malformed; defaulted to 0.5.");
+	}
+
+	const parsedFadeOutSeconds = ToNumber(rawFadeOutSeconds, NaN);
+	const fadeOutSeconds = Number.isFinite(parsedFadeOutSeconds)
+		? Math.max(0, parsedFadeOutSeconds)
+		: 0.5;
+	if (rawFadeOutSeconds === missing || !Number.isFinite(parsedFadeOutSeconds) || parsedFadeOutSeconds < 0) {
+		warnLog("Cutscene payload engine.fadeOutSeconds missing or malformed; defaulted to 0.5.");
+	}
+
+	return {
+		type: "engine",
+		data: getByAlias(source, "cutscene.engine.data", null),
+		durationSeconds,
+		fallbackWaitMs,
+		fadeLeadSeconds,
+		fadeOutSeconds,
+	};
+}
+
+function CutscenePayload(payload, cutsceneType) {
+	const source = normalizeObject(payload);
+	if (Object.keys(source).length === 0) return null;
+
+	if (cutsceneType === "rendered") return normalizeRenderedCutscenePayload(source);
+	if (cutsceneType === "engine") return normalizeEngineCutscenePayload(source);
+
+	warnLog("Cutscene payload ignored: unsupported cutscene type.");
+	return null;
 }
 
 /* === Level Data === */
@@ -1329,5 +1450,6 @@ function playerConfig(player) {
 export default { 
 	MenuUIPayload, 
 	SplashPayload,
+	CutscenePayload,
 	LevelPayload,
 };

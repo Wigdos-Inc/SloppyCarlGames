@@ -14,7 +14,7 @@ import { CONFIG } from "./core/config.js";
 import { FadeElement, RemoveRoot, SetElementStyle, SetElementText } from "./handlers/Render.js";
 import { CreateUI } from "./handlers/UI.js";
 import { Controls } from "./handlers/Controls.js";
-import { PlayIntroCinematic } from "./handlers/Cutscene.js";
+import { PlayEngineCutscene, PlayRenderedCutscene } from "./handlers/Cutscene.js";
 import { ApplySplashScreenSequence } from "./handlers/menu/Splash.js";
 
 /* === GLOBALS === */
@@ -39,15 +39,15 @@ function setupIntroRuntime(overlayId) {
   const introDonePromise = new Promise((resolve) => introDoneResolve = resolve);
 
   introHandled = false;
-  ENGINE.Startup.PlayIntroCinematic = async (payload) => {
+  const runIntro = async (type, payload) => {
     if (introHandled) return false;
 
     introHandled = true;
     introCalledResolve(true);
-    const played = await PlayIntroCinematic(payload, {
-      rootId: overlayId,
-      videoId: "engine-intro-video",
-    });
+    const options = { rootId: overlayId, videoId: "engine-intro-video" };
+    const played = type === "rendered"
+      ? await PlayRenderedCutscene(payload, options)
+      : await PlayEngineCutscene(payload, options);
     introDoneResolve(true);
     return played;
   };

@@ -23,6 +23,23 @@
       "options": ["options", "opts", "config", "settings", "audioOptions"]
     }
   },
+  "cutscene": {
+    "rendered": {
+      "source": ["source", "src", "videoSrc", "url", "path", "file", "clip", "video", "vid"],
+      "muted": ["muted", "isMuted", "silent", "videoMuted", "noSound"],
+      "loop": ["loop", "isLooping", "repeat", "repeating", "vidLoop"],
+      "fit": ["fit", "objectFit", "displayMode"],
+      "fadeOutSeconds": ["fadeOutSeconds", "fadeOut", "fadeOutSec", "fadeOutTime"],
+      "fadeLeadSeconds": ["fadeLeadSeconds", "fadeLead", "fadeLeadSec", "fadeLeadTime"]
+    },
+    "engine": {
+      "data": ["data", "payload", "scene", "cutsceneData", "instructions", "detail"],
+      "durationSeconds": ["durationSeconds", "duration", "lengthSeconds", "time", "length"],
+      "fallbackWaitMs": ["fallbackWaitMs", "waitMs", "durationMs", "fallbackDurationMs"],
+      "fadeLeadSeconds": ["fadeLeadSeconds", "fadeLead", "fadeLeadSec", "fadeLeadTime"],
+      "fadeOutSeconds": ["fadeOutSeconds", "fadeOut", "fadeOutSec", "fadeSeconds"]
+    }
+  },
   "music": {
     "name": ["name", "track", "title", "trackId", "id"],
     "src": ["src", "url", "file", "path", "source"]

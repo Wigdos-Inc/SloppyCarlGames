@@ -5,6 +5,7 @@
 
 import { Log } from "./meta.js";
 import Normalize from "./normalize.js";
+import aliasMap from "./aliases.json" with { type: "json" };
 
 // Example valid payloads
 const exampleMenuUIPayload = {};
@@ -16,34 +17,18 @@ function isObject(value) {
 }
 
 function isUnit(value, expectedType) {
-	if (!isObject(value)) {
-		return false;
-	}
-	if (typeof value.value !== "number" || !Number.isFinite(value.value)) {
-		return false;
-	}
-	if (expectedType && value.type !== expectedType) {
-		return false;
-	}
+	if (!isObject(value)) return false;
+	if (typeof value.value !== "number" || !Number.isFinite(value.value)) return false;
+	if (expectedType && value.type !== expectedType) return false;
 	return true;
 }
 
 function isUnitVector3(value, expectedType) {
-	if (!isObject(value)) {
-		return false;
-	}
-	if (typeof value.x !== "number" || !Number.isFinite(value.x)) {
-		return false;
-	}
-	if (typeof value.y !== "number" || !Number.isFinite(value.y)) {
-		return false;
-	}
-	if (typeof value.z !== "number" || !Number.isFinite(value.z)) {
-		return false;
-	}
-	if (expectedType && value.type !== expectedType) {
-		return false;
-	}
+	if (!isObject(value)) return false;
+	if (typeof value.x !== "number" || !Number.isFinite(value.x)) return false;
+	if (typeof value.y !== "number" || !Number.isFinite(value.y)) return false;
+	if (typeof value.z !== "number" || !Number.isFinite(value.z)) return false;
+	if (expectedType && value.type !== expectedType) return false;
 	return true;
 }
 
@@ -172,18 +157,12 @@ function validateNormalizedTextureDescriptor(texture) {
 }
 
 function validateNormalizedPlayer(player) {
-	if (!isObject(player)) {
-		return false;
-	}
+	if (!isObject(player)) return false;
 
-	if (!Array.isArray(player.modelParts)) {
-		return false;
-	}
+	if (!Array.isArray(player.modelParts)) return false;
 
-	for (let index = 0; index < player.modelParts.length; index += 1) {
-		if (!validateNormalizedPlayerModelPart(player.modelParts[index])) {
-			return false;
-		}
+	for (let index = 0; index < player.modelParts.length; index++) {
+		if (!validateNormalizedPlayerModelPart(player.modelParts[index])) return false;
 	}
 	// Optional metaOverrides must normalize to an object if present; collisionHalfExtents should be vector-like if present
 	if (player.metaOverrides !== undefined) {
@@ -259,7 +238,14 @@ function validateNormalizedLevelCollections(payload) {
 
 	for (let index = 0; index < payload.terrain.objects.length; index += 1) {
 		const object = payload.terrain.objects[index];
-		if (!isObject(object) || typeof object.id !== "string" || !isVector3(object.position) || !isVector3(object.dimensions) || !isVector3(object.scale) || !validateNormalizedTextureDescriptor(object.texture)) {
+		if (
+			!isObject(object) || 
+			typeof object.id !== "string" || 
+			!isVector3(object.position) || 
+			!isVector3(object.dimensions) || 
+			!isVector3(object.scale) || 
+			!validateNormalizedTextureDescriptor(object.texture)
+		) {
 			Log(
 				"ENGINE", 
 				`Level payload normalization failed: terrain.objects[${index}] must include id, position, dimensions, scale, and canonical texture data.`, 
@@ -272,7 +258,15 @@ function validateNormalizedLevelCollections(payload) {
 
 	for (let index = 0; index < payload.terrain.triggers.length; index += 1) {
 		const trigger = payload.terrain.triggers[index];
-		if (!isObject(trigger) || typeof trigger.id !== "string" || trigger.id.length === 0 || typeof trigger.type !== "string" || trigger.type.length === 0 || !isVector3(trigger.start) || !isVector3(trigger.end)) {
+		if (
+			!isObject(trigger) || 
+			typeof trigger.id !== "string" || 
+			trigger.id.length === 0 || 
+			typeof trigger.type !== "string" || 
+			trigger.type.length === 0 || 
+			!isVector3(trigger.start) || 
+			!isVector3(trigger.end)
+		) {
 			Log(
 				"ENGINE", 
 				`Level payload normalization failed: terrain.triggers[${index}] must include id, type, and start/end vectors.`, 
@@ -399,10 +393,8 @@ function ValidateMenuUIPayload(payload) {
 		return null;
 	}
 
-	for (let index = 0; index < payload.elements.length; index += 1) {
-		if (!validateNormalizedUIElementTree(payload.elements[index], `elements[${index}]`)) {
-			return null;
-		}
+	for (let index = 0; index < payload.elements.length; index++) {
+		if (!validateNormalizedUIElementTree(payload.elements[index], `elements[${index}]`)) return null;
 	}
 	
     return payload;
@@ -471,9 +463,7 @@ function ValidateSplashPayload(payload) {
 	};
 
 	if (typeof payload === "string") {
-		if (payload.length === 0) {
-			errors.push("'payload' string must be non-empty");
-		}
+		if (payload.length === 0) errors.push("'payload' string must be non-empty");
 		if (payload.length > 0 && !isAllowedSplashPresetId(payload)) {
 			errors.push("'payload' preset id is not supported by the engine splash handler");
 		}
@@ -483,7 +473,7 @@ function ValidateSplashPayload(payload) {
 		if (payload.length === 0) {
 			errors.push("'payload' sequence must not be empty");
 		} else {
-			for (let index = 0; index < payload.length; index += 1) {
+			for (let index = 0; index < payload.length; index++) {
 				validateRawSplashStep(payload[index], index, "payload");
 			}
 		}
@@ -554,6 +544,112 @@ function ValidateSplashPayload(payload) {
 	return normalized;
 }
 
+function ValidateCutscenePayload(payload, cutsceneType) {
+	const errors = [];
+
+	const aliases = aliasMap.cutscene;
+	const readFirstDefined = (source, keys) => {
+		for (let index = 0; index < keys.length; index += 1) {
+			const key = keys[index];
+			if (Object.prototype.hasOwnProperty.call(source, key)) return source[key];
+		}
+		return undefined;
+	};
+
+	if (!isObject(payload)) errors.push("'payload' must be an object");
+	else {
+		if (cutsceneType === "rendered") {
+			const source = readFirstDefined(payload, aliases.rendered.source);
+			if (typeof source !== "string" || source.length === 0) {
+				errors.push("rendered cutscene requires a non-empty source");
+			}
+		}
+
+		if (cutsceneType === "engine") {
+			const hasData = Object.prototype.hasOwnProperty.call(payload, "data")
+				|| Object.prototype.hasOwnProperty.call(payload, "payload")
+				|| Object.prototype.hasOwnProperty.call(payload, "scene")
+				|| Object.prototype.hasOwnProperty.call(payload, "cutsceneData");
+			if (!hasData) errors.push("engine cutscene requires a payload");
+
+			const rawDuration = readFirstDefined(payload, aliases.engine.durationSeconds);
+			if (rawDuration !== undefined && rawDuration !== null) {
+				const duration = Number(rawDuration);
+				if (!Number.isFinite(duration) || duration < 0) {
+					errors.push("'durationSeconds' must be a non-negative number when provided");
+				}
+			}
+
+			const rawFallbackWaitMs = readFirstDefined(payload, aliases.engine.fallbackWaitMs);
+			if (rawFallbackWaitMs !== undefined && rawFallbackWaitMs !== null) {
+				const fallbackWaitMs = Number(rawFallbackWaitMs);
+				if (!Number.isFinite(fallbackWaitMs) || fallbackWaitMs < 0) {
+					errors.push("'fallbackWaitMs' must be a non-negative number when provided");
+				}
+			}
+		}
+	}
+
+	if (errors.length > 0) {
+		Log("ENGINE", `Cutscene payload rejected:\n\n${errors.join("\n")}.`, "error", "Validation");
+		return null;
+	}
+
+	const normalized = Normalize.CutscenePayload(payload, cutsceneType);
+	if (normalized === null) {
+		Log("ENGINE", "Cutscene payload normalization failed.", "error", "Validation");
+		return null;
+	}
+
+	if (cutsceneType === "rendered") {
+		if (
+			typeof normalized.source !== "string"
+			|| normalized.source.length === 0
+			|| typeof normalized.muted !== "boolean"
+			|| typeof normalized.loop !== "boolean"
+			|| typeof normalized.fit !== "string"
+			|| normalized.fit.length === 0
+			|| typeof normalized.fadeOutSeconds !== "number"
+			|| !Number.isFinite(normalized.fadeOutSeconds)
+			|| normalized.fadeOutSeconds < 0
+			|| typeof normalized.fadeLeadSeconds !== "number"
+			|| !Number.isFinite(normalized.fadeLeadSeconds)
+			|| normalized.fadeLeadSeconds < 0
+		) {
+			Log("ENGINE", "Cutscene payload normalization produced invalid rendered shape.", "error", "Validation");
+			return null;
+		}
+
+		return normalized;
+	}
+
+	if (cutsceneType === "engine") {
+		if (
+			typeof normalized.fadeOutSeconds !== "number"
+			|| !Number.isFinite(normalized.fadeOutSeconds)
+			|| normalized.fadeOutSeconds < 0
+			|| typeof normalized.fadeLeadSeconds !== "number"
+			|| !Number.isFinite(normalized.fadeLeadSeconds)
+			|| normalized.fadeLeadSeconds < 0
+		) {
+			Log("ENGINE", "Cutscene payload normalization produced invalid engine timing shape.", "error", "Validation");
+			return null;
+		}
+
+		if (normalized.durationSeconds !== null && (typeof normalized.durationSeconds !== "number" || !Number.isFinite(normalized.durationSeconds))) {
+			Log("ENGINE", "Cutscene payload normalization produced invalid durationSeconds.", "error", "Validation");
+			return null;
+		}
+
+		if (normalized.fallbackWaitMs !== null && (typeof normalized.fallbackWaitMs !== "number" || !Number.isFinite(normalized.fallbackWaitMs))) {
+			Log("ENGINE", "Cutscene payload normalization produced invalid fallbackWaitMs.", "error", "Validation");
+			return null;
+		}
+
+		return normalized;
+	}
+}
+
 function ValidateLevelPayload(payload) {
 	const errors = [];
 	const validateRawTrigger = (trigger, index) => {
@@ -600,23 +696,15 @@ function ValidateLevelPayload(payload) {
 			if (!Array.isArray(payload.terrain.triggers)) {
 				errors.push("'terrain.triggers' must be an array");
 			} else {
-				for (let index = 0; index < payload.terrain.triggers.length; index += 1) {
+				for (let index = 0; index < payload.terrain.triggers.length; index++) {
 					validateRawTrigger(payload.terrain.triggers[index], index);
 				}
 			}
 		}
-		if (!Array.isArray(payload.obstacles)) {
-			errors.push("'obstacles' must be an array");
-		}
-		if (!Array.isArray(payload.entities)) {
-			errors.push("'entities' must be an array");
-		}
-		if (!isObject(payload.entityBlueprints)) {
-			errors.push("'entityBlueprints' must be an object");
-		}
-		if (!isObject(payload.meta)) {
-			errors.push("'meta' must be an object");
-		}
+		if (!Array.isArray(payload.obstacles)) errors.push("'obstacles' must be an array");
+		if (!Array.isArray(payload.entities)) errors.push("'entities' must be an array");
+		if (!isObject(payload.entityBlueprints)) errors.push("'entityBlueprints' must be an object");
+		if (!isObject(payload.meta)) errors.push("'meta' must be an object");
 	}
 
 	if (errors.length > 0) {
@@ -646,8 +734,17 @@ function ValidateLevelPayload(payload) {
 		return null;
 	}
 
-	if (!isObject(payload.meta) || typeof payload.meta.levelId !== "string" || typeof payload.meta.stageId !== "string") {
-		Log("ENGINE", "Level payload normalization failed: meta.levelId and meta.stageId must resolve to strings.", "error", "Validation");
+	if (
+		!isObject(payload.meta) || 
+		typeof payload.meta.levelId !== "string" || 
+		typeof payload.meta.stageId !== "string"
+	) {
+		Log(
+			"ENGINE", 
+			"Level payload normalization failed: meta.levelId and meta.stageId must resolve to strings.", 
+			"error", 
+			"Validation"
+		);
 		return null;
 	}
 
@@ -656,4 +753,4 @@ function ValidateLevelPayload(payload) {
 
 
 
-export { ValidateMenuUIPayload, ValidateSplashPayload, ValidateLevelPayload };
+export { ValidateMenuUIPayload, ValidateSplashPayload, ValidateCutscenePayload, ValidateLevelPayload };
