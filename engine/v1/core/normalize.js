@@ -87,7 +87,7 @@ function SplashPayload(payload) {
 	if (typeof payload === "string") {
 		const presetId = normalizeSplashPresetId(payload);
 		if (presetId.length === 0) return null;
-		return { presetId, sequence: [] };
+		return { presetId, sequence: [], outputType: "preset" };
 	}
 
 	if (Array.isArray(payload)) {
@@ -96,7 +96,7 @@ function SplashPayload(payload) {
 			warnLog("Splash payload provided an empty sequence and was ignored.");
 			return null;
 		}
-		return { presetId: null, sequence };
+		return { presetId: null, sequence, outputType: "custom" };
 	}
 
 	const source = normalizeObject(payload);
@@ -114,6 +114,7 @@ function SplashPayload(payload) {
 	return {
 		presetId: presetId.length > 0 ? presetId : null,
 		sequence,
+		outputType: presetId.length > 0 ? "preset" : "custom",
 	};
 }
 
@@ -163,9 +164,28 @@ function normalizeSplashStep(step, path) {
 	const fadeInSource = getByAlias(source, "splash.step.fadeInSeconds", 0.3);
 	const holdMsSource = getByAlias(source, "splash.step.holdMs", 1000);
 	const fadeOutSource = getByAlias(source, "splash.step.fadeOutSeconds", 1);
+	const rawElements = normalizeArray(getByAlias(source, "splash.step.elements", []));
+	const rawText = normalizeArray(getByAlias(source, "splash.step.text", []));
+
+	const elements = [];
+	for (let index = 0; index < rawElements.length; index += 1) {
+		const element = normalizeElement(rawElements[index], `${path}.elements[${index}]`);
+		if (element) elements.push(element);
+	}
+
+	const text = [];
+	for (let index = 0; index < rawText.length; index += 1) {
+		const entry = normalizeSplashTextEntry(rawText[index], `${path}.text[${index}]`);
+		if (entry) text.push(entry);
+	}
+
+	// Ensure name is always a non-null string. If missing, derive a deterministic fallback from the step index in the path.
+	const indexMatch = path && typeof path === "string" ? path.match(/\[(\d+)\]/) : null;
+	const stepIndex = indexMatch ? indexMatch[1] : "0";
+	const finalName = name.length > 0 ? name : `splash-${stepIndex}`;
 
 	return {
-		name: name.length > 0 ? name : null,
+		name: finalName,
 		image,
 		sfx,
 		voice,
@@ -173,7 +193,51 @@ function normalizeSplashStep(step, path) {
 		fadeInSeconds: ToNumber(fadeInSource, 0.3),
 		holdMs: Math.max(0, Math.floor(ToNumber(holdMsSource, 1000))),
 		fadeOutSeconds: ToNumber(fadeOutSource, 1),
+		elements,
+		text,
 	};
+}
+
+function normalizeSplashTextEntry(entry, path) {
+	const source = normalizeObject(entry);
+	if (Object.keys(source).length === 0) {
+		warnLog(`Splash payload ignored malformed text entry at '${path}'.`);
+		return null;
+	}
+
+	const content = normalizeString(getByAlias(source, "splash.text.content", ""), "");
+	if (content.length === 0) {
+		warnLog(`Splash payload ignored text entry at '${path}' because content is required.`);
+		return null;
+	}
+
+	const idValue = normalizeString(getByAlias(source, "splash.text.id", ""), "");
+	const classNameValue = normalizeString(getByAlias(source, "splash.text.className", ""), "");
+	const typeValue = normalizeString(getByAlias(source, "splash.text.type", "div"), "div");
+	const position = normalizeObject(getByAlias(source, "splash.text.position", {}));
+	const styles = normalizeObject(getByAlias(source, "splash.text.styles", {}));
+	const attributes = normalizeObject(getByAlias(source, "splash.text.attributes", {}));
+
+	const mergedStyles = { ...position, ...styles };
+	if (Object.keys(position).length > 0 && typeof mergedStyles.position !== "string") {
+		mergedStyles.position = "absolute";
+	}
+
+	const fallbackTextId = generateDeterministicId("splash-text", path);
+	return {
+		id: idValue.length > 0 ? idValue : fallbackTextId,
+		className: classNameValue,
+		type: typeValue.length > 0 ? typeValue : "div",
+		content,
+		styles: mergedStyles,
+		attributes,
+	};
+}
+
+function generateDeterministicId(prefix, path) {
+	const raw = String(path || "");
+	const normalized = raw.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase();
+	return normalized.length > 0 ? `${prefix}-${normalized}` : `${prefix}`;
 }
 
 function normalizeSplashAudio(audio) {
@@ -273,11 +337,15 @@ function normalizeElement(element, path) {
 		}
 	}
 
+	const idValue = normalizeString(getByAlias(source, "element.id", ""), "");
+	const classNameValue = normalizeString(getByAlias(source, "element.className", ""), "");
+	const fallbackId = generateDeterministicId("element", path);
+
 	return {
 		...source,
 		type: normalizeString(getByAlias(source, "element.type", "div"), "div"),
-		id: normalizeString(getByAlias(source, "element.id", undefined), undefined),
-		className: normalizeString(getByAlias(source, "element.className", undefined), undefined),
+		id: idValue.length > 0 ? idValue : fallbackId,
+		className: classNameValue,
 		text: (() => {
 			const textValue = getByAlias(source, "element.text", undefined);
 			return typeof textValue === "string" ? textValue : textValue !== undefined ? String(textValue) : undefined;

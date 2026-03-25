@@ -233,7 +233,7 @@ function ApplyMenuUI(payload) {
 
 	// Notify engine consumers that the UI has been rendered and music (if any) started.
 	const resolvedRootId = payload.rootId || "engine-ui-root";
-	SendEvent("ENGINE_UI_RENDERED", { screenId: payload.screenId, rootId: resolvedRootId });
+	SendEvent("UI_RENDERED", { screenId: payload.screenId, rootId: resolvedRootId });
 
 	// If a boot sequence is awaiting the UI application, resolve it here.
 	if (Cache.UI.startupUiAppliedResolve) Cache.UI.startupUiAppliedResolve(true);

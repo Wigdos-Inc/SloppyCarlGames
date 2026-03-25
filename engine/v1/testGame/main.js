@@ -8,13 +8,24 @@ await import("./cutscene/cutscene.js");
 const { RequestLevelCreate } = await import("./levels/level.js");
 
 function resolveStartupSplashPayload() {
-	return {
-		presetId: "default",
-	};
+	// Use engine default built-in splash sequence.
+	return "default";
 }
 
 function handleSplashRequest() {
 	ENGINE.Startup.ProvideSplashScreenPayload(resolveStartupSplashPayload());
+}
+
+// Proactively provide a splash payload immediately after creation so the game
+// doesn't need to rely on the event delivery timing. This is safe because
+// `Bootup` opens the acceptance window during initialization.
+try {
+	if (ENGINE && ENGINE.Startup && typeof ENGINE.Startup.ProvideSplashScreenPayload === "function") {
+		ENGINE.Startup.ProvideSplashScreenPayload(resolveStartupSplashPayload());
+		console.log("Provided startup splash payload to ENGINE (proactive)");
+	}
+} catch (error) {
+	console.warn("Failed to proactively provide splash payload:", error);
 }
 
 
@@ -453,7 +464,7 @@ window.addEventListener("USER_INPUT", handleUserInput);
 window.addEventListener("DELETE_SAVE_DATA", handleDeleteSave);
 window.addEventListener("LEVEL_REQUEST", handleLevelRequest);
 window.addEventListener("LOAD_GAME", handleLoadGame);
-window.addEventListener("ENGINE_UI_RENDERED", (event) => {
+window.addEventListener("UI_RENDERED", (event) => {
 	const screenId = event && event.detail ? event.detail.screenId : null;
 	if (screenId === "Settings") {
 		syncSettingsUi(getSettingsSnapshot());

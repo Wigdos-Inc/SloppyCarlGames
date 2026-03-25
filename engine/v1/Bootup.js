@@ -9,13 +9,13 @@
 // Core initialization and logging.
 
 import { Initialize } from "./core/ini.js";
-import { Cache, Cursor, Log, SendEvent, Wait } from "./core/meta.js";
+import { Cache, Cursor, Log, SendEvent } from "./core/meta.js";
 import { CONFIG } from "./core/config.js";
 import { FadeElement, RemoveRoot, SetElementStyle, SetElementText } from "./handlers/Render.js";
 import { CreateUI } from "./handlers/UI.js";
 import { Controls } from "./handlers/Controls.js";
 import { PlayEngineCutscene, PlayRenderedCutscene } from "./handlers/Cutscene.js";
-import { ApplySplashScreenSequence } from "./handlers/menu/Splash.js";
+import { ApplySplashScreenSequence, AcceptSplashPayload } from "./handlers/menu/Splash.js";
 
 /* === GLOBALS === */
 // Single global entry point for the game.
@@ -25,37 +25,39 @@ let ENGINE = null;
 /* === STARTUP === */
 // Runs the boot sequence and exposes the public API.
 
-let introHandled = false;
-let introCalledResolve = null;
-let introDoneResolve = null;
-
+const introCutscene = {
+  requested: false,
+  type: null,
+  payload: null,
+};
 const startupOverlayID = "engine-startup-overlay";
 const startupTextID = "engine-startup-text";
-const splashRequestTimeout = 1000;
-const introRequestTimeout = 1000;
 
-function setupIntroRuntime(overlayId) {
-  const introCalledPromise = new Promise((resolve) => introCalledResolve = resolve);
-  const introDonePromise = new Promise((resolve) => introDoneResolve = resolve);
+function clearIntroCinematicBuffer() {
+  introCutscene.type = null;
+  introCutscene.payload = null;
+}
 
-  introHandled = false;
-  const runIntro = async (type, payload) => {
-    if (introHandled) return false;
+function PlayIntroCinematic(payload, cutsceneType) {
+  if (introCutscene.requested !== true) {
+    Log("ENGINE", "Intro cinematic payload ignored because intro was not requested.", "warn", "Startup");
+    return false;
+  }
 
-    introHandled = true;
-    introCalledResolve(true);
-    const options = { rootId: overlayId, videoId: "engine-intro-video" };
-    const played = type === "rendered"
-      ? await PlayRenderedCutscene(payload, options)
-      : await PlayEngineCutscene(payload, options);
-    introDoneResolve(true);
-    return played;
-  };
+  if (introCutscene.payload !== null) {
+    Log("ENGINE", "Intro cinematic payload already set for this startup sequence.", "warn", "Startup");
+    return false;
+  }
 
-  return {
-    introCalledPromise,
-    introDonePromise,
-  };
+  const normalizedType = typeof cutsceneType === "string" ? cutsceneType.toLowerCase() : "";
+  if (normalizedType !== "rendered" && normalizedType !== "engine") {
+    Log("ENGINE", "Intro cinematic ignored: cutsceneType must be 'rendered' or 'engine'.", "warn", "Startup");
+    return false;
+  }
+
+  introCutscene.type = normalizedType;
+  introCutscene.payload = payload;
+  return true;
 }
 
 function waitForUserStart() {
@@ -115,6 +117,10 @@ function waitForUserStart() {
     ],
   });
 
+  // Open the splash payload acceptance window and notify the game.
+  AcceptSplashPayload();
+  setTimeout(() => SendEvent("SPLASH_REQUEST", {}), 5);
+
   const onStart = () => {
     if (started) {
       return;
@@ -132,19 +138,30 @@ function waitForUserStart() {
 
 async function runStartupSequence() {
   Cursor.changeState("hidden");
-  const context = await ApplySplashScreenSequence({ timeoutMs: splashRequestTimeout });
+
+  clearIntroCinematicBuffer();
+  const context = await ApplySplashScreenSequence({
+    onSequenceStart: () => {
+      if (CONFIG.DEBUG.SKIP.Intro === true) {
+        Log("ENGINE", "Intro cinematic skipped by settings.", "log", "Startup");
+        return;
+      }
+      introCutscene.requested = true;
+      SendEvent("INTRO_CINEMATIC_REQUEST", { cutsceneId: "Opening" });
+    },
+  });
+
+  const requestedType = introCutscene.type;
+  const requestedPayload = introCutscene.payload;
+  introCutscene.requested = false;
+  clearIntroCinematicBuffer();
+
   const overlayId = context.overlayId;
 
-  if (CONFIG.DEBUG.SKIP.Intro !== true) {
-    const { introCalledPromise, introDonePromise } = setupIntroRuntime(overlayId);
-
-    SendEvent("CUTSCENE_REQUEST", { cutsceneId: "Opening" });
-    const introCalled = await Promise.race([
-      introCalledPromise,
-      Wait(introRequestTimeout).then(() => false),
-    ]);
-
-    if (introCalled) await introDonePromise;
+  if (CONFIG.DEBUG.SKIP.Intro !== true && requestedPayload !== null) {
+    const options = { rootId: overlayId, videoId: "engine-intro-video" };
+    if (requestedType === "rendered") await PlayRenderedCutscene(requestedPayload, options);
+    else await PlayEngineCutscene(requestedPayload, options);
   }
 
   SendEvent("UI_REQUEST", { screenId: "TitleScreen" });
@@ -182,7 +199,23 @@ function browserContextCheck() {
     typeof requestAnimationFrame === "undefined" ||
     typeof performance === "undefined"
   ) {
-    Log("ENGINE", "Bootup failed. Engine must be used in a browser context and have access to the following:\n- window\n- window.dispatchEvent\n- document\n- document.body\n- console\n- sessionStorage\n- localStorage\n- requestAnimationFrame\n- performance", "error", "Startup");
+    Log(
+      "ENGINE", 
+      `
+        Bootup failed. Engine must be used in a modern browser context and have access to the following:
+        \n- window
+        \n- window.dispatchEvent
+        \n- document
+        \n- document.body
+        \n- console
+        \n- sessionStorage
+        \n- localStorage
+        \n- requestAnimationFrame
+        \n- performance
+      `, 
+      "error", 
+      "Startup"
+    );
     return false;
   }
 
@@ -194,6 +227,7 @@ function browserContextCheck() {
   if (!browserContextCheck()) return;
 
   ENGINE = Initialize();
+  ENGINE.Startup.PlayIntroCinematic = PlayIntroCinematic;
   Log("ENGINE", "Bootup complete.", "log", "Startup");
   waitForUserStart();
 })();

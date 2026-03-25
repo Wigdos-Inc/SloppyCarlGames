@@ -14,10 +14,10 @@ When the engine needs to notify a game of something, it dispatches a **Custom Ev
 
 ```js
 // Engine side (inside engine code)
-SendEvent("ENGINE_LEVEL_READY", { levelId: "level-1", title: "Green Hills" });
+SendEvent("LEVEL_READY", { levelId: "level-1", title: "Green Hills" });
 
 // Game side (inside game code)
-window.addEventListener("ENGINE_LEVEL_READY", (event) => {
+window.addEventListener("LEVEL_READY", (event) => {
     const { levelId, title } = event.detail.payload;
 });
 ```

@@ -401,7 +401,8 @@ function ValidateMenuUIPayload(payload) {
 }
 
 function ValidateSplashPayload(payload) {
-	if (payload === null || payload === undefined) return null;
+	// No payload provided — use engine default
+	if (payload === null || payload === undefined) return { presetId: null, sequence: [], outputType: "default" };
 
 	const normalizeSplashPresetId = (presetId) => {
 		return presetId
@@ -435,7 +436,40 @@ function ValidateSplashPayload(payload) {
 			errors.push(`'${path}[${index}].image' must be a non-empty string`);
 		}
 
-		if (Object.prototype.hasOwnProperty.call(step, "sfx")) {
+		if (Object.prototype.hasOwnProperty.call(step, "elements") && !Array.isArray(step.elements)) {
+			errors.push(`'${path}[${index}].elements' must be an array when provided`);
+		}
+
+		if (Object.prototype.hasOwnProperty.call(step, "text")) {
+			if (!Array.isArray(step.text)) {
+				errors.push(`'${path}[${index}].text' must be an array when provided`);
+			} else {
+				for (let textIndex = 0; textIndex < step.text.length; textIndex += 1) {
+					const entry = step.text[textIndex];
+					if (!isObject(entry)) {
+						errors.push(`'${path}[${index}].text[${textIndex}]' must be an object`);
+						continue;
+					}
+
+					const content =
+						typeof entry.content === "string" && entry.content.length > 0
+							? entry.content
+							: typeof entry.text === "string" && entry.text.length > 0
+								? entry.text
+								: typeof entry.label === "string" && entry.label.length > 0
+									? entry.label
+									: typeof entry.caption === "string" && entry.caption.length > 0
+										? entry.caption
+										: "";
+
+					if (content.length === 0) {
+						errors.push(`'${path}[${index}].text[${textIndex}]' must include non-empty content/text/label/caption`);
+					}
+				}
+			}
+		}
+
+		if (Object.prototype.hasOwnProperty.call(step, "sfx") && step.sfx !== null) {
 			if (!isObject(step.sfx)) {
 				errors.push(`'${path}[${index}].sfx' must be an object when provided`);
 			} else {
@@ -448,7 +482,7 @@ function ValidateSplashPayload(payload) {
 			}
 		}
 
-		if (Object.prototype.hasOwnProperty.call(step, "voice")) {
+		if (Object.prototype.hasOwnProperty.call(step, "voice") && step.voice !== null) {
 			if (!isObject(step.voice)) {
 				errors.push(`'${path}[${index}].voice' must be an object when provided`);
 			} else {
@@ -513,31 +547,71 @@ function ValidateSplashPayload(payload) {
 	}
 
 	if (errors.length > 0) {
-		Log("ENGINE", `Splash payload rejected:\n\n${errors.join("\n")}.`, "error", "Validation");
-		return null;
+		Log("ENGINE", `Splash payload rejected:\n\n${errors.join("\n")}.\n\nUsing engine default.`, "warn", "Validation");
+		return { presetId: null, sequence: [], outputType: "default" };
 	}
 
 	const normalized = Normalize.SplashPayload(payload);
 	if (normalized === null) {
-		Log("ENGINE", "Splash payload normalization failed.", "error", "Validation");
-		return null;
+		Log("ENGINE", "Splash payload normalization failed. Using engine default.", "warn", "Validation");
+		return { presetId: null, sequence: [], outputType: "default" };
 	}
 
 	if (!isObject(normalized) || !Array.isArray(normalized.sequence)) {
-		Log("ENGINE", "Splash payload normalization failed to produce required shape.", "error", "Validation");
-		return null;
+		Log(
+			"ENGINE", 
+			"Splash payload normalization failed to produce required shape. Using engine default.", 
+			"warn", 
+			"Validation"
+		);
+		return { presetId: null, sequence: [], outputType: "default" };
 	}
 
 	if (normalized.presetId !== null && (typeof normalized.presetId !== "string" || normalized.presetId.length === 0)) {
-		Log("ENGINE", "Splash payload normalization produced invalid presetId.", "error", "Validation");
-		return null;
+		Log(
+			"ENGINE", 
+			"Splash payload normalization produced invalid presetId. Using engine default.", 
+			"warn", 
+			"Validation"
+		);
+		return { presetId: null, sequence: [], outputType: "default" };
 	}
 
 	for (let index = 0; index < normalized.sequence.length; index += 1) {
 		const step = normalized.sequence[index];
-		if (!isObject(step) || typeof step.image !== "string" || step.image.length === 0) {
-			Log("ENGINE", `Splash payload normalization produced invalid step at sequence[${index}].`, "error", "Validation");
-			return null;
+		if (
+			!isObject(step)
+			|| typeof step.image !== "string"
+			|| step.image.length === 0
+			|| !Array.isArray(step.elements)
+			|| !Array.isArray(step.text)
+		) {
+			Log(
+				"ENGINE", 
+				`Splash payload normalization produced invalid step at sequence[${index}]. Using engine default.`, 
+				"error", 
+				"Validation"
+			);
+			return { presetId: null, sequence: [], outputType: "default" };
+		}
+
+		for (let textIndex = 0; textIndex < step.text.length; textIndex += 1) {
+			const textEntry = step.text[textIndex];
+			if (
+				!isObject(textEntry)
+				|| typeof textEntry.content !== "string"
+				|| textEntry.content.length === 0
+				|| !isObject(textEntry.styles)
+				|| !isObject(textEntry.attributes)
+			) {
+				Log(
+					"ENGINE",
+					`Splash payload normalization produced invalid text entry at sequence[${index}].text[${textIndex}]. Using engine default.`,
+					"error",
+					"Validation"
+				);
+				return { presetId: null, sequence: [], outputType: "default" };
+			}
 		}
 	}
 
