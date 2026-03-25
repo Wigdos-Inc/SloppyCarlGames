@@ -108,9 +108,6 @@ async function playRenderedCutsceneInternal(payload, options) {
 function ensureCutsceneCurtain(rootId) {
 	// Reuse a persistent curtain overlay for fades.
 	const root = document.getElementById(rootId);
-	if (!root) {
-		return null;
-	}
 
 	let curtain = document.getElementById("engine-cutscene-curtain");
 	if (!curtain) {

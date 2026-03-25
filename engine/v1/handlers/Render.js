@@ -88,7 +88,7 @@ function multiplyMatrix4(a, b) {
 }
 
 function createPerspectiveMatrix(fovDegrees, aspect, near, far) {
-	const safeAspect = aspect > 0 ? aspect : 1;
+	const safeAspect = aspect;
 	const fov = (fovDegrees * Math.PI) / 180;
 	const f = 1 / Math.tan(fov / 2);
 	const nf = 1 / (near - far);
@@ -308,14 +308,10 @@ function createLineProgram(gl) {
 
 	const vertex = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
 	const fragment = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-	if (!vertex || !fragment) {
-		return null;
-	}
+	if (!vertex || !fragment) return null;
 
 	const program = gl.createProgram();
-	if (!program) {
-		return null;
-	}
+	if (!program) return null;
 
 	gl.attachShader(program, vertex);
 	gl.attachShader(program, fragment);
