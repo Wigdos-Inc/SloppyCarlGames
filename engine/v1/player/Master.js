@@ -44,6 +44,8 @@ function createDefaultPlayerState(playerData) {
 		alignedUp: { x: 0, y: 1, z: 0 },
 		jumpStartY: new Unit(spawnPos.y, "cnu"),
 		jumpApexY: new Unit(spawnPos.y, "cnu"),
+		stoppingActive: false,
+		primaryOppositeHeld: false,
 		state: "Idle",
 		previousState: "Idle",
 		hp: 3,
@@ -52,6 +54,12 @@ function createDefaultPlayerState(playerData) {
 		attackFlag: false,
 		modelOpacity: 1.0,
 		abilities: null,
+		boost: {
+			active: false,
+			timer: 0,
+			maxSpeedMultiplier: 1,
+			accelMultiplier: 1,
+		},
 		invulnerable: {
 			active: false,
 			timer: 0,
@@ -187,7 +195,8 @@ function ResolvePlayerState() {
 		} else playerState.state = "Falling";
 	} else {
 		// Grounded states.
-		if (playerState.boost && playerState.boost.active) playerState.state = "Boosting";
+		if (playerState.boost.active) playerState.state = "Boosting";
+		else if (playerState.stoppingActive) playerState.state = "Stopping";
 		else if (speed > movementThreshold) playerState.state = "Running";
 		else playerState.state = "Idle";
 	}
@@ -205,6 +214,8 @@ function ResolvePlayerState() {
  */
 function TriggerPlayerDeath() {
 	playerState.state = "Dead";
+	playerState.stoppingActive = false;
+	playerState.primaryOppositeHeld = false;
 	playerState.velocity.set({ x: 0, y: 0, z: 0 });
 	Log("ENGINE", "Player death triggered.", "log", "Player");
 }
@@ -224,6 +235,8 @@ function RespawnPlayer() {
 	playerState.jumpStartY.value = respawnPos.y;
 	playerState.jumpApexY.value = respawnPos.y;
 	playerState.attackFlag = false;
+	playerState.stoppingActive = false;
+	playerState.primaryOppositeHeld = false;
 	playerState.modelOpacity = 1.0;
 	playerState.boost = { active: false, timer: 0, maxSpeedMultiplier: 1, accelMultiplier: 1 };
 	playerState.invulnerable = { active: false, timer: 0, flashTimer: 0 };

@@ -8,6 +8,7 @@
 			"maxSpeed": 30,
 			"acceleration": 50,
 			"deceleration": 30,
+			"stoppingThresholdRatio": 0.35,
 			"airControl": 0.4,
 			"underwaterAirControl": 0.7,
 			"jumpForce": 30,
