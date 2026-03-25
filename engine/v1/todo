@@ -1,3 +1,7 @@
+Finish Model Bounds Expansion (critical):
+- Check Casing
+- Check UnitVector3 Instancing
+- Test Functionality
 Remove Forbidden Normalization and Defensive Checks downstream.
 - Fix Collision Phasing Bug
 - Fix/Refactor Intro Cinematic

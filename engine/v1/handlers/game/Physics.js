@@ -39,7 +39,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 
 	// Step 1: Gravity (if not grounded or always apply — ground correction will nullify).
 	if (!playerState.grounded) {
-		const gravityOptions = playerState.underwater ? { strengthOverride: ToNumber(CONFIG.PHYSICS.Gravity.Strength, 25) * 0.4 } : {};
+		const gravityOptions = playerState.underwater ? { strengthOverride: CONFIG.PHYSICS.Gravity.Strength * 0.4 } : {};
 		playerState.velocity.set(ApplyGravity(playerState.velocity, dt, gravityOptions));
 	}
 
@@ -62,13 +62,11 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 		const dispLenSq = displacement.x * displacement.x + displacement.y * displacement.y + displacement.z * displacement.z;
 		if (dispLenSq < 0.0001) {
 			// Standing still on ground: preserve grounded state, skip collision.
-			playerState.transform.position.set(AddVector3(pos, displacement));
+			playerState.transform.position.add(displacement);
 			if (playerState.transform.position.y < deathBarrierY) {
 				playerState.transform.position.y = deathBarrierY;
 				playerState.velocity.y = 0;
-				if (playerState.state !== "Dead") {
-					Log("ENGINE", "Player hit death barrier.", "log", "Level");
-				}
+				if (playerState.state !== "Dead") Log("ENGINE", "Player hit death barrier.", "log", "Level");
 			}
 			playerState.activeTriggers.length = 0;
 			return;
@@ -77,9 +75,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 		// Moving while grounded: inject a small downward probe so the Y axis
 		// isn't degenerate in swept AABB. This lets the collision system detect
 		// ground contact when running, and correctly un-ground when walking off a ledge.
-		if (Math.abs(displacement.y) < 0.001) {
-			displacement.y = -0.005;
-		}
+		if (Math.abs(displacement.y) < 0.001) displacement.y = -0.005;
 	}
 
 	// Step 5: Collision detection (swept AABB).
@@ -95,7 +91,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	playerState.velocity.set(resolvedVelocity);
 
 	// Step 7: Apply displacement to position.
-	playerState.transform.position.set(AddVector3(pos, resolvedDisplacement));
+	playerState.transform.position.add(resolvedDisplacement);
 
 	// Step 8: Surface alignment / correction.
 	ApplySurfaceAlignment(playerState, groundContact, dt);
@@ -105,9 +101,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 		playerState.transform.position.y = deathBarrierY;
 		playerState.velocity.y = 0;
 		// Signal death — will be handled by the state machine or Enemy.js.
-		if (playerState.state !== "Dead") {
-			Log("ENGINE", "Player hit death barrier.", "log", "Level");
-		}
+		if (playerState.state !== "Dead") Log("ENGINE", "Player hit death barrier.", "log", "Level");
 	}
 
 	// Store triggered volumes for game-side handling.
@@ -145,10 +139,8 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 	if (solids.length > 0) {
 		const { resolvedVelocity, resolvedDisplacement } = ResolveCollisions(entity.velocity, displacement, solids);
 		entity.velocity.set(resolvedVelocity);
-		entity.transform.position.set(AddVector3(entityPos, resolvedDisplacement));
-	} else {
-		entity.transform.position.set(AddVector3(entityPos, displacement));
-	}
+		entity.transform.position.add(resolvedDisplacement);
+	} else entity.transform.position.add(displacement);
 
 	// Death barrier.
 	if (entity.transform.position.y < deathBarrierY) {

@@ -11,7 +11,7 @@ import {
 	DistanceVector3,
 } from "../../math/Vector3.js";
 import { ToNumber } from "../../math/Utilities.js";
-import { GetSimDistanceValue, CheckEntityAabbOverlap } from "../../physics/Collision.js";
+import { GetSimDistanceValue, CheckEntityAabbOverlap, CheckEntityTrueOverlap } from "../../physics/Collision.js";
 import { TriggerPlayerDeath, RespawnPlayer } from "../../player/Master.js";
 
 const KNOCKBACK_FORCE = 12;
@@ -58,6 +58,8 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 				SendEvent("ENEMY_DESTROYED", { id: entity.id });
 			}
 		} else if (!playerState.invulnerable.active) {
+			if (!CheckEntityTrueOverlap(playerState, entity)) continue;
+
 			// === PLAYER TAKES DAMAGE ===
 			applyPlayerDamage(playerState, entityPos, sceneGraph);
 			break; // Only process one damage event per frame.

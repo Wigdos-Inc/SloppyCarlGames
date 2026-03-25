@@ -1,4 +1,5 @@
 import { CNU_SCALE } from "../core/meta.js";
+import { AddVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "./Vector3.js";
 
 class Unit {
 	constructor(value, type) {
@@ -64,22 +65,45 @@ class Unit {
 
 class UnitVector3 {
 	constructor(x, y, z, type) {
-		this.x = ToNumber(x, 0);
-		this.y = ToNumber(y, 0);
-		this.z = ToNumber(z, 0);
-		this.type = typeof type === "string"
-			&& ["radians", "degrees", "cnu", "worldunit"].includes(type.toLowerCase())
-			? type.toLowerCase()
-			: null;
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		this.type = type.toLowerCase();
 	}
 
 	set(vector) {
-		if (vector && typeof vector === "object") {
-			this.x = ToNumber(vector.x, this.x);
-			this.y = ToNumber(vector.y, this.y);
-			this.z = ToNumber(vector.z, this.z);
-		}
+		this.x = vector.x;
+		this.y = vector.y;
+		this.z = vector.z;
 		return this;
+	}
+
+	add(vector) {
+		return this.set(AddVector3(this, vector));
+	}
+	subtract(vector) {
+		return this.set(SubtractVector3(this, vector));
+	}
+	multiply(vector) {
+		return this.set(MultiplyVector3(this, vector));
+	}
+	scale(scalar) {
+		return this.set(ScaleVector3(this, scalar));
+	}
+
+	min(vector) {
+		return this.set({
+			x: Math.min(this.x, vector.x),
+			y: Math.min(this.y, vector.y),
+			z: Math.min(this.z, vector.z)
+		});
+	}
+	max(vector) {
+		return this.set({
+			x: Math.max(this.x, vector.x),
+			y: Math.max(this.y, vector.y),
+			z: Math.max(this.z, vector.z)
+		});
 	}
 
  	toWorldUnit(replace = false) {

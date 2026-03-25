@@ -71,6 +71,14 @@ function createDefaultPlayerState(playerData) {
 		collision: {
 			aabb: { min: new UnitVector3(0, 0, 0, "CNU"), max: new UnitVector3(0, 0, 0, "CNU") },
 			radius: new Unit(ToNumber(playerData.collisionRadius, character.meta.collisionRadius), "cnu"),
+			shape: "capsule",
+			capsule: {
+				type: "capsule",
+				radius: new Unit(0, "cnu"),
+				halfHeight: new Unit(0, "cnu"),
+				segmentStart: new UnitVector3(0, 0, 0, "CNU"),
+				segmentEnd: new UnitVector3(0, 0, 0, "CNU"),
+			},
 			simRadiusPadding: 24,
 			simRadiusAabb: { min: new UnitVector3(0, 0, 0, "CNU"), max: new UnitVector3(0, 0, 0, "CNU") },
 		},

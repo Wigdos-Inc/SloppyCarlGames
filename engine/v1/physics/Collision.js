@@ -14,6 +14,179 @@ import {
 import { SweptAABB, AABBOverlap } from "../math/Physics.js";
 import { ToNumber } from "../math/Utilities.js";
 
+function clamp(value, min, max) {
+	return Math.max(min, Math.min(max, value));
+}
+
+function buildDetailedBoundsFromCollision(collision) {
+	if (collision.shape === "capsule" && collision.capsule) {
+		return {
+			type: "capsule",
+			radius: collision.capsule.radius,
+			halfHeight: collision.capsule.halfHeight,
+			segmentStart: collision.capsule.segmentStart.clone(),
+			segmentEnd: collision.capsule.segmentEnd.clone(),
+		};
+	}
+	if (collision.detailedBounds) return collision.detailedBounds;
+	return null;
+}
+
+function offsetDetailedBounds(bounds, offset) {
+	if (!bounds) return null;
+	if (bounds.type === "capsule") {
+		return {
+			type: "capsule",
+			radius: bounds.radius,
+			halfHeight: bounds.halfHeight,
+			segmentStart: bounds.segmentStart.add(offset),
+			segmentEnd: bounds.segmentEnd.add(offset),
+		};
+	}
+	if (bounds.type === "obb") {
+		return {
+			type: "obb",
+			center: bounds.center.add(offset),
+			halfExtents: bounds.halfExtents,
+			axes: bounds.axes,
+		};
+	}
+	return bounds;
+}
+
+function segmentSegmentDistanceSq(p1, q1, p2, q2) {
+	const d1 = SubtractVector3(q1, p1);
+	const d2 = SubtractVector3(q2, p2);
+	const r = SubtractVector3(p1, p2);
+	const a = DotVector3(d1, d1);
+	const e = DotVector3(d2, d2);
+	const f = DotVector3(d2, r);
+
+	let s = 0;
+	let t = 0;
+
+	if (a <= 0.000001 && e <= 0.000001) {
+		const delta = SubtractVector3(p1, p2);
+		return DotVector3(delta, delta);
+	}
+
+	if (a <= 0.000001) {
+		s = 0;
+		t = clamp(f / e, 0, 1);
+	} else {
+		const c = DotVector3(d1, r);
+		if (e <= 0.000001) {
+			t = 0;
+			s = clamp(-c / a, 0, 1);
+		} else {
+			const b = DotVector3(d1, d2);
+			const denom = a * e - b * b;
+			if (Math.abs(denom) > 0.000001) {
+				s = clamp((b * f - c * e) / denom, 0, 1);
+			}
+			t = (b * s + f) / e;
+			if (t < 0) {
+				t = 0;
+				s = clamp(-c / a, 0, 1);
+			} else if (t > 1) {
+				t = 1;
+				s = clamp((b - c) / a, 0, 1);
+			}
+		}
+	}
+
+	const c1 = AddVector3(p1, ScaleVector3(d1, s));
+	const c2 = AddVector3(p2, ScaleVector3(d2, t));
+	const delta = SubtractVector3(c1, c2);
+	return DotVector3(delta, delta);
+}
+
+function dotWithAxis(vector, axis) {
+	return vector.x * axis.x + vector.y * axis.y + vector.z * axis.z;
+}
+
+function toObbLocal(point, obb) {
+	const delta = SubtractVector3(point, obb.center);
+	return {
+		x: dotWithAxis(delta, obb.axes[0]),
+		y: dotWithAxis(delta, obb.axes[1]),
+		z: dotWithAxis(delta, obb.axes[2]),
+	};
+}
+
+function segmentIntersectsAabbLocal(start, end, extents) {
+	const d = SubtractVector3(end, start);
+	let tMin = 0;
+	let tMax = 1;
+	const axes = ["x", "y", "z"];
+
+	for (let i = 0; i < axes.length; i++) {
+		const axis = axes[i];
+		const startCoord = start[axis];
+		const dirCoord = d[axis];
+		const min = -extents[axis];
+		const max = extents[axis];
+
+		if (Math.abs(dirCoord) < 0.000001) {
+			if (startCoord < min || startCoord > max) return false;
+			continue;
+		}
+
+		const inv = 1 / dirCoord;
+		let t1 = (min - startCoord) * inv;
+		let t2 = (max - startCoord) * inv;
+		if (t1 > t2) {
+			const temp = t1;
+			t1 = t2;
+			t2 = temp;
+		}
+
+		tMin = Math.max(tMin, t1);
+		tMax = Math.min(tMax, t2);
+		if (tMin > tMax) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+function checkCapsuleCapsuleOverlap(capsuleA, capsuleB) {
+	const radiusSum = capsuleA.radius + capsuleB.radius;
+	const distSq = segmentSegmentDistanceSq(
+		capsuleA.segmentStart,
+		capsuleA.segmentEnd,
+		capsuleB.segmentStart,
+		capsuleB.segmentEnd
+	);
+	return distSq <= (radiusSum * radiusSum);
+}
+
+function checkCapsuleObbOverlap(capsule, obb) {
+	const localStart = toObbLocal(capsule.segmentStart, obb);
+	const localEnd = toObbLocal(capsule.segmentEnd, obb);
+	const expanded = {
+		x: obb.halfExtents.x + capsule.radius,
+		y: obb.halfExtents.y + capsule.radius,
+		z: obb.halfExtents.z + capsule.radius,
+	};
+	return segmentIntersectsAabbLocal(localStart, localEnd, expanded);
+}
+
+function checkDetailedBoundsOverlap(boundsA, boundsB) {
+	if (!boundsA || !boundsB) return true;
+	if (boundsA.type === "capsule" && boundsB.type === "capsule") {
+		return checkCapsuleCapsuleOverlap(boundsA, boundsB);
+	}
+	if (boundsA.type === "capsule" && boundsB.type === "obb") {
+		return checkCapsuleObbOverlap(boundsA, boundsB);
+	}
+	if (boundsA.type === "obb" && boundsB.type === "capsule") {
+		return checkCapsuleObbOverlap(boundsB, boundsA);
+	}
+	return true;
+}
+
 function GetSimDistanceValue() {
 	const raw = CONFIG.PERFORMANCE.SimDistance;
 	if (raw === "Low") { return 35; }
@@ -21,141 +194,72 @@ function GetSimDistanceValue() {
 	return 100;
 }
 
-function GetHalfExtents(aabb) {
-	if (!aabb || !aabb.min || !aabb.max) {
-		return { x: 0.5, y: 0.5, z: 0.5 };
-	}
-	return {
-		x: (aabb.max.x - aabb.min.x) * 0.5,
-		y: (aabb.max.y - aabb.min.y) * 0.5,
-		z: (aabb.max.z - aabb.min.z) * 0.5,
-	};
+function getHalfExtents(aabb) {
+	if (!aabb || !aabb.min || !aabb.max) return { x: 0.5, y: 0.5, z: 0.5 };
+	return aabb.max.clone().subtract(aabb.min).scale(0.5);
 }
 
-function ExpandAabb(aabb, padding) {
-	if (!aabb || !aabb.min || !aabb.max) {
-		return null;
-	}
-	const pad = Math.max(0, ToNumber(padding, 0));
+function expandAabb(aabb, padding) {
+	if (!aabb || !aabb.min || !aabb.max) return null;
 	return {
 		min: {
-			x: aabb.min.x - pad,
-			y: aabb.min.y - pad,
-			z: aabb.min.z - pad,
+			x: aabb.min.x - padding,
+			y: aabb.min.y - padding,
+			z: aabb.min.z - padding,
 		},
 		max: {
-			x: aabb.max.x + pad,
-			y: aabb.max.y + pad,
-			z: aabb.max.z + pad,
+			x: aabb.max.x + padding,
+			y: aabb.max.y + padding,
+			z: aabb.max.z + padding,
 		},
 	};
 }
 
-function BuildEntityAabbAtPosition(entityAabb, position) {
-	if (!entityAabb || !entityAabb.min || !entityAabb.max) {
-		return null;
-	}
-	const halfExtents = GetHalfExtents(entityAabb);
-	const pos = NormalizeVector3(position);
-	const aabbCenter = getAabbCenter(entityAabb);
-	const centerOffset = {
-		x: aabbCenter.x - pos.x,
-		y: aabbCenter.y - pos.y,
-		z: aabbCenter.z - pos.z,
-	};
-	const centerPos = {
-		x: pos.x + centerOffset.x,
-		y: pos.y + centerOffset.y,
-		z: pos.z + centerOffset.z,
-	};
+function buildEntityAabbAtPosition(entityAabb, position) {
+	if (!entityAabb || !entityAabb.min || !entityAabb.max) return null;
+	const halfExtents = getHalfExtents(entityAabb);
+	const centerOffset = getAabbCenter(entityAabb).subtract(position);
+	const centerPos = position.clone().add(centerOffset);
 	return {
-		min: SubtractVector3(centerPos, halfExtents),
-		max: AddVector3(centerPos, halfExtents),
+		min: centerPos.subtract(halfExtents),
+		max: centerPos.add(halfExtents),
 	};
 }
 
 function getAabbCenter(aabb) {
-	if (!aabb || !aabb.min || !aabb.max) {
-		return { x: 0, y: 0, z: 0 };
-	}
-	return {
-		x: (aabb.min.x + aabb.max.x) * 0.5,
-		y: (aabb.min.y + aabb.max.y) * 0.5,
-		z: (aabb.min.z + aabb.max.z) * 0.5,
-	};
-}
-
-function computeOverlapNormal(entityAabb, targetAabb) {
-	if (!entityAabb || !targetAabb) {
-		return { x: 0, y: 1, z: 0 };
-	}
-
-	const overlapX = Math.min(entityAabb.max.x, targetAabb.max.x) - Math.max(entityAabb.min.x, targetAabb.min.x);
-	const overlapY = Math.min(entityAabb.max.y, targetAabb.max.y) - Math.max(entityAabb.min.y, targetAabb.min.y);
-	const overlapZ = Math.min(entityAabb.max.z, targetAabb.max.z) - Math.max(entityAabb.min.z, targetAabb.min.z);
-
-	if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) {
-		return { x: 0, y: 1, z: 0 };
-	}
-
-	const entityCenter = getAabbCenter(entityAabb);
-	const targetCenter = getAabbCenter(targetAabb);
-	const delta = {
-		x: entityCenter.x - targetCenter.x,
-		y: entityCenter.y - targetCenter.y,
-		z: entityCenter.z - targetCenter.z,
-	};
-
-	if (overlapY <= overlapX && overlapY <= overlapZ) {
-		return { x: 0, y: delta.y >= 0 ? 1 : -1, z: 0 };
-	}
-	if (overlapX <= overlapZ) {
-		return { x: delta.x >= 0 ? 1 : -1, y: 0, z: 0 };
-	}
-	return { x: 0, y: 0, z: delta.z >= 0 ? 1 : -1 };
-}
-
-function CheckAabbOverlapPair(aabbA, aabbB) {
-	return AABBOverlap(aabbA, aabbB);
+	if (!aabb || !aabb.min || !aabb.max) return { x: 0, y: 0, z: 0 };
+	return aabb.min.clone().add(aabb.max).scale(0.5);
 }
 
 function CheckEntityAabbOverlap(entityA, entityB) {
 	const aabbA = entityA && entityA.collision ? entityA.collision.aabb : null;
 	const aabbB = entityB && entityB.collision ? entityB.collision.aabb : null;
-	if (!aabbA || !aabbB) {
-		return false;
-	}
-	return CheckAabbOverlapPair(aabbA, aabbB);
+	if (!aabbA || !aabbB) return false;
+	return AABBOverlap(aabbA, aabbB);
 }
 
-function CheckSweptAabbPair(position, displacement, entityAabb, targetAabb) {
+function CheckEntityTrueOverlap(entityA, entityB) {
+	if (!CheckEntityAabbOverlap(entityA, entityB)) return false;
+	const boundsA = buildDetailedBoundsFromCollision(entityA.collision);
+	const boundsB = buildDetailedBoundsFromCollision(entityB.collision);
+	return checkDetailedBoundsOverlap(boundsA, boundsB);
+}
+
+function checkSweptAabbPair(position, displacement, entityAabb, targetAabb) {
 	if (!entityAabb || !targetAabb) {
 		return { hit: false, tEntry: 1, tExit: 0, normal: { x: 0, y: 0, z: 0 } };
 	}
-	const pos = NormalizeVector3(position);
-	const vel = NormalizeVector3(displacement);
-	const halfExtents = GetHalfExtents(entityAabb);
-	const aabbCenter = getAabbCenter(entityAabb);
-	const centerOffset = {
-		x: aabbCenter.x - pos.x,
-		y: aabbCenter.y - pos.y,
-		z: aabbCenter.z - pos.z,
-	};
-	const centerPos = {
-		x: pos.x + centerOffset.x,
-		y: pos.y + centerOffset.y,
-		z: pos.z + centerOffset.z,
-	};
-	return SweptAABB(centerPos, vel, halfExtents, targetAabb);
+	const halfExtents = getHalfExtents(entityAabb);
+	const centerOffset = getAabbCenter(entityAabb).subtract(position);
+	const centerPos = position.clone().add(centerOffset);
+	return SweptAABB(centerPos, displacement, halfExtents, targetAabb);
 }
 
-function CollectCollidables(sceneGraph, simRadiusAabb) {
+function collectCollidables(sceneGraph, simRadiusAabb) {
 	const candidates = [];
 	const withinSimRadius = (aabb) => {
-		if (!simRadiusAabb) {
-			return true;
-		}
-		return CheckAabbOverlapPair(simRadiusAabb, aabb);
+		if (!simRadiusAabb) return true;
+		return AABBOverlap(simRadiusAabb, aabb);
 	};
 
 	// Terrain (always solid, filtered by sim radius AABB).
@@ -169,6 +273,7 @@ function CollectCollidables(sceneGraph, simRadiusAabb) {
 		candidates.push({
 			id: mesh.id || "terrain",
 			aabb: mesh.worldAabb,
+			detailedBounds: mesh.detailedBounds,
 			isTrigger: false,
 			type: "terrain",
 			ref: mesh,
@@ -188,6 +293,7 @@ function CollectCollidables(sceneGraph, simRadiusAabb) {
 		candidates.push({
 			id: obs.id || "obstacle",
 			aabb: bounds,
+			detailedBounds: obs.detailedBounds || (obs.mesh ? obs.mesh.detailedBounds : null),
 			isTrigger: false,
 			type: "obstacle",
 			ref: obs,
@@ -236,9 +342,9 @@ function DetectCollisions(entity, scaledVelocity, sceneGraph) {
 
 	const simRadiusAabb = entity && entity.collision && entity.collision.simRadiusAabb
 		? entity.collision.simRadiusAabb
-		: ExpandAabb(entityAabb, entity && entity.collision ? entity.collision.simRadiusPadding : 8);
-	const candidates = CollectCollidables(sceneGraph, simRadiusAabb);
-	const entityFrameAabb = BuildEntityAabbAtPosition(entityAabb, pos);
+		: expandAabb(entityAabb, entity && entity.collision ? entity.collision.simRadiusPadding : 8);
+	const candidates = collectCollidables(sceneGraph, simRadiusAabb);
+	const entityFrameAabb = buildEntityAabbAtPosition(entityAabb, pos);
 
 	const solids = [];
 	const triggers = [];
@@ -247,7 +353,7 @@ function DetectCollisions(entity, scaledVelocity, sceneGraph) {
 		const candidate = candidates[i];
 
 		if (candidate.isTrigger) {
-			if (CheckAabbOverlapPair(entityFrameAabb, candidate.aabb)) {
+			if (AABBOverlap(entityFrameAabb, candidate.aabb)) {
 				triggers.push({
 					target: candidate,
 					type: "trigger",
@@ -256,8 +362,14 @@ function DetectCollisions(entity, scaledVelocity, sceneGraph) {
 			continue;
 		}
 
-		const swept = CheckSweptAabbPair(pos, vel, entityAabb, candidate.aabb);
+		const swept = checkSweptAabbPair(pos, vel, entityAabb, candidate.aabb);
 		if (swept.hit) {
+			const entityDetailed = offsetDetailedBounds(
+				buildDetailedBoundsFromCollision(entity.collision),
+				ScaleVector3(vel, swept.tEntry)
+			);
+			if (!checkDetailedBoundsOverlap(entityDetailed, candidate.detailedBounds)) continue;
+
 			solids.push({
 				target: candidate,
 				tEntry: swept.tEntry,
@@ -352,12 +464,7 @@ function LogCollision(collision) {
 export {
 	DetectCollisions,
 	ResolveCollisions,
-	CollectCollidables,
 	GetSimDistanceValue,
-	GetHalfExtents,
-	ExpandAabb,
-	BuildEntityAabbAtPosition,
-	CheckAabbOverlapPair,
 	CheckEntityAabbOverlap,
-	CheckSweptAabbPair,
+	CheckEntityTrueOverlap,
 };

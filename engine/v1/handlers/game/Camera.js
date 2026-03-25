@@ -351,17 +351,13 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 				ScaleVector3(inputDirection, freeCamRuntime.acceleration.value * dt)
 			)
 		);
-	} else {
-		const damping = Math.pow(freeCamRuntime.dampingFactor, dt * 60);
-		cameraState.velocity.set(ScaleVector3(cameraState.velocity, damping));
-	}
+	} 
+	else cameraState.velocity.scale(Math.pow(freeCamRuntime.dampingFactor, dt * 60));
 
 	const speed = Vector3Length(cameraState.velocity);
-	if (speed > freeCamRuntime.maxSpeed.value) {
-		cameraState.velocity.set(ScaleVector3(NormalizeUnitVector3(cameraState.velocity), freeCamRuntime.maxSpeed.value));
-	}
+	if (speed > freeCamRuntime.maxSpeed.value) cameraState.velocity.scale(freeCamRuntime.maxSpeed.value);
 
-	cameraState.position.set(AddVector3(cameraState.position, ScaleVector3(cameraState.velocity, dt)));
+	cameraState.position.add(ScaleVector3(cameraState.velocity, dt));
 	cameraState.speed.value = freeCamRuntime.maxSpeed.value;
 	updateOrientationVectors(cameraState);
 
@@ -369,10 +365,7 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 	freeCamRuntime.lookDeltaY = 0;
 	freeCamRuntime.wheelDelta = 0;
 
-	if (freeCamRuntime.levelKey) {
-		persistedFreeCamStates.set(freeCamRuntime.levelKey, cameraState);
-	}
-
+	if (freeCamRuntime.levelKey) persistedFreeCamStates.set(freeCamRuntime.levelKey, cameraState);
 	return cameraState;
 }
 
