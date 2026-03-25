@@ -260,7 +260,7 @@ async function CreateLevel(payload, options) {
 	StartLevelLoop();
 	Log("ENGINE", "Level loop started.", "log", "Level");
 
-	SendEvent("ENGINE_LEVEL_READY", {
+	SendEvent("LEVEL_READY", {
 		levelId: cachedPayload.id,
 		title: cachedPayload.title,
 	});

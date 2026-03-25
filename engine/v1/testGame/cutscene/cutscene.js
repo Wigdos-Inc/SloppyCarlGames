@@ -18,10 +18,9 @@ function playIntroCinematic(event) {
 		"Cutscene"
 	);
 
-	ENGINE.Cutscene.PlayRenderedCutscene({
-		type: "rendered",
+	ENGINE.Startup.PlayIntroCinematic({
 		source: introSrc,
-	});
+	}, "rendered");
 }
 
-window.addEventListener("CUTSCENE_REQUEST", playIntroCinematic);
+window.addEventListener("INTRO_CINEMATIC_REQUEST", playIntroCinematic);

@@ -16,11 +16,22 @@
       "voiceAtStart": ["voiceAtStart", "startVoice", "firstVoice", "earlyVoice", "playVoiceAtStart"],
       "fadeInSeconds": ["fadeInSeconds", "fadeIn", "fadeInSec", "fadeInTime"],
       "holdMs": ["holdMs", "holdMillis", "holdTimeMs", "holdDuration"],
-      "fadeOutSeconds": ["fadeOutSeconds", "fadeOut", "fadeOutSec", "fadeOutTime"]
+      "fadeOutSeconds": ["fadeOutSeconds", "fadeOut", "fadeOutSec", "fadeOutTime"],
+      "elements": ["elements", "ui", "uiElements", "overlayElements"],
+      "text": ["text", "texts", "captions", "labels", "overlayText"]
     },
     "audio": {
       "src": ["src", "url", "file", "path", "source"],
       "options": ["options", "opts", "config", "settings", "audioOptions"]
+    },
+    "text": {
+      "content": ["content", "text", "label", "caption", "value"],
+      "position": ["position", "pos", "placement", "anchor"],
+      "styles": ["styles", "style", "css"],
+      "id": ["id", "elementId", "textId"],
+      "className": ["className", "class", "classes"],
+      "type": ["type", "tag", "elementType"],
+      "attributes": ["attributes", "attrs", "props", "properties"]
     }
   },
   "cutscene": {

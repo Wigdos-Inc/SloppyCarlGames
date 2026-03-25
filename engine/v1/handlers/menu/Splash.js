@@ -11,13 +11,16 @@
 import {
 	FadeElement,
 	SetElementSource,
+	SetElementStyle,
 } from "../Render.js";
+import { CreateUI } from "../UI.js";
 import { PlaySfx, PlayVoice } from "../Sound.js";
 import { Log, PushToSession, ReadFromSession, SendEvent, SESSION_KEYS } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { ValidateSplashPayload } from "../../core/validate.js";
 
-let pendingSplashResolve = null;
+let splashRequested = false;
+let bufferedSplashPayload = null;
 
 /* === SEQUENCE === */
 // Runs the built-in splash and transitions to the title screen.
@@ -32,8 +35,71 @@ function setupSplashSequence() {
 	return {
 		overlayId: "engine-startup-overlay",
 		imageId: "engine-splash-image",
+		supplementalElementIds: [],
 		wait: wait,
 	};
+}
+
+function removeSplashSupplementalElements(context) {
+	for (let index = 0; index < context.supplementalElementIds.length; index++) {
+		const id = context.supplementalElementIds[index];
+		const element = document.getElementById(id);
+		if (element && element.parentNode) element.parentNode.removeChild(element);
+	}
+
+	context.supplementalElementIds = [];
+}
+
+function buildSplashStepElements(step, stepIndex) {
+	const definitions = [];
+	const ids = [];
+
+	for (let index = 0; index < step.elements.length; index++) {
+		const source = step.elements[index];
+		const elementId = source.id;
+
+		definitions.push({
+			...source,
+			id: elementId,
+		});
+		ids.push(elementId);
+	}
+
+	const textEntries = step.text;
+	for (let index = 0; index < textEntries.length; index++) {
+		const text = textEntries[index];
+		const elementId = text.id;
+
+		definitions.push({
+			type: text.type,
+			id: elementId,
+			className: text.className,
+			text: text.content,
+			attributes: text.attributes,
+			styles: text.styles,
+			events: {},
+			on: {},
+			children: [],
+		});
+		ids.push(elementId);
+	}
+
+	return { definitions, ids };
+}
+
+function renderSplashStepElements(step, context, stepIndex) {
+	removeSplashSupplementalElements(context);
+	const { definitions, ids } = buildSplashStepElements(step, stepIndex);
+	if (definitions.length === 0) return;
+
+	CreateUI({
+		screenId: `EngineSplashStep${stepIndex}`,
+		rootId: context.overlayId,
+		replace: false,
+		elements: definitions,
+	});
+
+	context.supplementalElementIds = ids;
 }
 
 
@@ -60,6 +126,8 @@ function getCarlStudiosSequence() {
 			fadeInSeconds: 0.3,
 			holdMs: 600,
 			fadeOutSeconds: 1,
+			elements: [],
+			text: [],
 		},
 	];
 }
@@ -79,6 +147,8 @@ function getWigdosStudiosSequence() {
 			fadeInSeconds: 0.5,
 			holdMs: 2000,
 			fadeOutSeconds: 1,
+			elements: [],
+			text: [],
 		},
 	];
 }
@@ -102,6 +172,8 @@ function getCarlNetEngineSequence() {
 			fadeInSeconds: 0.3,
 			holdMs: 2500,
 			fadeOutSeconds: 1,
+			elements: [],
+			text: [],
 		},
 	];
 }
@@ -129,9 +201,10 @@ function getBuiltInSequenceById(presetId) {
 function resolveSplashSteps(requestedSplashPayload) {
 	if (!requestedSplashPayload) return getDefaultSequence();
 
-	if (requestedSplashPayload.presetId) {
-		return getBuiltInSequenceById(requestedSplashPayload.presetId);
-	}
+	// Allow canonical default payloads to explicitly indicate the engine default
+	if (requestedSplashPayload.outputType === "default") return getDefaultSequence();
+
+	if (requestedSplashPayload.presetId) return getBuiltInSequenceById(requestedSplashPayload.presetId);
 
 	return requestedSplashPayload.sequence;
 }
@@ -148,18 +221,35 @@ async function runSequenceSteps(sequence, context) {
 		);
 
 		SetElementSource(context.imageId, step.image);
+		renderSplashStepElements(step, context, index);
+
+		// Initialize supplemental elements to fully transparent so they can fade with the image.
+		for (let i = 0; i < context.supplementalElementIds.length; i++) {
+			SetElementStyle(context.supplementalElementIds[i], { opacity: "0" });
+		}
 
 		if (step.sfx !== null) PlaySfx(step.sfx.src, step.sfx.options);
 
 		if (step.voiceAtStart) PlayVoice(step.voice.src, step.voice.options);
 
-		await FadeElement(context.imageId, 1, step.fadeInSeconds);
+		// Fade image and supplemental elements together.
+		const fadeInPromises = [FadeElement(context.imageId, 1, step.fadeInSeconds)];
+		for (let i = 0; i < context.supplementalElementIds.length; i++) {
+			fadeInPromises.push(FadeElement(context.supplementalElementIds[i], 1, step.fadeInSeconds));
+		}
+		await Promise.all(fadeInPromises);
 
 		await context.wait(step.holdMs);
 
 		if (!step.voiceAtStart && step.voice !== null) await PlayVoice(step.voice.src, step.voice.options);
 
-		await FadeElement(context.imageId, 0, step.fadeOutSeconds);
+		// Fade image and supplemental elements out together.
+		const fadeOutPromises = [FadeElement(context.imageId, 0, step.fadeOutSeconds)];
+		for (let i = 0; i < context.supplementalElementIds.length; i++) {
+			fadeOutPromises.push(FadeElement(context.supplementalElementIds[i], 0, step.fadeOutSeconds));
+		}
+		await Promise.all(fadeOutPromises);
+		removeSplashSupplementalElements(context);
 
 		// Pause between splash steps.
 		if (index < sequence.length - 1) await context.wait(1000);
@@ -185,43 +275,62 @@ async function runSplashSequence(requestedSplashPayload) {
 
 	// Final pacing after splash(es).
 	await context.wait(1000);
-	PushToSession(SESSION_KEYS.SplashPlayed, true);
+	//PushToSession(SESSION_KEYS.SplashPlayed, true);
 
 	return context;
 }
 
-function requestSplashPayload(timeoutMs) {
-	SendEvent("SPLASH_REQUEST", { timeoutMs: timeoutMs });
+function AcceptSplashPayload() {
+	splashRequested = true;
+	bufferedSplashPayload = null;
+}
 
-	return new Promise((resolve) => {
-		const finish = (payload) => {
-			pendingSplashResolve = null;
-			clearTimeout(timeoutId);
-			resolve(payload);
-		};
-
-		pendingSplashResolve = finish;
-		const timeoutId = setTimeout(() => finish(null), timeoutMs);
-	});
+function DeclineSplashPayload() {
+	splashRequested = false;
 }
 
 function ProvideSplashScreenPayload(payload) {
-	if (!pendingSplashResolve) {
+	if (!splashRequested) {
 		Log("ENGINE", "No splash screens were requested. Ignoring payload.", "warn", "Startup");
 		return false;
 	}
 
-	pendingSplashResolve(payload);
+	bufferedSplashPayload = payload;
+	Log("ENGINE", `Buffered splash payload received.`, "log", "Startup");
 	return true;
 }
 
 async function ApplySplashScreenSequence(options) {
-	const rawPayload = await requestSplashPayload(options.timeoutMs);
-	const payload = ValidateSplashPayload(rawPayload);
+	// Stop accepting payloads immediately as splash sequence is about to start.
+	DeclineSplashPayload();
+
+	// Validate (and normalize) buffered splash payload.
+	const payload = ValidateSplashPayload(bufferedSplashPayload);
+
+	// Log whether this is a custom sequence, a preset, or the default using normalized outputType.
+	switch (payload.outputType) {
+		case "custom": {
+			const names = payload.sequence.map((s, i) => s.name ? `${i + 1}:${s.name}` : `${i + 1}:<unnamed>`).join("\n- ");
+			Log("ENGINE", `Using custom splash payload with ${payload.sequence.length} step(s):\n- ${names}`, "log", "Startup");
+			break;
+		}
+		case "preset": {
+			const preset = payload.presetId;
+			const seq = getBuiltInSequenceById(preset);
+			const names = seq.map((s, i) => s.name ? `${i + 1}:${s.name}` : `${i + 1}:<unnamed>`).join("\n- ");
+			Log("ENGINE", `Using preset splashId='${preset}'. Preset order:\n- ${names}`, "log", "Startup");
+			break;
+		}
+		default:
+			Log("ENGINE", "Using default splash sequence.", "log", "Startup");
+	}
+
+	// Start Sequence
+	options.onSequenceStart();
 	return runSplashSequence(payload);
 }
 
 /* === EXPORTS === */
 // Public splash sequence for Bootup.
 
-export { ApplySplashScreenSequence, ProvideSplashScreenPayload };
+export { ApplySplashScreenSequence, ProvideSplashScreenPayload, AcceptSplashPayload };
