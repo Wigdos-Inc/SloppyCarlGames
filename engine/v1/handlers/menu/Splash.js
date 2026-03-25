@@ -275,7 +275,7 @@ async function runSplashSequence(requestedSplashPayload) {
 
 	// Final pacing after splash(es).
 	await context.wait(1000);
-	//PushToSession(SESSION_KEYS.SplashPlayed, true);
+	PushToSession(SESSION_KEYS.SplashPlayed, true);
 
 	return context;
 }

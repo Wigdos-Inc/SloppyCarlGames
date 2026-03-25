@@ -43,7 +43,7 @@
                                 "complexity": "medium",
                                 "dimensions": { "x": 120, "y": 2, "z": 80 },
                                 "position": { "x": 60, "y": 0, "z": 40 },
-                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "rotation": { "x": 0, "y": 45, "z": 0 },
                                 "scale": { "x": 1, "y": 1, "z": 1 },
                                 "pivot": { "x": 0, "y": 0, "z": 0 },
                                 "primitiveOptions": {

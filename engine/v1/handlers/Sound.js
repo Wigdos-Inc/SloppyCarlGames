@@ -25,15 +25,13 @@ let nextVoiceId = 1;
 /* === INTERNALS === */
 // Audio creation helpers.
 
+// Pull channel-specific volume from config.
 function resolveVolume(channel, options) {
-	// Pull channel-specific volume from config.
 	const master = CONFIG.VOLUME.Master;
 	const clamp = (value) => Math.max(0, Math.min(1, value));
 	const applyMaster = (value) => clamp(master * value);
 
-	if (channel === "Music") {
-		return applyMaster(CONFIG.VOLUME.Music);
-	}
+	if (channel === "Music") return applyMaster(CONFIG.VOLUME.Music);
 
 	if (channel === "Sfx") {
 		const category = options && options.category ? options.category : "Game";
@@ -44,13 +42,8 @@ function resolveVolume(channel, options) {
 		return applyMaster(sfxVolume);
 	}
 
-	if (channel === "Voice") {
-		return applyMaster(CONFIG.VOLUME.Voice);
-	}
-
-	if (channel === "Cutscene") {
-		return applyMaster(CONFIG.VOLUME.Cutscene);
-	}
+	if (channel === "Voice") return applyMaster(CONFIG.VOLUME.Voice);
+	if (channel === "Cutscene") return applyMaster(CONFIG.VOLUME.Cutscene);
 
 	return applyMaster(1);
 }
@@ -58,21 +51,13 @@ function resolveVolume(channel, options) {
 function configureAudio(audio, options, channel) {
 	// Apply volume, rate, and looping options.
 	const volume = resolveVolume(channel, options);
-	if (typeof volume === "number") {
-		audio.volume = Math.max(0, Math.min(1, volume));
-	}
-
-	if (options && typeof options.rate === "number") {
-		audio.playbackRate = options.rate;
-	}
-
-	if (options && typeof options.loop === "boolean") {
-		audio.loop = options.loop;
-	}
+	if (typeof volume === "number") audio.volume = Math.max(0, Math.min(1, volume));
+	if (options && typeof options.rate === "number") audio.playbackRate = options.rate;
+	if (options && typeof options.loop === "boolean") audio.loop = options.loop;
 }
 
+// Create and start a new audio instance.
 function playAudio(src, options, channel) {
-	// Create and start a new audio instance.
 	const audio = new Audio(src);
 	configureAudio(audio, options, channel);
 	audio.play();
