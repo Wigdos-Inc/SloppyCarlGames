@@ -32,6 +32,13 @@ let CONFIG = {
           Scale  : 1,
         }
       },
+      DetailedBounds: {
+        Terrain : false,
+        Obstacle: false,
+        Entity  : false,
+        Player  : false,
+        Boss    : false,
+      },
       Trails: {
         Player     : true,
         Boss       : false,

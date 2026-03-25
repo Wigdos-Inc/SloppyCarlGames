@@ -64,6 +64,14 @@ const boundingBoxTypeColors = {
 	BossPart: { r: 1, g: 0.45, b: 0.95, a: 1 },
 };
 
+const detailedBoundsTypeColors = {
+	Terrain: { r: 1, g: 0.75, b: 0.15, a: 1 },
+	Obstacle: { r: 1, g: 0.35, b: 0.35, a: 1 },
+	Entity: { r: 0.15, g: 0.95, b: 0.95, a: 1 },
+	Player: { r: 0.85, g: 0.95, b: 1, a: 1 },
+	Boss: { r: 1, g: 0.35, b: 0.85, a: 1 },
+};
+
 function createIdentityMatrix() {
 	return [
 		1, 0, 0, 0,
@@ -567,6 +575,10 @@ function isGridDebugEnabled() {
 	return !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible);
 }
 
+function isDetailedBoundsDebugEnabled(type) {
+	return !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.DetailedBounds[type]);
+}
+
 function createBoundingBoxLineVertices(bounds) {
 	// Convert CNU bounding box coordinates to WebGL world units.
 	const min = bounds.min.toWorldUnit();
@@ -693,6 +705,109 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 		const vertices = createGridLineVertices(record, spacing);
 		if (!vertices) continue;
 
+		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+		gl.drawArrays(gl.LINES, 0, vertices.length / 3);
+	}
+}
+
+function createObbLineVertices(bounds) {
+	const center = bounds.center.toWorldUnit();
+	const half = bounds.halfExtents.toWorldUnit();
+	const axisX = bounds.axes[0];
+	const axisY = bounds.axes[1];
+	const axisZ = bounds.axes[2];
+
+	const sx = { x: axisX.x * half.x, y: axisX.y * half.x, z: axisX.z * half.x };
+	const sy = { x: axisY.x * half.y, y: axisY.y * half.y, z: axisY.z * half.y };
+	const sz = { x: axisZ.x * half.z, y: axisZ.y * half.z, z: axisZ.z * half.z };
+
+	const add = (base, dx, dy, dz) => [
+		base.x + dx.x + dy.x + dz.x,
+		base.y + dx.y + dy.y + dz.y,
+		base.z + dx.z + dy.z + dz.z,
+	];
+
+	const p000 = add(center, { x: -sx.x, y: -sx.y, z: -sx.z }, { x: -sy.x, y: -sy.y, z: -sy.z }, { x: -sz.x, y: -sz.y, z: -sz.z });
+	const p001 = add(center, { x: -sx.x, y: -sx.y, z: -sx.z }, { x: -sy.x, y: -sy.y, z: -sy.z }, sz);
+	const p010 = add(center, { x: -sx.x, y: -sx.y, z: -sx.z }, sy, { x: -sz.x, y: -sz.y, z: -sz.z });
+	const p011 = add(center, { x: -sx.x, y: -sx.y, z: -sx.z }, sy, sz);
+	const p100 = add(center, sx, { x: -sy.x, y: -sy.y, z: -sy.z }, { x: -sz.x, y: -sz.y, z: -sz.z });
+	const p101 = add(center, sx, { x: -sy.x, y: -sy.y, z: -sy.z }, sz);
+	const p110 = add(center, sx, sy, { x: -sz.x, y: -sz.y, z: -sz.z });
+	const p111 = add(center, sx, sy, sz);
+
+	return new Float32Array([
+		...p000, ...p001, ...p001, ...p011, ...p011, ...p010, ...p010, ...p000,
+		...p100, ...p101, ...p101, ...p111, ...p111, ...p110, ...p110, ...p100,
+		...p000, ...p100, ...p001, ...p101, ...p010, ...p110, ...p011, ...p111,
+	]);
+}
+
+function createCapsuleLineVertices(bounds, radialSegments = 14) {
+	const start = bounds.segmentStart.toWorldUnit();
+	const end = bounds.segmentEnd.toWorldUnit();
+	const radius = CNUtoWorldUnit(bounds.radius);
+	const lines = [];
+
+	for (let i = 0; i < radialSegments; i += 1) {
+		const t0 = (i / radialSegments) * Math.PI * 2;
+		const t1 = ((i + 1) / radialSegments) * Math.PI * 2;
+		const c0 = Math.cos(t0);
+		const s0 = Math.sin(t0);
+		const c1 = Math.cos(t1);
+		const s1 = Math.sin(t1);
+
+		lines.push(
+			start.x + c0 * radius, start.y, start.z + s0 * radius,
+			start.x + c1 * radius, start.y, start.z + s1 * radius
+		);
+		lines.push(
+			end.x + c0 * radius, end.y, end.z + s0 * radius,
+			end.x + c1 * radius, end.y, end.z + s1 * radius
+		);
+		lines.push(
+			start.x + c0 * radius, start.y, start.z + s0 * radius,
+			end.x + c0 * radius, end.y, end.z + s0 * radius
+		);
+	}
+
+	return new Float32Array(lines);
+}
+
+function drawDetailedBounds(renderer, sceneGraph, projection, view) {
+	const records = sceneGraph.debug.detailedBounds || [];
+	if (records.length === 0) return;
+
+	const gl = renderer.gl;
+	if (!renderer.debugLineShader) renderer.debugLineShader = createLineProgram(gl);
+	if (!renderer.debugLineShader) return;
+	if (!renderer.debugLineBuffer) renderer.debugLineBuffer = gl.createBuffer();
+	if (!renderer.debugLineBuffer) return;
+
+	const shader = renderer.debugLineShader;
+	gl.useProgram(shader.program);
+	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
+	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
+	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(createIdentityMatrix()));
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
+	gl.enableVertexAttribArray(shader.attributes.position);
+	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
+
+	for (let index = 0; index < records.length; index += 1) {
+		const record = records[index];
+		if (!isDetailedBoundsDebugEnabled(record.type)) continue;
+
+		let vertices = null;
+		if (record.bounds.type === "capsule") {
+			vertices = createCapsuleLineVertices(record.bounds);
+		} else if (record.bounds.type === "obb") {
+			vertices = createObbLineVertices(record.bounds);
+		}
+		if (!vertices) continue;
+
+		const color = detailedBoundsTypeColors[record.type] || { r: 1, g: 1, b: 1, a: 1 };
+		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 		gl.drawArrays(gl.LINES, 0, vertices.length / 3);
 	}
@@ -1122,6 +1237,7 @@ function drawScene(renderer, sceneGraph) {
 
 	drawBoundingBoxes(renderer, sceneGraph, projection, view);
 	drawGridOverlay(renderer, sceneGraph, projection, view);
+	drawDetailedBounds(renderer, sceneGraph, projection, view);
 	drawVelocityTrails(renderer, sceneGraph, projection, view);
 }
 

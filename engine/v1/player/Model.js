@@ -51,7 +51,7 @@ function composeTransform(parentTransform, localTransform) {
 	const rotatedChildPos = RotateByEuler(local.position, parent.rotation);
 	return {
 		position: local.position.set(AddVector3(parent.position, rotatedChildPos)),
-		rotation: local.rotation.set(AddVector3(parent.rotation, local.rotation)),
+		rotation: local.rotation.add(parent.rotation),
 		scale: MultiplyVector3(parent.scale, local.scale),
 		pivot: local.pivot,
 	};
@@ -84,6 +84,7 @@ function buildPart(source) {
 			texture: source.texture,
 			detail: source.detail,
 			role: "entity-part",
+			collisionShape: "none",
 			parentId: source.parentId,
 		},
 		{ role: "entity-part" }
@@ -157,6 +158,25 @@ function computePlayerAabb(model) {
 	return { min: { x: minX, y: minY, z: minZ }, max: { x: maxX, y: maxY, z: maxZ } };
 }
 
+function computePlayerCapsuleFromAabb(aabb) {
+	const width = aabb.max.x - aabb.min.x;
+	const height = aabb.max.y - aabb.min.y;
+	const depth = aabb.max.z - aabb.min.z;
+	const radius = Math.max(0.0001, Math.max(width, depth) * 0.5);
+	const halfHeight = Math.max(0, (height * 0.5) - radius);
+	const centerX = (aabb.min.x + aabb.max.x) * 0.5;
+	const centerY = (aabb.min.y + aabb.max.y) * 0.5;
+	const centerZ = (aabb.min.z + aabb.max.z) * 0.5;
+
+	// Unit Instancing happens later.
+	return {
+		radius: radius,
+		halfHeight: halfHeight,
+		segmentStart: { x: centerX, y: centerY - halfHeight, z: centerZ },
+		segmentEnd: { x: centerX, y: centerY + halfHeight, z: centerZ },
+	};
+}
+
 /**
  * Build a player model from a character definition.
  * @param {object} characterDefinition — from characters.json
@@ -194,10 +214,7 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 			const parent = index[part.parentId];
 			const attachOffset = getFaceCenterOffset(parent.dimensions, part.attachmentPoint || "top");
 			const anchorOffset = getFaceCenterOffset(part.dimensions, part.anchorPoint || "center");
-			part.localTransform.position.set(AddVector3(
-				SubtractVector3(attachOffset, anchorOffset), 
-				part.localTransform.position
-			));
+			part.localTransform.position.add(SubtractVector3(attachOffset, anchorOffset));
 		}
 	});
 
@@ -239,6 +256,12 @@ function UpdatePlayerModelFromState(playerState) {
 		playerState.collision.simRadiusAabb.min.set(expanded.min);
 		playerState.collision.simRadiusAabb.max.set(expanded.max);
 	}
+
+	const capsule = computePlayerCapsuleFromAabb(aabb);
+	playerState.collision.capsule.radius.value = capsule.radius;
+	playerState.collision.capsule.halfHeight.value = capsule.halfHeight;
+	playerState.collision.capsule.segmentStart.set(capsule.segmentStart);
+	playerState.collision.capsule.segmentEnd.set(capsule.segmentEnd);
 
 	// Update mesh reference for rendering.
 	playerState.mesh = playerState.model.parts[0].mesh;

@@ -5,6 +5,49 @@
 import { Log } from "../core/meta.js";
 import { BuildScatter, GetPerformanceScatterMultiplier } from "./NewScatter.js";
 import { ToNumber, UnitVector3 } from "../math/Utilities.js";
+import { AddVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "../math/Vector3.js";
+
+function normalizeAxis(vector) {
+	const length = Math.hypot(vector.x, vector.y, vector.z);
+	if (length <= 0.000001) {
+		return { x: 0, y: 1, z: 0 };
+	}
+	return {
+		x: vector.x / length,
+		y: vector.y / length,
+		z: vector.z / length,
+	};
+}
+
+function computeAabbCenter(aabb) {
+	const center = ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5);
+	return new UnitVector3(center.x, center.y, center.z, "cnu");
+}
+
+function computeScaledHalfExtents(localBounds, scale) {
+	const absScale = { x: Math.abs(scale.x), y: Math.abs(scale.y), z: Math.abs(scale.z) };
+	const half = MultiplyVector3(ScaleVector3(SubtractVector3(localBounds.max, localBounds.min), 0.5), absScale);
+	return localBounds.clone().set(half);
+}
+
+function computeObbFromMesh(mesh) {
+	const modelMatrix = CreateModelMatrix(mesh.transform);
+	const axisX = normalizeAxis({ x: modelMatrix[0], y: modelMatrix[1], z: modelMatrix[2] });
+	const axisY = normalizeAxis({ x: modelMatrix[4], y: modelMatrix[5], z: modelMatrix[6] });
+	const axisZ = normalizeAxis({ x: modelMatrix[8], y: modelMatrix[9], z: modelMatrix[10] });
+
+	return {
+		type: "obb",
+		center: computeAabbCenter(mesh.worldAabb),
+		halfExtents: computeScaledHalfExtents(mesh.localBounds, mesh.transform.scale),
+		axes: [axisX, axisY, axisZ],
+	};
+}
+
+function computeDetailedBounds(mesh) {
+	if (mesh.collisionShape === "obb") return computeObbFromMesh(mesh);
+	return null;
+}
 
 function resolveCylinderSegments(complexity) {
 	switch (complexity) {
@@ -861,6 +904,7 @@ function BuildObject(source, options) {
 	};
 	const worldAabb = computeWorldAabbFromGeometry(geometry.positions, transform);
 	const texture = source.texture;
+	const collisionShape = source.collisionShape || "none";
 
 	const mesh = {
 		id: source.id,
@@ -896,7 +940,10 @@ function BuildObject(source, options) {
 		localBounds: bounds,
 		worldAabb: worldAabb,
 		dimensions: source.dimensions,
+		collisionShape: collisionShape,
+		detailedBounds: null,
 	};
+	mesh.detailedBounds = computeDetailedBounds(mesh);
 
 	const scatterContext = options.scatterContext;
 	if (scatterContext && mesh.detail.scatter.length > 0) {
@@ -920,6 +967,7 @@ function BuildObject(source, options) {
 
 function UpdateObjectWorldAabb(mesh) {
 	mesh.worldAabb = computeWorldAabbFromGeometry(mesh.geometry.positions, mesh.transform);
+	mesh.detailedBounds = computeDetailedBounds(mesh);
 	return mesh.worldAabb;
 }
 

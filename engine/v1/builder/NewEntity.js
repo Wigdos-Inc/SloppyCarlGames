@@ -7,7 +7,7 @@
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
 import { AddVector3, LerpVector3, MultiplyVector3, RotateByEuler, SubtractVector3 } from "../math/Vector3.js";
-import { ToNumber, UnitVector3 } from "../math/Utilities.js";
+import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 
 // Canonical face normal directions (unit vectors for each face).
 const faceNormals = {
@@ -146,7 +146,7 @@ function composeTransform(parentTransform, localTransform) {
 	const rotatedChildPos = RotateByEuler(localPosition, parentTransform.rotation);
 	return {
 		position: localPosition.set(AddVector3(parentTransform.position, rotatedChildPos)),
-		rotation: localRotation.set(AddVector3(parentTransform.rotation, localRotation)),
+		rotation: localRotation.add(parentTransform.rotation),
 		scale: MultiplyVector3(parentTransform.scale, localTransform.scale),
 	};
 }
@@ -180,8 +180,8 @@ function normalizeMovement(movement, surface) {
 	// Movement start/end are local to the spawn surface — resolve to world space.
 	// Y uses surfaceTopY (top of the surface) instead of surfacePos.y (center of the surface).
 	const surfaceOrigin = getSurfaceOrigin(surface);
-	movement.start.set(AddVector3(surfaceOrigin, movement.start));
-	movement.end.set(AddVector3(surfaceOrigin, movement.end));
+	movement.start.add(surfaceOrigin);
+	movement.end.add(surfaceOrigin);
 
 	return {
 		start: movement.start,
@@ -226,7 +226,7 @@ function mergeEntityBlueprint(baseBlueprint, levelOverrides) {
 
 /* === PART BUILDING === */
 
-function buildPart(partDefinition, entityId, index) {
+function buildPart(partDefinition) {
 	const source = partDefinition;
 
 	const mesh = BuildObject(
@@ -243,6 +243,7 @@ function buildPart(partDefinition, entityId, index) {
 			texture: source.texture,
 			detail: source.detail,
 			role: "entity-part",
+			collisionShape: "none",
 			parentId: source.parentId,
 		},
 		{ role: "entity-part" }
@@ -260,7 +261,6 @@ function buildPart(partDefinition, entityId, index) {
 		anchorPoint: anchorPoint,
 		attachmentPoint: attachmentPoint,
 		children: [],
-		// Source values preserved for animation (localTransform used at pose-time).
 		localTransform: {
 			position: source.localPosition,
 			rotation: source.localRotation,
@@ -366,7 +366,6 @@ function buildModel(entityDefinition, surfaceMap) {
 		const parentPart = index[part.parentId];
 
 		const partDims = part.dimensions;
-		const localPos = part.localTransform.position;
 		const localScale = part.localTransform.scale;
 
 		// Combined scale.
@@ -380,7 +379,7 @@ function buildModel(entityDefinition, surfaceMap) {
 		const scaledAnchorOffset = MultiplyVector3(anchorOffset, combinedScale);
 
 		// Position: attachment offset on parent - scaled anchor offset on part + localPosition.
-		part.localTransform.position.set(AddVector3(SubtractVector3(attachOffset, scaledAnchorOffset), localPos));
+		part.localTransform.position.add(SubtractVector3(attachOffset, scaledAnchorOffset));
 
 		// Store builtDimensions (scaled) for child attachment offset computation.
 		part.builtDimensions.set(MultiplyVector3(partDims, combinedScale));
@@ -392,8 +391,7 @@ function buildModel(entityDefinition, surfaceMap) {
 
 	// --- Assemble model with world-space rootTransform ---
 	// Factor 1 (spawn surface position) + Factor 2 (rootTransform.position) = world position.
-	const rootPosition = rtPosition.clone();
-	rootPosition.set(AddVector3(surfaceOrigin, rtPosition));
+	const rootPosition = rtPosition.clone().add(surfaceOrigin);
 
 	const model = {
 		rootTransform: {
@@ -479,6 +477,65 @@ function computeExpandedAabb(aabb, padding) {
 	};
 }
 
+function resolveEntityCollisionShape(entityType) {
+	if (
+		entityType.includes("player") || 
+		entityType.includes("enemy") || 
+		entityType.includes("boss")
+	) {
+		return "capsule";
+	}
+	return "obb";
+}
+
+function computeCapsuleFromAabb(aabb, overrides = {}) {
+	const width = aabb.max.x - aabb.min.x;
+	const height = aabb.max.y - aabb.min.y;
+	const depth = aabb.max.z - aabb.min.z;
+	const autoRadius = Math.max(width, depth) * 0.5;
+	const radius = Math.max(0.0001, ToNumber(overrides.radius, autoRadius));
+	const autoHalfHeight = Math.max(0, (height * 0.5) - radius);
+	const halfHeight = Math.max(0, ToNumber(overrides.halfHeight, autoHalfHeight));
+	const centerX = (aabb.min.x + aabb.max.x) * 0.5;
+	const centerY = (aabb.min.y + aabb.max.y) * 0.5;
+	const centerZ = (aabb.min.z + aabb.max.z) * 0.5;
+
+	return {
+		type: "capsule",
+		radius: new Unit(radius, "cnu"),
+		halfHeight: new Unit(halfHeight),
+		segmentStart: new UnitVector3(centerX, centerY - halfHeight, centerZ, "cnu"),
+		segmentEnd: new UnitVector3(centerX, centerY + halfHeight, centerZ, "cnu"),
+	};
+}
+
+function computeObbFromAabb(aabb) {
+	return {
+		type: "obb",
+		center: aabb.min.clone().add(aabb.max).scale(0.5),
+		halfExtents: aabb.max.clone().subtract(aabb.min).scale(0.5),
+		axes: [
+			{ x: 1, y: 0, z: 0 },
+			{ x: 0, y: 1, z: 0 },
+			{ x: 0, y: 0, z: 1 },
+		],
+	};
+}
+
+function computeDetailedBoundsForEntity(entityType, aabb, overrides) {
+	const shape = resolveEntityCollisionShape(entityType);
+	if (shape === "capsule") {
+		return {
+			collisionShape: shape,
+			detailedBounds: computeCapsuleFromAabb(aabb, overrides),
+		};
+	}
+	return {
+		collisionShape: shape,
+		detailedBounds: computeObbFromAabb(aabb),
+	};
+}
+
 /* === PUBLIC API === */
 
 /**
@@ -504,6 +561,7 @@ function BuildEntity(definition, surfaceMap) {
 	}
 
 	const aabb = computeEntityAabb(model);
+	const detailed = computeDetailedBoundsForEntity(merged.type, aabb, merged.collisionCapsule || {});
 
 	return {
 		id: merged.id,
@@ -512,6 +570,7 @@ function BuildEntity(definition, surfaceMap) {
 		attacks: merged.attacks,
 		hardcoded: merged.hardcoded,
 		platform: merged.platform,
+		collisionCapsule: merged.collisionCapsule || {},
 		movement: movement,
 		transform: {
 			position: rootTrans.position,
@@ -525,6 +584,8 @@ function BuildEntity(definition, surfaceMap) {
 			aabb: aabb,
 			simRadiusPadding: simRadiusPadding,
 			simRadiusAabb: computeExpandedAabb(aabb, simRadiusPadding),
+			shape: detailed.collisionShape,
+			detailedBounds: detailed.detailedBounds,
 		},
 		animations: merged.animations,
 		state: {
@@ -548,6 +609,9 @@ function UpdateEntityModelFromTransform(entity) {
 		entity.collision.aabb,
 		entity.collision.simRadiusPadding
 	);
+	const detailed = computeDetailedBoundsForEntity(entity.type, entity.collision.aabb, entity.collisionCapsule || {});
+	entity.collision.shape = detailed.collisionShape;
+	entity.collision.detailedBounds = detailed.detailedBounds;
 }
 
 function ResetEntityToDefaultPose(entity) {
@@ -576,6 +640,9 @@ function ResetEntityToDefaultPose(entity) {
 		entity.collision.aabb,
 		entity.collision.simRadiusPadding
 	);
+	const detailed = computeDetailedBoundsForEntity(entity.type, entity.collision.aabb, entity.collisionCapsule || {});
+	entity.collision.shape = detailed.collisionShape;
+	entity.collision.detailedBounds = detailed.detailedBounds;
 }
 
 function SampleMovementPoint(entity, normalizedTime) {

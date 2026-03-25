@@ -5,8 +5,20 @@
 
 import { BuildObject } from "./NewObject.js";
 import { Log } from "../core/meta.js";
-import { AddVector3, MultiplyVector3 } from "../math/Vector3.js";
-import { ToNumber, UnitVector3 } from "../math/Utilities.js";
+import { MultiplyVector3 } from "../math/Vector3.js";
+
+function createEnvelopeObb(bounds) {
+	return {
+		type: "obb",
+		center: bounds.min.clone().add(bounds.max).scale(0.5),
+		halfExtents: bounds.max.clone().subtract(bounds.min).scale(0.5),
+		axes: [
+			{ x: 1, y: 0, z: 0 },
+			{ x: 0, y: 1, z: 0 },
+			{ x: 0, y: 0, z: 1 },
+		],
+	};
+}
 
 function mergeAabb(accumulator, bounds) {
 	if (!accumulator) {
@@ -49,6 +61,7 @@ function buildObstacleParts(source, index, options) {
 				texture: source.texture,
 				detail: source.detail,
 				role: "obstacle",
+				collisionShape: "obb",
 			},
 			{
 				role: "obstacle",
@@ -85,11 +98,11 @@ function buildObstacleParts(source, index, options) {
 
 		// Compute world-space position & rotation without mutating source transforms.
 		const worldPos = source.position.clone();
-		worldPos.set(AddVector3(worldPos, part.localPosition));
+		worldPos.add(part.localPosition);
 		worldPos.y += part.dimensions.y * combinedScale.y * 0.5;
 
 		const worldRot = source.rotation.clone();
-		worldRot.set(AddVector3(worldRot, part.localRotation));
+		worldRot.add(part.localRotation);
 
 		return BuildObject(
 			{
@@ -106,6 +119,7 @@ function buildObstacleParts(source, index, options) {
 				texture: part.texture || inheritedTexture,
 				detail: { scatter: scatterList },
 				role: "obstacle",
+				collisionShape: "obb",
 			},
 			{
 				role: "obstacle",
@@ -121,12 +135,17 @@ function BuildObstacle(source, index, options) {
 	parts.forEach((part) => bounds = mergeAabb(bounds, part.worldAabb));
 
 	const mesh = parts[0];
+	const detailedBounds = parts.length === 1 && mesh.detailedBounds
+		? mesh.detailedBounds
+		: createEnvelopeObb(bounds);
 
 	return {
 		id: source.id,
 		mesh: mesh,
 		parts: parts,
 		bounds: bounds,
+		detailedBounds: detailedBounds,
+		collisionShape: "obb",
 		destructible: source.destructible,
 		hp: source.hp,
 		static: source.static,

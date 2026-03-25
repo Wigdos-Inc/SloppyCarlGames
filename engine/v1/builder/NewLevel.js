@@ -97,6 +97,7 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 			},
 			detail: { scatter: [] },
 			role: "trigger",
+			collisionShape: "none",
 			trigger: {
 				type: source.type,
 				payload: source.payload,
@@ -145,6 +146,7 @@ function buildWaterVisualMeshes(world) {
 			},
 			detail: { scatter: [] },
 			role: "water",
+			collisionShape: "none",
 		},
 		{ role: "water" }
 	);
@@ -175,6 +177,7 @@ function buildWaterVisualMeshes(world) {
 			},
 			detail: { scatter: [] },
 			role: "water",
+			collisionShape: "none",
 		},
 		{ role: "water" }
 	);
@@ -223,7 +226,7 @@ function buildSceneBoundingBoxes(sceneGraph) {
 	scatter.forEach((mesh) => push("Scatter", mesh.id, mesh.worldAabb));
 
 	// Per-model scatter bounding boxes from instanced batch generation.
-	const scatterDebugBounds = sceneGraph.scatterDebugBounds ?? [];
+	const scatterDebugBounds = sceneGraph.debug.scatterBounds ?? [];
 	scatterDebugBounds.forEach((record) => bounds.push({ 
 		type: record.type, 
 		id: record.id, 
@@ -247,8 +250,44 @@ function buildSceneBoundingBoxes(sceneGraph) {
 	return bounds;
 }
 
+function buildSceneDetailedBounds(sceneGraph) {
+	const detailed = [];
+	const classifyEntityType = (entity) => {
+		const type = entity.type;
+		if (type.includes("player")) return "Player";
+		if (type.includes("boss")) return "Boss";
+		return "Entity";
+	};
+
+	const push = (type, id, bounds) => {
+		if (!bounds) return;
+		detailed.push({ type: type, id: id, bounds: bounds });
+	};
+
+	sceneGraph.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.detailedBounds));
+	sceneGraph.obstacles.forEach((obstacle) => push("Obstacle", obstacle.id, obstacle.detailedBounds));
+
+	sceneGraph.entities.forEach((entity) => {
+		const category = classifyEntityType(entity);
+		if (entity.collision.shape === "capsule" && entity.collision.capsule) {
+			push(category, entity.id, {
+				type: "capsule",
+				radius: entity.collision.capsule.radius.value,
+				halfHeight: entity.collision.capsule.halfHeight.value,
+				segmentStart: entity.collision.capsule.segmentStart,
+				segmentEnd: entity.collision.capsule.segmentEnd,
+			});
+			return;
+		}
+		push(category, entity.id, entity.collision.detailedBounds);
+	});
+
+	return detailed;
+}
+
 function RefreshSceneBoundingBoxes(sceneGraph) {
 	sceneGraph.debugBoundingBoxes = buildSceneBoundingBoxes(sceneGraph);
+	sceneGraph.debug.detailedBounds = buildSceneDetailedBounds(sceneGraph);
 	return sceneGraph.debugBoundingBoxes;
 }
 
@@ -272,6 +311,7 @@ async function BuildLevel(payload) {
 				...terrainObject,
 				id: terrainObject.id,
 				role: "terrain",
+				collisionShape: "obb",
 			},
 			{
 				role: "terrain",
@@ -356,9 +396,10 @@ async function BuildLevel(payload) {
 		scatter: [],
 		scatterBatches: scatterBatches,
 		scatterPrimitiveGeometry: primitiveGeometry,
-		scatterDebugBounds: scatterDebugBounds,
 		debug: {
 			showTriggerVolumes: !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.Triggers === true),
+			detailedBounds: [],
+			scatterBounds: scatterDebugBounds,
 		},
 		effects: {
 			underwater: {

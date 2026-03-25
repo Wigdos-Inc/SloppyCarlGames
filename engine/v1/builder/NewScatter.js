@@ -289,9 +289,8 @@ function iterateScatterInstances(params, handler) {
 				typeCount++;
 
 				// Calculate World Position
-				const pos = part.localPosition.clone();
 				const addPos = { x: worldX, y: modelRootY + part.stackY, z: worldZ };
-				pos.set(AddVector3(pos, addPos));
+				const pos = part.localPosition.clone().add(addPos);
 
 				// Calculate World Rotation
 				const rot = part.localRotation.clone();
@@ -313,7 +312,7 @@ function iterateScatterInstances(params, handler) {
 
 			handler({ scatterType, request, scatterTypeIndex, instanceIndex, partContexts, samplePosition, sampleDimensions });
 
-			modelCount += 1;
+			modelCount++;
 			totalParts += partContexts.length;
 		}
 
