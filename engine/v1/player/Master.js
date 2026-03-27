@@ -7,7 +7,7 @@ import { NormalizeVector3 } from "../math/Vector3.js";
 import { Log } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
-import { BuildPlayerModel, UpdatePlayerModelFromState } from "./Model.js";
+import { BuildPlayerModel, InitializePlayerCollisionProfile, SyncPlayerCollisionFromState, UpdatePlayerModelFromState } from "./Model.js";
 import { UpdateMovement } from "./Movement.js";
 import characterData from "./characters.json" with { type: "json" };
 
@@ -37,7 +37,7 @@ function createDefaultPlayerState(playerData) {
 			rotation: new UnitVector3(0, 0, 0, "radians"),
 			scale: playerData.scale,
 		},
-		velocity: new UnitVector3(0, 0, 0, "CNU"),
+		velocity: new UnitVector3(0, 0, 0, "cnu"),
 		grounded: false,
 		underwater: false,
 		surfaceNormal: { x: 0, y: 1, z: 0 },
@@ -52,6 +52,7 @@ function createDefaultPlayerState(playerData) {
 		collectibles: playerData.collectibles || 0,
 		maxCollectibles: 100,
 		attackFlag: false,
+		hitboxActive: false,
 		modelOpacity: 1.0,
 		abilities: null,
 		boost: {
@@ -69,18 +70,59 @@ function createDefaultPlayerState(playerData) {
 		checkpoint: null,
 		spawnPosition: spawnPos,
 		collision: {
-			aabb: { min: new UnitVector3(0, 0, 0, "CNU"), max: new UnitVector3(0, 0, 0, "CNU") },
+			aabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
 			radius: new Unit(ToNumber(playerData.collisionRadius, character.meta.collisionRadius), "cnu"),
-			shape: "capsule",
+			shape: "player-two-shape",
+			profile: {
+				useCapsule: false,
+				modelBottomY: new Unit(0, "cnu"),
+				modelAabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
+				lowestAabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
+				bodyCenterOffset: new UnitVector3(0, 0, 0, "cnu"),
+				bodyRadius: new Unit(0, "cnu"),
+				lowerSphereOffset: new UnitVector3(0, 0, 0, "cnu"),
+				lowerSphereRadius: new Unit(0, "cnu"),
+				upperCapsuleStartOffset: new UnitVector3(0, 0, 0, "cnu"),
+				upperCapsuleEndOffset: new UnitVector3(0, 0, 0, "cnu"),
+				upperCapsuleRadius: new Unit(0, "cnu"),
+				upperCapsuleHalfHeight: new Unit(0, "cnu"),
+			},
+			playerPhysics: {
+				useCapsule: false,
+				lowerSphere: {
+					type: "sphere",
+					center: new UnitVector3(0, 0, 0, "cnu"),
+					radius: new Unit(0, "cnu"),
+				},
+				upperCapsule: {
+					type: "capsule",
+					radius: new Unit(0, "cnu"),
+					halfHeight: new Unit(0, "cnu"),
+					segmentStart: new UnitVector3(0, 0, 0, "cnu"),
+					segmentEnd: new UnitVector3(0, 0, 0, "cnu"),
+				},
+			},
 			capsule: {
 				type: "capsule",
 				radius: new Unit(0, "cnu"),
 				halfHeight: new Unit(0, "cnu"),
-				segmentStart: new UnitVector3(0, 0, 0, "CNU"),
-				segmentEnd: new UnitVector3(0, 0, 0, "CNU"),
+				segmentStart: new UnitVector3(0, 0, 0, "cnu"),
+				segmentEnd: new UnitVector3(0, 0, 0, "cnu"),
 			},
 			simRadiusPadding: 24,
-			simRadiusAabb: { min: new UnitVector3(0, 0, 0, "CNU"), max: new UnitVector3(0, 0, 0, "CNU") },
+			simRadiusAabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
+			physics: {
+				shape: "player-two-shape",
+				bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
+			},
+			hurtbox: {
+				shape: "sphere",
+				bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
+			},
+			hitbox: {
+				shape: "sphere",
+				bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
+			},
 		},
 		mesh: null,
 		type: "player",
@@ -123,6 +165,8 @@ function InitializePlayer(payload, sceneGraph) {
 		collectibles: collectibles,
 		collisionRadius: effectiveCharacter.meta.collisionRadius
 	});
+	InitializePlayerCollisionProfile(playerState);
+	SyncPlayerCollisionFromState(playerState);
 	UpdatePlayerModelFromState(playerState);
 
 	// Insert player as entity into sceneGraph for rendering.
@@ -168,6 +212,16 @@ function UpdatePlayer(deltaSeconds, sceneGraph, cameraVectors) {
 	// from Level.js after this function returns, so the player pipeline order is:
 	// Master.UpdatePlayer → Physics.ApplyPhysicsPipeline → Enemy → Collectible → state machine → model sync
 
+	return playerState;
+}
+
+function UpdatePlayerCollision() {
+	SyncPlayerCollisionFromState(playerState);
+	return playerState;
+}
+
+function UpdatePlayerModel() {
+	UpdatePlayerModelFromState(playerState);
 	return playerState;
 }
 
@@ -243,13 +297,15 @@ function RespawnPlayer() {
 	playerState.jumpStartY.value = respawnPos.y;
 	playerState.jumpApexY.value = respawnPos.y;
 	playerState.attackFlag = false;
+	playerState.hitboxActive = false;
 	playerState.stoppingActive = false;
 	playerState.primaryOppositeHeld = false;
 	playerState.modelOpacity = 1.0;
 	playerState.boost = { active: false, timer: 0, maxSpeedMultiplier: 1, accelMultiplier: 1 };
 	playerState.invulnerable = { active: false, timer: 0, flashTimer: 0 };
 
-	UpdatePlayerModelFromState(playerState);
+	UpdatePlayerCollision();
+	UpdatePlayerModel();
 	Log("ENGINE", `Player respawned at (${respawnPos.x.toFixed(1)}, ${respawnPos.y.toFixed(1)}, ${respawnPos.z.toFixed(1)})`, "log", "Player");
 }
 
@@ -266,6 +322,8 @@ function GetPlayerInput() {
 export {
 	InitializePlayer,
 	UpdatePlayer,
+	UpdatePlayerCollision,
+	UpdatePlayerModel,
 	ResolvePlayerState,
 	TriggerPlayerDeath,
 	RespawnPlayer,

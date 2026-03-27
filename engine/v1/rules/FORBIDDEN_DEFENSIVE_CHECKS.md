@@ -110,6 +110,7 @@ If a guard is intentionally retained for initialization bootstrap (for example, 
 If a guaranteed symbol is missing, allow the natural exception to surface.
 
 Do not swallow, coerce, or default around the failure in downstream runtime modules.
+Deliberate fail-fast error throwing is not allowed. Errors must naturally surface, not be induced.
 
 This keeps bugs visible and forces fixes at the correct architectural boundary.
 
@@ -161,6 +162,22 @@ Good:
 
 ```js
 if (!playerState.active) { return; }
+```
+
+### Fail-Fast Handling
+
+Bad:
+```js
+const entity = payload?.entity;
+if (!entity) throw new Error(...);
+```
+
+Good:
+```js
+const entity = payload.entity;
+
+// code using entity as if it's canon...
+// Error will naturally surface if entity is malformed or missing
 ```
 
 ---

@@ -201,6 +201,14 @@ function Clamp(value, min, max) {
 	return Math.max(min, Math.min(max, value));
 }
 
+function Clamp01(value) {
+	return Clamp(value, 0, 1);
+}
+
+function ClampToRange(value, min, max) {
+	return Clamp(value, min, max);
+}
+
 // Linear interpolation between two scalar values
 function Lerp(a, b, t) {
 	return a + (b - a) * Clamp(t, 0, 1);
@@ -212,4 +220,17 @@ function SmoothStep(a, b, t) {
 	return clamped * clamped * (3 - 2 * clamped);
 }
 
-export { RadiansToDegrees, DegreesToRadians, WorldUnitToCNU, CNUtoWorldUnit, ToNumber, Clamp, Lerp, SmoothStep, Unit, UnitVector3 };
+export { 
+	RadiansToDegrees, 
+	DegreesToRadians, 
+	WorldUnitToCNU, 
+	CNUtoWorldUnit, 
+	ToNumber, 
+	Clamp, 
+	Clamp01, 
+	ClampToRange, 
+	Lerp, 
+	SmoothStep, 
+	Unit, 
+	UnitVector3 
+};

@@ -2,14 +2,13 @@
 
 // Called by anything that wants any 3D object or wants to build models.
 
-import { Log } from "../core/meta.js";
+import { EPSILON, Log } from "../core/meta.js";
 import { BuildScatter, GetPerformanceScatterMultiplier } from "./NewScatter.js";
 import { ToNumber, UnitVector3 } from "../math/Utilities.js";
-import { AddVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "../math/Vector3.js";
 
 function normalizeAxis(vector) {
 	const length = Math.hypot(vector.x, vector.y, vector.z);
-	if (length <= 0.000001) {
+	if (length <= EPSILON) {
 		return { x: 0, y: 1, z: 0 };
 	}
 	return {
@@ -19,15 +18,9 @@ function normalizeAxis(vector) {
 	};
 }
 
-function computeAabbCenter(aabb) {
-	const center = ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5);
-	return new UnitVector3(center.x, center.y, center.z, "cnu");
-}
-
 function computeScaledHalfExtents(localBounds, scale) {
 	const absScale = { x: Math.abs(scale.x), y: Math.abs(scale.y), z: Math.abs(scale.z) };
-	const half = MultiplyVector3(ScaleVector3(SubtractVector3(localBounds.max, localBounds.min), 0.5), absScale);
-	return localBounds.clone().set(half);
+	return localBounds.max.clone().subtract(localBounds.min).scale(0.5).multiply(absScale);
 }
 
 function computeObbFromMesh(mesh) {
@@ -38,46 +31,97 @@ function computeObbFromMesh(mesh) {
 
 	return {
 		type: "obb",
-		center: computeAabbCenter(mesh.worldAabb),
+		center: mesh.worldAabb.min.clone().add(mesh.worldAabb.max).scale(0.5),
 		halfExtents: computeScaledHalfExtents(mesh.localBounds, mesh.transform.scale),
 		axes: [axisX, axisY, axisZ],
 	};
 }
 
+function computeAabbFromMesh(mesh) {
+	return {
+		type: "aabb",
+		min: mesh.worldAabb.min.clone(),
+		max: mesh.worldAabb.max.clone(),
+	};
+}
+
+function computeTriangleSoupFromMesh(mesh) {
+	const triangles = [];
+	const matrix = CreateModelMatrix(mesh.transform);
+	const positions = mesh.geometry.positions;
+	const indices = mesh.geometry.indices;
+	const readVertex = (vertexIndex) => {
+		const vertex = transformPointByMatrix({
+			x: positions[vertexIndex * 3],
+			y: positions[(vertexIndex * 3) + 1],
+			z: positions[(vertexIndex * 3) + 2],
+		}, matrix);
+		return new UnitVector3(vertex.x, vertex.y, vertex.z, "cnu");
+	};
+
+	for (let index = 0; index < indices.length; index += 3) {
+		const a = readVertex(indices[index]);
+		const b = readVertex(indices[index + 1]);
+		const c = readVertex(indices[index + 2]);
+		const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
+		const ac = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
+		const nx = (ab.y * ac.z) - (ab.z * ac.y);
+		const ny = (ab.z * ac.x) - (ab.x * ac.z);
+		const nz = (ab.x * ac.y) - (ab.y * ac.x);
+		const length = Math.hypot(nx, ny, nz);
+		const normal = length <= EPSILON
+			? { x: 0, y: 1, z: 0 }
+			: { x: nx / length, y: ny / length, z: nz / length };
+		triangles.push({ a, b, c, normal });
+	}
+
+	return { type: "triangle-soup", triangles };
+}
+
+function resolveCollisionShape(source) {
+	if (source.collisionShape !== null) return source.collisionShape;
+	if (source.role === "terrain" || source.role === "obstacle") return "obb";
+	return "none";
+}
+
 function computeDetailedBounds(mesh) {
-	if (mesh.collisionShape === "obb") return computeObbFromMesh(mesh);
-	return null;
+	switch(mesh.collisionShape) {
+		case "triangle-soup": return computeTriangleSoupFromMesh(mesh);
+		case "aabb"         : return computeAabbFromMesh(mesh);
+		case "obb"          : return computeObbFromMesh(mesh);
+		default             : return null;
+	}
 }
 
 function resolveCylinderSegments(complexity) {
 	switch (complexity) {
-		case "low": return 8;
+		case "low" : return 8;
 		case "high": return 16;
-		default: return 12;
+		default    : return 12;
 	}
 }
 
 function resolveSphereResolution(complexity) {
 	switch(complexity) {
-		case "low": return { stacks: 6, slices: 8 };
+		case "low" : return { stacks: 6, slices: 8 };
 		case "high": return { stacks: 18, slices: 24 };
-		default: return { stacks: 12, slices: 16 };
+		default    : return { stacks: 12, slices: 16 };
 	}
 }
 
 function resolveCapsuleCapStacks(complexity) {
 	switch(complexity) {
-		case "low": return 4;
+		case "low" : return 4;
 		case "high": return 8;
-		default: return 6;
+		default    : return 6;
 	}
 }
 
 function resolveTorusResolution(complexity) {
 	switch(complexity) {
-		case "low": return { majorSegments: 12, minorSegments: 8 };
+		case "low" : return { majorSegments: 12, minorSegments: 8 };
 		case "high": return { majorSegments: 32, minorSegments: 16 };
-		default: return { majorSegments: 20, minorSegments: 12 };
+		default    : return { majorSegments: 20, minorSegments: 12 };
 	}
 }
 
@@ -213,36 +257,32 @@ function GenerateUVs(positions, geometry) {
 }
 
 function computeBounds(positions) {
-	if (positions.length < 3) {
-		return {
-			min: { x: -0.5, y: -0.5, z: -0.5 },
-			max: { x: 0.5, y: 0.5, z: 0.5 },
-		};
-	}
+	const bounds = {
+		min: new UnitVector3(-0.5, -0.5, -0.5, "cnu"),
+		max: new UnitVector3(0.5, 0.5, 0.5, "cnu")
+	};
+	if (positions.length < 3) return bounds;
 
-	let minX = Infinity;
-	let minY = Infinity;
-	let minZ = Infinity;
-	let maxX = -Infinity;
-	let maxY = -Infinity;
-	let maxZ = -Infinity;
+	bounds.min.x = Infinity;
+	bounds.min.y = Infinity;
+	bounds.min.z = Infinity;
+	bounds.max.x = -Infinity;
+	bounds.max.y = -Infinity;
+	bounds.max.z = -Infinity;
 
 	for (let index = 0; index < positions.length; index += 3) {
 		const x = positions[index + 0];
 		const y = positions[index + 1];
 		const z = positions[index + 2];
-		if (x < minX) minX = x;
-		if (y < minY) minY = y;
-		if (z < minZ) minZ = z;
-		if (x > maxX) maxX = x;
-		if (y > maxY) maxY = y;
-		if (z > maxZ) maxZ = z;
+		if (x < bounds.min.x) bounds.min.x = x;
+		if (y < bounds.min.y) bounds.min.y = y;
+		if (z < bounds.min.z) bounds.min.z = z;
+		if (x > bounds.max.x) bounds.max.x = x;
+		if (y > bounds.max.y) bounds.max.y = y;
+		if (z > bounds.max.z) bounds.max.z = z;
 	}
 
-	return {
-		min: { x: minX, y: minY, z: minZ },
-		max: { x: maxX, y: maxY, z: maxZ },
-	};
+	return bounds;
 }
 
 function createIdentityMatrix() {
@@ -904,7 +944,7 @@ function BuildObject(source, options) {
 	};
 	const worldAabb = computeWorldAabbFromGeometry(geometry.positions, transform);
 	const texture = source.texture;
-	const collisionShape = source.collisionShape || "none";
+	const collisionShape = resolveCollisionShape(source);
 
 	const mesh = {
 		id: source.id,

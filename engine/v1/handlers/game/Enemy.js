@@ -8,10 +8,9 @@ import { Log, SendEvent } from "../../core/meta.js";
 import {
 	SubtractVector3,
 	NormalizeUnitVector3,
-	DistanceVector3,
 } from "../../math/Vector3.js";
 import { ToNumber } from "../../math/Utilities.js";
-import { GetSimDistanceValue, CheckEntityAabbOverlap, CheckEntityTrueOverlap } from "../../physics/Collision.js";
+import { GetSimDistanceValue, DetectCombatOverlaps } from "../../physics/Collision.js";
 import { TriggerPlayerDeath, RespawnPlayer } from "../../player/Master.js";
 
 const KNOCKBACK_FORCE = 12;
@@ -20,8 +19,9 @@ const DEATH_WAIT_MS = 1500;
 
 /**
  * Handle collisions between the player and all enemy entities.
- * If player.attackFlag is true → enemy takes damage.
- * If player.attackFlag is false → player takes damage.
+ * Uses the three-layer combat overlap system:
+ *   - playerState.hitboxActive → player attacks enemies (hitbox vs hurtbox).
+ *   - Otherwise enemies attack player (entity hitbox vs player hurtbox).
  *
  * @param {object} playerState — mutable player state.
  * @param {object} sceneGraph — active scene graph.
@@ -34,34 +34,32 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 	const cameraPos = sceneGraph.cameraConfig.state.position;
 	const activityRadius = GetSimDistanceValue();
 
-	for (let i = entities.length - 1; i >= 0; i--) {
-		const entity = entities[i];
-		if (entity.type !== "enemy") continue;
+	// Use three-layer combat detection.
+	const combatResults = DetectCombatOverlaps(playerState, entities, activityRadius, cameraPos);
 
-		// SimDistance gate is camera-relative; only qualified entities enter this collision pass.
-		const entityPos = entity.transform.position;
-		if (DistanceVector3(cameraPos, entityPos) > activityRadius) continue;
+	for (let i = combatResults.count - 1; i >= 0; i--) {
+		const result = combatResults.items[i];
 
-		if (!CheckEntityAabbOverlap(playerState, entity)) continue;
-
-		// Collision occurred.
-		if (playerState.attackFlag) {
+		if (result.type === "player-attacks") {
 			// === ENEMY TAKES DAMAGE ===
-			entity.hp--;
+			const entity = result.target;
+			if (entity.type !== "enemy") continue;
 
+			entity.hp--;
 			Log("ENGINE", `Enemy "${entity.id}" hit by player. HP: ${entity.hp}`, "log", "Level");
 
 			if (entity.hp <= 0) {
-				// Remove enemy from scene.
-				entities.splice(i, 1);
+				const idx = entities.indexOf(entity);
+				if (idx !== -1) entities.splice(idx, 1);
 				Log("ENGINE", `Enemy "${entity.id}" destroyed.`, "log", "Level");
 				SendEvent("ENEMY_DESTROYED", { id: entity.id });
 			}
-		} else if (!playerState.invulnerable.active) {
-			if (!CheckEntityTrueOverlap(playerState, entity)) continue;
-
+		} else if (result.type === "entity-attacks" && !playerState.invulnerable.active) {
 			// === PLAYER TAKES DAMAGE ===
-			applyPlayerDamage(playerState, entityPos, sceneGraph);
+			const entity = result.attacker;
+			if (entity.type !== "enemy") continue;
+
+			applyPlayerDamage(playerState, entity.transform.position, sceneGraph);
 			break; // Only process one damage event per frame.
 		}
 	}

@@ -1,5 +1,6 @@
 // Advanced Math Stuff
 
+import { EPSILON } from "../core/meta.js";
 import { ToNumber } from "./Utilities.js";
 
 /* === NORMALIZERS === */
@@ -76,6 +77,15 @@ function CrossVector3(a, b) {
 	};
 }
 
+function CloneVector3(vector) {
+	return { x: vector.x, y: vector.y, z: vector.z };
+}
+
+function Vector3LengthSq(vector) {
+	const resolved = NormalizeVector3(vector);
+	return (resolved.x * resolved.x) + (resolved.y * resolved.y) + (resolved.z * resolved.z);
+}
+
 function Vector3Length(vector) {
 	const resolved = NormalizeVector3(vector);
 	return Math.hypot(resolved.x, resolved.y, resolved.z);
@@ -88,7 +98,7 @@ function DistanceVector3(a, b) {
 function NormalizeUnitVector3(vector) {
 	const resolved = NormalizeVector3(vector);
 	const length = Vector3Length(resolved);
-	if (length <= 0.000001) {
+	if (length <= EPSILON) {
 		return { x: 0, y: 0, z: 0 };
 	}
 	return {
@@ -150,6 +160,8 @@ export {
 	MultiplyVector3,
 	DotVector3,
 	CrossVector3,
+	CloneVector3,
+	Vector3LengthSq,
 	Vector3Length,
 	DistanceVector3,
 	NormalizeUnitVector3,

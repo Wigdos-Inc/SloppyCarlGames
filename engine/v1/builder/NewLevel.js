@@ -269,16 +269,30 @@ function buildSceneDetailedBounds(sceneGraph) {
 
 	sceneGraph.entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
-		if (entity.collision.shape === "capsule" && entity.collision.capsule) {
+		if (entity.type === "player") {
+			const parts = [entity.collision.playerPhysics.lowerSphere];
+			if (entity.collision.playerPhysics.useCapsule) parts.push(entity.collision.playerPhysics.upperCapsule);
+			push(category, entity.id, { type: "compound", parts });
+			return;
+		}
+
+		const physBounds = entity.collision.physics && entity.collision.physics.bounds;
+		if (physBounds && physBounds.type === "capsule") {
 			push(category, entity.id, {
 				type: "capsule",
-				radius: entity.collision.capsule.radius.value,
-				halfHeight: entity.collision.capsule.halfHeight.value,
-				segmentStart: entity.collision.capsule.segmentStart,
-				segmentEnd: entity.collision.capsule.segmentEnd,
+				radius: physBounds.radius,
+				halfHeight: physBounds.halfHeight,
+				segmentStart: physBounds.segmentStart,
+				segmentEnd: physBounds.segmentEnd,
 			});
 			return;
 		}
+
+		if (physBounds) {
+			push(category, entity.id, physBounds);
+			return;
+		}
+
 		push(category, entity.id, entity.collision.detailedBounds);
 	});
 
@@ -311,7 +325,7 @@ async function BuildLevel(payload) {
 				...terrainObject,
 				id: terrainObject.id,
 				role: "terrain",
-				collisionShape: "obb",
+				collisionShape: terrainObject.collisionShape,
 			},
 			{
 				role: "terrain",

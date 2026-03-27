@@ -16,7 +16,7 @@ let CONFIG = {
     },
     LEVELS: {
       Triggers: true,
-      FreeCam : true,
+      FreeCam : false,
       BoundingBox: {
         Terrain   : true,
         Scatter   : false,
@@ -24,7 +24,7 @@ let CONFIG = {
         EntityPart: false,
         Obstacle  : false,
         Player    : true,
-        PlayerPart: true,
+        PlayerPart: false,
         Boss      : false,
         BossPart  : false,
         Grid      : {
@@ -33,11 +33,11 @@ let CONFIG = {
         }
       },
       DetailedBounds: {
-        Terrain : false,
-        Obstacle: false,
-        Entity  : false,
-        Player  : false,
-        Boss    : false,
+        Terrain : true,
+        Obstacle: true,
+        Entity  : true,
+        Player  : true,
+        Boss    : true,
       },
       Trails: {
         Player     : true,
@@ -94,7 +94,7 @@ let CONFIG = {
     Gravity   : { Enabled: true, Strength: 25 },
     Resistance: { Enabled: true },
     Buoyancy  : { Enabled: true },
-    Collision : { Enabled: true },
+    Collision : { Enabled: true, Hurtbox: true, Hitbox: true },
     Correction: { Enabled: true },
   }
 };

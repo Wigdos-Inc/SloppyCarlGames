@@ -15,7 +15,7 @@ import { ToNumber } from "../../math/Utilities.js";
 import { ApplyGravity } from "../../physics/Gravity.js";
 import { ApplyResistance } from "../../physics/Resistance.js";
 import { ApplyBuoyancy } from "../../physics/Buoyancy.js";
-import { DetectCollisions, ResolveCollisions } from "../../physics/Collision.js";
+import { DetectPhysicsCollisions, ResolveCollisions, ResetCollisionPools } from "../../physics/Collision.js";
 import { ApplySurfaceAlignment } from "../../physics/Correction.js";
 
 /**
@@ -78,10 +78,10 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 		if (Math.abs(displacement.y) < 0.001) displacement.y = -0.005;
 	}
 
-	// Step 5: Collision detection (swept AABB).
-	const { solids, triggers } = DetectCollisions(playerState, displacement, sceneGraph);
+	// Step 5: Collision detection (swept — shape-gated via physics layer).
+	const { solids, triggers } = DetectPhysicsCollisions(playerState, displacement, sceneGraph);
 
-	// Step 6: Resolve solid collisions (slide, ground contact).
+	// Step 6: Resolve solid collisions (slide, ground contact). Accepts pooled results.
 	const { resolvedVelocity, resolvedDisplacement, groundContact } = ResolveCollisions(
 		playerState.velocity,
 		displacement,
@@ -106,9 +106,9 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 
 	// Store triggered volumes for game-side handling.
 	playerState.activeTriggers.length = 0;
-	for (let index = 0; index < triggers.length; index += 1) {
-		playerState.activeTriggers.push(triggers[index]);
-	}
+	const triggerItems = triggers.items ? triggers.items : triggers;
+	const triggerCount = triggers.count !== undefined ? triggers.count : triggerItems.length;
+	for (let index = 0; index < triggerCount; index++) playerState.activeTriggers.push(triggerItems[index]);
 }
 
 /**
@@ -132,15 +132,14 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 	entity.velocity.set(ApplyGravity(entity.velocity, deltaSeconds));
 
 	// Simple collision for physics-enabled entities.
-	const entityPos = entity.transform.position;
-
 	const displacement = ScaleVector3(entity.velocity, deltaSeconds);
-	const { solids } = DetectCollisions(entity, displacement, sceneGraph);
-	if (solids.length > 0) {
+	const { solids } = DetectPhysicsCollisions(entity, displacement, sceneGraph);
+	if (solids.count > 0) {
 		const { resolvedVelocity, resolvedDisplacement } = ResolveCollisions(entity.velocity, displacement, solids);
 		entity.velocity.set(resolvedVelocity);
 		entity.transform.position.add(resolvedDisplacement);
-	} else entity.transform.position.add(displacement);
+	} 
+	else entity.transform.position.add(displacement);
 
 	// Death barrier.
 	if (entity.transform.position.y < deathBarrierY) {
@@ -151,4 +150,4 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 
 /* === EXPORTS === */
 
-export { ApplyPhysicsPipeline, ApplyEntityPhysics };
+export { ApplyPhysicsPipeline, ApplyEntityPhysics, ResetCollisionPools };

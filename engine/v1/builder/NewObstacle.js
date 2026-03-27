@@ -28,18 +28,36 @@ function mergeAabb(accumulator, bounds) {
 		};
 	}
 
-	accumulator.min.set(
-		Math.min(accumulator.min.x, bounds.min.x),
-		Math.min(accumulator.min.y, bounds.min.y),
-		Math.min(accumulator.min.z, bounds.min.z)
-	);
-	accumulator.max.set(
-		Math.max(accumulator.max.x, bounds.max.x),
-		Math.max(accumulator.max.y, bounds.max.y),
-		Math.max(accumulator.max.z, bounds.max.z)
-	)
+	accumulator.min.set({
+		x: Math.min(accumulator.min.x, bounds.min.x),
+		y: Math.min(accumulator.min.y, bounds.min.y),
+		z: Math.min(accumulator.min.z, bounds.min.z),
+	});
+	accumulator.max.set({
+		x: Math.max(accumulator.max.x, bounds.max.x),
+		y: Math.max(accumulator.max.y, bounds.max.y),
+		z: Math.max(accumulator.max.z, bounds.max.z),
+	});
 
 	return accumulator;
+}
+
+function createDetailedBoundsFromParts(source, parts, bounds) {
+	if (source.collisionShape === "triangle-soup") {
+		const triangles = [];
+		for (let index = 0; index < parts.length; index += 1) {
+			const detailed = parts[index].detailedBounds;
+			if (detailed.type === "triangle-soup") triangles.push(...detailed.triangles);
+		}
+		return { type: "triangle-soup", triangles };
+	}
+
+	if (source.collisionShape === "aabb") {
+		return { type: "aabb", min: bounds.min.clone(), max: bounds.max.clone() };
+	}
+
+	if (parts.length === 1) return parts[0].detailedBounds;
+	return createEnvelopeObb(bounds);
 }
 
 function buildObstacleParts(source, index, options) {
@@ -61,7 +79,7 @@ function buildObstacleParts(source, index, options) {
 				texture: source.texture,
 				detail: source.detail,
 				role: "obstacle",
-				collisionShape: "obb",
+				collisionShape: source.collisionShape,
 			},
 			{
 				role: "obstacle",
@@ -119,7 +137,7 @@ function buildObstacleParts(source, index, options) {
 				texture: part.texture || inheritedTexture,
 				detail: { scatter: scatterList },
 				role: "obstacle",
-				collisionShape: "obb",
+				collisionShape: source.collisionShape,
 			},
 			{
 				role: "obstacle",
@@ -135,9 +153,7 @@ function BuildObstacle(source, index, options) {
 	parts.forEach((part) => bounds = mergeAabb(bounds, part.worldAabb));
 
 	const mesh = parts[0];
-	const detailedBounds = parts.length === 1 && mesh.detailedBounds
-		? mesh.detailedBounds
-		: createEnvelopeObb(bounds);
+	const detailedBounds = createDetailedBoundsFromParts(source, parts, bounds);
 
 	return {
 		id: source.id,
@@ -145,7 +161,7 @@ function BuildObstacle(source, index, options) {
 		parts: parts,
 		bounds: bounds,
 		detailedBounds: detailedBounds,
-		collisionShape: "obb",
+		collisionShape: source.collisionShape,
 		destructible: source.destructible,
 		hp: source.hp,
 		static: source.static,
@@ -170,4 +186,15 @@ function BuildObstacles(source, options) {
 	return built;
 }
 
-export { BuildObstacle, BuildObstacles };
+/**
+ * Stub: Build a BVH from triangle data for future ray/sphere intersection queries.
+ * @param {Float32Array} positions — triangle vertex positions (x,y,z triples).
+ * @param {Uint32Array} indices — triangle indices.
+ * @returns {null} — TODO: return BVH node tree.
+ */
+function BuildTriangleBVH(positions, indices) {
+	// TODO: Implement BVH construction (midpoint split, SAH, etc.)
+	return null;
+}
+
+export { BuildObstacle, BuildObstacles, BuildTriangleBVH };

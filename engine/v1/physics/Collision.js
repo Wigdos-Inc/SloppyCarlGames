@@ -1,24 +1,87 @@
-// Stops velocity on a certain axis if collission is going to happen.
+// Three-layer collision system: physics / hurtbox / hitbox.
+// Physics layer resolves geometry (swept detection + slide).
+// Hurtbox/Hitbox layers resolve combat overlaps (static tests, no geometry resolution).
 
-// Used by handlers/game/Physics.js to check if entity will collide with something collidable.
+// Used by handlers/game/Physics.js, handlers/game/Enemy.js, handlers/game/Collectible.js.
 
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import {
 	NormalizeVector3,
+	AddVector3,
 	SubtractVector3,
 	ScaleVector3,
 	DotVector3,
-	AddVector3,
 } from "../math/Vector3.js";
-import { SweptAABB, AABBOverlap } from "../math/Physics.js";
+import {
+	SweptAABB,
+	AABBOverlap,
+	SphereSphereContact,
+	SphereAABBContact,
+	SphereOBBContact,
+	SphereCapsuleContact,
+	CapsuleAABBContact,
+	CapsuleCapsuleContact,
+	CapsuleOBBContact,
+	SphereTriangleSoupContact,
+	CapsuleTriangleSoupContact,
+	InvertContact,
+	SweptSphereAABB,
+	NoContact,
+} from "../math/Physics.js";
 import { ToNumber } from "../math/Utilities.js";
 
-function clamp(value, min, max) {
-	return Math.max(min, Math.min(max, value));
+/* ========================================================================
+ * RESULT POOLS — grow-once, zero GC per frame.
+ * ======================================================================== */
+
+function createResultPool() {
+	return { items: [], count: 0 };
 }
 
+function poolReset(pool) {
+	pool.count = 0;
+}
+
+function poolPush(pool) {
+	if (pool.count < pool.items.length) return pool.items[pool.count++];
+	const item = { 
+		target: null, 
+		tEntry: 1, 
+		normal: null, 
+		depth: 0, 
+		type: null, 
+		trigger: null, 
+		attacker: null, 
+		shape: null 
+	};
+	pool.items.push(item);
+	pool.count++;
+	return item;
+}
+
+const SolidResultPool = createResultPool();
+const TriggerResultPool = createResultPool();
+const HurtboxResultPool = createResultPool();
+
+/**
+ * Reset all collision result pools. Call once at the start of each frame.
+ */
+function ResetCollisionPools() {
+	poolReset(SolidResultPool);
+	poolReset(TriggerResultPool);
+	poolReset(HurtboxResultPool);
+}
+
+/* ========================================================================
+ * HELPERS
+ * ======================================================================== */
+
 function buildDetailedBoundsFromCollision(collision) {
+	if (collision.playerPhysics) return collision.playerPhysics.lowerSphere;
+
+	// Three-layer path: prefer physics bounds.
+	if (collision.physics && collision.physics.bounds) return collision.physics.bounds;
 	if (collision.shape === "capsule" && collision.capsule) {
 		return {
 			type: "capsule",
@@ -34,158 +97,222 @@ function buildDetailedBoundsFromCollision(collision) {
 
 function offsetDetailedBounds(bounds, offset) {
 	if (!bounds) return null;
-	if (bounds.type === "capsule") {
+	else if (bounds.type === "capsule") {
 		return {
 			type: "capsule",
 			radius: bounds.radius,
 			halfHeight: bounds.halfHeight,
-			segmentStart: bounds.segmentStart.add(offset),
-			segmentEnd: bounds.segmentEnd.add(offset),
+			segmentStart: bounds.segmentStart.clone().add(offset),
+			segmentEnd: bounds.segmentEnd.clone().add(offset),
 		};
 	}
-	if (bounds.type === "obb") {
+	else if (bounds.type === "obb") {
 		return {
 			type: "obb",
-			center: bounds.center.add(offset),
+			center: bounds.center.clone().add(offset),
 			halfExtents: bounds.halfExtents,
 			axes: bounds.axes,
 		};
 	}
-	return bounds;
+	else if (bounds.type === "sphere") {
+		return {
+			type: "sphere",
+			center: bounds.center.clone().add(offset),
+			radius: bounds.radius,
+		};
+	}
+	else if (bounds.type === "aabb") {
+		return {
+			type: "aabb",
+			min: bounds.min.clone().add(offset),
+			max: bounds.max.clone().add(offset),
+		};
+	}
+	else if (bounds.type === "compound-sphere") {
+		return {
+			type: "compound-sphere",
+			spheres: bounds.spheres.map((sphere) => ({
+				center: sphere.center.clone().add(offset),
+				radius: sphere.radius,
+				partId: sphere.partId,
+			})),
+		};
+	}
+	else if (bounds.type === "triangle-soup") {
+		return {
+			type: "triangle-soup",
+			triangles: bounds.triangles.map((triangle) => ({
+				a: triangle.a.clone().add(offset),
+				b: triangle.b.clone().add(offset),
+				c: triangle.c.clone().add(offset),
+				normal: triangle.normal,
+			})),
+		};
+	}
+	else return bounds;
 }
 
-function segmentSegmentDistanceSq(p1, q1, p2, q2) {
-	const d1 = SubtractVector3(q1, p1);
-	const d2 = SubtractVector3(q2, p2);
-	const r = SubtractVector3(p1, p2);
-	const a = DotVector3(d1, d1);
-	const e = DotVector3(d2, d2);
-	const f = DotVector3(d2, r);
+// Should probably be moved to other contact helper functions in math/Physics.js
+function AabbAabbContact(boundsA, boundsB) {
+	if (!AABBOverlap(boundsA, boundsB)) return NoContact();
+	const centerA = getAabbCenter(boundsA);
+	const centerB = getAabbCenter(boundsB);
+	const overlaps = [
+		{
+			depth: centerA.x <= centerB.x ? boundsA.max.x - boundsB.min.x : boundsB.max.x - boundsA.min.x,
+			normal: centerA.x <= centerB.x ? { x: -1, y: 0, z: 0 } : { x: 1, y: 0, z: 0 },
+		},
+		{
+			depth: centerA.y <= centerB.y ? boundsA.max.y - boundsB.min.y : boundsB.max.y - boundsA.min.y,
+			normal: centerA.y <= centerB.y ? { x: 0, y: -1, z: 0 } : { x: 0, y: 1, z: 0 },
+		},
+		{
+			depth: centerA.z <= centerB.z ? boundsA.max.z - boundsB.min.z : boundsB.max.z - boundsA.min.z,
+			normal: centerA.z <= centerB.z ? { x: 0, y: 0, z: -1 } : { x: 0, y: 0, z: 1 },
+		},
+	];
 
-	let s = 0;
-	let t = 0;
-
-	if (a <= 0.000001 && e <= 0.000001) {
-		const delta = SubtractVector3(p1, p2);
-		return DotVector3(delta, delta);
+	let best = overlaps[0];
+	for (let index = 1; index < overlaps.length; index++) {
+		if (overlaps[index].depth < best.depth) best = overlaps[index];
 	}
 
-	if (a <= 0.000001) {
-		s = 0;
-		t = clamp(f / e, 0, 1);
-	} else {
-		const c = DotVector3(d1, r);
-		if (e <= 0.000001) {
-			t = 0;
-			s = clamp(-c / a, 0, 1);
-		} else {
-			const b = DotVector3(d1, d2);
-			const denom = a * e - b * b;
-			if (Math.abs(denom) > 0.000001) {
-				s = clamp((b * f - c * e) / denom, 0, 1);
-			}
-			t = (b * s + f) / e;
-			if (t < 0) {
-				t = 0;
-				s = clamp(-c / a, 0, 1);
-			} else if (t > 1) {
-				t = 1;
-				s = clamp((b - c) / a, 0, 1);
-			}
+	return { hit: true, normal: best.normal, depth: best.depth };
+}
+
+function chooseDeepestContact(best, candidate) {
+	if (!candidate.hit) return best;
+	if (!best.hit || candidate.depth > best.depth) return candidate;
+	return best;
+}
+
+function NarrowphaseContact(boundsA, boundsB) {
+	if (!boundsA || !boundsB) return { hit: true, normal: { x: 0, y: 1, z: 0 }, depth: 0 };
+
+	const typeA = boundsA.type;
+	const typeB = boundsB.type;
+
+	if (typeA === "sphere" && typeB === "sphere") return SphereSphereContact(boundsA.center, boundsA.radius, boundsB.center, boundsB.radius);
+	if (typeA === "sphere" && typeB === "aabb") return SphereAABBContact(boundsA.center, boundsA.radius, boundsB);
+	if (typeA === "aabb" && typeB === "sphere") return InvertContact(SphereAABBContact(boundsB.center, boundsB.radius, boundsA));
+	if (typeA === "sphere" && typeB === "obb") return SphereOBBContact(boundsA.center, boundsA.radius, boundsB);
+	if (typeA === "obb" && typeB === "sphere") return InvertContact(SphereOBBContact(boundsB.center, boundsB.radius, boundsA));
+	if (typeA === "sphere" && typeB === "capsule") return SphereCapsuleContact(boundsA.center, boundsA.radius, boundsB);
+	if (typeA === "capsule" && typeB === "sphere") return InvertContact(SphereCapsuleContact(boundsB.center, boundsB.radius, boundsA));
+	if (typeA === "capsule" && typeB === "aabb") return CapsuleAABBContact(boundsA, boundsB);
+	if (typeA === "aabb" && typeB === "capsule") return InvertContact(CapsuleAABBContact(boundsB, boundsA));
+	if (typeA === "capsule" && typeB === "capsule") return CapsuleCapsuleContact(boundsA, boundsB);
+	if (typeA === "capsule" && typeB === "obb") return CapsuleOBBContact(boundsA, boundsB);
+	if (typeA === "obb" && typeB === "capsule") return InvertContact(CapsuleOBBContact(boundsB, boundsA));
+	if (typeA === "sphere" && typeB === "triangle-soup") return SphereTriangleSoupContact(boundsA.center, boundsA.radius, boundsB);
+	if (typeA === "triangle-soup" && typeB === "sphere") return InvertContact(SphereTriangleSoupContact(boundsB.center, boundsB.radius, boundsA));
+	if (typeA === "capsule" && typeB === "triangle-soup") return CapsuleTriangleSoupContact(boundsA, boundsB);
+	if (typeA === "triangle-soup" && typeB === "capsule") return InvertContact(CapsuleTriangleSoupContact(boundsB, boundsA));
+	if (typeA === "aabb" && typeB === "aabb") return AabbAabbContact(boundsA, boundsB);
+
+	if (typeA === "sphere" && typeB === "compound-sphere") {
+		let best = NoContact();
+		for (let index = 0; index < boundsB.spheres.length; index += 1) {
+			best = chooseDeepestContact(
+				best, SphereSphereContact(
+					boundsA.center, 
+					boundsA.radius, boundsB.spheres[index].center, 
+					boundsB.spheres[index].radius
+				)
+			);
 		}
+		return best;
 	}
-
-	const c1 = AddVector3(p1, ScaleVector3(d1, s));
-	const c2 = AddVector3(p2, ScaleVector3(d2, t));
-	const delta = SubtractVector3(c1, c2);
-	return DotVector3(delta, delta);
-}
-
-function dotWithAxis(vector, axis) {
-	return vector.x * axis.x + vector.y * axis.y + vector.z * axis.z;
-}
-
-function toObbLocal(point, obb) {
-	const delta = SubtractVector3(point, obb.center);
-	return {
-		x: dotWithAxis(delta, obb.axes[0]),
-		y: dotWithAxis(delta, obb.axes[1]),
-		z: dotWithAxis(delta, obb.axes[2]),
-	};
-}
-
-function segmentIntersectsAabbLocal(start, end, extents) {
-	const d = SubtractVector3(end, start);
-	let tMin = 0;
-	let tMax = 1;
-	const axes = ["x", "y", "z"];
-
-	for (let i = 0; i < axes.length; i++) {
-		const axis = axes[i];
-		const startCoord = start[axis];
-		const dirCoord = d[axis];
-		const min = -extents[axis];
-		const max = extents[axis];
-
-		if (Math.abs(dirCoord) < 0.000001) {
-			if (startCoord < min || startCoord > max) return false;
-			continue;
+	if (typeA === "compound-sphere" && typeB === "sphere") {
+		let best = NoContact();
+		for (let index = 0; index < boundsA.spheres.length; index += 1) {
+			best = chooseDeepestContact(
+				best, InvertContact(SphereSphereContact(
+					boundsB.center, 
+					boundsB.radius, 
+					boundsA.spheres[index].center, 
+					boundsA.spheres[index].radius
+				))
+			);
 		}
-
-		const inv = 1 / dirCoord;
-		let t1 = (min - startCoord) * inv;
-		let t2 = (max - startCoord) * inv;
-		if (t1 > t2) {
-			const temp = t1;
-			t1 = t2;
-			t2 = temp;
+		return best;
+	}
+	if (typeA === "capsule" && typeB === "compound-sphere") {
+		let best = NoContact();
+		for (let index = 0; index < boundsB.spheres.length; index += 1) {
+			best = chooseDeepestContact(
+				best, InvertContact(SphereCapsuleContact(
+					boundsB.spheres[index].center, 
+					boundsB.spheres[index].radius, 
+					boundsA
+				))
+			);
 		}
-
-		tMin = Math.max(tMin, t1);
-		tMax = Math.min(tMax, t2);
-		if (tMin > tMax) {
-			return false;
+		return best;
+	}
+	if (typeA === "compound-sphere" && typeB === "capsule") {
+		let best = NoContact();
+		for (let index = 0; index < boundsA.spheres.length; index += 1) {
+			best = chooseDeepestContact(
+				best, SphereCapsuleContact(
+					boundsA.spheres[index].center, 
+					boundsA.spheres[index].radius, 
+					boundsB
+				)
+			);
 		}
+		return best;
 	}
 
-	return true;
+	if (typeA === "compound-sphere") {
+		let best = NoContact();
+		for (let index = 0; index < boundsA.spheres.length; index += 1) {
+			best = chooseDeepestContact(
+				best, NarrowphaseContact({ 
+						type: "sphere", 
+						center: boundsA.spheres[index].center, 
+						radius: boundsA.spheres[index].radius 
+					}, boundsB
+				)
+			);
+		}
+		return best;
+	}
+	if (typeB === "compound-sphere") {
+		let best = NoContact();
+		for (let index = 0; index < boundsB.spheres.length; index += 1) {
+			best = chooseDeepestContact(
+				best, NarrowphaseContact(boundsA, { 
+					type: "sphere", 
+					center: boundsB.spheres[index].center, 
+					radius: boundsB.spheres[index].radius 
+				})
+			);
+		}
+		return best;
+	}
+
+	if ((typeA === "aabb" && typeB === "obb") || (typeA === "obb" && typeB === "aabb")) {
+		return { hit: true, normal: { x: 0, y: 1, z: 0 }, depth: 0 };
+	}
+
+	return NoContact();
 }
 
-function checkCapsuleCapsuleOverlap(capsuleA, capsuleB) {
-	const radiusSum = capsuleA.radius + capsuleB.radius;
-	const distSq = segmentSegmentDistanceSq(
-		capsuleA.segmentStart,
-		capsuleA.segmentEnd,
-		capsuleB.segmentStart,
-		capsuleB.segmentEnd
-	);
-	return distSq <= (radiusSum * radiusSum);
+/* ========================================================================
+ * NARROWPHASE DISPATCH
+ * ======================================================================== */
+
+/**
+ * Shape-gated narrowphase test. Returns true if boundsA overlaps boundsB.
+ */
+function NarrowphaseTest(boundsA, boundsB) {
+	return NarrowphaseContact(boundsA, boundsB).hit;
 }
 
-function checkCapsuleObbOverlap(capsule, obb) {
-	const localStart = toObbLocal(capsule.segmentStart, obb);
-	const localEnd = toObbLocal(capsule.segmentEnd, obb);
-	const expanded = {
-		x: obb.halfExtents.x + capsule.radius,
-		y: obb.halfExtents.y + capsule.radius,
-		z: obb.halfExtents.z + capsule.radius,
-	};
-	return segmentIntersectsAabbLocal(localStart, localEnd, expanded);
-}
-
-function checkDetailedBoundsOverlap(boundsA, boundsB) {
-	if (!boundsA || !boundsB) return true;
-	if (boundsA.type === "capsule" && boundsB.type === "capsule") {
-		return checkCapsuleCapsuleOverlap(boundsA, boundsB);
-	}
-	if (boundsA.type === "capsule" && boundsB.type === "obb") {
-		return checkCapsuleObbOverlap(boundsA, boundsB);
-	}
-	if (boundsA.type === "obb" && boundsB.type === "capsule") {
-		return checkCapsuleObbOverlap(boundsB, boundsA);
-	}
-	return true;
-}
+/* ========================================================================
+ * BROADPHASE
+ * ======================================================================== */
 
 function GetSimDistanceValue() {
 	const raw = CONFIG.PERFORMANCE.SimDistance;
@@ -202,16 +329,8 @@ function getHalfExtents(aabb) {
 function expandAabb(aabb, padding) {
 	if (!aabb || !aabb.min || !aabb.max) return null;
 	return {
-		min: {
-			x: aabb.min.x - padding,
-			y: aabb.min.y - padding,
-			z: aabb.min.z - padding,
-		},
-		max: {
-			x: aabb.max.x + padding,
-			y: aabb.max.y + padding,
-			z: aabb.max.z + padding,
-		},
+		min: aabb.min.clone().subtract({ x: padding, y: padding, z: padding }),
+		max: aabb.max.clone().add({ x: padding, y: padding, z: padding }),
 	};
 }
 
@@ -221,8 +340,8 @@ function buildEntityAabbAtPosition(entityAabb, position) {
 	const centerOffset = getAabbCenter(entityAabb).subtract(position);
 	const centerPos = position.clone().add(centerOffset);
 	return {
-		min: centerPos.subtract(halfExtents),
-		max: centerPos.add(halfExtents),
+		min: centerPos.clone().subtract(halfExtents),
+		max: centerPos.clone().add(halfExtents),
 	};
 }
 
@@ -231,45 +350,22 @@ function getAabbCenter(aabb) {
 	return aabb.min.clone().add(aabb.max).scale(0.5);
 }
 
-function CheckEntityAabbOverlap(entityA, entityB) {
-	const aabbA = entityA && entityA.collision ? entityA.collision.aabb : null;
-	const aabbB = entityB && entityB.collision ? entityB.collision.aabb : null;
-	if (!aabbA || !aabbB) return false;
-	return AABBOverlap(aabbA, aabbB);
-}
-
-function CheckEntityTrueOverlap(entityA, entityB) {
-	if (!CheckEntityAabbOverlap(entityA, entityB)) return false;
-	const boundsA = buildDetailedBoundsFromCollision(entityA.collision);
-	const boundsB = buildDetailedBoundsFromCollision(entityB.collision);
-	return checkDetailedBoundsOverlap(boundsA, boundsB);
-}
-
-function checkSweptAabbPair(position, displacement, entityAabb, targetAabb) {
-	if (!entityAabb || !targetAabb) {
-		return { hit: false, tEntry: 1, tExit: 0, normal: { x: 0, y: 0, z: 0 } };
-	}
-	const halfExtents = getHalfExtents(entityAabb);
-	const centerOffset = getAabbCenter(entityAabb).subtract(position);
-	const centerPos = position.clone().add(centerOffset);
-	return SweptAABB(centerPos, displacement, halfExtents, targetAabb);
-}
-
-function collectCollidables(sceneGraph, simRadiusAabb) {
+/**
+ * Broadphase: collect all collidable scene objects within sim radius.
+ */
+function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 	const candidates = [];
 	const withinSimRadius = (aabb) => {
 		if (!simRadiusAabb) return true;
 		return AABBOverlap(simRadiusAabb, aabb);
 	};
 
-	// Terrain (always solid, filtered by sim radius AABB).
-	const terrain = Array.isArray(sceneGraph.terrain) ? sceneGraph.terrain : [];
+	// Terrain (always solid).
+	const terrain = sceneGraph.terrain;
 	for (let i = 0; i < terrain.length; i++) {
 		const mesh = terrain[i];
-		if (!mesh || !mesh.worldAabb) { continue; }
-		if (!withinSimRadius(mesh.worldAabb)) {
-			continue;
-		}
+		if (!mesh || !mesh.worldAabb) continue;
+		if (!withinSimRadius(mesh.worldAabb)) continue;
 		candidates.push({
 			id: mesh.id || "terrain",
 			aabb: mesh.worldAabb,
@@ -284,12 +380,10 @@ function collectCollidables(sceneGraph, simRadiusAabb) {
 	const obstacles = Array.isArray(sceneGraph.obstacles) ? sceneGraph.obstacles : [];
 	for (let i = 0; i < obstacles.length; i++) {
 		const obs = obstacles[i];
-		if (!obs) { continue; }
+		if (!obs) continue;
 		const bounds = obs.bounds || (obs.mesh && obs.mesh.worldAabb) || null;
-		if (!bounds) { continue; }
-		if (!withinSimRadius(bounds)) {
-			continue;
-		}
+		if (!bounds) continue;
+		if (!withinSimRadius(bounds)) continue;
 		candidates.push({
 			id: obs.id || "obstacle",
 			aabb: bounds,
@@ -304,10 +398,8 @@ function collectCollidables(sceneGraph, simRadiusAabb) {
 	const triggers = Array.isArray(sceneGraph.triggers) ? sceneGraph.triggers : [];
 	for (let i = 0; i < triggers.length; i++) {
 		const trig = triggers[i];
-		if (!trig || !trig.worldAabb) { continue; }
-		if (!withinSimRadius(trig.worldAabb)) {
-			continue;
-		}
+		if (!trig || !trig.worldAabb) continue;
+		if (!withinSimRadius(trig.worldAabb)) continue;
 		candidates.push({
 			id: trig.id || "trigger",
 			aabb: trig.worldAabb,
@@ -318,79 +410,280 @@ function collectCollidables(sceneGraph, simRadiusAabb) {
 		});
 	}
 
+	// Physics-enabled entities (for N-body physics).
+	const entities = sceneGraph.entities;
+	for (let i = 0; i < entities.length; i++) {
+		const ent = entities[i];
+		if (!ent || !ent.collision || !ent.collision.aabb) continue;
+		if (!ent.movement || !ent.movement.physics) continue;
+		if (!withinSimRadius(ent.collision.aabb)) continue;
+		candidates.push({
+			id: ent.id || "entity",
+			aabb: ent.collision.aabb,
+			detailedBounds: ent.collision.detailedBounds,
+			isTrigger: false,
+			type: "entity",
+			ref: ent,
+		});
+	}
+
 	return candidates;
 }
 
+/* ========================================================================
+ * ENTITY OVERLAP HELPERS (backward compat)
+ * ======================================================================== */
+
+function CheckEntityAabbOverlap(entityA, entityB) {
+	const aabbA = entityA && entityA.collision ? entityA.collision.aabb : null;
+	const aabbB = entityB && entityB.collision ? entityB.collision.aabb : null;
+	if (!aabbA || !aabbB) return false;
+	return AABBOverlap(aabbA, aabbB);
+}
+
+function CheckEntityTrueOverlap(entityA, entityB) {
+	if (!CheckEntityAabbOverlap(entityA, entityB)) return false;
+	const boundsA = buildDetailedBoundsFromCollision(entityA.collision);
+	const boundsB = buildDetailedBoundsFromCollision(entityB.collision);
+	return NarrowphaseTest(boundsA, boundsB);
+}
+
+/* ========================================================================
+ * SWEPT HELPERS
+ * ======================================================================== */
+
+function checkSweptAabbPair(position, displacement, entityAabb, targetAabb) {
+	if (!entityAabb || !targetAabb) {
+		return { hit: false, tEntry: 1, tExit: 0, normal: { x: 0, y: 0, z: 0 } };
+	}
+	const halfExtents = getHalfExtents(entityAabb);
+	const centerOffset = getAabbCenter(entityAabb).subtract(position);
+	const centerPos = position.clone().add(centerOffset);
+	return SweptAABB(centerPos, displacement, halfExtents, targetAabb);
+}
+
+function checkSweptSpherePair(position, displacement, radius, targetAabb) {
+	if (!targetAabb) {
+		return { hit: false, t: Infinity, normal: { x: 0, y: 0, z: 0 } };
+	}
+	const result = SweptSphereAABB(position, displacement, radius, targetAabb);
+	// Normalize to same shape as SweptAABB output.
+	return { hit: result.hit, tEntry: result.t, normal: result.normal };
+}
+
+function getPlayerActivePhysicsShapes(collision) {
+	const shapes = [collision.playerPhysics.lowerSphere];
+	if (collision.playerPhysics.useCapsule) shapes.push(collision.playerPhysics.upperCapsule);
+	return shapes;
+}
+
+/* ========================================================================
+ * LAYER 1: PHYSICS COLLISION DETECTION
+ * ======================================================================== */
+
 /**
- * Detect collisions using swept AABB for a moving entity.
- * @param {{ position, velocity, collision: { aabb, radius? } }} entity
- * @param {{ x, y, z }} scaledVelocity — velocity * deltaSeconds (displacement this frame)
+ * Detect physics collisions for a moving entity against world geometry and
+ * other physics-enabled entities.
+ *
+ * @param {object} entity — entity with transform, collision, type.
+ * @param {{ x, y, z }} displacement — velocity * dt for this frame.
  * @param {object} sceneGraph
- * @returns {{ solids: Array, triggers: Array }}
+ * @returns {{ solids: {items, count}, triggers: {items, count} }}
  */
-function DetectCollisions(entity, scaledVelocity, sceneGraph) {
+function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 	if (CONFIG.PHYSICS.Collision.Enabled === false) {
-		return { solids: [], triggers: [] };
+		poolReset(SolidResultPool);
+		poolReset(TriggerResultPool);
+		return { solids: SolidResultPool, triggers: TriggerResultPool };
 	}
 
-	const pos = NormalizeVector3(entity && entity.transform ? entity.transform.position : null);
-	const vel = NormalizeVector3(scaledVelocity);
-	const entityAabb = entity && entity.collision ? entity.collision.aabb : null;
-	if (!entityAabb) {
-		return { solids: [], triggers: [] };
-	}
+	const pos = entity.transform.position;
+	const vel = displacement;
+	const entityAabb = entity.collision.aabb;
 
-	const simRadiusAabb = entity && entity.collision && entity.collision.simRadiusAabb
-		? entity.collision.simRadiusAabb
-		: expandAabb(entityAabb, entity && entity.collision ? entity.collision.simRadiusPadding : 8);
-	const candidates = collectCollidables(sceneGraph, simRadiusAabb);
+	const simRadiusAabb = entity.collision.simRadiusAabb || expandAabb(entityAabb, entity.collision.simRadiusPadding || 8);
+	const candidates = BroadphaseCollectCandidates(sceneGraph, simRadiusAabb);
 	const entityFrameAabb = buildEntityAabbAtPosition(entityAabb, pos);
+	const isPlayerDualShape = entity.type === "player" && entity.collision.playerPhysics;
 
-	const solids = [];
-	const triggers = [];
+	// Determine swept mode from entity physics shape.
+	const physicsShape = entity.collision.physics ? entity.collision.physics.shape : entity.collision.shape;
+	const useSphereSwept = !isPlayerDualShape && (physicsShape === "sphere");
+
+	// For sphere swept: get radius from physics bounds.
+	let sphereCenter = null;
+	let sphereRadius = 0;
+	if (useSphereSwept && entity.collision.physics && entity.collision.physics.bounds) {
+		const pb = entity.collision.physics.bounds;
+		sphereCenter = pb.center;
+		sphereRadius = pb.radius.value;
+	}
+
+	poolReset(SolidResultPool);
+	poolReset(TriggerResultPool);
 
 	for (let i = 0; i < candidates.length; i++) {
 		const candidate = candidates[i];
 
+		// Skip self.
+		if (candidate.type === "entity" && candidate.ref === entity) continue;
+
 		if (candidate.isTrigger) {
 			if (AABBOverlap(entityFrameAabb, candidate.aabb)) {
-				triggers.push({
-					target: candidate,
-					type: "trigger",
-				});
+				const item = poolPush(TriggerResultPool);
+				item.target = candidate;
+				item.type = "trigger";
 			}
 			continue;
 		}
 
-		const swept = checkSweptAabbPair(pos, vel, entityAabb, candidate.aabb);
-		if (swept.hit) {
+		// Swept test.
+		let swept;
+		if (useSphereSwept && sphereCenter) {
+			swept = checkSweptSpherePair(sphereCenter, vel, sphereRadius, candidate.aabb);
+		} 
+		else swept = checkSweptAabbPair(pos, vel, entityAabb, candidate.aabb);
+
+		if (swept.hit && swept.tEntry >= 0 && swept.tEntry <= 1) {
+			if (isPlayerDualShape) {
+				const shapes = getPlayerActivePhysicsShapes(entity.collision);
+				const entryOffset = ScaleVector3(vel, swept.tEntry);
+				for (let shapeIndex = 0; shapeIndex < shapes.length; shapeIndex++) {
+					const endBounds = offsetDetailedBounds(shapes[shapeIndex], vel);
+					let contact = NarrowphaseContact(endBounds, candidate.detailedBounds);
+					if (!contact.hit) {
+						const entryBounds = offsetDetailedBounds(shapes[shapeIndex], entryOffset);
+						contact = NarrowphaseContact(entryBounds, candidate.detailedBounds);
+					}
+					if (!contact.hit) continue;
+
+					const item = poolPush(SolidResultPool);
+					item.target = candidate;
+					item.tEntry = swept.tEntry;
+					item.normal = contact.normal;
+					item.depth = contact.depth;
+					item.type = candidate.type;
+					item.shape = shapes[shapeIndex].type;
+				}
+				continue;
+			}
+
+			// Non-player narrowphase remains boolean-gated.
 			const entityDetailed = offsetDetailedBounds(
 				buildDetailedBoundsFromCollision(entity.collision),
 				ScaleVector3(vel, swept.tEntry)
 			);
-			if (!checkDetailedBoundsOverlap(entityDetailed, candidate.detailedBounds)) continue;
+			if (!NarrowphaseTest(entityDetailed, candidate.detailedBounds)) continue;
 
-			solids.push({
-				target: candidate,
-				tEntry: swept.tEntry,
-				normal: swept.normal,
-				type: candidate.type,
-			});
+			const item = poolPush(SolidResultPool);
+			item.target = candidate;
+			item.tEntry = swept.tEntry;
+			item.normal = swept.normal;
+			item.depth = 0;
+			item.type = candidate.type;
 		}
 	}
 
 	// Sort solids by time of entry (closest first).
-	solids.sort((a, b) => a.tEntry - b.tEntry);
+	const solidSlice = SolidResultPool.items;
+	const solidCount = SolidResultPool.count;
+	for (let i = 1; i < solidCount; i++) {
+		const key = solidSlice[i];
+		const keyT = key.tEntry;
+		let j = i - 1;
+		while (j >= 0 && solidSlice[j].tEntry > keyT) {
+			solidSlice[j + 1] = solidSlice[j];
+			j--;
+		}
+		solidSlice[j + 1] = key;
+	}
 
-	return { solids, triggers };
+	return { solids: SolidResultPool, triggers: TriggerResultPool };
 }
+
+/* ========================================================================
+ * LAYER 2 & 3: COMBAT OVERLAP DETECTION (Hurtbox / Hitbox)
+ * ======================================================================== */
+
+/**
+ * Detect all combat overlaps in one pass: active hitboxes vs hurtboxes.
+ * Returns pooled results: { items, count } where each item is { attacker, target }.
+ *
+ * @param {object} playerState — player entity (checked as both attacker and target).
+ * @param {Array} entities — all entities in the scene.
+ * @param {number} simRadius — activity radius for filtering.
+ * @param {{ x, y, z }} cameraPos — camera position for distance gating.
+ * @returns {{ items: Array, count: number }}
+ */
+function DetectCombatOverlaps(playerState, entities, simRadius, cameraPos) {
+	if (
+		CONFIG.PHYSICS.Collision.Enabled === false || 
+		(
+			CONFIG.PHYSICS.Collision.Hurtbox === false && 
+			CONFIG.PHYSICS.Collision.Hitbox === false
+		)
+	) {
+		poolReset(HurtboxResultPool);
+		return HurtboxResultPool;
+	}
+
+	poolReset(HurtboxResultPool);
+
+	for (let i = 0; i < entities.length; i++) {
+		const entity = entities[i];
+		if (entity === playerState) continue;
+		if (entity.type === "collectible") continue;
+		if (!entity.collision) continue;
+
+		// SimDistance gate.
+		const d = cameraPos.clone().subtract(entity.transform.position);
+		if ((d.x * d.x + d.y * d.y + d.z * d.z) > simRadius * simRadius) continue;
+
+		// Broadphase: player AABB vs entity AABB.
+		if (!AABBOverlap(playerState.collision.aabb, entity.collision.aabb)) continue;
+
+		// Player hitbox active → player attacks entity.
+		if (playerState.hitboxActive && CONFIG.PHYSICS.Collision.Hitbox !== false) {
+			const playerHitbox = playerState.collision.hitbox;
+			const entityHurtbox = entity.collision.hurtbox;
+			if (playerHitbox && entityHurtbox) {
+				if (NarrowphaseTest(playerHitbox.bounds, entityHurtbox.bounds)) {
+					const item = poolPush(HurtboxResultPool);
+					item.attacker = playerState;
+					item.target = entity;
+					item.type = "player-attacks";
+				}
+			}
+		}
+
+		// Entity hitbox active → entity attacks player.
+		if (entity.hitboxActive !== false && CONFIG.PHYSICS.Collision.Hurtbox !== false) {
+			const entityHitbox = entity.collision.hitbox;
+			const playerHurtbox = playerState.collision.hurtbox;
+			if (entityHitbox && playerHurtbox) {
+				if (NarrowphaseTest(entityHitbox.bounds, playerHurtbox.bounds)) {
+					const item = poolPush(HurtboxResultPool);
+					item.attacker = entity;
+					item.target = playerState;
+					item.type = "entity-attacks";
+				}
+			}
+		}
+	}
+
+	return HurtboxResultPool;
+}
+
+/* ========================================================================
+ * COLLISION RESOLUTION
+ * ======================================================================== */
 
 /**
  * Resolve solid collisions by sliding velocity along collision normals.
- * Processes collisions in order and adjusts remaining velocity each step.
- * @param {{ x, y, z }} velocity — per-second velocity (not scaled by dt).
- * @param {{ x, y, z }} displacement — velocity * dt (for this frame).
- * @param {Array} solids — sorted collision results from DetectCollisions.
+ * Accepts either pooled results { items, count } or plain arrays.
+ * @param {{ x, y, z }} velocity — per-second velocity.
+ * @param {{ x, y, z }} displacement — velocity * dt.
+ * @param {{ items, count }|Array} solids — sorted collision results.
  * @returns {{ resolvedVelocity, resolvedDisplacement, groundContact }}
  */
 function ResolveCollisions(velocity, displacement, solids) {
@@ -398,14 +691,15 @@ function ResolveCollisions(velocity, displacement, solids) {
 	let disp = NormalizeVector3(displacement);
 	let groundContact = { hit: false, normal: { x: 0, y: 1, z: 0 } };
 
-	if (!Array.isArray(solids) || solids.length === 0) {
-		return { resolvedVelocity: vel, resolvedDisplacement: disp, groundContact };
-	}
+	// Support both pool objects and plain arrays.
+	const items = solids && solids.items ? solids.items : solids;
+	const count = solids && typeof solids.count === "number" ? solids.count : (Array.isArray(items) ? items.length : 0);
 
-	for (let i = 0; i < solids.length; i++) {
-		const collision = solids[i];
+	if (count === 0) return { resolvedVelocity: vel, resolvedDisplacement: disp, groundContact };
+
+	for (let i = 0; i < count; i++) {
+		const collision = items[i];
 		const n = NormalizeVector3(collision.normal);
-		const hitTime = Math.max(0, Math.min(1, ToNumber(collision.tEntry, 0)));
 		const isGroundCandidate =
 			(collision.type === "terrain" || collision.type === "obstacle");
 
@@ -422,17 +716,15 @@ function ResolveCollisions(velocity, displacement, solids) {
 			}
 		}
 
+		if (collision.depth > 0) disp = AddVector3(disp, ScaleVector3(n, collision.depth));
+
 		// Slide: remove velocity component along collision normal.
 		const velDotN = DotVector3(vel, n);
-		if (velDotN < 0) {
-			vel = SubtractVector3(vel, ScaleVector3(n, velDotN));
-		}
+		if (velDotN < 0) vel = SubtractVector3(vel, ScaleVector3(n, velDotN));
 
 		// Adjust displacement similarly.
 		const dispDotN = DotVector3(disp, n);
-		if (dispDotN < 0) {
-			disp = SubtractVector3(disp, ScaleVector3(n, dispDotN));
-		}
+		if (dispDotN < 0) disp = SubtractVector3(disp, ScaleVector3(n, dispDotN));
 
 		LogCollision(collision);
 	}
@@ -440,20 +732,29 @@ function ResolveCollisions(velocity, displacement, solids) {
 	return { resolvedVelocity: vel, resolvedDisplacement: disp, groundContact };
 }
 
+/* ========================================================================
+ * LOGGING
+ * ======================================================================== */
+
 let lastLoggedCollisionKey = "";
 
 function LogCollision(collision) {
-	const targetId = collision && collision.target ? collision.target.id : "unknown";
-	const n = collision && collision.normal ? collision.normal : { x: 0, y: 0, z: 0 };
+	const targetId = collision.target.id;
+	const n = collision.normal;
 
 	// Deduplicate: skip logging the same collision target on consecutive frames.
 	const key = `${collision.type || "solid"}:${targetId}:${n.x.toFixed(1)},${n.y.toFixed(1)},${n.z.toFixed(1)}`;
-	if (key === lastLoggedCollisionKey) { return; }
+	if (key === lastLoggedCollisionKey) return;
 	lastLoggedCollisionKey = key;
 
 	Log(
 		"ENGINE",
-		`Collision: ${collision.type || "solid"} with "${targetId}" | normal=(${n.x.toFixed(2)}, ${n.y.toFixed(2)}, ${n.z.toFixed(2)}) t=${ToNumber(collision.tEntry, 0).toFixed(4)}`,
+		`
+			Collision: ${collision.type || "solid"} with "${targetId}" | 
+			normal=(${n.x.toFixed(2)}, ${n.y.toFixed(2)}, ${n.z.toFixed(2)}) 
+			depth=${ToNumber(collision.depth, 0).toFixed(4)} 
+			t=${ToNumber(collision.tEntry, 0).toFixed(4)}
+		`,
 		"log",
 		"Level"
 	);
@@ -462,8 +763,11 @@ function LogCollision(collision) {
 /* === EXPORTS === */
 
 export {
-	DetectCollisions,
+	DetectPhysicsCollisions,
+	DetectCombatOverlaps,
 	ResolveCollisions,
+	ResetCollisionPools,
+	NarrowphaseTest,
 	GetSimDistanceValue,
 	CheckEntityAabbOverlap,
 	CheckEntityTrueOverlap,

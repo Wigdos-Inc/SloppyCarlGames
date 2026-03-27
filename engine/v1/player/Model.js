@@ -6,9 +6,9 @@
 // Used by Master.js to pass on model data
 
 import { BuildObject, UpdateObjectWorldAabb } from "../builder/NewObject.js";
-import { NormalizeVector3, AddVector3, SubtractVector3, RotateByEuler, MultiplyVector3 } from "../math/Vector3.js";
+import { NormalizeVector3, AddVector3, SubtractVector3, RotateByEuler, MultiplyVector3, ScaleVector3 } from "../math/Vector3.js";
 import { UnitVector3 } from "../math/Utilities.js";
-import { Log } from "../core/meta.js";
+import { EPSILON, Log } from "../core/meta.js";
 
 /**
  * Clone and normalize a transform object.
@@ -177,6 +177,164 @@ function computePlayerCapsuleFromAabb(aabb) {
 	};
 }
 
+function createAabb(min, max) {
+	return { min: { x: min.x, y: min.y, z: min.z }, max: { x: max.x, y: max.y, z: max.z } };
+}
+
+function mergeAabb(accumulator, bounds) {
+	if (!accumulator) return createAabb(bounds.min, bounds.max);
+	if (bounds.min.x < accumulator.min.x) accumulator.min.x = bounds.min.x;
+	if (bounds.min.y < accumulator.min.y) accumulator.min.y = bounds.min.y;
+	if (bounds.min.z < accumulator.min.z) accumulator.min.z = bounds.min.z;
+	if (bounds.max.x > accumulator.max.x) accumulator.max.x = bounds.max.x;
+	if (bounds.max.y > accumulator.max.y) accumulator.max.y = bounds.max.y;
+	if (bounds.max.z > accumulator.max.z) accumulator.max.z = bounds.max.z;
+	return accumulator;
+}
+
+function buildSphereAabb(center, radius) {
+	return {
+		min: { x: center.x - radius, y: center.y - radius, z: center.z - radius },
+		max: { x: center.x + radius, y: center.y + radius, z: center.z + radius },
+	};
+}
+
+function buildCapsuleAabb(segmentStart, segmentEnd, radius) {
+	return {
+		min: {
+			x: Math.min(segmentStart.x, segmentEnd.x) - radius,
+			y: Math.min(segmentStart.y, segmentEnd.y) - radius,
+			z: Math.min(segmentStart.z, segmentEnd.z) - radius,
+		},
+		max: {
+			x: Math.max(segmentStart.x, segmentEnd.x) + radius,
+			y: Math.max(segmentStart.y, segmentEnd.y) + radius,
+			z: Math.max(segmentStart.z, segmentEnd.z) + radius,
+		},
+	};
+}
+
+function computeLowestPartsAabb(model, modelBottomY) {
+	let lowest = null;
+	for (let index = 0; index < model.parts.length; index++) {
+		const bounds = model.parts[index].mesh.worldAabb;
+		if (Math.abs(bounds.min.y - modelBottomY) <= EPSILON) lowest = mergeAabb(lowest, bounds);
+	}
+	return lowest;
+}
+
+function applyProfileAabb(target, bounds) {
+	target.min.set(bounds.min);
+	target.max.set(bounds.max);
+}
+
+function InitializePlayerCollisionProfile(playerState) {
+	const model = playerState.model;
+	applyModelPose(model);
+
+	const fullAabb = computePlayerAabb(model);
+	const totalWidth = fullAabb.max.x - fullAabb.min.x;
+	const totalHeight = fullAabb.max.y - fullAabb.min.y;
+	const totalDepth = fullAabb.max.z - fullAabb.min.z;
+	const footprint = Math.max(totalWidth, totalDepth);
+	const modelBottomY = fullAabb.min.y;
+	const lowestAabb = computeLowestPartsAabb(model, modelBottomY);
+	const bottomWidth = lowestAabb.max.x - lowestAabb.min.x;
+	const bottomDepth = lowestAabb.max.z - lowestAabb.min.z;
+	const lowerRadius = Math.max(0.0001, Math.max(bottomWidth, bottomDepth) * 0.5);
+	const bodyRadius = Math.max(0.0001, footprint * 0.5);
+	const useCapsule = totalHeight > totalWidth;
+	const capsuleRadius = Math.max(0.0001, footprint * 0.5);
+	const capsuleCylinderHeight = Math.max(0, totalHeight - (lowerRadius * 2));
+	const lowerCenter = {
+		x: (lowestAabb.min.x + lowestAabb.max.x) * 0.5,
+		y: modelBottomY + lowerRadius,
+		z: (lowestAabb.min.z + lowestAabb.max.z) * 0.5,
+	};
+	const rootPosition = playerState.transform.position;
+	const bodyCenter = ScaleVector3(AddVector3(fullAabb.min, fullAabb.max), 0.5);
+	const capsuleStart = {
+		x: lowerCenter.x,
+		y: modelBottomY + (lowerRadius * 2) + capsuleRadius,
+		z: lowerCenter.z,
+	};
+	const capsuleEnd = {
+		x: lowerCenter.x,
+		y: capsuleStart.y + capsuleCylinderHeight,
+		z: lowerCenter.z,
+	};
+
+	const profile = playerState.collision.profile;
+	profile.useCapsule = useCapsule && capsuleCylinderHeight > EPSILON;
+	profile.modelBottomY.value = modelBottomY;
+	applyProfileAabb(profile.modelAabb, fullAabb);
+	applyProfileAabb(profile.lowestAabb, lowestAabb);
+	profile.bodyCenterOffset.set(SubtractVector3(bodyCenter, rootPosition));
+	profile.bodyRadius.value = bodyRadius;
+	profile.lowerSphereOffset.set(SubtractVector3(lowerCenter, rootPosition));
+	profile.lowerSphereRadius.value = lowerRadius;
+	profile.upperCapsuleRadius.value = capsuleRadius;
+	profile.upperCapsuleHalfHeight.value = capsuleCylinderHeight * 0.5;
+	profile.upperCapsuleStartOffset.set(SubtractVector3(capsuleStart, rootPosition));
+	profile.upperCapsuleEndOffset.set(SubtractVector3(capsuleEnd, rootPosition));
+}
+
+function SyncPlayerCollisionFromState(playerState) {
+	const collision = playerState.collision;
+	const profile = collision.profile;
+	const rootPosition = playerState.transform.position;
+	const lowerCenter = AddVector3(rootPosition, profile.lowerSphereOffset);
+	const lowerRadius = profile.lowerSphereRadius.value;
+	const bodyCenter = AddVector3(rootPosition, profile.bodyCenterOffset);
+	const bodyRadius = profile.bodyRadius.value;
+
+	collision.playerPhysics.useCapsule = profile.useCapsule;
+	collision.playerPhysics.lowerSphere.center.set(lowerCenter);
+	collision.playerPhysics.lowerSphere.radius.value = lowerRadius;
+	collision.physics.shape = profile.useCapsule ? "player-two-shape" : "sphere";
+	collision.physics.bounds.center.set(lowerCenter);
+	collision.physics.bounds.radius.value = lowerRadius;
+	collision.shape = collision.physics.shape;
+
+	let bounds = buildSphereAabb(lowerCenter, lowerRadius);
+
+	if (profile.useCapsule) {
+		const segmentStart = AddVector3(rootPosition, profile.upperCapsuleStartOffset);
+		const segmentEnd = AddVector3(rootPosition, profile.upperCapsuleEndOffset);
+		const capsuleRadius = profile.upperCapsuleRadius.value;
+		collision.playerPhysics.upperCapsule.radius.value = capsuleRadius;
+		collision.playerPhysics.upperCapsule.halfHeight.value = profile.upperCapsuleHalfHeight.value;
+		collision.playerPhysics.upperCapsule.segmentStart.set(segmentStart);
+		collision.playerPhysics.upperCapsule.segmentEnd.set(segmentEnd);
+		collision.capsule.radius.value = capsuleRadius;
+		collision.capsule.halfHeight.value = profile.upperCapsuleHalfHeight.value;
+		collision.capsule.segmentStart.set(segmentStart);
+		collision.capsule.segmentEnd.set(segmentEnd);
+		bounds = mergeAabb(bounds, buildCapsuleAabb(segmentStart, segmentEnd, capsuleRadius));
+	} else {
+		collision.playerPhysics.upperCapsule.radius.value = 0;
+		collision.playerPhysics.upperCapsule.halfHeight.value = 0;
+		collision.playerPhysics.upperCapsule.segmentStart.set(lowerCenter);
+		collision.playerPhysics.upperCapsule.segmentEnd.set(lowerCenter);
+		collision.capsule.radius.value = 0;
+		collision.capsule.halfHeight.value = 0;
+		collision.capsule.segmentStart.set(lowerCenter);
+		collision.capsule.segmentEnd.set(lowerCenter);
+	}
+
+	collision.radius.value = bodyRadius;
+	collision.hurtbox.bounds.center.set(bodyCenter);
+	collision.hurtbox.bounds.radius.value = bodyRadius * 0.9;
+	collision.hitbox.bounds.center.set(bodyCenter);
+	collision.hitbox.bounds.radius.value = bodyRadius * 1.1;
+
+	collision.aabb.min.set(bounds.min);
+	collision.aabb.max.set(bounds.max);
+	const expanded = computeExpandedAabb(collision.aabb, collision.simRadiusPadding);
+	collision.simRadiusAabb.min.set(expanded.min);
+	collision.simRadiusAabb.max.set(expanded.max);
+}
+
 /**
  * Build a player model from a character definition.
  * @param {object} characterDefinition — from characters.json
@@ -244,29 +402,17 @@ function UpdatePlayerModelFromState(playerState) {
 
 	applyModelPose(playerState.model);
 
-	// Update collision AABB from model.
-	const aabb = computePlayerAabb(playerState.model);
-	playerState.collision.aabb.min.set(aabb.min);
-	playerState.collision.aabb.max.set(aabb.max);
-	const expanded = computeExpandedAabb(
-		playerState.collision.aabb,
-		playerState.collision.simRadiusPadding
-	);
-	if (expanded) {
-		playerState.collision.simRadiusAabb.min.set(expanded.min);
-		playerState.collision.simRadiusAabb.max.set(expanded.max);
-	}
-
-	const capsule = computePlayerCapsuleFromAabb(aabb);
-	playerState.collision.capsule.radius.value = capsule.radius;
-	playerState.collision.capsule.halfHeight.value = capsule.halfHeight;
-	playerState.collision.capsule.segmentStart.set(capsule.segmentStart);
-	playerState.collision.capsule.segmentEnd.set(capsule.segmentEnd);
-
 	// Update mesh reference for rendering.
 	playerState.mesh = playerState.model.parts[0].mesh;
 }
 
 /* === EXPORTS === */
 
-export { BuildPlayerModel, UpdatePlayerModelFromState, applyModelPose, computePlayerAabb };
+export {
+	BuildPlayerModel,
+	InitializePlayerCollisionProfile,
+	SyncPlayerCollisionFromState,
+	UpdatePlayerModelFromState,
+	applyModelPose,
+	computePlayerAabb,
+};

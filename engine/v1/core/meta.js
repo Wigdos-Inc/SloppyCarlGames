@@ -347,12 +347,14 @@ function SendEvent(eventName, payload) {
 // TLDR: 1 CNU = CNU_SCALE WebGL Units
 
 const CNU_SCALE = 1;
+const EPSILON = 0.000001;
 
 /* === EXPORTS === */
 // Public metadata API for engine modules.
 
 export {
   CNU_SCALE,
+  EPSILON,
   Log,
   LogAll,
   LogCache,

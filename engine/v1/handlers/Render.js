@@ -743,10 +743,29 @@ function createObbLineVertices(bounds) {
 	]);
 }
 
+function createAabbLineVertices(bounds) {
+	const min = bounds.min.toWorldUnit();
+	const max = bounds.max.toWorldUnit();
+	const p000 = [min.x, min.y, min.z];
+	const p001 = [min.x, min.y, max.z];
+	const p010 = [min.x, max.y, min.z];
+	const p011 = [min.x, max.y, max.z];
+	const p100 = [max.x, min.y, min.z];
+	const p101 = [max.x, min.y, max.z];
+	const p110 = [max.x, max.y, min.z];
+	const p111 = [max.x, max.y, max.z];
+
+	return new Float32Array([
+		...p000, ...p001, ...p001, ...p011, ...p011, ...p010, ...p010, ...p000,
+		...p100, ...p101, ...p101, ...p111, ...p111, ...p110, ...p110, ...p100,
+		...p000, ...p100, ...p001, ...p101, ...p010, ...p110, ...p011, ...p111,
+	]);
+}
+
 function createCapsuleLineVertices(bounds, radialSegments = 14) {
 	const start = bounds.segmentStart.toWorldUnit();
 	const end = bounds.segmentEnd.toWorldUnit();
-	const radius = CNUtoWorldUnit(bounds.radius);
+	const radius = bounds.radius.toWorldUnit();
 	const lines = [];
 
 	for (let i = 0; i < radialSegments; i += 1) {
@@ -774,6 +793,70 @@ function createCapsuleLineVertices(bounds, radialSegments = 14) {
 	return new Float32Array(lines);
 }
 
+function createSphereLineVertices(bounds, radialSegments = 16) {
+	const center = bounds.center.toWorldUnit();
+	const r = bounds.radius.toWorldUnit();
+	const lines = [];
+
+	// Three orthogonal circle rings (XY, XZ, YZ planes).
+	for (let i = 0; i < radialSegments; i += 1) {
+		const t0 = (i / radialSegments) * Math.PI * 2;
+		const t1 = ((i + 1) / radialSegments) * Math.PI * 2;
+		const c0 = Math.cos(t0), s0 = Math.sin(t0);
+		const c1 = Math.cos(t1), s1 = Math.sin(t1);
+
+		// XZ ring (horizontal).
+		lines.push(center.x + c0 * r, center.y, center.z + s0 * r, center.x + c1 * r, center.y, center.z + s1 * r);
+		// XY ring (front).
+		lines.push(center.x + c0 * r, center.y + s0 * r, center.z, center.x + c1 * r, center.y + s1 * r, center.z);
+		// YZ ring (side).
+		lines.push(center.x, center.y + c0 * r, center.z + s0 * r, center.x, center.y + c1 * r, center.z + s1 * r);
+	}
+
+	return new Float32Array(lines);
+}
+
+function createTriangleSoupLineVertices(bounds) {
+	const lines = [];
+	for (let index = 0; index < bounds.triangles.length; index += 1) {
+		const triangle = bounds.triangles[index];
+		const a = triangle.a.toWorldUnit();
+		const b = triangle.b.toWorldUnit();
+		const c = triangle.c.toWorldUnit();
+		lines.push(
+			a.x, a.y, a.z, b.x, b.y, b.z,
+			b.x, b.y, b.z, c.x, c.y, c.z,
+			c.x, c.y, c.z, a.x, a.y, a.z
+		);
+	}
+	return new Float32Array(lines);
+}
+
+function drawDetailedBoundsShape(gl, shader, bounds) {
+	let vertices = null;
+	switch(bounds.type) {
+		case "capsule"      : vertices = createCapsuleLineVertices(bounds);      break;
+		case "obb"          : vertices = createObbLineVertices(bounds);          break;
+		case "sphere"       : vertices = createSphereLineVertices(bounds);       break;
+		case "aabb"         : vertices = createAabbLineVertices(bounds);         break;
+		case "triangle-soup": vertices = createTriangleSoupLineVertices(bounds); break;
+		case "compound"     :
+			for (let index = 0; index < bounds.parts.length; index++) {
+				drawDetailedBoundsShape(gl, shader, bounds.parts[index]);
+			}
+			return;
+		case "compound-sphere":
+			for (let index = 0; index < bounds.spheres.length; index++) {
+				drawDetailedBoundsShape(gl, shader, bounds.spheres[index]);
+			}
+			return;
+		default: return;
+	}
+
+	gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+	gl.drawArrays(gl.LINES, 0, vertices.length / 3);
+}
+
 function drawDetailedBounds(renderer, sceneGraph, projection, view) {
 	const records = sceneGraph.debug.detailedBounds || [];
 	if (records.length === 0) return;
@@ -798,18 +881,9 @@ function drawDetailedBounds(renderer, sceneGraph, projection, view) {
 		const record = records[index];
 		if (!isDetailedBoundsDebugEnabled(record.type)) continue;
 
-		let vertices = null;
-		if (record.bounds.type === "capsule") {
-			vertices = createCapsuleLineVertices(record.bounds);
-		} else if (record.bounds.type === "obb") {
-			vertices = createObbLineVertices(record.bounds);
-		}
-		if (!vertices) continue;
-
 		const color = detailedBoundsTypeColors[record.type] || { r: 1, g: 1, b: 1, a: 1 };
 		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
-		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
-		gl.drawArrays(gl.LINES, 0, vertices.length / 3);
+		drawDetailedBoundsShape(gl, shader, record.bounds);
 	}
 }
 

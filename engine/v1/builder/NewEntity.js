@@ -6,7 +6,7 @@
 // Uses NewObject.js for Model Parts
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
-import { AddVector3, LerpVector3, MultiplyVector3, RotateByEuler, SubtractVector3 } from "../math/Vector3.js";
+import { AddVector3, LerpVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3 } from "../math/Vector3.js";
 import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 
 // Canonical face normal directions (unit vectors for each face).
@@ -478,14 +478,39 @@ function computeExpandedAabb(aabb, padding) {
 }
 
 function resolveEntityCollisionShape(entityType) {
-	if (
-		entityType.includes("player") || 
-		entityType.includes("enemy") || 
-		entityType.includes("boss")
-	) {
-		return "capsule";
+	// Deterministic type → shape lookup.
+	switch (entityType) {
+		case "player": return "sphere";
+		case "enemy": return "aabb";
+		case "enemy-large":
+		case "enemy-irregular":
+			return "sphere";
+		case "boss": return "compound-sphere";
+		case "projectile": return "sphere";
+		case "collectible": return "aabb";
+		case "npc": return "capsule";
+		default: return "sphere";
 	}
-	return "obb";
+}
+
+/**
+ * Resolve per-layer shapes for physics / hurtbox / hitbox.
+ * Returns { physics, hurtbox, hitbox } shape strings.
+ */
+function resolveEntityLayerShapes(entityType) {
+	const physics = resolveEntityCollisionShape(entityType);
+	switch (entityType) {
+		case "player": return { physics, hurtbox: "sphere", hitbox: "sphere" };
+		case "enemy": return { physics, hurtbox: "aabb", hitbox: "aabb" };
+		case "enemy-large":
+		case "enemy-irregular":
+			return { physics, hurtbox: "sphere", hitbox: "sphere" };
+		case "boss": return { physics, hurtbox: "compound-sphere", hitbox: "compound-sphere" };
+		case "projectile": return { physics, hurtbox: "sphere", hitbox: null };
+		case "collectible": return { physics, hurtbox: "aabb", hitbox: null };
+		case "npc": return { physics, hurtbox: null, hitbox: null };
+		default: return { physics, hurtbox: physics, hitbox: null };
+	}
 }
 
 function computeCapsuleFromAabb(aabb, overrides = {}) {
@@ -509,6 +534,99 @@ function computeCapsuleFromAabb(aabb, overrides = {}) {
 	};
 }
 
+function computeSphereFromAabb(aabb) {
+	const half = aabb.max.clone().subtract(aabb.min).scale(0.5);
+	const radius = Math.sqrt(half.x * half.x + half.y * half.y + half.z * half.z);
+	return {
+		type: "sphere",
+		center: aabb.min.clone().add(aabb.max).scale(0.5),
+		radius: new Unit(Math.max(0.0001, radius), "cnu"),
+	};
+}
+
+function computeCompoundSpheresFromModel(model, overrides) {
+	const spheres = [];
+	model.parts.forEach((part) => {
+		const sphere = computeSphereFromAabb(part.mesh.worldAabb);
+		const partOverride = overrides && overrides[part.id];
+		if (partOverride) {
+			if (partOverride.radiusScale) sphere.radius.value *= partOverride.radiusScale;
+			if (partOverride.centerOffset) sphere.center.add(partOverride.centerOffset);
+		}
+		spheres.push({
+			center: sphere.center,
+			radius: sphere.radius,
+			partId: part.id,
+		});
+	});
+	return {
+		type: "compound-sphere",
+		spheres: spheres,
+	};
+}
+
+function computeScaledBounds(bounds, scaleFactor) {
+	if (bounds.type === "sphere") {
+		return {
+			type: "sphere",
+			center: bounds.center.clone(),
+			radius: new Unit(bounds.radius.value * scaleFactor, bounds.radius.unit),
+		};
+	}
+	else if (bounds.type === "aabb") {
+		const center = ScaleVector3(AddVector3(bounds.min, bounds.max), 0.5);
+		const half = ScaleVector3(SubtractVector3(bounds.max, bounds.min), 0.5 * scaleFactor);
+		return {
+			type: "aabb",
+			min: bounds.min.clone().set(SubtractVector3(center, half)),
+			max: bounds.max.clone().set(AddVector3(center, half)),
+		};
+	}
+	else if (bounds.type === "capsule") {
+		return {
+			type: "capsule",
+			radius: new Unit(bounds.radius.value * scaleFactor, bounds.radius.unit),
+			halfHeight: new Unit(bounds.halfHeight.value * scaleFactor, bounds.halfHeight.unit),
+			segmentStart: bounds.segmentStart.clone(),
+			segmentEnd: bounds.segmentEnd.clone(),
+		};
+	}
+	else if (bounds.type === "compound-sphere") {
+		return {
+			type: "compound-sphere",
+			spheres: bounds.spheres.map((s) => ({
+				center: s.center.clone(),
+				radius: new Unit(s.radius.value * scaleFactor, s.radius.unit),
+				partId: s.partId,
+			})),
+		};
+	}
+	// OBB: scale half-extents.
+	else if (bounds.type === "obb") {
+		return {
+			type: "obb",
+			center: bounds.center.clone(),
+			halfExtents: bounds.halfExtents.clone().scale(scaleFactor),
+			axes: bounds.axes,
+		};
+	}
+	return bounds;
+}
+
+/**
+ * Build the bounds object for a given shape type from entity AABB/model.
+ */
+function buildBoundsForShape(shape, aabb, model, overrides) {
+	switch (shape) {
+		case "sphere": return computeSphereFromAabb(aabb);
+		case "aabb": return { type: "aabb", min: aabb.min, max: aabb.max };
+		case "capsule": return computeCapsuleFromAabb(aabb, overrides);
+		case "obb": return computeObbFromAabb(aabb);
+		case "compound-sphere": return computeCompoundSpheresFromModel(model, overrides);
+		default: return computeSphereFromAabb(aabb);
+	}
+}
+
 function computeObbFromAabb(aabb) {
 	return {
 		type: "obb",
@@ -522,17 +640,52 @@ function computeObbFromAabb(aabb) {
 	};
 }
 
-function computeDetailedBoundsForEntity(entityType, aabb, overrides) {
-	const shape = resolveEntityCollisionShape(entityType);
-	if (shape === "capsule") {
-		return {
-			collisionShape: shape,
-			detailedBounds: computeCapsuleFromAabb(aabb, overrides),
-		};
+/**
+ * Compute three-layer collision data for an entity.
+ * Returns { physics, hurtbox, hitbox, collisionShape, detailedBounds } where
+ * detailedBounds is the physics bounds (backward compat).
+ */
+function computeDetailedBoundsForEntity(entityType, aabb, model, overrides) {
+	const layers = resolveEntityLayerShapes(entityType);
+	const collisionOverride = overrides && overrides.collisionOverride;
+	const capsuleOverride = overrides && overrides.collisionCapsule;
+
+	// Physics collider bounds.
+	const physicsShape = (collisionOverride && collisionOverride.physics) || layers.physics;
+	const physicsBounds = buildBoundsForShape(physicsShape, aabb, model, capsuleOverride);
+
+	// Hurtbox bounds (null = immune to damage).
+	let hurtbox = null;
+	if (layers.hurtbox) {
+		const hurtboxShape = (collisionOverride && collisionOverride.hurtbox) || layers.hurtbox;
+		const baseBounds = buildBoundsForShape(hurtboxShape, aabb, model, capsuleOverride);
+
+		// Player hurtbox is 0.9× radius; boss compound hurtbox is 1.05× radii.
+		switch(entityType) {
+			case "player": hurtbox = { shape: hurtboxShape, bounds: computeScaledBounds(baseBounds, 0.9) };  break;
+			case "boss"  : hurtbox = { shape: hurtboxShape, bounds: computeScaledBounds(baseBounds, 1.05) }; break;
+			default      : hurtbox = { shape: hurtboxShape, bounds: baseBounds };                            break;
+		}
 	}
+
+	// Hitbox bounds (null = can't deal damage).
+	let hitbox = null;
+	if (layers.hitbox) {
+		const hitboxShape = (collisionOverride && collisionOverride.hitbox) || layers.hitbox;
+		const baseBounds = buildBoundsForShape(hitboxShape, aabb, model, capsuleOverride);
+		// Player hitbox is 1.1× radius.
+		if (entityType === "player") {
+			hitbox = { shape: hitboxShape, bounds: computeScaledBounds(baseBounds, 1.1) };
+		} 
+		else hitbox = { shape: hitboxShape, bounds: baseBounds };
+	}
+
 	return {
-		collisionShape: shape,
-		detailedBounds: computeObbFromAabb(aabb),
+		collisionShape: physicsShape,
+		detailedBounds: physicsBounds,
+		physics: { shape: physicsShape, bounds: physicsBounds },
+		hurtbox: hurtbox,
+		hitbox: hitbox,
 	};
 }
 
@@ -561,7 +714,10 @@ function BuildEntity(definition, surfaceMap) {
 	}
 
 	const aabb = computeEntityAabb(model);
-	const detailed = computeDetailedBoundsForEntity(merged.type, aabb, merged.collisionCapsule || {});
+	const detailed = computeDetailedBoundsForEntity(merged.type, aabb, model, {
+		collisionCapsule: merged.collisionCapsule || {},
+		collisionOverride: merged.collisionOverride || null,
+	});
 
 	return {
 		id: merged.id,
@@ -571,6 +727,7 @@ function BuildEntity(definition, surfaceMap) {
 		hardcoded: merged.hardcoded,
 		platform: merged.platform,
 		collisionCapsule: merged.collisionCapsule || {},
+		collisionOverride: merged.collisionOverride || null,
 		movement: movement,
 		transform: {
 			position: rootTrans.position,
@@ -586,7 +743,11 @@ function BuildEntity(definition, surfaceMap) {
 			simRadiusAabb: computeExpandedAabb(aabb, simRadiusPadding),
 			shape: detailed.collisionShape,
 			detailedBounds: detailed.detailedBounds,
+			physics: detailed.physics,
+			hurtbox: detailed.hurtbox,
+			hitbox: detailed.hitbox,
 		},
+		hitboxActive: false,
 		animations: merged.animations,
 		state: {
 			movementProgress: initialMovementProgress,
@@ -609,9 +770,15 @@ function UpdateEntityModelFromTransform(entity) {
 		entity.collision.aabb,
 		entity.collision.simRadiusPadding
 	);
-	const detailed = computeDetailedBoundsForEntity(entity.type, entity.collision.aabb, entity.collisionCapsule || {});
+	const detailed = computeDetailedBoundsForEntity(entity.type, entity.collision.aabb, entity.model, {
+		collisionCapsule: entity.collisionCapsule || {},
+		collisionOverride: entity.collisionOverride || null,
+	});
 	entity.collision.shape = detailed.collisionShape;
 	entity.collision.detailedBounds = detailed.detailedBounds;
+	entity.collision.physics = detailed.physics;
+	entity.collision.hurtbox = detailed.hurtbox;
+	entity.collision.hitbox = detailed.hitbox;
 }
 
 function ResetEntityToDefaultPose(entity) {
@@ -640,9 +807,15 @@ function ResetEntityToDefaultPose(entity) {
 		entity.collision.aabb,
 		entity.collision.simRadiusPadding
 	);
-	const detailed = computeDetailedBoundsForEntity(entity.type, entity.collision.aabb, entity.collisionCapsule || {});
+	const detailed = computeDetailedBoundsForEntity(entity.type, entity.collision.aabb, entity.model, {
+		collisionCapsule: entity.collisionCapsule || {},
+		collisionOverride: entity.collisionOverride || null,
+	});
 	entity.collision.shape = detailed.collisionShape;
 	entity.collision.detailedBounds = detailed.detailedBounds;
+	entity.collision.physics = detailed.physics;
+	entity.collision.hurtbox = detailed.hurtbox;
+	entity.collision.hitbox = detailed.hitbox;
 }
 
 function SampleMovementPoint(entity, normalizedTime) {

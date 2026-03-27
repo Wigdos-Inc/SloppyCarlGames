@@ -625,6 +625,13 @@ function normalizeObject(value) {
 function normalizeString(value, fallback = "") {
 	return (value && typeof value === "string" && value.length > 0) ? value : fallback;
 }
+
+function normalizeCollisionShape(value) {
+	if (typeof value !== "string") return null;
+	const normalized = value.trim().toLowerCase();
+	return normalized.length > 0 ? normalized : null;
+}
+
 function normalizeArray(value) { 
 	return Array.isArray(value) ? value : []; 
 }
@@ -779,6 +786,7 @@ function normalizeTerrainObject(definition, index) {
 		id: normalizeString(source.id, `terrain-${index}`),
 		shape: shape,
 		complexity: complexity,
+		collisionShape: normalizeCollisionShape(source.collisionShape),
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
 		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
@@ -900,6 +908,7 @@ function normalizeObstacle(definition, index) {
 		id: normalizeString(source.id, `obstacle-${index}`),
 		shape,
 		complexity,
+		collisionShape: normalizeCollisionShape(source.collisionShape),
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
 		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
@@ -1313,6 +1322,7 @@ function normalizeEntityData(source, entityId, blueprint) {
 		platform: getByAlias(source, "entity.platform", getByAlias(blueprintSource, "entity.platform", null)),
 		animations: normalizeObject(resolveObjectField(source, blueprintSource, "animations", entityId)),
 		velocity: new UnitVector3(velocityVector.x, velocityVector.y, velocityVector.z, "cnu"),
+		collisionOverride: normalizeObject(resolveObjectField(source, blueprintSource, "collisionOverride", entityId)),
 		model: normalizeEntityModel(source.model, source, entityId, blueprint),
 	};
 }

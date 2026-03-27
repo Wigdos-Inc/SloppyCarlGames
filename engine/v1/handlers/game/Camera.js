@@ -12,11 +12,10 @@ import {
 	SubtractVector3,
 	CrossVector3,
 	NormalizeUnitVector3,
-	NormalizeVector3,
 	ScaleVector3,
 	Vector3Length,
 } from "../../math/Vector3.js";
-import { RayAABBIntersect } from "../../math/Physics.js";
+import { ClampVelocity, RayAABBIntersect } from "../../math/Physics.js";
 import { Lerp, ToNumber, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
 
 const worldUp = { x: 0, y: 1, z: 0 };
@@ -114,23 +113,15 @@ function createForwardFromAngles(yawDegrees, pitchDegrees) {
 	});
 }
 
-function createCameraState(seed) {
-	const source = seed;
-	const position = worldDistanceDefaults.freeCamStartPosition;
-	position.set(source.position);
+function createCameraState(source) {
+	const position = worldDistanceDefaults.freeCamStartPosition; position.set(source.position);
 	const yaw = ToNumber(source.yaw, -90);
 	const pitch = Clamp(ToNumber(source.pitch, -18), -pitchClampDegrees, pitchClampDegrees);
 	const forward = createForwardFromAngles(yaw, pitch);
 	const right = NormalizeUnitVector3(CrossVector3(forward, worldUp));
 	const up = NormalizeUnitVector3(CrossVector3(right, forward));
 	const velocity = new UnitVector3(0, 0, 0, "worldunit");
-	velocity.set(source.velocity);
-	const target = new UnitVector3(
-		position.x + forward.x, 
-		position.y + forward.y, 
-		position.z + forward.z, 
-		"worldunit"
-	);
+	const target = position.clone().add(forward);
 
 	return {
 		position: position,
@@ -355,7 +346,9 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 	else cameraState.velocity.scale(Math.pow(freeCamRuntime.dampingFactor, dt * 60));
 
 	const speed = Vector3Length(cameraState.velocity);
-	if (speed > freeCamRuntime.maxSpeed.value) cameraState.velocity.scale(freeCamRuntime.maxSpeed.value);
+	if (speed > freeCamRuntime.maxSpeed.value) {
+		cameraState.velocity.set(ClampVelocity(cameraState.velocity, freeCamRuntime.maxSpeed.value));
+	}
 
 	cameraState.position.add(ScaleVector3(cameraState.velocity, dt));
 	cameraState.speed.value = freeCamRuntime.maxSpeed.value;

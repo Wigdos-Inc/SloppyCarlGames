@@ -15,8 +15,14 @@ import { DistanceVector3, LerpVector3 } from "../../math/Vector3.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { UpdateInputEventTypes } from "../Controls.js";
 import { ValidateLevelPayload } from "../../core/validate.js";
-import { InitializePlayer, UpdatePlayer, ResolvePlayerState, GetPlayerState } from "../../player/Master.js";
-import { UpdatePlayerModelFromState } from "../../player/Model.js";
+import { 
+	InitializePlayer, 
+	UpdatePlayer, 
+	UpdatePlayerCollision, 
+	UpdatePlayerModel, 
+	ResolvePlayerState, 
+	GetPlayerState 
+} from "../../player/Master.js";
 import { ApplyPhysicsPipeline, ApplyEntityPhysics } from "./Physics.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
@@ -128,6 +134,7 @@ function updateEntityMovement(entity, deltaSeconds) {
 function syncEntityMeshes(sceneGraph) {
 	for (let index = 0; index < sceneGraph.entities.length; index += 1) {
 		const entity = sceneGraph.entities[index];
+		if (entity.type === "player") continue;
 
 		if (entity.model) {
 			UpdateEntityModelFromTransform(entity);
@@ -283,9 +290,11 @@ function Update(deltaMilliseconds) {
 
 		// 1. Input → Movement & Abilities
 		UpdatePlayer(deltaSeconds, sceneGraph, cameraVectors);
+		UpdatePlayerCollision();
 
 		// 2. Physics pipeline (gravity, resistance, buoyancy, collision, correction)
 		ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds);
+		UpdatePlayerCollision();
 
 		// 3. Enemy collisions (damage / attack)
 		HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds);
@@ -297,7 +306,7 @@ function Update(deltaMilliseconds) {
 		ResolvePlayerState();
 
 		// 6. Sync player model from state
-		UpdatePlayerModelFromState(playerState);
+		UpdatePlayerModel();
 	}
 
 	// === NON-PLAYER ENTITY UPDATE ===
