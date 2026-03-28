@@ -22,7 +22,7 @@ function NoContact() {
 	return { hit: false, normal: { x: 0, y: 1, z: 0 }, depth: 0, point: null };
 }
 
-function MakeContact(normal, depth, point = null) {
+function makeContact(normal, depth, point = null) {
 	return {
 		hit: depth >= 0,
 		normal: normal,
@@ -41,13 +41,13 @@ function InvertContact(contact) {
 	};
 }
 
-function ResolveUnitDirection(vector) {
+function resolveUnitDirection(vector) {
 	const lengthSq = Vector3LengthSq(vector);
 	if (lengthSq <= EPSILON) return null;
 	return ScaleVector3(vector, 1 / Math.sqrt(lengthSq));
 }
 
-function ClosestPointOnAabb(point, aabb) {
+function closestPointOnAabb(point, aabb) {
 	return {
 		x: ClampToRange(point.x, aabb.min.x, aabb.max.x),
 		y: ClampToRange(point.y, aabb.min.y, aabb.max.y),
@@ -55,7 +55,7 @@ function ClosestPointOnAabb(point, aabb) {
 	};
 }
 
-function ResolveInsideAabbContact(center, radius, aabb) {
+function resolveInsideAabbContact(center, radius, aabb) {
 	const distances = [
 		{ depth: (center.x - aabb.min.x) + radius, normal: { x: -1, y: 0, z: 0 } },
 		{ depth: (aabb.max.x - center.x) + radius, normal: { x: 1, y: 0, z: 0 } },
@@ -70,10 +70,10 @@ function ResolveInsideAabbContact(center, radius, aabb) {
 		if (distances[index].depth < best.depth) best = distances[index];
 	}
 
-	return MakeContact(best.normal, best.depth, CloneVector3(center));
+	return makeContact(best.normal, best.depth, CloneVector3(center));
 }
 
-function ResolveInsideObbContact(localPoint, radius, obb) {
+function resolveInsideObbContact(localPoint, radius, obb) {
 	const distances = [
 		{ depth: (localPoint.x + obb.halfExtents.x) + radius, normal: ScaleVector3(obb.axes[0], -1) },
 		{ depth: (obb.halfExtents.x - localPoint.x) + radius, normal: CloneVector3(obb.axes[0]) },
@@ -88,14 +88,14 @@ function ResolveInsideObbContact(localPoint, radius, obb) {
 		if (distances[index].depth < best.depth) best = distances[index];
 	}
 
-	return MakeContact(best.normal, best.depth, null);
+	return makeContact(best.normal, best.depth, null);
 }
 
 function dotAxis(vector, axis) {
 	return vector.x * axis.x + vector.y * axis.y + vector.z * axis.z;
 }
 
-function ProjectToObbLocal(point, obb) {
+function projectToObbLocal(point, obb) {
 	const delta = SubtractVector3(point, obb.center);
 	return {
 		x: dotAxis(delta, obb.axes[0]),
@@ -104,7 +104,25 @@ function ProjectToObbLocal(point, obb) {
 	};
 }
 
-function ClosestPointOnSegment(point, segStart, segEnd) {
+function projectDirectionToObbLocal(vector, obb) {
+	return {
+		x: dotAxis(vector, obb.axes[0]),
+		y: dotAxis(vector, obb.axes[1]),
+		z: dotAxis(vector, obb.axes[2]),
+	};
+}
+
+function projectObbNormalToWorld(localNormal, obb) {
+	return AddVector3(
+		ScaleVector3(obb.axes[0], localNormal.x),
+		AddVector3(
+			ScaleVector3(obb.axes[1], localNormal.y),
+			ScaleVector3(obb.axes[2], localNormal.z)
+		)
+	);
+}
+
+function closestPointOnSegment(point, segStart, segEnd) {
 	const segment = SubtractVector3(segEnd, segStart);
 	const segmentLengthSq = Vector3LengthSq(segment);
 	if (segmentLengthSq <= EPSILON) return CloneVector3(segStart);
@@ -114,7 +132,7 @@ function ClosestPointOnSegment(point, segStart, segEnd) {
 	return AddVector3(segStart, ScaleVector3(segment, t));
 }
 
-function ClosestPointsOnSegments(p1, q1, p2, q2) {
+function closestPointsOnSegments(p1, q1, p2, q2) {
 	const d1 = SubtractVector3(q1, p1);
 	const d2 = SubtractVector3(q2, p2);
 	const r = SubtractVector3(p1, p2);
@@ -169,7 +187,7 @@ function ClosestPointsOnSegments(p1, q1, p2, q2) {
 	};
 }
 
-function ClosestPointOnTriangle(point, a, b, c) {
+function closestPointOnTriangle(point, a, b, c) {
 	const ab = SubtractVector3(b, a);
 	const ac = SubtractVector3(c, a);
 	const ap = SubtractVector3(point, a);
@@ -212,13 +230,13 @@ function ClosestPointOnTriangle(point, a, b, c) {
 	return AddVector3(a, AddVector3(ScaleVector3(ab, v), ScaleVector3(ac, w)));
 }
 
-function TriangleNormal(a, b, c) {
-	const normal = ResolveUnitDirection(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a)));
+function triangleNormal(a, b, c) {
+	const normal = resolveUnitDirection(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a)));
 	if (normal) return normal;
 	return { x: 0, y: 1, z: 0 };
 }
 
-function ClosestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal) {
+function closestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal) {
 	const segment = SubtractVector3(segEnd, segStart);
 	const candidates = [];
 	const denom = DotVector3(triangleNormal, segment);
@@ -227,7 +245,7 @@ function ClosestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal)
 		const t = DotVector3(triangleNormal, SubtractVector3(a, segStart)) / denom;
 		if (t >= 0 && t <= 1) {
 			const segmentPoint = AddVector3(segStart, ScaleVector3(segment, t));
-			const trianglePoint = ClosestPointOnTriangle(segmentPoint, a, b, c);
+			const trianglePoint = closestPointOnTriangle(segmentPoint, a, b, c);
 			if (Vector3LengthSq(SubtractVector3(segmentPoint, trianglePoint)) <= EPSILON) {
 				return {
 					segmentPoint,
@@ -244,15 +262,15 @@ function ClosestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal)
 	const planePoint = AddVector3(segStart, ScaleVector3(segment, planeT));
 	candidates.push({
 		segmentPoint: CloneVector3(segStart),
-		trianglePoint: ClosestPointOnTriangle(segStart, a, b, c),
+		trianglePoint: closestPointOnTriangle(segStart, a, b, c),
 	});
 	candidates.push({
 		segmentPoint: CloneVector3(segEnd),
-		trianglePoint: ClosestPointOnTriangle(segEnd, a, b, c),
+		trianglePoint: closestPointOnTriangle(segEnd, a, b, c),
 	});
 	candidates.push({
 		segmentPoint: planePoint,
-		trianglePoint: ClosestPointOnTriangle(planePoint, a, b, c),
+		trianglePoint: closestPointOnTriangle(planePoint, a, b, c),
 	});
 
 	const edges = [
@@ -261,7 +279,7 @@ function ClosestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal)
 		[c, a],
 	];
 	for (let index = 0; index < edges.length; index += 1) {
-		const segmentPair = ClosestPointsOnSegments(segStart, segEnd, edges[index][0], edges[index][1]);
+		const segmentPair = closestPointsOnSegments(segStart, segEnd, edges[index][0], edges[index][1]);
 		candidates.push({
 			segmentPoint: segmentPair.pointA,
 			trianglePoint: segmentPair.pointB,
@@ -280,7 +298,7 @@ function ClosestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal)
 	return best;
 }
 
-function ChooseDeepestContact(best, next) {
+function chooseDeepestContact(best, next) {
 	if (!next.hit) return best;
 	if (!best.hit || next.depth > best.depth) return next;
 	return best;
@@ -295,29 +313,29 @@ function SphereSphereContact(centerA, radiusA, centerB, radiusB) {
 	if (distSq > radiusSum * radiusSum) return NoContact();
 
 	if (distSq <= EPSILON) {
-		return MakeContact({ x: 0, y: 1, z: 0 }, radiusSum, CloneVector3(centerA));
+		return makeContact({ x: 0, y: 1, z: 0 }, radiusSum, CloneVector3(centerA));
 	}
 
 	const distance = Math.sqrt(distSq);
 	const normal = ScaleVector3(delta, 1 / distance);
-	return MakeContact(normal, radiusSum - distance, SubtractVector3(centerA, ScaleVector3(normal, resolvedRadiusA)));
+	return makeContact(normal, radiusSum - distance, SubtractVector3(centerA, ScaleVector3(normal, resolvedRadiusA)));
 }
 
 function SphereAABBContact(center, radius, aabb) {
 	const resolvedRadius = radius.value;
-	const closest = ClosestPointOnAabb(center, aabb);
+	const closest = closestPointOnAabb(center, aabb);
 	const delta = SubtractVector3(center, closest);
 	const distSq = Vector3LengthSq(delta);
 	if (distSq > resolvedRadius * resolvedRadius) return NoContact();
-	if (distSq <= EPSILON) return ResolveInsideAabbContact(center, resolvedRadius, aabb);
+	if (distSq <= EPSILON) return resolveInsideAabbContact(center, resolvedRadius, aabb);
 
 	const distance = Math.sqrt(distSq);
-	return MakeContact(ScaleVector3(delta, 1 / distance), resolvedRadius - distance, closest);
+	return makeContact(ScaleVector3(delta, 1 / distance), resolvedRadius - distance, closest);
 }
 
 function SphereOBBContact(center, radius, obb) {
 	const resolvedRadius = radius.value;
-	const localPoint = ProjectToObbLocal(center, obb);
+	const localPoint = projectToObbLocal(center, obb);
 	const clampedLocal = {
 		x: ClampToRange(localPoint.x, -obb.halfExtents.x, obb.halfExtents.x),
 		y: ClampToRange(localPoint.y, -obb.halfExtents.y, obb.halfExtents.y),
@@ -336,33 +354,33 @@ function SphereOBBContact(center, radius, obb) {
 	const delta = SubtractVector3(center, closest);
 	const distSq = Vector3LengthSq(delta);
 	if (distSq > resolvedRadius * resolvedRadius) return NoContact();
-	if (distSq <= EPSILON) return ResolveInsideObbContact(localPoint, resolvedRadius, obb);
+	if (distSq <= EPSILON) return resolveInsideObbContact(localPoint, resolvedRadius, obb);
 
 	const distance = Math.sqrt(distSq);
-	return MakeContact(ScaleVector3(delta, 1 / distance), resolvedRadius - distance, closest);
+	return makeContact(ScaleVector3(delta, 1 / distance), resolvedRadius - distance, closest);
 }
 
 function SphereCapsuleContact(center, radius, capsule) {
 	const resolvedSphereRadius = radius.value;
 	const resolvedCapsuleRadius = capsule.radius.value;
-	const closest = ClosestPointOnSegment(center, capsule.segmentStart, capsule.segmentEnd);
+	const closest = closestPointOnSegment(center, capsule.segmentStart, capsule.segmentEnd);
 	const delta = SubtractVector3(center, closest);
 	const distSq = Vector3LengthSq(delta);
 	const radiusSum = resolvedSphereRadius + resolvedCapsuleRadius;
 	if (distSq > radiusSum * radiusSum) return NoContact();
 	if (distSq <= EPSILON) {
 		const segmentMid = ScaleVector3(AddVector3(capsule.segmentStart, capsule.segmentEnd), 0.5);
-		const normal = ResolveUnitDirection(SubtractVector3(center, segmentMid)) || { x: 0, y: 1, z: 0 };
-		return MakeContact(normal, radiusSum, closest);
+		const normal = resolveUnitDirection(SubtractVector3(center, segmentMid)) || { x: 0, y: 1, z: 0 };
+		return makeContact(normal, radiusSum, closest);
 	}
 
 	const distance = Math.sqrt(distSq);
-	return MakeContact(ScaleVector3(delta, 1 / distance), radiusSum - distance, closest);
+	return makeContact(ScaleVector3(delta, 1 / distance), radiusSum - distance, closest);
 }
 
-function SphereTriangleContact(center, radius, triangle) {
+function sphereTriangleContact(center, radius, triangle) {
 	const resolvedRadius = radius.value;
-	const closest = ClosestPointOnTriangle(center, triangle.a, triangle.b, triangle.c);
+	const closest = closestPointOnTriangle(center, triangle.a, triangle.b, triangle.c);
 	const delta = SubtractVector3(center, closest);
 	const distSq = Vector3LengthSq(delta);
 	if (distSq > resolvedRadius * resolvedRadius) return NoContact();
@@ -371,17 +389,17 @@ function SphereTriangleContact(center, radius, triangle) {
 		const oriented = DotVector3(triangleNormal, SubtractVector3(center, triangle.a)) >= 0
 			? triangleNormal
 			: ScaleVector3(triangleNormal, -1);
-		return MakeContact(oriented, resolvedRadius, closest);
+		return makeContact(oriented, resolvedRadius, closest);
 	}
 
 	const distance = Math.sqrt(distSq);
-	return MakeContact(ScaleVector3(delta, 1 / distance), resolvedRadius - distance, closest);
+	return makeContact(ScaleVector3(delta, 1 / distance), resolvedRadius - distance, closest);
 }
 
 function SphereTriangleSoupContact(center, radius, triangleSoup) {
 	let best = NoContact();
 	for (let index = 0; index < triangleSoup.triangles.length; index++) {
-		best = ChooseDeepestContact(best, SphereTriangleContact(center, radius, triangleSoup.triangles[index]));
+		best = chooseDeepestContact(best, sphereTriangleContact(center, radius, triangleSoup.triangles[index]));
 	}
 	return best;
 }
@@ -389,7 +407,7 @@ function SphereTriangleSoupContact(center, radius, triangleSoup) {
 function CapsuleCapsuleContact(capsuleA, capsuleB) {
 	const resolvedRadiusA = capsuleA.radius.value;
 	const resolvedRadiusB = capsuleB.radius.value;
-	const closest = ClosestPointsOnSegments(
+	const closest = closestPointsOnSegments(
 		capsuleA.segmentStart,
 		capsuleA.segmentEnd,
 		capsuleB.segmentStart,
@@ -400,31 +418,31 @@ function CapsuleCapsuleContact(capsuleA, capsuleB) {
 	if (closest.distanceSq <= EPSILON) {
 		const midpointA = ScaleVector3(AddVector3(capsuleA.segmentStart, capsuleA.segmentEnd), 0.5);
 		const midpointB = ScaleVector3(AddVector3(capsuleB.segmentStart, capsuleB.segmentEnd), 0.5);
-		const normal = ResolveUnitDirection(SubtractVector3(midpointA, midpointB)) || { x: 0, y: 1, z: 0 };
-		return MakeContact(normal, radiusSum, closest.pointB);
+		const normal = resolveUnitDirection(SubtractVector3(midpointA, midpointB)) || { x: 0, y: 1, z: 0 };
+		return makeContact(normal, radiusSum, closest.pointB);
 	}
 
 	const distance = Math.sqrt(closest.distanceSq);
-	return MakeContact(ScaleVector3(SubtractVector3(closest.pointA, closest.pointB), 1 / distance), radiusSum - distance, closest.pointB);
+	return makeContact(ScaleVector3(SubtractVector3(closest.pointA, closest.pointB), 1 / distance), radiusSum - distance, closest.pointB);
 }
 
 function CapsuleAABBContact(capsule, aabb) {
 	const center = ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5);
 	const axis = SubtractVector3(capsule.segmentEnd, capsule.segmentStart);
-	const axisLengthSq = LengthSq(axis);
+	const axisLengthSq = Vector3LengthSq(axis);
 	const centerT = axisLengthSq <= EPSILON 
 		? 0.5 
 		: Clamp01(DotVector3(SubtractVector3(center, capsule.segmentStart), axis) / axisLengthSq);
 	const samples = [
-		capsule.segmentStart.clone(),
-		capsule.segmentEnd.clone(),
+		CloneVector3(capsule.segmentStart),
+		CloneVector3(capsule.segmentEnd),
 		AddVector3(capsule.segmentStart, ScaleVector3(axis, 0.5)),
 		AddVector3(capsule.segmentStart, ScaleVector3(axis, centerT)),
 	];
 
 	let best = NoContact();
 	for (let index = 0; index < samples.length; index++) {
-		best = ChooseDeepestContact(best, SphereAABBContact(samples[index], capsule.radius, aabb));
+		best = chooseDeepestContact(best, SphereAABBContact(samples[index], capsule.radius, aabb));
 	}
 	return best;
 }
@@ -434,23 +452,23 @@ function CapsuleOBBContact(capsule, obb) {
 	const axisLengthSq = Vector3LengthSq(axis);
 	const centerT = axisLengthSq <= EPSILON ? 0.5 : Clamp01(DotVector3(SubtractVector3(obb.center, capsule.segmentStart), axis) / axisLengthSq);
 	const samples = [
-		capsule.segmentStart.clone(),
-		capsule.segmentEnd.clone(),
+		CloneVector3(capsule.segmentStart),
+		CloneVector3(capsule.segmentEnd),
 		AddVector3(capsule.segmentStart, ScaleVector3(axis, 0.5)),
 		AddVector3(capsule.segmentStart, ScaleVector3(axis, centerT)),
 	];
 
 	let best = NoContact();
 	for (let index = 0; index < samples.length; index += 1) {
-		best = ChooseDeepestContact(best, SphereOBBContact(samples[index], capsule.radius, obb));
+		best = chooseDeepestContact(best, SphereOBBContact(samples[index], capsule.radius, obb));
 	}
 	return best;
 }
 
-function CapsuleTriangleContact(capsule, triangle) {
+function capsuleTriangleContact(capsule, triangle) {
 	const resolvedRadius = capsule.radius.value;
 	const triangleNormal = triangle.normal;
-	const closest = ClosestPointsSegmentTriangle(
+	const closest = closestPointsSegmentTriangle(
 		capsule.segmentStart,
 		capsule.segmentEnd,
 		triangle.a,
@@ -464,17 +482,17 @@ function CapsuleTriangleContact(capsule, triangle) {
 		const oriented = DotVector3(triangleNormal, SubtractVector3(segmentMid, closest.trianglePoint)) >= 0
 			? triangleNormal
 			: ScaleVector3(triangleNormal, -1);
-		return MakeContact(oriented, resolvedRadius, closest.trianglePoint);
+		return makeContact(oriented, resolvedRadius, closest.trianglePoint);
 	}
 
 	const distance = Math.sqrt(closest.distanceSq);
-	return MakeContact(ScaleVector3(SubtractVector3(closest.segmentPoint, closest.trianglePoint), 1 / distance), resolvedRadius - distance, closest.trianglePoint);
+	return makeContact(ScaleVector3(SubtractVector3(closest.segmentPoint, closest.trianglePoint), 1 / distance), resolvedRadius - distance, closest.trianglePoint);
 }
 
 function CapsuleTriangleSoupContact(capsule, triangleSoup) {
 	let best = NoContact();
 	for (let index = 0; index < triangleSoup.triangles.length; index++) {
-		best = ChooseDeepestContact(best, CapsuleTriangleContact(capsule, triangleSoup.triangles[index]));
+		best = chooseDeepestContact(best, capsuleTriangleContact(capsule, triangleSoup.triangles[index]));
 	}
 	return best;
 }
@@ -691,10 +709,41 @@ function RayAABBIntersect(origin, direction, aabb) {
 // Returns { hit, tEntry, normal }.
 
 function SweptSphereAABB(center, velocity, radius, aabb) {
-	const radVector = { x: radius, y: radius, z: radius };
-	const expandedMin = aabb.min.clone().subtract(radVector);
-	const expandedMax = aabb.max.clone().add(radVector);
+	const expandedMin = {
+		x: aabb.min.x - radius,
+		y: aabb.min.y - radius,
+		z: aabb.min.z - radius,
+	};
+	const expandedMax = {
+		x: aabb.max.x + radius,
+		y: aabb.max.y + radius,
+		z: aabb.max.z + radius,
+	};
 	return RayAABBIntersect(center, velocity, { min: expandedMin, max: expandedMax });
+}
+
+function SweptSphereOBB(center, velocity, radius, obb) {
+	const localCenter = projectToObbLocal(center, obb);
+	const localVelocity = projectDirectionToObbLocal(velocity, obb);
+	const localAabb = {
+		min: {
+			x: -obb.halfExtents.x,
+			y: -obb.halfExtents.y,
+			z: -obb.halfExtents.z,
+		},
+		max: {
+			x: obb.halfExtents.x,
+			y: obb.halfExtents.y,
+			z: obb.halfExtents.z,
+		},
+	};
+	const result = SweptSphereAABB(localCenter, localVelocity, radius, localAabb);
+	if (!result.hit) return result;
+	return {
+		hit: true,
+		t: result.t,
+		normal: projectObbNormalToWorld(result.normal, obb),
+	};
 }
 
 /* === EXPORTS === */
@@ -710,6 +759,7 @@ export {
 	SweptAABB,
 	RayAABBIntersect,
 	SweptSphereAABB,
+	SweptSphereOBB,
 	SphereSphereContact,
 	SphereAABBContact,
 	SphereOBBContact,

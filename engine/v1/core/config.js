@@ -23,7 +23,7 @@ let CONFIG = {
         Entity    : false,
         EntityPart: false,
         Obstacle  : false,
-        Player    : true,
+        Player    : false,
         PlayerPart: false,
         Boss      : false,
         BossPart  : false,
@@ -84,7 +84,7 @@ let CONFIG = {
     Cutscene: settings?.cutscene ?? 1
   },
   PERFORMANCE: {
-    TerrainScatter: "High",
+    TerrainScatter: "low",
     RenderDistance: "High",
     SimDistance   : "High",
     Animations    : true,

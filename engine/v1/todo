@@ -2,6 +2,9 @@ Finish Model Bounds Expansion (critical):
 - Check Casing
 - Check UnitVector3 Instancing
 - Test Functionality
+- Fix Log Spam on Collisions
+- Add triangle for pyramid/prism shapes
+- Investigate player to enemy collision not working
 Remove Forbidden Normalization and Defensive Checks downstream.
 - Fix Collision Phasing Bug
 - Fix/Refactor Intro Cinematic

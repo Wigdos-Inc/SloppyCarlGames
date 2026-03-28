@@ -27,6 +27,7 @@ import {
 	CapsuleTriangleSoupContact,
 	InvertContact,
 	SweptSphereAABB,
+	SweptSphereOBB,
 	NoContact,
 } from "../math/Physics.js";
 import { ToNumber } from "../math/Utilities.js";
@@ -78,9 +79,6 @@ function ResetCollisionPools() {
  * ======================================================================== */
 
 function buildDetailedBoundsFromCollision(collision) {
-	if (collision.playerPhysics) return collision.playerPhysics.lowerSphere;
-
-	// Three-layer path: prefer physics bounds.
 	if (collision.physics && collision.physics.bounds) return collision.physics.bounds;
 	if (collision.shape === "capsule" && collision.capsule) {
 		return {
@@ -187,8 +185,6 @@ function chooseDeepestContact(best, candidate) {
 }
 
 function NarrowphaseContact(boundsA, boundsB) {
-	if (!boundsA || !boundsB) return { hit: true, normal: { x: 0, y: 1, z: 0 }, depth: 0 };
-
 	const typeA = boundsA.type;
 	const typeB = boundsB.type;
 
@@ -471,10 +467,13 @@ function checkSweptSpherePair(position, displacement, radius, targetAabb) {
 	return { hit: result.hit, tEntry: result.t, normal: result.normal };
 }
 
-function getPlayerActivePhysicsShapes(collision) {
-	const shapes = [collision.playerPhysics.lowerSphere];
-	if (collision.playerPhysics.useCapsule) shapes.push(collision.playerPhysics.upperCapsule);
-	return shapes;
+function checkSweptSphereCandidatePair(position, displacement, radius, candidate) {
+	const detailedBounds = candidate.detailedBounds;
+	if (detailedBounds && detailedBounds.type === "obb") {
+		const result = SweptSphereOBB(position, displacement, radius, detailedBounds);
+		return { hit: result.hit, tEntry: result.t, normal: result.normal };
+	}
+	return checkSweptSpherePair(position, displacement, radius, candidate.aabb);
 }
 
 /* ========================================================================
@@ -504,11 +503,11 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 	const simRadiusAabb = entity.collision.simRadiusAabb || expandAabb(entityAabb, entity.collision.simRadiusPadding || 8);
 	const candidates = BroadphaseCollectCandidates(sceneGraph, simRadiusAabb);
 	const entityFrameAabb = buildEntityAabbAtPosition(entityAabb, pos);
-	const isPlayerDualShape = entity.type === "player" && entity.collision.playerPhysics;
+	const entityDetailedBounds = buildDetailedBoundsFromCollision(entity.collision);
 
 	// Determine swept mode from entity physics shape.
 	const physicsShape = entity.collision.physics ? entity.collision.physics.shape : entity.collision.shape;
-	const useSphereSwept = !isPlayerDualShape && (physicsShape === "sphere");
+	const useSphereSwept = physicsShape === "sphere";
 
 	// For sphere swept: get radius from physics bounds.
 	let sphereCenter = null;
@@ -540,37 +539,34 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 		// Swept test.
 		let swept;
 		if (useSphereSwept && sphereCenter) {
-			swept = checkSweptSpherePair(sphereCenter, vel, sphereRadius, candidate.aabb);
+			swept = checkSweptSphereCandidatePair(sphereCenter, vel, sphereRadius, candidate);
 		} 
 		else swept = checkSweptAabbPair(pos, vel, entityAabb, candidate.aabb);
 
 		if (swept.hit && swept.tEntry >= 0 && swept.tEntry <= 1) {
-			if (isPlayerDualShape) {
-				const shapes = getPlayerActivePhysicsShapes(entity.collision);
+			if (entity.type === "player") {
 				const entryOffset = ScaleVector3(vel, swept.tEntry);
-				for (let shapeIndex = 0; shapeIndex < shapes.length; shapeIndex++) {
-					const endBounds = offsetDetailedBounds(shapes[shapeIndex], vel);
-					let contact = NarrowphaseContact(endBounds, candidate.detailedBounds);
-					if (!contact.hit) {
-						const entryBounds = offsetDetailedBounds(shapes[shapeIndex], entryOffset);
-						contact = NarrowphaseContact(entryBounds, candidate.detailedBounds);
-					}
-					if (!contact.hit) continue;
-
-					const item = poolPush(SolidResultPool);
-					item.target = candidate;
-					item.tEntry = swept.tEntry;
-					item.normal = contact.normal;
-					item.depth = contact.depth;
-					item.type = candidate.type;
-					item.shape = shapes[shapeIndex].type;
+				const endBounds = offsetDetailedBounds(entityDetailedBounds, vel);
+				let contact = NarrowphaseContact(endBounds, candidate.detailedBounds);
+				if (!contact.hit) {
+					const entryBounds = offsetDetailedBounds(entityDetailedBounds, entryOffset);
+					contact = NarrowphaseContact(entryBounds, candidate.detailedBounds);
 				}
+				if (!contact.hit) continue;
+
+				const item = poolPush(SolidResultPool);
+				item.target = candidate;
+				item.tEntry = swept.tEntry;
+				item.normal = contact.normal;
+				item.depth = contact.depth;
+				item.type = candidate.type;
+				item.shape = entityDetailedBounds.type;
 				continue;
 			}
 
 			// Non-player narrowphase remains boolean-gated.
 			const entityDetailed = offsetDetailedBounds(
-				buildDetailedBoundsFromCollision(entity.collision),
+				entityDetailedBounds,
 				ScaleVector3(vel, swept.tEntry)
 			);
 			if (!NarrowphaseTest(entityDetailed, candidate.detailedBounds)) continue;

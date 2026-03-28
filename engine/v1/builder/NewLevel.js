@@ -243,7 +243,8 @@ function buildSceneBoundingBoxes(sceneGraph) {
 	const entities = sceneGraph.entities;
 	entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
-		push(category.whole, entity.id, entity.collision.aabb);
+		if (entity.type === "player") push(category.whole, entity.id, entity.collision.profile.modelAabb);
+		else push(category.whole, entity.id, entity.collision.aabb);
 		entity.model.parts.forEach((part) => push(category.part, `${entity.id}:${part.id}`, part.mesh.worldAabb));
 	});
 
@@ -269,13 +270,6 @@ function buildSceneDetailedBounds(sceneGraph) {
 
 	sceneGraph.entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
-		if (entity.type === "player") {
-			const parts = [entity.collision.playerPhysics.lowerSphere];
-			if (entity.collision.playerPhysics.useCapsule) parts.push(entity.collision.playerPhysics.upperCapsule);
-			push(category, entity.id, { type: "compound", parts });
-			return;
-		}
-
 		const physBounds = entity.collision.physics && entity.collision.physics.bounds;
 		if (physBounds && physBounds.type === "capsule") {
 			push(category, entity.id, {

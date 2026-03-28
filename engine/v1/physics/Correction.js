@@ -31,17 +31,12 @@ function ApplySurfaceAlignment(playerState, groundContact, deltaSeconds) {
 		return;
 	}
 
-	if (!playerState) {
-		return;
-	}
-
-	if (!groundContact || !groundContact.hit) {
+	if (!groundContact.hit) {
 		playerState.grounded = false;
 		return;
 	}
 
-	const contactType = typeof groundContact.type === "string" ? groundContact.type : "";
-	const validGroundType = contactType === "terrain" || contactType === "obstacle";
+	const validGroundType = groundContact.type === "terrain" || groundContact.type === "obstacle";
 	if (!validGroundType) {
 		playerState.grounded = false;
 		return;
@@ -63,37 +58,32 @@ function ApplySurfaceAlignment(playerState, groundContact, deltaSeconds) {
 		return;
 	}
 
-	playerState.grounded = true;
-	playerState.surfaceNormal = { x: normal.x, y: normal.y, z: normal.z };
+	let snapAccepted = true;
 
 	// Snap tiny residual hover gaps to the contacted surface top.
 	// Swept resolution can leave a small separation when grounded.
-	if (
-		playerState.transform &&
-		playerState.transform.position &&
-		playerState.collision &&
-		playerState.collision.aabb &&
-		groundContact.targetAabb &&
-		normal.y > 0.5
-	) {
-		const entityAabb = playerState.collision.aabb;
+	if (groundContact.targetAabb && normal.y > 0.5) {
+		const collisionProfile = playerState.collision.profile;
 		const currentPosY = ToNumber(playerState.transform.position.y, 0);
-		const centerY = (ToNumber(entityAabb.min.y, 0) + ToNumber(entityAabb.max.y, 0)) * 0.5;
-		const halfY = (ToNumber(entityAabb.max.y, 0) - ToNumber(entityAabb.min.y, 0)) * 0.5;
-		const bottomOffsetFromTransform = (centerY - currentPosY) - halfY;
+		const bottomOffsetFromTransform = ToNumber(collisionProfile.bottomOffset.value, 0);
 		const desiredPosY = ToNumber(groundContact.targetAabb.max.y, currentPosY) - bottomOffsetFromTransform;
 		const deltaY = desiredPosY - currentPosY;
 		const snapTolerance = ToNumber(config.GroundSnapTolerance, DEFAULT_GROUND_SNAP_TOLERANCE);
 
-		if (Math.abs(deltaY) <= snapTolerance) {
-			playerState.transform.position.y = desiredPosY;
-		}
+		if (Math.abs(deltaY) <= snapTolerance) playerState.transform.position.y = desiredPosY;
+		else snapAccepted = false;
 	}
 
-	// Correct vertical velocity: remove downward component upon ground contact.
-	if (playerState.velocity.y < 0) {
-		playerState.velocity.y = 0;
+	if (!snapAccepted) {
+		playerState.grounded = false;
+		return;
 	}
+
+	playerState.grounded = true;
+	playerState.surfaceNormal = { x: normal.x, y: normal.y, z: normal.z };
+
+	// Correct vertical velocity: remove downward component upon ground contact.
+	if (playerState.velocity.y < 0) playerState.velocity.y = 0;
 
 	// Project forward velocity onto the surface plane to preserve movement speed on slopes.
 	// This creates the illusion of flat-speed movement regardless of incline.

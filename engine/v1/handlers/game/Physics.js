@@ -55,28 +55,9 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	const displacement = ScaleVector3(playerState.velocity, dt);
 
 	// Step 4b: Grounded stability.
-	// When grounded with negligible displacement, skip the full collision pipeline.
-	// Zero-displacement swept AABB cannot detect the ground surface, which would
-	// falsely clear grounded and cause a Falling↔Idle oscillation every other frame.
-	if (playerState.grounded) {
-		const dispLenSq = displacement.x * displacement.x + displacement.y * displacement.y + displacement.z * displacement.z;
-		if (dispLenSq < 0.0001) {
-			// Standing still on ground: preserve grounded state, skip collision.
-			playerState.transform.position.add(displacement);
-			if (playerState.transform.position.y < deathBarrierY) {
-				playerState.transform.position.y = deathBarrierY;
-				playerState.velocity.y = 0;
-				if (playerState.state !== "Dead") Log("ENGINE", "Player hit death barrier.", "log", "Level");
-			}
-			playerState.activeTriggers.length = 0;
-			return;
-		}
-
-		// Moving while grounded: inject a small downward probe so the Y axis
-		// isn't degenerate in swept AABB. This lets the collision system detect
-		// ground contact when running, and correctly un-ground when walking off a ledge.
-		if (Math.abs(displacement.y) < 0.001) displacement.y = -0.005;
-	}
+	// Grounded frames still need a small downward probe so landing correction can
+	// revalidate and snap while idle instead of preserving a hover gap indefinitely.
+	if (playerState.grounded && Math.abs(displacement.y) < 0.001) displacement.y = -0.005;
 
 	// Step 5: Collision detection (swept — shape-gated via physics layer).
 	const { solids, triggers } = DetectPhysicsCollisions(playerState, displacement, sceneGraph);

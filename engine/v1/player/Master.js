@@ -3,9 +3,7 @@
 // Used by handlers/game/Level.js as the per-frame player update orchestrator.
 // Uses all player modules: Movement.js, Abilities.js, Model.js.
 
-import { NormalizeVector3 } from "../math/Vector3.js";
 import { Log } from "../core/meta.js";
-import { CONFIG } from "../core/config.js";
 import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { BuildPlayerModel, InitializePlayerCollisionProfile, SyncPlayerCollisionFromState, UpdatePlayerModelFromState } from "./Model.js";
 import { UpdateMovement } from "./Movement.js";
@@ -28,6 +26,54 @@ let playerState = null;
 function createDefaultPlayerState(playerData) {
 	const character = playerData.character;
 	const spawnPos = playerData.spawnPosition;
+	const sphereBounds = {
+		type: "sphere",
+		center: new UnitVector3(0, 0, 0, "cnu"),
+		radius: new Unit(0, "cnu"),
+	};
+	const capsuleBounds = {
+		type: "capsule",
+		radius: new Unit(0, "cnu"),
+		halfHeight: new Unit(0, "cnu"),
+		segmentStart: new UnitVector3(0, 0, 0, "cnu"),
+		segmentEnd: new UnitVector3(0, 0, 0, "cnu"),
+	};
+	const collision = {
+		aabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
+		radius: new Unit(ToNumber(playerData.collisionRadius, character.meta.collisionRadius), "cnu"),
+		shape: "sphere",
+		profile: {
+			shape: "sphere",
+			modelAabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
+			modelAabbMinOffset: new UnitVector3(0, 0, 0, "cnu"),
+			modelAabbMaxOffset: new UnitVector3(0, 0, 0, "cnu"),
+			bodyCenterOffset: new UnitVector3(0, 0, 0, "cnu"),
+			bodyRadius: new Unit(0, "cnu"),
+			bottomOffset: new Unit(0, "cnu"),
+			sphereCenterOffset: new UnitVector3(0, 0, 0, "cnu"),
+			sphereRadius: new Unit(0, "cnu"),
+			capsuleStartOffset: new UnitVector3(0, 0, 0, "cnu"),
+			capsuleEndOffset: new UnitVector3(0, 0, 0, "cnu"),
+			capsuleRadius: new Unit(0, "cnu"),
+			capsuleHalfHeight: new Unit(0, "cnu"),
+		},
+		sphere: sphereBounds,
+		capsule: capsuleBounds,
+		simRadiusPadding: 24,
+		simRadiusAabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
+		physics: {
+			shape: "sphere",
+			bounds: sphereBounds,
+		},
+		hurtbox: {
+			shape: "sphere",
+			bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
+		},
+		hitbox: {
+			shape: "sphere",
+			bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
+		},
+	};
 	return {
 		active: true,
 		character: character,
@@ -69,61 +115,7 @@ function createDefaultPlayerState(playerData) {
 		activeTriggers: [],
 		checkpoint: null,
 		spawnPosition: spawnPos,
-		collision: {
-			aabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
-			radius: new Unit(ToNumber(playerData.collisionRadius, character.meta.collisionRadius), "cnu"),
-			shape: "player-two-shape",
-			profile: {
-				useCapsule: false,
-				modelBottomY: new Unit(0, "cnu"),
-				modelAabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
-				lowestAabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
-				bodyCenterOffset: new UnitVector3(0, 0, 0, "cnu"),
-				bodyRadius: new Unit(0, "cnu"),
-				lowerSphereOffset: new UnitVector3(0, 0, 0, "cnu"),
-				lowerSphereRadius: new Unit(0, "cnu"),
-				upperCapsuleStartOffset: new UnitVector3(0, 0, 0, "cnu"),
-				upperCapsuleEndOffset: new UnitVector3(0, 0, 0, "cnu"),
-				upperCapsuleRadius: new Unit(0, "cnu"),
-				upperCapsuleHalfHeight: new Unit(0, "cnu"),
-			},
-			playerPhysics: {
-				useCapsule: false,
-				lowerSphere: {
-					type: "sphere",
-					center: new UnitVector3(0, 0, 0, "cnu"),
-					radius: new Unit(0, "cnu"),
-				},
-				upperCapsule: {
-					type: "capsule",
-					radius: new Unit(0, "cnu"),
-					halfHeight: new Unit(0, "cnu"),
-					segmentStart: new UnitVector3(0, 0, 0, "cnu"),
-					segmentEnd: new UnitVector3(0, 0, 0, "cnu"),
-				},
-			},
-			capsule: {
-				type: "capsule",
-				radius: new Unit(0, "cnu"),
-				halfHeight: new Unit(0, "cnu"),
-				segmentStart: new UnitVector3(0, 0, 0, "cnu"),
-				segmentEnd: new UnitVector3(0, 0, 0, "cnu"),
-			},
-			simRadiusPadding: 24,
-			simRadiusAabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
-			physics: {
-				shape: "player-two-shape",
-				bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
-			},
-			hurtbox: {
-				shape: "sphere",
-				bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
-			},
-			hitbox: {
-				shape: "sphere",
-				bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
-			},
-		},
+		collision: collision,
 		mesh: null,
 		type: "player",
 		id: "player",

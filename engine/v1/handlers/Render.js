@@ -762,31 +762,65 @@ function createAabbLineVertices(bounds) {
 	]);
 }
 
-function createCapsuleLineVertices(bounds, radialSegments = 14) {
+function createCapsuleLineVertices(bounds, longitudinalSegments = 8) {
 	const start = bounds.segmentStart.toWorldUnit();
 	const end = bounds.segmentEnd.toWorldUnit();
 	const radius = bounds.radius.toWorldUnit();
 	const lines = [];
+	const ringOffset = radius * Math.SQRT1_2;
+	const ringRadius = radius * Math.SQRT1_2;
+	const bottomPole = [start.x, start.y - radius, start.z];
+	const topPole = [end.x, end.y + radius, end.z];
 
-	for (let i = 0; i < radialSegments; i += 1) {
-		const t0 = (i / radialSegments) * Math.PI * 2;
-		const t1 = ((i + 1) / radialSegments) * Math.PI * 2;
+	for (let i = 0; i < longitudinalSegments; i++) {
+		const t0 = (i / longitudinalSegments) * Math.PI * 2;
+		const t1 = ((i + 1) / longitudinalSegments) * Math.PI * 2;
 		const c0 = Math.cos(t0);
 		const s0 = Math.sin(t0);
 		const c1 = Math.cos(t1);
 		const s1 = Math.sin(t1);
+		const bottomBase = [start.x + c0 * radius, start.y, start.z + s0 * radius];
+		const topBase = [end.x + c0 * radius, end.y, end.z + s0 * radius];
+		const bottomMid = [start.x + c0 * ringRadius, start.y - ringOffset, start.z + s0 * ringRadius];
+		const topMid = [end.x + c0 * ringRadius, end.y + ringOffset, end.z + s0 * ringRadius];
+		const bottomMidNext = [start.x + c1 * ringRadius, start.y - ringOffset, start.z + s1 * ringRadius];
+		const topMidNext = [end.x + c1 * ringRadius, end.y + ringOffset, end.z + s1 * ringRadius];
 
 		lines.push(
-			start.x + c0 * radius, start.y, start.z + s0 * radius,
+			...bottomBase,
+			...topBase
+		);
+		lines.push(
+			...bottomBase,
 			start.x + c1 * radius, start.y, start.z + s1 * radius
 		);
 		lines.push(
-			end.x + c0 * radius, end.y, end.z + s0 * radius,
+			...topBase,
 			end.x + c1 * radius, end.y, end.z + s1 * radius
 		);
 		lines.push(
-			start.x + c0 * radius, start.y, start.z + s0 * radius,
-			end.x + c0 * radius, end.y, end.z + s0 * radius
+			...bottomBase,
+			...bottomMid
+		);
+		lines.push(
+			...bottomMid,
+			...bottomPole
+		);
+		lines.push(
+			...topBase,
+			...topMid
+		);
+		lines.push(
+			...topMid,
+			...topPole
+		);
+		lines.push(
+			...bottomMid,
+			...bottomMidNext
+		);
+		lines.push(
+			...topMid,
+			...topMidNext
 		);
 	}
 
