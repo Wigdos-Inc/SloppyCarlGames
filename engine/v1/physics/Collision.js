@@ -5,7 +5,7 @@
 // Used by handlers/game/Physics.js, handlers/game/Enemy.js, handlers/game/Collectible.js.
 
 import { CONFIG } from "../core/config.js";
-import { Log } from "../core/meta.js";
+import { Log, EPSILON } from "../core/meta.js";
 import {
 	NormalizeVector3,
 	AddVector3,
@@ -51,6 +51,8 @@ function poolPush(pool) {
 		tEntry: 1, 
 		normal: null, 
 		depth: 0, 
+		pushDepth: 0,
+		pushNormal: null,
 		type: null, 
 		trigger: null, 
 		attacker: null, 
@@ -476,6 +478,10 @@ function checkSweptSphereCandidatePair(position, displacement, radius, candidate
 	return checkSweptSpherePair(position, displacement, radius, candidate.aabb);
 }
 
+function buildCandidateBounds(candidate) {
+	return candidate.detailedBounds || candidate.aabb;
+}
+
 /* ========================================================================
  * LAYER 1: PHYSICS COLLISION DETECTION
  * ======================================================================== */
@@ -491,8 +497,7 @@ function checkSweptSphereCandidatePair(position, displacement, radius, candidate
  */
 function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 	if (CONFIG.PHYSICS.Collision.Enabled === false) {
-		poolReset(SolidResultPool);
-		poolReset(TriggerResultPool);
+		ResetCollisionPools();
 		return { solids: SolidResultPool, triggers: TriggerResultPool };
 	}
 
@@ -503,6 +508,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 	const simRadiusAabb = entity.collision.simRadiusAabb || expandAabb(entityAabb, entity.collision.simRadiusPadding || 8);
 	const candidates = BroadphaseCollectCandidates(sceneGraph, simRadiusAabb);
 	const entityFrameAabb = buildEntityAabbAtPosition(entityAabb, pos);
+	const entityEndAabb = buildEntityAabbAtPosition(entityAabb, pos.clone().add(vel));
 	const entityDetailedBounds = buildDetailedBoundsFromCollision(entity.collision);
 
 	// Determine swept mode from entity physics shape.
@@ -518,8 +524,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 		sphereRadius = pb.radius.value;
 	}
 
-	poolReset(SolidResultPool);
-	poolReset(TriggerResultPool);
+	ResetCollisionPools();
 
 	for (let i = 0; i < candidates.length; i++) {
 		const candidate = candidates[i];
@@ -544,13 +549,14 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 		else swept = checkSweptAabbPair(pos, vel, entityAabb, candidate.aabb);
 
 		if (swept.hit && swept.tEntry >= 0 && swept.tEntry <= 1) {
+			const candidateBounds = buildCandidateBounds(candidate);
 			if (entity.type === "player") {
 				const entryOffset = ScaleVector3(vel, swept.tEntry);
 				const endBounds = offsetDetailedBounds(entityDetailedBounds, vel);
-				let contact = NarrowphaseContact(endBounds, candidate.detailedBounds);
+				let contact = NarrowphaseContact(endBounds, candidateBounds);
 				if (!contact.hit) {
 					const entryBounds = offsetDetailedBounds(entityDetailedBounds, entryOffset);
-					contact = NarrowphaseContact(entryBounds, candidate.detailedBounds);
+					contact = NarrowphaseContact(entryBounds, candidateBounds);
 				}
 				if (!contact.hit) continue;
 
@@ -559,6 +565,8 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 				item.tEntry = swept.tEntry;
 				item.normal = contact.normal;
 				item.depth = contact.depth;
+				item.pushDepth = 0;
+				item.pushNormal = null;
 				item.type = candidate.type;
 				item.shape = entityDetailedBounds.type;
 				continue;
@@ -569,13 +577,15 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 				entityDetailedBounds,
 				ScaleVector3(vel, swept.tEntry)
 			);
-			if (!NarrowphaseTest(entityDetailed, candidate.detailedBounds)) continue;
+			if (!NarrowphaseTest(entityDetailed, candidateBounds)) continue;
 
 			const item = poolPush(SolidResultPool);
 			item.target = candidate;
 			item.tEntry = swept.tEntry;
 			item.normal = swept.normal;
 			item.depth = 0;
+			item.pushDepth = 0;
+			item.pushNormal = null;
 			item.type = candidate.type;
 		}
 	}
@@ -592,6 +602,53 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 			j--;
 		}
 		solidSlice[j + 1] = key;
+	}
+
+	return { solids: SolidResultPool, triggers: TriggerResultPool };
+}
+
+function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
+	if (CONFIG.PHYSICS.Collision.Enabled === false) {
+		ResetCollisionPools();
+		return { solids: SolidResultPool, triggers: TriggerResultPool };
+	}
+
+	const entityAabb = entity.collision.aabb;
+	const simRadiusAabb = entity.collision.simRadiusAabb || expandAabb(entityAabb, entity.collision.simRadiusPadding);
+	const candidates = BroadphaseCollectCandidates(sceneGraph, simRadiusAabb);
+	const entityDetailedBounds = buildDetailedBoundsFromCollision(entity.collision);
+
+	ResetCollisionPools();
+
+	for (let index = 0; index < candidates.length; index++) {
+		const candidate = candidates[index];
+		if (candidate.type === "entity" && candidate.ref === entity) continue;
+
+		if (candidate.isTrigger) {
+			if (AABBOverlap(entityAabb, candidate.aabb)) {
+				const triggerItem = poolPush(TriggerResultPool);
+				triggerItem.target = candidate;
+				triggerItem.type = "trigger";
+			}
+			continue;
+		}
+
+		if (!AABBOverlap(entityAabb, candidate.aabb)) continue;
+
+		const candidateBounds = buildCandidateBounds(candidate);
+		const contact = NarrowphaseContact(entityDetailedBounds, candidateBounds);
+		if (!contact.hit) continue;
+
+		const aabbContact = AabbAabbContact(entityAabb, candidate.aabb);
+		const item = poolPush(SolidResultPool);
+		item.target = candidate;
+		item.tEntry = 0;
+		item.normal = contact.normal;
+		item.depth = contact.depth;
+		item.pushDepth = aabbContact.depth;
+		item.pushNormal = aabbContact.normal;
+		item.type = candidate.type;
+		item.shape = entityDetailedBounds.type;
 	}
 
 	return { solids: SolidResultPool, triggers: TriggerResultPool };
@@ -680,76 +737,119 @@ function DetectCombatOverlaps(playerState, entities, simRadius, cameraPos) {
  * @param {{ x, y, z }} velocity — per-second velocity.
  * @param {{ x, y, z }} displacement — velocity * dt.
  * @param {{ items, count }|Array} solids — sorted collision results.
- * @returns {{ resolvedVelocity, resolvedDisplacement, groundContact }}
+ * @returns {{ resolvedVelocity, resolvedDisplacement, groundContact, changedPosition, changedVelocity, anyChanged }}
  */
 function ResolveCollisions(velocity, displacement, solids) {
 	let vel = NormalizeVector3(velocity);
 	let disp = NormalizeVector3(displacement);
-	let groundContact = { hit: false, normal: { x: 0, y: 1, z: 0 } };
+	let groundContact = { hit: false, normal: { x: 0, y: 1, z: 0 }, supportY: -1 };
+	let changedPosition = false;
+	let changedVelocity = false;
 
 	// Support both pool objects and plain arrays.
 	const items = solids && solids.items ? solids.items : solids;
 	const count = solids && typeof solids.count === "number" ? solids.count : (Array.isArray(items) ? items.length : 0);
 
-	if (count === 0) return { resolvedVelocity: vel, resolvedDisplacement: disp, groundContact };
+	if (count === 0) {
+		return {
+			resolvedVelocity: vel,
+			resolvedDisplacement: disp,
+			groundContact: groundContact,
+			changedPosition: false,
+			changedVelocity: false,
+			anyChanged: false,
+		};
+	}
 
 	for (let i = 0; i < count; i++) {
 		const collision = items[i];
 		const n = NormalizeVector3(collision.normal);
-		const isGroundCandidate =
-			(collision.type === "terrain" || collision.type === "obstacle");
+		const pushNormal = NormalizeVector3(collision.pushNormal || collision.normal);
+		const isTerrainGround = collision.type === "terrain" && n.y > 0.5;
+		const isObstacleGround = collision.type === "obstacle" && pushNormal.y > 0.5;
+		const isGroundCandidate = isTerrainGround || isObstacleGround;
+		const groundNormal = isObstacleGround ? pushNormal : n;
+		const groundSupportY = isObstacleGround ? pushNormal.y : n.y;
 
 		if (isGroundCandidate) {
-			if (!groundContact.hit || n.y > groundContact.normal.y || (n.y === groundContact.normal.y && collision.tEntry < ToNumber(groundContact.tEntry, 1))) {
+			if (
+				!groundContact.hit ||
+				groundSupportY > ToNumber(groundContact.supportY, -1) ||
+				(
+					groundSupportY === ToNumber(groundContact.supportY, -1) &&
+					collision.tEntry < ToNumber(groundContact.tEntry, 1)
+				)
+			) {
 				groundContact = {
 					hit: true,
-					normal: { ...n },
+					normal: { ...groundNormal },
 					type: collision.type,
 					targetId: collision && collision.target ? collision.target.id : null,
 					targetAabb: collision && collision.target && collision.target.aabb ? collision.target.aabb : null,
+					supportY: groundSupportY,
 					tEntry: collision.tEntry,
 				};
 			}
 		}
 
-		if (collision.depth > 0) disp = AddVector3(disp, ScaleVector3(n, collision.depth));
+		const pushDepth = collision.pushDepth;
+		if (pushDepth > 0) {
+			disp = AddVector3(disp, ScaleVector3(pushNormal, pushDepth));
+			changedPosition = changedPosition || pushDepth > EPSILON;
+		}
 
 		// Slide: remove velocity component along collision normal.
 		const velDotN = DotVector3(vel, n);
-		if (velDotN < 0) vel = SubtractVector3(vel, ScaleVector3(n, velDotN));
+		if (velDotN < 0) {
+			vel = SubtractVector3(vel, ScaleVector3(n, velDotN));
+			changedVelocity = changedVelocity || Math.abs(velDotN) > EPSILON;
+		}
 
 		// Adjust displacement similarly.
 		const dispDotN = DotVector3(disp, n);
-		if (dispDotN < 0) disp = SubtractVector3(disp, ScaleVector3(n, dispDotN));
+		if (dispDotN < 0) {
+			disp = SubtractVector3(disp, ScaleVector3(n, dispDotN));
+			changedPosition = changedPosition || Math.abs(dispDotN) > EPSILON;
+		}
 
 		LogCollision(collision);
 	}
 
-	return { resolvedVelocity: vel, resolvedDisplacement: disp, groundContact };
+	const anyChanged = changedPosition || changedVelocity;
+
+	return {
+		resolvedVelocity: vel,
+		resolvedDisplacement: disp,
+		groundContact: groundContact,
+		changedPosition: changedPosition,
+		changedVelocity: changedVelocity,
+		anyChanged: anyChanged,
+	};
 }
 
 /* ========================================================================
  * LOGGING
  * ======================================================================== */
 
-let lastLoggedCollisionKey = "";
+let lastLoggedCollisionKeyA = "";
+let lastLoggedCollisionKeyB = "";
 
 function LogCollision(collision) {
 	const targetId = collision.target.id;
 	const n = collision.normal;
-
-	// Deduplicate: skip logging the same collision target on consecutive frames.
-	const key = `${collision.type || "solid"}:${targetId}:${n.x.toFixed(1)},${n.y.toFixed(1)},${n.z.toFixed(1)}`;
-	if (key === lastLoggedCollisionKey) return;
-	lastLoggedCollisionKey = key;
+	const key = `${collision.type}:${targetId}`;
+	if (key === lastLoggedCollisionKeyA || key === lastLoggedCollisionKeyB) return;
+	lastLoggedCollisionKeyB = lastLoggedCollisionKeyA;
+	lastLoggedCollisionKeyA = key;
 
 	Log(
 		"ENGINE",
 		`
-			Collision: ${collision.type || "solid"} with "${targetId}" | 
+			Collision: ${collision.type} with "${targetId}" | 
 			normal=(${n.x.toFixed(2)}, ${n.y.toFixed(2)}, ${n.z.toFixed(2)}) 
-			depth=${ToNumber(collision.depth, 0).toFixed(4)} 
-			t=${ToNumber(collision.tEntry, 0).toFixed(4)}
+			depth=${collision.depth.toFixed(4)} 
+			pushDepth=${collision.pushDepth.toFixed(4)} 
+			t=${collision.tEntry.toFixed(4)}
 		`,
 		"log",
 		"Level"
@@ -760,6 +860,7 @@ function LogCollision(collision) {
 
 export {
 	DetectPhysicsCollisions,
+	DetectCurrentPhysicsOverlaps,
 	DetectCombatOverlaps,
 	ResolveCollisions,
 	ResetCollisionPools,

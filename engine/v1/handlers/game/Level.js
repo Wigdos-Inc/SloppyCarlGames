@@ -18,8 +18,6 @@ import { ValidateLevelPayload } from "../../core/validate.js";
 import { 
 	InitializePlayer, 
 	UpdatePlayer, 
-	UpdatePlayerCollision, 
-	UpdatePlayerModel, 
 	ResolvePlayerState, 
 	GetPlayerState 
 } from "../../player/Master.js";
@@ -290,11 +288,9 @@ function Update(deltaMilliseconds) {
 
 		// 1. Input → Movement & Abilities
 		UpdatePlayer(deltaSeconds, sceneGraph, cameraVectors);
-		UpdatePlayerCollision();
 
-		// 2. Physics pipeline (gravity, resistance, buoyancy, collision, correction)
+		// 2. Physics pipeline owns orientation, bounds, collision, correction, and final sync.
 		ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds);
-		UpdatePlayerCollision();
 
 		// 3. Enemy collisions (damage / attack)
 		HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds);
@@ -304,9 +300,6 @@ function Update(deltaMilliseconds) {
 
 		// 5. Resolve FSM state (Idle, Running, Jumping, etc.)
 		ResolvePlayerState();
-
-		// 6. Sync player model from state
-		UpdatePlayerModel();
 	}
 
 	// === NON-PLAYER ENTITY UPDATE ===

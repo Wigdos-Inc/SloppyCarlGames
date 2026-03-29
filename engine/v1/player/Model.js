@@ -206,8 +206,6 @@ function InitializePlayerCollisionProfile(playerState) {
 	const profile = playerState.collision.profile;
 	profile.shape = profileShape;
 	applyProfileAabb(profile.modelAabb, fullAabb);
-	profile.modelAabbMinOffset.set(SubtractVector3(fullAabb.min, rootPosition));
-	profile.modelAabbMaxOffset.set(SubtractVector3(fullAabb.max, rootPosition));
 	profile.bodyCenterOffset.set(SubtractVector3(bodyCenter, rootPosition));
 	profile.bodyRadius.value = bodyRadius;
 	profile.bottomOffset.value = fullAabb.min.y - rootPosition.y;
@@ -225,10 +223,7 @@ function SyncPlayerCollisionFromState(playerState) {
 	const rootPosition = playerState.transform.position;
 	const sphereCenter = AddVector3(rootPosition, profile.sphereCenterOffset);
 	const sphereRadius = profile.sphereRadius.value;
-	const modelAabb = {
-		min: AddVector3(rootPosition, profile.modelAabbMinOffset),
-		max: AddVector3(rootPosition, profile.modelAabbMaxOffset),
-	};
+	const modelAabb = computePlayerAabb(playerState.model);
 	const bodyCenter = AddVector3(rootPosition, profile.bodyCenterOffset);
 	const bodyRadius = profile.bodyRadius.value;
 

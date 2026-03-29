@@ -45,8 +45,6 @@ function createDefaultPlayerState(playerData) {
 		profile: {
 			shape: "sphere",
 			modelAabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
-			modelAabbMinOffset: new UnitVector3(0, 0, 0, "cnu"),
-			modelAabbMaxOffset: new UnitVector3(0, 0, 0, "cnu"),
 			bodyCenterOffset: new UnitVector3(0, 0, 0, "cnu"),
 			bodyRadius: new Unit(0, "cnu"),
 			bottomOffset: new Unit(0, "cnu"),
@@ -296,8 +294,8 @@ function RespawnPlayer() {
 	playerState.boost = { active: false, timer: 0, maxSpeedMultiplier: 1, accelMultiplier: 1 };
 	playerState.invulnerable = { active: false, timer: 0, flashTimer: 0 };
 
-	UpdatePlayerCollision();
 	UpdatePlayerModel();
+	UpdatePlayerCollision();
 	Log("ENGINE", `Player respawned at (${respawnPos.x.toFixed(1)}, ${respawnPos.y.toFixed(1)}, ${respawnPos.z.toFixed(1)})`, "log", "Player");
 }
 

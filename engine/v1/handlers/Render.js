@@ -786,42 +786,15 @@ function createCapsuleLineVertices(bounds, longitudinalSegments = 8) {
 		const bottomMidNext = [start.x + c1 * ringRadius, start.y - ringOffset, start.z + s1 * ringRadius];
 		const topMidNext = [end.x + c1 * ringRadius, end.y + ringOffset, end.z + s1 * ringRadius];
 
-		lines.push(
-			...bottomBase,
-			...topBase
-		);
-		lines.push(
-			...bottomBase,
-			start.x + c1 * radius, start.y, start.z + s1 * radius
-		);
-		lines.push(
-			...topBase,
-			end.x + c1 * radius, end.y, end.z + s1 * radius
-		);
-		lines.push(
-			...bottomBase,
-			...bottomMid
-		);
-		lines.push(
-			...bottomMid,
-			...bottomPole
-		);
-		lines.push(
-			...topBase,
-			...topMid
-		);
-		lines.push(
-			...topMid,
-			...topPole
-		);
-		lines.push(
-			...bottomMid,
-			...bottomMidNext
-		);
-		lines.push(
-			...topMid,
-			...topMidNext
-		);
+		lines.push(...bottomBase, ...topBase);
+		lines.push(...bottomBase, start.x + c1 * radius, start.y, start.z + s1 * radius);
+		lines.push(...topBase, end.x + c1 * radius, end.y, end.z + s1 * radius);
+		lines.push(...bottomBase, ...bottomMid);
+		lines.push(...bottomMid, ...bottomPole);
+		lines.push(...topBase, ...topMid);
+		lines.push(...topMid, ...topPole);
+		lines.push(...bottomMid, ...bottomMidNext);
+		lines.push(...topMid, ...topMidNext);
 	}
 
 	return new Float32Array(lines);

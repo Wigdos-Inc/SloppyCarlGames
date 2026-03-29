@@ -23,7 +23,7 @@ let CONFIG = {
         Entity    : false,
         EntityPart: false,
         Obstacle  : false,
-        Player    : false,
+        Player    : true,
         PlayerPart: false,
         Boss      : false,
         BossPart  : false,
@@ -95,7 +95,7 @@ let CONFIG = {
     Resistance: { Enabled: true },
     Buoyancy  : { Enabled: true },
     Collision : { Enabled: true, Hurtbox: true, Hitbox: true },
-    Correction: { Enabled: true },
+    Correction: { Enabled: true, MaxDeltaDegrees: 35 },
   }
 };
 
