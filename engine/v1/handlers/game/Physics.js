@@ -4,7 +4,7 @@
 // Uses all Modules in the physics directory.
 
 import { CONFIG } from "../../core/config.js";
-import { Log } from "../../core/meta.js";
+import { Log, EPSILON } from "../../core/meta.js";
 import { ScaleVector3 } from "../../math/Vector3.js";
 import { ToNumber } from "../../math/Utilities.js";
 import { ApplyGravity } from "../../physics/Gravity.js";
@@ -66,6 +66,44 @@ function StorePlayerTriggers(playerState, triggers) {
 	for (let index = 0; index < triggers.count; index++) playerState.activeTriggers.push(triggers.items[index]);
 }
 
+function hasZeroDisplacement(displacement) {
+	return (
+		Math.abs(displacement.x) <= EPSILON &&
+		Math.abs(displacement.y) <= EPSILON &&
+		Math.abs(displacement.z) <= EPSILON
+	);
+}
+
+function transformMatchesCachedPhysicsState(entity) {
+	const cache = entity.physicsRuntime;
+	return (
+		entity.transform.position.x === cache.previousPosition.x &&
+		entity.transform.position.y === cache.previousPosition.y &&
+		entity.transform.position.z === cache.previousPosition.z &&
+		entity.transform.rotation.x === cache.previousRotation.x &&
+		entity.transform.rotation.y === cache.previousRotation.y &&
+		entity.transform.rotation.z === cache.previousRotation.z
+	);
+}
+
+function shouldSkipCollisionPipeline(entity, displacement) {
+	const cache = entity.physicsRuntime;
+	return (
+		cache.cachePrimed === true &&
+		cache.hasUnresolvedPenetration === false &&
+		hasZeroDisplacement(displacement) &&
+		transformMatchesCachedPhysicsState(entity)
+	);
+}
+
+function updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration) {
+	const cache = entity.physicsRuntime;
+	cache.previousPosition.set(entity.transform.position);
+	cache.previousRotation.set(entity.transform.rotation);
+	cache.hasUnresolvedPenetration = hasUnresolvedPenetration;
+	cache.cachePrimed = true;
+}
+
 function RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 	let latestTriggers = null;
 	let groundContact = { hit: false, normal: { x: 0, y: 1, z: 0 } };
@@ -125,7 +163,9 @@ function RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 	}
 
 	ResetCollisionPools();
-	latestTriggers = DetectCurrentPhysicsOverlaps(entity, sceneGraph).triggers;
+	const finalOverlaps = DetectCurrentPhysicsOverlaps(entity, sceneGraph);
+	latestTriggers = finalOverlaps.triggers;
+	const hasUnresolvedPenetration = finalOverlaps.solids.count > 0;
 	if (entity.type === "player" && hadMeaningfulWork && iterations) {
 		Log(
 			"ENGINE",
@@ -135,7 +175,11 @@ function RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 		);
 	}
 
-	return { groundContact: groundContact, triggers: latestTriggers };
+	return {
+		groundContact: groundContact,
+		triggers: latestTriggers,
+		hasUnresolvedPenetration: hasUnresolvedPenetration,
+	};
 }
 
 /**
@@ -171,14 +215,20 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 
 	// Step 4: Compute intended displacement.
 	const displacement = ScaleVector3(playerState.velocity, dt);
+	const shouldSkipCollision = shouldSkipCollisionPipeline(playerState, displacement);
+	let hasUnresolvedPenetration = playerState.physicsRuntime.hasUnresolvedPenetration;
 
 	// Step 4b: Grounded stability.
 	// Grounded frames still need a small downward probe so landing correction can
 	// revalidate and snap while idle instead of preserving a hover gap indefinitely.
-	if (playerState.grounded && Math.abs(displacement.y) < 0.001) displacement.y = -0.005;
+	if (!shouldSkipCollision && playerState.grounded && Math.abs(displacement.y) < 0.001) displacement.y = -0.005;
 
 	// Step 5: Collision & Correction Pipeline
-	const { triggers } = RunPhysicsLoop(playerState, sceneGraph, dt, displacement);
+	if (!shouldSkipCollision) {
+		const physicsResult = RunPhysicsLoop(playerState, sceneGraph, dt, displacement);
+		StorePlayerTriggers(playerState, physicsResult.triggers);
+		hasUnresolvedPenetration = physicsResult.hasUnresolvedPenetration;
+	}
 
 	// Step 9: Death barrier check.
 	if (playerState.transform.position.y < deathBarrierY) {
@@ -189,8 +239,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 		if (playerState.state !== "Dead") Log("ENGINE", "Player hit death barrier.", "log", "Level");
 	}
 
-	// Store triggered volumes for game-side handling.
-	StorePlayerTriggers(playerState, triggers);
+	updatePhysicsRuntimeCache(playerState, hasUnresolvedPenetration);
 }
 
 /**
@@ -213,9 +262,14 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 
 	// Calculate Displacement
 	const displacement = ScaleVector3(entity.velocity, deltaSeconds);
+	const shouldSkipCollision = shouldSkipCollisionPipeline(entity, displacement);
+	let hasUnresolvedPenetration = entity.physicsRuntime.hasUnresolvedPenetration;
 
 	// Apply Collision & Correction Pipeline
-	RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement);
+	if (!shouldSkipCollision) {
+		const physicsResult = RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement);
+		hasUnresolvedPenetration = physicsResult.hasUnresolvedPenetration;
+	}
 
 	// Death barrier.
 	if (entity.transform.position.y < deathBarrierY) {
@@ -223,6 +277,8 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 		entity.velocity.y = 0;
 		RebuildBounds(entity);
 	}
+
+	updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration);
 }
 
 /* === EXPORTS === */

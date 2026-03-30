@@ -95,7 +95,7 @@ let CONFIG = {
     Resistance: { Enabled: true },
     Buoyancy  : { Enabled: true },
     Collision : { Enabled: true, Hurtbox: true, Hitbox: true },
-    Correction: { Enabled: true, MaxDeltaDegrees: 35 },
+    Correction: { Enabled: true, MaxDeltaDegrees: 35, GroundSnapTolerance: 0.12 },
   }
 };
 

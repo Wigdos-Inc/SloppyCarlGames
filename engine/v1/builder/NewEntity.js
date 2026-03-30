@@ -755,6 +755,12 @@ function BuildEntity(definition, surfaceMap) {
 			lastJumpMs: 0,
 			activeAnimation: "idle",
 		},
+		physicsRuntime: {
+			previousPosition: rootTrans.position.clone(),
+			previousRotation: rootTrans.rotation.clone(),
+			hasUnresolvedPenetration: false,
+			cachePrimed: false,
+		},
 	};
 }
 

@@ -21,7 +21,7 @@ import { ToNumber } from "../math/Utilities.js";
  * @param {{ x, y, z }} surfaceNormal — current ground normal for surface-projected movement.
  * @returns {{ direction: { x, y, z }, hasInput: boolean }}
  */
-function getMovementDirection(input, cameraVectors, surfaceNormal) {
+function getMovementDirection(input, cameraVectors) {
 	const fwd = ToNumber(input.forward, 0);
 	const rgt = ToNumber(input.right, 0);
 
@@ -30,13 +30,10 @@ function getMovementDirection(input, cameraVectors, surfaceNormal) {
 	}
 
 	// Project camera vectors onto XZ plane so movement is always horizontal-relative.
-	const camFwd = NormalizeUnitVector3({ x: cameraVectors.forward.x, y: 0, z: cameraVectors.forward.z });
-	const camRight = NormalizeUnitVector3({ x: cameraVectors.right.x, y: 0, z: cameraVectors.right.z });
+	const camFwd = { x: cameraVectors.forward.x, y: 0, z: cameraVectors.forward.z };
+	const camRight = { x: cameraVectors.right.x, y: 0, z: cameraVectors.right.z };
 
-	let dir = AddVector3(
-		ScaleVector3(camFwd, fwd),
-		ScaleVector3(camRight, rgt)
-	);
+	let dir = AddVector3(ScaleVector3(camFwd, fwd), ScaleVector3(camRight, rgt));
 
 	const len = Vector3Length(dir);
 	if (len < 0.001) {
@@ -107,17 +104,16 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	let controlMultiplier = 1;
 	if (!playerState.grounded) {
 		controlMultiplier = playerState.underwater
-			? ToNumber(meta.underwaterAirControl, 0.7)
-			: ToNumber(meta.airControl, 0.4);
+			? meta.underwaterAirControl
+			: meta.airControl;
 	}
 
-	const surfaceNormal = NormalizeVector3(playerState.surfaceNormal, { x: 0, y: 1, z: 0 });
 	const {
 		direction,
 		hasInput,
 		cameraForward,
 		cameraRight,
-	} = getMovementDirection(input, cameraVectors, surfaceNormal);
+	} = getMovementDirection(input, cameraVectors);
 
 	// Separate horizontal and vertical velocity for movement calculations.
 	let hVel = { x: playerState.velocity.x, y: 0, z: playerState.velocity.z };
@@ -167,7 +163,12 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	// Vertical velocity is preserved (physics handles gravity).
 
 	// === JUMP ===
-	if (input.jump && playerState.grounded && playerState.state !== "Stunned" && playerState.state !== "Dead") {
+	if (
+		input.jump && 
+		playerState.grounded && 
+		playerState.state !== "Stunned" && 
+		playerState.state !== "Dead"
+	) {
 		playerState.velocity.y = jumpForce;
 		playerState.grounded = false;
 		const jumpStartY = ToNumber(playerState.transform.position.y, 0);

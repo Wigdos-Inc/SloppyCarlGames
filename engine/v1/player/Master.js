@@ -113,6 +113,12 @@ function createDefaultPlayerState(playerData) {
 		activeTriggers: [],
 		checkpoint: null,
 		spawnPosition: spawnPos,
+		physicsRuntime: {
+			previousPosition: spawnPos.clone(),
+			previousRotation: new UnitVector3(0, 0, 0, "radians"),
+			hasUnresolvedPenetration: false,
+			cachePrimed: false,
+		},
 		collision: collision,
 		mesh: null,
 		type: "player",
@@ -182,11 +188,10 @@ function InitializePlayer(payload, sceneGraph) {
  *     called from Level.js after this returns.
  *
  * @param {number} deltaSeconds
- * @param {object} sceneGraph
  * @param {{ forward, right }} cameraVectors — camera orientation for relative movement.
  * @returns {object|null} — updated playerState, or null if no player.
  */
-function UpdatePlayer(deltaSeconds, sceneGraph, cameraVectors) {
+function UpdatePlayer(deltaSeconds, cameraVectors) {
 	if (!playerState.active) { return null; }
 	if (playerState.state === "Dead") { return playerState; }
 

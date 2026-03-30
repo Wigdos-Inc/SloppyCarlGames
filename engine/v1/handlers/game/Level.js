@@ -287,7 +287,7 @@ function Update(deltaMilliseconds) {
 		const cameraVectors = GetCameraVectors();
 
 		// 1. Input → Movement & Abilities
-		UpdatePlayer(deltaSeconds, sceneGraph, cameraVectors);
+		UpdatePlayer(deltaSeconds, cameraVectors);
 
 		// 2. Physics pipeline owns orientation, bounds, collision, correction, and final sync.
 		ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds);
