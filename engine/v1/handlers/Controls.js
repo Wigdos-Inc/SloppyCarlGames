@@ -36,7 +36,7 @@ const directEventNameMap = {
 	onMousemove: "mousemove",
 };
 
-function resetEventTypes() {
+function ResetEventTypes() {
 	Object.keys(eventTypes).forEach((key) => eventTypes[key] = false);
 }
 
@@ -72,7 +72,7 @@ function scanUiDefinitionsForEvents(definitions) {
 function UpdateInputEventTypes(options) {
 	const payload = options.payload;
 
-	resetEventTypes();
+	ResetEventTypes();
 
 	if (options.payloadType === "ui") {
 		scanUiDefinitionsForEvents(payload.elements);
@@ -207,6 +207,6 @@ function StartInputRouter(target) {
 export {
 	Controls,
 	StartInputRouter,
-	resetEventTypes,
+	ResetEventTypes,
 	UpdateInputEventTypes,
 };

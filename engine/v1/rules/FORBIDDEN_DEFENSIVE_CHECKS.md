@@ -40,6 +40,8 @@ The following are treated as guaranteed unless explicitly documented otherwise:
 - `playerState` in player/game runtime paths after player initialization.
 - `entity` structure in runtime entity loops after builder output.
 - Engine API symbols imported from engine modules.
+- Engine-populated runtime caches after initialization.
+- Engine-created DOM nodes tracked by engine state after creation.
 - Anything else that was declared upstream and passed along.
 
 If one of these is missing, that is an upstream bug.
@@ -81,6 +83,20 @@ if (part.parentId !== "root" && index[part.parentId]) { ... }
 
 If enum membership, canonical face ids, or referential integrity need checking, do it in `core/validate.js` or `core/normalize.js` at the boundary. Do not repeat those checks in builder/runtime modules once the payload is canonical.
 
+### E. Normalization Inside Non-normalization Math Helpers
+
+```js
+function AddVector3(a, b) {
+	const left = NormalizeVector3(a);
+	const right = NormalizeVector3(b);
+	return { x: left.x + right.x, y: left.y + right.y, z: left.z + right.z };
+}
+```
+
+Dedicated normalization helpers in `math/` may canonicalize raw vector-like input, but they must be purely for normalization and must not also perform arithmetic.
+
+All other math helpers must consume canonical inputs directly and must not normalize, default, or fallback their operands.
+
 ---
 
 ## 4. Where to Fix Instead
@@ -92,6 +108,8 @@ When an expected symbol is missing, fix one of these upstream layers:
 3. Engine initialization contracts (`core/ini.js`, boot sequence, static config shape).
 
 Enum canonicalization and referential-integrity checks for game payload fields also belong in `core/validate.js` or `core/normalize.js`, not in downstream builder/runtime modules.
+
+Once normalization resolves a canonical field location, downstream modules must consume that canonical location directly and must not fall back between duplicate copies of the same semantic field.
 
 Never patch over upstream contract bugs with downstream guards.
 

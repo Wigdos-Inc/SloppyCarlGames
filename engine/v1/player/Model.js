@@ -6,7 +6,16 @@
 // Used by Master.js to pass on model data
 
 import { BuildObject, UpdateObjectWorldAabb } from "../builder/NewObject.js";
-import { NormalizeVector3, AddVector3, SubtractVector3, RotateByEuler, MultiplyVector3, ScaleVector3 } from "../math/Vector3.js";
+import { 
+	NormalizeVector3, 
+	AddVector3, 
+	SubtractVector3, 
+	RotateByEuler, 
+	MultiplyVector3, 
+	ScaleVector3, 
+	ToVector3, 
+	CloneVector3 
+} from "../math/Vector3.js";
 import { UnitVector3 } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
 
@@ -23,7 +32,7 @@ function cloneTransform(transform) {
 	const position = transform.position.clone();
 	const rotation = transform.rotation.clone();
 	const pivot    = transform.pivot.clone();
-	const scale    = NormalizeVector3(transform.scale, { x: 1, y: 1, z: 1 });
+	const scale    = CloneVector3(transform.scale);
 	return { position, rotation, scale, pivot };
 }
 
@@ -31,17 +40,15 @@ function cloneTransform(transform) {
  * Compute the center offset for a face on a box with the given dimensions.
  */
 function getFaceCenterOffset(dimensions, faceType) {
-	const hx = dimensions.x * 0.5;
-	const hy = dimensions.y * 0.5;
-	const hz = dimensions.z * 0.5;
+	const h = ScaleVector3(dimensions, 0.5);
 	switch (faceType) {
-		case "top": return { x: 0, y: hy, z: 0 };
-		case "bottom": return { x: 0, y: -hy, z: 0 };
-		case "front": return { x: 0, y: 0, z: hz };
-		case "back": return { x: 0, y: 0, z: -hz };
-		case "left": return { x: -hx, y: 0, z: 0 };
-		case "right": return { x: hx, y: 0, z: 0 };
-		default: return { x: 0, y: 0, z: 0 };
+		case "top": return { x: 0, y: h.y, z: 0 };
+		case "bottom": return { x: 0, y: -h.y, z: 0 };
+		case "front": return { x: 0, y: 0, z: h.z };
+		case "back": return { x: 0, y: 0, z: -h.z };
+		case "left": return { x: -h.x, y: 0, z: 0 };
+		case "right": return { x: h.x, y: 0, z: 0 };
+		default: return ToVector3(0);
 	}
 }
 
@@ -78,7 +85,7 @@ function buildPart(source) {
 			dimensions: dimensions,
 			position: new UnitVector3(0, 0, 0, "cnu"),
 			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: { x: 1, y: 1, z: 1 },
+			scale: ToVector3(1),
 			pivot: localTransform.pivot,
 			primitiveOptions: source.primitiveOptions,
 			texture: source.texture,
@@ -105,18 +112,9 @@ function buildPart(source) {
 }
 
 function computeExpandedAabb(aabb, padding) {
-	const pad = Math.max(0, padding);
 	return {
-		min: {
-			x: aabb.min.x - pad,
-			y: aabb.min.y - pad,
-			z: aabb.min.z - pad,
-		},
-		max: {
-			x: aabb.max.x + pad,
-			y: aabb.max.y + pad,
-			z: aabb.max.z + pad,
-		},
+		min: SubtractVector3(aabb.min, ToVector3(padding)),
+		max: AddVector3(aabb.max, ToVector3(padding)),
 	};
 }
 
@@ -142,38 +140,38 @@ function applyModelPose(model) {
 }
 
 function computePlayerAabb(model) {
-	let minX = Infinity, minY = Infinity, minZ = Infinity;
-	let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+	const min = ToVector3(Infinity);
+	const max = ToVector3(-Infinity);
 
 	model.parts.forEach((part) => {
 		const bounds = part.mesh.worldAabb;
-		if (bounds.min.x < minX) { minX = bounds.min.x; }
-		if (bounds.min.y < minY) { minY = bounds.min.y; }
-		if (bounds.min.z < minZ) { minZ = bounds.min.z; }
-		if (bounds.max.x > maxX) { maxX = bounds.max.x; }
-		if (bounds.max.y > maxY) { maxY = bounds.max.y; }
-		if (bounds.max.z > maxZ) { maxZ = bounds.max.z; }
+		if (bounds.min.x < min.x) { min.x = bounds.min.x; }
+		if (bounds.min.y < min.y) { min.y = bounds.min.y; }
+		if (bounds.min.z < min.z) { min.z = bounds.min.z; }
+		if (bounds.max.x > max.x) { max.x = bounds.max.x; }
+		if (bounds.max.y > max.y) { max.y = bounds.max.y; }
+		if (bounds.max.z > max.z) { max.z = bounds.max.z; }
 	});
 
-	return { min: { x: minX, y: minY, z: minZ }, max: { x: maxX, y: maxY, z: maxZ } };
+	return { min, max };
 }
 
 function computePlayerCapsuleFromAabb(aabb) {
-	const width = aabb.max.x - aabb.min.x;
-	const height = aabb.max.y - aabb.min.y;
-	const depth = aabb.max.z - aabb.min.z;
-	const radius = Math.max(0.0001, Math.max(width, depth) * 0.5);
-	const halfHeight = Math.max(0, (height * 0.5) - radius);
-	const centerX = (aabb.min.x + aabb.max.x) * 0.5;
-	const centerY = (aabb.min.y + aabb.max.y) * 0.5;
-	const centerZ = (aabb.min.z + aabb.max.z) * 0.5;
+	const dim = SubtractVector3(aabb.max, aabb.min);
+	const radius = Math.max(0.0001, Math.max(dim.x, dim.z) * 0.5);
+	const halfHeight = Math.max(0, (dim.y * 0.5) - radius);
+
+	const start = ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5);
+	const end = CloneVector3(start);
+	start.y -= halfHeight;
+	end.y += halfHeight;
 
 	// Unit Instancing happens later.
 	return {
 		radius: radius,
 		halfHeight: halfHeight,
-		segmentStart: { x: centerX, y: centerY - halfHeight, z: centerZ },
-		segmentEnd: { x: centerX, y: centerY + halfHeight, z: centerZ },
+		segmentStart: start,
+		segmentEnd: end,
 	};
 }
 
@@ -187,12 +185,10 @@ function InitializePlayerCollisionProfile(playerState) {
 	applyModelPose(model);
 
 	const fullAabb = computePlayerAabb(model);
-	const totalWidth = fullAabb.max.x - fullAabb.min.x;
-	const totalHeight = fullAabb.max.y - fullAabb.min.y;
-	const totalDepth = fullAabb.max.z - fullAabb.min.z;
-	const footprint = Math.max(totalWidth, totalDepth);
+	const totalDim = SubtractVector3(fullAabb.max, fullAabb.min);
+	const footprint = Math.max(totalDim.x, totalDim.z);
 	const bodyRadius = Math.max(0.0001, footprint * 0.5);
-	const profileShape = totalHeight > footprint ? "capsule" : "sphere";
+	const profileShape = totalDim.y > footprint ? "capsule" : "sphere";
 	const rootPosition = playerState.transform.position;
 	const bodyCenter = ScaleVector3(AddVector3(fullAabb.min, fullAabb.max), 0.5);
 	const sphereRadius = Math.max(0.0001, footprint * 0.5);
@@ -275,7 +271,7 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 		rootTransform: {
 			position: new UnitVector3(pos.x, pos.y, pos.z, "cnu"),
 			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: NormalizeVector3(defRootTransform.scale, { x: 1, y: 1, z: 1 }),
+			scale: NormalizeVector3(defRootTransform.scale, ToVector3(1)),
 			pivot: new UnitVector3(0, 0, 0, "cnu"),
 		},
 		parts: characterDefinition.model.parts.map((part, index) => buildPart(part, entityId, index)),

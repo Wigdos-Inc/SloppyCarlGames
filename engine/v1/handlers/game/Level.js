@@ -11,7 +11,7 @@ import { RenderLevel } from "../Render.js";
 import { Cache, IsPointerLocked, Log, PushToSession, SendEvent, SESSION_KEYS } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
-import { DistanceVector3, LerpVector3 } from "../../math/Vector3.js";
+import { Vector3Distance, LerpVector3 } from "../../math/Vector3.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { UpdateInputEventTypes } from "../Controls.js";
 import { ValidateLevelPayload } from "../../core/validate.js";
@@ -106,7 +106,7 @@ function updateEntityMovement(entity, deltaSeconds) {
 
 	const start = movement.start;
 	const end = movement.end;
-	const distance = DistanceVector3(start, end);
+	const distance = Vector3Distance(start, end);
 	if (distance <= 0.0001) {
 		return;
 	}
@@ -309,7 +309,7 @@ function Update(deltaMilliseconds) {
 	for (let index = 0; index < entities.length; index += 1) {
 		const entity = entities[index];
 		if (entity.type === "player") continue;
-		if (DistanceVector3(cameraPosition, entity.transform.position) > simDistance) continue;
+		if (Vector3Distance(cameraPosition, entity.transform.position) > simDistance) continue;
 		updateEntityMovement(entity, deltaSeconds);
 		ApplyEntityPhysics(entity, sceneGraph, deltaSeconds);
 	}

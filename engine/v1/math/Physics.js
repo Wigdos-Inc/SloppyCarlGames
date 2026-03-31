@@ -5,16 +5,16 @@
 
 import { EPSILON } from "../core/meta.js";
 import {
-	NormalizeVector3,
 	AddVector3,
 	SubtractVector3,
 	ScaleVector3,
 	DotVector3,
 	CrossVector3,
 	CloneVector3,
-	Vector3LengthSq,
+	Vector3Sq,
 	Vector3Length,
-	NormalizeUnitVector3,
+	ResolveVector3Axis,
+	ToVector3,
 } from "./Vector3.js";
 import { Clamp01, ClampToRange, ToNumber } from "./Utilities.js";
 
@@ -42,7 +42,7 @@ function InvertContact(contact) {
 }
 
 function resolveUnitDirection(vector) {
-	const lengthSq = Vector3LengthSq(vector);
+	const lengthSq = Vector3Sq(vector);
 	if (lengthSq <= EPSILON) return null;
 	return ScaleVector3(vector, 1 / Math.sqrt(lengthSq));
 }
@@ -91,24 +91,20 @@ function resolveInsideObbContact(localPoint, radius, obb) {
 	return makeContact(best.normal, best.depth, null);
 }
 
-function dotAxis(vector, axis) {
-	return vector.x * axis.x + vector.y * axis.y + vector.z * axis.z;
-}
-
 function projectToObbLocal(point, obb) {
 	const delta = SubtractVector3(point, obb.center);
 	return {
-		x: dotAxis(delta, obb.axes[0]),
-		y: dotAxis(delta, obb.axes[1]),
-		z: dotAxis(delta, obb.axes[2]),
+		x: DotVector3(delta, obb.axes[0]),
+		y: DotVector3(delta, obb.axes[1]),
+		z: DotVector3(delta, obb.axes[2]),
 	};
 }
 
 function projectDirectionToObbLocal(vector, obb) {
 	return {
-		x: dotAxis(vector, obb.axes[0]),
-		y: dotAxis(vector, obb.axes[1]),
-		z: dotAxis(vector, obb.axes[2]),
+		x: DotVector3(vector, obb.axes[0]),
+		y: DotVector3(vector, obb.axes[1]),
+		z: DotVector3(vector, obb.axes[2]),
 	};
 }
 
@@ -124,7 +120,7 @@ function projectObbNormalToWorld(localNormal, obb) {
 
 function closestPointOnSegment(point, segStart, segEnd) {
 	const segment = SubtractVector3(segEnd, segStart);
-	const segmentLengthSq = Vector3LengthSq(segment);
+	const segmentLengthSq = Vector3Sq(segment);
 	if (segmentLengthSq <= EPSILON) return CloneVector3(segStart);
 
 	const delta = SubtractVector3(point, segStart);
@@ -149,7 +145,7 @@ function closestPointsOnSegments(p1, q1, p2, q2) {
 			pointB: CloneVector3(p2),
 			s: 0,
 			t: 0,
-			distanceSq: Vector3LengthSq(SubtractVector3(p1, p2)),
+			distanceSq: Vector3Sq(SubtractVector3(p1, p2)),
 		};
 	}
 
@@ -183,7 +179,7 @@ function closestPointsOnSegments(p1, q1, p2, q2) {
 		pointB,
 		s,
 		t,
-		distanceSq: Vector3LengthSq(SubtractVector3(pointA, pointB)),
+		distanceSq: Vector3Sq(SubtractVector3(pointA, pointB)),
 	};
 }
 
@@ -246,7 +242,7 @@ function closestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal)
 		if (t >= 0 && t <= 1) {
 			const segmentPoint = AddVector3(segStart, ScaleVector3(segment, t));
 			const trianglePoint = closestPointOnTriangle(segmentPoint, a, b, c);
-			if (Vector3LengthSq(SubtractVector3(segmentPoint, trianglePoint)) <= EPSILON) {
+			if (Vector3Sq(SubtractVector3(segmentPoint, trianglePoint)) <= EPSILON) {
 				return {
 					segmentPoint,
 					trianglePoint,
@@ -289,7 +285,7 @@ function closestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal)
 	let best = null;
 	for (let index = 0; index < candidates.length; index += 1) {
 		const delta = SubtractVector3(candidates[index].segmentPoint, candidates[index].trianglePoint);
-		const distanceSq = Vector3LengthSq(delta);
+		const distanceSq = Vector3Sq(delta);
 		if (!best || distanceSq < best.distanceSq) {
 			best = { ...candidates[index], distanceSq };
 		}
@@ -308,7 +304,7 @@ function SphereSphereContact(centerA, radiusA, centerB, radiusB) {
 	const resolvedRadiusA = radiusA.value;
 	const resolvedRadiusB = radiusB.value;
 	const delta = SubtractVector3(centerA, centerB);
-	const distSq = Vector3LengthSq(delta);
+	const distSq = Vector3Sq(delta);
 	const radiusSum = resolvedRadiusA + resolvedRadiusB;
 	if (distSq > radiusSum * radiusSum) return NoContact();
 
@@ -325,7 +321,7 @@ function SphereAABBContact(center, radius, aabb) {
 	const resolvedRadius = radius.value;
 	const closest = closestPointOnAabb(center, aabb);
 	const delta = SubtractVector3(center, closest);
-	const distSq = Vector3LengthSq(delta);
+	const distSq = Vector3Sq(delta);
 	if (distSq > resolvedRadius * resolvedRadius) return NoContact();
 	if (distSq <= EPSILON) return resolveInsideAabbContact(center, resolvedRadius, aabb);
 
@@ -352,7 +348,7 @@ function SphereOBBContact(center, radius, obb) {
 		)
 	);
 	const delta = SubtractVector3(center, closest);
-	const distSq = Vector3LengthSq(delta);
+	const distSq = Vector3Sq(delta);
 	if (distSq > resolvedRadius * resolvedRadius) return NoContact();
 	if (distSq <= EPSILON) return resolveInsideObbContact(localPoint, resolvedRadius, obb);
 
@@ -365,7 +361,7 @@ function SphereCapsuleContact(center, radius, capsule) {
 	const resolvedCapsuleRadius = capsule.radius.value;
 	const closest = closestPointOnSegment(center, capsule.segmentStart, capsule.segmentEnd);
 	const delta = SubtractVector3(center, closest);
-	const distSq = Vector3LengthSq(delta);
+	const distSq = Vector3Sq(delta);
 	const radiusSum = resolvedSphereRadius + resolvedCapsuleRadius;
 	if (distSq > radiusSum * radiusSum) return NoContact();
 	if (distSq <= EPSILON) {
@@ -382,7 +378,7 @@ function sphereTriangleContact(center, radius, triangle) {
 	const resolvedRadius = radius.value;
 	const closest = closestPointOnTriangle(center, triangle.a, triangle.b, triangle.c);
 	const delta = SubtractVector3(center, closest);
-	const distSq = Vector3LengthSq(delta);
+	const distSq = Vector3Sq(delta);
 	if (distSq > resolvedRadius * resolvedRadius) return NoContact();
 	if (distSq <= EPSILON) {
 		const triangleNormal = triangle.normal;
@@ -429,7 +425,7 @@ function CapsuleCapsuleContact(capsuleA, capsuleB) {
 function CapsuleAABBContact(capsule, aabb) {
 	const center = ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5);
 	const axis = SubtractVector3(capsule.segmentEnd, capsule.segmentStart);
-	const axisLengthSq = Vector3LengthSq(axis);
+	const axisLengthSq = Vector3Sq(axis);
 	const centerT = axisLengthSq <= EPSILON 
 		? 0.5 
 		: Clamp01(DotVector3(SubtractVector3(center, capsule.segmentStart), axis) / axisLengthSq);
@@ -449,7 +445,7 @@ function CapsuleAABBContact(capsule, aabb) {
 
 function CapsuleOBBContact(capsule, obb) {
 	const axis = SubtractVector3(capsule.segmentEnd, capsule.segmentStart);
-	const axisLengthSq = Vector3LengthSq(axis);
+	const axisLengthSq = Vector3Sq(axis);
 	const centerT = axisLengthSq <= EPSILON ? 0.5 : Clamp01(DotVector3(SubtractVector3(obb.center, capsule.segmentStart), axis) / axisLengthSq);
 	const samples = [
 		CloneVector3(capsule.segmentStart),
@@ -508,49 +504,38 @@ function ApplyAcceleration(velocity, direction, acceleration, dt) {
 }
 
 function ApplyDeceleration(velocity, deceleration, dt) {
-	const vel = NormalizeVector3(velocity);
-	const speed = Vector3Length(vel);
-	if (speed <= 0.0001) return { x: 0, y: 0, z: 0 };
+	const speed = Vector3Length(velocity);
+	if (speed <= 0.0001) return ToVector3(0);
 	const reduction = ToNumber(deceleration, 0) * ToNumber(dt, 0);
 	const newSpeed = Math.max(0, speed - reduction);
-	if (newSpeed <= 0.0001) return { x: 0, y: 0, z: 0 };
-	return ScaleVector3(NormalizeUnitVector3(vel), newSpeed);
+	if (newSpeed <= 0.0001) return ToVector3(0);
+	return ScaleVector3(ResolveVector3Axis(velocity), newSpeed);
 }
 
 function ClampVelocity(velocity, maxSpeed) {
-	const vel = NormalizeVector3(velocity);
-	const speed = Vector3Length(vel);
+	const speed = Vector3Length(velocity);
 	const cap = ToNumber(maxSpeed, Infinity);
-	if (speed <= cap || speed <= 0.0001) return vel;
-	return ScaleVector3(NormalizeUnitVector3(vel), cap);
-}
-
-function ApplyImpulse(velocity, impulse) {
-	return AddVector3(NormalizeVector3(velocity), NormalizeVector3(impulse));
+	if (speed <= cap || speed <= 0.0001) return velocity;
+	return ScaleVector3(ResolveVector3Axis(velocity), cap);
 }
 
 /* === PROJECTION & REFLECTION === */
 
 function ProjectOntoPlane(vector, normal) {
-	const v = NormalizeVector3(vector);
-	const n = NormalizeUnitVector3(NormalizeVector3(normal));
-	const d = DotVector3(v, n);
-	return SubtractVector3(v, ScaleVector3(n, d));
+	const n = ResolveVector3Axis(normal);
+	const d = DotVector3(vector, n);
+	return SubtractVector3(vector, ScaleVector3(n, d));
 }
 
 function ReflectVector3(velocity, normal) {
-	const v = NormalizeVector3(velocity);
-	const n = NormalizeUnitVector3(NormalizeVector3(normal));
-	const d = DotVector3(v, n);
-	return SubtractVector3(v, ScaleVector3(n, 2 * d));
+	const n = ResolveVector3Axis(normal);
+	const d = DotVector3(velocity, n);
+	return SubtractVector3(velocity, ScaleVector3(n, 2 * d));
 }
 
 /* === AABB OVERLAP === */
 
-function AABBOverlap(aabbA, aabbB) {
-	if (!aabbA || !aabbB || !aabbA.min || !aabbA.max || !aabbB.min || !aabbB.max) {
-		return false;
-	}
+function AabbOverlap(aabbA, aabbB) {
 	return (
 		aabbA.min.x <= aabbB.max.x && aabbA.max.x >= aabbB.min.x &&
 		aabbA.min.y <= aabbB.max.y && aabbA.max.y >= aabbB.min.y &&
@@ -563,43 +548,31 @@ function AABBOverlap(aabbA, aabbB) {
 // Returns { hit, tEntry, tExit, normal }.
 
 function SweptAABB(position, velocity, halfExtents, staticAabb) {
-	const result = { hit: false, tEntry: 1, tExit: 1, normal: { x: 0, y: 0, z: 0 } };
-
-	if (!staticAabb || !staticAabb.min || !staticAabb.max) return result;
-
-	const pos = NormalizeVector3(position);
-	const vel = NormalizeVector3(velocity);
-	const half = NormalizeVector3(halfExtents, { x: 0.5, y: 0.5, z: 0.5 });
-
+	const result = { 
+		hit: false, 
+		tEntry: 1, 
+		tExit: 1, 
+		normal: ToVector3(0) 
+	};
 	// Expand static AABB by moving entity half-extents (Minkowski sum).
-	const expandedMin = {
-		x: staticAabb.min.x - half.x,
-		y: staticAabb.min.y - half.y,
-		z: staticAabb.min.z - half.z,
-	};
-	const expandedMax = {
-		x: staticAabb.max.x + half.x,
-		y: staticAabb.max.y + half.y,
-		z: staticAabb.max.z + half.z,
-	};
+	const expandedMin = SubtractVector3(staticAabb.min, halfExtents);
+	const expandedMax = AddVector3(staticAabb.max, halfExtents);
 
 	let tEntryMax = -Infinity;
 	let tExitMin = Infinity;
-	const entryNormal = { x: 0, y: 0, z: 0 };
+	const entryNormal = ToVector3(0);
 	const axes = ["x", "y", "z"];
 
 	for (let i = 0; i < 3; i++) {
 		const axis = axes[i];
-		const p = pos[axis];
-		const v = vel[axis];
+		const p = position[axis];
+		const v = velocity[axis];
 		const bMin = expandedMin[axis];
 		const bMax = expandedMax[axis];
 
-		if (Math.abs(v) < 0.000001) {
+		if (Math.abs(v) < EPSILON) {
 			// Ray is parallel to slab — check if inside.
-			if (p < bMin || p > bMax) {
-				return result; // No collision possible.
-			}
+			if (p < bMin || p > bMax) return result; // No collision possible.
 			continue;
 		}
 
@@ -646,16 +619,14 @@ function SweptAABB(position, velocity, halfExtents, staticAabb) {
 // Returns { hit, t, normal }.
 
 function RayAABBIntersect(origin, direction, aabb) {
-	const result = { hit: false, t: Infinity, normal: { x: 0, y: 0, z: 0 } };
-	if (!aabb || !aabb.min || !aabb.max) return result;
-
-	const o = NormalizeVector3(origin);
-	const d = NormalizeVector3(direction);
+	const result = { hit: false, t: Infinity, normal: ToVector3(0) };
+	const o = origin;
+	const d = direction;
 	const axes = ["x", "y", "z"];
 
 	let tMin = -Infinity;
 	let tMax = Infinity;
-	const hitNormal = { x: 0, y: 0, z: 0 };
+	const hitNormal = ToVector3(0);
 
 	for (let i = 0; i < 3; i++) {
 		const axis = axes[i];
@@ -709,16 +680,8 @@ function RayAABBIntersect(origin, direction, aabb) {
 // Returns { hit, tEntry, normal }.
 
 function SweptSphereAABB(center, velocity, radius, aabb) {
-	const expandedMin = {
-		x: aabb.min.x - radius,
-		y: aabb.min.y - radius,
-		z: aabb.min.z - radius,
-	};
-	const expandedMax = {
-		x: aabb.max.x + radius,
-		y: aabb.max.y + radius,
-		z: aabb.max.z + radius,
-	};
+	const expandedMin = SubtractVector3(aabb.min, ToVector3(radius));
+	const expandedMax = AddVector3(aabb.max, ToVector3(radius));
 	return RayAABBIntersect(center, velocity, { min: expandedMin, max: expandedMax });
 }
 
@@ -752,10 +715,9 @@ export {
 	ApplyAcceleration,
 	ApplyDeceleration,
 	ClampVelocity,
-	ApplyImpulse,
 	ProjectOntoPlane,
 	ReflectVector3,
-	AABBOverlap,
+	AabbOverlap,
 	SweptAABB,
 	RayAABBIntersect,
 	SweptSphereAABB,

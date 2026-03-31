@@ -5,9 +5,10 @@ import { ToNumber } from "./Utilities.js";
 
 /* === NORMALIZERS === */
 // Convert incoming values into consistent vector objects.
+// These helpers are the exception that normalize raw vector-like input.
 
 function NormalizeVector3(value, fallback) {
-	const resolvedFallback = fallback || { x: 0, y: 0, z: 0 };
+	const resolvedFallback = fallback || ToVector3(0);
 	if (!value) {
 		return { ...resolvedFallback };
 	}
@@ -31,49 +32,97 @@ function NormalizeVector3(value, fallback) {
 	return { ...resolvedFallback };
 }
 
-function AddVector3(a, b) {
-	const left = NormalizeVector3(a);
-	const right = NormalizeVector3(b);
+/* === MATH === */
+// Perform math operations on canonized vectors.
+
+function ToVector3(value) {
 	return {
-		x: left.x + right.x,
-		y: left.y + right.y,
-		z: left.z + right.z,
+		x: value,
+		y: value,
+		z: value,
+	};
+}
+
+function AddVector3(a, b) {
+	return {
+		x: a.x + b.x,
+		y: a.y + b.y,
+		z: a.z + b.z,
 	};
 }
 
 function SubtractVector3(a, b) {
-	const left = NormalizeVector3(a);
-	const right = NormalizeVector3(b);
 	return {
-		x: left.x - right.x,
-		y: left.y - right.y,
-		z: left.z - right.z,
+		x: a.x - b.x,
+		y: a.y - b.y,
+		z: a.z - b.z,
 	};
 }
 
-function ScaleVector3(vector, scalar) {
-	const resolved = NormalizeVector3(vector);
-	const factor = ToNumber(scalar, 1);
+function DivideVector3(a, b) {
 	return {
-		x: resolved.x * factor,
-		y: resolved.y * factor,
-		z: resolved.z * factor,
+		x: a.x / b.x,
+		y: a.y / b.y,
+		z: a.z / b.z,
+	};
+}
+
+function MultiplyVector3(a, b) {
+	return { x: a.x * b.x, y: a.y * b.y, z: a.z * b.z };
+}
+
+function ScaleVector3(vector, scalar) {
+	return {
+		x: vector.x * scalar,
+		y: vector.y * scalar,
+		z: vector.z * scalar,
+	};
+}
+
+function AbsoluteVector3(vector) {
+	return {
+		x: Math.abs(vector.x),
+		y: Math.abs(vector.y),
+		z: Math.abs(vector.z),
 	};
 }
 
 function DotVector3(a, b) {
-	const left = NormalizeVector3(a);
-	const right = NormalizeVector3(b);
-	return left.x * right.x + left.y * right.y + left.z * right.z;
+	return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
 function CrossVector3(a, b) {
-	const left = NormalizeVector3(a);
-	const right = NormalizeVector3(b);
 	return {
-		x: left.y * right.z - left.z * right.y,
-		y: left.z * right.x - left.x * right.z,
-		z: left.x * right.y - left.y * right.x,
+		x: a.y * b.z - a.z * b.y,
+		y: a.z * b.x - a.x * b.z,
+		z: a.x * b.y - a.y * b.x,
+	};
+}
+
+function LerpVector3(start, end, t) {
+	const alpha = Math.max(0, Math.min(1, t));
+	return AddVector3(start, ScaleVector3(SubtractVector3(end, start), alpha));
+}
+
+function Vector3Sq(vector) {
+	return (vector.x * vector.x) + (vector.y * vector.y) + (vector.z * vector.z);
+}
+
+function Vector3Length(vector) {
+	return Math.hypot(vector.x, vector.y, vector.z);
+}
+
+function Vector3Distance(a, b) {
+	return Vector3Length(SubtractVector3(a, b));
+}
+
+function ResolveVector3Axis(vector) {
+	const length = Vector3Length(vector);
+	if (length <= EPSILON) return ToVector3(0);
+	return {
+		x: vector.x / length,
+		y: vector.y / length,
+		z: vector.z / length,
 	};
 }
 
@@ -81,71 +130,24 @@ function CloneVector3(vector) {
 	return { x: vector.x, y: vector.y, z: vector.z };
 }
 
-function Vector3LengthSq(vector) {
-	const resolved = NormalizeVector3(vector);
-	return (resolved.x * resolved.x) + (resolved.y * resolved.y) + (resolved.z * resolved.z);
-}
-
-function Vector3Length(vector) {
-	const resolved = NormalizeVector3(vector);
-	return Math.hypot(resolved.x, resolved.y, resolved.z);
-}
-
-function DistanceVector3(a, b) {
-	return Vector3Length(SubtractVector3(a, b));
-}
-
-function NormalizeUnitVector3(vector) {
-	const resolved = NormalizeVector3(vector);
-	const length = Vector3Length(resolved);
-	if (length <= EPSILON) {
-		return { x: 0, y: 0, z: 0 };
-	}
-	return {
-		x: resolved.x / length,
-		y: resolved.y / length,
-		z: resolved.z / length,
-	};
-}
-
-function LerpVector3(start, end, t) {
-	const from = NormalizeVector3(start);
-	const to = NormalizeVector3(end);
-	const alpha = Math.max(0, Math.min(1, ToNumber(t, 0)));
-	return {
-		x: from.x + (to.x - from.x) * alpha,
-		y: from.y + (to.y - from.y) * alpha,
-		z: from.z + (to.z - from.z) * alpha,
-	};
-}
-
-function MultiplyVector3(a, b) {
-	const left = NormalizeVector3(a, { x: 1, y: 1, z: 1 });
-	const right = NormalizeVector3(b, { x: 1, y: 1, z: 1 });
-	return { x: left.x * right.x, y: left.y * right.y, z: left.z * right.z };
-}
-
 /**
  * Rotate a point by Euler angles in Y → X → Z order (matches CreateModelMatrix).
  * All rotation values must be in radians.
  */
 function RotateByEuler(point, rotation) {
-	const p0 = NormalizeVector3(point);
-	const r = NormalizeVector3(rotation);
-
 	// Y rotation
-	const cy = Math.cos(r.y);
-	const sy = Math.sin(r.y);
-	const p1 = { x: p0.x * cy + p0.z * sy, y: p0.y, z: -p0.x * sy + p0.z * cy };
+	const cy = Math.cos(rotation.y);
+	const sy = Math.sin(rotation.y);
+	const p1 = { x: point.x * cy + point.z * sy, y: point.y, z: -point.x * sy + point.z * cy };
 
 	// X rotation
-	const cx = Math.cos(r.x);
-	const sx = Math.sin(r.x);
+	const cx = Math.cos(rotation.x);
+	const sx = Math.sin(rotation.x);
 	const p2 = { x: p1.x, y: p1.y * cx - p1.z * sx, z: p1.y * sx + p1.z * cx };
 
 	// Z rotation
-	const cz = Math.cos(r.z);
-	const sz = Math.sin(r.z);
+	const cz = Math.cos(rotation.z);
+	const sz = Math.sin(rotation.z);
 	return { x: p2.x * cz - p2.y * sz, y: p2.x * sz + p2.y * cz, z: p2.z };
 }
 
@@ -156,15 +158,18 @@ export {
 	NormalizeVector3,
 	AddVector3,
 	SubtractVector3,
+	DivideVector3,
 	ScaleVector3,
 	MultiplyVector3,
+	AbsoluteVector3,
 	DotVector3,
 	CrossVector3,
 	CloneVector3,
-	Vector3LengthSq,
+	Vector3Sq,
 	Vector3Length,
-	DistanceVector3,
-	NormalizeUnitVector3,
+	Vector3Distance,
+	ResolveVector3Axis,
 	LerpVector3,
 	RotateByEuler,
+	ToVector3,
 };

@@ -5,7 +5,7 @@
 
 import { CONFIG } from "../../core/config.js";
 import { Log, EPSILON } from "../../core/meta.js";
-import { ScaleVector3 } from "../../math/Vector3.js";
+import { ScaleVector3, ToVector3 } from "../../math/Vector3.js";
 import { ToNumber } from "../../math/Utilities.js";
 import { ApplyGravity } from "../../physics/Gravity.js";
 import { ApplyResistance } from "../../physics/Resistance.js";
@@ -128,7 +128,7 @@ function RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 	for (iterations = 0; iterations < 3; iterations++) {
 		ResetCollisionPools();
 		const overlaps = DetectCurrentPhysicsOverlaps(entity, sceneGraph);
-		const overlapResolution = ResolveCollisions(entity.velocity, { x: 0, y: 0, z: 0 }, overlaps.solids);
+		const overlapResolution = ResolveCollisions(entity.velocity, ToVector3(0), overlaps.solids);
 		if (overlapResolution.groundContact.hit) groundContact = overlapResolution.groundContact;
 		entity.velocity.set(overlapResolution.resolvedVelocity);
 		if (overlapResolution.changedPosition) entity.transform.position.add(overlapResolution.resolvedDisplacement);

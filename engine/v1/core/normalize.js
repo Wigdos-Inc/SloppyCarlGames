@@ -1,7 +1,7 @@
 // Normalization of Game Payloads for Engine use
 // Exclusively called by validate.js
 
-import { NormalizeVector3 } from "../math/Vector3.js";
+import { NormalizeVector3, ToVector3 } from "../math/Vector3.js";
 import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { Log } from "./meta.js";
 import visualTemplates from "../builder/templates/textures.json" with { type: "json" };
@@ -632,6 +632,57 @@ function normalizeCollisionShape(value) {
 	return normalized.length > 0 ? normalized : null;
 }
 
+
+function resolveDefaultEntityCollisionShape(entityType) {
+	switch (entityType) {
+		case "player": return "sphere";
+		case "enemy": return "aabb";
+		case "enemy-large":
+		case "enemy-irregular": return "sphere";
+		case "boss": return "compound-sphere";
+		case "projectile": return "sphere";
+		case "collectible": return "aabb";
+		case "npc": return "capsule";
+		default: return "sphere";
+	}
+}
+
+function resolveDefaultEntityCollisionLayers(entityType) {
+	const physics = resolveDefaultEntityCollisionShape(entityType);
+	switch (entityType) {
+		case "player": return { physics, hurtbox: "sphere", hitbox: "sphere" };
+		case "enemy": return { physics, hurtbox: "aabb", hitbox: "aabb" };
+		case "enemy-large":
+		case "enemy-irregular": return { physics, hurtbox: "sphere", hitbox: "sphere" };
+		case "boss": return { physics, hurtbox: "compound-sphere", hitbox: "compound-sphere" };
+		case "projectile": return { physics, hurtbox: "sphere", hitbox: null };
+		case "collectible": return { physics, hurtbox: "aabb", hitbox: null };
+		case "npc": return { physics, hurtbox: null, hitbox: null };
+		default: return { physics, hurtbox: physics, hitbox: null };
+	}
+}
+
+const validEntityCollisionShapes = new Set(["sphere", "aabb", "capsule", "obb", "compound-sphere"]);
+function normalizeEntityCollisionLayerShape(value, fallback, contextPath, fieldName) {
+	if (value === undefined || value === null) return fallback;
+
+	const normalized = normalizeCollisionShape(value);
+	if (normalized !== null && validEntityCollisionShapes.has(normalized)) return normalized;
+
+	warnLog(`Entity payload ${contextPath} '${fieldName}' malformed; defaulted to '${fallback}'.`);
+	return fallback;
+}
+
+function normalizeEntityCollisionOverride(value, entityType, contextPath) {
+	const source = normalizeObject(value);
+	const defaults = resolveDefaultEntityCollisionLayers(entityType);
+	return {
+		physics: normalizeEntityCollisionLayerShape(source.physics, defaults.physics, contextPath, "collisionOverride.physics"),
+		hurtbox: normalizeEntityCollisionLayerShape(source.hurtbox, defaults.hurtbox, contextPath, "collisionOverride.hurtbox"),
+		hitbox: normalizeEntityCollisionLayerShape(source.hitbox, defaults.hitbox, contextPath, "collisionOverride.hitbox"),
+	};
+}
+
 function normalizeArray(value) { 
 	return Array.isArray(value) ? value : []; 
 }
@@ -760,25 +811,25 @@ function normalizeTerrainObject(definition, index) {
 
 	const position = normalizeVector3WithWarning(
 		getByAlias(source, "vector.position", undefined), 
-		{ x: 0, y: 0, z: 0 }, 
+		ToVector3(0), 
 		`terrain[${index}]`, 
 		"position"
 	);
 	const dimensions = normalizeVector3WithWarning(
 		getByAlias(source, "vector.dimensions", undefined), 
-		{ x: 1, y: 1, z: 1 }, 
+		ToVector3(1), 
 		`terrain[${index}]`, 
 		"dimensions"
 	);
 	const rotation = normalizeVector3WithWarning(
 		getByAlias(source, "vector.rotation", undefined), 
-		{ x: 0, y: 0, z: 0 }, 
+		ToVector3(0), 
 		`terrain[${index}]`, 
 		"rotation"
 	);
 	const pivot = normalizeVector3WithWarning(
 		getByAlias(source, "vector.pivot", undefined), 
-		{ x: 0, y: 0, z: 0 }, 
+		ToVector3(0), 
 		`terrain[${index}]`,
 		"pivot"
 	);
@@ -798,7 +849,7 @@ function normalizeTerrainObject(definition, index) {
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
 		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
-		scale: NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 }),
+		scale: NormalizeVector3(source.scale, ToVector3(1)),
 		pivot: new UnitVector3(pivot.x, pivot.y, pivot.z, "cnu"),
 		primitiveOptions: primitiveOptions,
 		texture: texture,
@@ -811,7 +862,7 @@ function normalizeTerrainObject(definition, index) {
 
 function normalizeTrigger(definition, index) {
 	const source = normalizeObject(definition);
-	const start = NormalizeVector3(getByAlias(source, "vector.start", undefined), { x: 0, y: 0, z: 0 });
+	const start = NormalizeVector3(getByAlias(source, "vector.start", undefined), ToVector3(0));
 	const end = NormalizeVector3(getByAlias(source, "vector.end", undefined), start);
 	const triggerType = normalizeString(getByAlias(source, "trigger.type", ""), "");
 	const payload = normalizeObject(getByAlias(source, "trigger.payload", {}));
@@ -850,24 +901,24 @@ function normalizeObstacle(definition, index) {
 
 	const position = normalizeVector3WithWarning(
 		getByAlias(source, "vector.position", undefined), 
-		{ x: 0, y: 0, z: 0 }, 
+		ToVector3(0), 
 		`obstacle[${index}]`, "position"
 	);
 	const dimensions = normalizeVector3WithWarning(
 		getByAlias(source, "vector.dimensions", undefined),
-		{ x: 1, y: 1, z: 1 }, 
+		ToVector3(1), 
 		`obstacle[${index}]`, 
 		"dimensions"
 	);
 	const rotation = normalizeVector3WithWarning(
 		getByAlias(source, "vector.rotation", undefined), 
-		{ x: 0, y: 0, z: 0 }, 
+		ToVector3(0), 
 		`obstacle[${index}]`, 
 		"rotation"
 	);
 	const pivot = normalizeVector3WithWarning(
 		getByAlias(source, "vector.pivot", undefined), 
-		{ x: 0, y: 0, z: 0 }, 
+		ToVector3(0), 
 		`obstacle[${index}]`, 
 		"pivot"
 	);
@@ -876,9 +927,9 @@ function normalizeObstacle(definition, index) {
 	const parts = Array.isArray(source.parts)
 		? source.parts.map((part, pIndex) => {
 			const p = normalizeObject(part);
-			const dims = NormalizeVector3(getByAlias(p, "vector.dimensionsCompact", undefined), { x: 1, y: 1, z: 1 });
-			const localPosition = NormalizeVector3(getByAlias(p, "entityPart.localPosition", undefined), { x: 0, y: 0, z: 0 });
-			const localRotation = NormalizeVector3(getByAlias(p, "entityPart.localRotation", undefined), { x: 0, y: 0, z: 0 });
+			const dims = NormalizeVector3(getByAlias(p, "vector.dimensionsCompact", undefined), ToVector3(1));
+			const localPosition = NormalizeVector3(getByAlias(p, "entityPart.localPosition", undefined), ToVector3(0));
+			const localRotation = NormalizeVector3(getByAlias(p, "entityPart.localRotation", undefined), ToVector3(0));
 			const partTexture = normalizeTextureDescriptor(
 				p, { textureID: "default-grid" }, 
 				`obstacle[${index}].parts[${pIndex}]`
@@ -896,7 +947,7 @@ function normalizeObstacle(definition, index) {
 					localRotation.z, 
 					"degrees"
 				).toRadians(true),
-				localScale: NormalizeVector3(p.localScale, { x: 1, y: 1, z: 1 }),
+				localScale: NormalizeVector3(p.localScale, ToVector3(1)),
 				primitiveOptions: normalizePrimitiveOptions(p, `obstacle[${index}].parts[${pIndex}]`),
 				texture: partTexture,
 				detail: {
@@ -920,7 +971,7 @@ function normalizeObstacle(definition, index) {
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
 		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
-		scale: NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 }),
+		scale: NormalizeVector3(source.scale, ToVector3(1)),
 		pivot: new UnitVector3(pivot.x, pivot.y, pivot.z, "cnu"),
 		primitiveOptions,
 		texture,
@@ -1043,8 +1094,8 @@ function normalizeScatterRequests(source, contextPath) {
 }
 
 function buildDefaultEntityModel(source, entityId) {
-	const rotation = NormalizeVector3(getByAlias(source, "vector.rotation", undefined), { x: 0, y: 0, z: 0 });
-	const dimensions = NormalizeVector3(getByAlias(source, "vector.dimensionsShort", undefined), { x: 1, y: 1, z: 1 });
+	const rotation = NormalizeVector3(getByAlias(source, "vector.rotation", undefined), ToVector3(0));
+	const dimensions = NormalizeVector3(getByAlias(source, "vector.dimensionsShort", undefined), ToVector3(1));
 	const shape = normalizeShapeAlias(source, `${entityId}.defaultModelPart`);
 	const texture = normalizeTextureDescriptor(source, { textureID: "default-grid", defaultColor: { r: 0.9, g: 0.35, b: 0.35, a: 1 } }, `${entityId}.defaultModelPart`);
 	const spawnSurfaceId = normalizeString(getByAlias(source, "entity.spawnSurfaceId", ""), "");
@@ -1053,7 +1104,7 @@ function buildDefaultEntityModel(source, entityId) {
 		rootTransform: {
 			position: new UnitVector3(0, 0, 0, "cnu"),
 			rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
-			scale: NormalizeVector3(source.scale, { x: 1, y: 1, z: 1 }),
+			scale: NormalizeVector3(source.scale, ToVector3(1)),
 			pivot: new UnitVector3(0, 0, 0, "cnu"),
 		},
 		parts: [
@@ -1064,7 +1115,7 @@ function buildDefaultEntityModel(source, entityId) {
 				attachmentPoint: "top",
 				localPosition: new UnitVector3(0, 0, 0, "cnu"),
 				localRotation: new UnitVector3(0, 0, 0, "radians"),
-				localScale: { x: 1, y: 1, z: 1 },
+				localScale: ToVector3(1),
 				shape: shape,
 				complexity: "medium",
 				dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
@@ -1082,31 +1133,31 @@ function buildDefaultEntityModel(source, entityId) {
 
 function normalizeEntityRootTransform(rootTransform, source) {
 	const transform = normalizeObject(rootTransform);
-	const sourceRotation = NormalizeVector3(getByAlias(source, "vector.rotationBasic", undefined), { x: 0, y: 0, z: 0 });
-	const position = NormalizeVector3(getByAlias(transform, "transform.position", undefined), { x: 0, y: 0, z: 0 });
+	const sourceRotation = NormalizeVector3(getByAlias(source, "vector.rotationBasic", undefined), ToVector3(0));
+	const position = NormalizeVector3(getByAlias(transform, "transform.position", undefined), ToVector3(0));
 	const rotation = NormalizeVector3(getByAlias(transform, "vector.rotation", undefined), sourceRotation);
-	const pivot = NormalizeVector3(getByAlias(transform, "vector.pivot", undefined), { x: 0, y: 0, z: 0 });
+	const pivot = NormalizeVector3(getByAlias(transform, "vector.pivot", undefined), ToVector3(0));
 	const scaleSource = getByAlias(transform, "transform.scale", undefined);
-	const fallbackScaleSource = getByAlias(source, "transform.scale", { x: 1, y: 1, z: 1 });
+	const fallbackScaleSource = getByAlias(source, "transform.scale", ToVector3(1));
 
 	return {
 		...transform,
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
-		scale: NormalizeVector3(scaleSource, NormalizeVector3(fallbackScaleSource, { x: 1, y: 1, z: 1 })),
+		scale: NormalizeVector3(scaleSource, NormalizeVector3(fallbackScaleSource, ToVector3(1))),
 		pivot: new UnitVector3(pivot.x, pivot.y, pivot.z, "cnu"),
 	};
 }
 
 function normalizeEntityModelPart(part, entityId, index) {
 	const source = normalizeObject(part);
-	const dimensions = NormalizeVector3(getByAlias(source, "vector.dimensionsCompact", undefined), { x: 1, y: 1, z: 1 });
-	const localPosition = NormalizeVector3(getByAlias(source, "entityPart.localPosition", undefined), { x: 0, y: 0, z: 0 });
-	const localRotation = NormalizeVector3(getByAlias(source, "entityPart.localRotation", undefined), { x: 0, y: 0, z: 0 });
+	const dimensions = NormalizeVector3(getByAlias(source, "vector.dimensionsCompact", undefined), ToVector3(1));
+	const localPosition = NormalizeVector3(getByAlias(source, "entityPart.localPosition", undefined), ToVector3(0));
+	const localRotation = NormalizeVector3(getByAlias(source, "entityPart.localRotation", undefined), ToVector3(0));
 	const texture = normalizeTextureDescriptor(source, { textureID: "default-grid" }, `${entityId}.parts[${index}]`);
 	const shape = normalizeShapeAlias(source, `${entityId}.parts[${index}]`);
 	const complexity = normalizeGeometryComplexity(getByAlias(source, "geometry.complexity", undefined), `${entityId}.parts[${index}]`);
-	const pivot = normalizeVector3WithWarning(getByAlias(source, "vector.pivot", undefined), { x: 0, y: 0, z: 0 }, `${entityId}.parts[${index}]`, "pivot");
+	const pivot = normalizeVector3WithWarning(getByAlias(source, "vector.pivot", undefined), ToVector3(0), `${entityId}.parts[${index}]`, "pivot");
 	const primitiveOptions = normalizePrimitiveOptions(source, `${entityId}.parts[${index}]`);
 	const parentId = normalizeString(getByAlias(source, "entityPart.parentId", "root"), "root");
 	const defaultAnchorPoint = parentId === "root" ? "bottom" : "center";
@@ -1131,11 +1182,11 @@ function normalizeEntityModelPart(part, entityId, index) {
 		),
 		localPosition: new UnitVector3(localPosition.x, localPosition.y, localPosition.z, "cnu"),
 		localRotation: new UnitVector3(localRotation.x, localRotation.y, localRotation.z, "degrees").toRadians(true),
-		localScale: NormalizeVector3(getByAlias(source, "entityPart.localScale", undefined), { x: 1, y: 1, z: 1 }),
+		localScale: NormalizeVector3(getByAlias(source, "entityPart.localScale", undefined), ToVector3(1)),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
 		pivot: new UnitVector3(pivot.x, pivot.y, pivot.z, "cnu"),
 		rotation: new UnitVector3(0, 0, 0, "radians"),
-		scale: { x: 1, y: 1, z: 1 },
+		scale: ToVector3(1),
 		position: new UnitVector3(0, 0, 0, "cnu"),
 		primitiveOptions: primitiveOptions,
 		texture: texture,
@@ -1265,12 +1316,13 @@ function resolveObjectField(source, blueprint, key, contextPath) {
 
 function normalizeEntityData(source, entityId, blueprint) {
 	const blueprintSource = normalizeObject(blueprint);
+	const entityType = resolveStringField(source, blueprintSource, "type", "entity", entityId, ["entityType", "typeName"]);
 	const movementSource = normalizeObject(getByAlias(source, "entity.movement", {}));
 	const blueprintMovement = normalizeObject(getByAlias(blueprintSource, "entity.movement", {}));
 	const movementStart = resolveVector3Field(
 		getByAlias(movementSource, "vector.start", undefined),
 		getByAlias(blueprintMovement, "vector.start", undefined),
-		{ x: 0, y: 0, z: 0 },
+		ToVector3(0),
 		entityId,
 		"movement.start"
 	);
@@ -1284,7 +1336,7 @@ function normalizeEntityData(source, entityId, blueprint) {
 	const velocityVector = resolveVector3Field(
 		getByAlias(source, "entity.velocity", undefined),
 		getByAlias(blueprintSource, "entity.velocity", undefined),
-		{ x: 0, y: 0, z: 0 },
+		ToVector3(0),
 		entityId,
 		"velocity"
 	);
@@ -1293,10 +1345,10 @@ function normalizeEntityData(source, entityId, blueprint) {
 	// Builders assume `rootTransform.position`/`rotation` are UnitVector3 and call `.clone()`/.set()
 	if (source.rootTransform && typeof source.rootTransform === "object") {
 		const rt = normalizeObject(source.rootTransform);
-		const rtPos = NormalizeVector3(rt.position, { x: 0, y: 0, z: 0 });
-		const rtRot = NormalizeVector3(rt.rotation, { x: 0, y: 0, z: 0 });
-		const rtScale = NormalizeVector3(rt.scale, { x: 1, y: 1, z: 1 });
-		const rtPivot = NormalizeVector3(rt.pivot, { x: 0, y: 0, z: 0 });
+		const rtPos = NormalizeVector3(rt.position, ToVector3(0));
+		const rtRot = NormalizeVector3(rt.rotation, ToVector3(0));
+		const rtScale = NormalizeVector3(rt.scale, ToVector3(1));
+		const rtPivot = NormalizeVector3(rt.pivot, ToVector3(0));
 		source.rootTransform = {
 			...rt,
 			position: new UnitVector3(rtPos.x, rtPos.y, rtPos.z, "cnu"),
@@ -1309,7 +1361,7 @@ function normalizeEntityData(source, entityId, blueprint) {
 	return {
 		...source,
 		id: entityId,
-		type: resolveStringField(source, blueprintSource, "type", "entity", entityId, ["entityType", "typeName"]),
+		type: entityType,
 		movement: {
 			...movementSource,
 			start: new UnitVector3(movementStart.x, movementStart.y, movementStart.z, "cnu"),
@@ -1331,6 +1383,7 @@ function normalizeEntityData(source, entityId, blueprint) {
 			physics: resolveBooleanField(movementSource, blueprintMovement, "physics", false, `${entityId}.movement`),
 		},
 		hp: Math.max(0, resolveNumberField(source, blueprintSource, "hp", 1, entityId, ["health", "hitPoints", "life"])),
+		simRadiusPadding: Math.max(0, resolveNumberField(source, blueprintSource, "simRadiusPadding", 8, entityId, ["simDistancePadding"])),
 		attacks: (() => {
 			const sourceAttacks = getByAlias(source, "entity.attacks", undefined);
 			const blueprintAttacks = getByAlias(blueprintSource, "entity.attacks", undefined);
@@ -1343,7 +1396,11 @@ function normalizeEntityData(source, entityId, blueprint) {
 		animations: normalizeObject(resolveObjectField(source, blueprintSource, "animations", entityId)),
 		velocity: new UnitVector3(velocityVector.x, velocityVector.y, velocityVector.z, "cnu"),
 		collisionCapsule: normalizeObject(resolveObjectField(source, blueprintSource, "collisionCapsule", entityId)),
-		collisionOverride: normalizeObject(resolveObjectField(source, blueprintSource, "collisionOverride", entityId)),
+		collisionOverride: normalizeEntityCollisionOverride(
+			resolveObjectField(source, blueprintSource, "collisionOverride", entityId),
+			entityType,
+			entityId
+		),
 		model: normalizeEntityModel(source.model, source, entityId, blueprint),
 	};
 }
@@ -1492,8 +1549,8 @@ function cameraConfig(camera) {
 function playerConfig(player) {
 	const fallback = {
 		character: "carl",
-		spawnPosition: { x: 0, y: 0, z: 0 },
-		scale: { x: 1, y: 1, z: 1 }
+		spawnPosition: ToVector3(0),
+		scale: ToVector3(1)
 	}
 
 	const source = normalizeObject(player);
@@ -1508,7 +1565,7 @@ function playerConfig(player) {
 	for (let i = 0; i < metaKeys.length; i += 1) {
 		const key = metaKeys[i];
 		const val = rawMeta[key];
-		if (isVector3Like(val)) metaOverrides[key] = NormalizeVector3(val, { x: 0, y: 0, z: 0 });
+		if (isVector3Like(val)) metaOverrides[key] = NormalizeVector3(val, ToVector3(0));
 		else if (typeof val === 'number' || (!isNaN(Number(val)) && val !== null && val !== undefined)) {
 			const n = ToNumber(val, NaN);
 			if (Number.isFinite(n)) metaOverrides[key] = n;
@@ -1540,7 +1597,7 @@ function playerConfig(player) {
 	return {
 		character: resolvedCharacter,
 		spawnPosition: new UnitVector3(spawnPos.x, spawnPos.y, spawnPos.z, "cnu"),
-		scale: NormalizeVector3(getByAlias(source, "player.scale", undefined), { x: 1, y: 1, z: 1 }),
+		scale: NormalizeVector3(getByAlias(source, "player.scale", undefined), ToVector3(1)),
 		modelParts: modelParts,
 		metaOverrides: metaOverrides,
 	}

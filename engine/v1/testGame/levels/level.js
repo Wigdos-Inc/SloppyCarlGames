@@ -122,25 +122,22 @@ function buildBlueprintCounts(blueprints) {
 async function RequestLevelCreate(request, options) {
 	const [levelsData, entitiesData] = await Promise.all([loadLevelsData(), loadEntitiesData()]);
 	if (!levelsData) {
-		if (ENGINE && typeof ENGINE.Log === "function") {
-			ENGINE.Log("GAME", "Failed to load levels.json.", "warn", "Level");
-		}
+		const Log = window.engineOptional('Log');
+		if (Log) Log("GAME", "Failed to load levels.json.", "warn", "Level");
 		return null;
 	}
 
 	const level = resolveRequestedLevel(levelsData, request || null);
 	if (!level) {
-		if (ENGINE && typeof ENGINE.Log === "function") {
-			ENGINE.Log("GAME", "Requested level not found in levels.json.", "warn", "Level");
-		}
+		const Log = window.engineOptional('Log');
+		if (Log) Log("GAME", "Requested level not found in levels.json.", "warn", "Level");
 		return null;
 	}
 
 	const stage = resolveStage(level, request || null);
 	if (!stage) {
-		if (ENGINE && typeof ENGINE.Log === "function") {
-			ENGINE.Log("GAME", "Requested stage not found in levels.json.", "warn", "Level");
-		}
+		const Log = window.engineOptional('Log');
+		if (Log) Log("GAME", "Requested stage not found in levels.json.", "warn", "Level");
 		return null;
 	}
 
@@ -149,34 +146,37 @@ async function RequestLevelCreate(request, options) {
 		return null;
 	}
 
-	if (ENGINE && typeof ENGINE.Log === "function") {
-		const blueprintCounts = buildBlueprintCounts(payload.entityBlueprints);
-		ENGINE.Log(
-			"GAME",
-			[
-				"Sending level payload to engine:",
-				`- levelId: ${payload.meta.levelId || "unknown"}`,
-				`- stageId: ${payload.meta.stageId || "unknown"}`,
-				`- terrainObjects: ${Array.isArray(payload.terrain && payload.terrain.objects) ? payload.terrain.objects.length : 0}`,
-				`- obstacles: ${Array.isArray(payload.obstacles) ? payload.obstacles.length : 0}`,
-				`- entities(overrides): ${Array.isArray(payload.entities) ? payload.entities.length : 0}`,
-			].join("\n"),
-			"log",
-			"Level"
-		);
+	{
+		const Log = window.engineOptional('Log');
+		if (Log) {
+			const blueprintCounts = buildBlueprintCounts(payload.entityBlueprints);
+			Log(
+				"GAME",
+				[
+					"Sending level payload to engine:",
+					`- levelId: ${payload.meta.levelId || "unknown"}`,
+					`- stageId: ${payload.meta.stageId || "unknown"}`,
+					`- terrainObjects: ${Array.isArray(payload.terrain && payload.terrain.objects) ? payload.terrain.objects.length : 0}`,
+					`- obstacles: ${Array.isArray(payload.obstacles) ? payload.obstacles.length : 0}`,
+					`- entities(overrides): ${Array.isArray(payload.entities) ? payload.entities.length : 0}`,
+				].join("\n"),
+				"log",
+				"Level"
+			);
 
-		ENGINE.Log(
-			"GAME",
-			[
-				"Sending separate entity blueprint payload:",
-				`- enemies: ${blueprintCounts.enemies}`,
-				`- npcs: ${blueprintCounts.npcs}`,
-				`- collectibles: ${blueprintCounts.collectibles}`,
-				`- projectiles: ${blueprintCounts.projectiles}`,
-			].join("\n"),
-			"log",
-			"Level"
-		);
+			Log(
+				"GAME",
+				[
+					"Sending separate entity blueprint payload:",
+					`- enemies: ${blueprintCounts.enemies}`,
+					`- npcs: ${blueprintCounts.npcs}`,
+					`- collectibles: ${blueprintCounts.collectibles}`,
+					`- projectiles: ${blueprintCounts.projectiles}`,
+				].join("\n"),
+				"log",
+				"Level"
+			);
+		}
 	}
 
 	if (payload.music && payload.music.src) {
@@ -186,16 +186,15 @@ async function RequestLevelCreate(request, options) {
 		};
 	}
 
-	if (ENGINE && ENGINE.UI && typeof ENGINE.UI.ClearUI === "function") {
-		ENGINE.UI.ClearUI("engine-ui-root");
-	}
+	const UI = window.engineOptional('UI');
+	if (UI && typeof UI.ClearUI === 'function') UI.ClearUI("engine-ui-root");
 
-	if (ENGINE && ENGINE.Audio && typeof ENGINE.Audio.StopMusic === "function") {
-		ENGINE.Audio.StopMusic();
-	}
+	const Audio = window.engineOptional('Audio');
+	if (Audio && typeof Audio.StopMusic === 'function') Audio.StopMusic();
 
-	if (ENGINE && ENGINE.Level && typeof ENGINE.Level.CreateLevel === "function") {
-		const sceneGraph = await ENGINE.Level.CreateLevel(payload, {
+	const LevelCreate = window.engineOptional('Level.CreateLevel');
+	if (typeof LevelCreate === 'function') {
+		const sceneGraph = await LevelCreate(payload, {
 			source: "testGame",
 			renderOptions: {
 				rootId: "engine-level-root",
@@ -207,12 +206,13 @@ async function RequestLevelCreate(request, options) {
 			sceneGraph &&
 			payload.music &&
 			typeof payload.music === "object" &&
-			payload.music.src &&
-			ENGINE.Audio &&
-			typeof ENGINE.Audio.PlayMusic === "function"
+			payload.music.src
 		) {
-			const trackName = payload.music.name || `LEVEL_${payload.id || "TRACK"}`;
-			ENGINE.Audio.PlayMusic(trackName, payload.music.src, payload.music);
+			const PlayMusic = window.engineOptional('Audio.PlayMusic');
+			if (typeof PlayMusic === 'function') {
+				const trackName = payload.music.name || `LEVEL_${payload.id || "TRACK"}`;
+				PlayMusic(trackName, payload.music.src, payload.music);
+			}
 		}
 	}
 

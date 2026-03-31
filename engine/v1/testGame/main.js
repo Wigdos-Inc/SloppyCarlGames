@@ -2,7 +2,13 @@
 
 console.log("Importing Engine");
 
-const { ENGINE } = await import("../Bootup.js");
+const boot = await import("../Bootup.js");
+const { ENGINE } = boot;
+// Initialize testGame engine helpers (throws if ENGINE missing).
+const { initEngine } = await import("./engineHelpers.js");
+initEngine(ENGINE);
+
+// Import other testGame modules after engine helpers are initialized.
 await import("./menus/ui.js");
 await import("./cutscene/cutscene.js");
 const { RequestLevelCreate } = await import("./levels/level.js");
@@ -20,10 +26,8 @@ function handleSplashRequest() {
 // doesn't need to rely on the event delivery timing. This is safe because
 // `Bootup` opens the acceptance window during initialization.
 try {
-	if (ENGINE && ENGINE.Startup && typeof ENGINE.Startup.ProvideSplashScreenPayload === "function") {
-		ENGINE.Startup.ProvideSplashScreenPayload(resolveStartupSplashPayload());
-		console.log("Provided startup splash payload to ENGINE (proactive)");
-	}
+	window.engineCall('Startup.ProvideSplashScreenPayload', resolveStartupSplashPayload());
+	console.log("Provided startup splash payload to ENGINE (proactive)");
 } catch (error) {
 	console.warn("Failed to proactively provide splash payload:", error);
 }
@@ -140,9 +144,19 @@ function getSettingsSnapshot() {
 		return stored;
 	}
 
-	const volume = ENGINE && ENGINE.Config ? ENGINE.Config.VOLUME : null;
-	const debug = ENGINE && ENGINE.Config ? ENGINE.Config.DEBUG : null;
-	const skip = debug && debug.SKIP ? debug.SKIP : null;
+	let volume = null;
+	let debug = null;
+	let skip = null;
+	try {
+		const cfg = window.engineOptional('Config');
+		if (cfg) {
+			volume = cfg.VOLUME;
+			debug = cfg.DEBUG;
+			skip = debug && debug.SKIP ? debug.SKIP : null;
+		}
+	} catch (e) {
+		// leave defaults if config isn't present
+	}
 
 	return {
 		master: volume ? volume.Master : 0.5,
@@ -173,44 +187,27 @@ function syncSettingsUi(settings) {
 }
 
 function applySettings(settings) {
-	if (!ENGINE || !ENGINE.Config || !settings) {
-		return;
-	}
+	if (!settings) return;
 
-	const volume = ENGINE.Config.VOLUME;
+	const cfg = window.engineRequire('Config');
+	const volume = cfg.VOLUME;
 	if (volume) {
-		if (typeof settings.master === "number") {
-			volume.Master = settings.master;
-		}
-		if (typeof settings.music === "number") {
-			volume.Music = settings.music;
-		}
-		if (typeof settings.voice === "number") {
-			volume.Voice = settings.voice;
-		}
-		if (typeof settings.menuSfx === "number") {
-			volume.MenuSfx = settings.menuSfx;
-		}
-		if (typeof settings.gameSfx === "number") {
-			volume.GameSfx = settings.gameSfx;
-		}
-		if (typeof settings.cutscene === "number") {
-			volume.Cutscene = settings.cutscene;
-		}
+		if (typeof settings.master === "number") volume.Master = settings.master;
+		if (typeof settings.music === "number") volume.Music = settings.music;
+		if (typeof settings.voice === "number") volume.Voice = settings.voice;
+		if (typeof settings.menuSfx === "number") volume.MenuSfx = settings.menuSfx;
+		if (typeof settings.gameSfx === "number") volume.GameSfx = settings.gameSfx;
+		if (typeof settings.cutscene === "number") volume.Cutscene = settings.cutscene;
 	}
 
-	const debug = ENGINE.Config.DEBUG;
-	if (debug && debug.SKIP && typeof settings.skipIntro === "boolean") {
-		debug.SKIP.Intro = settings.skipIntro;
-	}
+	const debug = cfg.DEBUG;
+	if (debug && debug.SKIP && typeof settings.skipIntro === "boolean") debug.SKIP.Intro = settings.skipIntro;
+	if (debug && typeof settings.debugMode === "boolean") debug.ALL = settings.debugMode;
 
-	// Keep debug flag changes after skip updates.
-	if (debug && typeof settings.debugMode === "boolean") {
-		debug.ALL = settings.debugMode;
-	}
-
-	if (ENGINE.Audio && typeof ENGINE.Audio.UpdateActiveAudioVolumes === "function") {
-		ENGINE.Audio.UpdateActiveAudioVolumes();
+	try {
+		window.engineCall('Audio.UpdateActiveAudioVolumes');
+	} catch (e) {
+		// Audio update is optional for some engine builds
 	}
 
 	syncSettingsUi(settings);
@@ -227,22 +224,20 @@ function saveProgress(saveData) {
 
 function deleteSaveData() {
 	localStorage.removeItem(SAVE_KEY);
-	if (ENGINE && typeof ENGINE.Log === "function") {
-		ENGINE.Log("GAME", "Save data deleted.", "log", "Game");
-	}
+	const Log = window.engineOptional('Log');
+	if (Log) Log("GAME", "Save data deleted.", "log", "Game");
 }
 
 function startGame(saveData) {
 	const payload = saveData || { levelIndex: 0, stageIndex: 0 };
 	saveProgress(payload);
-	if (ENGINE && typeof ENGINE.Log === "function") {
-		ENGINE.Log(
-			"GAME",
-			`Start game: level=${payload.levelIndex} stage=${payload.stageIndex}`,
-			"log",
-			"Game"
-		);
-	}
+	const Log = window.engineOptional('Log');
+	if (Log) Log(
+		"GAME",
+		`Start game: level=${payload.levelIndex} stage=${payload.stageIndex}`,
+		"log",
+		"Game"
+	);
 }
 
 async function requestLevelLoad(payload) {
@@ -371,14 +366,13 @@ function handleSettingsInput(payload) {
 	saveSettings(settings);
 	applySettings(settings);
 
-	if (ENGINE && typeof ENGINE.Log === "function") {
-		ENGINE.Log(
-			"GAME",
-			`Settings change: ${changedKey}=${changedValue}`,
-			"log",
-			"Settings"
-		);
-	}
+	const Log = window.engineOptional('Log');
+	if (Log) Log(
+		"GAME",
+		`Settings change: ${changedKey}=${changedValue}`,
+		"log",
+		"Settings"
+	);
 }
 
 function showLevelSelectPanel(panelIndex) {
@@ -424,11 +418,9 @@ function handleLevelSelectInput(payload) {
 }
 
 function handlePlayerInput(payload) {
-	if (!payload || !ENGINE || !ENGINE.Player || !ENGINE.Player.Input) {
-		return;
-	}
-
-	const input = ENGINE.Player.Input;
+	if (!payload) return;
+	const input = window.engineOptional('Player.Input');
+	if (!input) return;
 	const code = payload.code || "";
 
 	if (payload.type === "keydown") {

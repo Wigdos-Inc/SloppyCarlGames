@@ -7,7 +7,7 @@ import { CONFIG } from "../../core/config.js";
 import { Log, SendEvent } from "../../core/meta.js";
 import {
 	SubtractVector3,
-	NormalizeUnitVector3,
+	ResolveVector3Axis,
 } from "../../math/Vector3.js";
 import { ToNumber } from "../../math/Utilities.js";
 import { GetSimDistanceValue, DetectCombatOverlaps } from "../../physics/Collision.js";
@@ -86,7 +86,7 @@ function applyPlayerDamage(playerState, damageSourcePosition, sceneGraph) {
 	}
 
 	// Apply knockback impulse (direction away from damage source).
-	const knockDir = NormalizeUnitVector3(SubtractVector3(playerPos, damageSourcePosition));
+	const knockDir = ResolveVector3Axis(SubtractVector3(playerPos, damageSourcePosition));
 	playerState.velocity.set({
 		x: knockDir.x * KNOCKBACK_FORCE,
 		y: Math.max(knockDir.y * KNOCKBACK_FORCE, KNOCKBACK_FORCE * 0.5),

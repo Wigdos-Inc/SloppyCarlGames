@@ -30,8 +30,9 @@ All logic belonging to the physics pipeline.
 All math helper functions needed by multiple files.
 
 - **Can be accessed**: Anywhere at will — no restrictions on who imports from `math/`.
+- **May import/export**: Anywhere at will — math is a global helper layer on par with `core/`.
 - **Contains**: Vector operations, unit conversion classes (`Unit`, `UnitVector3`), interpolation functions (`Lerp`, `SmoothStep`), clamping (`Clamp`), number parsing (`ToNumber`), physics math (ray-AABB intersection), curve utilities.
-- **Does not**: Hold state, perform side effects, or depend on any other module group. Math is pure and stateless.
+- **Does not**: Hold state or perform side effects. Math remains pure and stateless even when it imports shared engine primitives or constants.
 
 ---
 
@@ -94,8 +95,8 @@ All logic for building anything visuals-related.
 ## Dependency Direction
 
 ```
-core/          ← foundation, depended on by all
-math/          ← pure utilities, depended on by most
+core/          ← shared foundation layer
+math/          ← shared helper layer
   ↑
 physics/       ← called by handlers
 player/        ← called by handlers
@@ -105,7 +106,7 @@ builder/       ← called by handlers
 handlers/      ← top-level orchestrators
 ```
 
-Dependencies flow **upward**. Lower groups must not import from higher groups. `handlers/` sits at the top and coordinates everything below.
+Most dependencies flow upward through these shared layers. `core/` and `math/` may be used across the engine as needed. `handlers/` still sits at the top and coordinates everything below.
 
 ### Approved Exception: `core/normalize.js`
 

@@ -108,12 +108,9 @@ function BuildElements(definitions, menuId) {
 
 	// `definitions` is expected to be an array produced by `core/normalize.MenuUIPayload`.
 	definitions.forEach((definition) => collectElementIds(definition, ids));
-	definitions.forEach((definition) => {
-		fragment.appendChild(BuildElement(definition));
-	});
+	definitions.forEach((definition) => fragment.appendChild(BuildElement(definition)));
 
-	const resolvedMenuId = menuId || "unknown";
-	Log("ENGINE", `Building ${resolvedMenuId}:\n- ${ids.join("\n- ")}`, "log", "UI");
+	Log("ENGINE", `Building ${menuId}:\n- ${ids.join("\n- ")}`, "log", "UI");
 
 	return fragment;
 }

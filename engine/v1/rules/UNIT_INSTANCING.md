@@ -52,7 +52,7 @@ existingUnit.value = 42;
 existingVector.set({ x: 1, y: 2, z: 3 });
 ```
 
-### The only exception
+### Type-change exception
 
 Re-instancing is allowed **only** when a `Unit` must become part of a `UnitVector3`, or a `UnitVector3` must be broken into separate `Unit` scalars. This is a type change, not a re-wrap.
 
@@ -63,6 +63,16 @@ new UnitVector3(unitX.value, unitY.value, unitZ.value, unitX.type)
 // Allowed: decomposing a vector into separate scalars
 new Unit(vector.x, vector.type)
 ```
+
+### Clone exception
+
+If an existing instanced value must be copied so the original instance is not mutated, use its `clone()` method when one is provided.
+
+```js
+const nextPosition = existingVector.clone();
+```
+
+Do not manually reconstruct the copy with `new Unit(...)` or `new UnitVector3(...)` from an existing instance.
 
 ---
 
@@ -167,6 +177,19 @@ vector.set({ x: newX, y: newY, z: newZ });
 vector.set(otherVector);
 ```
 
+### Prefer instance math methods when mutating an existing vector
+
+When the left-hand side is already a `UnitVector3` instance you intend to mutate, prefer the instance helpers over wrapping generic math helpers in `.set(...)`.
+
+```js
+vector.add(otherVector);
+vector.subtract(otherVector);
+vector.multiply(otherVector);
+vector.scale(scalar);
+```
+
+Prefer these over patterns like `vector.set(AddVector3(vector, otherVector))`.
+
 ### Converting with mutation (overwrite mode)
 
 ```js
@@ -204,6 +227,7 @@ const worldPos = vector.toWorldUnit();       // returns plain {x, y, z}
 ✅ existingUnit.value = 42
 ✅ existingVector.set({ x, y, z })
 ✅ existingVector.toWorldUnit()
+✅ existingVector.clone()               — when alias separation is required
 ✅ new Unit(rawNumber, "cnu")           — only at first entry point
 ✅ new UnitVector3(x, y, z, "cnu")      — only at first entry point
 

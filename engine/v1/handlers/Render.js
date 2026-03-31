@@ -9,10 +9,13 @@ import { UIElement } from "../builder/NewUI.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import {
+	AddVector3,
 	CrossVector3,
 	DotVector3,
-	NormalizeUnitVector3,
+	ResolveVector3Axis,
+	ScaleVector3,
 	SubtractVector3,
+	Vector3Sq,
 } from "../math/Vector3.js";
 import { CNUtoWorldUnit } from "../math/Utilities.js";
 
@@ -110,8 +113,8 @@ function createPerspectiveMatrix(fovDegrees, aspect, near, far) {
 }
 
 function createLookAtMatrix(eye, target, up) {
-	const zAxis = NormalizeUnitVector3(SubtractVector3(eye, target));
-	const xAxis = NormalizeUnitVector3(CrossVector3(up, zAxis));
+	const zAxis = ResolveVector3Axis(SubtractVector3(eye, target));
+	const xAxis = ResolveVector3Axis(CrossVector3(up, zAxis));
 	const yAxis = CrossVector3(zAxis, xAxis);
 
 	return [
@@ -189,7 +192,7 @@ function createWorldUnitModelMatrix(source) {
 	matrix = multiplyMatrix4(matrix, createRotationX(rotation.x));
 	matrix = multiplyMatrix4(matrix, createRotationZ(rotation.z));
 	matrix = multiplyMatrix4(matrix, createScaleMatrix(source.scale));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix({ x: -pivot.x, y: -pivot.y, z: -pivot.z }));
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix(ScaleVector3(pivot, -1)));
 	return matrix;
 }
 
@@ -717,9 +720,9 @@ function createObbLineVertices(bounds) {
 	const axisY = bounds.axes[1];
 	const axisZ = bounds.axes[2];
 
-	const sx = { x: axisX.x * half.x, y: axisX.y * half.x, z: axisX.z * half.x };
-	const sy = { x: axisY.x * half.y, y: axisY.y * half.y, z: axisY.z * half.y };
-	const sz = { x: axisZ.x * half.z, y: axisZ.y * half.z, z: axisZ.z * half.z };
+	const sx = ScaleVector3(axisX, half.x);
+	const sy = ScaleVector3(axisY, half.y);
+	const sz = ScaleVector3(axisZ, half.z);
 
 	const add = (base, dx, dy, dz) => [
 		base.x + dx.x + dy.x + dz.x,
@@ -727,13 +730,13 @@ function createObbLineVertices(bounds) {
 		base.z + dx.z + dy.z + dz.z,
 	];
 
-	const p000 = add(center, { x: -sx.x, y: -sx.y, z: -sx.z }, { x: -sy.x, y: -sy.y, z: -sy.z }, { x: -sz.x, y: -sz.y, z: -sz.z });
-	const p001 = add(center, { x: -sx.x, y: -sx.y, z: -sx.z }, { x: -sy.x, y: -sy.y, z: -sy.z }, sz);
-	const p010 = add(center, { x: -sx.x, y: -sx.y, z: -sx.z }, sy, { x: -sz.x, y: -sz.y, z: -sz.z });
-	const p011 = add(center, { x: -sx.x, y: -sx.y, z: -sx.z }, sy, sz);
-	const p100 = add(center, sx, { x: -sy.x, y: -sy.y, z: -sy.z }, { x: -sz.x, y: -sz.y, z: -sz.z });
-	const p101 = add(center, sx, { x: -sy.x, y: -sy.y, z: -sy.z }, sz);
-	const p110 = add(center, sx, sy, { x: -sz.x, y: -sz.y, z: -sz.z });
+	const p000 = add(center, ScaleVector3(sx, -1), ScaleVector3(sy, -1), ScaleVector3(sz, -1));
+	const p001 = add(center, ScaleVector3(sx, -1), ScaleVector3(sy, -1), sz);
+	const p010 = add(center, ScaleVector3(sx, -1), sy, ScaleVector3(sz, -1));
+	const p011 = add(center, ScaleVector3(sx, -1), sy, sz);
+	const p100 = add(center, sx, ScaleVector3(sy, -1), ScaleVector3(sz, -1));
+	const p101 = add(center, sx, ScaleVector3(sy, -1), sz);
+	const p110 = add(center, sx, sy, ScaleVector3(sz, -1));
 	const p111 = add(center, sx, sy, sz);
 
 	return new Float32Array([
@@ -865,7 +868,7 @@ function drawDetailedBoundsShape(gl, shader, bounds) {
 }
 
 function drawDetailedBounds(renderer, sceneGraph, projection, view) {
-	const records = sceneGraph.debug.detailedBounds || [];
+	const records = sceneGraph.debug.detailedBounds;
 	if (records.length === 0) return;
 
 	const gl = renderer.gl;
@@ -888,7 +891,7 @@ function drawDetailedBounds(renderer, sceneGraph, projection, view) {
 		const record = records[index];
 		if (!isDetailedBoundsDebugEnabled(record.type)) continue;
 
-		const color = detailedBoundsTypeColors[record.type] || { r: 1, g: 1, b: 1, a: 1 };
+		const color = detailedBoundsTypeColors[record.type];
 		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
 		drawDetailedBoundsShape(gl, shader, record.bounds);
 	}
@@ -941,25 +944,22 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 
 	const trailScale = 0.15;
 
-	for (let i = 0; i < entities.length; i += 1) {
+	for (let i = 0; i < entities.length; i++) {
 		const entity = entities[i];
 
 		const trailType = classifyEntityTrailType(entity);
 		if (!isTrailDebugEnabled(trailType)) continue;
 
 		const vel = entity.velocity;
-		const speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
-		if (speedSq < 0.01) continue;
+		if (Vector3Sq(vel) < 0.01) continue;
 
 		const pos = entity.transform.position;
-		const endX = pos.x + vel.x * trailScale;
-		const endY = pos.y + vel.y * trailScale;
-		const endZ = pos.z + vel.z * trailScale;
+		const end = ScaleVector3(AddVector3(pos, vel), trailScale);
 
 		// Convert CNU positions to world units for rendering.
 		const vertices = new Float32Array([
 			CNUtoWorldUnit(pos.x), CNUtoWorldUnit(pos.y), CNUtoWorldUnit(pos.z),
-			CNUtoWorldUnit(endX), CNUtoWorldUnit(endY), CNUtoWorldUnit(endZ),
+			CNUtoWorldUnit(end.x), CNUtoWorldUnit(end.y), CNUtoWorldUnit(end.z),
 		]);
 		const color = trailTypeColors[trailType];
 
@@ -1157,11 +1157,7 @@ function resolveWaterVisualMeshes(sceneGraph) {
 	const waterVisual = sceneGraph.waterVisual;
 	if (!waterVisual) return [];
 
-	const meshes = [];
-	if (waterVisual.body && waterVisual.body.geometry) meshes.push(waterVisual.body);
-	if (waterVisual.top && waterVisual.top.geometry) meshes.push(waterVisual.top);
-
-	return meshes;
+	return [waterVisual.body, waterVisual.top];
 }
 
 function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue) {
@@ -1323,9 +1319,7 @@ function drawScene(renderer, sceneGraph) {
 }
 
 function RenderLevel(sceneGraph, options) {
-	const resolvedOptions = options;
-	const rootId = resolvedOptions.rootId;
-	const renderer = ensureLevelRenderer(rootId, resolvedOptions.rootStyles);
+	const renderer = ensureLevelRenderer(options.rootId, options.rootStyles);
 	if (!renderer) return;
 
 	drawScene(renderer, sceneGraph);

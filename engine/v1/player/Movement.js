@@ -4,12 +4,12 @@
 // Returns modified velocity. Does NOT modify position directly.
 
 import {
-	NormalizeVector3,
-	NormalizeUnitVector3,
+	ResolveVector3Axis,
 	AddVector3,
 	ScaleVector3,
 	DotVector3,
 	Vector3Length,
+	ToVector3,
 } from "../math/Vector3.js";
 import { ApplyAcceleration, ApplyDeceleration, ClampVelocity } from "../math/Physics.js";
 import { ToNumber } from "../math/Utilities.js";
@@ -26,7 +26,7 @@ function getMovementDirection(input, cameraVectors) {
 	const rgt = ToNumber(input.right, 0);
 
 	if (Math.abs(fwd) < 0.001 && Math.abs(rgt) < 0.001) {
-		return { direction: { x: 0, y: 0, z: 0 }, hasInput: false };
+		return { direction: ToVector3(0), hasInput: false };
 	}
 
 	// Project camera vectors onto XZ plane so movement is always horizontal-relative.
@@ -38,14 +38,14 @@ function getMovementDirection(input, cameraVectors) {
 	const len = Vector3Length(dir);
 	if (len < 0.001) {
 		return {
-			direction: { x: 0, y: 0, z: 0 },
+			direction: ToVector3(0),
 			hasInput: false,
 			cameraForward: camFwd,
 			cameraRight: camRight,
 		};
 	}
 
-	dir = NormalizeUnitVector3(dir);
+	dir = ResolveVector3Axis(dir);
 	return { direction: dir, hasInput: true, cameraForward: camFwd, cameraRight: camRight };
 }
 
@@ -53,7 +53,7 @@ function getPrimaryOppositeHeld(input, horizontalVelocity, cameraForward, camera
 	const speed = Vector3Length(horizontalVelocity);
 	if (speed < 0.001) return false;
 
-	const velocityDirection = NormalizeUnitVector3(horizontalVelocity);
+	const velocityDirection = ResolveVector3Axis(horizontalVelocity);
 	const forwardComponent = DotVector3(velocityDirection, cameraForward);
 	const rightComponent = DotVector3(velocityDirection, cameraRight);
 	const forwardInput = ToNumber(input.forward, 0);
@@ -119,7 +119,7 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	let hVel = { x: playerState.velocity.x, y: 0, z: playerState.velocity.z };
 	const currentHSpeed = Vector3Length(hVel);
 	const hasHorizontalVelocity = currentHSpeed > 0.001;
-	const velocityDirection = hasHorizontalVelocity ? NormalizeUnitVector3(hVel) : { x: 0, y: 0, z: 0 };
+	const velocityDirection = hasHorizontalVelocity ? ResolveVector3Axis(hVel) : ToVector3(0);
 	const reverseIntent = hasInput && hasHorizontalVelocity && DotVector3(velocityDirection, direction) < 0;
 	const primaryOppositeHeld = hasInput && getPrimaryOppositeHeld(input, hVel, cameraForward, cameraRight);
 	const stopEnter = playerState.grounded && reverseIntent && primaryOppositeHeld && currentHSpeed > stoppingThreshold;

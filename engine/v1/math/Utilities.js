@@ -110,60 +110,52 @@ class UnitVector3 {
 		if (this.type === "cnu") {
 			const converted = { x: CNUtoWorldUnit(this.x), y: CNUtoWorldUnit(this.y), z: CNUtoWorldUnit(this.z) };
 			if (replace === true) {
-				this.x = converted.x;
-				this.y = converted.y;
-				this.z = converted.z;
 				this.type = "worldunit";
-				return this;
+				return this.set(converted);
 			}
 			return converted;
 		}
-		return this;
+		if (replace === true) return this;
+		return { x: this.x, y: this.y, z: this.z };
 	}
 
 	toCNU(replace = false) {
 		if (this.type === "worldunit") {
 			const converted = { x: WorldUnitToCNU(this.x), y: WorldUnitToCNU(this.y), z: WorldUnitToCNU(this.z) };
 			if (replace === true) {
-				this.x = converted.x;
-				this.y = converted.y;
-				this.z = converted.z;
 				this.type = "cnu";
-				return this;
+				return this.set(converted);
 			}
 			return converted;
 		}
-		return this;
+		if (replace === true) return this;
+		return { x: this.x, y: this.y, z: this.z };
 	}
 
 	toRadians(replace = false) {
 		if (this.type === "degrees") {
 			const converted = { x: DegreesToRadians(this.x), y: DegreesToRadians(this.y), z: DegreesToRadians(this.z) };
 			if (replace === true) {
-				this.x = converted.x;
-				this.y = converted.y;
-				this.z = converted.z;
 				this.type = "radians";
-				return this;
+				return this.set(converted);
 			}
 			return converted;
 		}
-		return this;
+		if (replace === true) return this;
+		return { x: this.x, y: this.y, z: this.z };
 	}
 
 	toDegrees(replace = false) {
 		if (this.type === "radians") {
 			const converted = { x: RadiansToDegrees(this.x), y: RadiansToDegrees(this.y), z: RadiansToDegrees(this.z) };
 			if (replace === true) {
-				this.x = converted.x;
-				this.y = converted.y;
-				this.z = converted.z;
 				this.type = "degrees";
-				return this;
+				return this.set(converted);
 			}
 			return converted;
 		}
-		return this;
+		if (replace === true) return this;
+		return { x: this.x, y: this.y, z: this.z };
 	}
 
 	clone() {

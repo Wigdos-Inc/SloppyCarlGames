@@ -32,6 +32,17 @@ function isUnitVector3(value, expectedType) {
 	return true;
 }
 
+function isAllowedEntityCollisionShape(value) {
+	return (
+		value === null
+		|| value === "sphere"
+		|| value === "aabb"
+		|| value === "capsule"
+		|| value === "obb"
+		|| value === "compound-sphere"
+	);
+}
+
 function validateNormalizedUIElementTree(element, path) {
 	if (!isObject(element)) {
 		Log("ENGINE", `UI payload normalization produced invalid element at '${path}'.`, "error", "Validation");
@@ -378,8 +389,13 @@ function validateNormalizedLevelCollections(payload) {
 			|| !Array.isArray(entity.attacks)
 			|| !isObject(entity.hardcoded)
 			|| !isObject(entity.animations)
+			|| typeof entity.simRadiusPadding !== "number"
+			|| !Number.isFinite(entity.simRadiusPadding)
 			|| !isObject(entity.collisionCapsule)
 			|| !isObject(entity.collisionOverride)
+			|| !isAllowedEntityCollisionShape(entity.collisionOverride.physics)
+			|| !isAllowedEntityCollisionShape(entity.collisionOverride.hurtbox)
+			|| !isAllowedEntityCollisionShape(entity.collisionOverride.hitbox)
 		) {
 			Log(
 				"ENGINE", 

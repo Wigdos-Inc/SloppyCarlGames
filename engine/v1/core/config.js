@@ -92,8 +92,8 @@ let CONFIG = {
   },
   PHYSICS: {
     Gravity   : { Enabled: true, Strength: 25 },
-    Resistance: { Enabled: true },
-    Buoyancy  : { Enabled: true },
+    Resistance: { Enabled: true, AirDrag: 0.02, WaterDrag: 0.05 },
+    Buoyancy  : { Enabled: true, Force: 0, SinkSpeed: 50 },
     Collision : { Enabled: true, Hurtbox: true, Hitbox: true },
     Correction: { Enabled: true, MaxDeltaDegrees: 35, GroundSnapTolerance: 0.12 },
   }

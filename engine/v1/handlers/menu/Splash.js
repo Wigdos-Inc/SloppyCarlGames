@@ -44,7 +44,7 @@ function removeSplashSupplementalElements(context) {
 	for (let index = 0; index < context.supplementalElementIds.length; index++) {
 		const id = context.supplementalElementIds[index];
 		const element = document.getElementById(id);
-		if (element && element.parentNode) element.parentNode.removeChild(element);
+		element.parentNode.removeChild(element);
 	}
 
 	context.supplementalElementIds = [];

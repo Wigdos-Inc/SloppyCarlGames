@@ -12,10 +12,13 @@ import {
 	SubtractVector3,
 	ScaleVector3,
 	DotVector3,
+	Vector3Sq,
+	CloneVector3,
+	ToVector3,
 } from "../math/Vector3.js";
 import {
 	SweptAABB,
-	AABBOverlap,
+	AabbOverlap,
 	SphereSphereContact,
 	SphereAABBContact,
 	SphereOBBContact,
@@ -106,7 +109,7 @@ function cacheActiveCollisionPair(entity, candidate, normal, depth) {
 		dominantAxis: dominantAxis,
 		positionAxisValue: getAxisScalar(entity.transform.position, dominantAxis),
 		rotationAxisValue: getAxisScalar(entity.transform.rotation, dominantAxis),
-		normal: { x: normal.x, y: normal.y, z: normal.z },
+		normal: CloneVector3(normal),
 		depth: depth,
 	});
 }
@@ -127,7 +130,7 @@ function readReusableActiveCollisionPair(entity, candidate) {
 function buildContactFromCachedPair(entry) {
 	return {
 		hit: true,
-		normal: { x: entry.normal.x, y: entry.normal.y, z: entry.normal.z },
+		normal: CloneVector3(entry.normal),
 		depth: entry.depth,
 	};
 }
@@ -210,7 +213,7 @@ function offsetDetailedBounds(bounds, offset) {
 
 // Should probably be moved to other contact helper functions in math/Physics.js
 function AabbAabbContact(boundsA, boundsB) {
-	if (!AABBOverlap(boundsA, boundsB)) return NoContact();
+	if (!AabbOverlap(boundsA, boundsB)) return NoContact();
 	const centerA = getAabbCenter(boundsA);
 	const centerB = getAabbCenter(boundsB);
 	const overlaps = [
@@ -266,7 +269,7 @@ function NarrowphaseContact(boundsA, boundsB) {
 
 	if (typeA === "sphere" && typeB === "compound-sphere") {
 		let best = NoContact();
-		for (let index = 0; index < boundsB.spheres.length; index += 1) {
+		for (let index = 0; index < boundsB.spheres.length; index++) {
 			best = chooseDeepestContact(
 				best, SphereSphereContact(
 					boundsA.center, 
@@ -279,7 +282,7 @@ function NarrowphaseContact(boundsA, boundsB) {
 	}
 	if (typeA === "compound-sphere" && typeB === "sphere") {
 		let best = NoContact();
-		for (let index = 0; index < boundsA.spheres.length; index += 1) {
+		for (let index = 0; index < boundsA.spheres.length; index++) {
 			best = chooseDeepestContact(
 				best, InvertContact(SphereSphereContact(
 					boundsB.center, 
@@ -293,7 +296,7 @@ function NarrowphaseContact(boundsA, boundsB) {
 	}
 	if (typeA === "capsule" && typeB === "compound-sphere") {
 		let best = NoContact();
-		for (let index = 0; index < boundsB.spheres.length; index += 1) {
+		for (let index = 0; index < boundsB.spheres.length; index++) {
 			best = chooseDeepestContact(
 				best, InvertContact(SphereCapsuleContact(
 					boundsB.spheres[index].center, 
@@ -306,7 +309,7 @@ function NarrowphaseContact(boundsA, boundsB) {
 	}
 	if (typeA === "compound-sphere" && typeB === "capsule") {
 		let best = NoContact();
-		for (let index = 0; index < boundsA.spheres.length; index += 1) {
+		for (let index = 0; index < boundsA.spheres.length; index++) {
 			best = chooseDeepestContact(
 				best, SphereCapsuleContact(
 					boundsA.spheres[index].center, 
@@ -320,7 +323,7 @@ function NarrowphaseContact(boundsA, boundsB) {
 
 	if (typeA === "compound-sphere") {
 		let best = NoContact();
-		for (let index = 0; index < boundsA.spheres.length; index += 1) {
+		for (let index = 0; index < boundsA.spheres.length; index++) {
 			best = chooseDeepestContact(
 				best, NarrowphaseContact({ 
 						type: "sphere", 
@@ -334,7 +337,7 @@ function NarrowphaseContact(boundsA, boundsB) {
 	}
 	if (typeB === "compound-sphere") {
 		let best = NoContact();
-		for (let index = 0; index < boundsB.spheres.length; index += 1) {
+		for (let index = 0; index < boundsB.spheres.length; index++) {
 			best = chooseDeepestContact(
 				best, NarrowphaseContact(boundsA, { 
 					type: "sphere", 
@@ -376,15 +379,15 @@ function GetSimDistanceValue() {
 }
 
 function getHalfExtents(aabb) {
-	if (!aabb || !aabb.min || !aabb.max) return { x: 0.5, y: 0.5, z: 0.5 };
+	if (!aabb || !aabb.min || !aabb.max) return ToVector3(0.5);
 	return aabb.max.clone().subtract(aabb.min).scale(0.5);
 }
 
 function expandAabb(aabb, padding) {
 	if (!aabb || !aabb.min || !aabb.max) return null;
 	return {
-		min: aabb.min.clone().subtract({ x: padding, y: padding, z: padding }),
-		max: aabb.max.clone().add({ x: padding, y: padding, z: padding }),
+		min: aabb.min.clone().subtract(ToVector3(padding)),
+		max: aabb.max.clone().add(ToVector3(padding)),
 	};
 }
 
@@ -400,7 +403,7 @@ function buildEntityAabbAtPosition(entityAabb, position) {
 }
 
 function getAabbCenter(aabb) {
-	if (!aabb || !aabb.min || !aabb.max) return { x: 0, y: 0, z: 0 };
+	if (!aabb || !aabb.min || !aabb.max) return ToVector3(0);
 	return aabb.min.clone().add(aabb.max).scale(0.5);
 }
 
@@ -411,7 +414,7 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 	const candidates = [];
 	const withinSimRadius = (aabb) => {
 		if (!simRadiusAabb) return true;
-		return AABBOverlap(simRadiusAabb, aabb);
+		return AabbOverlap(simRadiusAabb, aabb);
 	};
 
 	// Terrain (always solid).
@@ -421,7 +424,7 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 		if (!mesh || !mesh.worldAabb) continue;
 		if (!withinSimRadius(mesh.worldAabb)) continue;
 		candidates.push({
-			id: mesh.id || "terrain",
+			id: mesh.id,
 			pairId: mesh.id,
 			aabb: mesh.worldAabb,
 			detailedBounds: mesh.detailedBounds,
@@ -457,7 +460,7 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 		if (!trig || !trig.worldAabb) continue;
 		if (!withinSimRadius(trig.worldAabb)) continue;
 		candidates.push({
-			id: trig.id || "trigger",
+			id: trig.id,
 			pairId: trig.id,
 			aabb: trig.worldAabb,
 			isTrigger: true,
@@ -475,7 +478,7 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 		if (!ent.movement || !ent.movement.physics) continue;
 		if (!withinSimRadius(ent.collision.aabb)) continue;
 		candidates.push({
-			id: ent.id || "entity",
+			id: ent.id,
 			pairId: ent.id,
 			aabb: ent.collision.aabb,
 			detailedBounds: ent.collision.detailedBounds,
@@ -496,7 +499,7 @@ function CheckEntityAabbOverlap(entityA, entityB) {
 	const aabbA = entityA && entityA.collision ? entityA.collision.aabb : null;
 	const aabbB = entityB && entityB.collision ? entityB.collision.aabb : null;
 	if (!aabbA || !aabbB) return false;
-	return AABBOverlap(aabbA, aabbB);
+	return AabbOverlap(aabbA, aabbB);
 }
 
 function CheckEntityTrueOverlap(entityA, entityB) {
@@ -512,7 +515,7 @@ function CheckEntityTrueOverlap(entityA, entityB) {
 
 function checkSweptAabbPair(position, displacement, entityAabb, targetAabb) {
 	if (!entityAabb || !targetAabb) {
-		return { hit: false, tEntry: 1, tExit: 0, normal: { x: 0, y: 0, z: 0 } };
+		return { hit: false, tEntry: 1, tExit: 0, normal: ToVector3(0) };
 	}
 	const halfExtents = getHalfExtents(entityAabb);
 	const centerOffset = getAabbCenter(entityAabb).subtract(position);
@@ -522,7 +525,7 @@ function checkSweptAabbPair(position, displacement, entityAabb, targetAabb) {
 
 function checkSweptSpherePair(position, displacement, radius, targetAabb) {
 	if (!targetAabb) {
-		return { hit: false, t: Infinity, normal: { x: 0, y: 0, z: 0 } };
+		return { hit: false, t: Infinity, normal: ToVector3(0) };
 	}
 	const result = SweptSphereAABB(position, displacement, radius, targetAabb);
 	// Normalize to same shape as SweptAABB output.
@@ -593,7 +596,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 		if (candidate.type === "entity" && candidate.ref === entity) continue;
 
 		if (candidate.isTrigger) {
-			if (AABBOverlap(entityFrameAabb, candidate.aabb)) {
+			if (AabbOverlap(entityFrameAabb, candidate.aabb)) {
 				const item = poolPush(triggerResultPool);
 				item.target = candidate;
 				item.type = "trigger";
@@ -701,7 +704,7 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 		if (candidate.type === "entity" && candidate.ref === entity) continue;
 
 		if (candidate.isTrigger) {
-			if (AABBOverlap(entityAabb, candidate.aabb)) {
+			if (AabbOverlap(entityAabb, candidate.aabb)) {
 				const triggerItem = poolPush(triggerResultPool);
 				triggerItem.target = candidate;
 				triggerItem.type = "trigger";
@@ -709,7 +712,7 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 			continue;
 		}
 
-		if (!AABBOverlap(entityAabb, candidate.aabb)) continue;
+		if (!AabbOverlap(entityAabb, candidate.aabb)) continue;
 
 		const candidateBounds = buildCandidateBounds(candidate);
 		const cachedPair = readReusableActiveCollisionPair(entity, candidate);
@@ -765,16 +768,13 @@ function DetectCombatOverlaps(playerState, entities, simRadius, cameraPos) {
 
 	for (let i = 0; i < entities.length; i++) {
 		const entity = entities[i];
-		if (entity === playerState) continue;
-		if (entity.type === "collectible") continue;
-		if (!entity.collision) continue;
+		if (entity === playerState || entity.type === "collectible" || !entity.collision) continue;
 
 		// SimDistance gate.
-		const d = cameraPos.clone().subtract(entity.transform.position);
-		if ((d.x * d.x + d.y * d.y + d.z * d.z) > simRadius * simRadius) continue;
+		if (Vector3Sq(SubtractVector3(cameraPos, entity.transform.position)) > simRadius * simRadius) continue;
 
 		// Broadphase: player AABB vs entity AABB.
-		if (!AABBOverlap(playerState.collision.aabb, entity.collision.aabb)) continue;
+		if (!AabbOverlap(playerState.collision.aabb, entity.collision.aabb)) continue;
 
 		// Player hitbox active → player attacks entity.
 		if (playerState.hitboxActive && CONFIG.PHYSICS.Collision.Hitbox !== false) {

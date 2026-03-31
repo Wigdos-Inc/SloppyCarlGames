@@ -1,10 +1,10 @@
+Check Math Helper Optimization (you're at division)
+Use ERA to force rule adherance in all engine modules (you're at the physics directory)
 Finish Model Bounds Expansion (critical):
-- Check Casing (Ongoing)
-- Check UnitVector3 Instancing (Ongoing)
 - Add triangle for pyramid/prism shapes
 - Investigate player to enemy collision not working
 - Update Scatter spawns to use parent narrowphase bounds instead of broadphase
-Remove Forbidden Normalization and Defensive Checks downstream.
 Finish Unit System by eyeballing correct CNU_SCALE.
+- CNU Scaling is completely broken right now.
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain. perhaps part of new NewTerrain.js)
 Build new test level (prompt in notepad).

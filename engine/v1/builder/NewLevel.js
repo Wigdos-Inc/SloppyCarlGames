@@ -14,6 +14,7 @@ import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { UnitVector3 } from "../math/Utilities.js";
 import { PrepareLevelVisualResources } from "./NewTexture.js";
+import { ToVector3 } from "../math/Vector3.js";
 
 function resolveEntityBlueprintMap(payload) {
 	const map = {};
@@ -57,11 +58,11 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 	const triggerY = start.y;
 	const triggerHeight = world.height.value - triggerY;
 	const center = new UnitVector3(
-		(start.x + end.x) * 0.5,
-		triggerY + triggerHeight * 0.5,
-		(start.z + end.z) * 0.5,
+		start.x + end.x,
+		triggerY + triggerHeight,
+		start.z + end.z,
 		"cnu"
-	);
+	).scale(0.5);
 
 	const size = new UnitVector3(
 		Math.max(1, Math.abs(end.x - start.x)),
@@ -79,7 +80,7 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 			dimensions: size,
 			position: center,
 			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: { x: 1, y: 1, z: 1 },
+			scale: ToVector3(1),
 			pivot: new UnitVector3(0, 0, 0, "cnu"),
 			primitiveOptions: {},
 			texture: {
@@ -111,8 +112,8 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 function buildWaterVisualMeshes(world) {
 	if (!world.waterLevel) return null;
 
-	const waterLength = Math.max(1, world.length.value);
-	const waterWidth = Math.max(1, world.width.value);
+	const waterLength = world.length.value;
+	const waterWidth = world.width.value;
 	const centerX = waterLength * 0.5;
 	const centerZ = waterWidth * 0.5;
 	const waterLevel = world.waterLevel.value;
@@ -128,7 +129,7 @@ function buildWaterVisualMeshes(world) {
 			dimensions: new UnitVector3( waterLength, waterHeight, waterWidth, "cnu"),
 			position: new UnitVector3(centerX, waterBottom + waterHeight * 0.5, centerZ, "cnu"),
 			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: { x: 1, y: 1, z: 1 },
+			scale: ToVector3(1),
 			pivot: new UnitVector3(0, 0, 0, "cnu"),
 			primitiveOptions: {},
 			texture: {
@@ -159,7 +160,7 @@ function buildWaterVisualMeshes(world) {
 			dimensions: new UnitVector3(waterLength, 1, waterWidth, "cnu"),
 			position: new UnitVector3( centerX, waterLevel + 0.02, centerZ, "cnu"),
 			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: { x: 1, y: 1, z: 1 },
+			scale: ToVector3(1),
 			pivot: new UnitVector3(0, 0, 0, "cnu"),
 			primitiveOptions: {},
 			texture: {

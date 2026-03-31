@@ -5,35 +5,28 @@
 import { EPSILON, Log } from "../core/meta.js";
 import { BuildScatter, GetPerformanceScatterMultiplier } from "./NewScatter.js";
 import { ToNumber, UnitVector3 } from "../math/Utilities.js";
+import { AbsoluteVector3, DivideVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3Length } from "../math/Vector3.js";
 
 function normalizeAxis(vector) {
-	const length = Math.hypot(vector.x, vector.y, vector.z);
-	if (length <= EPSILON) {
-		return { x: 0, y: 1, z: 0 };
-	}
-	return {
-		x: vector.x / length,
-		y: vector.y / length,
-		z: vector.z / length,
-	};
-}
-
-function computeScaledHalfExtents(localBounds, scale) {
-	const absScale = { x: Math.abs(scale.x), y: Math.abs(scale.y), z: Math.abs(scale.z) };
-	return localBounds.max.clone().subtract(localBounds.min).scale(0.5).multiply(absScale);
+	const axis = ResolveVector3Axis(vector);
+	return (axis.x === 0 && axis.y === 0 && axis.z === 0) ? { x: 0, y: 1, z: 0 } : axis;
 }
 
 function computeObbFromMesh(mesh) {
 	const modelMatrix = CreateModelMatrix(mesh.transform);
-	const axisX = normalizeAxis({ x: modelMatrix[0], y: modelMatrix[1], z: modelMatrix[2] });
-	const axisY = normalizeAxis({ x: modelMatrix[4], y: modelMatrix[5], z: modelMatrix[6] });
-	const axisZ = normalizeAxis({ x: modelMatrix[8], y: modelMatrix[9], z: modelMatrix[10] });
-
 	return {
 		type: "obb",
 		center: mesh.worldAabb.min.clone().add(mesh.worldAabb.max).scale(0.5),
-		halfExtents: computeScaledHalfExtents(mesh.localBounds, mesh.transform.scale),
-		axes: [axisX, axisY, axisZ],
+		halfExtents: mesh.localBounds.max
+			.clone()
+			.subtract(mesh.localBounds.min)
+			.scale(0.5)
+			.multiply(AbsoluteVector3(mesh.transform.scale)),
+		axes: [
+			normalizeAxis({ x: modelMatrix[0], y: modelMatrix[1], z: modelMatrix[2] }), 
+			normalizeAxis({ x: modelMatrix[4], y: modelMatrix[5], z: modelMatrix[6] }), 
+			normalizeAxis({ x: modelMatrix[8], y: modelMatrix[9], z: modelMatrix[10] })
+		],
 	};
 }
 
@@ -46,10 +39,8 @@ function computeAabbFromMesh(mesh) {
 }
 
 function computeTriangleSoupFromMesh(mesh) {
-	const triangles = [];
 	const matrix = CreateModelMatrix(mesh.transform);
 	const positions = mesh.geometry.positions;
-	const indices = mesh.geometry.indices;
 	const readVertex = (vertexIndex) => {
 		const vertex = transformPointByMatrix({
 			x: positions[vertexIndex * 3],
@@ -59,19 +50,23 @@ function computeTriangleSoupFromMesh(mesh) {
 		return new UnitVector3(vertex.x, vertex.y, vertex.z, "cnu");
 	};
 
+	const triangles = [];
+	const indices = mesh.geometry.indices;
 	for (let index = 0; index < indices.length; index += 3) {
 		const a = readVertex(indices[index]);
 		const b = readVertex(indices[index + 1]);
 		const c = readVertex(indices[index + 2]);
-		const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
-		const ac = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
-		const nx = (ab.y * ac.z) - (ab.z * ac.y);
-		const ny = (ab.z * ac.x) - (ab.x * ac.z);
-		const nz = (ab.x * ac.y) - (ab.y * ac.x);
-		const length = Math.hypot(nx, ny, nz);
+		const ab = SubtractVector3(b, a);
+		const ac = SubtractVector3(c, a);
+		const n = {
+			x: (ab.y * ac.z) - (ab.z * ac.y),
+			y: (ab.z * ac.x) - (ab.x * ac.z),
+			z: (ab.x * ac.y) - (ab.y * ac.x),
+		}
+		const length = Vector3Length(n);
 		const normal = length <= EPSILON
 			? { x: 0, y: 1, z: 0 }
-			: { x: nx / length, y: ny / length, z: nz / length };
+			: DivideVector3(n, ToVector3(length));
 		triangles.push({ a, b, c, normal });
 	}
 
@@ -370,7 +365,7 @@ function CreateModelMatrix(transform) {
 	matrix = multiplyMatrix4(matrix, createRotationX(transform.rotation.x));
 	matrix = multiplyMatrix4(matrix, createRotationZ(transform.rotation.z));
 	matrix = multiplyMatrix4(matrix, createScaleMatrix(transform.scale));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix({ x: -pivot.x, y: -pivot.y, z: -pivot.z }));
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix(ScaleVector3(pivot, -1)));
 	return matrix;
 }
 
@@ -390,33 +385,29 @@ function transformPoint(localPoint, transform) {
 function computeWorldAabbFromGeometry(positions, transform) {
 	if (positions.length < 3) return { min: transform.position.clone(), max: transform.position.clone() };
 
-	let minX = Infinity;
-	let minY = Infinity;
-	let minZ = Infinity;
-	let maxX = -Infinity;
-	let maxY = -Infinity;
-	let maxZ = -Infinity;
+	const min = ToVector3(Infinity);
+	const max = ToVector3(-Infinity);
 
 	for (let index = 0; index < positions.length; index += 3) {
 		const world = transformPoint({ x: positions[index], y: positions[index + 1], z: positions[index + 2] }, transform);
-		if (world.x < minX) minX = world.x;
-		if (world.y < minY) minY = world.y;
-		if (world.z < minZ) minZ = world.z;
-		if (world.x > maxX) maxX = world.x;
-		if (world.y > maxY) maxY = world.y;
-		if (world.z > maxZ) maxZ = world.z;
+		if (world.x < min.x) min.x = world.x;
+		if (world.y < min.y) min.y = world.y;
+		if (world.z < min.z) min.z = world.z;
+		if (world.x > max.x) max.x = world.x;
+		if (world.y > max.y) max.y = world.y;
+		if (world.z > max.z) max.z = world.z;
 	}
 
 	return {
-		min: new UnitVector3(minX, minY, minZ, "cnu"),
-		max: new UnitVector3(maxX, maxY, maxZ, "cnu"),
+		min: new UnitVector3(min.x, min.y, min.z, "cnu"),
+		max: new UnitVector3(max.x, max.y, max.z, "cnu"),
 	};
 }
 
 function buildCube(size) {
-	const sx = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
-	const sy = Math.max(0.0001, ToNumber(size.y, 1)) / 2;
-	const sz = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
+	const sx = Math.max(0.0001, size.x) / 2;
+	const sy = Math.max(0.0001, size.y) / 2;
+	const sz = Math.max(0.0001, size.z) / 2;
 
 	const positions = [
 		-sx, -sy, sz, sx, -sy, sz, sx, sy, sz, -sx, sy, sz,
@@ -833,13 +824,13 @@ function buildTorus(size, complexity, options) {
 
 	const sectorCount = Math.min(8, majorSegments);
 	const faceGroups = [];
-	for (let sector = 0; sector < sectorCount; sector += 1) {
+	for (let sector = 0; sector < sectorCount; sector++) {
 		const startMajor = Math.floor((sector / sectorCount) * majorSegments);
 		const endMajor = Math.floor(((sector + 1) / sectorCount) * majorSegments);
 		const vertexIndices = [];
-		for (let major = startMajor; major <= endMajor + 1; major += 1) {
+		for (let major = startMajor; major <= endMajor + 1; major++) {
 			const wrappedMajor = Math.min(major, majorSegments);
-			for (let minor = 0; minor <= minorSegments; minor += 1) {
+			for (let minor = 0; minor <= minorSegments; minor++) {
 				vertexIndices.push((wrappedMajor * stride) + minor);
 			}
 		}
@@ -931,7 +922,7 @@ function BuildObject(source, options) {
 	if (uvs.length !== vertexCount * 2) {
 		Log(
 			"ENGINE",
-			`UV buffer mismatch: object=${source.id || "unknown"}, primitive=${shape}, uvLength=${uvs.length}, expected=${vertexCount * 2}`,
+			`UV buffer mismatch: object=${source.id}, primitive=${shape}, uvLength=${uvs.length}, expected=${vertexCount * 2}`,
 			"error",
 			"Level"
 		);

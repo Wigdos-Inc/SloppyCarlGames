@@ -3,10 +3,7 @@
 // Used by handlers/game/Physics.js
 
 import { CONFIG } from "../core/config.js";
-
-function toNumber(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
+import { ToNumber } from "../math/Utilities.js";
 
 const AIR_DRAG = 0.02;
 const WATER_DRAG = 0.05;
@@ -20,22 +17,15 @@ const WATER_DRAG = 0.05;
  * @returns {{ x: number, y: number, z: number }}
  */
 function ApplyResistance(velocity, deltaSeconds, medium) {
-	if (CONFIG.PHYSICS.Resistance.Enabled === false) {
-		return velocity;
-	}
+	const resistanceConfig = CONFIG.PHYSICS.Resistance;
+	if (resistanceConfig.Enabled === false) return velocity;
 
-	const dt = toNumber(deltaSeconds, 0);
+	const dt = ToNumber(deltaSeconds, 0);
 	const isWater = medium === "water";
-	const coefficient = isWater ? WATER_DRAG : AIR_DRAG;
+	const coefficient = isWater ? resistanceConfig.WaterDrag : resistanceConfig.AirDrag;
 	const factor = Math.max(0, 1 - coefficient * dt * 60);
 
-	if (isWater) {
-		return {
-			x: velocity.x * factor,
-			y: velocity.y * factor,
-			z: velocity.z * factor,
-		};
-	}
+	if (isWater) return velocity.scale(factor);
 
 	// Air: only horizontal drag, preserve vertical velocity.
 	return {

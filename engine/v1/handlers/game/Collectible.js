@@ -5,7 +5,7 @@
 
 import { CONFIG } from "../../core/config.js";
 import { Log, SendEvent } from "../../core/meta.js";
-import { DistanceVector3 } from "../../math/Vector3.js";
+import { Vector3Distance } from "../../math/Vector3.js";
 import { GetSimDistanceValue, CheckEntityAabbOverlap } from "../../physics/Collision.js";
 
 /**
@@ -28,7 +28,7 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 
 		// SimDistance gate is camera-relative; only qualified entities enter this collision pass.
 		const entityPos = entity.transform.position;
-		if (DistanceVector3(cameraPos, entityPos) > activityRadius) continue;
+		if (Vector3Distance(cameraPos, entityPos) > activityRadius) continue;
 
 		if (!CheckEntityAabbOverlap(playerState, entity)) continue;
 

@@ -3,13 +3,7 @@
 // Used by handlers/game/Physics.js
 
 import { CONFIG } from "../core/config.js";
-
-function toNumber(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-const BUOYANCY_FORCE = 0;
-const MAX_SINK_SPEED = 50;
+import { ToNumber } from "../math/Utilities.js";
 
 /**
  * Apply buoyancy to velocity when entity is submerged.
@@ -21,28 +15,22 @@ const MAX_SINK_SPEED = 50;
  * @returns {{ x: number, y: number, z: number }}
  */
 function ApplyBuoyancy(velocity, position, waterLevel, deltaSeconds) {
-	if (CONFIG.PHYSICS.Buoyancy.Enabled === false) {
-		return velocity;
-	}
+	if (CONFIG.PHYSICS.Buoyancy.Enabled === false) return velocity;
 
-	const posY = toNumber(position && position.y, 0);
-	const level = toNumber(waterLevel, -9999);
+	const posY = ToNumber(position && position.y, 0);
+	const level = ToNumber(waterLevel, -9999);
 
-	if (posY >= level) {
-		return velocity;
-	}
+	if (posY >= level) return velocity;
 
-	const dt = toNumber(deltaSeconds, 0);
+	const dt = ToNumber(deltaSeconds, 0);
 	const submersionDepth = Math.min(3, level - posY);
 	const submersionRatio = Math.min(1, submersionDepth / 3);
-	const buoyancyStrength = BUOYANCY_FORCE * submersionRatio;
+	const buoyancyStrength = CONFIG.PHYSICS.Buoyancy.Force * submersionRatio;
 
 	let newY = velocity.y + buoyancyStrength * dt;
 
 	// Cap downward speed when submerged.
-	if (newY < -MAX_SINK_SPEED) {
-		newY = -MAX_SINK_SPEED;
-	}
+	if (newY < -CONFIG.PHYSICS.Buoyancy.SinkSpeed) newY = -CONFIG.PHYSICS.Buoyancy.SinkSpeed;
 
 	return {
 		x: velocity.x,

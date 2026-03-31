@@ -6,14 +6,15 @@
 // Module uses World Units instead of CNU for testing.
 
 import { CONFIG } from "../../core/config.js";
-import { IsPointerLocked, Log, RequestPointerLock } from "../../core/meta.js";
+import { EPSILON, IsPointerLocked, Log, RequestPointerLock } from "../../core/meta.js";
 import {
 	AddVector3,
 	SubtractVector3,
 	CrossVector3,
-	NormalizeUnitVector3,
+	ResolveVector3Axis,
 	ScaleVector3,
 	Vector3Length,
+	ToVector3,
 } from "../../math/Vector3.js";
 import { ClampVelocity, RayAABBIntersect } from "../../math/Physics.js";
 import { Lerp, ToNumber, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
@@ -106,7 +107,7 @@ if (CONFIG.DEBUG.ALL === true) window.camPos = getCurrentCameraPosition;
 function createForwardFromAngles(yawDegrees, pitchDegrees) {
 	const yaw = (yawDegrees * Math.PI) / 180;
 	const pitch = (pitchDegrees * Math.PI) / 180;
-	return NormalizeUnitVector3({
+	return ResolveVector3Axis({
 		x: Math.cos(pitch) * Math.cos(yaw),
 		y: Math.sin(pitch),
 		z: Math.cos(pitch) * Math.sin(yaw),
@@ -118,8 +119,8 @@ function createCameraState(source) {
 	const yaw = ToNumber(source.yaw, -90);
 	const pitch = Clamp(ToNumber(source.pitch, -18), -pitchClampDegrees, pitchClampDegrees);
 	const forward = createForwardFromAngles(yaw, pitch);
-	const right = NormalizeUnitVector3(CrossVector3(forward, worldUp));
-	const up = NormalizeUnitVector3(CrossVector3(right, forward));
+	const right = ResolveVector3Axis(CrossVector3(forward, worldUp));
+	const up = ResolveVector3Axis(CrossVector3(right, forward));
 	const velocity = new UnitVector3(0, 0, 0, "worldunit");
 	const target = position.clone().add(forward);
 
@@ -142,8 +143,8 @@ function createCameraState(source) {
 
 function updateOrientationVectors(cameraState) {
 	cameraState.forward = createForwardFromAngles(cameraState.yaw, cameraState.pitch);
-	cameraState.right = NormalizeUnitVector3(CrossVector3(cameraState.forward, worldUp));
-	cameraState.up = NormalizeUnitVector3(CrossVector3(cameraState.right, cameraState.forward));
+	cameraState.right = ResolveVector3Axis(CrossVector3(cameraState.forward, worldUp));
+	cameraState.up = ResolveVector3Axis(CrossVector3(cameraState.right, cameraState.forward));
 	cameraState.target.set(AddVector3(cameraState.position, cameraState.forward));
 }
 
@@ -160,12 +161,17 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 	);
 	const position = new UnitVector3(0, 0, 0, "worldunit");
 	position.set(cameraConfig.levelOpening.startPosition.toWorldUnit());
+	const forward = ResolveVector3Axis(SubtractVector3(center, position));
+	const right = ResolveVector3Axis(CrossVector3(forward, worldUp));
+	const up = ResolveVector3Axis(CrossVector3(right, forward));
 
 	return {
 		mode: "level",
 		position: position,
 		target: center,
-		up: { x: 0, y: 1, z: 0 },
+		forward: forward,
+		right: right,
+		up: up,
 		fov: 60,
 		near: new Unit(0.1, "worldunit"),
 		far: new Unit(Math.max(worldDistanceDefaults.defaultLevelMinFar.value, wLength + wWidth + wHeight), "worldunit"),
@@ -179,6 +185,7 @@ function createStationaryCameraState(sceneGraph, cameraConfig) {
 		mode: "stationary",
 	};
 	cacheCameraPosition(state);
+	cacheCameraVectors(state);
 	return state;
 }
 
@@ -207,21 +214,6 @@ function releasePointerLock() {
 	document.exitPointerLock();
 	Log("ENGINE", "FreeCam pointer lock released.", "log", "Level");
 	return true;
-}
-
-function resolveFreeCamState(sceneGraph) {
-	if (sceneGraph.cameraConfig.state.mode === "freecam") {
-		return sceneGraph.cameraConfig.state;
-	}
-
-	if (freeCamRuntime.levelKey) {
-		const persisted = persistedFreeCamStates.get(freeCamRuntime.levelKey);
-		if (persisted && persisted.mode === "freecam") {
-			return persisted;
-		}
-	}
-
-	return null;
 }
 
 function applyLookInput(cameraState, movementX, movementY) {
@@ -290,32 +282,18 @@ function HandleFreeCamInput(eventLike, sceneGraph) {
 }
 
 function getMoveDirectionFromKeys(cameraState) {
-	let direction = { x: 0, y: 0, z: 0 };
-	if (freeCamRuntime.keyState.KeyW || freeCamRuntime.keyState.ArrowUp) {
-		direction = AddVector3(direction, cameraState.forward);
-	}
-	if (freeCamRuntime.keyState.KeyS || freeCamRuntime.keyState.ArrowDown) {
-		direction = AddVector3(direction, ScaleVector3(cameraState.forward, -1));
-	}
-	if (freeCamRuntime.keyState.KeyD || freeCamRuntime.keyState.ArrowRight) {
-		direction = AddVector3(direction, cameraState.right);
-	}
-	if (freeCamRuntime.keyState.KeyA || freeCamRuntime.keyState.ArrowLeft) {
-		direction = AddVector3(direction, ScaleVector3(cameraState.right, -1));
-	}
-	if (freeCamRuntime.keyState.Space) {
-		direction = AddVector3(direction, worldUp);
-	}
-	if (freeCamRuntime.keyState.ShiftLeft || freeCamRuntime.keyState.ShiftRight) {
-		direction = AddVector3(direction, ScaleVector3(worldUp, -1));
-	}
+	let direction = ToVector3(0);
+	const keyState = freeCamRuntime.keyState;
+	if (keyState.KeyW || keyState.ArrowUp) direction = AddVector3(direction, cameraState.forward);
+	if (keyState.KeyS || keyState.ArrowDown) direction = AddVector3(direction, ScaleVector3(cameraState.forward, -1));
+	if (keyState.KeyD || keyState.ArrowRight) direction = AddVector3(direction, cameraState.right);
+	if (keyState.KeyA || keyState.ArrowLeft) direction = AddVector3(direction, ScaleVector3(cameraState.right, -1));
+	if (keyState.Space) direction = AddVector3(direction, worldUp);
+	if (keyState.ShiftLeft || keyState.ShiftRight) direction = AddVector3(direction, ScaleVector3(worldUp, -1));
 
-	const length = Vector3Length(direction);
-	if (length <= 0.000001) {
-		return { x: 0, y: 0, z: 0 };
-	}
+	if (Vector3Length(direction) <= EPSILON) return ToVector3(0);
 
-	return NormalizeUnitVector3(direction);
+	return ResolveVector3Axis(direction);
 }
 
 function updateFreeCamState(cameraState, deltaSeconds) {
@@ -333,7 +311,7 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 	updateOrientationVectors(cameraState);
 
 	const inputDirection = getMoveDirectionFromKeys(cameraState);
-	const hasInput = Vector3Length(inputDirection) > 0.000001;
+	const hasInput = Vector3Length(inputDirection) > EPSILON;
 
 	if (hasInput) {
 		cameraState.velocity.set(
@@ -412,7 +390,7 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 		return { obstructed: false, clippedDistance: rayLen };
 	}
 
-	const rayDir = NormalizeUnitVector3(ray);
+	const rayDir = ResolveVector3Axis(ray);
 	let closestT = rayLen;
 	let obstructed = false;
 
@@ -436,10 +414,9 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	const obstacles = sceneGraph.obstacles;
 	for (let i = 0; i < obstacles.length; i++) {
 		const obs = obstacles[i];
-		const bounds = obs.bounds || obs.mesh.worldAabb;
 		const scaled = {
-			min: bounds.min.toWorldUnit(),
-			max: bounds.max.toWorldUnit(),
+			min: obs.bounds.min.toWorldUnit(),
+			max: obs.bounds.max.toWorldUnit(),
 		};
 		const hit = RayAABBIntersect(playerHeadPos, rayDir, scaled);
 		if (hit.hit && hit.t > 0 && hit.t < closestT) {
@@ -507,9 +484,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 		}
 	} else {
 		defaultCamRuntime.targetDistance.value = desiredDistance;
-		if (defaultCamRuntime.obstructionLogged) {
-			defaultCamRuntime.obstructionLogged = false;
-		}
+		if (defaultCamRuntime.obstructionLogged) defaultCamRuntime.obstructionLogged = false;
 	}
 
 	// Smooth distance interpolation.
@@ -536,14 +511,13 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	};
 
 	// Compute forward/right/up from camera position looking at target.
-	const forward = NormalizeUnitVector3(SubtractVector3(targetPoint, smoothedPos));
-	const right = NormalizeUnitVector3(CrossVector3(forward, worldUp));
-	const up = NormalizeUnitVector3(CrossVector3(right, forward));
+	const forward = ResolveVector3Axis(SubtractVector3(targetPoint, smoothedPos));
+	const right = ResolveVector3Axis(CrossVector3(forward, worldUp));
 
 	cameraState.position.set(smoothedPos);
 	cameraState.forward = forward;
 	cameraState.right = right;
-	cameraState.up = up;
+	cameraState.up = ResolveVector3Axis(CrossVector3(right, forward));
 	cameraState.target.set(targetPoint);
 	cameraState.mode = "defaultcam";
 
@@ -551,13 +525,9 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 }
 
 function GetCameraVectors() {
-	if (!latestCameraPosition) {
-		return { forward: { x: 0, y: 0, z: -1 }, right: { x: 1, y: 0, z: 0 } };
-	}
-	// Return the cached forward/right from the latest camera state.
 	return {
-		forward: latestCameraForward || { x: 0, y: 0, z: -1 },
-		right: latestCameraRight || { x: 1, y: 0, z: 0 },
+		forward: latestCameraForward,
+		right: latestCameraRight,
 	};
 }
 
@@ -605,15 +575,12 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 	const existing = persistedFreeCamStates.get(levelKey);
 	if (existing) {
 		cacheCameraPosition(existing);
+		cacheCameraVectors(existing);
 		return existing;
 	}
 
 	const base = resolveDefaultLevelCamera(sceneGraph, cameraConfig);
-	const forward = NormalizeUnitVector3({
-		x: base.target.x - base.position.x,
-		y: base.target.y - base.position.y,
-		z: base.target.z - base.position.z,
-	});
+	const forward = ResolveVector3Axis(SubtractVector3(base.target, base.position));
 	const yaw = (Math.atan2(forward.z, forward.x) * 180) / Math.PI;
 	const pitch = (Math.asin(Clamp(forward.y, -1, 1)) * 180) / Math.PI;
 
@@ -626,6 +593,7 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 		far: base.far.value,
 	});
 	cacheCameraPosition(created);
+	cacheCameraVectors(created);
 	persistedFreeCamStates.set(levelKey, created);
 	return created;
 }
@@ -633,20 +601,15 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 function UpdateCameraState(currentState, sceneGraph, cameraConfig, deltaSeconds, playerState) {
 	if (!freeCamEnabled) {
 		// DefaultCam mode: follow the player.
-		const baseState = currentState || resolveDefaultLevelCamera(sceneGraph, cameraConfig);
-		baseState.mode = "defaultcam";
+		currentState.mode = "defaultcam";
 
-		const nextState = updateDefaultCamState(baseState, playerState, sceneGraph, deltaSeconds);
+		const nextState = updateDefaultCamState(currentState, playerState, sceneGraph, deltaSeconds);
 		cacheCameraPosition(nextState);
 		cacheCameraVectors(nextState);
 		return nextState;
 	}
 
-	const resolvedState = resolveFreeCamState(sceneGraph)
-		|| (currentState && currentState.mode === "freecam" ? currentState : null)
-		|| InitializeCameraState(sceneGraph, cameraConfig, sceneGraph.meta);
-
-	const nextState = updateFreeCamState(resolvedState, deltaSeconds);
+	const nextState = updateFreeCamState(currentState, deltaSeconds);
 	cacheCameraPosition(nextState);
 	cacheCameraVectors(nextState);
 	return nextState;

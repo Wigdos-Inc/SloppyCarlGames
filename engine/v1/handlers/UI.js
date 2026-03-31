@@ -232,8 +232,7 @@ function ApplyMenuUI(payload) {
 	if (music) PlayMusic(music.name, music.src, music);
 
 	// Notify engine consumers that the UI has been rendered and music (if any) started.
-	const resolvedRootId = payload.rootId || "engine-ui-root";
-	SendEvent("UI_RENDERED", { screenId: payload.screenId, rootId: resolvedRootId });
+	SendEvent("UI_RENDERED", { screenId: payload.screenId, rootId: payload.rootId });
 
 	// If a boot sequence is awaiting the UI application, resolve it here.
 	if (Cache.UI.startupUiAppliedResolve) Cache.UI.startupUiAppliedResolve(true);
@@ -247,16 +246,14 @@ function LoadScreen(payload) {
 }
 
 function ClearUI(rootId) {
-	const resolvedRootId = rootId || "engine-ui-root";
-
 	Cache.UI.lastPayload = null;
 	Cache.UI.screenID = null;
 	Cache.UI.elementIndex = {};
 	Cache.UI.uiRuntime = createUiRuntimeMaps();
 	PushToSession(SESSION_KEYS.Cache, Cache);
 
-	RemoveRoot(resolvedRootId);
-	Log("ENGINE", `UI cleared: ${resolvedRootId}`, "log", "UI");
+	RemoveRoot(rootId);
+	Log("ENGINE", `UI cleared: ${rootId}`, "log", "UI");
 }
 
 /* === EXPORTS === */

@@ -110,9 +110,8 @@ async function processPayload(payloadId) {
 	const uiData = await loadUiData();
 	const payload = resolvePayload(uiData, payloadId);
 	if (!payload) {
-		if (ENGINE && typeof ENGINE.Log === "function") {
-			ENGINE.Log("GAME", `Missing UI payload: ${payloadId}`, "warn", "UI");
-		}
+		const Log = window.engineOptional('Log');
+		if (Log) Log("GAME", `Missing UI payload: ${payloadId}`, "warn", "UI");
 		return;
 	}
 
@@ -131,8 +130,9 @@ async function processPayload(payloadId) {
 
 	applySettingsToPayload(payload);
 
-	if (ENGINE && typeof ENGINE.Log === "function") {
-		ENGINE.Log(
+	const Log = window.engineOptional('Log');
+	if (Log) {
+		Log(
 			"GAME",
 			`Sending ${payloadId} ${payloadType} UI Payload.`,
 			"log",
@@ -140,9 +140,8 @@ async function processPayload(payloadId) {
 		);
 	}
 
-	if (ENGINE && ENGINE.UI && typeof ENGINE.UI.ApplyMenuUI === "function") {
-		ENGINE.UI.ApplyMenuUI(payload);
-	}
+	const UI = window.engineOptional('UI');
+	if (UI && typeof UI.ApplyMenuUI === 'function') UI.ApplyMenuUI(payload);
 }
 
 function handleUiRequest(event) {

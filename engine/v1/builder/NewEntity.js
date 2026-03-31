@@ -6,7 +6,17 @@
 // Uses NewObject.js for Model Parts
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
-import { AddVector3, LerpVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3 } from "../math/Vector3.js";
+import { 
+	AddVector3, 
+	DotVector3, 
+	LerpVector3, 
+	MultiplyVector3, 
+	RotateByEuler, 
+	ScaleVector3, 
+	SubtractVector3, 
+	ToVector3, 
+	Vector3Sq 
+} from "../math/Vector3.js";
 import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 
 // Canonical face normal directions (unit vectors for each face).
@@ -31,8 +41,7 @@ function getFaceCenterOffset(dimensions, faceType) {
 		case "back":   return { x: 0, y: 0, z: -dimensions.z * 0.5 };
 		case "left":   return { x: -dimensions.x * 0.5, y: 0, z: 0 };
 		case "right":  return { x:  dimensions.x * 0.5, y: 0, z: 0 };
-		case "center":
-		default:       return { x: 0, y: 0, z: 0 };
+		case "center": return ToVector3(0);
 	}
 }
 
@@ -59,7 +68,6 @@ function remapFacesAfterRotation(rotation) {
 		{ label: "back",   dir: { x:  0, y:  0, z: -1 } },
 	];
 
-	const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
 	const remap = {};
 	const faceNames = Object.keys(faceNormals);
 	const claimed = new Set();
@@ -76,7 +84,7 @@ function remapFacesAfterRotation(rotation) {
 		let bestDot = -Infinity;
 		let bestLabel = "top";
 		for (const axis of worldAxes) {
-			const d = dot(entry.rotated, axis.dir);
+			const d = DotVector3(entry.rotated, axis.dir);
 			if (d > bestDot) {
 				bestDot = d;
 				bestLabel = axis.label;
@@ -112,15 +120,6 @@ function remapFacesAfterRotation(rotation) {
 	return remap;
 }
 
-/**
- * Get face center offset using a face remap.
- * The logical faceType is remapped through the faceMap before computing the offset.
- */
-function getRemappedFaceOffset(dimensions, faceType, faceMap) {
-	const resolvedFace = faceMap[faceType] ? faceMap[faceType] : faceType;
-	return getFaceCenterOffset(dimensions, resolvedFace);
-}
-
 /* === TRANSFORM UTILITIES === */
 
 function cloneRootTransform(transform) {
@@ -152,25 +151,16 @@ function composeTransform(parentTransform, localTransform) {
 }
 
 function getSurfaceOrigin(surface) {
-	const surfacePos = surface.position;
-	return { x: surfacePos.x, y: surface.topY, z: surfacePos.z };
+	return { x: surface.position.x, y: surface.topY, z: surface.position.z };
 }
 
 function resolveInitialMovementProgress(movement, currentPosition) {
-	const start = movement.start;
-	const end = movement.end;
-	const dx = end.x - start.x;
-	const dy = end.y - start.y;
-	const dz = end.z - start.z;
-	const lengthSq = (dx * dx) + (dy * dy) + (dz * dz);
-	if (lengthSq <= 1e-8) {
-		return 0;
-	}
+	const d = SubtractVector3(movement.end, movement.start);
+	const lengthSq = Vector3Sq(d);
+	if (lengthSq <= 1e-8) return 0;
 
-	const px = currentPosition.x - start.x;
-	const py = currentPosition.y - start.y;
-	const pz = currentPosition.z - start.z;
-	const projection = ((px * dx) + (py * dy) + (pz * dz)) / lengthSq;
+	const p = SubtractVector3(currentPosition, movement.start);
+	const projection = DotVector3(p, d) / lengthSq;
 	return Math.max(0, Math.min(1, projection));
 }
 
@@ -182,46 +172,7 @@ function normalizeMovement(movement, surface) {
 	const surfaceOrigin = getSurfaceOrigin(surface);
 	movement.start.add(surfaceOrigin);
 	movement.end.add(surfaceOrigin);
-
-	return {
-		start: movement.start,
-		end: movement.end,
-		repeat: movement.repeat !== false,
-		backAndForth: movement.backAndForth !== false,
-		speed: movement.speed,
-		jump: movement.jump,
-		jumpInterval: Math.max(0, ToNumber(movement.jumpInterval, 0)),
-		jumpOnSight: movement.jumpOnSight === true,
-		disappear: movement.disappear === true,
-		chase: movement.chase === true,
-		physics: movement.physics === true,
-	};
-}
-
-/* === BLUEPRINT MERGE === */
-
-function mergeEntityBlueprint(baseBlueprint, levelOverrides) {
-	const base = baseBlueprint;
-	const overrides = levelOverrides;
-
-	return {
-		...base,
-		...overrides,
-		attacks: Array.isArray(overrides.attacks)
-			? overrides.attacks
-			: Array.isArray(base.attacks)
-				? base.attacks
-				: [],
-		model: {
-			...base.model,
-			...overrides.model,
-			parts: Array.isArray(overrides.model.parts)
-				? overrides.model.parts
-				: Array.isArray(base.model.parts)
-					? base.model.parts
-					: [],
-		},
-	};
+	return movement;
 }
 
 /* === PART BUILDING === */
@@ -237,7 +188,7 @@ function buildPart(partDefinition) {
 			dimensions: source.dimensions,
 			position: new UnitVector3(0, 0, 0, "cnu"),
 			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: { x: 1, y: 1, z: 1 },
+			scale: ToVector3(1),
 			pivot: source.pivot,
 			primitiveOptions: source.primitiveOptions,
 			texture: source.texture,
@@ -269,9 +220,9 @@ function buildPart(partDefinition) {
 		},
 		dimensions: source.dimensions,
 		// World-space built position/rotation/scale — computed by the pipeline, used for mesh output.
-		builtPosition: new UnitVector3(0, 0, 0, "CNU"),
+		builtPosition: new UnitVector3(0, 0, 0, "cnu"),
 		builtRotation: new UnitVector3(0, 0, 0, "radians"),
-		builtScale: { x: 0, y: 0, z: 0 },
+		builtScale: ToVector3(0),
 		builtDimensions: source.dimensions.clone(),
 		faceMap: null,
 		mesh: mesh,
@@ -282,21 +233,20 @@ function buildPart(partDefinition) {
 
 function buildModel(entityDefinition, surfaceMap) {
 	const sourceModel = entityDefinition.model;
-	const entityId = entityDefinition.id;
 
 	// --- Step 1: Resolve rootTransform from data ---
-	const rtSource = entityDefinition.rootTransform || sourceModel.rootTransform;
+	const rtSource = sourceModel.rootTransform;
 	const rtPosition = rtSource.position;
 	const rtRotation = rtSource.rotation;
 	const rtScale = rtSource.scale;
 
 	// Build all parts (each part wraps its own values in Unit/UnitVector3).
-	const parts = sourceModel.parts.map((part, index) => buildPart(part, entityId, index));
+	const parts = sourceModel.parts.map((part) => buildPart(part));
 
 	// Build index and parent-child links.
 	const index = {};
-	parts.forEach((part) => { index[part.id] = part; });
-	parts.forEach((part) => {
+	parts.forEach((part) => { 
+		index[part.id] = part; 
 		if (part.parentId !== "root") index[part.parentId].children.push(part.id);
 	});
 
@@ -466,71 +416,35 @@ function computeEntityAabb(model) {
 
 function computeExpandedAabb(aabb, padding) {
 	return {
-		min: new UnitVector3(aabb.min.x - padding, aabb.min.y - padding, aabb.min.z - padding, "cnu"),
-		max: new UnitVector3(aabb.max.x + padding, aabb.max.y + padding, aabb.max.z + padding, "cnu"),
+		min: aabb.min.clone().subtract(ToVector3(padding)),
+		max: aabb.max.clone().add(ToVector3(padding)),
 	};
 }
 
-function resolveEntityCollisionShape(entityType) {
-	// Deterministic type → shape lookup.
-	switch (entityType) {
-		case "player": return "sphere";
-		case "enemy": return "aabb";
-		case "enemy-large":
-		case "enemy-irregular":
-			return "sphere";
-		case "boss": return "compound-sphere";
-		case "projectile": return "sphere";
-		case "collectible": return "aabb";
-		case "npc": return "capsule";
-		default: return "sphere";
-	}
-}
-
-/**
- * Resolve per-layer shapes for physics / hurtbox / hitbox.
- * Returns { physics, hurtbox, hitbox } shape strings.
- */
-function resolveEntityLayerShapes(entityType) {
-	const physics = resolveEntityCollisionShape(entityType);
-	switch (entityType) {
-		case "player": return { physics, hurtbox: "sphere", hitbox: "sphere" };
-		case "enemy": return { physics, hurtbox: "aabb", hitbox: "aabb" };
-		case "enemy-large":
-		case "enemy-irregular":
-			return { physics, hurtbox: "sphere", hitbox: "sphere" };
-		case "boss": return { physics, hurtbox: "compound-sphere", hitbox: "compound-sphere" };
-		case "projectile": return { physics, hurtbox: "sphere", hitbox: null };
-		case "collectible": return { physics, hurtbox: "aabb", hitbox: null };
-		case "npc": return { physics, hurtbox: null, hitbox: null };
-		default: return { physics, hurtbox: physics, hitbox: null };
-	}
-}
-
 function computeCapsuleFromAabb(aabb, overrides = {}) {
-	const width = aabb.max.x - aabb.min.x;
-	const height = aabb.max.y - aabb.min.y;
-	const depth = aabb.max.z - aabb.min.z;
-	const autoRadius = Math.max(width, depth) * 0.5;
+	const dim = SubtractVector3(aabb.max, aabb.min);
+	const autoRadius = Math.max(dim.x, dim.z) * 0.5;
 	const radius = Math.max(0.0001, ToNumber(overrides.radius, autoRadius));
-	const autoHalfHeight = Math.max(0, (height * 0.5) - radius);
+	const autoHalfHeight = Math.max(0, (dim.y * 0.5) - radius);
 	const halfHeight = Math.max(0, ToNumber(overrides.halfHeight, autoHalfHeight));
-	const centerX = (aabb.min.x + aabb.max.x) * 0.5;
-	const centerY = (aabb.min.y + aabb.max.y) * 0.5;
-	const centerZ = (aabb.min.z + aabb.max.z) * 0.5;
+
+	const start = aabb.min.clone().add(aabb.max).scale(0.5);
+	const end = start.clone();
+	start.y -= halfHeight; 
+	end.y += halfHeight;
 
 	return {
 		type: "capsule",
 		radius: new Unit(radius, "cnu"),
-		halfHeight: new Unit(halfHeight),
-		segmentStart: new UnitVector3(centerX, centerY - halfHeight, centerZ, "cnu"),
-		segmentEnd: new UnitVector3(centerX, centerY + halfHeight, centerZ, "cnu"),
+		halfHeight: new Unit(halfHeight, "cnu"),
+		segmentStart: start,
+		segmentEnd: end,
 	};
 }
 
 function computeSphereFromAabb(aabb) {
 	const half = aabb.max.clone().subtract(aabb.min).scale(0.5);
-	const radius = Math.sqrt(half.x * half.x + half.y * half.y + half.z * half.z);
+	const radius = Math.sqrt(Vector3Sq(half));
 	return {
 		type: "sphere",
 		center: aabb.min.clone().add(aabb.max).scale(0.5),
@@ -560,14 +474,14 @@ function computeCompoundSpheresFromModel(model, overrides) {
 }
 
 function computeScaledBounds(bounds, scaleFactor) {
-	if (bounds.type === "sphere") {
+	switch (bounds.type) {
+	case "sphere":
 		return {
 			type: "sphere",
 			center: bounds.center.clone(),
-			radius: new Unit(bounds.radius.value * scaleFactor, bounds.radius.unit),
+			radius: new Unit(bounds.radius.value * scaleFactor, bounds.radius.type),
 		};
-	}
-	else if (bounds.type === "aabb") {
+	case "aabb":
 		const center = ScaleVector3(AddVector3(bounds.min, bounds.max), 0.5);
 		const half = ScaleVector3(SubtractVector3(bounds.max, bounds.min), 0.5 * scaleFactor);
 		return {
@@ -575,28 +489,24 @@ function computeScaledBounds(bounds, scaleFactor) {
 			min: bounds.min.clone().set(SubtractVector3(center, half)),
 			max: bounds.max.clone().set(AddVector3(center, half)),
 		};
-	}
-	else if (bounds.type === "capsule") {
+	case "capsule":
 		return {
 			type: "capsule",
-			radius: new Unit(bounds.radius.value * scaleFactor, bounds.radius.unit),
-			halfHeight: new Unit(bounds.halfHeight.value * scaleFactor, bounds.halfHeight.unit),
+			radius: new Unit(bounds.radius.value * scaleFactor, bounds.radius.type),
+			halfHeight: new Unit(bounds.halfHeight.value * scaleFactor, bounds.halfHeight.type),
 			segmentStart: bounds.segmentStart.clone(),
 			segmentEnd: bounds.segmentEnd.clone(),
 		};
-	}
-	else if (bounds.type === "compound-sphere") {
+	case "compound-sphere":
 		return {
 			type: "compound-sphere",
 			spheres: bounds.spheres.map((s) => ({
 				center: s.center.clone(),
-				radius: new Unit(s.radius.value * scaleFactor, s.radius.unit),
+				radius: new Unit(s.radius.value * scaleFactor, s.radius.type),
 				partId: s.partId,
 			})),
 		};
-	}
-	// OBB: scale half-extents.
-	else if (bounds.type === "obb") {
+	case "obb":
 		return {
 			type: "obb",
 			center: bounds.center.clone(),
@@ -604,7 +514,6 @@ function computeScaledBounds(bounds, scaleFactor) {
 			axes: bounds.axes,
 		};
 	}
-	return bounds;
 }
 
 /**
@@ -617,7 +526,6 @@ function buildBoundsForShape(shape, aabb, model, overrides) {
 		case "capsule": return computeCapsuleFromAabb(aabb, overrides);
 		case "obb": return computeObbFromAabb(aabb);
 		case "compound-sphere": return computeCompoundSpheresFromModel(model, overrides);
-		default: return computeSphereFromAabb(aabb);
 	}
 }
 
@@ -640,18 +548,17 @@ function computeObbFromAabb(aabb) {
  * detailedBounds is the physics bounds (backward compat).
  */
 function computeDetailedBoundsForEntity(entityType, aabb, model, overrides) {
-	const layers = resolveEntityLayerShapes(entityType);
 	const collisionOverride = overrides.collisionOverride;
 	const capsuleOverride = overrides.collisionCapsule;
 
 	// Physics collider bounds.
-	const physicsShape = (collisionOverride && collisionOverride.physics) || layers.physics;
+	const physicsShape = collisionOverride.physics;
 	const physicsBounds = buildBoundsForShape(physicsShape, aabb, model, capsuleOverride);
 
 	// Hurtbox bounds (null = immune to damage).
 	let hurtbox = null;
-	if (layers.hurtbox) {
-		const hurtboxShape = (collisionOverride && collisionOverride.hurtbox) || layers.hurtbox;
+	if (collisionOverride.hurtbox !== null) {
+		const hurtboxShape = collisionOverride.hurtbox;
 		const baseBounds = buildBoundsForShape(hurtboxShape, aabb, model, capsuleOverride);
 
 		// Player hurtbox is 0.9× radius; boss compound hurtbox is 1.05× radii.
@@ -664,8 +571,8 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, overrides) {
 
 	// Hitbox bounds (null = can't deal damage).
 	let hitbox = null;
-	if (layers.hitbox) {
-		const hitboxShape = (collisionOverride && collisionOverride.hitbox) || layers.hitbox;
+	if (collisionOverride.hitbox !== null) {
+		const hitboxShape = collisionOverride.hitbox;
 		const baseBounds = buildBoundsForShape(hitboxShape, aabb, model, capsuleOverride);
 		// Player hitbox is 1.1× radius.
 		if (entityType === "player") {
@@ -691,14 +598,10 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, overrides) {
  * @param {object} [surfaceMap] — { [surfaceId]: { position, dimensions, scale, topY } }
  */
 function BuildEntity(definition, surfaceMap) {
-	const merged = mergeEntityBlueprint(definition.baseBlueprint, definition);
 
 	// Resolve spawn surface for movement localization.
-	const spawnSurfaceId = merged.model.spawnSurfaceId || merged.spawnSurfaceId;
-	const surface = surfaceMap[spawnSurfaceId];
-	const movement = normalizeMovement(merged.movement, surface);
-	const model = buildModel(merged, surfaceMap);
-	const simRadiusPadding = ToNumber(merged.simRadiusPadding, 8);
+	const movement = normalizeMovement(definition.movement, surfaceMap[definition.model.spawnSurfaceId]);
+	const model = buildModel(definition, surfaceMap);
 	const rootTrans = model.rootTransform;
 	const initialMovementProgress = resolveInitialMovementProgress(movement, rootTrans.position);
 
@@ -708,33 +611,33 @@ function BuildEntity(definition, surfaceMap) {
 	}
 
 	const aabb = computeEntityAabb(model);
-	const detailed = computeDetailedBoundsForEntity(merged.type, aabb, model, {
-		collisionCapsule: merged.collisionCapsule,
-		collisionOverride: merged.collisionOverride,
+	const detailed = computeDetailedBoundsForEntity(definition.type, aabb, model, {
+		collisionCapsule: definition.collisionCapsule,
+		collisionOverride: definition.collisionOverride,
 	});
 
 	return {
-		id: merged.id,
-		type: merged.type,
-		hp: Math.max(0, ToNumber(merged.hp, 1)),
-		attacks: merged.attacks,
-		hardcoded: merged.hardcoded,
-		platform: merged.platform,
-		collisionCapsule: merged.collisionCapsule,
-		collisionOverride: merged.collisionOverride,
+		id: definition.id,
+		type: definition.type,
+		hp: definition.hp,
+		attacks: definition.attacks,
+		hardcoded: definition.hardcoded,
+		platform: definition.platform,
+		collisionCapsule: definition.collisionCapsule,
+		collisionOverride: definition.collisionOverride,
 		movement: movement,
 		transform: {
 			position: rootTrans.position,
 			rotation: rootTrans.rotation,
 			scale: rootTrans.scale,
 		},
-		velocity: merged.velocity,
+		velocity: definition.velocity,
 		model: model,
 		mesh: model.parts[0].mesh,
 		collision: {
 			aabb: aabb,
-			simRadiusPadding: simRadiusPadding,
-			simRadiusAabb: computeExpandedAabb(aabb, simRadiusPadding),
+			simRadiusPadding: definition.simRadiusPadding,
+			simRadiusAabb: computeExpandedAabb(aabb, definition.simRadiusPadding),
 			shape: detailed.collisionShape,
 			detailedBounds: detailed.detailedBounds,
 			physics: detailed.physics,
@@ -742,7 +645,7 @@ function BuildEntity(definition, surfaceMap) {
 			hitbox: detailed.hitbox,
 		},
 		hitboxActive: false,
-		animations: merged.animations,
+		animations: definition.animations,
 		state: {
 			movementProgress: initialMovementProgress,
 			direction: 1,
@@ -765,7 +668,6 @@ function UpdateEntityModelFromTransform(entity) {
 
 	applyModelPose(entity.model);
 	entity.collision.aabb = computeEntityAabb(entity.model);
-	entity.collision.simRadiusPadding = ToNumber(entity.collision.simRadiusPadding, 8);
 	entity.collision.simRadiusAabb = computeExpandedAabb(
 		entity.collision.aabb,
 		entity.collision.simRadiusPadding
@@ -802,7 +704,6 @@ function ResetEntityToDefaultPose(entity) {
 
 	applyModelPose(entity.model);
 	entity.collision.aabb = computeEntityAabb(entity.model);
-	entity.collision.simRadiusPadding = ToNumber(entity.collision.simRadiusPadding, 8);
 	entity.collision.simRadiusAabb = computeExpandedAabb(
 		entity.collision.aabb,
 		entity.collision.simRadiusPadding

@@ -3,14 +3,7 @@
 // Used by handlers/game/Physics.js
 
 import { CONFIG } from "../core/config.js";
-
-function toNumber(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function getGravityConfig() {
-	return CONFIG.PHYSICS.Gravity;
-}
+import { ToNumber } from "../math/Utilities.js";
 
 /**
  * Apply gravity to a velocity vector.
@@ -20,20 +13,15 @@ function getGravityConfig() {
  * @returns {{ x: number, y: number, z: number }} — updated velocity.
  */
 function ApplyGravity(velocity, deltaSeconds, options) {
-	const config = getGravityConfig();
-	if (config.Enabled === false) {
-		return velocity;
-	}
+	const config = CONFIG.PHYSICS.Gravity;
+	if (config.Enabled === false) return velocity;
 
-	const dt = toNumber(deltaSeconds, 0);
+	const dt = ToNumber(deltaSeconds, 0);
 	const opts = options && typeof options === "object" ? options : {};
-	const strength = toNumber(opts.strengthOverride, toNumber(config.Strength, 25));
+	const strength = ToNumber(opts.strengthOverride, ToNumber(config.Strength, 25));
 
-	return {
-		x: velocity.x,
-		y: velocity.y - strength * dt,
-		z: velocity.z,
-	};
+	velocity.y -= strength * dt;
+	return velocity;
 }
 
 /* === EXPORTS === */
