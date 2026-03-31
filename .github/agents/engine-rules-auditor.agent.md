@@ -49,18 +49,27 @@ If no violations are found, say that explicitly and note any residual ambiguity 
 If violations are found, use this structure:
 
 ### Findings
-- Severity: {high|medium|low}.
-- Rule: {rule file name and section if identifiable}.
-- Location: {file path and line or nearest symbol}.
-- Issue: {what violates the rule}.
-- Context: {the nearby contract, dependency, or functionality that confirms this is a real violation rather than a necessary tradeoff}.
-- Required fix: {what must change at the correct architectural boundary}.
+- Finding: {short title of what was found}
+  - Severity: {high|medium|low}.
+  - Rule: {rule file name and section if identifiable}.
+  - Location: {file path and line or nearest symbol}.
+  - Issue: {what violates the rule}.
+  - Context: {the nearby contract, dependency, or functionality that confirms this is a real violation rather than a necessary tradeoff}.
+  - Required fix: {what must change at the correct architectural boundary}.
 
 ### Rule Tightening
 - Gap: {what the current rule text fails to prevent or define}.
 - Suggested rule update: {succinct wording to close the gap}.
+- Effect: {concise, human-readable explanation of intended effect}
 
 ### If Fixes Were Authorized
 - State exactly what was changed.
 - State whether any rule docs were updated.
 - State any remaining risks or follow-up checks.
+
+### Summary
+- A short, informal, human-readable wrap-up of the audit.
+- Use precise, but friendly female senior engineer sounding phrasing.
+- Must not introduce new findings or ambiguity.
+- Keep it concise.
+- Reads like a productive coworker's closing report.
