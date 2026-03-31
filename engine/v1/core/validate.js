@@ -92,6 +92,7 @@ function validateNormalizedCamera(camera) {
 }
 
 function validateNormalizedPlayerModelPart(part) {
+	const validEntityFaces = ["front", "back", "left", "right", "top", "bottom", "center"];
 	return (
 		isObject(part)
 		&& typeof part.id === "string"
@@ -104,8 +105,10 @@ function validateNormalizedPlayerModelPart(part) {
 		&& part.parentId.length > 0
 		&& typeof part.anchorPoint === "string"
 		&& part.anchorPoint.length > 0
+		&& validEntityFaces.includes(part.anchorPoint)
 		&& typeof part.attachmentPoint === "string"
 		&& part.attachmentPoint.length > 0
+		&& validEntityFaces.includes(part.attachmentPoint)
 		&& isUnitVector3(part.localPosition, "cnu")
 		&& isUnitVector3(part.localRotation, "radians")
 		&& isUnitVector3(part.dimensions, "cnu")
@@ -122,6 +125,39 @@ function validateNormalizedPlayerModelPart(part) {
 		&& isObject(part.detail)
 		&& Array.isArray(part.detail.scatter)
 	);
+}
+
+function validateNormalizedModelParts(parts, contextPath) {
+	if (!Array.isArray(parts) || parts.length === 0) {
+		Log("ENGINE", `Level payload normalization failed: ${contextPath} must be a non-empty array.`, "error", "Validation");
+		return false;
+	}
+
+	const partIds = new Set();
+	for (let index = 0; index < parts.length; index++) {
+		const part = parts[index];
+		if (!validateNormalizedPlayerModelPart(part)) {
+			Log("ENGINE", `Level payload normalization failed: ${contextPath}[${index}] has invalid normalized model-part data.`, "error", "Validation");
+			return false;
+		}
+
+		if (partIds.has(part.id)) {
+			Log("ENGINE", `Level payload normalization failed: ${contextPath}[${index}] duplicates part id '${part.id}'.`, "error", "Validation");
+			return false;
+		}
+
+		partIds.add(part.id);
+	}
+
+	for (let index = 0; index < parts.length; index++) {
+		const part = parts[index];
+		if (part.parentId !== "root" && !partIds.has(part.parentId)) {
+			Log("ENGINE", `Level payload normalization failed: ${contextPath}[${index}] references missing parentId '${part.parentId}'.`, "error", "Validation");
+			return false;
+		}
+	}
+
+	return true;
 }
 
 function validateNormalizedTextureDescriptor(texture) {
@@ -211,10 +247,16 @@ function validateBlueprintList(list, key) {
 
 	for (let index = 0; index < list.length; index += 1) {
 		const entry = list[index];
-		if (!isObject(entry) || typeof entry.id !== "string" || entry.id.length === 0) {
+		if (
+			!isObject(entry)
+			|| typeof entry.id !== "string"
+			|| entry.id.length === 0
+			|| !isObject(entry.model)
+			|| !validateNormalizedModelParts(entry.model.parts, `entityBlueprints.${key}[${index}].model.parts`)
+		) {
 			Log(
 				"ENGINE", 
-				`Level payload normalization failed: entityBlueprints.${key}[${index}] must be an object with a string id.`, 
+				`Level payload normalization failed: entityBlueprints.${key}[${index}] must resolve to a canonical blueprint with valid model parts.`, 
 				"error", 
 				"Validation"
 			);
@@ -336,6 +378,8 @@ function validateNormalizedLevelCollections(payload) {
 			|| !Array.isArray(entity.attacks)
 			|| !isObject(entity.hardcoded)
 			|| !isObject(entity.animations)
+			|| !isObject(entity.collisionCapsule)
+			|| !isObject(entity.collisionOverride)
 		) {
 			Log(
 				"ENGINE", 
@@ -345,6 +389,8 @@ function validateNormalizedLevelCollections(payload) {
 			);
 			return false;
 		}
+
+		if (!validateNormalizedModelParts(entity.model.parts, `entities[${index}].model.parts`)) return false;
 	}
 
 	if (!isObject(payload.entityBlueprints)) {

@@ -250,16 +250,12 @@ function buildPart(partDefinition) {
 	);
 
 	const resolvedParentId = source.parentId;
-	const validFaces = ["front", "back", "left", "right", "top", "bottom", "center"];
-	const anchorPoint = (validFaces.includes(source.anchorPoint)) ? source.anchorPoint : resolvedParentId === "root" ? "bottom" : "center";
-	const attachmentPoint = (validFaces.includes(source.attachmentPoint)) ? source.attachmentPoint  : "top";
-
 	return {
 		id: mesh.id,
 		label: source.label || null,
 		parentId: resolvedParentId,
-		anchorPoint: anchorPoint,
-		attachmentPoint: attachmentPoint,
+		anchorPoint: source.anchorPoint,
+		attachmentPoint: source.attachmentPoint,
 		children: [],
 		localTransform: {
 			position: source.localPosition,
@@ -301,9 +297,7 @@ function buildModel(entityDefinition, surfaceMap) {
 	const index = {};
 	parts.forEach((part) => { index[part.id] = part; });
 	parts.forEach((part) => {
-		if (part.parentId && part.parentId !== "root" && index[part.parentId]) {
-			index[part.parentId].children.push(part.id);
-		}
+		if (part.parentId !== "root") index[part.parentId].children.push(part.id);
 	});
 
 	// Identify root parts and non-root parts.
@@ -647,8 +641,8 @@ function computeObbFromAabb(aabb) {
  */
 function computeDetailedBoundsForEntity(entityType, aabb, model, overrides) {
 	const layers = resolveEntityLayerShapes(entityType);
-	const collisionOverride = overrides && overrides.collisionOverride;
-	const capsuleOverride = overrides && overrides.collisionCapsule;
+	const collisionOverride = overrides.collisionOverride;
+	const capsuleOverride = overrides.collisionCapsule;
 
 	// Physics collider bounds.
 	const physicsShape = (collisionOverride && collisionOverride.physics) || layers.physics;
@@ -715,8 +709,8 @@ function BuildEntity(definition, surfaceMap) {
 
 	const aabb = computeEntityAabb(model);
 	const detailed = computeDetailedBoundsForEntity(merged.type, aabb, model, {
-		collisionCapsule: merged.collisionCapsule || {},
-		collisionOverride: merged.collisionOverride || null,
+		collisionCapsule: merged.collisionCapsule,
+		collisionOverride: merged.collisionOverride,
 	});
 
 	return {
@@ -726,8 +720,8 @@ function BuildEntity(definition, surfaceMap) {
 		attacks: merged.attacks,
 		hardcoded: merged.hardcoded,
 		platform: merged.platform,
-		collisionCapsule: merged.collisionCapsule || {},
-		collisionOverride: merged.collisionOverride || null,
+		collisionCapsule: merged.collisionCapsule,
+		collisionOverride: merged.collisionOverride,
 		movement: movement,
 		transform: {
 			position: rootTrans.position,
@@ -777,8 +771,8 @@ function UpdateEntityModelFromTransform(entity) {
 		entity.collision.simRadiusPadding
 	);
 	const detailed = computeDetailedBoundsForEntity(entity.type, entity.collision.aabb, entity.model, {
-		collisionCapsule: entity.collisionCapsule || {},
-		collisionOverride: entity.collisionOverride || null,
+		collisionCapsule: entity.collisionCapsule,
+		collisionOverride: entity.collisionOverride,
 	});
 	entity.collision.shape = detailed.collisionShape;
 	entity.collision.detailedBounds = detailed.detailedBounds;
@@ -814,8 +808,8 @@ function ResetEntityToDefaultPose(entity) {
 		entity.collision.simRadiusPadding
 	);
 	const detailed = computeDetailedBoundsForEntity(entity.type, entity.collision.aabb, entity.model, {
-		collisionCapsule: entity.collisionCapsule || {},
-		collisionOverride: entity.collisionOverride || null,
+		collisionCapsule: entity.collisionCapsule,
+		collisionOverride: entity.collisionOverride,
 	});
 	entity.collision.shape = detailed.collisionShape;
 	entity.collision.detailedBounds = detailed.detailedBounds;

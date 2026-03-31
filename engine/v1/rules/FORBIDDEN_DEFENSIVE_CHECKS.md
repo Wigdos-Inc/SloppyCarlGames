@@ -10,7 +10,7 @@ The engine has guaranteed internal contracts. If an internal contract is violate
 
 Defensive existence/type checks are forbidden for guaranteed in-engine symbols.
 
-If a symbol is engine-owned and guaranteed by initialization/normalization, do not guard it with `if (!x)`, `x && y`, or `typeof` checks.
+If a symbol is engine-owned and guaranteed by initialization/normalization, do not guard it with `if (!x)`, `x && y`, `x ?? y`, or `typeof` checks.
 
 Forbidden examples:
 
@@ -62,6 +62,7 @@ entity && entity.collision && entity.collision.aabb
 ```js
 const world = sceneGraph && sceneGraph.world ? sceneGraph.world : {};
 const config = CONFIG && CONFIG.PHYSICS ? CONFIG.PHYSICS.Buoyancy : {};
+const scatterBounds = sceneGraph.debug.scatterBounds ?? [];
 ```
 
 ### C. Defensive `typeof` on Guaranteed Internal Methods/Objects
@@ -70,6 +71,15 @@ const config = CONFIG && CONFIG.PHYSICS ? CONFIG.PHYSICS.Buoyancy : {};
 typeof CONFIG.VOLUME.Cutscene === "number" // when Cutscene volume is a guaranteed config field
 typeof internalFn === "function" // when internalFn is guaranteed by module contract
 ```
+
+### D. Builder-Side Revalidation of Canonical Payload Fields
+
+```js
+const anchorPoint = validFaces.includes(part.anchorPoint) ? part.anchorPoint : "center";
+if (part.parentId !== "root" && index[part.parentId]) { ... }
+```
+
+If enum membership, canonical face ids, or referential integrity need checking, do it in `core/validate.js` or `core/normalize.js` at the boundary. Do not repeat those checks in builder/runtime modules once the payload is canonical.
 
 ---
 
@@ -80,6 +90,8 @@ When an expected symbol is missing, fix one of these upstream layers:
 1. `core/validate.js` and `core/normalize.js` for inbound payload shape.
 2. Builder output contracts for runtime scene/entity structure.
 3. Engine initialization contracts (`core/ini.js`, boot sequence, static config shape).
+
+Enum canonicalization and referential-integrity checks for game payload fields also belong in `core/validate.js` or `core/normalize.js`, not in downstream builder/runtime modules.
 
 Never patch over upstream contract bugs with downstream guards.
 

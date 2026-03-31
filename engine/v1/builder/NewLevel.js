@@ -226,8 +226,7 @@ function buildSceneBoundingBoxes(sceneGraph) {
 	scatter.forEach((mesh) => push("Scatter", mesh.id, mesh.worldAabb));
 
 	// Per-model scatter bounding boxes from instanced batch generation.
-	const scatterDebugBounds = sceneGraph.debug.scatterBounds ?? [];
-	scatterDebugBounds.forEach((record) => bounds.push({ 
+	sceneGraph.debug.scatterBounds.forEach((record) => bounds.push({ 
 		type: record.type, 
 		id: record.id, 
 		min: record.min, 
@@ -270,8 +269,8 @@ function buildSceneDetailedBounds(sceneGraph) {
 
 	sceneGraph.entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
-		const physBounds = entity.collision.physics && entity.collision.physics.bounds;
-		if (physBounds && physBounds.type === "capsule") {
+		const physBounds = entity.collision.physics.bounds;
+		if (physBounds.type === "capsule") {
 			push(category, entity.id, {
 				type: "capsule",
 				radius: physBounds.radius,
@@ -282,12 +281,7 @@ function buildSceneDetailedBounds(sceneGraph) {
 			return;
 		}
 
-		if (physBounds) {
-			push(category, entity.id, physBounds);
-			return;
-		}
-
-		push(category, entity.id, entity.collision.detailedBounds);
+		push(category, entity.id, physBounds);
 	});
 
 	return detailed;

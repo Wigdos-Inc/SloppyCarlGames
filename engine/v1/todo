@@ -1,14 +1,10 @@
 Finish Model Bounds Expansion (critical):
-- Check Casing
-- Check UnitVector3 Instancing
-- Test Functionality
+- Check Casing (Ongoing)
+- Check UnitVector3 Instancing (Ongoing)
 - Add triangle for pyramid/prism shapes
 - Investigate player to enemy collision not working
-- Collision Caching for performance (see Claude)
+- Update Scatter spawns to use parent narrowphase bounds instead of broadphase
 Remove Forbidden Normalization and Defensive Checks downstream.
-- Fix Collision Phasing Bug
-- Fix/Refactor Intro Cinematic
-- Fix Ground Collision Bug
 Finish Unit System by eyeballing correct CNU_SCALE.
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain. perhaps part of new NewTerrain.js)
 Build new test level (prompt in notepad).

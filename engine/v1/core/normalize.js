@@ -687,6 +687,14 @@ function normalizeVector3WithWarning(value, fallback, contextPath, fieldName) {
 	return NormalizeVector3(value, fallback);
 }
 
+function normalizeEntityFace(value, fallback, contextPath, fieldName) {
+	const normalized = normalizeString(value, fallback).trim().toLowerCase();
+	if (["front", "back", "left", "right", "top", "bottom", "center"].includes(normalized)) return normalized;
+
+	warnLog(`Entity payload ${contextPath} '${fieldName}' invalid; defaulted to '${fallback}'.`);
+	return fallback;
+}
+
 function normalizePrimitiveOptions(source, contextPath) {
 	const src = normalizeObject(source);
 	const rawPrimitive = getByAlias(src, "primitive.options", undefined);
@@ -1100,15 +1108,27 @@ function normalizeEntityModelPart(part, entityId, index) {
 	const complexity = normalizeGeometryComplexity(getByAlias(source, "geometry.complexity", undefined), `${entityId}.parts[${index}]`);
 	const pivot = normalizeVector3WithWarning(getByAlias(source, "vector.pivot", undefined), { x: 0, y: 0, z: 0 }, `${entityId}.parts[${index}]`, "pivot");
 	const primitiveOptions = normalizePrimitiveOptions(source, `${entityId}.parts[${index}]`);
+	const parentId = normalizeString(getByAlias(source, "entityPart.parentId", "root"), "root");
+	const defaultAnchorPoint = parentId === "root" ? "bottom" : "center";
 
 	return {
 		...source,
 		id: normalizeString(source.id, `${entityId}-part-${index}`),
 		shape: shape,
 		complexity: complexity,
-		parentId: normalizeString(getByAlias(source, "entityPart.parentId", "root"), "root"),
-		anchorPoint: normalizeString(getByAlias(source, "entityPart.anchorPoint", source.parentId === "root" ? "bottom" : "center"), source.parentId === "root" ? "bottom" : "center"),
-		attachmentPoint: normalizeString(getByAlias(source, "entityPart.attachmentPoint", "top"), "top"),
+		parentId: parentId,
+		anchorPoint: normalizeEntityFace(
+			getByAlias(source, "entityPart.anchorPoint", defaultAnchorPoint),
+			defaultAnchorPoint,
+			`${entityId}.parts[${index}]`,
+			"anchorPoint"
+		),
+		attachmentPoint: normalizeEntityFace(
+			getByAlias(source, "entityPart.attachmentPoint", "top"),
+			"top",
+			`${entityId}.parts[${index}]`,
+			"attachmentPoint"
+		),
 		localPosition: new UnitVector3(localPosition.x, localPosition.y, localPosition.z, "cnu"),
 		localRotation: new UnitVector3(localRotation.x, localRotation.y, localRotation.z, "degrees").toRadians(true),
 		localScale: NormalizeVector3(getByAlias(source, "entityPart.localScale", undefined), { x: 1, y: 1, z: 1 }),
@@ -1322,6 +1342,7 @@ function normalizeEntityData(source, entityId, blueprint) {
 		platform: getByAlias(source, "entity.platform", getByAlias(blueprintSource, "entity.platform", null)),
 		animations: normalizeObject(resolveObjectField(source, blueprintSource, "animations", entityId)),
 		velocity: new UnitVector3(velocityVector.x, velocityVector.y, velocityVector.z, "cnu"),
+		collisionCapsule: normalizeObject(resolveObjectField(source, blueprintSource, "collisionCapsule", entityId)),
 		collisionOverride: normalizeObject(resolveObjectField(source, blueprintSource, "collisionOverride", entityId)),
 		model: normalizeEntityModel(source.model, source, entityId, blueprint),
 	};
