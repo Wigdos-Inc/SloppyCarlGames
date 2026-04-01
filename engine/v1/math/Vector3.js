@@ -9,9 +9,7 @@ import { ToNumber } from "./Utilities.js";
 
 function NormalizeVector3(value, fallback) {
 	const resolvedFallback = fallback || ToVector3(0);
-	if (!value) {
-		return { ...resolvedFallback };
-	}
+	if (!value) return { ...resolvedFallback };
 
 	if (Array.isArray(value)) {
 		return {
@@ -68,15 +66,15 @@ function DivideVector3(a, b) {
 }
 
 function MultiplyVector3(a, b) {
-	return { x: a.x * b.x, y: a.y * b.y, z: a.z * b.z };
+	return { 
+		x: a.x * b.x, 
+		y: a.y * b.y, 
+		z: a.z * b.z 
+	};
 }
 
 function ScaleVector3(vector, scalar) {
-	return {
-		x: vector.x * scalar,
-		y: vector.y * scalar,
-		z: vector.z * scalar,
-	};
+	return MultiplyVector3(vector, ToVector3(scalar));
 }
 
 function AbsoluteVector3(vector) {
@@ -119,11 +117,7 @@ function Vector3Distance(a, b) {
 function ResolveVector3Axis(vector) {
 	const length = Vector3Length(vector);
 	if (length <= EPSILON) return ToVector3(0);
-	return {
-		x: vector.x / length,
-		y: vector.y / length,
-		z: vector.z / length,
-	};
+	return DivideVector3(vector, ToVector3(length));
 }
 
 function CloneVector3(vector) {

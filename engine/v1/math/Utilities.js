@@ -197,10 +197,6 @@ function Clamp01(value) {
 	return Clamp(value, 0, 1);
 }
 
-function ClampToRange(value, min, max) {
-	return Clamp(value, min, max);
-}
-
 // Linear interpolation between two scalar values
 function Lerp(a, b, t) {
 	return a + (b - a) * Clamp(t, 0, 1);
@@ -219,8 +215,7 @@ export {
 	CNUtoWorldUnit, 
 	ToNumber, 
 	Clamp, 
-	Clamp01, 
-	ClampToRange, 
+	Clamp01,
 	Lerp, 
 	SmoothStep, 
 	Unit, 

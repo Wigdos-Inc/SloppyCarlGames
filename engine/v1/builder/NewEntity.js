@@ -17,7 +17,7 @@ import {
 	ToVector3, 
 	Vector3Sq 
 } from "../math/Vector3.js";
-import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
+import { Clamp01, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 
 // Canonical face normal directions (unit vectors for each face).
 const faceNormals = {
@@ -161,7 +161,7 @@ function resolveInitialMovementProgress(movement, currentPosition) {
 
 	const p = SubtractVector3(currentPosition, movement.start);
 	const projection = DotVector3(p, d) / lengthSq;
-	return Math.max(0, Math.min(1, projection));
+	return Clamp01(projection);
 }
 
 /* === MOVEMENT === */
@@ -268,7 +268,6 @@ function buildModel(entityDefinition, surfaceMap) {
 
 		const dims = rootPart.dimensions;
 		const localRot = rootPart.localTransform.rotation;
-		const localPos = rootPart.localTransform.position;
 		const localScale = rootPart.localTransform.scale;
 
 		// Face remapping after rotation.
@@ -281,13 +280,7 @@ function buildModel(entityDefinition, surfaceMap) {
 		const scaledHalfHeight = dims.y * combinedScale.y * 0.5;
 
 		// Set localTransform.position: grounding + localPosition (model-local, relative to rootTransform).
-		rootPart.localTransform.position.set({
-			x: localPos.x,
-			y: scaledHalfHeight + localPos.y,
-			z: localPos.z,
-		});
-
-		// localTransform.rotation and localTransform.scale stay as-is from buildPart.
+		rootPart.localTransform.position.y += scaledHalfHeight;
 
 		// Store builtDimensions (scaled) for child attachment offset computation.
 		rootPart.builtDimensions.set(MultiplyVector3(dims, combinedScale));

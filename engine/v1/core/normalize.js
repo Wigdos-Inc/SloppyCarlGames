@@ -663,6 +663,8 @@ function resolveDefaultEntityCollisionLayers(entityType) {
 }
 
 const validEntityCollisionShapes = new Set(["sphere", "aabb", "capsule", "obb", "compound-sphere"]);
+const validObjectShapes = new Set(["cube", "cylinder", "sphere", "capsule", "cone", "ramp", "tube", "torus", "pyramid", "plane"]);
+const validObjectCollisionShapes = new Set(["none", "obb", "aabb", "triangle-soup"]);
 function normalizeEntityCollisionLayerShape(value, fallback, contextPath, fieldName) {
 	if (value === undefined || value === null) return fallback;
 
@@ -718,13 +720,33 @@ function normalizeGeometryComplexity(value, contextPath) {
 
 function normalizeShapeAlias(source, contextPath) {
 	const shape = normalizeString(getByAlias(source, "shape.shape", ""), "");
-	if (shape.length > 0) return shape.toLowerCase();
+	if (shape.length > 0) {
+		const normalized = shape.toLowerCase();
+		if (validObjectShapes.has(normalized)) return normalized;
+		warnLog(`Object payload ${contextPath} shape '${shape}' invalid; defaulted to 'cube'.`);
+		return "cube";
+	}
 
 	const primitive = normalizeString(getByAlias(source, "shape.primitive", ""), "");
-	if (primitive.length > 0) return primitive.toLowerCase();
+	if (primitive.length > 0) {
+		const normalized = primitive.toLowerCase();
+		if (validObjectShapes.has(normalized)) return normalized;
+		warnLog(`Object payload ${contextPath} primitive '${primitive}' invalid; defaulted to 'cube'.`);
+		return "cube";
+	}
 
 	warnLog(`Object payload ${contextPath} missing 'shape' or 'primitive' definition; defaulted to 'cube'.`);
 	return "cube";
+}
+
+function normalizeObjectCollisionShape(value, fallback, contextPath) {
+	if (value === undefined || value === null) return fallback;
+
+	const normalized = normalizeCollisionShape(value);
+	if (normalized !== null && validObjectCollisionShapes.has(normalized)) return normalized;
+
+	warnLog(`Object payload ${contextPath} collisionShape '${value}' invalid; defaulted to '${fallback}'.`);
+	return fallback;
 }
 
 function normalizeVector3WithWarning(value, fallback, contextPath, fieldName) {
@@ -845,7 +867,7 @@ function normalizeTerrainObject(definition, index) {
 		id: normalizeString(source.id, `terrain-${index}`),
 		shape: shape,
 		complexity: complexity,
-		collisionShape: normalizeCollisionShape(source.collisionShape),
+		collisionShape: normalizeObjectCollisionShape(source.collisionShape, "obb", `terrain[${index}]`),
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
 		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
@@ -967,7 +989,7 @@ function normalizeObstacle(definition, index) {
 		id: normalizeString(source.id, `obstacle-${index}`),
 		shape,
 		complexity,
-		collisionShape: normalizeCollisionShape(source.collisionShape),
+		collisionShape: normalizeObjectCollisionShape(source.collisionShape, "obb", `obstacle[${index}]`),
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
 		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),

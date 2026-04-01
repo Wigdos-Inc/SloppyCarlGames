@@ -12,7 +12,7 @@ import { BuildObstacles } from "./NewObstacle.js";
 import { GetPerformanceScatterMultiplier, BuildScatterBatches, BuildScatterVisualResources } from "./NewScatter.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { UnitVector3 } from "../math/Utilities.js";
+import { Clamp, UnitVector3 } from "../math/Utilities.js";
 import { PrepareLevelVisualResources } from "./NewTexture.js";
 import { ToVector3 } from "../math/Vector3.js";
 
@@ -117,8 +117,7 @@ function buildWaterVisualMeshes(world) {
 	const centerX = waterLength * 0.5;
 	const centerZ = waterWidth * 0.5;
 	const waterLevel = world.waterLevel.value;
-	const worldBottom = world.deathBarrierY.value;
-	const waterBottom = Math.max(0, Math.min(worldBottom, waterLevel - 0.1));
+	const waterBottom = Clamp(waterLevel - 0.1, 0, world.deathBarrierY.value);
 	const waterHeight = Math.max(0.1, waterLevel - waterBottom);
 
 	const body = BuildObject(
@@ -126,7 +125,7 @@ function buildWaterVisualMeshes(world) {
 			id: `water-body-${waterLength}-${waterWidth}-${waterBottom}-${waterLevel}`,
 			shape: "cube",
 			complexity: "medium",
-			dimensions: new UnitVector3( waterLength, waterHeight, waterWidth, "cnu"),
+			dimensions: new UnitVector3(waterLength, waterHeight, waterWidth, "cnu"),
 			position: new UnitVector3(centerX, waterBottom + waterHeight * 0.5, centerZ, "cnu"),
 			rotation: new UnitVector3(0, 0, 0, "radians"),
 			scale: ToVector3(1),

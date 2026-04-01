@@ -31,11 +31,14 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 	if (playerState.state === "Dead") return;
 
 	const entities = sceneGraph.entities;
-	const cameraPos = sceneGraph.cameraConfig.state.position;
-	const activityRadius = GetSimDistanceValue();
 
 	// Use three-layer combat detection.
-	const combatResults = DetectCombatOverlaps(playerState, entities, activityRadius, cameraPos);
+	const combatResults = DetectCombatOverlaps(
+		playerState, 
+		entities, 
+		GetSimDistanceValue(), 
+		sceneGraph.cameraConfig.state.position
+	);
 
 	for (let i = combatResults.count - 1; i >= 0; i--) {
 		const result = combatResults.items[i];

@@ -16,7 +16,7 @@ import {
 	ResolveVector3Axis,
 	ToVector3,
 } from "./Vector3.js";
-import { Clamp01, ClampToRange, ToNumber } from "./Utilities.js";
+import { Clamp01, Clamp, ToNumber } from "./Utilities.js";
 
 function NoContact() {
 	return { hit: false, normal: { x: 0, y: 1, z: 0 }, depth: 0, point: null };
@@ -49,9 +49,9 @@ function resolveUnitDirection(vector) {
 
 function closestPointOnAabb(point, aabb) {
 	return {
-		x: ClampToRange(point.x, aabb.min.x, aabb.max.x),
-		y: ClampToRange(point.y, aabb.min.y, aabb.max.y),
-		z: ClampToRange(point.z, aabb.min.z, aabb.max.z),
+		x: Clamp(point.x, aabb.min.x, aabb.max.x),
+		y: Clamp(point.y, aabb.min.y, aabb.max.y),
+		z: Clamp(point.z, aabb.min.z, aabb.max.z),
 	};
 }
 
@@ -333,9 +333,9 @@ function SphereOBBContact(center, radius, obb) {
 	const resolvedRadius = radius.value;
 	const localPoint = projectToObbLocal(center, obb);
 	const clampedLocal = {
-		x: ClampToRange(localPoint.x, -obb.halfExtents.x, obb.halfExtents.x),
-		y: ClampToRange(localPoint.y, -obb.halfExtents.y, obb.halfExtents.y),
-		z: ClampToRange(localPoint.z, -obb.halfExtents.z, obb.halfExtents.z),
+		x: Clamp(localPoint.x, -obb.halfExtents.x, obb.halfExtents.x),
+		y: Clamp(localPoint.y, -obb.halfExtents.y, obb.halfExtents.y),
+		z: Clamp(localPoint.z, -obb.halfExtents.z, obb.halfExtents.z),
 	};
 	const closest = AddVector3(
 		obb.center,

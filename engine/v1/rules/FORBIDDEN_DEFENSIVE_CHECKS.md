@@ -111,6 +111,10 @@ Enum canonicalization and referential-integrity checks for game payload fields a
 
 Once normalization resolves a canonical field location, downstream modules must consume that canonical location directly and must not fall back between duplicate copies of the same semantic field.
 
+Once normalization has canonicalized object `shape` or `collisionShape`, builders must not substitute a different primitive, collision mode, or null detailed-bounds result for unsupported ids. Fix the enum boundary in `core/normalize.js` or `core/validate.js` instead.
+
+Once a builder has generated internal geometry arrays, downstream builder helpers must not synthesize placeholder UVs, bounds, or AABBs to cover malformed geometry output. Fix the primitive builder or validate the generated geometry contract once at the builder boundary instead.
+
 Never patch over upstream contract bugs with downstream guards.
 
 ---

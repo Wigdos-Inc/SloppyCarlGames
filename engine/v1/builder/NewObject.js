@@ -2,15 +2,10 @@
 
 // Called by anything that wants any 3D object or wants to build models.
 
-import { EPSILON, Log } from "../core/meta.js";
+import { Log } from "../core/meta.js";
 import { BuildScatter, GetPerformanceScatterMultiplier } from "./NewScatter.js";
-import { ToNumber, UnitVector3 } from "../math/Utilities.js";
-import { AbsoluteVector3, DivideVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3Length } from "../math/Vector3.js";
-
-function normalizeAxis(vector) {
-	const axis = ResolveVector3Axis(vector);
-	return (axis.x === 0 && axis.y === 0 && axis.z === 0) ? { x: 0, y: 1, z: 0 } : axis;
-}
+import { Clamp, ToNumber, UnitVector3 } from "../math/Utilities.js";
+import { AbsoluteVector3, CloneVector3, CrossVector3, DivideVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3Length } from "../math/Vector3.js";
 
 function computeObbFromMesh(mesh) {
 	const modelMatrix = CreateModelMatrix(mesh.transform);
@@ -23,9 +18,9 @@ function computeObbFromMesh(mesh) {
 			.scale(0.5)
 			.multiply(AbsoluteVector3(mesh.transform.scale)),
 		axes: [
-			normalizeAxis({ x: modelMatrix[0], y: modelMatrix[1], z: modelMatrix[2] }), 
-			normalizeAxis({ x: modelMatrix[4], y: modelMatrix[5], z: modelMatrix[6] }), 
-			normalizeAxis({ x: modelMatrix[8], y: modelMatrix[9], z: modelMatrix[10] })
+			ResolveVector3Axis({ x: modelMatrix[0], y: modelMatrix[1], z: modelMatrix[2] }), 
+			ResolveVector3Axis({ x: modelMatrix[4], y: modelMatrix[5], z: modelMatrix[6] }), 
+			ResolveVector3Axis({ x: modelMatrix[8], y: modelMatrix[9], z: modelMatrix[10] })
 		],
 	};
 }
@@ -58,34 +53,35 @@ function computeTriangleSoupFromMesh(mesh) {
 		const c = readVertex(indices[index + 2]);
 		const ab = SubtractVector3(b, a);
 		const ac = SubtractVector3(c, a);
-		const n = {
-			x: (ab.y * ac.z) - (ab.z * ac.y),
-			y: (ab.z * ac.x) - (ab.x * ac.z),
-			z: (ab.x * ac.y) - (ab.y * ac.x),
-		}
-		const length = Vector3Length(n);
-		const normal = length <= EPSILON
-			? { x: 0, y: 1, z: 0 }
-			: DivideVector3(n, ToVector3(length));
-		triangles.push({ a, b, c, normal });
+		const n = CrossVector3(ab, ac);
+		triangles.push({ a, b, c, normal: ResolveVector3Axis(n) });
 	}
 
 	return { type: "triangle-soup", triangles };
 }
 
-function resolveCollisionShape(source) {
-	if (source.collisionShape !== null) return source.collisionShape;
-	if (source.role === "terrain" || source.role === "obstacle") return "obb";
-	return "none";
-}
-
 function computeDetailedBounds(mesh) {
 	switch(mesh.collisionShape) {
+		case "none"         : return null;
 		case "triangle-soup": return computeTriangleSoupFromMesh(mesh);
 		case "aabb"         : return computeAabbFromMesh(mesh);
 		case "obb"          : return computeObbFromMesh(mesh);
-		default             : return null;
 	}
+}
+
+function logInvalidGeometry(shape, geometry) {
+	const positionCount = geometry.positions.length;
+	const indexCount = geometry.indices.length;
+	if (positionCount < 9 || positionCount % 3 !== 0 || indexCount < 3 || indexCount % 3 !== 0) {
+		Log(
+			"ENGINE",
+			`Generated invalid geometry: primitive=${shape}, positions=${positionCount}, indices=${indexCount}`,
+			"error",
+			"Level"
+		);
+	}
+
+	return geometry;
 }
 
 function resolveCylinderSegments(complexity) {
@@ -121,8 +117,6 @@ function resolveTorusResolution(complexity) {
 }
 
 function generateLegacyUvFromPositions(positions) {
-	if (positions.length < 3) return [];
-
 	let minX = Infinity;
 	let minY = Infinity;
 	let minZ = Infinity;
@@ -253,19 +247,11 @@ function GenerateUVs(positions, geometry) {
 
 function computeBounds(positions) {
 	const bounds = {
-		min: new UnitVector3(-0.5, -0.5, -0.5, "cnu"),
-		max: new UnitVector3(0.5, 0.5, 0.5, "cnu")
+		min: new UnitVector3(positions[0], positions[1], positions[2], "cnu"),
+		max: new UnitVector3(positions[0], positions[1], positions[2], "cnu")
 	};
-	if (positions.length < 3) return bounds;
 
-	bounds.min.x = Infinity;
-	bounds.min.y = Infinity;
-	bounds.min.z = Infinity;
-	bounds.max.x = -Infinity;
-	bounds.max.y = -Infinity;
-	bounds.max.z = -Infinity;
-
-	for (let index = 0; index < positions.length; index += 3) {
+	for (let index = 3; index < positions.length; index += 3) {
 		const x = positions[index + 0];
 		const y = positions[index + 1];
 		const z = positions[index + 2];
@@ -383,12 +369,11 @@ function transformPoint(localPoint, transform) {
 }
 
 function computeWorldAabbFromGeometry(positions, transform) {
-	if (positions.length < 3) return { min: transform.position.clone(), max: transform.position.clone() };
+	const firstWorld = transformPoint({ x: positions[0], y: positions[1], z: positions[2] }, transform);
+	const min = CloneVector3(firstWorld);
+	const max = CloneVector3(firstWorld);
 
-	const min = ToVector3(Infinity);
-	const max = ToVector3(-Infinity);
-
-	for (let index = 0; index < positions.length; index += 3) {
+	for (let index = 3; index < positions.length; index += 3) {
 		const world = transformPoint({ x: positions[index], y: positions[index + 1], z: positions[index + 2] }, transform);
 		if (world.x < min.x) min.x = world.x;
 		if (world.y < min.y) min.y = world.y;
@@ -440,9 +425,9 @@ function buildCube(size) {
 }
 
 function buildPyramid(size) {
-	const sx = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
-	const sy = Math.max(0.0001, ToNumber(size.y, 1));
-	const sz = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
+	const sx = size.x / 2;
+	const sy = size.y;
+	const sz = size.z / 2;
 
 	const positions = [
 		-sx, 0, sz,
@@ -465,8 +450,8 @@ function buildPyramid(size) {
 }
 
 function buildPlane(size) {
-	const sx = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
-	const sz = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
+	const sx = size.x / 2;
+	const sz = size.z / 2;
 
 	return {
 		positions: [
@@ -481,36 +466,33 @@ function buildPlane(size) {
 }
 
 function buildCylinder(size, complexity) {
-	const radiusX = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
-	const radiusZ = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
-	const height = Math.max(0.0001, ToNumber(size.y, 1));
-	const halfHeight = height / 2;
+	const radius = DivideVector3(size, ToVector3(2));
 	const segments = resolveCylinderSegments(complexity);
 
 	const positions = [];
 	const indices = [];
 
-	for (let index = 0; index <= segments; index += 1) {
+	for (let index = 0; index <= segments; index++) {
 		const ratio = index / segments;
 		const angle = ratio * Math.PI * 2;
-		const x = Math.cos(angle) * radiusX;
-		const z = Math.sin(angle) * radiusZ;
-		positions.push(x, -halfHeight, z);
-		positions.push(x, halfHeight, z);
+		const x = Math.cos(angle) * radius.x;
+		const z = Math.sin(angle) * radius.z;
+		positions.push(x, -radius.y, z);
+		positions.push(x, radius.y, z);
 	}
 
-	for (let index = 0; index < segments; index += 1) {
+	for (let index = 0; index < segments; index++) {
 		const base = index * 2;
 		indices.push(base, base + 1, base + 3);
 		indices.push(base, base + 3, base + 2);
 	}
 
 	const bottomCenter = positions.length / 3;
-	positions.push(0, -halfHeight, 0);
+	positions.push(0, -radius.y, 0);
 	const topCenter = positions.length / 3;
-	positions.push(0, halfHeight, 0);
+	positions.push(0, radius.y, 0);
 
-	for (let index = 0; index < segments; index += 1) {
+	for (let index = 0; index < segments; index++) {
 		const next = ((index + 1) % segments) * 2;
 		const current = index * 2;
 		indices.push(bottomCenter, next, current);
@@ -521,9 +503,7 @@ function buildCylinder(size, complexity) {
 }
 
 function buildSphere(size, complexity) {
-	const radiusX = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
-	const radiusY = Math.max(0.0001, ToNumber(size.y, 1)) / 2;
-	const radiusZ = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
+	const radius = DivideVector3(size, ToVector3(2));
 	const resolution = resolveSphereResolution(complexity);
 	const stacks = resolution.stacks;
 	const slices = resolution.slices;
@@ -531,21 +511,21 @@ function buildSphere(size, complexity) {
 	const positions = [];
 	const indices = [];
 
-	for (let stack = 0; stack <= stacks; stack += 1) {
+	for (let stack = 0; stack <= stacks; stack++) {
 		const v = stack / stacks;
 		const phi = v * Math.PI;
-		for (let slice = 0; slice <= slices; slice += 1) {
+		for (let slice = 0; slice <= slices; slice++) {
 			const u = slice / slices;
 			const theta = u * Math.PI * 2;
-			const x = Math.cos(theta) * Math.sin(phi) * radiusX;
-			const y = Math.cos(phi) * radiusY;
-			const z = Math.sin(theta) * Math.sin(phi) * radiusZ;
+			const x = Math.cos(theta) * Math.sin(phi) * radius.x;
+			const y = Math.cos(phi) * radius.y;
+			const z = Math.sin(theta) * Math.sin(phi) * radius.z;
 			positions.push(x, y, z);
 		}
 	}
 
-	for (let stack = 0; stack < stacks; stack += 1) {
-		for (let slice = 0; slice < slices; slice += 1) {
+	for (let stack = 0; stack < stacks; stack++) {
+		for (let slice = 0; slice < slices; slice++) {
 			const first = stack * (slices + 1) + slice;
 			const second = first + slices + 1;
 			indices.push(first, second, first + 1);
@@ -557,10 +537,7 @@ function buildSphere(size, complexity) {
 }
 
 function buildCone(size, complexity) {
-	const radiusX = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
-	const radiusZ = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
-	const height = Math.max(0.0001, ToNumber(size.y, 1));
-	const halfHeight = height / 2;
+	const radius = DivideVector3(size, ToVector3(2));
 	const segments = resolveCylinderSegments(complexity);
 
 	const positions = [];
@@ -569,40 +546,40 @@ function buildCone(size, complexity) {
 	const baseVertexIndices = [];
 
 	const apexIndex = positions.length / 3;
-	positions.push(0, halfHeight, 0);
+	positions.push(0, radius.y, 0);
 	sideVertexIndices.push(apexIndex);
 
 	const sideStart = positions.length / 3;
-	for (let index = 0; index <= segments; index += 1) {
+	for (let index = 0; index <= segments; index++) {
 		const ratio = index / segments;
 		const angle = ratio * Math.PI * 2;
-		const x = Math.cos(angle) * radiusX;
-		const z = Math.sin(angle) * radiusZ;
-		positions.push(x, -halfHeight, z);
+		const x = Math.cos(angle) * radius.x;
+		const z = Math.sin(angle) * radius.z;
+		positions.push(x, -radius.y, z);
 		sideVertexIndices.push(sideStart + index);
 	}
 
-	for (let index = 0; index < segments; index += 1) {
+	for (let index = 0; index < segments; index++) {
 		const current = sideStart + index;
 		const next = sideStart + index + 1;
 		indices.push(apexIndex, current, next);
 	}
 
 	const baseCenter = positions.length / 3;
-	positions.push(0, -halfHeight, 0);
+	positions.push(0, -radius.y, 0);
 	baseVertexIndices.push(baseCenter);
 
 	const baseStart = positions.length / 3;
-	for (let index = 0; index <= segments; index += 1) {
+	for (let index = 0; index <= segments; index++) {
 		const ratio = index / segments;
 		const angle = ratio * Math.PI * 2;
-		const x = Math.cos(angle) * radiusX;
-		const z = Math.sin(angle) * radiusZ;
-		positions.push(x, -halfHeight, z);
+		const x = Math.cos(angle) * radius.x;
+		const z = Math.sin(angle) * radius.z;
+		positions.push(x, -radius.y, z);
 		baseVertexIndices.push(baseStart + index);
 	}
 
-	for (let index = 0; index < segments; index += 1) {
+	for (let index = 0; index < segments; index++) {
 		const current = baseStart + index;
 		const next = baseStart + index + 1;
 		indices.push(baseCenter, next, current);
@@ -619,12 +596,9 @@ function buildCone(size, complexity) {
 }
 
 function buildCapsule(size, complexity) {
-	const radiusX = Math.max(0.0001, ToNumber(size.x, 1)) / 2;
-	const radiusZ = Math.max(0.0001, ToNumber(size.z, 1)) / 2;
-	const capRadius = Math.max(0.0001, Math.min(radiusX, radiusZ));
-	const totalHeight = Math.max(0.0001, ToNumber(size.y, 1));
-	const halfHeight = totalHeight / 2;
-	const cylinderHalf = Math.max(0, halfHeight - capRadius);
+	const radius = DivideVector3(size, ToVector3(2));
+	const capRadius = Clamp(radius.z, 0.0001, radius.x);
+	const cylinderHalf = Math.max(0, radius.y - capRadius);
 	const segments = resolveCylinderSegments(complexity);
 	const capStacks = resolveCapsuleCapStacks(complexity);
 
@@ -634,7 +608,7 @@ function buildCapsule(size, complexity) {
 
 	const pushRing = (y, ringScaleX, ringScaleZ, groupName) => {
 		const start = positions.length / 3;
-		for (let index = 0; index <= segments; index += 1) {
+		for (let index = 0; index <= segments; index++) {
 			const ratio = index / segments;
 			const angle = ratio * Math.PI * 2;
 			positions.push(Math.cos(angle) * ringScaleX, y, Math.sin(angle) * ringScaleZ);
@@ -642,47 +616,43 @@ function buildCapsule(size, complexity) {
 		rings.push({ start: start, group: groupName });
 	};
 
-	for (let stack = 0; stack <= capStacks; stack += 1) {
+	for (let stack = 0; stack <= capStacks; stack++) {
 		const ratio = stack / capStacks;
 		const angle = ratio * Math.PI * 0.5;
 		const ringScale = Math.sin(angle);
 		const y = cylinderHalf + Math.cos(angle) * capRadius;
-		pushRing(y, radiusX * ringScale, radiusZ * ringScale, "top");
+		pushRing(y, radius.x * ringScale, radius.z * ringScale, "top");
 	}
 
-	pushRing(-cylinderHalf, radiusX, radiusZ, "body");
+	pushRing(-cylinderHalf, radius.x, radius.z, "body");
 
-	for (let stack = 1; stack <= capStacks; stack += 1) {
+	for (let stack = 1; stack <= capStacks; stack++) {
 		const ratio = stack / capStacks;
 		const angle = ratio * Math.PI * 0.5;
 		const ringScale = Math.cos(angle);
 		const y = -cylinderHalf - Math.sin(angle) * capRadius;
-		pushRing(y, radiusX * ringScale, radiusZ * ringScale, "bottom");
+		pushRing(y, radius.x * ringScale, radius.z * ringScale, "bottom");
 	}
 
 	const topVertices = [];
 	const bodyVertices = [];
 	const bottomVertices = [];
 
-	for (let ring = 0; ring < rings.length - 1; ring += 1) {
+	for (let ring = 0; ring < rings.length - 1; ring++) {
 		const current = rings[ring];
 		const next = rings[ring + 1];
-		for (let index = 0; index < segments; index += 1) {
+		for (let index = 0; index < segments; index++) {
 			const a = current.start + index;
-			const b = current.start + index + 1;
+			const b = current.start + index++;
 			const c = next.start + index;
 			const d = next.start + index + 1;
 
 			indices.push(a, c, b);
 			indices.push(b, c, d);
 
-			if (current.group === "top" && next.group === "top") {
-				topVertices.push(a, b, c, d);
-			} else if (current.group === "bottom" && next.group === "bottom") {
-				bottomVertices.push(a, b, c, d);
-			} else {
-				bodyVertices.push(a, b, c, d);
-			}
+			if (current.group === "top" && next.group === "top") topVertices.push(a, b, c, d);
+			else if (current.group === "bottom" && next.group === "bottom") bottomVertices.push(a, b, c, d);
+			else bodyVertices.push(a, b, c, d);
 		}
 	}
 
@@ -698,47 +668,44 @@ function buildCapsule(size, complexity) {
 }
 
 function buildTube(size, complexity, options) {
-	const outerRadiusX = Math.max(0.0002, ToNumber(size.x, 1)) / 2;
-	const outerRadiusZ = Math.max(0.0002, ToNumber(size.z, 1)) / 2;
-	const height = Math.max(0.0001, ToNumber(size.y, 1));
-	const halfHeight = height / 2;
-	const thickness = Math.max(0.00005, ToNumber(options.thickness, Math.min(outerRadiusX, outerRadiusZ) * 0.25));
-	const innerRadiusX = Math.max(0.00005, outerRadiusX - Math.min(thickness, outerRadiusX * 0.95));
-	const innerRadiusZ = Math.max(0.00005, outerRadiusZ - Math.min(thickness, outerRadiusZ * 0.95));
+	const outerRadius = DivideVector3(size, ToVector3(2));
+	const thickness = options.thickness ?? Clamp(outerRadius.z, 0.00005, outerRadius.x) * 0.25;
+	const innerRadiusX = Math.max(0.00005, outerRadius.x - Math.min(thickness, outerRadius.x * 0.95));
+	const innerRadiusZ = Math.max(0.00005, outerRadius.z - Math.min(thickness, outerRadius.z * 0.95));
 	const segments = resolveCylinderSegments(complexity);
 
 	const positions = [];
 	const indices = [];
 
 	const outerBottomStart = positions.length / 3;
-	for (let index = 0; index <= segments; index += 1) {
+	for (let index = 0; index <= segments; index++) {
 		const ratio = index / segments;
 		const angle = ratio * Math.PI * 2;
-		positions.push(Math.cos(angle) * outerRadiusX, -halfHeight, Math.sin(angle) * outerRadiusZ);
+		positions.push(Math.cos(angle) * outerRadius.x, -outerRadius.y, Math.sin(angle) * outerRadius.z);
 	}
 
 	const outerTopStart = positions.length / 3;
-	for (let index = 0; index <= segments; index += 1) {
+	for (let index = 0; index <= segments; index++) {
 		const ratio = index / segments;
 		const angle = ratio * Math.PI * 2;
-		positions.push(Math.cos(angle) * outerRadiusX, halfHeight, Math.sin(angle) * outerRadiusZ);
+		positions.push(Math.cos(angle) * outerRadius.x, outerRadius.y, Math.sin(angle) * outerRadius.z);
 	}
 
 	const innerBottomStart = positions.length / 3;
-	for (let index = 0; index <= segments; index += 1) {
+	for (let index = 0; index <= segments; index++) {
 		const ratio = index / segments;
 		const angle = ratio * Math.PI * 2;
-		positions.push(Math.cos(angle) * innerRadiusX, -halfHeight, Math.sin(angle) * innerRadiusZ);
+		positions.push(Math.cos(angle) * innerRadiusX, -outerRadius.y, Math.sin(angle) * innerRadiusZ);
 	}
 
 	const innerTopStart = positions.length / 3;
-	for (let index = 0; index <= segments; index += 1) {
+	for (let index = 0; index <= segments; index++) {
 		const ratio = index / segments;
 		const angle = ratio * Math.PI * 2;
-		positions.push(Math.cos(angle) * innerRadiusX, halfHeight, Math.sin(angle) * innerRadiusZ);
+		positions.push(Math.cos(angle) * innerRadiusX, outerRadius.y, Math.sin(angle) * innerRadiusZ);
 	}
 
-	for (let index = 0; index < segments; index += 1) {
+	for (let index = 0; index < segments; index++) {
 		const ob0 = outerBottomStart + index;
 		const ob1 = outerBottomStart + index + 1;
 		const ot0 = outerTopStart + index;
@@ -765,7 +732,7 @@ function buildTube(size, complexity, options) {
 	const topVertices = [];
 	const bottomVertices = [];
 
-	for (let index = 0; index <= segments; index += 1) {
+	for (let index = 0; index <= segments; index++) {
 		outerVertices.push(outerBottomStart + index, outerTopStart + index);
 		innerVertices.push(innerBottomStart + index, innerTopStart + index);
 		topVertices.push(outerTopStart + index, innerTopStart + index);
@@ -785,8 +752,8 @@ function buildTube(size, complexity, options) {
 }
 
 function buildTorus(size, complexity, options) {
-	const fallbackRadius = Math.max(0.0002, ToNumber(size.x, 1)) / 2;
-	const fallbackThickness = Math.max(0.0001, ToNumber(size.y, 1)) / 4;
+	const fallbackRadius = size.x / 2;
+	const fallbackThickness = size.y / 4;
 	const majorRadius = Math.max(0.0002, ToNumber(options.radius, fallbackRadius));
 	const minorRadius = Math.max(0.0001, Math.min(ToNumber(options.thickness, fallbackThickness), majorRadius * 0.95));
 	const resolution = resolveTorusResolution(complexity);
@@ -796,12 +763,12 @@ function buildTorus(size, complexity, options) {
 	const positions = [];
 	const indices = [];
 
-	for (let major = 0; major <= majorSegments; major += 1) {
+	for (let major = 0; major <= majorSegments; major++) {
 		const u = (major / majorSegments) * Math.PI * 2;
 		const cosU = Math.cos(u);
 		const sinU = Math.sin(u);
 
-		for (let minor = 0; minor <= minorSegments; minor += 1) {
+		for (let minor = 0; minor <= minorSegments; minor++) {
 			const v = (minor / minorSegments) * Math.PI * 2;
 			const cosV = Math.cos(v);
 			const sinV = Math.sin(v);
@@ -811,8 +778,8 @@ function buildTorus(size, complexity, options) {
 	}
 
 	const stride = minorSegments + 1;
-	for (let major = 0; major < majorSegments; major += 1) {
-		for (let minor = 0; minor < minorSegments; minor += 1) {
+	for (let major = 0; major < majorSegments; major++) {
+		for (let minor = 0; minor < minorSegments; minor++) {
 			const a = major * stride + minor;
 			const b = (major + 1) * stride + minor;
 			const c = a + 1;
@@ -902,7 +869,7 @@ function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 		case "torus"   : return buildTorus(size, complexity, primitiveOptions);
 		case "pyramid" : return buildPyramid(size);
 		case "plane"   : return buildPlane(size);
-		default        : return buildCube(size);
+		default        : return null;
 	}
 }
 
@@ -916,26 +883,14 @@ function BuildObject(source, options) {
 	// Expect world-space values to be provided as UnitVector3 instances already.
 	const primitiveOptions = source.primitiveOptions;
 	const geometry = BuildGeometry(shape, source.dimensions, complexity, primitiveOptions);
-	const uvs = GenerateUVs(geometry.positions, geometry);
 	const bounds = computeBounds(geometry.positions);
-	const vertexCount = geometry.positions.length / 3;
-	if (uvs.length !== vertexCount * 2) {
-		Log(
-			"ENGINE",
-			`UV buffer mismatch: object=${source.id}, primitive=${shape}, uvLength=${uvs.length}, expected=${vertexCount * 2}`,
-			"error",
-			"Level"
-		);
-	}
 	const transform = {
 		position: source.position,         // UnitVector3
 		rotation: source.rotation,         // UnitVector3
 		scale: source.scale,               // Vector3
 		pivot: source.pivot,               // UnitVector3
 	};
-	const worldAabb = computeWorldAabbFromGeometry(geometry.positions, transform);
 	const texture = source.texture;
-	const collisionShape = resolveCollisionShape(source);
 
 	const mesh = {
 		id: source.id,
@@ -948,7 +903,7 @@ function BuildObject(source, options) {
 		geometry: {
 			positions: geometry.positions,
 			indices: geometry.indices,
-			uvs: uvs,
+			uvs: GenerateUVs(geometry.positions, geometry),
 			bounds: bounds,
 		},
 		material: {
@@ -969,9 +924,9 @@ function BuildObject(source, options) {
 			primitiveOptions: primitiveOptions,
 		},
 		localBounds: bounds,
-		worldAabb: worldAabb,
+		worldAabb: computeWorldAabbFromGeometry(geometry.positions, transform),
 		dimensions: source.dimensions,
-		collisionShape: collisionShape,
+		collisionShape: source.collisionShape,
 		detailedBounds: null,
 	};
 	mesh.detailedBounds = computeDetailedBounds(mesh);

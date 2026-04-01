@@ -111,9 +111,9 @@
     "activateOnce": ["activateOnce", "once", "singleUse"]
   },
   "color": {
-    "r": ["r"],
-    "g": ["g"],
-    "b": ["b"],
+    "r": ["r", "red", "rValue"],
+    "g": ["g", "green", "gValue"],
+    "b": ["b", "blue", "bValue"],
     "a": ["a", "alpha", "opacity"]
   },
   "texture": {
@@ -193,7 +193,7 @@
   },
   "player": {
     "spawnPosition": ["spawnPosition", "spawnPos", "spawn", "spawnLocation"],
-    "meta": ["meta"],
+    "meta": ["meta", "playerMeta"],
     "scale": ["scale", "size", "scaleFactor"]
   }
 }

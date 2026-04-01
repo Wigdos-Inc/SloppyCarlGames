@@ -43,6 +43,30 @@ function isAllowedEntityCollisionShape(value) {
 	);
 }
 
+function isAllowedObjectShape(value) {
+	return (
+		value === "cube"
+		|| value === "cylinder"
+		|| value === "sphere"
+		|| value === "capsule"
+		|| value === "cone"
+		|| value === "ramp"
+		|| value === "tube"
+		|| value === "torus"
+		|| value === "pyramid"
+		|| value === "plane"
+	);
+}
+
+function isAllowedObjectCollisionShape(value) {
+	return (
+		value === "none"
+		|| value === "obb"
+		|| value === "aabb"
+		|| value === "triangle-soup"
+	);
+}
+
 function validateNormalizedUIElementTree(element, path) {
 	if (!isObject(element)) {
 		Log("ENGINE", `UI payload normalization produced invalid element at '${path}'.`, "error", "Validation");
@@ -110,6 +134,7 @@ function validateNormalizedPlayerModelPart(part) {
 		&& part.id.length > 0
 		&& typeof part.shape === "string"
 		&& part.shape.length > 0
+		&& isAllowedObjectShape(part.shape)
 		&& typeof part.complexity === "string"
 		&& part.complexity.length > 0
 		&& typeof part.parentId === "string"
@@ -294,6 +319,8 @@ function validateNormalizedLevelCollections(payload) {
 		if (
 			!isObject(object) || 
 			typeof object.id !== "string" || 
+			!isAllowedObjectShape(object.shape) ||
+			!isAllowedObjectCollisionShape(object.collisionShape) ||
 			!isVector3(object.position) || 
 			!isVector3(object.dimensions) || 
 			!isVector3(object.scale) || 
@@ -301,7 +328,11 @@ function validateNormalizedLevelCollections(payload) {
 		) {
 			Log(
 				"ENGINE", 
-				`Level payload normalization failed: terrain.objects[${index}] must include id, position, dimensions, scale, and canonical texture data.`, 
+				`
+					Level payload normalization failed: 
+					terrain.objects[${index}] must include id, 
+					canonical shape/collisionShape, position, dimensions, scale, and canonical texture data.
+				`, 
 				"error", 
 				"Validation"
 			);
@@ -357,14 +388,57 @@ function validateNormalizedLevelCollections(payload) {
 
 	for (let index = 0; index < payload.obstacles.length; index += 1) {
 		const obstacle = payload.obstacles[index];
-		if (!isObject(obstacle) || typeof obstacle.id !== "string" || !isVector3(obstacle.position) || !isVector3(obstacle.dimensions) || !isVector3(obstacle.scale) || !validateNormalizedTextureDescriptor(obstacle.texture)) {
+		if (
+			!isObject(obstacle)
+			|| typeof obstacle.id !== "string"
+			|| !isAllowedObjectShape(obstacle.shape)
+			|| !isAllowedObjectCollisionShape(obstacle.collisionShape)
+			|| !Array.isArray(obstacle.parts)
+			|| !isVector3(obstacle.position)
+			|| !isVector3(obstacle.dimensions)
+			|| !isVector3(obstacle.scale)
+			|| !validateNormalizedTextureDescriptor(obstacle.texture)
+		) {
 			Log(
 				"ENGINE", 
-				`Level payload normalization failed: obstacles[${index}] must include id, position, dimensions, scale, and canonical texture data.`, 
+				`
+					Level payload normalization failed: 
+					obstacles[${index}] must include id, canonical shape/collisionShape, 
+					position, dimensions, scale, parts, and canonical texture data.
+				`, 
 				"error", 
 				"Validation"
 			);
 			return false;
+		}
+
+		for (let partIndex = 0; partIndex < obstacle.parts.length; partIndex += 1) {
+			const part = obstacle.parts[partIndex];
+			if (
+				!isObject(part)
+				|| typeof part.id !== "string"
+				|| part.id.length === 0
+				|| !isAllowedObjectShape(part.shape)
+				|| !isVector3(part.dimensions)
+				|| !isVector3(part.localPosition)
+				|| !isVector3(part.localRotation)
+				|| !isObject(part.localScale)
+				|| !validateNormalizedTextureDescriptor(part.texture)
+				|| !isObject(part.detail)
+				|| !Array.isArray(part.detail.scatter)
+			) {
+				Log(
+					"ENGINE",
+					`
+						Level payload normalization failed: 
+						obstacles[${index}].parts[${partIndex}] must include canonical shape, 
+						transforms, texture, and detail.scatter.
+					`,
+					"error",
+					"Validation"
+				);
+				return false;
+			}
 		}
 	}
 

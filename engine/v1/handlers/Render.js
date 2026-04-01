@@ -724,11 +724,10 @@ function createObbLineVertices(bounds) {
 	const sy = ScaleVector3(axisY, half.y);
 	const sz = ScaleVector3(axisZ, half.z);
 
-	const add = (base, dx, dy, dz) => [
-		base.x + dx.x + dy.x + dz.x,
-		base.y + dx.y + dy.y + dz.y,
-		base.z + dx.z + dy.z + dz.z,
-	];
+	const add = (base, dx, dy, dz) => {
+		const vector = AddVector3(AddVector3(AddVector3(base, dx), dy), dz);
+		return [vector.x, vector.y, vector.z];
+	}
 
 	const p000 = add(center, ScaleVector3(sx, -1), ScaleVector3(sy, -1), ScaleVector3(sz, -1));
 	const p001 = add(center, ScaleVector3(sx, -1), ScaleVector3(sy, -1), sz);
@@ -828,7 +827,7 @@ function createSphereLineVertices(bounds, radialSegments = 16) {
 
 function createTriangleSoupLineVertices(bounds) {
 	const lines = [];
-	for (let index = 0; index < bounds.triangles.length; index += 1) {
+	for (let index = 0; index < bounds.triangles.length; index++) {
 		const triangle = bounds.triangles[index];
 		const a = triangle.a.toWorldUnit();
 		const b = triangle.b.toWorldUnit();
@@ -887,7 +886,7 @@ function drawDetailedBounds(renderer, sceneGraph, projection, view) {
 	gl.enableVertexAttribArray(shader.attributes.position);
 	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
 
-	for (let index = 0; index < records.length; index += 1) {
+	for (let index = 0; index < records.length; index++) {
 		const record = records[index];
 		if (!isDetailedBoundsDebugEnabled(record.type)) continue;
 
@@ -1175,7 +1174,7 @@ function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farVa
 	gl.uniform1f(shader.uniforms.underwater, underwaterValue);
 
 	gl.depthMask(false);
-	for (let index = 0; index < waterMeshes.length; index += 1) {
+	for (let index = 0; index < waterMeshes.length; index++) {
 		const mesh = waterMeshes[index];
 		const meshBufferKey = getMeshBufferKey(mesh);
 		if (!meshBufferKey) {
@@ -1255,7 +1254,7 @@ function drawScene(renderer, sceneGraph) {
 	gl.uniform1f(shader.uniforms.underwater, underwaterValue);
 
 	const meshes = collectRenderableMeshes(sceneGraph);
-	for (let index = 0; index < meshes.length; index += 1) {
+	for (let index = 0; index < meshes.length; index++) {
 		const mesh = meshes[index];
 		const isTriggerMesh = mesh.role === "trigger";
 		const meshBufferKey = getMeshBufferKey(mesh);
@@ -1296,7 +1295,7 @@ function drawScene(renderer, sceneGraph) {
 		gl.uniform3f(scatterShader.uniforms.colorShift, colorShift.r, colorShift.g, colorShift.b);
 		gl.uniform1f(scatterShader.uniforms.underwater, underwaterValue);
 
-		for (let batchIndex = 0; batchIndex < renderer.scatterInstances.length; batchIndex += 1) {
+		for (let batchIndex = 0; batchIndex < renderer.scatterInstances.length; batchIndex++) {
 			const batch = renderer.scatterInstances[batchIndex];
 			const texture = ensureSceneTexture(renderer, sceneGraph, batch.textureID);
 
