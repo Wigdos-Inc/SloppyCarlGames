@@ -953,7 +953,7 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 		if (Vector3Sq(vel) < 0.01) continue;
 
 		const pos = entity.transform.position;
-		const end = ScaleVector3(AddVector3(pos, vel), trailScale);
+		const end = AddVector3(pos, ScaleVector3(vel, trailScale));
 
 		// Convert CNU positions to world units for rendering.
 		const vertices = new Float32Array([

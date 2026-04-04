@@ -860,6 +860,7 @@ function buildRamp(size, options) {
 
 function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 	switch (shape) {
+		case "cube"    : return buildCube(size);
 		case "cylinder": return buildCylinder(size, complexity);
 		case "sphere"  : return buildSphere(size, complexity);
 		case "capsule" : return buildCapsule(size, complexity);
