@@ -3,10 +3,6 @@
 // Used by handlers/game/Physics.js
 
 import { CONFIG } from "../core/config.js";
-import { ToNumber } from "../math/Utilities.js";
-
-const AIR_DRAG = 0.02;
-const WATER_DRAG = 0.05;
 
 /**
  * Apply medium-based drag to a velocity vector.
@@ -20,12 +16,11 @@ function ApplyResistance(velocity, deltaSeconds, medium) {
 	const resistanceConfig = CONFIG.PHYSICS.Resistance;
 	if (resistanceConfig.Enabled === false) return velocity;
 
-	const dt = ToNumber(deltaSeconds, 0);
-	const isWater = medium === "water";
-	const coefficient = isWater ? resistanceConfig.WaterDrag : resistanceConfig.AirDrag;
-	const factor = Math.max(0, 1 - coefficient * dt * 60);
+	const inwater = medium === "water";
+	const coefficient = inwater ? resistanceConfig.WaterDrag : resistanceConfig.AirDrag;
+	const factor = Math.max(0, 1 - coefficient * deltaSeconds * 60);
 
-	if (isWater) return velocity.scale(factor);
+	if (inwater) return velocity.scale(factor);
 
 	// Air: only horizontal drag, preserve vertical velocity.
 	return {

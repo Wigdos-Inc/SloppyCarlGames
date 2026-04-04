@@ -15,8 +15,11 @@ import {
 	Vector3Length,
 	ResolveVector3Axis,
 	ToVector3,
+	AbsoluteVector3,
+	MultiplyVector3,
+	ClampVector3,
 } from "./Vector3.js";
-import { Clamp01, Clamp, ToNumber } from "./Utilities.js";
+import { Clamp01 } from "./Utilities.js";
 
 function NoContact() {
 	return { hit: false, normal: { x: 0, y: 1, z: 0 }, depth: 0, point: null };
@@ -45,14 +48,6 @@ function resolveUnitDirection(vector) {
 	const lengthSq = Vector3Sq(vector);
 	if (lengthSq <= EPSILON) return null;
 	return ScaleVector3(vector, 1 / Math.sqrt(lengthSq));
-}
-
-function closestPointOnAabb(point, aabb) {
-	return {
-		x: Clamp(point.x, aabb.min.x, aabb.max.x),
-		y: Clamp(point.y, aabb.min.y, aabb.max.y),
-		z: Clamp(point.z, aabb.min.z, aabb.max.z),
-	};
 }
 
 function resolveInsideAabbContact(center, radius, aabb) {
@@ -116,6 +111,35 @@ function projectObbNormalToWorld(localNormal, obb) {
 			ScaleVector3(obb.axes[2], localNormal.z)
 		)
 	);
+}
+
+function projectAabbRadiusOntoAxis(halfExtents, axis) {
+	const vector = MultiplyVector3(AbsoluteVector3(axis), halfExtents);
+	return (vector.x + vector.y + vector.z);
+}
+
+function projectObbRadiusOntoAxis(obb, axis) {
+	return (
+		Math.abs(DotVector3(obb.axes[0], axis)) * obb.halfExtents.x +
+		Math.abs(DotVector3(obb.axes[1], axis)) * obb.halfExtents.y +
+		Math.abs(DotVector3(obb.axes[2], axis)) * obb.halfExtents.z
+	);
+}
+
+function chooseAabbObbSatAxis(best, rawAxis, centerDelta, halfExtents, obb) {
+	const axis = resolveUnitDirection(rawAxis);
+	if (!axis) return best;
+
+	const radiusA = projectAabbRadiusOntoAxis(halfExtents, axis);
+	const radiusB = projectObbRadiusOntoAxis(obb, axis);
+	const distance = Math.abs(DotVector3(centerDelta, axis));
+	const overlap = (radiusA + radiusB) - distance;
+	if (overlap < 0) return { separated: true };
+
+	const normal = DotVector3(centerDelta, axis) >= 0 ? CloneVector3(axis) : ScaleVector3(axis, -1);
+
+	if (!best || overlap < best.depth) return { separated: false, normal, depth: overlap };
+	return best;
 }
 
 function closestPointOnSegment(point, segStart, segEnd) {
@@ -319,7 +343,7 @@ function SphereSphereContact(centerA, radiusA, centerB, radiusB) {
 
 function SphereAABBContact(center, radius, aabb) {
 	const resolvedRadius = radius.value;
-	const closest = closestPointOnAabb(center, aabb);
+	const closest = ClampVector3(center, aabb.min, aabb.max);
 	const delta = SubtractVector3(center, closest);
 	const distSq = Vector3Sq(delta);
 	if (distSq > resolvedRadius * resolvedRadius) return NoContact();
@@ -332,11 +356,7 @@ function SphereAABBContact(center, radius, aabb) {
 function SphereOBBContact(center, radius, obb) {
 	const resolvedRadius = radius.value;
 	const localPoint = projectToObbLocal(center, obb);
-	const clampedLocal = {
-		x: Clamp(localPoint.x, -obb.halfExtents.x, obb.halfExtents.x),
-		y: Clamp(localPoint.y, -obb.halfExtents.y, obb.halfExtents.y),
-		z: Clamp(localPoint.z, -obb.halfExtents.z, obb.halfExtents.z),
-	};
+	const clampedLocal = ClampVector3(localPoint, ScaleVector3(obb.halfExtents, -1), obb.halfExtents);
 	const closest = AddVector3(
 		obb.center,
 		AddVector3(
@@ -461,6 +481,43 @@ function CapsuleOBBContact(capsule, obb) {
 	return best;
 }
 
+function AabbObbContact(aabb, obb) {
+	const halfExtentsA = ScaleVector3(SubtractVector3(aabb.max, aabb.min), 0.5);
+	const centerDelta = SubtractVector3(ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5), obb.center);
+	const aabbAxes = [
+		{ x: 1, y: 0, z: 0 },
+		{ x: 0, y: 1, z: 0 },
+		{ x: 0, y: 0, z: 1 },
+	];
+
+	let best = null;
+	for (let index = 0; index < aabbAxes.length; index++) {
+		best = chooseAabbObbSatAxis(best, aabbAxes[index], centerDelta, halfExtentsA, obb);
+		if (best && best.separated) return NoContact();
+	}
+
+	for (let index = 0; index < obb.axes.length; index++) {
+		best = chooseAabbObbSatAxis(best, obb.axes[index], centerDelta, halfExtentsA, obb);
+		if (best && best.separated) return NoContact();
+	}
+
+	for (let aabbIndex = 0; aabbIndex < aabbAxes.length; aabbIndex++) {
+		for (let obbIndex = 0; obbIndex < obb.axes.length; obbIndex++) {
+			best = chooseAabbObbSatAxis(
+				best,
+				CrossVector3(aabbAxes[aabbIndex], obb.axes[obbIndex]),
+				centerDelta,
+				halfExtentsA,
+				obb
+			);
+			if (best && best.separated) return NoContact();
+		}
+	}
+
+	if (!best) return NoContact();
+	return makeContact(best.normal, best.depth, null);
+}
+
 function capsuleTriangleContact(capsule, triangle) {
 	const resolvedRadius = capsule.radius.value;
 	const triangleNormal = triangle.normal;
@@ -506,31 +563,26 @@ function ApplyAcceleration(velocity, direction, acceleration, dt) {
 function ApplyDeceleration(velocity, deceleration, dt) {
 	const speed = Vector3Length(velocity);
 	if (speed <= 0.0001) return ToVector3(0);
-	const reduction = ToNumber(deceleration, 0) * ToNumber(dt, 0);
-	const newSpeed = Math.max(0, speed - reduction);
+
+	const newSpeed = Math.max(0, speed - deceleration * dt);
 	if (newSpeed <= 0.0001) return ToVector3(0);
 	return ScaleVector3(ResolveVector3Axis(velocity), newSpeed);
 }
 
 function ClampVelocity(velocity, maxSpeed) {
 	const speed = Vector3Length(velocity);
-	const cap = ToNumber(maxSpeed, Infinity);
-	if (speed <= cap || speed <= 0.0001) return velocity;
-	return ScaleVector3(ResolveVector3Axis(velocity), cap);
+	if (speed <= maxSpeed || speed <= 0.0001) return velocity;
+	return ScaleVector3(ResolveVector3Axis(velocity), maxSpeed);
 }
 
 /* === PROJECTION & REFLECTION === */
 
 function ProjectOntoPlane(vector, normal) {
-	const n = ResolveVector3Axis(normal);
-	const d = DotVector3(vector, n);
-	return SubtractVector3(vector, ScaleVector3(n, d));
+	return SubtractVector3(vector, ScaleVector3(normal, DotVector3(vector, normal)));
 }
 
 function ReflectVector3(velocity, normal) {
-	const n = ResolveVector3Axis(normal);
-	const d = DotVector3(velocity, n);
-	return SubtractVector3(velocity, ScaleVector3(n, 2 * d));
+	return SubtractVector3(velocity, ScaleVector3(normal, 2 * DotVector3(velocity, normal)));
 }
 
 /* === AABB OVERLAP === */
@@ -726,6 +778,7 @@ export {
 	SphereAABBContact,
 	SphereOBBContact,
 	SphereCapsuleContact,
+	AabbObbContact,
 	CapsuleAABBContact,
 	CapsuleCapsuleContact,
 	CapsuleOBBContact,

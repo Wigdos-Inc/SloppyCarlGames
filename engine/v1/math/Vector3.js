@@ -1,7 +1,7 @@
 // Advanced Math Stuff
 
 import { EPSILON } from "../core/meta.js";
-import { ToNumber } from "./Utilities.js";
+import { Clamp, ToNumber } from "./Utilities.js";
 
 /* === NORMALIZERS === */
 // Convert incoming values into consistent vector objects.
@@ -85,6 +85,14 @@ function AbsoluteVector3(vector) {
 	};
 }
 
+function ClampVector3(valV, minV, maxV) {
+	return {
+		x: Clamp(valV.x, minV.x, maxV.x),
+		y: Clamp(valV.y, minV.y, maxV.y),
+		z: Clamp(valV.z, minV.z, maxV.z),
+	};
+}
+
 function DotVector3(a, b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z;
 }
@@ -156,6 +164,7 @@ export {
 	ScaleVector3,
 	MultiplyVector3,
 	AbsoluteVector3,
+	ClampVector3,
 	DotVector3,
 	CrossVector3,
 	CloneVector3,

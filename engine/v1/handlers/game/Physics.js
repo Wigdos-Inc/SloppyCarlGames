@@ -193,12 +193,11 @@ function RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	const dt = ToNumber(deltaSeconds, 0);
 	const world = sceneGraph.world;
-	const waterLevel = world.waterLevel;
 	const deathBarrierY = world.deathBarrierY.value;
 	const pos = playerState.transform.position;
 
 	// Determine medium.
-	playerState.underwater = waterLevel && pos.y < waterLevel;
+	playerState.underwater = world.waterLevel !== null && pos.y < world.waterLevel.value;
 	const medium = playerState.underwater ? "water" : "air";
 
 	// Step 1: Gravity (if not grounded or always apply — ground correction will nullify).
@@ -211,7 +210,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	playerState.velocity.set(ApplyResistance(playerState.velocity, dt, medium));
 
 	// Step 3: Buoyancy (underwater float).
-	if (playerState.underwater) playerState.velocity.set(ApplyBuoyancy(playerState.velocity, pos, waterLevel, dt));
+	if (playerState.underwater) playerState.velocity.set(ApplyBuoyancy(playerState.velocity, pos, world.waterLevel.value, dt));
 
 	// Step 4: Compute intended displacement.
 	const displacement = ScaleVector3(playerState.velocity, dt);

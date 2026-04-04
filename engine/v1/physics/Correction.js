@@ -5,14 +5,13 @@
 import { CONFIG } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";
 import {
-	NormalizeVector3,
 	DotVector3,
 	SubtractVector3,
 	ScaleVector3,
 	ResolveVector3Axis,
 	CloneVector3,
 } from "../math/Vector3.js";
-import { Clamp, ToNumber } from "../math/Utilities.js";
+import { Clamp } from "../math/Utilities.js";
 
 const worldUp = { x: 0, y: 1, z: 0 };
 
@@ -70,8 +69,8 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 	if (!groundContact.hit) return resetSurfaceState(playerState);
 	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return resetSurfaceState(playerState);
 
-	const normal = ResolveVector3Axis(NormalizeVector3(groundContact.normal, worldUp));
-	const previousNormal = ResolveVector3Axis(NormalizeVector3(playerState.surfaceNormal, worldUp));
+	const normal = ResolveVector3Axis(groundContact.normal);
+	const previousNormal = ResolveVector3Axis(playerState.surfaceNormal);
 	const normalDot = Clamp(DotVector3(previousNormal, normal), -1, 1);
 	const deltaAngleDegrees = (Math.acos(normalDot) * 180) / Math.PI;
 
@@ -156,16 +155,14 @@ function ApplyGroundSnap(playerState, groundContact) {
 	if (!groundContact.hit) return resetSurfaceState(playerState);
 	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return resetSurfaceState(playerState);
 
-	const normal = ResolveVector3Axis(NormalizeVector3(groundContact.normal, worldUp));
+	const normal = ResolveVector3Axis(groundContact.normal);
 	let changedPosition = false;
 	let deltaY = 0;
 
-	if (groundContact.targetAabb && normal.y > 0.5) {
+	if (normal.y > 0.5) {
 		const collisionProfile = playerState.collision.profile;
-		const currentPosY = playerState.transform.position.y;
-		const bottomOffsetFromTransform = ToNumber(collisionProfile.bottomOffset.value, 0);
-		const desiredPosY = ToNumber(groundContact.targetAabb.max.y, currentPosY) - bottomOffsetFromTransform;
-		deltaY = desiredPosY - currentPosY;
+		const desiredPosY = groundContact.supportPoint.y - collisionProfile.bottomOffset.value;
+		deltaY = desiredPosY - playerState.transform.position.y;
 
 		if (Math.abs(deltaY) <= config.GroundSnapTolerance) {
 			changedPosition = Math.abs(deltaY) > EPSILON;
@@ -222,7 +219,7 @@ function ApplyPlayerSurfaceOrientation(playerState) {
  * @returns {{ pitch: number, roll: number }}
  */
 function ComputeAlignmentAngles(surfaceNormal) {
-	const n = ResolveVector3Axis(NormalizeVector3(surfaceNormal, worldUp));
+	const n = ResolveVector3Axis(surfaceNormal);
 	return {
 		pitch: Math.asin(-n.z),
 		roll: Math.asin(n.x),

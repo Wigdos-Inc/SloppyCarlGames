@@ -3,7 +3,6 @@
 // Used by handlers/game/Physics.js
 
 import { CONFIG } from "../core/config.js";
-import { ToNumber } from "../math/Utilities.js";
 
 /**
  * Apply buoyancy to velocity when entity is submerged.
@@ -17,17 +16,13 @@ import { ToNumber } from "../math/Utilities.js";
 function ApplyBuoyancy(velocity, position, waterLevel, deltaSeconds) {
 	if (CONFIG.PHYSICS.Buoyancy.Enabled === false) return velocity;
 
-	const posY = ToNumber(position && position.y, 0);
-	const level = ToNumber(waterLevel, -9999);
+	if (position.y >= waterLevel) return velocity;
 
-	if (posY >= level) return velocity;
-
-	const dt = ToNumber(deltaSeconds, 0);
-	const submersionDepth = Math.min(3, level - posY);
+	const submersionDepth = Math.min(3, waterLevel - position.y);
 	const submersionRatio = Math.min(1, submersionDepth / 3);
 	const buoyancyStrength = CONFIG.PHYSICS.Buoyancy.Force * submersionRatio;
 
-	let newY = velocity.y + buoyancyStrength * dt;
+	let newY = velocity.y + buoyancyStrength * deltaSeconds;
 
 	// Cap downward speed when submerged.
 	if (newY < -CONFIG.PHYSICS.Buoyancy.SinkSpeed) newY = -CONFIG.PHYSICS.Buoyancy.SinkSpeed;

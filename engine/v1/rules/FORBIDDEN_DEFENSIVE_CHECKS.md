@@ -115,6 +115,8 @@ Once normalization has canonicalized object `shape` or `collisionShape`, builder
 
 Once a builder has generated internal geometry arrays, downstream builder helpers must not synthesize placeholder UVs, bounds, or AABBs to cover malformed geometry output. Fix the primitive builder or validate the generated geometry contract once at the builder boundary instead.
 
+Once a runtime subsystem has constructed pooled collision, trigger, or correction result objects, downstream consumers must treat fields such as `normal`, `pushNormal`, `supportY`, `tEntry`, `targetAabb`, and trigger payloads as canonical engine-owned data. Do not normalize, null-guard, or fallback those fields again downstream.
+
 Never patch over upstream contract bugs with downstream guards.
 
 ---
