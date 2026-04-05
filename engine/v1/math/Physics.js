@@ -173,23 +173,20 @@ function closestPointsOnSegments(p1, q1, p2, q2) {
 		};
 	}
 
-	if (a <= EPSILON) {
-		t = Clamp01(f / e);
-	} else {
+	if (a <= EPSILON) t = Clamp01(f / e);
+	else {
 		const c = DotVector3(d1, r);
-		if (e <= EPSILON) {
-			s = Clamp01(-c / a);
-		} else {
+		if (e <= EPSILON) s = Clamp01(-c / a);
+		else {
 			const b = DotVector3(d1, d2);
 			const denom = a * e - b * b;
-			if (Math.abs(denom) > EPSILON) {
-				s = Clamp01((b * f - c * e) / denom);
-			}
+			if (Math.abs(denom) > EPSILON) s = Clamp01((b * f - c * e) / denom);
 			t = (b * s + f) / e;
 			if (t < 0) {
 				t = 0;
 				s = Clamp01(-c / a);
-			} else if (t > 1) {
+			} 
+			else if (t > 1) {
 				t = 1;
 				s = Clamp01((b - c) / a);
 			}
@@ -298,7 +295,7 @@ function closestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal)
 		[b, c],
 		[c, a],
 	];
-	for (let index = 0; index < edges.length; index += 1) {
+	for (let index = 0; index < edges.length; index++) {
 		const segmentPair = closestPointsOnSegments(segStart, segEnd, edges[index][0], edges[index][1]);
 		candidates.push({
 			segmentPoint: segmentPair.pointA,
@@ -307,12 +304,10 @@ function closestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal)
 	}
 
 	let best = null;
-	for (let index = 0; index < candidates.length; index += 1) {
+	for (let index = 0; index < candidates.length; index++) {
 		const delta = SubtractVector3(candidates[index].segmentPoint, candidates[index].trianglePoint);
 		const distanceSq = Vector3Sq(delta);
-		if (!best || distanceSq < best.distanceSq) {
-			best = { ...candidates[index], distanceSq };
-		}
+		if (!best || distanceSq < best.distanceSq) best = { ...candidates[index], distanceSq };
 	}
 
 	return best;
@@ -332,9 +327,7 @@ function SphereSphereContact(centerA, radiusA, centerB, radiusB) {
 	const radiusSum = resolvedRadiusA + resolvedRadiusB;
 	if (distSq > radiusSum * radiusSum) return NoContact();
 
-	if (distSq <= EPSILON) {
-		return makeContact({ x: 0, y: 1, z: 0 }, radiusSum, CloneVector3(centerA));
-	}
+	if (distSq <= EPSILON) return makeContact({ x: 0, y: 1, z: 0 }, radiusSum, CloneVector3(centerA));
 
 	const distance = Math.sqrt(distSq);
 	const normal = ScaleVector3(delta, 1 / distance);
@@ -475,7 +468,7 @@ function CapsuleOBBContact(capsule, obb) {
 	];
 
 	let best = NoContact();
-	for (let index = 0; index < samples.length; index += 1) {
+	for (let index = 0; index < samples.length; index++) {
 		best = chooseDeepestContact(best, SphereOBBContact(samples[index], capsule.radius, obb));
 	}
 	return best;
@@ -646,18 +639,12 @@ function SweptAABB(position, velocity, halfExtents, staticAabb) {
 			entryNormal.z = 0;
 			entryNormal[axis] = nearNormalValue;
 		}
-		if (tFar < tExitMin) {
-			tExitMin = tFar;
-		}
+		if (tFar < tExitMin) tExitMin = tFar;
 
-		if (tEntryMax > tExitMin || tExitMin < 0) {
-			return result;
-		}
+		if (tEntryMax > tExitMin || tExitMin < 0) return result;
 	}
 
-	if (tEntryMax < 0 || tEntryMax > 1) {
-		return result;
-	}
+	if (tEntryMax < 0 || tEntryMax > 1) return result;
 
 	result.hit = true;
 	result.tEntry = tEntryMax;
@@ -701,19 +688,13 @@ function RayAABBIntersect(origin, direction, aabb) {
 			hitNormal.z = 0;
 			hitNormal[axis] = nearSign;
 		}
-		if (t2 < tMax) {
-			tMax = t2;
-		}
+		if (t2 < tMax) tMax = t2;
 
-		if (tMin > tMax) {
-			return result;
-		}
+		if (tMin > tMax) return result;
 	}
 
 	if (tMin < 0) {
-		if (tMax < 0) {
-			return result;
-		}
+		if (tMax < 0) return result;
 		// Origin is inside the box.
 		result.hit = true;
 		result.t = tMax;

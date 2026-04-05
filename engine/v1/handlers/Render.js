@@ -86,8 +86,8 @@ function createIdentityMatrix() {
 
 function multiplyMatrix4(a, b) {
 	const out = new Array(16);
-	for (let col = 0; col < 4; col += 1) {
-		for (let row = 0; row < 4; row += 1) {
+	for (let col = 0; col < 4; col++) {
+		for (let row = 0; row < 4; row++) {
 			out[col * 4 + row] =
 				a[0 * 4 + row] * b[col * 4 + 0] +
 				a[1 * 4 + row] * b[col * 4 + 1] +
@@ -663,7 +663,7 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 	gl.enableVertexAttribArray(shader.attributes.position);
 	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
 
-	for (let index = 0; index < records.length; index += 1) {
+	for (let index = 0; index < records.length; index++) {
 		const record = records[index];
 		if (!isBoundingBoxDebugEnabled(record.type)) continue;
 
@@ -701,7 +701,7 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 
 	gl.uniform4f(shader.uniforms.color, 0.5, 0.5, 0.5, 0.6);
 
-	for (let index = 0; index < records.length; index += 1) {
+	for (let index = 0; index < records.length; index++) {
 		const record = records[index];
 		if (!isBoundingBoxDebugEnabled(record.type)) continue;
 
@@ -808,7 +808,7 @@ function createSphereLineVertices(bounds, radialSegments = 16) {
 	const lines = [];
 
 	// Three orthogonal circle rings (XY, XZ, YZ planes).
-	for (let i = 0; i < radialSegments; i += 1) {
+	for (let i = 0; i < radialSegments; i++) {
 		const t0 = (i / radialSegments) * Math.PI * 2;
 		const t1 = ((i + 1) / radialSegments) * Math.PI * 2;
 		const c0 = Math.cos(t0), s0 = Math.sin(t0);
@@ -1177,9 +1177,7 @@ function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farVa
 	for (let index = 0; index < waterMeshes.length; index++) {
 		const mesh = waterMeshes[index];
 		const meshBufferKey = getMeshBufferKey(mesh);
-		if (!meshBufferKey) {
-			continue;
-		}
+		if (!meshBufferKey) continue;
 
 		let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
 		if (!meshBuffer) {

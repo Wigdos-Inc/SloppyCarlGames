@@ -476,7 +476,7 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 	const entities = sceneGraph.entities;
 	for (let i = 0; i < entities.length; i++) {
 		const ent = entities[i];
-		if (!ent.movement || !ent.movement.physics) continue;
+		if (ent.type === "player" || !ent.movement.physics) continue;
 		if (!withinSimRadius(ent.collision.aabb)) continue;
 		candidates.push({
 			id: ent.id,

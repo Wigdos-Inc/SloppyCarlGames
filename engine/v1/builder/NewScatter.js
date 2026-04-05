@@ -177,7 +177,7 @@ function applyHierarchicalOffsets(parts, uniformScale) {
 function areRootPartsWithinParentBounds(parts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ) {
 	if (parts.length === 0) return true;
 
-	for (let partIndex = 0; partIndex < parts.length; partIndex += 1) {
+	for (let partIndex = 0; partIndex < parts.length; partIndex++) {
 		const part = parts[partIndex];
 		if (part.level !== 0) continue;
 
@@ -248,7 +248,7 @@ function iterateScatterInstances(params, handler) {
 		let typeCount = 0;
 		let modelCount = 0;
 
-		for (let instanceIndex = 0; instanceIndex < maxCount; instanceIndex += 1) {
+		for (let instanceIndex = 0; instanceIndex < maxCount; instanceIndex++) {
 			const seed = indexSeed * 97 + scatterTypeIndex * 59 + instanceIndex * 17;
 			const nx = hashNoise(instanceIndex + 1, seed + 2, seed + 11);
 			const nz = hashNoise(seed + 3, instanceIndex + 5, seed + 13);
@@ -372,7 +372,7 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 		});
 
 		if (modelAabb) {
-			for (let i = startIndex; i < meshes.length; i += 1) {
+			for (let i = startIndex; i < meshes.length; i++) {
 				const mesh = meshes[i];
 				mesh.meta.scatterModelAabb = { min: { ...modelAabb.min }, max: { ...modelAabb.max } };
 			}
@@ -442,7 +442,8 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 			if (!modelAabbMin) {
 				modelAabbMin = { ...pMin };
 				modelAabbMax = { ...pMax };
-			} else {
+			} 
+			else {
 				modelAabbMin.x = Math.min(modelAabbMin.x, pMin.x);
 				modelAabbMin.y = Math.min(modelAabbMin.y, pMin.y);
 				modelAabbMin.z = Math.min(modelAabbMin.z, pMin.z);
@@ -453,7 +454,12 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 		});
 
 		if (modelAabbMin) {
-			debugBboxAccumulator.push({ type: "Scatter", id: `${objectMesh.id}-scatter-${scatterType.id}-${instanceIndex}`, min: { ...modelAabbMin }, max: { ...modelAabbMax } });
+			debugBboxAccumulator.push({ 
+				type: "Scatter", 
+				id: `${objectMesh.id}-scatter-${scatterType.id}-${instanceIndex}`,
+				min: { ...modelAabbMin }, 
+				max: { ...modelAabbMax } 
+			});
 		}
 	});
 

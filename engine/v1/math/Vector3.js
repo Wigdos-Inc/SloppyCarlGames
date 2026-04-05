@@ -1,7 +1,7 @@
 // Advanced Math Stuff
 
 import { EPSILON } from "../core/meta.js";
-import { Clamp, ToNumber } from "./Utilities.js";
+import { Clamp, Clamp01, ToNumber } from "./Utilities.js";
 
 /* === NORMALIZERS === */
 // Convert incoming values into consistent vector objects.
@@ -106,8 +106,7 @@ function CrossVector3(a, b) {
 }
 
 function LerpVector3(start, end, t) {
-	const alpha = Math.max(0, Math.min(1, t));
-	return AddVector3(start, ScaleVector3(SubtractVector3(end, start), alpha));
+	return AddVector3(start, ScaleVector3(SubtractVector3(end, start), Clamp01(t)));
 }
 
 function Vector3Sq(vector) {

@@ -26,6 +26,7 @@ import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
 import { GetSimDistanceValue } from "../../physics/Collision.js";
 import { InitializeTextureAnimation, UpdateTextureAnimation } from "./Texture.js";
+import { Clamp01 } from "../../math/Utilities.js";
 
 const levelRuntimeState = {
 	payload: null,
@@ -113,13 +114,13 @@ function updateEntityMovement(entity, deltaSeconds) {
 	if (state.movementProgress >= 1 || state.movementProgress <= 0) {
 		if (movement.backAndForth) {
 			state.direction = state.movementProgress >= 1 ? -1 : 1;
-			state.movementProgress = Math.max(0, Math.min(1, state.movementProgress));
+			state.movementProgress = Clamp01(state.movementProgress);
 		} 
 		else if (movement.repeat) state.movementProgress = 0;
-		else state.movementProgress = Math.max(0, Math.min(1, state.movementProgress));
+		else state.movementProgress = Clamp01(state.movementProgress);
 	}
 
-	const t = Math.max(0, Math.min(1, state.movementProgress));
+	const t = Clamp01(state.movementProgress);
 	position.set(LerpVector3(start, end, t));
 }
 

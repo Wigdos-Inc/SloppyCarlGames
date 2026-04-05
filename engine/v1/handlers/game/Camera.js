@@ -17,7 +17,7 @@ import {
 	ToVector3,
 } from "../../math/Vector3.js";
 import { ClampVelocity, RayAABBIntersect } from "../../math/Physics.js";
-import { Lerp, ToNumber, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
+import { Lerp, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
 
 const worldUp = { x: 0, y: 1, z: 0 };
 const pitchClampDegrees = 89;
@@ -64,9 +64,9 @@ const freeCamRuntime = {
 	},
 	moveSensitivity: 0.12,
 	tuningStep: 0,
-	acceleration: worldDistanceDefaults.freeCamAcceleration,
+	acceleration: worldDistanceDefaults.freeCamAcceleration.clone(),
 	dampingFactor: 0.12,
-	maxSpeed: worldDistanceDefaults.freeCamMaxSpeed,
+	maxSpeed: worldDistanceDefaults.freeCamMaxSpeed.clone(),
 	lookDeltaX: 0,
 	lookDeltaY: 0,
 	wheelDelta: 0,
@@ -75,15 +75,15 @@ const defaultCamRuntime = {
 	active: false,
 	yaw: 0,
 	pitch: -15,
-	currentDistance: worldDistanceDefaults.defaultCamCurrentDistance,
-	targetDistance: worldDistanceDefaults.defaultCamTargetDistance,
+	currentDistance: worldDistanceDefaults.defaultCamCurrentDistance.clone(),
+	targetDistance: worldDistanceDefaults.defaultCamTargetDistance.clone(),
 	lookDeltaX: 0,
 	lookDeltaY: 0,
 	obstructionLogged: false,
 	config: {
-		distance: worldDistanceDefaults.defaultCamDistance,
+		distance: worldDistanceDefaults.defaultCamDistance.clone(),
 		sensitivity: 0.12,
-		heightOffset: worldDistanceDefaults.defaultCamHeightOffset,
+		heightOffset: worldDistanceDefaults.defaultCamHeightOffset.clone(),
 		minPitch: -60,
 		maxPitch: 60,
 	},
@@ -115,29 +115,24 @@ function createForwardFromAngles(yawDegrees, pitchDegrees) {
 }
 
 function createCameraState(source) {
-	const position = worldDistanceDefaults.freeCamStartPosition; position.set(source.position);
-	const yaw = ToNumber(source.yaw, -90);
-	const pitch = Clamp(ToNumber(source.pitch, -18), -pitchClampDegrees, pitchClampDegrees);
-	const forward = createForwardFromAngles(yaw, pitch);
+	const pitch = Clamp(source.pitch, -pitchClampDegrees, pitchClampDegrees);
+	const forward = createForwardFromAngles(source.yaw, pitch);
 	const right = ResolveVector3Axis(CrossVector3(forward, worldUp));
-	const up = ResolveVector3Axis(CrossVector3(right, forward));
-	const velocity = new UnitVector3(0, 0, 0, "worldunit");
-	const target = position.clone().add(forward);
 
 	return {
-		position: position,
-		yaw: yaw,
+		position: source.position,
+		yaw: source.yaw,
 		pitch: pitch,
 		forward: forward,
 		right: right,
-		up: up,
-		speed: new Unit(ToNumber(source.speed, freeCamRuntime.maxSpeed.value), "worldunit"),
-		velocity: velocity,
+		up: ResolveVector3Axis(CrossVector3(right, forward)),
+		speed: freeCamRuntime.maxSpeed,
+		velocity: new UnitVector3(0, 0, 0, "worldunit"),
 		mode: "freecam",
-		target: target,
-		fov: ToNumber(source.fov, 60),
-		near: new Unit(ToNumber(source.near, 0.1), "worldunit"),
-		far: new Unit(ToNumber(source.far, worldDistanceDefaults.freeCamFar.value), "worldunit"),
+		target: source.position.clone().add(forward),
+		fov: source.fov,
+		near: source.near,
+		far: source.far,
 	};
 }
 
@@ -159,8 +154,7 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 		wWidth * 0.5,
 		"worldunit"
 	);
-	const position = new UnitVector3(0, 0, 0, "worldunit");
-	position.set(cameraConfig.levelOpening.startPosition.toWorldUnit());
+	const position = cameraConfig.levelOpening.startPosition.toWorldUnit(true);
 	const forward = ResolveVector3Axis(SubtractVector3(center, position));
 	const right = ResolveVector3Axis(CrossVector3(forward, worldUp));
 	const up = ResolveVector3Axis(CrossVector3(right, forward));
@@ -189,10 +183,6 @@ function createStationaryCameraState(sceneGraph, cameraConfig) {
 	return state;
 }
 
-function CalculateCameraState(sceneGraph, cameraConfig) {
-	return createStationaryCameraState(sceneGraph, cameraConfig);
-}
-
 function applyTuningStep(step) {
 	freeCamRuntime.tuningStep = Clamp(step, -6, 16);
 	freeCamRuntime.maxSpeed.value = Clamp(14 + freeCamRuntime.tuningStep * 2.5, 3, 80);
@@ -208,18 +198,13 @@ function applyTuningStep(step) {
 }
 
 function releasePointerLock() {
-	if (!IsPointerLocked()) {
-		return true;
-	}
+	if (!IsPointerLocked()) return true;
 	document.exitPointerLock();
 	Log("ENGINE", "FreeCam pointer lock released.", "log", "Level");
 	return true;
 }
 
 function applyLookInput(cameraState, movementX, movementY) {
-	if (!cameraState) {
-		return;
-	}
 	cameraState.yaw += movementX * freeCamRuntime.moveSensitivity;
 	cameraState.pitch = Clamp(
 		cameraState.pitch - movementY * freeCamRuntime.moveSensitivity,
@@ -229,56 +214,41 @@ function applyLookInput(cameraState, movementX, movementY) {
 	updateOrientationVectors(cameraState);
 }
 
-function HandleFreeCamInput(eventLike, sceneGraph) {
-	if (!freeCamEnabled || !eventLike || typeof eventLike !== "object") {
-		return false;
-	}
+function HandleFreeCamInput(eventLike) {
+	if (!freeCamEnabled) return false;
 
-	const eventType = eventLike.type || null;
-	const eventCode = eventLike.code || null;
+	const eventCode = eventLike.code;
 
-	if (eventType === "pointerdown") {
-		if (RequestPointerLock()) {
-			Log("ENGINE", "FreeCam pointer lock requested.", "log", "Level");
-		}
-		return true;
-	}
-
-	if (eventType === "wheel") {
-		freeCamRuntime.wheelDelta += ToNumber(eventLike.deltaY, 0);
-		return true;
-	}
-
-	if (eventType === "keydown") {
-		if (eventCode === "Escape") {
-			releasePointerLock();
+	switch (eventLike.type) {
+		case "pointerdown":
+			if (RequestPointerLock()) Log("ENGINE", "FreeCam pointer lock requested.", "log", "Level");
 			return true;
-		}
-		if (eventCode in freeCamRuntime.keyState) {
-			freeCamRuntime.keyState[eventCode] = true;
+		case "wheel":
+			freeCamRuntime.wheelDelta += eventLike.deltaY;
 			return true;
-		}
-		return false;
-	}
-
-	if (eventType === "keyup") {
-		if (eventCode in freeCamRuntime.keyState) {
-			freeCamRuntime.keyState[eventCode] = false;
-			return true;
-		}
-		return false;
-	}
-
-	if (eventType === "mousemove") {
-		if (!IsPointerLocked()) {
+		case "keydown":
+			if (eventCode === "Escape") {
+				releasePointerLock();
+				return true;
+			}
+			if (eventCode in freeCamRuntime.keyState) {
+				freeCamRuntime.keyState[eventCode] = true;
+				return true;
+			}
 			return false;
-		}
-		freeCamRuntime.lookDeltaX += ToNumber(eventLike.movementX, 0);
-		freeCamRuntime.lookDeltaY += ToNumber(eventLike.movementY, 0);
-		return true;
+		case "keyup":
+			if (eventCode in freeCamRuntime.keyState) {
+				freeCamRuntime.keyState[eventCode] = false;
+				return true;
+			}
+			return false;
+		case "mousemove":
+			if (!IsPointerLocked()) return false;
+			freeCamRuntime.lookDeltaX += eventLike.movementX;
+			freeCamRuntime.lookDeltaY += eventLike.movementY;
+			return true;
+		default: return false;
 	}
-
-	return false;
 }
 
 function getMoveDirectionFromKeys(cameraState) {
@@ -297,8 +267,6 @@ function getMoveDirectionFromKeys(cameraState) {
 }
 
 function updateFreeCamState(cameraState, deltaSeconds) {
-	const dt = Math.max(0, ToNumber(deltaSeconds, 0.016));
-
 	if (freeCamRuntime.lookDeltaX !== 0 || freeCamRuntime.lookDeltaY !== 0) {
 		applyLookInput(cameraState, freeCamRuntime.lookDeltaX, freeCamRuntime.lookDeltaY);
 	}
@@ -317,18 +285,18 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 		cameraState.velocity.set(
 			AddVector3(
 				cameraState.velocity,
-				ScaleVector3(inputDirection, freeCamRuntime.acceleration.value * dt)
+				ScaleVector3(inputDirection, freeCamRuntime.acceleration.value * deltaSeconds)
 			)
 		);
 	} 
-	else cameraState.velocity.scale(Math.pow(freeCamRuntime.dampingFactor, dt * 60));
+	else cameraState.velocity.scale(Math.pow(freeCamRuntime.dampingFactor, deltaSeconds * 60));
 
 	const speed = Vector3Length(cameraState.velocity);
 	if (speed > freeCamRuntime.maxSpeed.value) {
 		cameraState.velocity.set(ClampVelocity(cameraState.velocity, freeCamRuntime.maxSpeed.value));
 	}
 
-	cameraState.position.add(ScaleVector3(cameraState.velocity, dt));
+	cameraState.position.add(ScaleVector3(cameraState.velocity, deltaSeconds));
 	cameraState.speed.value = freeCamRuntime.maxSpeed.value;
 	updateOrientationVectors(cameraState);
 
@@ -344,7 +312,7 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 
 function initializeDefaultCamConfig(cameraConfig) {
 	defaultCamRuntime.config.distance.value = cameraConfig.distance.toWorldUnit();
-	defaultCamRuntime.config.sensitivity = ToNumber(cameraConfig.sensitivity, ToNumber(cameraConfig.speed, 0.12));
+	defaultCamRuntime.config.sensitivity = cameraConfig.sensitivity;
 	defaultCamRuntime.config.heightOffset.value = cameraConfig.heightOffset.toWorldUnit();
 	defaultCamRuntime.currentDistance.value = defaultCamRuntime.config.distance.value;
 	defaultCamRuntime.targetDistance.value = defaultCamRuntime.config.distance.value;
@@ -361,34 +329,29 @@ function HandleDefaultCamInput(eventLike) {
 	const eventType = eventLike.type;
 	const eventCode = eventLike.code;
 
-	if (eventType === "pointerdown") {
-		if (RequestPointerLock()) Log("ENGINE", "DefaultCam pointer lock requested.", "log", "Level");
-		return true;
-	}
-
-	if (eventType === "keydown" && eventCode === "Escape") {
-		releasePointerLock();
-		return true;
-	}
-
-	if (eventType === "mousemove") {
-		if (!IsPointerLocked()) {
+	switch (eventLike.type) {
+		case "pointerdown":
+			if (RequestPointerLock()) Log("ENGINE", "DefaultCam pointer lock requested.", "log", "Level");
+			return true;
+		case "keydown":
+			if (eventCode === "Escape") {
+				releasePointerLock();
+				return true;
+			}
 			return false;
-		}
-		defaultCamRuntime.lookDeltaX += ToNumber(eventLike.movementX, 0);
-		defaultCamRuntime.lookDeltaY += ToNumber(eventLike.movementY, 0);
-		return true;
+		case "mousemove":
+			if (!IsPointerLocked()) return false;
+			defaultCamRuntime.lookDeltaX += eventLike.movementX;
+			defaultCamRuntime.lookDeltaY += eventLike.movementY;
+			return true;
+		default: return false;
 	}
-
-	return false;
 }
 
 function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	const ray = SubtractVector3(desiredCamPos, playerHeadPos);
 	const rayLen = Vector3Length(ray);
-	if (rayLen < 0.01) {
-		return { obstructed: false, clippedDistance: rayLen };
-	}
+	if (rayLen < 0.01) return { obstructed: false, clippedDistance: rayLen };
 
 	const rayDir = ResolveVector3Axis(ray);
 	let closestT = rayLen;
@@ -436,7 +399,6 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 }
 
 function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSeconds) {
-	const dt = Math.max(0, ToNumber(deltaSeconds, 0.016));
 	const cfg = defaultCamRuntime.config;
 
 	// Apply mouse look.
@@ -482,7 +444,8 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 			Log("ENGINE", `DefaultCam obstruction detected at t=${clippedDistance.toFixed(2)}`, "log", "Level");
 			defaultCamRuntime.obstructionLogged = true;
 		}
-	} else {
+	} 
+	else {
 		defaultCamRuntime.targetDistance.value = desiredDistance;
 		if (defaultCamRuntime.obstructionLogged) defaultCamRuntime.obstructionLogged = false;
 	}
@@ -492,7 +455,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	defaultCamRuntime.currentDistance.value = Lerp(
 		defaultCamRuntime.currentDistance.value,
 		defaultCamRuntime.targetDistance.value,
-		Math.min(1, lerpSpeed * dt)
+		Math.min(1, lerpSpeed * deltaSeconds)
 	);
 
 	// Final camera position at current distance.
@@ -505,9 +468,9 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	// Smooth camera position (responsiveness > cinematic float).
 	const posLerpSpeed = 15;
 	const smoothedPos = {
-		x: Lerp(cameraState.position.x, finalPos.x, Math.min(1, posLerpSpeed * dt)),
-		y: Lerp(cameraState.position.y, finalPos.y, Math.min(1, posLerpSpeed * dt)),
-		z: Lerp(cameraState.position.z, finalPos.z, Math.min(1, posLerpSpeed * dt)),
+		x: Lerp(cameraState.position.x, finalPos.x, Math.min(1, posLerpSpeed * deltaSeconds)),
+		y: Lerp(cameraState.position.y, finalPos.y, Math.min(1, posLerpSpeed * deltaSeconds)),
+		z: Lerp(cameraState.position.z, finalPos.z, Math.min(1, posLerpSpeed * deltaSeconds)),
 	};
 
 	// Compute forward/right/up from camera position looking at target.
@@ -589,8 +552,8 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 		yaw: yaw,
 		pitch: pitch,
 		fov: base.fov,
-		near: base.near.value,
-		far: base.far.value,
+		near: base.near,
+		far: base.far,
 	});
 	cacheCameraPosition(created);
 	cacheCameraVectors(created);
@@ -615,4 +578,4 @@ function UpdateCameraState(currentState, sceneGraph, cameraConfig, deltaSeconds,
 	return nextState;
 }
 
-export { InitializeCameraState, UpdateCameraState, HandleFreeCamInput, HandleDefaultCamInput, CalculateCameraState, GetCameraVectors };
+export { InitializeCameraState, UpdateCameraState, HandleFreeCamInput, HandleDefaultCamInput, GetCameraVectors };

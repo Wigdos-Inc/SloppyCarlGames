@@ -9,7 +9,6 @@ import {
 	SubtractVector3,
 	ResolveVector3Axis,
 } from "../../math/Vector3.js";
-import { ToNumber } from "../../math/Utilities.js";
 import { GetSimDistanceValue, DetectCombatOverlaps } from "../../physics/Collision.js";
 import { TriggerPlayerDeath, RespawnPlayer } from "../../player/Master.js";
 
@@ -57,7 +56,8 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 				Log("ENGINE", `Enemy "${entity.id}" destroyed.`, "log", "Level");
 				SendEvent("ENEMY_DESTROYED", { id: entity.id });
 			}
-		} else if (result.type === "entity-attacks" && !playerState.invulnerable.active) {
+		} 
+		else if (result.type === "entity-attacks" && !playerState.invulnerable.active) {
 			// === PLAYER TAKES DAMAGE ===
 			const entity = result.attacker;
 			if (entity.type !== "enemy") continue;
@@ -72,15 +72,13 @@ function applyPlayerDamage(playerState, damageSourcePosition, sceneGraph) {
 	const playerPos = playerState.transform.position;
 
 	// Drop ALL primary collectibles on damage.
-	const dropCount = Math.max(0, ToNumber(playerState.collectibles, 0));
+	const dropCount = Math.max(0, playerState.collectibles);
 	playerState.collectibles = 0;
 
 	Log("ENGINE", `Player damaged! Lost ${dropCount} collectibles. Remaining: ${playerState.collectibles}`, "log", "Level");
 
 	// TODO: Spawn collectible entities from stored count (placeholder — just log).
-	if (dropCount > 0) {
-		Log("ENGINE", `[Placeholder] Would spawn ${dropCount} collectible entities.`, "log", "Level");
-	}
+	if (dropCount > 0) Log("ENGINE", `[Placeholder] Would spawn ${dropCount} collectible entities.`, "log", "Level");
 
 	// Check for death when no collectibles were available at hit time.
 	if (dropCount <= 0) {

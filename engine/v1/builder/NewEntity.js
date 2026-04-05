@@ -17,7 +17,7 @@ import {
 	ToVector3, 
 	Vector3Sq 
 } from "../math/Vector3.js";
-import { Clamp01, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
+import { Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
 
 // Canonical face normal directions (unit vectors for each face).
 const faceNormals = {
@@ -99,7 +99,8 @@ function remapFacesAfterRotation(rotation) {
 		if (!claimed.has(a.bestLabel)) {
 			remap[a.name] = a.bestLabel;
 			claimed.add(a.bestLabel);
-		} else {
+		} 
+		else {
 			// Fallback: assign first unclaimed axis by dot product.
 			let fallbackLabel = a.name;
 			let fallbackDot = -Infinity;
@@ -266,24 +267,20 @@ function buildModel(entityDefinition, surfaceMap) {
 	for (const rootPartId of rootPartIds) {
 		const rootPart = index[rootPartId];
 
-		const dims = rootPart.dimensions;
-		const localRot = rootPart.localTransform.rotation;
-		const localScale = rootPart.localTransform.scale;
-
 		// Face remapping after rotation.
-		rootPart.faceMap = remapFacesAfterRotation(localRot);
+		rootPart.faceMap = remapFacesAfterRotation(rootPart.localTransform.rotation);
 
 		// Combined scale for dimensions computation.
-		const combinedScale = MultiplyVector3(rtScale, localScale);
+		const combinedScale = MultiplyVector3(rtScale, rootPart.localTransform.scale);
 
 		// Grounding: half-height of scaled part so bottom face sits at Y=0 in model-local space.
-		const scaledHalfHeight = dims.y * combinedScale.y * 0.5;
+		const scaledHalfHeight = rootPart.dimensions.y * combinedScale.y * 0.5;
 
 		// Set localTransform.position: grounding + localPosition (model-local, relative to rootTransform).
 		rootPart.localTransform.position.y += scaledHalfHeight;
 
 		// Store builtDimensions (scaled) for child attachment offset computation.
-		rootPart.builtDimensions.set(MultiplyVector3(dims, combinedScale));
+		rootPart.builtDimensions.set(MultiplyVector3(rootPart.dimensions, combinedScale));
 	}
 
 	const processQueue = [];
@@ -409,17 +406,15 @@ function computeEntityAabb(model) {
 
 function computeExpandedAabb(aabb, padding) {
 	return {
-		min: aabb.min.clone().subtract(ToVector3(padding)),
-		max: aabb.max.clone().add(ToVector3(padding)),
+		min: aabb.min.clone().subtract(ToVector3(padding.value)),
+		max: aabb.max.clone().add(ToVector3(padding.value)),
 	};
 }
 
-function computeCapsuleFromAabb(aabb, overrides = {}) {
+function computeCapsuleFromAabb(aabb) {
 	const dim = SubtractVector3(aabb.max, aabb.min);
-	const autoRadius = Math.max(dim.x, dim.z) * 0.5;
-	const radius = Math.max(0.0001, ToNumber(overrides.radius, autoRadius));
-	const autoHalfHeight = Math.max(0, (dim.y * 0.5) - radius);
-	const halfHeight = Math.max(0, ToNumber(overrides.halfHeight, autoHalfHeight));
+	const radius = Math.max(0.0001, Math.max(dim.x, dim.z) * 0.5);
+	const halfHeight = Math.max(0, (dim.y * 0.5) - radius);
 
 	const start = aabb.min.clone().add(aabb.max).scale(0.5);
 	const end = start.clone();
@@ -445,15 +440,10 @@ function computeSphereFromAabb(aabb) {
 	};
 }
 
-function computeCompoundSpheresFromModel(model, overrides) {
+function computeCompoundSpheresFromModel(model) {
 	const spheres = [];
 	model.parts.forEach((part) => {
 		const sphere = computeSphereFromAabb(part.mesh.worldAabb);
-		const partOverride = overrides && overrides[part.id];
-		if (partOverride) {
-			if (partOverride.radiusScale) sphere.radius.value *= partOverride.radiusScale;
-			if (partOverride.centerOffset) sphere.center.add(partOverride.centerOffset);
-		}
 		spheres.push({
 			center: sphere.center,
 			radius: sphere.radius,
@@ -468,57 +458,63 @@ function computeCompoundSpheresFromModel(model, overrides) {
 
 function computeScaledBounds(bounds, scaleFactor) {
 	switch (bounds.type) {
-	case "sphere":
-		return {
-			type: "sphere",
-			center: bounds.center.clone(),
-			radius: new Unit(bounds.radius.value * scaleFactor, bounds.radius.type),
-		};
-	case "aabb":
-		const center = ScaleVector3(AddVector3(bounds.min, bounds.max), 0.5);
-		const half = ScaleVector3(SubtractVector3(bounds.max, bounds.min), 0.5 * scaleFactor);
-		return {
-			type: "aabb",
-			min: bounds.min.clone().set(SubtractVector3(center, half)),
-			max: bounds.max.clone().set(AddVector3(center, half)),
-		};
-	case "capsule":
-		return {
-			type: "capsule",
-			radius: new Unit(bounds.radius.value * scaleFactor, bounds.radius.type),
-			halfHeight: new Unit(bounds.halfHeight.value * scaleFactor, bounds.halfHeight.type),
-			segmentStart: bounds.segmentStart.clone(),
-			segmentEnd: bounds.segmentEnd.clone(),
-		};
-	case "compound-sphere":
-		return {
-			type: "compound-sphere",
-			spheres: bounds.spheres.map((s) => ({
-				center: s.center.clone(),
-				radius: new Unit(s.radius.value * scaleFactor, s.radius.type),
-				partId: s.partId,
-			})),
-		};
-	case "obb":
-		return {
-			type: "obb",
-			center: bounds.center.clone(),
-			halfExtents: bounds.halfExtents.clone().scale(scaleFactor),
-			axes: bounds.axes,
-		};
+		case "sphere":
+			const sphereRadius = bounds.radius.clone(); sphereRadius.value *= scaleFactor;
+			return {
+				type: "sphere",
+				center: bounds.center.clone(),
+				radius: sphereRadius,
+			};
+		case "aabb":
+			const center = ScaleVector3(AddVector3(bounds.min, bounds.max), 0.5);
+			const half = ScaleVector3(SubtractVector3(bounds.max, bounds.min), 0.5 * scaleFactor);
+			return {
+				type: "aabb",
+				min: bounds.min.clone().set(SubtractVector3(center, half)),
+				max: bounds.max.clone().set(AddVector3(center, half)),
+			};
+		case "capsule":
+			const capsuleRadius = bounds.radius.clone(); capsuleRadius.value *= scaleFactor;
+			const capsuleHalfHeight = bounds.halfHeight.clone(); capsuleHalfHeight.value *= scaleFactor;
+			return {
+				type: "capsule",
+				radius: capsuleRadius,
+				halfHeight: capsuleHalfHeight,
+				segmentStart: bounds.segmentStart.clone(),
+				segmentEnd: bounds.segmentEnd.clone(),
+			};
+		case "compound-sphere":
+			return {
+				type: "compound-sphere",
+				spheres: bounds.spheres.map((s) => ({
+					center: s.center.clone(),
+					radius: (() => {
+						const radius = s.radius.clone(); radius.value *= scaleFactor;
+						return radius;
+					})(),
+					partId: s.partId,
+				})),
+			};
+		case "obb":
+			return {
+				type: "obb",
+				center: bounds.center.clone(),
+				halfExtents: bounds.halfExtents.clone().scale(scaleFactor),
+				axes: bounds.axes,
+			};
 	}
 }
 
 /**
  * Build the bounds object for a given shape type from entity AABB/model.
  */
-function buildBoundsForShape(shape, aabb, model, overrides) {
+function buildBoundsForShape(shape, aabb, model) {
 	switch (shape) {
-		case "sphere": return computeSphereFromAabb(aabb);
-		case "aabb": return { type: "aabb", min: aabb.min, max: aabb.max };
-		case "capsule": return computeCapsuleFromAabb(aabb, overrides);
-		case "obb": return computeObbFromAabb(aabb);
-		case "compound-sphere": return computeCompoundSpheresFromModel(model, overrides);
+		case "sphere"         : return computeSphereFromAabb(aabb);
+		case "aabb"           : return { type: "aabb", min: aabb.min, max: aabb.max };
+		case "capsule"        : return computeCapsuleFromAabb(aabb);
+		case "obb"            : return computeObbFromAabb(aabb);
+		case "compound-sphere": return computeCompoundSpheresFromModel(model);
 	}
 }
 
@@ -540,19 +536,17 @@ function computeObbFromAabb(aabb) {
  * Returns { physics, hurtbox, hitbox, collisionShape, detailedBounds } where
  * detailedBounds is the physics bounds (backward compat).
  */
-function computeDetailedBoundsForEntity(entityType, aabb, model, overrides) {
-	const collisionOverride = overrides.collisionOverride;
-	const capsuleOverride = overrides.collisionCapsule;
+function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverride) {
 
 	// Physics collider bounds.
 	const physicsShape = collisionOverride.physics;
-	const physicsBounds = buildBoundsForShape(physicsShape, aabb, model, capsuleOverride);
+	const physicsBounds = buildBoundsForShape(physicsShape, aabb, model);
 
 	// Hurtbox bounds (null = immune to damage).
 	let hurtbox = null;
 	if (collisionOverride.hurtbox !== null) {
 		const hurtboxShape = collisionOverride.hurtbox;
-		const baseBounds = buildBoundsForShape(hurtboxShape, aabb, model, capsuleOverride);
+		const baseBounds = buildBoundsForShape(hurtboxShape, aabb, model);
 
 		// Player hurtbox is 0.9× radius; boss compound hurtbox is 1.05× radii.
 		switch(entityType) {
@@ -566,11 +560,9 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, overrides) {
 	let hitbox = null;
 	if (collisionOverride.hitbox !== null) {
 		const hitboxShape = collisionOverride.hitbox;
-		const baseBounds = buildBoundsForShape(hitboxShape, aabb, model, capsuleOverride);
+		const baseBounds = buildBoundsForShape(hitboxShape, aabb, model);
 		// Player hitbox is 1.1× radius.
-		if (entityType === "player") {
-			hitbox = { shape: hitboxShape, bounds: computeScaledBounds(baseBounds, 1.1) };
-		} 
+		if (entityType === "player") hitbox = { shape: hitboxShape, bounds: computeScaledBounds(baseBounds, 1.1) };
 		else hitbox = { shape: hitboxShape, bounds: baseBounds };
 	}
 
@@ -604,10 +596,8 @@ function BuildEntity(definition, surfaceMap) {
 	}
 
 	const aabb = computeEntityAabb(model);
-	const detailed = computeDetailedBoundsForEntity(definition.type, aabb, model, {
-		collisionCapsule: definition.collisionCapsule,
-		collisionOverride: definition.collisionOverride,
-	});
+	const detailed = computeDetailedBoundsForEntity(definition.type, aabb, model, definition.collisionOverride);
+	const simRadiusPadding = new Unit(8, "cnu");
 
 	return {
 		id: definition.id,
@@ -616,7 +606,6 @@ function BuildEntity(definition, surfaceMap) {
 		attacks: definition.attacks,
 		hardcoded: definition.hardcoded,
 		platform: definition.platform,
-		collisionCapsule: definition.collisionCapsule,
 		collisionOverride: definition.collisionOverride,
 		movement: movement,
 		transform: {
@@ -629,8 +618,8 @@ function BuildEntity(definition, surfaceMap) {
 		mesh: model.parts[0].mesh,
 		collision: {
 			aabb: aabb,
-			simRadiusPadding: definition.simRadiusPadding,
-			simRadiusAabb: computeExpandedAabb(aabb, definition.simRadiusPadding),
+			simRadiusPadding: simRadiusPadding,
+			simRadiusAabb: computeExpandedAabb(aabb, simRadiusPadding),
 			shape: detailed.collisionShape,
 			detailedBounds: detailed.detailedBounds,
 			physics: detailed.physics,
@@ -665,10 +654,12 @@ function UpdateEntityModelFromTransform(entity) {
 		entity.collision.aabb,
 		entity.collision.simRadiusPadding
 	);
-	const detailed = computeDetailedBoundsForEntity(entity.type, entity.collision.aabb, entity.model, {
-		collisionCapsule: entity.collisionCapsule,
-		collisionOverride: entity.collisionOverride,
-	});
+	const detailed = computeDetailedBoundsForEntity(
+		entity.type, 
+		entity.collision.aabb, 
+		entity.model, 
+		entity.collisionOverride
+	);
 	entity.collision.shape = detailed.collisionShape;
 	entity.collision.detailedBounds = detailed.detailedBounds;
 	entity.collision.physics = detailed.physics;
@@ -701,10 +692,12 @@ function ResetEntityToDefaultPose(entity) {
 		entity.collision.aabb,
 		entity.collision.simRadiusPadding
 	);
-	const detailed = computeDetailedBoundsForEntity(entity.type, entity.collision.aabb, entity.model, {
-		collisionCapsule: entity.collisionCapsule,
-		collisionOverride: entity.collisionOverride,
-	});
+	const detailed = computeDetailedBoundsForEntity(
+		entity.type, 
+		entity.collision.aabb, 
+		entity.model, 
+		entity.collisionOverride
+	);
 	entity.collision.shape = detailed.collisionShape;
 	entity.collision.detailedBounds = detailed.detailedBounds;
 	entity.collision.physics = detailed.physics;

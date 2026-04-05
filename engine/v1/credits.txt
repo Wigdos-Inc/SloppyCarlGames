@@ -6,11 +6,13 @@ Engine:
 - 3D World Rendering: ChatGPT 5.3 Codex
 - Cleanup           : ChatGPT 5-mini
 - WebGL GPU Deferal : Claude Opus 4.6
+- Rule Enforcement  : ERA Agent - ChatGPT 5.4
 
 testGame:
-- carlStudios Assets: Sloppy Carl Games
+- carlStudios Assets : Sloppy Carl Games
 - CarlNet Engine Logo: Gemini Nano Banana Pro
 - Wigdos Assets      : Wigdos Studios Inc
-- Level Design: ChatGPT 5.2 Codex
-- Graphics: ChatGPT 5.2 Codex
-- Engine: CarlNet Engine (by Sloppy Carl Games)
+- Level Design       : ChatGPT 5.2 Codex
+- Graphics           : ChatGPT 5.2 Codex
+- Engine             : CarlNet Engine (by Sloppy Carl Games)
+- Music              : Suno

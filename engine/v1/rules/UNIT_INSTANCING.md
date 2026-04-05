@@ -22,6 +22,12 @@ All world-space values (distance, rotation, dimension, position) must be instanc
 
 These defaults apply unless the source explicitly states otherwise.
 
+### Engine-owned static JSON sources
+
+If engine-owned static JSON contains world-space values, canonicalize those values exactly once at import/load time inside the owning module, typically with an IIFE that replaces raw JSON world-space units/vectors with `Unit` or `UnitVector3` instances respectively.
+
+Do not leave raw engine JSON in place and compensate by re-instancing it later inside shared runtime or builder paths.
+
 ---
 
 ## 2. No Re-instancing
@@ -74,6 +80,8 @@ const nextPosition = existingVector.clone();
 
 Do not manually reconstruct the copy with `new Unit(...)` or `new UnitVector3(...)` from an existing instance.
 
+If a default, config, or template instance is meant to be reused as shared baseline data, do not install that exact instance into mutable runtime state. Clone it before storing or mutating it so the reusable source remains stable.
+
 ---
 
 ## 3. Assume Pre-instanced Values Downstream
@@ -102,6 +110,8 @@ Not everything gets instanced. The following value types remain plain numbers:
 | Boolean/string   | Flags, IDs, mode strings                          | Not numeric measurements  |
 
 **Rule of thumb**: If a value represents a measurement in a coordinate space (distance, position, angle, dimension), it gets instanced. If it is a dimensionless ratio, coefficient, or non-spatial number, it stays raw.
+
+If a builder or runtime subsystem deterministically computes auxiliary collision data such as simulation padding, capsule dimensions, or bounds offsets, instance that data at the module that computes it and keep it internal to the engine.
 
 ---
 

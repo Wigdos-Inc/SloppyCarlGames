@@ -122,9 +122,7 @@ function waitForUserStart() {
   setTimeout(() => SendEvent("SPLASH_REQUEST", {}), 5);
 
   const onStart = () => {
-    if (started) {
-      return;
-    }
+    if (started) return;
     started = true;
     controls.clear();
     SetElementText(startupTextID, "");

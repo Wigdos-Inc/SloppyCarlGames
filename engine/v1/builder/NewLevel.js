@@ -336,9 +336,7 @@ async function BuildLevel(payload) {
 
 		return terrainMesh;
 	});
-	if (terrain.length > 0) {
-		Log("ENGINE", `Terrain object group created: count=${terrain.length}`, "log", "Level");
-	}
+	if (terrain.length > 0) Log("ENGINE", `Terrain object group created: count=${terrain.length}`, "log", "Level");
 
 	const obstacleRecords = BuildObstacles(obstacleDefinitions, {});
 
@@ -375,18 +373,14 @@ async function BuildLevel(payload) {
 	const triggers = triggerDefinitions.map((triggerDefinition, index) =>
 		buildTriggerMesh(triggerDefinition, world, index)
 	);
-	if (triggers.length > 0) {
-		Log("ENGINE", `Trigger group created: count=${triggers.length}`, "log", "Level");
-	}
+	if (triggers.length > 0) Log("ENGINE", `Trigger group created: count=${triggers.length}`, "log", "Level");
 
 	const surfaceMap = buildSurfaceMap(terrainDefinitions, obstacleDefinitions);
 
 	const entities = entityDefinitions.map((entity) =>
 		BuildEntity(buildEntityInput(entity, blueprintMap), surfaceMap)
 	);
-	if (entities.length > 0) {
-		Log("ENGINE", `Entity group created: count=${entities.length}`, "log", "Level");
-	}
+	if (entities.length > 0) Log("ENGINE", `Entity group created: count=${entities.length}`, "log", "Level");
 
 	const sceneGraph = {
 		world: world,

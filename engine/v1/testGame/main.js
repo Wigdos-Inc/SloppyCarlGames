@@ -25,23 +25,15 @@ function handleSplashRequest() {
 // Proactively provide a splash payload immediately after creation so the game
 // doesn't need to rely on the event delivery timing. This is safe because
 // `Bootup` opens the acceptance window during initialization.
-try {
-	window.engineCall('Startup.ProvideSplashScreenPayload', resolveStartupSplashPayload());
-	console.log("Provided startup splash payload to ENGINE (proactive)");
-} catch (error) {
-	console.warn("Failed to proactively provide splash payload:", error);
-}
+window.engineCall('Startup.ProvideSplashScreenPayload', resolveStartupSplashPayload());
 
 
 const SETTINGS_KEY = "settings";
 const SAVE_KEY = "saveData";
 
 function safeParse(json) {
-	try {
-		return JSON.parse(json);
-	} catch (error) {
-		return null;
-	}
+	try { return JSON.parse(json); } 
+	catch (error) { return null; }
 }
 
 function loadSettings() {

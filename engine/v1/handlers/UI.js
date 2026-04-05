@@ -106,10 +106,8 @@ function countInlineStyleKeys(styles) {
 
 function styleActionHasManyInlineStyles(action) {
 	if (Array.isArray(action)) {
-		for (let index = 0; index < action.length; index += 1) {
-			if (styleActionHasManyInlineStyles(action[index])) {
-				return true;
-			}
+		for (let index = 0; index < action.length; index++) {
+			if (styleActionHasManyInlineStyles(action[index])) return true;
 		}
 		return false;
 	}
@@ -120,7 +118,7 @@ function styleActionHasManyInlineStyles(action) {
 }
 
 function payloadHasHeavyInlineStyleActions(definitions) {
-	for (let index = 0; index < definitions.length; index += 1) {
+	for (let index = 0; index < definitions.length; index++) {
 		const definition = definitions[index];
 
 		const events = definition.events;
@@ -137,60 +135,40 @@ function payloadHasHeavyInlineStyleActions(definitions) {
 
 function HandleUiAction(action) {
 	// Dispatch a resolved UI action or engine event.
-	if (Array.isArray(action)) {
-		return action.some((entry) => HandleUiAction(entry));
-	}
+	if (Array.isArray(action)) return action.some((entry) => HandleUiAction(entry));
 
 	if (typeof action === "string") {
 		SendEvent("UI_REQUEST", { screenId: action });
 		return true;
 	}
 
-	if (action.type === "ui") {
-		ApplyMenuUI(action.payload);
-		return true;
-	}
+	switch (action.type) {
+		case "ui"     : ApplyMenuUI(action.payload);                            return true;
+		case "request": SendEvent("UI_REQUEST", { screenId: action.screenId }); return true;
+		case "event"  : SendEvent(action.name, action.payload);                 return true;
+		case "exit"   : ExitGame();                                             return true;
+		case "style"  :
+			const element = document.getElementById(action.targetId);
+			if (element) {
+				const styles = action.styles;
+				const classListConfig = styles.classList;
 
-	if (action.type === "request") {
-		SendEvent("UI_REQUEST", { screenId: action.screenId });
-		return true;
-	}
+				classListConfig.add.forEach(addClass => element.classList.add(addClass));
+				classListConfig.remove.forEach(removeClass => element.classList.remove(removeClass));
 
-	if (action.type === "event") {
-		SendEvent(action.name, action.payload || null);
-		return true;
-	}
-
-	if (action.type === "exit") {
-		ExitGame();
-		return true;
-	}
-
-	if (action.type === "style") {
-		const element = document.getElementById(action.targetId);
-		if (element) {
-			const styles = action.styles;
-			const classListConfig = styles.classList;
-
-			classListConfig.add.forEach(addClass => element.classList.add(addClass));
-			classListConfig.remove.forEach(removeClass => element.classList.remove(removeClass));
-
-			const inlineStyles = {};
-			const styleKeys = Object.keys(styles);
-			for (let index = 0; index < styleKeys.length; index++) {
-				const key = styleKeys[index];
-				if (key === "classList") {
-					continue;
+				const inlineStyles = {};
+				const styleKeys = Object.keys(styles);
+				for (let index = 0; index < styleKeys.length; index++) {
+					const key = styleKeys[index];
+					if (key === "classList") continue;
+					inlineStyles[key] = styles[key];
 				}
-				inlineStyles[key] = styles[key];
+				Object.assign(element.style, inlineStyles);
+
+				return true;
 			}
-			Object.assign(element.style, inlineStyles);
-
-			return true;
-		}
+		default: return false;
 	}
-
-	return false;
 }
 
 function ApplyMenuUI(payload) {

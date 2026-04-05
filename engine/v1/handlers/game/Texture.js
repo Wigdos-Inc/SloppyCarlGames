@@ -5,6 +5,7 @@
 // Uses Animation.js to animate textures
 
 import { BuildTextureSurface } from "../../builder/NewTexture.js";
+import { Clamp01 } from "../../math/Utilities.js";
 
 function createAnimationStateEntry(textureEntry) {
 	const definition = textureEntry.definition;
@@ -52,12 +53,10 @@ function InitializeTextureAnimation(sceneGraph) {
 	};
 
 	const textureIDs = Object.keys(textureRegistry);
-	for (let index = 0; index < textureIDs.length; index += 1) {
+	for (let index = 0; index < textureIDs.length; index++) {
 		const textureID = textureIDs[index];
 		const textureEntry = textureRegistry[textureID];
-		if (textureEntry.definition.animation.able !== true) {
-			continue;
-		}
+		if (textureEntry.definition.animation.able !== true) continue;
 
 		animationState.byTextureID[textureID] = createAnimationStateEntry(textureEntry);
 	}
@@ -81,7 +80,7 @@ function updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds
 	}
 
 	if (stateEntry.phase === "blend") {
-		const blendRatio = Math.max(0, Math.min(1, stateEntry.elapsedMs / stateEntry.blendDurationMs));
+		const blendRatio = Clamp01(stateEntry.elapsedMs / stateEntry.blendDurationMs);
 		textureEntry.source = blendTextureSurfaces(stateEntry, blendRatio);
 		textureEntry.dirty = true;
 
@@ -101,7 +100,7 @@ function UpdateTextureAnimation(sceneGraph, deltaMilliseconds) {
 	const textureRegistry = sceneGraph.visualResources.textureRegistry;
 	const textureIDs = Object.keys(animationState.byTextureID);
 
-	for (let index = 0; index < textureIDs.length; index += 1) {
+	for (let index = 0; index < textureIDs.length; index++) {
 		const textureID = textureIDs[index];
 		const stateEntry = animationState.byTextureID[textureID];
 		const textureEntry = textureRegistry[textureID];

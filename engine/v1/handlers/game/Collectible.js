@@ -16,7 +16,7 @@ import { GetSimDistanceValue, CheckEntityAabbOverlap } from "../../physics/Colli
  * @param {object} sceneGraph — active scene graph.
  */
 function HandleCollectiblePickups(playerState, sceneGraph) {
-	if (playerState.state === "Dead") { return; }
+	if (playerState.state === "Dead") return;
 
 	const entities = sceneGraph.entities;
 	const cameraPos = sceneGraph.cameraConfig.state.position;
@@ -24,7 +24,7 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 
 	for (let i = entities.length - 1; i >= 0; i--) {
 		const entity = entities[i];
-		if (entity.type !== "collectible") { continue; }
+		if (entity.type !== "collectible") continue;
 
 		// SimDistance gate is camera-relative; only qualified entities enter this collision pass.
 		const entityPos = entity.transform.position;

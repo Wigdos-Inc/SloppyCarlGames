@@ -2,10 +2,13 @@
 // Exclusively called by validate.js
 
 import { NormalizeVector3, ToVector3 } from "../math/Vector3.js";
-import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
+import { Clamp01, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { Log } from "./meta.js";
 import visualTemplates from "../builder/templates/textures.json" with { type: "json" };
+import characterData from "../player/characters.json" with { type: "json" };
 import aliasMap from "./aliases.json" with { type: "json" };
+
+const validPlayerCharacterIds = new Set(Object.keys(characterData));
 
 function warnLog(string) {
 	Log("ENGINE", string, "warn", "Validation");
@@ -21,13 +24,13 @@ function getAliasValue(source, aliases, fallback = undefined) {
 
 	const lookup = {};
 	const keys = Object.keys(src);
-	for (let i = 0; i < keys.length; i += 1) {
+	for (let i = 0; i < keys.length; i++) {
 		const key = keys[i];
 		const normalized = normalizeKey(key);
 		if (!Object.prototype.hasOwnProperty.call(lookup, normalized)) lookup[normalized] = src[key];
 	}
 
-	for (let i = 0; i < aliases.length; i += 1) {
+	for (let i = 0; i < aliases.length; i++) {
 		const normalized = normalizeKey(aliases[i]);
 		if (Object.prototype.hasOwnProperty.call(lookup, normalized)) return lookup[normalized];
 	}
@@ -43,9 +46,7 @@ function hasAliasValue(source, aliases) {
 function alias(path) {
 	const segments = path.split(".");
 	let result = aliasMap;
-	for (let index = 0; index < segments.length; index += 1) {
-		result = result[segments[index]];
-	}
+	for (let index = 0; index < segments.length; index++) result = result[segments[index]];
 	return result;
 }
 
@@ -67,7 +68,7 @@ function MenuUIPayload(payload) {
 	const musicSource = getByAlias(source, "menu.music", null);
 	const elements = [];
 
-	for (let i = 0; i < rawElements.length; i += 1) {
+	for (let i = 0; i < rawElements.length; i++) {
 		const normalized = normalizeElement(rawElements[i], `elements[${i}]`);
 		if (normalized) elements.push(normalized);
 	}
@@ -136,7 +137,7 @@ function normalizeSplashSequence(sequence) {
 	const source = normalizeArray(sequence);
 	const normalized = [];
 
-	for (let index = 0; index < source.length; index += 1) {
+	for (let index = 0; index < source.length; index++) {
 		const step = normalizeSplashStep(source[index], `splash.sequence[${index}]`);
 		if (step) normalized.push(step);
 	}
@@ -168,13 +169,13 @@ function normalizeSplashStep(step, path) {
 	const rawText = normalizeArray(getByAlias(source, "splash.step.text", []));
 
 	const elements = [];
-	for (let index = 0; index < rawElements.length; index += 1) {
+	for (let index = 0; index < rawElements.length; index++) {
 		const element = normalizeElement(rawElements[index], `${path}.elements[${index}]`);
 		if (element) elements.push(element);
 	}
 
 	const text = [];
-	for (let index = 0; index < rawText.length; index += 1) {
+	for (let index = 0; index < rawText.length; index++) {
 		const entry = normalizeSplashTextEntry(rawText[index], `${path}.text[${index}]`);
 		if (entry) text.push(entry);
 	}
@@ -280,12 +281,9 @@ function normalizeAudioSource(source) {
 		const url = new URL(normalized, import.meta.url);
 		const marker = "/audio/";
 		const markerIndex = url.pathname.toLowerCase().lastIndexOf(marker);
-		if (markerIndex >= 0) {
-			normalized = url.pathname.slice(markerIndex + 1);
-		}
-	} catch (error) {
-		// leave normalized as-is for relative paths
-	}
+		if (markerIndex >= 0) normalized = url.pathname.slice(markerIndex + 1);
+	} 
+	catch (error) {}
 
 	return normalized;
 }
@@ -299,7 +297,7 @@ function normalizeElement(element, path) {
 
 	const children = [];
 	const sourceChildren = normalizeArray(getByAlias(source, "element.children", []));
-	for (let i = 0; i < sourceChildren.length; i += 1) {
+	for (let i = 0; i < sourceChildren.length; i++) {
 		const normalized = normalizeElement(sourceChildren[i], `${path}.children[${i}]`);
 		if (normalized) children.push(normalized);
 	}
@@ -326,15 +324,12 @@ function normalizeElement(element, path) {
 	};
 
 	const sourceKeys = Object.keys(source);
-	for (let i = 0; i < sourceKeys.length; i += 1) {
+	for (let i = 0; i < sourceKeys.length; i++) {
 		const directKey = sourceKeys[i];
 		const eventName = directEventKeyMap[normalizeKey(directKey)];
 		if (!eventName) continue;
 		const normalizedAction = normalizeAction(source[directKey], `${path}.${directKey}`);
-		if (normalizedAction !== null) {
-			// Prefer existing explicit `events` entry; otherwise set from shorthand.
-			if (!eventMap[eventName]) eventMap[eventName] = normalizedAction;
-		}
+		if (normalizedAction !== null && !eventMap[eventName]) eventMap[eventName] = normalizedAction;
 	}
 
 	const idValue = normalizeString(getByAlias(source, "element.id", ""), "");
@@ -364,7 +359,7 @@ function normalizeActionMap(actions, path) {
 
 	const normalized = {};
 	const keys = Object.keys(source);
-	for (let index = 0; index < keys.length; index += 1) {
+	for (let index = 0; index < keys.length; index++) {
 		const key = keys[index];
 		if (typeof key !== "string" || key.length === 0) continue;
 
@@ -387,7 +382,7 @@ function normalizeAction(action, path) {
 
 	if (Array.isArray(action)) {
 		const list = [];
-		for (let i = 0; i < action.length; i += 1) {
+		for (let i = 0; i < action.length; i++) {
 			const normalized = normalizeAction(action[i], `${path}[${i}]`);
 			if (normalized !== null) list.push(normalized);
 		}
@@ -408,60 +403,55 @@ function normalizeAction(action, path) {
 	const actionSource = normalizeObject(action);
 	const actionType = normalizeString(getByAlias(actionSource, "action.type", ""), "");
 
-	if (actionType === "ui") {
-		const uiPayload = normalizeObject(getByAlias(actionSource, "action.payload", {}));
-		if (Object.keys(uiPayload).length === 0) {
-			warnLog(`UI payload dropped invalid 'ui' action at '${path}': missing object payload.`);
+	switch (actionType) {
+		case "ui":
+			const uiPayload = normalizeObject(getByAlias(actionSource, "action.payload", {}));
+			if (Object.keys(uiPayload).length === 0) {
+				warnLog(`UI payload dropped invalid 'ui' action at '${path}': missing object payload.`);
+				return null;
+			}
+			return { ...actionSource, type: "ui", payload: uiPayload };
+		case "request":
+			const screenId = normalizeString(getByAlias(actionSource, "action.screenId", ""), "");
+			if (screenId.length === 0) {
+				warnLog(`UI payload dropped invalid 'request' action at '${path}': missing screenId.`);
+				return null;
+			}
+			return { ...actionSource, type: "request", screenId };
+		case "event": 
+			const eventName = normalizeString(getByAlias(actionSource, "action.name", ""), "");
+			if (eventName.length === 0) {
+				warnLog(`UI payload dropped invalid 'event' action at '${path}': missing event name.`);
+				return null;
+			}
+			return { ...actionSource, type: "event", name: eventName };
+		case "exit": return { ...actionSource, type: "exit" }
+		case "style":
+			const targetId = normalizeString(getByAlias(actionSource, "action.targetId", ""), "");
+			if (targetId.length === 0) {
+				warnLog(`UI payload dropped invalid 'style' action at '${path}': missing targetId.`);
+				return null;
+			}
+		
+
+			const stylesSource = normalizeObject(getByAlias(actionSource, "action.styles", {}));
+			const styles = Object.keys(stylesSource).length > 0 ? { ...stylesSource } : null;
+			if (!styles) {
+				warnLog(`UI payload dropped invalid 'style' action at '${path}': missing styles object.`);
+				return null;
+			}
+
+			styles.classList = normalizeStyleClassList(getByAlias(stylesSource, "action.classList", styles.classList));
+			return {
+				...actionSource,
+				type: "style",
+				targetId,
+				styles,
+			};
+		default:
+			warnLog(`UI payload dropped unsupported action type at '${path}'.`);
 			return null;
-		}
-		return { ...actionSource, type: "ui", payload: uiPayload };
 	}
-
-	if (actionType === "request") {
-		const screenId = normalizeString(getByAlias(actionSource, "action.screenId", ""), "");
-		if (screenId.length === 0) {
-			warnLog(`UI payload dropped invalid 'request' action at '${path}': missing screenId.`);
-			return null;
-		}
-		return { ...actionSource, type: "request", screenId };
-	}
-
-	if (actionType === "event") {
-		const eventName = normalizeString(getByAlias(actionSource, "action.name", ""), "");
-		if (eventName.length === 0) {
-			warnLog(`UI payload dropped invalid 'event' action at '${path}': missing event name.`);
-			return null;
-		}
-		return { ...actionSource, type: "event", name: eventName };
-	}
-
-	if (actionType === "exit") return { ...actionSource, type: "exit" };
-
-	if (actionType === "style") {
-		const targetId = normalizeString(getByAlias(actionSource, "action.targetId", ""), "");
-		if (targetId.length === 0) {
-			warnLog(`UI payload dropped invalid 'style' action at '${path}': missing targetId.`);
-			return null;
-		}
-
-		const stylesSource = normalizeObject(getByAlias(actionSource, "action.styles", {}));
-		const styles = Object.keys(stylesSource).length > 0 ? { ...stylesSource } : null;
-		if (!styles) {
-			warnLog(`UI payload dropped invalid 'style' action at '${path}': missing styles object.`);
-			return null;
-		}
-
-		styles.classList = normalizeStyleClassList(getByAlias(stylesSource, "action.classList", styles.classList));
-		return {
-			...actionSource,
-			type: "style",
-			targetId,
-			styles,
-		};
-	}
-
-	warnLog(`UI payload dropped unsupported action type at '${path}'.`);
-	return null;
 }
 
 function normalizeStyleClassList(classListConfig) {
@@ -470,7 +460,7 @@ function normalizeStyleClassList(classListConfig) {
 
 	const classListArray = normalizeArray(classListConfig);
 	if (classListArray.length > 0) {
-		for (let index = 0; index < classListArray.length; index += 1) {
+		for (let index = 0; index < classListArray.length; index++) {
 			const className = classListArray[index];
 			if (typeof className === "string" && className.length > 0) add.push(className);
 		}
@@ -480,13 +470,13 @@ function normalizeStyleClassList(classListConfig) {
 	const source = normalizeObject(classListConfig);
 	if (Object.keys(source).length > 0) {
 		const addClasses = normalizeArray(getByAlias(source, "styleClassList.add", []));
-		for (let index = 0; index < addClasses.length; index += 1) {
+		for (let index = 0; index < addClasses.length; index++) {
 			const className = addClasses[index];
 			if (typeof className === "string" && className.length > 0) add.push(className);
 		}
 
 		const removeClasses = normalizeArray(getByAlias(source, "styleClassList.remove", []));
-		for (let index = 0; index < removeClasses.length; index += 1) {
+		for (let index = 0; index < removeClasses.length; index++) {
 			const className = removeClasses[index];
 			if (typeof className === "string" && className.length > 0) remove.push(className);
 		}
@@ -1017,11 +1007,7 @@ function normalizeColorDescriptor(color, contextPath, fallback = { r: 1, g: 1, b
 		warnLog(`Object payload ${contextPath} color malformed; defaulting to fallback.`);
 		return fallback;
 	}
-	return { 
-		r: Math.max(0, Math.min(1, r)), 
-		g: Math.max(0, Math.min(1, g)), 
-		b: Math.max(0, Math.min(1, b)), 
-		a: Math.max(0, Math.min(1, a)) 
+	return { r: Clamp01(r),  g: Clamp01(g),  b: Clamp01(b),  a: Clamp01(a) 
 	};
 }
 
@@ -1086,7 +1072,7 @@ function normalizeTextureDescriptor(source, options, contextPath) {
 		materialTextureID: materialTextureID,
 		shape: shape,
 		color: color,
-		opacity: Math.max(0, Math.min(1, ToNumber(opacity, 1))),
+		opacity: Clamp01(ToNumber(opacity, 1)),
 		density: Math.max(0, ToNumber(densitySource, 1)),
 		speckSize: Math.max(0.1, ToNumber(speckSizeSource, 1)),
 		animated: animatedSource === true,
@@ -1098,7 +1084,7 @@ function normalizeTextureDescriptor(source, options, contextPath) {
 function normalizeScatterRequests(source, contextPath) {
 	if (!source || !Array.isArray(source)) return [];
 	const out = [];
-	for (let i = 0; i < source.length; i += 1) {
+	for (let i = 0; i < source.length; i++) {
 		const entry = source[i];
 		if (!entry || typeof entry !== "object") {
 			warnLog(`Object payload ${contextPath}[${i}] malformed scatter entry dropped.`);
@@ -1405,7 +1391,6 @@ function normalizeEntityData(source, entityId, blueprint) {
 			physics: resolveBooleanField(movementSource, blueprintMovement, "physics", false, `${entityId}.movement`),
 		},
 		hp: Math.max(0, resolveNumberField(source, blueprintSource, "hp", 1, entityId, ["health", "hitPoints", "life"])),
-		simRadiusPadding: Math.max(0, resolveNumberField(source, blueprintSource, "simRadiusPadding", 8, entityId, ["simDistancePadding"])),
 		attacks: (() => {
 			const sourceAttacks = getByAlias(source, "entity.attacks", undefined);
 			const blueprintAttacks = getByAlias(blueprintSource, "entity.attacks", undefined);
@@ -1417,7 +1402,6 @@ function normalizeEntityData(source, entityId, blueprint) {
 		platform: getByAlias(source, "entity.platform", getByAlias(blueprintSource, "entity.platform", null)),
 		animations: normalizeObject(resolveObjectField(source, blueprintSource, "animations", entityId)),
 		velocity: new UnitVector3(velocityVector.x, velocityVector.y, velocityVector.z, "cnu"),
-		collisionCapsule: normalizeObject(resolveObjectField(source, blueprintSource, "collisionCapsule", entityId)),
 		collisionOverride: normalizeEntityCollisionOverride(
 			resolveObjectField(source, blueprintSource, "collisionOverride", entityId),
 			entityType,
@@ -1584,7 +1568,7 @@ function playerConfig(player) {
 	const rawMeta = normalizeObject(getByAlias(source, "player.meta", {}));
 	const metaOverrides = {};
 	const metaKeys = Object.keys(rawMeta);
-	for (let i = 0; i < metaKeys.length; i += 1) {
+	for (let i = 0; i < metaKeys.length; i++) {
 		const key = metaKeys[i];
 		const val = rawMeta[key];
 		if (isVector3Like(val)) metaOverrides[key] = NormalizeVector3(val, ToVector3(0));
@@ -1599,7 +1583,7 @@ function playerConfig(player) {
 	// Each entry is formatted for logging (e.g. "key: value").
 	const metaList = [];
 	const rawMetaKeys2 = Object.keys(rawMeta);
-	for (let i2 = 0; i2 < rawMetaKeys2.length; i2 += 1) {
+	for (let i2 = 0; i2 < rawMetaKeys2.length; i2++) {
 		const k = rawMetaKeys2[i2];
 		const v = metaOverrides[k];
 		let sval;
@@ -1611,15 +1595,20 @@ function playerConfig(player) {
 		metaList.push(`${k}: ${sval}`);
 	}
 	metaOverrides.list = metaList;
-	const characterSource = getByAlias(source, "entity.character", undefined);
-	const resolvedCharacter = typeof characterSource === "string" && characterSource.length > 0
-		? characterSource.toLowerCase()
+	const characterSource = normalizeString(getByAlias(source, "entity.character", undefined), fallback.character).toLowerCase();
+	const resolvedCharacter = validPlayerCharacterIds.has(characterSource)
+		? characterSource
 		: fallback.character;
+	const collectibles = ToNumber(source.collectibles, 0);
+	if (resolvedCharacter !== characterSource) {
+		warnLog(`Player payload character malformed; defaulted to '${fallback.character}'.`);
+	}
 
 	return {
 		character: resolvedCharacter,
 		spawnPosition: new UnitVector3(spawnPos.x, spawnPos.y, spawnPos.z, "cnu"),
 		scale: NormalizeVector3(getByAlias(source, "player.scale", undefined), ToVector3(1)),
+		collectibles: collectibles,
 		modelParts: modelParts,
 		metaOverrides: metaOverrides,
 	}

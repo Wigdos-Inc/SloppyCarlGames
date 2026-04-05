@@ -170,18 +170,9 @@ function generateLegacyUvFromPositions(positions) {
 }
 
 function getProjectedAxesFromNormal(normal) {
-	const nx = Math.abs(normal.x);
-	const ny = Math.abs(normal.y);
-	const nz = Math.abs(normal.z);
-
-	if (nx >= ny && nx >= nz) {
-		return ["y", "z"];
-	}
-
-	if (ny >= nx && ny >= nz) {
-		return ["x", "z"];
-	}
-
+	const n = AbsoluteVector3(normal);
+	if (n.x >= n.y && n.x >= n.z) return ["y", "z"];
+	if (n.y >= n.x && n.y >= n.z) return ["x", "z"];
 	return ["x", "y"];
 }
 
@@ -277,8 +268,8 @@ function createIdentityMatrix() {
 
 function multiplyMatrix4(a, b) {
 	const out = new Array(16);
-	for (let col = 0; col < 4; col += 1) {
-		for (let row = 0; row < 4; row += 1) {
+	for (let col = 0; col < 4; col++) {
+		for (let row = 0; row < 4; row++) {
 			out[col * 4 + row] =
 				a[0 * 4 + row] * b[col * 4 + 0] +
 				a[1 * 4 + row] * b[col * 4 + 1] +
@@ -870,7 +861,6 @@ function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 		case "torus"   : return buildTorus(size, complexity, primitiveOptions);
 		case "pyramid" : return buildPyramid(size);
 		case "plane"   : return buildPlane(size);
-		default        : return null;
 	}
 }
 
@@ -936,9 +926,9 @@ function BuildObject(source, options) {
 	if (scatterContext && mesh.detail.scatter.length > 0) {
 		const generatedScatter = BuildScatter({
 			objectMesh: mesh,
-			scatterMultiplier: ToNumber(scatterContext.scatterMultiplier, GetPerformanceScatterMultiplier()),
+			scatterMultiplier: scatterContext.scatterMultiplier,
 			world: scatterContext.world,
-			indexSeed: ToNumber(scatterContext.indexSeed, 1),
+			indexSeed: scatterContext.indexSeed,
 			explicitScatter: mesh.detail.scatter,
 		});
 

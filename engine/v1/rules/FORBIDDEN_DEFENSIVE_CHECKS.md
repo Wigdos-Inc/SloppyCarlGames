@@ -42,6 +42,7 @@ The following are treated as guaranteed unless explicitly documented otherwise:
 - Engine API symbols imported from engine modules.
 - Engine-populated runtime caches after initialization.
 - Engine-created DOM nodes tracked by engine state after creation.
+- Browser APIs and behavior that the engine expects modern browsers to support after startup verification.
 - Anything else that was declared upstream and passed along.
 
 If one of these is missing, that is an upstream bug.
@@ -109,7 +110,7 @@ When an expected symbol is missing, fix one of these upstream layers:
 
 Enum canonicalization and referential-integrity checks for game payload fields also belong in `core/validate.js` or `core/normalize.js`, not in downstream builder/runtime modules.
 
-Once normalization resolves a canonical field location, downstream modules must consume that canonical location directly and must not fall back between duplicate copies of the same semantic field.
+Once normalization has canonicalized a field, shape, event map, or other contract, downstream modules must consume that canonical form directly and must not fall back to alternatives, duplicate aliases, shorthand sources, or pre-normalized copies of the same semantic data.
 
 Once normalization has canonicalized object `shape` or `collisionShape`, builders must not substitute a different primitive, collision mode, or null detailed-bounds result for unsupported ids. Fix the enum boundary in `core/normalize.js` or `core/validate.js` instead.
 
@@ -138,6 +139,12 @@ These checks may only appear once on arrival or first usage and should never be 
 ### B. Explicitly Approved Initialization Guards
 
 If a guard is intentionally retained for initialization bootstrap (for example, controlled cache bootstrap in core meta state), it is allowed only where explicitly approved by rule decision.
+
+### C. Bootup Browser Capability Gate
+
+`Bootup.js` may perform the one-time browser capability and environment checks needed to verify that the engine is running in a modern browser that supports all required engine features.
+
+Outside that startup gate, engine modules must treat required modern browser behavior as guaranteed and must not add defensive browser-support checks downstream.
 
 ---
 
@@ -231,7 +238,7 @@ const entity = payload.entity;
 | Context                                                 | Defensive Checks Allowed? |
 |---------------------------------------------------------|---------------------------|
 | Internal runtime modules on guaranteed engine symbols   | No                        |
-| Browser/runtime environment detection                   | No                        |
+| Browser/runtime environment detection                   | Only `Bootup.js`, once    |
 | External payload validation/normalization boundaries    | Yes, once                 |
 | Explicitly approved initialization exceptions           | Yes                       |
 

@@ -115,9 +115,7 @@ class Controls {
 		const index = this.listeners.findIndex(
 			(item) => item.type === type && item.wrapped === handler
 		);
-		if (index < 0) {
-			return;
-		}
+		if (index < 0) return;
 
 		const [listener] = this.listeners.splice(index, 1);
 		this.target.removeEventListener(listener.type, listener.wrapped, listener.options);

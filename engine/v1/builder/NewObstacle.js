@@ -45,16 +45,14 @@ function mergeAabb(accumulator, bounds) {
 function createDetailedBoundsFromParts(source, parts, bounds) {
 	if (source.collisionShape === "triangle-soup") {
 		const triangles = [];
-		for (let index = 0; index < parts.length; index += 1) {
+		for (let index = 0; index < parts.length; index++) {
 			const detailed = parts[index].detailedBounds;
 			if (detailed.type === "triangle-soup") triangles.push(...detailed.triangles);
 		}
 		return { type: "triangle-soup", triangles };
 	}
 
-	if (source.collisionShape === "aabb") {
-		return { type: "aabb", min: bounds.min.clone(), max: bounds.max.clone() };
-	}
+	if (source.collisionShape === "aabb") return { type: "aabb", min: bounds.min.clone(), max: bounds.max.clone() };
 
 	if (parts.length === 1) return parts[0].detailedBounds;
 	return createEnvelopeObb(bounds);

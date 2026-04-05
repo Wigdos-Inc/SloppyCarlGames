@@ -6,7 +6,6 @@
 import { CONFIG } from "../../core/config.js";
 import { Log, EPSILON } from "../../core/meta.js";
 import { ScaleVector3, ToVector3 } from "../../math/Vector3.js";
-import { ToNumber } from "../../math/Utilities.js";
 import { ApplyGravity } from "../../physics/Gravity.js";
 import { ApplyResistance } from "../../physics/Resistance.js";
 import { ApplyBuoyancy } from "../../physics/Buoyancy.js";
@@ -191,7 +190,6 @@ function RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
  * @param {number} deltaSeconds
  */
 function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
-	const dt = ToNumber(deltaSeconds, 0);
 	const world = sceneGraph.world;
 	const deathBarrierY = world.deathBarrierY.value;
 	const pos = playerState.transform.position;
@@ -202,18 +200,22 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 
 	// Step 1: Gravity (if not grounded or always apply — ground correction will nullify).
 	if (!playerState.grounded) {
-		const gravityOptions = playerState.underwater ? { strengthOverride: CONFIG.PHYSICS.Gravity.Strength * 0.4 } : {};
-		playerState.velocity.set(ApplyGravity(playerState.velocity, dt, gravityOptions));
+		const gravityOptions = playerState.underwater 
+			? { strengthOverride: CONFIG.PHYSICS.Gravity.Strength * 0.4 } 
+			: {};
+		playerState.velocity.set(ApplyGravity(playerState.velocity, deltaSeconds, gravityOptions));
 	}
 
 	// Step 2: Resistance (drag).
-	playerState.velocity.set(ApplyResistance(playerState.velocity, dt, medium));
+	playerState.velocity.set(ApplyResistance(playerState.velocity, deltaSeconds, medium));
 
 	// Step 3: Buoyancy (underwater float).
-	if (playerState.underwater) playerState.velocity.set(ApplyBuoyancy(playerState.velocity, pos, world.waterLevel.value, dt));
+	if (playerState.underwater) {
+		playerState.velocity.set(ApplyBuoyancy(playerState.velocity, pos, world.waterLevel.value, deltaSeconds));
+	}
 
 	// Step 4: Compute intended displacement.
-	const displacement = ScaleVector3(playerState.velocity, dt);
+	const displacement = ScaleVector3(playerState.velocity, deltaSeconds);
 	const shouldSkipCollision = shouldSkipCollisionPipeline(playerState, displacement);
 	let hasUnresolvedPenetration = playerState.physicsRuntime.hasUnresolvedPenetration;
 
@@ -224,7 +226,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 
 	// Step 5: Collision & Correction Pipeline
 	if (!shouldSkipCollision) {
-		const physicsResult = RunPhysicsLoop(playerState, sceneGraph, dt, displacement);
+		const physicsResult = RunPhysicsLoop(playerState, sceneGraph, deltaSeconds, displacement);
 		StorePlayerTriggers(playerState, physicsResult.triggers);
 		hasUnresolvedPenetration = physicsResult.hasUnresolvedPenetration;
 	}

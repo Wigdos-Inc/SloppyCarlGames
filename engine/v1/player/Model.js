@@ -7,7 +7,6 @@
 
 import { BuildObject, UpdateObjectWorldAabb } from "../builder/NewObject.js";
 import { 
-	NormalizeVector3, 
 	AddVector3, 
 	SubtractVector3, 
 	RotateByEuler, 
@@ -20,13 +19,8 @@ import { UnitVector3 } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
 
 /**
- * Clone and normalize a transform object.
+ * Clone a canonical transform object.
  * @param {object} transform — source transform.
- * @param {object} [fallback] — fallback values.
- * @param {boolean} [rotationInRadians=false] — when true, rotation values are
- *        already in radians and will NOT be converted from degrees. Pass true
- *        when cloning transforms that have already been through this function
- *        (e.g. in composeTransform, applyModelPose, or defaultPose snapshots).
  */
 function cloneTransform(transform) {
 	const position = transform.position.clone();
@@ -48,7 +42,6 @@ function getFaceCenterOffset(dimensions, faceType) {
 		case "back": return { x: 0, y: 0, z: -h.z };
 		case "left": return { x: -h.x, y: 0, z: 0 };
 		case "right": return { x: h.x, y: 0, z: 0 };
-		default: return ToVector3(0);
 	}
 }
 
@@ -65,16 +58,12 @@ function composeTransform(parentTransform, localTransform) {
 }
 
 function buildPart(source) {
-	const pos = source.localPosition;
-	const rot = source.localRotation;
-	const dim = source.dimensions;
-	const piv = source.pivot;
-	const dimensions = new UnitVector3(dim.x, dim.y, dim.z, "cnu");
+	const dimensions = source.dimensions.clone();
 	const localTransform = {
-		position: new UnitVector3(pos.x, pos.y, pos.z, "cnu"),
-		rotation: new UnitVector3(rot.x, rot.y, rot.z, "degrees").toRadians(true),
-		scale: source.localScale,
-		pivot: new UnitVector3(piv.x, piv.y, piv.z, "cnu"),
+		position: source.localPosition.clone(),
+		rotation: source.localRotation.clone(),
+		scale: CloneVector3(source.localScale),
+		pivot: source.pivot.clone(),
 	};
 
 	const mesh = BuildObject(
@@ -86,7 +75,7 @@ function buildPart(source) {
 			position: new UnitVector3(0, 0, 0, "cnu"),
 			rotation: new UnitVector3(0, 0, 0, "radians"),
 			scale: ToVector3(1),
-			pivot: localTransform.pivot,
+			pivot: localTransform.pivot.clone(),
 			primitiveOptions: source.primitiveOptions,
 			texture: source.texture,
 			detail: source.detail,
@@ -105,7 +94,7 @@ function buildPart(source) {
 		attachmentPoint: source.attachmentPoint,
 		children: [],
 		dimensions: dimensions,
-		localTransform: cloneTransform(localTransform),
+		localTransform: localTransform,
 		defaultLocalTransform: cloneTransform(localTransform),
 		mesh: mesh,
 	};
@@ -119,10 +108,8 @@ function computeExpandedAabb(aabb, padding) {
 }
 
 function applyModelPose(model) {
-	const byId = model.index || {};
 	const applyPart = (partId, parentTransform) => {
-		const part = byId[partId];
-		if (!part) { return; }
+		const part = model.index[partId];
 
 		const worldTransform = composeTransform(parentTransform, part.localTransform);
 		part.mesh.transform.position.set(worldTransform.position);
@@ -135,8 +122,7 @@ function applyModelPose(model) {
 	};
 
 	// rootTransform rotation comes from playerState (already in radians).
-	const rootTransform = cloneTransform(model.rootTransform);
-	model.roots.forEach((rootId) => applyPart(rootId, rootTransform));
+	model.roots.forEach((rootId) => applyPart(rootId, cloneTransform(model.rootTransform)));
 }
 
 function computePlayerAabb(model) {
@@ -264,14 +250,12 @@ function SyncPlayerCollisionFromState(playerState) {
  */
 function BuildPlayerModel(characterDefinition, spawnPosition) {
 	const entityId = characterDefinition.id;
-	const pos = spawnPosition;
-	const defRootTransform = characterDefinition.model.rootTransform;
 
 	const model = {
 		rootTransform: {
-			position: new UnitVector3(pos.x, pos.y, pos.z, "cnu"),
+			position: spawnPosition.clone(),
 			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: NormalizeVector3(defRootTransform.scale, ToVector3(1)),
+			scale: ToVector3(1),
 			pivot: new UnitVector3(0, 0, 0, "cnu"),
 		},
 		parts: characterDefinition.model.parts.map((part, index) => buildPart(part, entityId, index)),
@@ -281,18 +265,16 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 	const index = {};
 	model.parts.forEach((part) => { index[part.id] = part; });
 	model.parts.forEach((part) => {
-		if (part.parentId && part.parentId !== "root" && index[part.parentId]) {
-			index[part.parentId].children.push(part.id);
-		}
+		if (part.parentId !== "root") index[part.parentId].children.push(part.id);
 	});
 
 	// Ground-up positioning with anchor/attachment faces.
 	model.parts.forEach((part) => {
 		if (part.parentId === "root") part.localTransform.position.y += part.dimensions.y * 0.5;
-		else if (part.parentId && index[part.parentId]) {
+		else {
 			const parent = index[part.parentId];
-			const attachOffset = getFaceCenterOffset(parent.dimensions, part.attachmentPoint || "top");
-			const anchorOffset = getFaceCenterOffset(part.dimensions, part.anchorPoint || "center");
+			const attachOffset = getFaceCenterOffset(parent.dimensions, part.attachmentPoint);
+			const anchorOffset = getFaceCenterOffset(part.dimensions, part.anchorPoint);
 			part.localTransform.position.add(SubtractVector3(attachOffset, anchorOffset));
 		}
 	});
@@ -334,6 +316,4 @@ export {
 	InitializePlayerCollisionProfile,
 	SyncPlayerCollisionFromState,
 	UpdatePlayerModelFromState,
-	applyModelPose,
-	computePlayerAabb,
 };

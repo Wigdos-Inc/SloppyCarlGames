@@ -110,11 +110,8 @@ function resolveControlsSubtypeFromMessage(message) {
   if (!eventType && handledMatch && handledMatch[1]) eventType = handledMatch[1];
 
   if (!eventType) return null;
-
   if (eventType === "pointerover" || eventType === "pointerout" || eventType === "mousemove") return "Hover";
-
   if (eventType === "keydown" || eventType === "keyup") return "Key";
-
   if (
     eventType === "click" ||
     eventType === "pointerdown" ||
@@ -188,13 +185,9 @@ function isDuplicateOfLatest(entry) {
     return true;
   }
 
-  if (!String(entry.channel).startsWith("Controls")) {
-    return false;
-  }
+  if (!String(entry.channel).startsWith("Controls")) return false;
 
-  if (logs.controls.length === 0) {
-    return false;
-  }
+  if (logs.controls.length === 0) return false;
 
   const startIndex = Math.max(0, logs.controls.length - 3);
   for (let index = logs.controls.length - 1; index >= startIndex; index--) {

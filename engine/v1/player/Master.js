@@ -4,11 +4,26 @@
 // Uses all player modules: Movement.js, Abilities.js, Model.js.
 
 import { Log } from "../core/meta.js";
-import { ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
+import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { ToVector3 } from "../math/Vector3.js";
-import { BuildPlayerModel, InitializePlayerCollisionProfile, SyncPlayerCollisionFromState, UpdatePlayerModelFromState } from "./Model.js";
+import { 
+	BuildPlayerModel, 
+	InitializePlayerCollisionProfile, 
+	SyncPlayerCollisionFromState, 
+	UpdatePlayerModelFromState 
+} from "./Model.js";
 import { UpdateMovement } from "./Movement.js";
 import characterData from "./characters.json" with { type: "json" };
+
+(function normalizeCharacterTemplates() {
+	const characterIds = Object.keys(characterData);
+	characterIds.forEach(characterId => characterData[characterId].model.parts.forEach(part => {
+		part.dimensions = new UnitVector3(part.dimensions.x, part.dimensions.y, part.dimensions.z, "cnu");
+		part.localPosition = new UnitVector3(part.localPosition.x, part.localPosition.y, part.localPosition.z, "cnu");
+		part.localRotation = new UnitVector3(part.localRotation.x, part.localRotation.y, part.localRotation.z, "degrees").toRadians(true);
+		part.pivot = new UnitVector3(part.pivot.x, part.pivot.y, part.pivot.z, "cnu");
+	}));
+})();
 
 /* === PLAYER INPUT FLAGS === */
 // Mutable object exposed as ENGINE.Player.Input.
@@ -27,6 +42,7 @@ let playerState = null;
 function createDefaultPlayerState(playerData) {
 	const character = playerData.character;
 	const spawnPos = playerData.spawnPosition;
+
 	const sphereBounds = {
 		type: "sphere",
 		center: new UnitVector3(0, 0, 0, "cnu"),
@@ -39,9 +55,10 @@ function createDefaultPlayerState(playerData) {
 		segmentStart: new UnitVector3(0, 0, 0, "cnu"),
 		segmentEnd: new UnitVector3(0, 0, 0, "cnu"),
 	};
+
 	const collision = {
 		aabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
-		radius: new Unit(ToNumber(playerData.collisionRadius, character.meta.collisionRadius), "cnu"),
+		radius: new Unit(playerData.collisionRadius, "cnu"),
 		shape: "sphere",
 		profile: {
 			shape: "sphere",
@@ -73,6 +90,7 @@ function createDefaultPlayerState(playerData) {
 			bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
 		},
 	};
+
 	return {
 		active: true,
 		character: character,
@@ -94,7 +112,7 @@ function createDefaultPlayerState(playerData) {
 		state: "Idle",
 		previousState: "Idle",
 		hp: 3,
-		collectibles: playerData.collectibles || 0,
+		collectibles: playerData.collectibles,
 		maxCollectibles: 100,
 		attackFlag: false,
 		hitboxActive: false,
@@ -113,7 +131,7 @@ function createDefaultPlayerState(playerData) {
 		},
 		activeTriggers: [],
 		checkpoint: null,
-		spawnPosition: spawnPos,
+		spawnPosition: spawnPos.clone(),
 		physicsRuntime: {
 			previousPosition: spawnPos.clone(),
 			previousRotation: new UnitVector3(0, 0, 0, "radians"),
@@ -134,11 +152,12 @@ function createDefaultPlayerState(playerData) {
  * @returns {object} — the initialized playerState.
  */
 function InitializePlayer(payload, sceneGraph) {
-	const characterProfile = characterData[payload.character] || characterData.carl;
+	const characterProfile = characterData[payload.character];
 	const hasCustomParts = payload.modelParts.length > 0;
+	const { list: metaOverrideList, ...metaOverrides } = payload.metaOverrides;
 	const mergedMeta = {
 		...characterProfile.meta,
-		...(payload.metaOverrides || {}),
+		...metaOverrides,
 	};
 	const effectiveCharacter = {
 		...characterProfile,
@@ -149,17 +168,16 @@ function InitializePlayer(payload, sceneGraph) {
 	};
 
 	// Log meta overrides using the normalized, formatted list from the payload.
-	Log("ENGINE", `Player meta overrides applied:\n- ${payload.metaOverrides.list.join('\n- ')}`, "log", "Player");
+	Log("ENGINE", `Player meta overrides applied:\n- ${metaOverrideList.join('\n- ')}`, "log", "Player");
 
 	const spawnPos = payload.spawnPosition;
-	const collectibles = ToNumber(payload.collectibles, 0);
 
 	// Build Player State & Model
 	playerState = createDefaultPlayerState({
 		character: effectiveCharacter,
 		spawnPosition: spawnPos, 
 		scale: payload.scale,
-		collectibles: collectibles,
+		collectibles: payload.collectibles,
 		collisionRadius: effectiveCharacter.meta.collisionRadius
 	});
 	InitializePlayerCollisionProfile(playerState);
@@ -171,9 +189,7 @@ function InitializePlayer(payload, sceneGraph) {
 	// Also place in entities array so the renderer and bounding box system see it.
 	sceneGraph.entities.push(playerState);
 
-	const sourceType = hasCustomParts
-		? "custom-model"
-		: (characterData[payload.character] ? "profile" : "fallback");
+	const sourceType = hasCustomParts ? "custom-model" : "profile";
 
 	Log("ENGINE", `Player initialized: character="${effectiveCharacter.name}" source="${sourceType}" at (${spawnPos.x}, ${spawnPos.y}, ${spawnPos.z})`, "log", "Player");
 	return playerState;
@@ -193,14 +209,13 @@ function InitializePlayer(payload, sceneGraph) {
  * @returns {object|null} — updated playerState, or null if no player.
  */
 function UpdatePlayer(deltaSeconds, cameraVectors) {
-	if (!playerState.active) { return null; }
-	if (playerState.state === "Dead") { return playerState; }
+	if (!playerState.active) return null;
+	if (playerState.state === "Dead") return playerState;
 
-	const dt = ToNumber(deltaSeconds, 0);
 	const input = playerInputFlags;
 
 	// Step 1–2: Movement (reads input, modifies velocity).
-	UpdateMovement(playerState, input, cameraVectors, dt);
+	UpdateMovement(playerState, input, cameraVectors, deltaSeconds);
 
 	// Step 3: Ability updates (not implemented).
 
@@ -240,7 +255,7 @@ function ResolvePlayerState() {
 
 	if (!playerState.grounded) {
 		if (playerState.state === "Jumping") {
-			const currentY = ToNumber(playerState.transform.position.y, 0);
+			const currentY = playerState.transform.position.y;
 			playerState.jumpApexY.value = Math.max(playerState.jumpApexY.value, currentY);
 
 			// Switch to Falling after descending below jump start height by 1 unit.

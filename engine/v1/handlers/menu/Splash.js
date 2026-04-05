@@ -15,7 +15,7 @@ import {
 } from "../Render.js";
 import { CreateUI } from "../UI.js";
 import { PlaySfx, PlayVoice } from "../Sound.js";
-import { Log, PushToSession, ReadFromSession, SendEvent, SESSION_KEYS } from "../../core/meta.js";
+import { Log, PushToSession, ReadFromSession, SESSION_KEYS } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { ValidateSplashPayload } from "../../core/validate.js";
 
@@ -260,10 +260,7 @@ async function runSplashSequence(requestedSplashPayload) {
 	// Build the full splash sequence pipeline.
 	const context = setupSplashSequence();
 
-	if (
-		(CONFIG.DEBUG.SKIP.Splash === true) ||
-		ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true
-	) {
+	if (CONFIG.DEBUG.SKIP.Splash === true || ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true) {
 		Log("ENGINE", "Splash scren sequence skipped.", "log", "Startup");
 		return context;
 	}

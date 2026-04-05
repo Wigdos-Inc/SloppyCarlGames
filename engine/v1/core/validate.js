@@ -74,7 +74,12 @@ function validateNormalizedUIElementTree(element, path) {
 	}
 
 	if (!Array.isArray(element.children)) {
-		Log("ENGINE", `UI payload normalization produced invalid children array at '${path}.children'.`, "error", "Validation");
+		Log(
+			"ENGINE", 
+			`UI payload normalization produced invalid children array at '${path}.children'.`, 
+			"error", 
+			"Validation"
+		);
 		return false;
 	}
 
@@ -88,10 +93,8 @@ function validateNormalizedUIElementTree(element, path) {
 		return false;
 	}
 
-	for (let index = 0; index < element.children.length; index += 1) {
-		if (!validateNormalizedUIElementTree(element.children[index], `${path}.children[${index}]`)) {
-			return false;
-		}
+	for (let index = 0; index < element.children.length; index++) {
+		if (!validateNormalizedUIElementTree(element.children[index], `${path}.children[${index}]`)) return false;
 	}
 
 	return true;
@@ -236,18 +239,21 @@ function validateNormalizedPlayer(player) {
 	for (let index = 0; index < player.modelParts.length; index++) {
 		if (!validateNormalizedPlayerModelPart(player.modelParts[index])) return false;
 	}
-	// Optional metaOverrides must normalize to an object if present; collisionHalfExtents should be vector-like if present
-	if (player.metaOverrides !== undefined) {
-		if (!isObject(player.metaOverrides)) return false;
-		if (player.metaOverrides.collisionHalfExtents !== undefined) {
-			if (!isVector3(player.metaOverrides.collisionHalfExtents)) return false;
-		}
+	if (!isObject(player.metaOverrides)) return false;
+	if (!Array.isArray(player.metaOverrides.list)) return false;
+	for (let index = 0; index < player.metaOverrides.list.length; index++) {
+		if (typeof player.metaOverrides.list[index] !== "string") return false;
+	}
+	if (player.metaOverrides.collisionHalfExtents !== undefined) {
+		if (!isVector3(player.metaOverrides.collisionHalfExtents)) return false;
 	}
 
 	return (
 		typeof player.character === "string"
 		&& player.character.length > 0
 		&& isUnitVector3(player.spawnPosition, "cnu")
+		&& typeof player.collectibles === "number"
+		&& Number.isFinite(player.collectibles)
 		&& isObject(player.scale)
 		&& typeof player.scale.x === "number"
 		&& Number.isFinite(player.scale.x)
@@ -281,7 +287,7 @@ function validateBlueprintList(list, key) {
 		return false;
 	}
 
-	for (let index = 0; index < list.length; index += 1) {
+	for (let index = 0; index < list.length; index++) {
 		const entry = list[index];
 		if (
 			!isObject(entry)
@@ -314,7 +320,7 @@ function validateNormalizedLevelCollections(payload) {
 		return false;
 	}
 
-	for (let index = 0; index < payload.terrain.objects.length; index += 1) {
+	for (let index = 0; index < payload.terrain.objects.length; index++) {
 		const object = payload.terrain.objects[index];
 		if (
 			!isObject(object) || 
@@ -340,7 +346,7 @@ function validateNormalizedLevelCollections(payload) {
 		}
 	}
 
-	for (let index = 0; index < payload.terrain.triggers.length; index += 1) {
+	for (let index = 0; index < payload.terrain.triggers.length; index++) {
 		const trigger = payload.terrain.triggers[index];
 		if (
 			!isObject(trigger) || 
@@ -386,7 +392,7 @@ function validateNormalizedLevelCollections(payload) {
 		return false;
 	}
 
-	for (let index = 0; index < payload.obstacles.length; index += 1) {
+	for (let index = 0; index < payload.obstacles.length; index++) {
 		const obstacle = payload.obstacles[index];
 		if (
 			!isObject(obstacle)
@@ -412,7 +418,7 @@ function validateNormalizedLevelCollections(payload) {
 			return false;
 		}
 
-		for (let partIndex = 0; partIndex < obstacle.parts.length; partIndex += 1) {
+		for (let partIndex = 0; partIndex < obstacle.parts.length; partIndex++) {
 			const part = obstacle.parts[partIndex];
 			if (
 				!isObject(part)
@@ -447,7 +453,7 @@ function validateNormalizedLevelCollections(payload) {
 		return false;
 	}
 
-	for (let index = 0; index < payload.entities.length; index += 1) {
+	for (let index = 0; index < payload.entities.length; index++) {
 		const entity = payload.entities[index];
 		if (
 			!isObject(entity)
@@ -463,9 +469,6 @@ function validateNormalizedLevelCollections(payload) {
 			|| !Array.isArray(entity.attacks)
 			|| !isObject(entity.hardcoded)
 			|| !isObject(entity.animations)
-			|| typeof entity.simRadiusPadding !== "number"
-			|| !Number.isFinite(entity.simRadiusPadding)
-			|| !isObject(entity.collisionCapsule)
 			|| !isObject(entity.collisionOverride)
 			|| !isAllowedEntityCollisionShape(entity.collisionOverride.physics)
 			|| !isAllowedEntityCollisionShape(entity.collisionOverride.hurtbox)
@@ -505,16 +508,12 @@ function ValidateMenuUIPayload(payload) {
 		if (!payload.screenId && (typeof payload.screen === "string")) payload.screenId = payload.screen;
 	}
 	const errors = [];
-	if (!isObject(payload)) {
-		errors.push("payload must be an object");
-	} 
+	if (!isObject(payload)) errors.push("payload must be an object");
 	else {
 		if (typeof payload.screenId !== "string" || payload.screenId.length === 0) {
 			errors.push("'screenId' must be a non-empty string");
 		}
-		if (!Array.isArray(payload.elements)) {
-			errors.push("'elements' must be an array");
-		}
+		if (!Array.isArray(payload.elements)) errors.push("'elements' must be an array");
 	}
 
 	if (errors.length > 0) {
@@ -577,10 +576,9 @@ function ValidateSplashPayload(payload) {
 		}
 
 		if (Object.prototype.hasOwnProperty.call(step, "text")) {
-			if (!Array.isArray(step.text)) {
-				errors.push(`'${path}[${index}].text' must be an array when provided`);
-			} else {
-				for (let textIndex = 0; textIndex < step.text.length; textIndex += 1) {
+			if (!Array.isArray(step.text)) errors.push(`'${path}[${index}].text' must be an array when provided`);
+			else {
+				for (let textIndex = 0; textIndex < step.text.length; textIndex++) {
 					const entry = step.text[textIndex];
 					if (!isObject(entry)) {
 						errors.push(`'${path}[${index}].text[${textIndex}]' must be an object`);
@@ -606,9 +604,8 @@ function ValidateSplashPayload(payload) {
 		}
 
 		if (Object.prototype.hasOwnProperty.call(step, "sfx") && step.sfx !== null) {
-			if (!isObject(step.sfx)) {
-				errors.push(`'${path}[${index}].sfx' must be an object when provided`);
-			} else {
+			if (!isObject(step.sfx)) errors.push(`'${path}[${index}].sfx' must be an object when provided`);
+			else {
 				const hasSfxSrc = (typeof step.sfx.src === "string" && step.sfx.src.length > 0)
 					|| (typeof step.sfx.file === "string" && step.sfx.file.length > 0)
 					|| (typeof step.sfx.url === "string" && step.sfx.url.length > 0)
@@ -619,9 +616,8 @@ function ValidateSplashPayload(payload) {
 		}
 
 		if (Object.prototype.hasOwnProperty.call(step, "voice") && step.voice !== null) {
-			if (!isObject(step.voice)) {
-				errors.push(`'${path}[${index}].voice' must be an object when provided`);
-			} else {
+			if (!isObject(step.voice)) errors.push(`'${path}[${index}].voice' must be an object when provided`);
+			else {
 				const hasVoiceSrc = (typeof step.voice.src === "string" && step.voice.src.length > 0)
 					|| (typeof step.voice.file === "string" && step.voice.file.length > 0)
 					|| (typeof step.voice.url === "string" && step.voice.url.length > 0)
@@ -640,12 +636,9 @@ function ValidateSplashPayload(payload) {
 	}
 
 	if (Array.isArray(payload)) {
-		if (payload.length === 0) {
-			errors.push("'payload' sequence must not be empty");
-		} else {
-			for (let index = 0; index < payload.length; index++) {
-				validateRawSplashStep(payload[index], index, "payload");
-			}
+		if (payload.length === 0) errors.push("'payload' sequence must not be empty");
+		else {
+			for (let index = 0; index < payload.length; index++) validateRawSplashStep(payload[index], index, "payload");
 		}
 	}
 
@@ -668,10 +661,9 @@ function ValidateSplashPayload(payload) {
 		}
 
 		if (hasSequence) {
-			if (rawSequence.length === 0) {
-				errors.push("'payload.sequence' must not be empty when provided");
-			} else {
-				for (let index = 0; index < rawSequence.length; index += 1) {
+			if (rawSequence.length === 0) errors.push("'payload.sequence' must not be empty when provided");
+			else {
+				for (let index = 0; index < rawSequence.length; index++) {
 					validateRawSplashStep(rawSequence[index], index, "payload.sequence");
 				}
 			}
@@ -713,7 +705,7 @@ function ValidateSplashPayload(payload) {
 		return { presetId: null, sequence: [], outputType: "default" };
 	}
 
-	for (let index = 0; index < normalized.sequence.length; index += 1) {
+	for (let index = 0; index < normalized.sequence.length; index++) {
 		const step = normalized.sequence[index];
 		if (
 			!isObject(step)
@@ -731,7 +723,7 @@ function ValidateSplashPayload(payload) {
 			return { presetId: null, sequence: [], outputType: "default" };
 		}
 
-		for (let textIndex = 0; textIndex < step.text.length; textIndex += 1) {
+		for (let textIndex = 0; textIndex < step.text.length; textIndex++) {
 			const textEntry = step.text[textIndex];
 			if (
 				!isObject(textEntry)
@@ -759,7 +751,7 @@ function ValidateCutscenePayload(payload, cutsceneType) {
 
 	const aliases = aliasMap.cutscene;
 	const readFirstDefined = (source, keys) => {
-		for (let index = 0; index < keys.length; index += 1) {
+		for (let index = 0; index < keys.length; index++) {
 			const key = keys[index];
 			if (Object.prototype.hasOwnProperty.call(source, key)) return source[key];
 		}
@@ -885,27 +877,16 @@ function ValidateLevelPayload(payload) {
 		}
 	};
 
-	if (!isObject(payload)) {
-		errors.push("payload must be an object");
-	} else {
-		if (typeof payload.id !== "string" || payload.id.length === 0) {
-			errors.push("'id' must be a non-empty string");
-		}
-		if (typeof payload.title !== "string" || payload.title.length === 0) {
-			errors.push("'title' must be a non-empty string");
-		}
-		if (!isObject(payload.world)) {
-			errors.push("'world' must be an object");
-		}
-		if (!isObject(payload.terrain)) {
-			errors.push("'terrain' must be an object");
-		} else {
-			if (!Array.isArray(payload.terrain.objects)) {
-				errors.push("'terrain.objects' must be an array");
-			}
-			if (!Array.isArray(payload.terrain.triggers)) {
-				errors.push("'terrain.triggers' must be an array");
-			} else {
+	if (!isObject(payload)) errors.push("payload must be an object");
+	else {
+		if (typeof payload.id !== "string" || payload.id.length === 0) errors.push("'id' must be a non-empty string");
+		if (typeof payload.title !== "string" || payload.title.length === 0) errors.push("'title' must be a non-empty string");
+		if (!isObject(payload.world)) errors.push("'world' must be an object");
+		if (!isObject(payload.terrain)) errors.push("'terrain' must be an object");
+		else {
+			if (!Array.isArray(payload.terrain.objects)) errors.push("'terrain.objects' must be an array");
+			if (!Array.isArray(payload.terrain.triggers)) errors.push("'terrain.triggers' must be an array");
+			else {
 				for (let index = 0; index < payload.terrain.triggers.length; index++) {
 					validateRawTrigger(payload.terrain.triggers[index], index);
 				}

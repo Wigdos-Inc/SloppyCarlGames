@@ -1,11 +1,12 @@
 // Maintains Full Cutscene State.
 // Handles startup intro cinematics (pre-rendered video or in-engine payloads).
 
-import { Wait, Log, SendEvent } from "../core/meta.js";
+import { Wait, Log } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { RenderPayload } from "./Render.js";
 import { UIElement } from "../builder/NewUI.js";
 import { ValidateCutscenePayload } from "../core/validate.js";
+import { Clamp01 } from "../math/Utilities.js";
 
 const defaultCutsceneConfig = {
 	rootId: "engine-startup-overlay",
@@ -36,7 +37,7 @@ async function playRenderedCutsceneInternal(payload, options) {
 	video.style.opacity = "1";
 
 	if (video.muted) video.volume = 0;
-	else video.volume = Math.max(0, Math.min(1, CONFIG.VOLUME.Master * CONFIG.VOLUME.Cutscene));
+	else video.volume = Clamp01(CONFIG.VOLUME.Master * CONFIG.VOLUME.Cutscene);
 
 	const fragment = document.createDocumentFragment();
 	fragment.appendChild(video);
@@ -63,9 +64,7 @@ async function playRenderedCutsceneInternal(payload, options) {
 
 	// Start from frame 2 to avoid first-frame flashes.
 	const frameStartSeconds = 1 / 30;
-	if (Number.isFinite(video.duration) && video.duration > frameStartSeconds) {
-		video.currentTime = frameStartSeconds;
-	}
+	if (Number.isFinite(video.duration) && video.duration > frameStartSeconds) video.currentTime = frameStartSeconds;
 
 	// Schedule a fade before the video ends.
 	let fadePromise = null;
@@ -81,12 +80,9 @@ async function playRenderedCutsceneInternal(payload, options) {
 	try {
 		// Attempt playback and swallow autoplay failures.
 		const playPromise = video.play();
-		if (playPromise && typeof playPromise.catch === "function") {
-			await playPromise.catch(() => null);
-		}
-	} catch (error) {
-		void error;
-	}
+		if (playPromise && typeof playPromise.catch === "function") await playPromise.catch(() => null);
+	} 
+	catch (error) {}
 
 	if (!video.loop) {
 		// Wait until the video ends or errors.

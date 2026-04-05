@@ -89,7 +89,7 @@ function drawPattern(ctx, size, textureDefinition, textureScale) {
 			const densityScale = Math.max(0.05, textureScale * textureScale);
 			const speckCount = Math.min(16000, Math.max(size * 2, Math.floor((size * size * 0.02 * textureDefinition.density) / densityScale)));
 			ctx.fillStyle = secondary;
-			for (let index = 0; index < speckCount; index += 1) {
+			for (let index = 0; index < speckCount; index++) {
 				const x = Math.floor(Math.random() * (size - speck));
 				const y = Math.floor(Math.random() * (size - speck));
 				draw(x, y, speck, speck);
@@ -178,12 +178,8 @@ function collectTextureUsage(sceneGraph) {
 		if (options.baseTextureID) entry.baseTextureID = options.baseTextureID;
 		if (options.shape) entry.shape = options.shape;
 		if (options.animatedRequested === true) entry.animatedRequested = true;
-		if (options.holdTimeSpeed || options.holdTimeSpeed === 0) {
-			entry.holdTimeSpeed = options.holdTimeSpeed;
-		}
-		if (options.blendTimeSpeed || options.blendTimeSpeed === 0) {
-			entry.blendTimeSpeed = options.blendTimeSpeed;
-		}
+		if (options.holdTimeSpeed || options.holdTimeSpeed === 0) entry.holdTimeSpeed = options.holdTimeSpeed;
+		if (options.blendTimeSpeed || options.blendTimeSpeed === 0) entry.blendTimeSpeed = options.blendTimeSpeed;
 	};
 
 	const collectMesh = (mesh, options, ownerKey) => {

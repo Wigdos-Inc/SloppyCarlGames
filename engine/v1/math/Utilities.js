@@ -3,11 +3,14 @@ import { AddVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "./Ve
 
 class Unit {
 	constructor(value, type) {
-		this.value = ToNumber(value, 1);
-		this.type = typeof type === "string"
-			&& ["radians", "degrees", "cnu", "worldunit"].includes(type.toLowerCase())
+		this.value = value;
+		this.type = ["radians", "degrees", "cnu", "worldunit"].includes(type.toLowerCase())
 			? type.toLowerCase()
 			: null;
+	}
+
+	clone() {
+		return new Unit(this.value, this.type);
 	}
 
 	toRadians(replace = false) {
