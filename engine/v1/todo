@@ -1,6 +1,7 @@
 Finish Model Bounds Expansion (critical):
 - Fix platform edge correction spam bug
-- Add triangle for pyramid/prism shapes
+- Add triangle for pyramid/prism shapes (DEBUG)
+- Change camera collision to narrowphase bounds instead of broadphase
 - Investigate player to enemy collision not working
 - Update Scatter spawns to use parent narrowphase bounds instead of broadphase
 Finish Unit System by eyeballing correct CNU_SCALE.

@@ -9,6 +9,7 @@ applyTo: "engine/v1/**/*.js"
 - Before changing engine behavior, read the rule files that govern the module you are touching.
 - Give highest priority to `FORBIDDEN_DEFENSIVE_CHECKS.md`, `UNIT_INSTANCING.md`, and `CASING.md`.
 - Follow the rules during both feature development and debugging. Debugging is not an exception path for adding forbidden patterns.
+- Never create new modules unless explicitly requested.
 
 ## Engine Rule Expectations
 
