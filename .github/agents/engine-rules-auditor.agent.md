@@ -1,7 +1,7 @@
 ---
 name: "Engine Rules Auditor (ERA)"
 description: "Use when auditing engine modules for compliance with engine/v1/rules, especially UNIT_INSTANCING, FORBIDDEN_DEFENSIVE_CHECKS, and CASING; use for rule violations, defensive-check removal, unit instancing mistakes, casing audits, and engine rule enforcement reviews."
-tools: [read, search, edit]
+tools: [read, edit, search, todo]
 agents: []
 user-invocable: true
 argument-hint: "Describe the module, folder, or change to audit, and say whether code fixes and/or rule-doc updates are authorized."
