@@ -653,8 +653,8 @@ function resolveDefaultEntityCollisionLayers(entityType) {
 }
 
 const validEntityCollisionShapes = new Set(["sphere", "aabb", "capsule", "obb", "compound-sphere"]);
-const validObjectShapes = new Set(["cube", "cylinder", "sphere", "capsule", "cone", "ramp", "tube", "torus", "pyramid", "plane"]);
-const validObjectCollisionShapes = new Set(["none", "obb", "aabb", "triangle-soup"]);
+const validObjectShapes = new Set(["cube", "cylinder", "sphere", "capsule", "cone", "ramp-simple", "ramp-complex", "tube", "torus", "pyramid", "plane"]);
+const validObjectCollisionShapes = new Set(["none", "obb", "aabb", "sphere", "capsule", "triangle-soup"]);
 function normalizeEntityCollisionLayerShape(value, fallback, contextPath, fieldName) {
 	if (value === undefined || value === null) return fallback;
 
@@ -737,6 +737,18 @@ function normalizeObjectCollisionShape(value, fallback, contextPath) {
 
 	warnLog(`Object payload ${contextPath} collisionShape '${value}' invalid; defaulted to '${fallback}'.`);
 	return fallback;
+}
+
+function resolveDefaultObjectCollisionShape(shape, contextPath) {
+	switch (shape) {
+		case "cube": case "plane": case "ramp-simple":                               return "obb";
+		case "cylinder": case "capsule":                                             return "capsule";
+		case "sphere":                                                               return "sphere";
+		case "pyramid": case "cone": case "tube": case "torus": case "ramp-complex": return "triangle-soup";
+	}
+
+	warnLog(`Object payload ${contextPath} shape '${shape}' missing bounds mapping; defaulted collisionShape to 'aabb'.`);
+	return "aabb";
 }
 
 function normalizeVector3WithWarning(value, fallback, contextPath, fieldName) {
@@ -852,12 +864,29 @@ function normalizeTerrainObject(definition, index) {
 		`terrain[${index}]`
 	);
 
+	// Optional boolean flags: nullSpace and sticky — default to false when missing
+	let nullSpace = false;
+	const rawNullSpace = source.nullSpace;
+	if (typeof rawNullSpace === "boolean") nullSpace = rawNullSpace;
+	else if (rawNullSpace !== undefined) warnLog(`Object payload terrain[${index}] nullSpace malformed; defaulted to false.`);
+
+	let sticky = false;
+	const rawSticky = source.sticky;
+	if (typeof rawSticky === "boolean") sticky = rawSticky;
+	else if (rawSticky !== undefined) warnLog(`Object payload terrain[${index}] sticky malformed; defaulted to false.`);
+
 	return {
 		...source,
 		id: normalizeString(source.id, `terrain-${index}`),
 		shape: shape,
 		complexity: complexity,
-		collisionShape: normalizeObjectCollisionShape(source.collisionShape, "obb", `terrain[${index}]`),
+		collisionShape: normalizeObjectCollisionShape(
+			source.collisionShape,
+			resolveDefaultObjectCollisionShape(shape, `terrain[${index}]`),
+			`terrain[${index}]`
+		),
+		nullSpace: nullSpace,
+		sticky: sticky,
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
 		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),
@@ -910,6 +939,12 @@ function normalizeObstacle(definition, index) {
 	const shape = normalizeShapeAlias(source, `obstacle[${index}]`);
 	const complexity = normalizeGeometryComplexity(getByAlias(source, "geometry.complexity", undefined), `obstacle[${index}]`);
 	const primitiveOptions = normalizePrimitiveOptions(source, `obstacle[${index}]`);
+	const hasMultiPartShape = Array.isArray(source.parts) && source.parts.length > 0;
+	const collisionShape = normalizeObjectCollisionShape(
+		source.collisionShape,
+		hasMultiPartShape ? "obb" : resolveDefaultObjectCollisionShape(shape, `obstacle[${index}]`),
+		`obstacle[${index}]`
+	);
 
 	const position = normalizeVector3WithWarning(
 		getByAlias(source, "vector.position", undefined), 
@@ -979,7 +1014,7 @@ function normalizeObstacle(definition, index) {
 		id: normalizeString(source.id, `obstacle-${index}`),
 		shape,
 		complexity,
-		collisionShape: normalizeObjectCollisionShape(source.collisionShape, "obb", `obstacle[${index}]`),
+		collisionShape: collisionShape,
 		position: new UnitVector3(position.x, position.y, position.z, "cnu"),
 		dimensions: new UnitVector3(dimensions.x, dimensions.y, dimensions.z, "cnu"),
 		rotation: new UnitVector3(rotation.x, rotation.y, rotation.z, "degrees").toRadians(true),

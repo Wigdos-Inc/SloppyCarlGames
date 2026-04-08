@@ -183,50 +183,49 @@ function buildPart(partDefinition) {
 
 	const mesh = BuildObject(
 		{
-			id: source.id,
-			shape: source.shape,
-			complexity: source.complexity,
-			dimensions: source.dimensions,
-			position: new UnitVector3(0, 0, 0, "cnu"),
-			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: ToVector3(1),
-			pivot: source.pivot,
+			id              : source.id,
+			shape           : source.shape,
+			complexity      : source.complexity,
+			dimensions      : source.dimensions,
+			position        : new UnitVector3(0, 0, 0, "cnu"),
+			rotation        : new UnitVector3(0, 0, 0, "radians"),
+			scale           : ToVector3(1),
+			pivot           : source.pivot,
 			primitiveOptions: source.primitiveOptions,
-			texture: source.texture,
-			detail: source.detail,
-			role: "entity-part",
-			collisionShape: "none",
-			parentId: source.parentId,
-		},
-		{ role: "entity-part" }
+			texture         : source.texture,
+			detail          : source.detail,
+			role            : "entity-part",
+			collisionShape  : "none",
+			parentId        : source.parentId,
+		}
 	);
 
 	const resolvedParentId = source.parentId;
 	return {
-		id: mesh.id,
-		label: source.label || null,
-		parentId: resolvedParentId,
-		anchorPoint: source.anchorPoint,
+		id             : mesh.id,
+		label          : source.label || null,
+		parentId       : resolvedParentId,
+		anchorPoint    : source.anchorPoint,
 		attachmentPoint: source.attachmentPoint,
 		children: [],
 		localTransform: {
 			position: source.localPosition,
 			rotation: source.localRotation,
-			scale: source.localScale,
+			scale   : source.localScale,
 		},
 		defaultLocalTransform: {
 			position: source.localPosition,
 			rotation: source.localRotation,
-			scale: source.localScale,
+			scale   : source.localScale,
 		},
 		dimensions: source.dimensions,
 		// World-space built position/rotation/scale — computed by the pipeline, used for mesh output.
-		builtPosition: new UnitVector3(0, 0, 0, "cnu"),
-		builtRotation: new UnitVector3(0, 0, 0, "radians"),
-		builtScale: ToVector3(0),
+		builtPosition  : new UnitVector3(0, 0, 0, "cnu"),
+		builtRotation  : new UnitVector3(0, 0, 0, "radians"),
+		builtScale     : ToVector3(0),
 		builtDimensions: source.dimensions.clone(),
-		faceMap: null,
-		mesh: mesh,
+		faceMap        : null,
+		mesh           : mesh,
 	};
 }
 
@@ -236,10 +235,10 @@ function buildModel(entityDefinition, surfaceMap) {
 	const sourceModel = entityDefinition.model;
 
 	// --- Step 1: Resolve rootTransform from data ---
-	const rtSource = sourceModel.rootTransform;
+	const rtSource   = sourceModel.rootTransform;
 	const rtPosition = rtSource.position;
 	const rtRotation = rtSource.rotation;
-	const rtScale = rtSource.scale;
+	const rtScale    = rtSource.scale;
 
 	// Build all parts (each part wraps its own values in Unit/UnitVector3).
 	const parts = sourceModel.parts.map((part) => buildPart(part));
@@ -379,28 +378,24 @@ function applyModelPose(model) {
 /* === AABB === */
 
 function computeEntityAabb(model) {
-	let minX = Infinity;
-	let minY = Infinity;
-	let minZ = Infinity;
-	let maxX = -Infinity;
-	let maxY = -Infinity;
-	let maxZ = -Infinity;
+	const min = ToVector3(Infinity);
+	const max = ToVector3(-Infinity);
 
 	model.parts.forEach((part) => {
 		const mesh = part.mesh;
 		const bounds = mesh.worldAabb;
 
-		if (bounds.min.x < minX) minX = bounds.min.x;
-		if (bounds.min.y < minY) minY = bounds.min.y;
-		if (bounds.min.z < minZ) minZ = bounds.min.z;
-		if (bounds.max.x > maxX) maxX = bounds.max.x;
-		if (bounds.max.y > maxY) maxY = bounds.max.y;
-		if (bounds.max.z > maxZ) maxZ = bounds.max.z;
+		if (bounds.min.x < min.x) min.x = bounds.min.x;
+		if (bounds.min.y < min.y) min.y = bounds.min.y;
+		if (bounds.min.z < min.z) min.z = bounds.min.z;
+		if (bounds.max.x > max.x) max.x = bounds.max.x;
+		if (bounds.max.y > max.y) max.y = bounds.max.y;
+		if (bounds.max.z > max.z) max.z = bounds.max.z;
 	});
 
 	return {
-		min: new UnitVector3(minX, minY, minZ, "cnu"),
-		max: new UnitVector3(maxX, maxY, maxZ, "cnu"),
+		min: new UnitVector3(min.x, min.y, min.z, "cnu"),
+		max: new UnitVector3(max.x, max.y, max.z, "cnu"),
 	};
 }
 

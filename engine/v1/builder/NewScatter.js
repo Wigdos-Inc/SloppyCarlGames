@@ -8,11 +8,12 @@
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { BuildObject, CreateModelMatrix, BuildGeometry, GenerateUVs } from "./NewObject.js";
-import { Unit, UnitVector3 } from "../math/Utilities.js";
-import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3, NormalizeVector3 } from "../math/Vector3.js";
+import { UnitVector3 } from "../math/Utilities.js";
+import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3 } from "../math/Vector3.js";
 import visualTemplates from "./templates/textures.json" with { type: "json" };
 
-// Normalize JSON templates into UnitVector3 instances
+// Normalize JSON template vectors into UnitVector3 instances
+// NO OTHER TYPE OF NORMALISATION IS ALLOWED HERE
 (function normalizeVisualTemplates() {
   	const types = visualTemplates.scatterTypes;
   	for (const key in types) {
@@ -51,16 +52,20 @@ function hashNoise(x, z, seed) {
 	return value - Math.floor(value);
 }
 
-function primitiveGeometryKey(primitive, dimensions, complexity) {
-	const prm = primitive;
-	const dim = dimensions;
-	return `${prm}_${dim.x}_${dim.y}_${dim.z}_${complexity}`;
+function normalizePrimitiveAngle(primitiveOptions) {
+	return ToNumber(primitiveOptions.angle, 0);
 }
 
-function scatterBatchKey(primitive, dimensions, textureID, complexity) {
+function primitiveGeometryKey(primitive, dimensions, complexity, primitiveOptions) {
 	const prm = primitive;
 	const dim = dimensions;
-	return `${prm}_${dim.x}_${dim.y}_${dim.z}_${textureID}_${complexity}`;
+	return `${prm}_${dim.x}_${dim.y}_${dim.z}_${complexity}_${primitiveOptions}`;
+}
+
+function scatterBatchKey(primitive, dimensions, textureID, complexity, primitiveOptions) {
+	const prm = primitive;
+	const dim = dimensions;
+	return `${prm}_${dim.x}_${dim.y}_${dim.z}_${textureID}_${complexity}_${primitiveOptions}`;
 }
 
 function mergeAabb(accumulator, bounds) {
@@ -417,14 +422,16 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 			const opacity = part.textureOpacity;
 			const textureID = part.textureID;
 			const complexity = part.complexity;
-			const primitiveKey = primitiveGeometryKey(part.primitive, part.dimensions, complexity);
+			const primitiveOptions = part.primitiveOptions;
+			const primitiveKey = primitiveGeometryKey(part.primitive, part.dimensions, complexity, primitiveOptions);
 
-			const batchKey = scatterBatchKey(part.primitive, part.dimensions, textureID, complexity);
+			const batchKey = scatterBatchKey(part.primitive, part.dimensions, textureID, complexity, primitiveOptions);
 			if (!batchMap.has(batchKey)) {
 				batchMap.set(batchKey, {
 					primitive: part.primitive.toLowerCase(),
 					dimensions: { ...part.dimensions },
 					complexity: complexity,
+					primitiveOptions: primitiveOptions,
 					primitiveKey: primitiveKey,
 					textureID: textureID,
 					instances: [],
@@ -516,7 +523,7 @@ function BuildScatterVisualResources(scatterBatches) {
 		packScatterBatchInstances(batch);
 
 		if (!primitiveGeometry[batch.primitiveKey]) {
-			const geometry = BuildGeometry(batch.primitive, batch.dimensions, batch.complexity);
+			const geometry = BuildGeometry(batch.primitive, batch.dimensions, batch.complexity, batch.primitiveOptions);
 			primitiveGeometry[batch.primitiveKey] = {
 				positions: geometry.positions,
 				indices: geometry.indices,
