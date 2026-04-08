@@ -5,7 +5,8 @@
 
 import { BuildObject } from "./NewObject.js";
 import { Log } from "../core/meta.js";
-import { MultiplyVector3 } from "../math/Vector3.js";
+import { Unit } from "../math/Utilities.js";
+import { MultiplyVector3, Vector3Sq } from "../math/Vector3.js";
 
 function createEnvelopeObb(bounds) {
 	return {
@@ -17,6 +18,32 @@ function createEnvelopeObb(bounds) {
 			{ x: 0, y: 1, z: 0 },
 			{ x: 0, y: 0, z: 1 },
 		],
+	};
+}
+
+function createEnvelopeSphere(bounds) {
+	const half = bounds.max.clone().subtract(bounds.min).scale(0.5);
+	return {
+		type: "sphere",
+		center: bounds.min.clone().add(bounds.max).scale(0.5),
+		radius: new Unit(Math.max(0.0001, Math.sqrt(Vector3Sq(half))), "cnu"),
+	};
+}
+
+function createEnvelopeCapsule(bounds) {
+	const dim = bounds.max.clone().subtract(bounds.min);
+	const radius = Math.max(0.0001, Math.max(dim.x, dim.z) * 0.5);
+	const halfHeight = Math.max(0, (dim.y * 0.5) - radius);
+	const segmentStart = bounds.min.clone().add(bounds.max).scale(0.5);
+	const segmentEnd = segmentStart.clone();
+	segmentStart.y -= halfHeight;
+	segmentEnd.y += halfHeight;
+	return {
+		type: "capsule",
+		radius: new Unit(radius, "cnu"),
+		halfHeight: new Unit(halfHeight, "cnu"),
+		segmentStart: segmentStart,
+		segmentEnd: segmentEnd,
 	};
 }
 
@@ -53,6 +80,8 @@ function createDetailedBoundsFromParts(source, parts, bounds) {
 	}
 
 	if (source.collisionShape === "aabb") return { type: "aabb", min: bounds.min.clone(), max: bounds.max.clone() };
+	if (source.collisionShape === "sphere") return createEnvelopeSphere(bounds);
+	if (source.collisionShape === "capsule") return createEnvelopeCapsule(bounds);
 
 	if (parts.length === 1) return parts[0].detailedBounds;
 	return createEnvelopeObb(bounds);
@@ -78,15 +107,9 @@ function buildObstacleParts(source, index, options) {
 				detail: source.detail,
 				role: "obstacle",
 				collisionShape: source.collisionShape,
-			},
-			{
-				role: "obstacle",
 				scatterContext: options.scatterContext
-					? {
-						...options.scatterContext,
-						indexSeed: 500 + index,
-					}
-					: null,
+					? { ...options.scatterContext, indexSeed: 500 + index }
+					: null
 			}
 		);
 		return [single];
@@ -98,27 +121,16 @@ function buildObstacleParts(source, index, options) {
 	const rootScale = source.scale; // Vector3
 
 	return source.parts.map((part, partIndex) => {
-		const inheritedTexture = source.texture;
-		const partScatterContext = options.scatterContext
-			? {
-				...options.scatterContext,
-				indexSeed: 700 + (index * 100) + partIndex,
-			}
-			: null;
-
 		const scatterList = part.detail.scatter.length > 0 
 			? part.detail.scatter 
 			: (partIndex === 0 ? source.detail.scatter: []);
 
 		const combinedScale = MultiplyVector3(rootScale, part.localScale);
 
-		// Compute world-space position & rotation without mutating source transforms.
+		// Compute world-space position
 		const worldPos = source.position.clone();
 		worldPos.add(part.localPosition);
 		worldPos.y += part.dimensions.y * combinedScale.y * 0.5;
-
-		const worldRot = source.rotation.clone();
-		worldRot.add(part.localRotation);
 
 		return BuildObject(
 			{
@@ -128,18 +140,17 @@ function buildObstacleParts(source, index, options) {
 				complexity: part.complexity,
 				dimensions: part.dimensions,
 				position: worldPos,
-				rotation: worldRot,
+				rotation: source.rotation.clone().add(part.localRotation),
 				scale: combinedScale,
 				pivot: source.pivot,
 				primitiveOptions: part.primitiveOptions,
-				texture: part.texture || inheritedTexture,
+				texture: part.texture || source.texture,
 				detail: { scatter: scatterList },
 				role: "obstacle",
 				collisionShape: source.collisionShape,
-			},
-			{
-				role: "obstacle",
-				scatterContext: partScatterContext,
+				scatterContext: options.scatterContext
+					? { ...options.scatterContext, indexSeed: 700 + (index * 100) + partIndex }
+					: null
 			}
 		);
 	});
@@ -154,19 +165,17 @@ function BuildObstacle(source, index, options) {
 	const detailedBounds = createDetailedBoundsFromParts(source, parts, bounds);
 
 	return {
-		id: source.id,
-		mesh: mesh,
-		parts: parts,
-		bounds: bounds,
+		id            : source.id,
+		mesh          : mesh,
+		parts         : parts,
+		bounds        : bounds,
 		detailedBounds: detailedBounds,
 		collisionShape: source.collisionShape,
-		destructible: source.destructible,
-		hp: source.hp,
-		static: source.static,
-		scatter: source.scatter,
-		state: {
-			destroyed: false,
-		},
+		destructible  : source.destructible,
+		hp            : source.hp,
+		static        : source.static,
+		scatter       : source.scatter,
+		state         : { destroyed: false },
 	};
 }
 
@@ -184,15 +193,4 @@ function BuildObstacles(source, options) {
 	return built;
 }
 
-/**
- * Stub: Build a BVH from triangle data for future ray/sphere intersection queries.
- * @param {Float32Array} positions — triangle vertex positions (x,y,z triples).
- * @param {Uint32Array} indices — triangle indices.
- * @returns {null} — TODO: return BVH node tree.
- */
-function BuildTriangleBVH(positions, indices) {
-	// TODO: Implement BVH construction (midpoint split, SAH, etc.)
-	return null;
-}
-
-export { BuildObstacle, BuildObstacles, BuildTriangleBVH };
+export { BuildObstacle, BuildObstacles };

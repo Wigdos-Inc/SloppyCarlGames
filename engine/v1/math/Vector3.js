@@ -33,6 +33,21 @@ function NormalizeVector3(value, fallback) {
 /* === MATH === */
 // Perform math operations on canonized vectors.
 
+function Vector3ChainMath(a, b = [], chainDefinition = "") {
+	const math = (vector, target) => {
+		switch (target) {
+			case "+": return AddVector3(a, vector);
+			case "-": return SubtractVector3(a, vector);
+			case "*": return MultiplyVector3(a, vector);
+			case "/": return DivideVector3(a, vector);
+			case ".": return DotVector3(a, vector);
+		}
+	}
+
+	for (let i=0; i < chainDefinition.length; i++) a = math(b[i], chainDefinition[i]);
+	return a;
+}
+
 function ToVector3(value) {
 	return {
 		x: value,
@@ -174,4 +189,5 @@ export {
 	LerpVector3,
 	RotateByEuler,
 	ToVector3,
+	Vector3ChainMath,
 };

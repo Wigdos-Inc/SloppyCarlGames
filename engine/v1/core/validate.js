@@ -50,7 +50,8 @@ function isAllowedObjectShape(value) {
 		|| value === "sphere"
 		|| value === "capsule"
 		|| value === "cone"
-		|| value === "ramp"
+		|| value === "ramp-simple"
+		|| value === "ramp-complex"
 		|| value === "tube"
 		|| value === "torus"
 		|| value === "pyramid"
@@ -63,6 +64,8 @@ function isAllowedObjectCollisionShape(value) {
 		value === "none"
 		|| value === "obb"
 		|| value === "aabb"
+		|| value === "sphere"
+		|| value === "capsule"
 		|| value === "triangle-soup"
 	);
 }
@@ -330,6 +333,8 @@ function validateNormalizedLevelCollections(payload) {
 			!isVector3(object.position) || 
 			!isVector3(object.dimensions) || 
 			!isVector3(object.scale) || 
+			typeof object.nullSpace !== "boolean" ||
+			typeof object.sticky !== "boolean" ||
 			!validateNormalizedTextureDescriptor(object.texture)
 		) {
 			Log(
