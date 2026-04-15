@@ -1,34 +1,7 @@
 // Advanced Math Stuff
 
 import { EPSILON } from "../core/meta.js";
-import { Clamp, Clamp01, ToNumber } from "./Utilities.js";
-
-/* === NORMALIZERS === */
-// Convert incoming values into consistent vector objects.
-// These helpers are the exception that normalize raw vector-like input.
-
-function NormalizeVector3(value, fallback) {
-	const resolvedFallback = fallback || ToVector3(0);
-	if (!value) return { ...resolvedFallback };
-
-	if (Array.isArray(value)) {
-		return {
-			x: ToNumber(value[0], resolvedFallback.x),
-			y: ToNumber(value[1], resolvedFallback.y),
-			z: ToNumber(value[2], resolvedFallback.z),
-		};
-	}
-
-	if (typeof value === "object") {
-		return {
-			x: ToNumber(value.x, resolvedFallback.x),
-			y: ToNumber(value.y, resolvedFallback.y),
-			z: ToNumber(value.z, resolvedFallback.z),
-		};
-	}
-
-	return { ...resolvedFallback };
-}
+import { Clamp, Clamp01 } from "./Utilities.js";
 
 /* === MATH === */
 // Perform math operations on canonized vectors.
@@ -171,7 +144,6 @@ function RotateByEuler(point, rotation) {
 // Public math helpers.
 
 export {
-	NormalizeVector3,
 	AddVector3,
 	SubtractVector3,
 	DivideVector3,
