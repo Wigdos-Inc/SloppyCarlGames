@@ -134,6 +134,10 @@ Validation of game-provided/raw input payloads is allowed in boundary modules:
 - `core/normalize.js`
 - other explicit entry-point validators
 
+This exception applies only to game-provided payload data.
+
+Imported engine JSON, alias/schema maps, internal default objects, helper option objects, and any other engine-owned data consumed inside those same boundary modules are still canonical engine data and must be used directly without defensive guards or fallback substitution.
+
 These checks may only appear once on arrival or first usage and should never be repeated.
 
 ### B. Explicitly Approved Initialization Guards

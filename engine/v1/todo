@@ -1,6 +1,12 @@
+This file contains current priorities.
+
+Optimalize Modules using DRYAD (Critical)
+Add Terrain Support:
+- Add Sonic-Style Loop Blueprint
+- Add Half-Pipe Blueprint
+- Add Full-Pipe Blueprint
 Finish Model Bounds Expansion (critical):
 - Fix platform edge correction spam bug
-- Add triangle for pyramid/prism shapes (DEBUG)
 - Change camera collision to narrowphase bounds instead of broadphase
 - Investigate player to enemy collision not working
 - Update Scatter spawns to use parent narrowphase bounds instead of broadphase

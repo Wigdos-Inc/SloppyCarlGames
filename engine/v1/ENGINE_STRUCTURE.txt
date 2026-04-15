@@ -8,6 +8,7 @@ engine/
       meta.js // Engine-wide utilities (functions, constants, APIs, etc)
       validate.js // Validation utilities for game payloads.
       normalize.js // Data normalization of validated game payloads for engine use.
+      aliases.json // Accepted aliases for game payload fields.
 
     builder/
       NewBoss.js // Builder for creating boss entities
@@ -16,21 +17,21 @@ engine/
       NewObject.js // Builder of 3D meshes (mainly to be used by other builders)
       NewObstacle.js // Builder of obstacles
       NewTexture.js // Procedurally generated texture mapping onto meshes.
-      NewUI.js // Builder of UI components
-      NewScatter.js // Procedurally generated static object scatter models placed onto meshes.
+      NewUI.js // Builder of UI components (mainly HTML elements)
+      NewScatter.js // Procedurally generated multi-part static object scatter models placed on top of meshes.
       templates/
         characters.json // Character template definitions for builder
         enemies.json // Enemy template definitions
         obstacles.json // Obstacle template definitions
         projectiles.json // Projectile template definitions
+        terrain.json // Blueprints for complex terrain patterns
 
     handlers/
       Controls.js // Handles inputs from ui/level cache or sends inputs to game if unconsumed (input manager)
       Cutscene.js // Cutscene orchestration handler (cutscene manager)
       Render.js // Displays everything to the game (end of all visual pipelines)
-      Sound.js // Sound manager and helpers
+      Sound.js // Sound manager and helpers (many exported)
       UI.js // UI handler (UI state manager)
-
       game/
         Animation.js // Level entity animation handler based on entity states
         Boss.js // Boss behavior handler
@@ -39,8 +40,7 @@ engine/
         Enemy.js // Enemy behavior handler
         Level.js // Level lifecycle and orchestration (entire level state manager)
         Physics.js // Game physics glue for handlers (physics pipeline manager)
-        Texture.js // Custom texture and sprite loading onto meshes.
-
+        Texture.js // Custom texture and sprite loading onto meshes. Includes animated texture handling.
       menu/
         Splash.js // Manages splash screens on game startup
         LoadScreen.js // Loading screen logic
@@ -55,9 +55,9 @@ engine/
 
     math/
       Curves.js // Curve utilities (e.g., bezier helpers)
-      Forces.js // Force calculation helpers
+      Physics.js // Physics calculation helpers
       Vector3.js // 3D vector math utilities
-      Utilities.js // Utility math functions (includes Unit classes).
+      Utilities.js // Utility math functions (includes Unit/UnitVector3 classes).
 
     physics/
       Buoyancy.js // Buoyancy force calculations
@@ -68,10 +68,10 @@ engine/
       Resistance.js // Air/Water Resistance/drag computations
 
     player/
-      Abilities.js // Player ability definitions and applications.
+      Abilities.js // Player ability definitions and applications (accepts handlers from games).
       Animation.js // Player-specific animation handler.
       Master.js // Player master controller (player state manager)
-      Model.js // Player model/data representation (uses NewEntity builder for player model)
+      Model.js // Player model/data representation
       Movement.js // Movement handler for player
       characters.json // Player character presets
 
@@ -79,5 +79,5 @@ Notes:
 - Builders create 2D HTML elements and 3D WebGL2 meshes and are called by state managers.
 - Helpers are state managers and helper functions to simplify pipeline.
   - Games are only allowed to interact with helpers accepting payloads (e.g. UI.js or Level.js).
-  - Game payloads must first be validated and normalized through validate.js before the data is usable.
+  - Game payloads must first be validated and normalized through validate.js and normalize.js before the data is usable.
 - Render.js is the only file allowed to display visual elements to the game.
