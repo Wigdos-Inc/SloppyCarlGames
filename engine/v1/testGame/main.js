@@ -15,7 +15,7 @@ const { RequestLevelCreate } = await import("./levels/level.js");
 
 function resolveStartupSplashPayload() {
 	// Use engine default built-in splash sequence.
-	return "default";
+	return { outputType: "default" };
 }
 
 function handleSplashRequest() {

@@ -437,7 +437,7 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 			}
 
 			batchMap.get(batchKey).instances.push({ modelMatrix: modelMatrix, tint: [color.r, color.g, color.b, opacity] });
-			totalParts += 1;
+			totalParts++;
 
 			const half = ScaleVector3(MultiplyVector3(part.dimensions, scale), 0.5);
 			const pMin = SubtractVector3(pos, half);

@@ -1,0 +1,1473 @@
+{
+  "audio": {
+    "name": {
+      "__meta": {
+        "description": "Audio label",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "id": {
+      "__meta": {
+        "description": "Audio id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "src": {
+      "__meta": {
+        "description": "Audio source",
+        "aliases": ["source"],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "",
+        "deprecated": false
+      }
+    },
+    "loop": {
+      "__meta": {
+        "description": "Loop flag",
+        "aliases": [],
+        "dataType": "boolean",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": false,
+        "deprecated": false
+      }
+    },
+    "rate": {
+      "__meta": {
+        "description": "Playback rate",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": 1,
+        "range": { "min": 0.01, "max": 4 },
+        "deprecated": false
+      }
+    },
+    "category": {
+      "__meta": {
+        "description": "Audio channel category",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "allowedValues": ["Game", "Menu", "Cutscene", "Voice", "Music", "Sfx"],
+        "deprecated": false
+      }
+    },
+    "options": {
+      "__meta": {
+        "description": "Audio options object",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": {},
+        "deprecated": false
+      }
+    }
+  },
+  "menu": {
+    "screenId": {
+      "__meta": {
+        "description": "Menu screen id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "UnknownScreen",
+        "deprecated": false
+      }
+    },
+    "rootId": {
+      "__meta": {
+        "description": "Render root id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": true,
+        "fallback": "engine-ui-root",
+        "deprecated": false
+      }
+    },
+    "rootStyles": {
+      "__meta": {
+        "description": "Root style map",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": {},
+        "deprecated": false
+      }
+    },
+    "replace": {
+      "__meta": {
+        "description": "Replace root contents",
+        "aliases": [],
+        "dataType": "boolean",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": true,
+        "deprecated": false
+      }
+    },
+    "music": {
+      "__meta": {
+        "description": "Menu music payload",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "elements": {
+      "__meta": {
+        "description": "Menu element list",
+        "aliases": [],
+        "dataType": "array",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": [],
+        "deprecated": false
+      }
+    }
+  },
+  "menuElement": {
+    "type": {
+      "__meta": {
+        "description": "DOM element type",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "div",
+        "deprecated": false
+      }
+    },
+    "id": {
+      "__meta": {
+        "description": "Element id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "className": {
+      "__meta": {
+        "description": "Element class name",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "text": {
+      "__meta": {
+        "description": "Element text content",
+        "aliases": ["content"],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "src": {
+      "__meta": {
+        "description": "Element media source",
+        "aliases": ["source"],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "value": {
+      "__meta": {
+        "description": "Element value",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "checked": {
+      "__meta": {
+        "description": "Checked state",
+        "aliases": [],
+        "dataType": "boolean",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "styles": {
+      "__meta": {
+        "description": "Inline style map",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": {},
+        "deprecated": false
+      }
+    },
+    "attributes": {
+      "__meta": {
+        "description": "Attribute map",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": {},
+        "deprecated": false
+      }
+    },
+    "events": {
+      "__meta": {
+        "description": "Named event action map",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": {},
+        "deprecated": false
+      }
+    },
+    "on": {
+      "__meta": {
+        "description": "Alternate event action map",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": {},
+        "deprecated": false
+      }
+    },
+    "children": {
+      "__meta": {
+        "description": "Child element list",
+        "aliases": [],
+        "dataType": "array",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": [],
+        "deprecated": false
+      }
+    }
+  },
+  "splash": {
+    "outputType": {
+      "__meta": {
+        "description": "Splash output mode",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "default",
+        "allowedValues": ["default", "preset", "custom"],
+        "deprecated": false
+      }
+    },
+    "presetId": {
+      "__meta": {
+        "description": "Built-in preset id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "sequence": {
+      "__meta": {
+        "description": "Custom splash step list",
+        "aliases": [],
+        "dataType": "array",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": [],
+        "deprecated": false
+      }
+    }
+  },
+  "splashStep": {
+    "name": {
+      "__meta": {
+        "description": "Splash step name",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": true,
+        "fallback": "UnnamedSplashStep",
+        "deprecated": false
+      }
+    },
+    "image": {
+      "__meta": {
+        "description": "Splash image source",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "",
+        "deprecated": false
+      }
+    },
+    "sfx": {
+      "__meta": {
+        "description": "Splash sfx payload",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "voice": {
+      "__meta": {
+        "description": "Splash voice payload",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "voiceAtStart": {
+      "__meta": {
+        "description": "Play voice during fade-in",
+        "aliases": [],
+        "dataType": "boolean",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": false,
+        "deprecated": false
+      }
+    },
+    "fadeInSeconds": {
+      "__meta": {
+        "description": "Fade-in duration seconds",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": 0.3,
+        "range": { "min": 0, "max": 20 },
+        "deprecated": false
+      }
+    },
+    "holdMs": {
+      "__meta": {
+        "description": "Hold duration milliseconds",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": 0,
+        "range": { "min": 0, "max": 60000 },
+        "deprecated": false
+      }
+    },
+    "fadeOutSeconds": {
+      "__meta": {
+        "description": "Fade-out duration seconds",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": 1,
+        "range": { "min": 0, "max": 20 },
+        "deprecated": false
+      }
+    },
+    "elements": {
+      "__meta": {
+        "description": "Supplemental splash elements",
+        "aliases": [],
+        "dataType": "array",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": [],
+        "deprecated": false
+      }
+    },
+    "text": {
+      "__meta": {
+        "description": "Splash text entries",
+        "aliases": [],
+        "dataType": "array",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": [],
+        "deprecated": false
+      }
+    }
+  },
+  "splashText": {
+    "type": {
+      "__meta": {
+        "description": "Text element type",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "div",
+        "deprecated": false
+      }
+    },
+    "id": {
+      "__meta": {
+        "description": "Text element id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "className": {
+      "__meta": {
+        "description": "Text class name",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "content": {
+      "__meta": {
+        "description": "Text content",
+        "aliases": ["text"],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "",
+        "deprecated": false
+      }
+    },
+    "attributes": {
+      "__meta": {
+        "description": "Text attributes",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": {},
+        "deprecated": false
+      }
+    },
+    "styles": {
+      "__meta": {
+        "description": "Text styles",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": {},
+        "deprecated": false
+      }
+    }
+  },
+  "cutsceneRendered": {
+    "source": {
+      "__meta": {
+        "description": "Rendered cutscene source",
+        "aliases": ["src"],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "",
+        "deprecated": false
+      }
+    },
+    "fit": {
+      "__meta": {
+        "description": "Video object-fit value",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": "cover",
+        "allowedValues": ["fill", "contain", "cover", "none", "scale-down"],
+        "deprecated": false
+      }
+    },
+    "muted": {
+      "__meta": {
+        "description": "Muted playback flag",
+        "aliases": [],
+        "dataType": "boolean",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": false,
+        "deprecated": false
+      }
+    },
+    "loop": {
+      "__meta": {
+        "description": "Loop playback flag",
+        "aliases": [],
+        "dataType": "boolean",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": false,
+        "deprecated": false
+      }
+    },
+    "fadeOutSeconds": {
+      "__meta": {
+        "description": "Video fade-out seconds",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": 0.5,
+        "range": { "min": 0, "max": 20 },
+        "deprecated": false
+      }
+    },
+    "fadeLeadSeconds": {
+      "__meta": {
+        "description": "Video fade lead seconds",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": 0.5,
+        "range": { "min": 0, "max": 20 },
+        "deprecated": false
+      }
+    }
+  },
+  "cutsceneEngine": {
+    "durationSeconds": {
+      "__meta": {
+        "description": "Engine cutscene duration",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": 0,
+        "range": { "min": 0, "max": 1200 },
+        "deprecated": false
+      }
+    },
+    "fadeLeadSeconds": {
+      "__meta": {
+        "description": "Engine cutscene fade lead",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": 0.5,
+        "range": { "min": 0, "max": 1200 },
+        "deprecated": false
+      }
+    }
+  },
+  "level": {
+    "id": {
+      "__meta": {
+        "description": "Stage id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "unnamed-stage",
+        "deprecated": false
+      }
+    },
+    "title": {
+      "__meta": {
+        "description": "Stage title",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "Untitled Stage",
+        "deprecated": false
+      }
+    },
+    "world": {
+      "__meta": {
+        "description": "World config",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": {},
+        "deprecated": false
+      },
+      "length": {
+        "__meta": {
+          "description": "World length",
+          "aliases": [],
+          "dataType": "number",
+          "isRequired": true,
+          "isExpected": true,
+          "fallback": 120,
+          "range": { "min": 1, "max": 100000 },
+          "deprecated": false
+        }
+      },
+      "width": {
+        "__meta": {
+          "description": "World width",
+          "aliases": [],
+          "dataType": "number",
+          "isRequired": true,
+          "isExpected": true,
+          "fallback": 80,
+          "range": { "min": 1, "max": 100000 },
+          "deprecated": false
+        }
+      },
+      "height": {
+        "__meta": {
+          "description": "World height",
+          "aliases": [],
+          "dataType": "number",
+          "isRequired": true,
+          "isExpected": true,
+          "fallback": 40,
+          "range": { "min": 1, "max": 100000 },
+          "deprecated": false
+        }
+      },
+      "deathBarrierY": {
+        "__meta": {
+          "description": "World death barrier",
+          "aliases": [],
+          "dataType": "number",
+          "isRequired": false,
+          "isExpected": true,
+          "fallback": -20,
+          "deprecated": false
+        }
+      },
+      "waterLevel": {
+        "__meta": {
+          "description": "World water level",
+          "aliases": [],
+          "dataType": "number",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": null,
+          "deprecated": false
+        }
+      },
+      "textureScale": {
+        "__meta": {
+          "description": "Terrain texture scale",
+          "aliases": [],
+          "dataType": "number",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": 1,
+          "range": { "min": 0.01, "max": 100 },
+          "deprecated": false
+        }
+      },
+      "scatterScale": {
+        "__meta": {
+          "description": "Scatter scale",
+          "aliases": [],
+          "dataType": "number",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": 1,
+          "range": { "min": 0, "max": 100 },
+          "deprecated": false
+        }
+      }
+    },
+    "terrain": {
+      "__meta": {
+        "description": "Terrain payload",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": {},
+        "deprecated": false
+      },
+      "objects": {
+        "__meta": {
+          "description": "Terrain object list",
+          "aliases": [],
+          "dataType": "array",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": [],
+          "deprecated": false
+        }
+      },
+      "triggers": {
+        "__meta": {
+          "description": "Terrain trigger list",
+          "aliases": [],
+          "dataType": "array",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": [],
+          "deprecated": false
+        }
+      }
+    },
+    "obstacles": {
+      "__meta": {
+        "description": "Obstacle list",
+        "aliases": [],
+        "dataType": "array",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": [],
+        "deprecated": false
+      }
+    },
+    "entities": {
+      "__meta": {
+        "description": "Level entity override list",
+        "aliases": [],
+        "dataType": "array",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": [],
+        "deprecated": false
+      }
+    },
+    "entityBlueprints": {
+      "__meta": {
+        "description": "Entity blueprint buckets",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": {},
+        "deprecated": false
+      },
+      "enemies": {
+        "__meta": {
+          "description": "Enemy blueprints",
+          "aliases": [],
+          "dataType": "array",
+          "isRequired": true,
+          "isExpected": true,
+          "fallback": [],
+          "deprecated": false
+        }
+      },
+      "npcs": {
+        "__meta": {
+          "description": "NPC blueprints",
+          "aliases": [],
+          "dataType": "array",
+          "isRequired": true,
+          "isExpected": true,
+          "fallback": [],
+          "deprecated": false
+        }
+      },
+      "collectibles": {
+        "__meta": {
+          "description": "Collectible blueprints",
+          "aliases": [],
+          "dataType": "array",
+          "isRequired": true,
+          "isExpected": true,
+          "fallback": [],
+          "deprecated": false
+        }
+      },
+      "projectiles": {
+        "__meta": {
+          "description": "Projectile blueprints",
+          "aliases": [],
+          "dataType": "array",
+          "isRequired": true,
+          "isExpected": true,
+          "fallback": [],
+          "deprecated": false
+        }
+      },
+      "entities": {
+        "__meta": {
+          "description": "Generic entity blueprints",
+          "aliases": [],
+          "dataType": "array",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": [],
+          "deprecated": false
+        }
+      }
+    },
+    "camera": {
+      "__meta": {
+        "description": "Camera config",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": {},
+        "deprecated": false
+      },
+      "distance": {
+        "__meta": {
+          "description": "Camera distance",
+          "aliases": [],
+          "dataType": "number",
+          "isRequired": false,
+          "isExpected": true,
+          "fallback": 5,
+          "range": { "min": 0.1, "max": 10000 },
+          "deprecated": false
+        }
+      },
+      "sensitivity": {
+        "__meta": {
+          "description": "Camera sensitivity",
+          "aliases": [],
+          "dataType": "number",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": 0.12,
+          "range": { "min": 0.001, "max": 10 },
+          "deprecated": false
+        }
+      },
+      "heightOffset": {
+        "__meta": {
+          "description": "Camera height offset",
+          "aliases": [],
+          "dataType": "number",
+          "isRequired": false,
+          "isExpected": true,
+          "fallback": 1.5,
+          "range": { "min": -1000, "max": 1000 },
+          "deprecated": false
+        }
+      },
+      "levelOpening": {
+        "__meta": {
+          "description": "Opening camera positions",
+          "aliases": [],
+          "dataType": "object",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": {},
+          "deprecated": false
+        },
+        "startPosition": {
+          "__meta": {
+            "description": "Opening start position",
+            "aliases": [],
+            "dataType": "vector3",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": { "x": 0, "y": 0, "z": 0 },
+            "deprecated": false
+          },
+          "x": {
+            "__meta": {
+              "description": "Start x",
+              "aliases": [],
+              "dataType": "number",
+              "isRequired": false,
+              "isExpected": true,
+              "fallback": 0,
+              "deprecated": false
+            }
+          },
+          "y": {
+            "__meta": {
+              "description": "Start y",
+              "aliases": [],
+              "dataType": "number",
+              "isRequired": false,
+              "isExpected": true,
+              "fallback": 0,
+              "deprecated": false
+            }
+          },
+          "z": {
+            "__meta": {
+              "description": "Start z",
+              "aliases": [],
+              "dataType": "number",
+              "isRequired": false,
+              "isExpected": true,
+              "fallback": 0,
+              "deprecated": false
+            }
+          }
+        },
+        "endPosition": {
+          "__meta": {
+            "description": "Opening end position",
+            "aliases": [],
+            "dataType": "vector3",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": { "x": 0, "y": 0, "z": 0 },
+            "deprecated": false
+          },
+          "x": {
+            "__meta": {
+              "description": "End x",
+              "aliases": [],
+              "dataType": "number",
+              "isRequired": false,
+              "isExpected": true,
+              "fallback": 0,
+              "deprecated": false
+            }
+          },
+          "y": {
+            "__meta": {
+              "description": "End y",
+              "aliases": [],
+              "dataType": "number",
+              "isRequired": false,
+              "isExpected": true,
+              "fallback": 0,
+              "deprecated": false
+            }
+          },
+          "z": {
+            "__meta": {
+              "description": "End z",
+              "aliases": [],
+              "dataType": "number",
+              "isRequired": false,
+              "isExpected": true,
+              "fallback": 0,
+              "deprecated": false
+            }
+          }
+        }
+      }
+    },
+    "player": {
+      "__meta": {
+        "description": "Player config",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "music": {
+      "__meta": {
+        "description": "Level music payload",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "meta": {
+      "__meta": {
+        "description": "Level metadata",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": {},
+        "deprecated": false
+      },
+      "levelId": {
+        "__meta": {
+          "description": "Level id",
+          "aliases": [],
+          "dataType": "string",
+          "isRequired": true,
+          "isExpected": true,
+          "fallback": "unknown-level",
+          "deprecated": false
+        }
+      },
+      "stageId": {
+        "__meta": {
+          "description": "Stage id meta",
+          "aliases": [],
+          "dataType": "string",
+          "isRequired": true,
+          "isExpected": true,
+          "fallback": "unknown-stage",
+          "deprecated": false
+        }
+      }
+    }
+  },
+  "levelTrigger": {
+    "id": {
+      "__meta": {
+        "description": "Trigger id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "trigger",
+        "deprecated": false
+      }
+    },
+    "type": {
+      "__meta": {
+        "description": "Trigger type",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": "custom",
+        "deprecated": false
+      }
+    },
+    "start": {
+      "__meta": {
+        "description": "Trigger start",
+        "aliases": [],
+        "dataType": "vector3",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": { "x": 0, "y": 0, "z": 0 },
+        "deprecated": false
+      },
+      "x": { "__meta": { "description": "Trigger start x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Trigger start y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Trigger start z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "end": {
+      "__meta": {
+        "description": "Trigger end",
+        "aliases": [],
+        "dataType": "vector3",
+        "isRequired": true,
+        "isExpected": true,
+        "fallback": { "x": 0, "y": 0, "z": 0 },
+        "deprecated": false
+      },
+      "x": { "__meta": { "description": "Trigger end x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Trigger end y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Trigger end z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "payload": {
+      "__meta": {
+        "description": "Trigger payload object",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": {},
+        "deprecated": false
+      }
+    },
+    "activateOnce": {
+      "__meta": {
+        "description": "Trigger once flag",
+        "aliases": [],
+        "dataType": "boolean",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": false,
+        "deprecated": false
+      }
+    }
+  },
+  "levelTexture": {
+    "textureID": {
+      "__meta": {
+        "description": "Texture id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": true,
+        "fallback": "default-grid",
+        "deprecated": false
+      }
+    },
+    "baseTextureID": {
+      "__meta": {
+        "description": "Base texture id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "materialTextureID": {
+      "__meta": {
+        "description": "Material texture id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "shape": {
+      "__meta": {
+        "description": "Texture pattern shape",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "color": {
+      "__meta": {
+        "description": "Texture tint color",
+        "aliases": ["textureColor"],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 },
+        "deprecated": false
+      },
+      "r": { "__meta": { "description": "Red", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "b": { "__meta": { "description": "Blue", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+    },
+    "opacity": {
+      "__meta": {
+        "description": "Texture opacity",
+        "aliases": ["textureOpacity"],
+        "dataType": "number",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": 1,
+        "range": { "min": 0, "max": 1 },
+        "deprecated": false
+      }
+    },
+    "density": {
+      "__meta": {
+        "description": "Texture density",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": 1,
+        "range": { "min": 0, "max": 100 },
+        "deprecated": false
+      }
+    },
+    "speckSize": {
+      "__meta": {
+        "description": "Texture speck size",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": 1,
+        "range": { "min": 0, "max": 100 },
+        "deprecated": false
+      }
+    },
+    "animated": {
+      "__meta": {
+        "description": "Animated texture flag",
+        "aliases": [],
+        "dataType": "boolean",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": false,
+        "deprecated": false
+      }
+    },
+    "holdTimeSpeed": {
+      "__meta": {
+        "description": "Texture hold time multiplier",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": 1,
+        "range": { "min": 0.01, "max": 100 },
+        "deprecated": false
+      }
+    },
+    "blendTimeSpeed": {
+      "__meta": {
+        "description": "Texture blend time multiplier",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": 1,
+        "range": { "min": 0.01, "max": 100 },
+        "deprecated": false
+      }
+    }
+  },
+  "levelPart": {
+    "id": { "__meta": { "description": "Part id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "part", "deprecated": false } },
+    "parentId": { "__meta": { "description": "Parent id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "root", "deprecated": false } },
+    "label": { "__meta": { "description": "Part label", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "anchorPoint": { "__meta": { "description": "Anchor point", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "center", "allowedValues": ["top", "bottom", "front", "back", "left", "right", "center"], "deprecated": false } },
+    "attachmentPoint": { "__meta": { "description": "Attachment point", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "center", "allowedValues": ["top", "bottom", "front", "back", "left", "right", "center"], "deprecated": false } },
+    "shape": { "__meta": { "description": "Primitive shape", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "cube", "allowedValues": ["cube", "cylinder", "sphere", "capsule", "cone", "ramp-simple", "ramp-complex", "tube", "torus", "pyramid", "plane"], "deprecated": false } },
+    "complexity": { "__meta": { "description": "Primitive complexity", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "medium", "allowedValues": ["low", "medium", "high", ""], "deprecated": false } },
+    "dimensions": {
+      "__meta": { "description": "Part dimensions", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
+      "x": { "__meta": { "description": "Dimension x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "y": { "__meta": { "description": "Dimension y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "z": { "__meta": { "description": "Dimension z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+    },
+    "localPosition": {
+      "__meta": { "description": "Local position", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Local x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Local y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Local z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "localRotation": {
+      "__meta": { "description": "Local rotation degrees", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Local rot x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Local rot y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Local rot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "localScale": {
+      "__meta": { "description": "Local scale", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
+      "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+    },
+    "pivot": {
+      "__meta": { "description": "Part pivot", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Pivot x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Pivot y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Pivot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "primitiveOptions": { "__meta": { "description": "Primitive option bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "texture": { "__meta": { "description": "Part texture object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "detail": { "__meta": { "description": "Part detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
+  },
+  "levelObject": {
+    "id": { "__meta": { "description": "Object id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "object", "deprecated": false } },
+    "shape": { "__meta": { "description": "Object shape", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "cube", "allowedValues": ["cube", "cylinder", "sphere", "capsule", "cone", "ramp-simple", "ramp-complex", "tube", "torus", "pyramid", "plane"], "deprecated": false } },
+    "complexity": { "__meta": { "description": "Object complexity", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "medium", "allowedValues": ["low", "medium", "high", ""], "deprecated": false } },
+    "dimensions": {
+      "__meta": { "description": "Object dimensions", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
+      "x": { "__meta": { "description": "Dimension x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "y": { "__meta": { "description": "Dimension y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "z": { "__meta": { "description": "Dimension z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+    },
+    "position": {
+      "__meta": { "description": "Object position", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Position x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Position y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Position z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "rotation": {
+      "__meta": { "description": "Object rotation degrees", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Rotation x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Rotation y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Rotation z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "scale": {
+      "__meta": { "description": "Object scale", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
+      "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+    },
+    "pivot": {
+      "__meta": { "description": "Object pivot", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Pivot x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Pivot y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Pivot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "primitiveOptions": { "__meta": { "description": "Primitive option bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "texture": { "__meta": { "description": "Object texture object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "detail": { "__meta": { "description": "Object detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "collisionShape": { "__meta": { "description": "Object collision shape", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "aabb", "allowedValues": ["none", "aabb", "obb", "sphere", "capsule", "triangle-soup"], "deprecated": false } },
+    "destructible": { "__meta": { "description": "Destructible flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+    "hp": { "__meta": { "description": "Obstacle hp", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
+    "static": { "__meta": { "description": "Static flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } },
+    "parts": { "__meta": { "description": "Obstacle part list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
+  },
+  "levelMovement": {
+    "start": {
+      "__meta": { "description": "Movement start", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Start x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Start y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Start z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "end": {
+      "__meta": { "description": "Movement end", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "End x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "End y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "End z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "repeat": { "__meta": { "description": "Repeat flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+    "backAndForth": { "__meta": { "description": "Back and forth flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+    "speed": { "__meta": { "description": "Movement speed", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
+    "jump": { "__meta": { "description": "Jump strength", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
+    "jumpInterval": { "__meta": { "description": "Jump interval ms", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+    "jumpOnSight": { "__meta": { "description": "Jump on sight flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+    "disappear": { "__meta": { "description": "Disappear flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+    "chase": { "__meta": { "description": "Chase flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+    "physics": { "__meta": { "description": "Physics flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
+  },
+  "levelAttack": {
+    "id": { "__meta": { "description": "Attack id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "attack", "deprecated": false } },
+    "cooldownMs": { "__meta": { "description": "Attack cooldown", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+    "projectileBlueprintId": { "__meta": { "description": "Projectile blueprint id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } }
+  },
+  "levelEntityBlueprint": {
+    "id": { "__meta": { "description": "Blueprint id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "entity.blueprint", "deprecated": false } },
+    "type": { "__meta": { "description": "Entity type", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "entity", "allowedValues": ["enemy", "npc", "collectible", "projectile", "entity", "boss"], "deprecated": false } },
+    "hp": { "__meta": { "description": "Hit points", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
+    "movement": { "__meta": { "description": "Movement block", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "velocity": {
+      "__meta": { "description": "Velocity vector", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Velocity x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Velocity y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Velocity z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "platform": { "__meta": { "description": "Platform config", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "attacks": { "__meta": { "description": "Attack list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
+    "hardcoded": { "__meta": { "description": "Hardcoded behavior bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "animations": { "__meta": { "description": "Animation config bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "collisionOverride": { "__meta": { "description": "Collision override bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "model": {
+      "__meta": { "description": "Entity model block", "aliases": [], "dataType": "object", "isRequired": true, "isExpected": true, "fallback": {}, "deprecated": false },
+      "spawnSurfaceId": { "__meta": { "description": "Spawn surface id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+      "rootTransform": {
+        "__meta": { "description": "Root transform", "aliases": [], "dataType": "object", "isRequired": true, "isExpected": true, "fallback": {}, "deprecated": false },
+        "position": {
+          "__meta": { "description": "Root position", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+          "x": { "__meta": { "description": "Root pos x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "y": { "__meta": { "description": "Root pos y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "z": { "__meta": { "description": "Root pos z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+        },
+        "rotation": {
+          "__meta": { "description": "Root rotation degrees", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+          "x": { "__meta": { "description": "Root rot x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "y": { "__meta": { "description": "Root rot y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "z": { "__meta": { "description": "Root rot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+        },
+        "scale": {
+          "__meta": { "description": "Root scale", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
+          "x": { "__meta": { "description": "Root scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+          "y": { "__meta": { "description": "Root scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+          "z": { "__meta": { "description": "Root scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+        },
+        "pivot": {
+          "__meta": { "description": "Root pivot", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+          "x": { "__meta": { "description": "Root pivot x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "y": { "__meta": { "description": "Root pivot y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "z": { "__meta": { "description": "Root pivot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+        }
+      },
+      "parts": { "__meta": { "description": "Model part list", "aliases": [], "dataType": "array", "isRequired": true, "isExpected": true, "fallback": [], "deprecated": false } }
+    }
+  },
+  "levelEntityOverride": {
+    "id": { "__meta": { "description": "Entity id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "entity", "deprecated": false } },
+    "type": { "__meta": { "description": "Entity type", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "entity", "allowedValues": ["enemy", "npc", "collectible", "projectile", "entity", "boss"], "deprecated": false } },
+    "blueprintId": { "__meta": { "description": "Blueprint id reference", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "spawnSurfaceId": { "__meta": { "description": "Spawn surface id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "rootTransform": {
+      "__meta": { "description": "Override root transform", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
+      "position": {
+        "__meta": { "description": "Override position", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+        "x": { "__meta": { "description": "Position x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "y": { "__meta": { "description": "Position y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "z": { "__meta": { "description": "Position z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+      },
+      "rotation": {
+        "__meta": { "description": "Override rotation degrees", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+        "x": { "__meta": { "description": "Rotation x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "y": { "__meta": { "description": "Rotation y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "z": { "__meta": { "description": "Rotation z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+      },
+      "scale": {
+        "__meta": { "description": "Override scale", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
+        "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+        "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+        "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+      },
+      "pivot": {
+        "__meta": { "description": "Override pivot", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+        "x": { "__meta": { "description": "Pivot x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "y": { "__meta": { "description": "Pivot y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "z": { "__meta": { "description": "Pivot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+      }
+    },
+    "movement": { "__meta": { "description": "Override movement block", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "dialogue": { "__meta": { "description": "Dialogue lines", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
+    "hp": { "__meta": { "description": "Override hp", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
+    "hardcoded": { "__meta": { "description": "Override hardcoded bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "collisionOverride": { "__meta": { "description": "Override collision bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "attacks": { "__meta": { "description": "Override attacks", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
+    "platform": { "__meta": { "description": "Override platform bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "animations": { "__meta": { "description": "Override animations bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "velocity": {
+      "__meta": { "description": "Override velocity", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Velocity x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Velocity y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Velocity z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    }
+  },
+  "levelPlayer": {
+    "character": { "__meta": { "description": "Player character id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "carl", "deprecated": false } },
+    "spawnPosition": {
+      "__meta": { "description": "Spawn position", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Spawn x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Spawn y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Spawn z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "scale": {
+      "__meta": { "description": "Player scale", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
+      "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+    },
+    "modelParts": { "__meta": { "description": "Custom model part list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
+    "metaOverrides": { "__meta": { "description": "Meta override bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": { "list": [] }, "deprecated": false } },
+    "collectibles": { "__meta": { "description": "Starting collectibles", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 100000 }, "deprecated": false } }
+  }
+}

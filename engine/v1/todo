@@ -1,5 +1,6 @@
 This file contains current priorities.
 
+Pass ERA, DRYAD and yourself onto the new normalize.js and validate.js
 Optimalize Modules using DRYAD (Critical)
 Add Terrain Support:
 - Add Sonic-Style Loop Blueprint

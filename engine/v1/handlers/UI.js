@@ -174,6 +174,10 @@ function HandleUiAction(action) {
 function ApplyMenuUI(payload) {
 	// Validation & Normalization
 	payload = ValidateMenuUIPayload(payload);
+	if (payload === null) {
+		Log("ENGINE", "UI.ApplyMenuUI aborted: invalid payload.", "error", "UI");
+		return null;
+	}
 
 	// Update Input Events Engine Listens for
 	UpdateInputEventTypes({ payloadType: "ui", payload: payload });
@@ -215,6 +219,8 @@ function ApplyMenuUI(payload) {
 	// If a boot sequence is awaiting the UI application, resolve it here.
 	if (Cache.UI.startupUiAppliedResolve) Cache.UI.startupUiAppliedResolve(true);
 	Cache.UI.startupUiAppliedResolve = null;
+
+	return payload;
 }
 
 function LoadScreen(payload) {

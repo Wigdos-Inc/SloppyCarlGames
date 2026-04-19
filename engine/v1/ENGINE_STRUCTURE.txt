@@ -7,8 +7,8 @@ engine/
       ini.js // Initialize exportable ENGINE API for games.
       meta.js // Engine-wide utilities (functions, constants, APIs, etc)
       validate.js // Validation utilities for game payloads.
-      normalize.js // Data normalization of validated game payloads for engine use.
-      aliases.json // Accepted aliases for game payload fields.
+      normalize.js // Data normalization and alias resolution of validated game payloads for engine use.
+      canonSchemas.json // Live canonical schema, aliases, normalization/validation metadata for payload fields.
 
     builder/
       NewBoss.js // Builder for creating boss entities

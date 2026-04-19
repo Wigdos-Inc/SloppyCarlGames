@@ -302,7 +302,11 @@ async function ApplySplashScreenSequence(options) {
 	DeclineSplashPayload();
 
 	// Validate (and normalize) buffered splash payload.
-	const payload = ValidateSplashPayload(bufferedSplashPayload);
+	let payload = ValidateSplashPayload(bufferedSplashPayload);
+	if (payload === null) {
+		Log("ENGINE", "Splash.ApplySplashScreenSequence falling back to default sequence after validation failure.", "error", "Startup");
+		payload = { outputType: "default", presetId: null, sequence: [] };
+	}
 
 	// Log whether this is a custom sequence, a preset, or the default using normalized outputType.
 	switch (payload.outputType) {
