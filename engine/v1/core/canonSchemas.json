@@ -52,7 +52,7 @@
         "isRequired": false,
         "isExpected": false,
         "fallback": 1,
-        "range": { "min": 0.01, "max": 4 },
+        "range": { "min": 0.01, "max": 5 },
         "deprecated": false
       }
     },
@@ -98,7 +98,7 @@
         "aliases": [],
         "dataType": "string",
         "isRequired": false,
-        "isExpected": true,
+        "isExpected": false,
         "fallback": "engine-ui-root",
         "deprecated": false
       }
@@ -1111,6 +1111,31 @@
       }
     }
   },
+  "levelScatterEntry": {
+    "typeID": {
+      "__meta": {
+        "description": "Scatter type id",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": "",
+        "deprecated": false
+      }
+    },
+    "density": {
+      "__meta": {
+        "description": "Scatter density",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": 1,
+        "range": { "min": 0, "max": 100 },
+        "deprecated": false
+      }
+    }
+  },
   "levelTexture": {
     "textureID": {
       "__meta": {
@@ -1355,6 +1380,44 @@
     "id": { "__meta": { "description": "Attack id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "attack", "deprecated": false } },
     "cooldownMs": { "__meta": { "description": "Attack cooldown", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
     "projectileBlueprintId": { "__meta": { "description": "Projectile blueprint id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } }
+  },
+  "levelCollisionOverride": {
+    "physics": {
+      "__meta": {
+        "description": "Physics collision shape override",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "allowedValues": ["sphere", "aabb", "capsule", "obb", "compound-sphere", "triangle-soup"],
+        "deprecated": false
+      }
+    },
+    "hurtbox": {
+      "__meta": {
+        "description": "Hurtbox collision shape override",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "allowedValues": ["sphere", "aabb", "capsule", "obb", "compound-sphere", "triangle-soup"],
+        "deprecated": false
+      }
+    },
+    "hitbox": {
+      "__meta": {
+        "description": "Hitbox collision shape override",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "allowedValues": ["sphere", "aabb", "capsule", "obb", "compound-sphere", "triangle-soup"],
+        "deprecated": false
+      }
+    }
   },
   "levelEntityBlueprint": {
     "id": { "__meta": { "description": "Blueprint id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "entity.blueprint", "deprecated": false } },

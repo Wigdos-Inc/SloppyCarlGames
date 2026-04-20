@@ -175,7 +175,7 @@ function ApplyMenuUI(payload) {
 	// Validation & Normalization
 	payload = ValidateMenuUIPayload(payload);
 	if (payload === null) {
-		Log("ENGINE", "UI.ApplyMenuUI aborted: invalid payload.", "error", "UI");
+		Log("ENGINE", "ApplyMenuUI aborted: invalid payload.", "error", "UI");
 		return null;
 	}
 
