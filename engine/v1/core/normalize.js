@@ -187,7 +187,7 @@ function AudioPayload(payload) {
 		normalized.category = categoryMeta.fallback;
 	}
 
-	const options = structuredClone(normalizeObject(normalized.options).value);
+	const options = structuredClone(normalized.options);
 	if (options.id === undefined && normalized.id !== null) options.id = normalized.id;
 	if (options.name === undefined && normalized.name !== null) options.name = normalized.name;
 	if (normalized.rate !== null) options.rate = normalized.rate;
@@ -428,7 +428,7 @@ function LevelPayload(payload) {
 	};
 
 	const normalizeAttacks = (rawAttacks) => {
-		normalizeArray(rawAttacks).value.map((rawAttack) => {
+		return normalizeArray(rawAttacks).value.map((rawAttack) => {
 			normalizePayloadSchema(normalizeObject(rawAttack).value, "levelAttack");
 		});
 	};
@@ -555,9 +555,7 @@ function LevelPayload(payload) {
 		normalized.player.spawnPosition = toUnitVector3(normalized.player.spawnPosition, "cnu");
 		normalized.player.scale = CloneVector3(normalized.player.scale);
 		normalized.player.modelParts = normalizeArray(playerSource.value.modelParts).value.map((part) => normalizePart(part));
-		normalized.player.metaOverrides = normalizeObject(normalized.player.metaOverrides).bool
-			? structuredClone(normalized.player.metaOverrides)
-			: { list: [] };
+		normalized.player.metaOverrides = structuredClone(normalized.player.metaOverrides);
 		if (!Array.isArray(normalized.player.metaOverrides.list)) normalized.player.metaOverrides.list = [];
 		if (characterIds.includes(normalized.player.character) === false) {
 			warnLog(`level.player.character: '${normalized.player.character}' missing, using '${defaultCharacterId}'.`);

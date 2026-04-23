@@ -64,27 +64,44 @@ function scatterBatchKey(primitive, dimensions, textureID, complexity, primitive
 	return `${prm}_${dim.x}_${dim.y}_${dim.z}_${textureID}_${complexity}_${primitiveOptions}`;
 }
 
-function mergeAabb(accumulator, bounds) {
-	if (!accumulator) {
-		return {
-			min: bounds.min.clone(),
-			max: bounds.max.clone(),
-		};
-	}
+function logScatterBounds(message, objectMesh) {
+	Log(
+		"ENGINE",
+		`
+			${message}: \n
+			- source=${objectMesh.id}, \n
+			- minX=${objectMesh.worldAabb.min.x.toFixed(2)}, \n
+			- maxX=${objectMesh.worldAabb.max.x.toFixed(2)}, \n
+			- minZ=${objectMesh.worldAabb.min.z.toFixed(2)}, \n
+			- maxZ=${objectMesh.worldAabb.max.z.toFixed(2)}
+		`,
+		"log",
+		"Level"
+	);
+}
 
-    accumulator.min.set({
-        x: Math.min(accumulator.min.x, bounds.min.x),
-        y: Math.min(accumulator.min.y, bounds.min.y),
-        z: Math.min(accumulator.min.z, bounds.min.z),
-    });
+function processScatterModels(params, handlers) {
+	const { objectMesh, scatterMultiplier, world, indexSeed, explicitRequests } = params;
+	return iterateScatterInstances(
+		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests },
+		(ctx) => {
+			const modelState = handlers.beginModel ? handlers.beginModel(ctx) : null;
+			let modelAabb = null;
 
-    accumulator.max.set({
-        x: Math.max(accumulator.max.x, bounds.max.x),
-        y: Math.max(accumulator.max.y, bounds.max.y),
-        z: Math.max(accumulator.max.z, bounds.max.z),
-    });
+			ctx.partContexts.forEach((partContext, partIndex) => {
+				const bounds = handlers.processPart(ctx, partContext, partIndex, modelState);
+				if (bounds) {
+					if (!modelAabb) modelAabb = { min: bounds.min.clone(), max: bounds.max.clone() }
+					else {
+						modelAabb.min.min(bounds.min);
+						modelAabb.max.max(bounds.max);
+					}
+				}
+			});
 
-	return accumulator;
+			if (modelAabb) handlers.finishModel(ctx, modelAabb, modelState);
+		}
+	);
 }
 
 // Use shared RotateByEuler from math/Vector3.js for Euler rotation (Y -> X -> Z)
@@ -330,55 +347,43 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 	const scatterRequests = explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter;
 	if (scatterRequests.length === 0) return [];
 
-	// Engine diagnostic: report scatter bounds for this source object
-	const minX = objectMesh.worldAabb.min.x;
-	const maxX = objectMesh.worldAabb.max.x;
-	const minZ = objectMesh.worldAabb.min.z;
-	const maxZ = objectMesh.worldAabb.max.z;
-	Log(
-		"ENGINE",
-		`Scatter bounds: source=${objectMesh.id}, minX=${minX.toFixed(2)}, maxX=${maxX.toFixed(2)}, minZ=${minZ.toFixed(2)}, maxZ=${maxZ.toFixed(2)}`,
-		"log",
-		"Level"
-	);
+	logScatterBounds("Scatter bounds", objectMesh);
 
 	const meshes = [];
 
-	const stats = iterateScatterInstances({ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests }, (ctx) => {
-		const { scatterType, instanceIndex, partContexts } = ctx;
-		let modelAabb = null;
-		const startIndex = meshes.length;
+	const stats = processScatterModels(
+		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests },
+		{
+			beginModel: () => meshes.length,
+			processPart: (ctx, partContext, partIndex) => {
+				const { scatterType, instanceIndex } = ctx;
+				const { part, position, rotation, scale } = partContext;
+				const scatterMesh = BuildObject(
+					{
+						id: `${objectMesh.id}-scatter-${scatterType.id}-${instanceIndex}-${partIndex}`,
+						shape: part.primitive,
+						complexity: part.complexity,
+						dimensions: part.dimensions,
+						position, rotation, scale,
+						pivot: objectMesh.transform.pivot,
+						primitiveOptions: part.primitiveOptions,
+						texture: part.texture,
+						detail: { scatter: [] },
+						role: "scatter",
+					},
+					{ role: "scatter" }
+				);
 
-		partContexts.forEach(({ part, pos, rot, scale }, partIndex) => {
-			const scatterMesh = BuildObject(
-				{
-					id: `${objectMesh.id}-scatter-${scatterType.id}-${instanceIndex}-${partIndex}`,
-					shape: part.primitive,
-					complexity: part.complexity,
-					dimensions: part.dimensions,
-					position: pos,
-					rotation: rot,
-					scale: scale,
-					pivot: objectMesh.transform.pivot,
-					primitiveOptions: part.primitiveOptions,
-					texture: part.texture,
-					detail: { scatter: [] },
-					role: "scatter",
-				},
-				{ role: "scatter" }
-			);
-
-			modelAabb = mergeAabb(modelAabb, scatterMesh.worldAabb);
-			meshes.push(scatterMesh);
-		});
-
-		if (modelAabb) {
-			for (let i = startIndex; i < meshes.length; i++) {
-				const mesh = meshes[i];
-				mesh.meta.scatterModelAabb = { min: { ...modelAabb.min }, max: { ...modelAabb.max } };
-			}
+				meshes.push(scatterMesh);
+				return scatterMesh.worldAabb;
+			},
+			finishModel: (ctx, modelAabb, startIndex) => {
+				for (let index = startIndex; index < meshes.length; index++) {
+					meshes[index].meta.scatterModelAabb = { min: modelAabb.min.clone(), max: modelAabb.max.clone() };
+				}
+			},
 		}
-	});
+	);
 
 	// Engine diagnostic: summary of generated scatter
 	Log(
@@ -392,79 +397,54 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 }
 
 function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, batchMap, debugBboxAccumulator) {
-	// Engine diagnostic: report scatter bounds for batching
-	const minX = objectMesh.worldAabb.min.x;
-	const maxX = objectMesh.worldAabb.max.x;
-	const minZ = objectMesh.worldAabb.min.z;
-	const maxZ = objectMesh.worldAabb.max.z;
-
-	Log(
-		"ENGINE",
-		`Scatter batch bounds: source=${objectMesh.id}, minX=${minX.toFixed(2)}, maxX=${maxX.toFixed(2)}, minZ=${minZ.toFixed(2)}, maxZ=${maxZ.toFixed(2)}`,
-		"log",
-		"Level"
-	);
+	logScatterBounds("Scatter batch bounds", objectMesh);
 
 	let totalParts = 0;
 
-	const stats = iterateScatterInstances({ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests }, (ctx) => {
-		const { scatterType, instanceIndex, partContexts } = ctx;
-		let modelAabbMin = null;
-		let modelAabbMax = null;
+	const stats = processScatterModels(
+		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests },
+		{
+			processPart: (ctx, partContext) => {
+				const { part, position, rotation, scale } = partContext;
+				const modelMatrix = CreateModelMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot });
+				const color = part.textureColor;
+				const opacity = part.textureOpacity;
+				const textureID = part.textureID;
+				const complexity = part.complexity;
+				const primitiveOptions = part.primitiveOptions;
+				const primitiveKey = primitiveGeometryKey(part.primitive, part.dimensions, complexity, primitiveOptions);
 
-		partContexts.forEach(({ part, pos, rot, scale }) => {
-			const modelMatrix = CreateModelMatrix({ position: pos, rotation: rot, scale: scale, pivot: objectMesh.transform.pivot });
-			const color = part.textureColor;
-			const opacity = part.textureOpacity;
-			const textureID = part.textureID;
-			const complexity = part.complexity;
-			const primitiveOptions = part.primitiveOptions;
-			const primitiveKey = primitiveGeometryKey(part.primitive, part.dimensions, complexity, primitiveOptions);
+				const batchKey = scatterBatchKey(part.primitive, part.dimensions, textureID, complexity, primitiveOptions);
+				if (!batchMap.has(batchKey)) {
+					batchMap.set(batchKey, {
+						primitive: part.primitive.toLowerCase(),
+						dimensions: part.dimensions.clone(),
+						complexity, primitiveOptions, primitiveKey, textureID,
+						instances: [],
+						instanceCount: 0,
+						instanceData: null,
+					});
+				}
 
-			const batchKey = scatterBatchKey(part.primitive, part.dimensions, textureID, complexity, primitiveOptions);
-			if (!batchMap.has(batchKey)) {
-				batchMap.set(batchKey, {
-					primitive: part.primitive.toLowerCase(),
-					dimensions: { ...part.dimensions },
-					complexity: complexity,
-					primitiveOptions: primitiveOptions,
-					primitiveKey: primitiveKey,
-					textureID: textureID,
-					instances: [],
-					instanceCount: 0,
-					instanceData: null,
+				batchMap.get(batchKey).instances.push({ modelMatrix, tint: [color.r, color.g, color.b, opacity] });
+				totalParts++;
+
+				const half = part.dimensions.clone().multiply(scale).scale(0.5);
+				return {
+					min: position.clone().subtract(half),
+					max: position.clone().add(half),
+				};
+			},
+			finishModel: (ctx, modelAabb) => {
+				debugBboxAccumulator.push({
+					type: "Scatter",
+					id: `${objectMesh.id}-scatter-${ctx.scatterType.id}-${ctx.instanceIndex}`,
+					min: modelAabb.min.clone(),
+					max: modelAabb.max.clone(),
 				});
-			}
-
-			batchMap.get(batchKey).instances.push({ modelMatrix: modelMatrix, tint: [color.r, color.g, color.b, opacity] });
-			totalParts++;
-
-			const half = ScaleVector3(MultiplyVector3(part.dimensions, scale), 0.5);
-			const pMin = SubtractVector3(pos, half);
-			const pMax = AddVector3(pos, half);
-			if (!modelAabbMin) {
-				modelAabbMin = { ...pMin };
-				modelAabbMax = { ...pMax };
-			} 
-			else {
-				modelAabbMin.x = Math.min(modelAabbMin.x, pMin.x);
-				modelAabbMin.y = Math.min(modelAabbMin.y, pMin.y);
-				modelAabbMin.z = Math.min(modelAabbMin.z, pMin.z);
-				modelAabbMax.x = Math.max(modelAabbMax.x, pMax.x);
-				modelAabbMax.y = Math.max(modelAabbMax.y, pMax.y);
-				modelAabbMax.z = Math.max(modelAabbMax.z, pMax.z);
-			}
-		});
-
-		if (modelAabbMin) {
-			debugBboxAccumulator.push({ 
-				type: "Scatter", 
-				id: `${objectMesh.id}-scatter-${scatterType.id}-${instanceIndex}`,
-				min: { ...modelAabbMin }, 
-				max: { ...modelAabbMax } 
-			});
+			},
 		}
-	});
+	);
 
 	// Engine diagnostic: summary of batch creation
 	Log(

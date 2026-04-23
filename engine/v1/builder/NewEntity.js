@@ -638,11 +638,7 @@ function BuildEntity(definition, surfaceMap) {
 	};
 }
 
-function UpdateEntityModelFromTransform(entity) {
-	entity.model.rootTransform.position.set(entity.transform.position);
-	entity.model.rootTransform.rotation.set(entity.transform.rotation);
-	entity.model.rootTransform.scale = entity.transform.scale;
-
+function refreshEntityDerivedState(entity) {
 	applyModelPose(entity.model);
 	entity.collision.aabb = computeEntityAabb(entity.model);
 	entity.collision.simRadiusAabb = computeExpandedAabb(
@@ -650,9 +646,9 @@ function UpdateEntityModelFromTransform(entity) {
 		entity.collision.simRadiusPadding
 	);
 	const detailed = computeDetailedBoundsForEntity(
-		entity.type, 
-		entity.collision.aabb, 
-		entity.model, 
+		entity.type,
+		entity.collision.aabb,
+		entity.model,
 		entity.collisionOverride
 	);
 	entity.collision.shape = detailed.collisionShape;
@@ -660,6 +656,14 @@ function UpdateEntityModelFromTransform(entity) {
 	entity.collision.physics = detailed.physics;
 	entity.collision.hurtbox = detailed.hurtbox;
 	entity.collision.hitbox = detailed.hitbox;
+}
+
+function UpdateEntityModelFromTransform(entity) {
+	entity.model.rootTransform.position.set(entity.transform.position);
+	entity.model.rootTransform.rotation.set(entity.transform.rotation);
+	entity.model.rootTransform.scale = entity.transform.scale;
+
+	refreshEntityDerivedState(entity);
 }
 
 function ResetEntityToDefaultPose(entity) {
@@ -681,23 +685,7 @@ function ResetEntityToDefaultPose(entity) {
 		part.localTransform.scale = src.scale;
 	});
 
-	applyModelPose(entity.model);
-	entity.collision.aabb = computeEntityAabb(entity.model);
-	entity.collision.simRadiusAabb = computeExpandedAabb(
-		entity.collision.aabb,
-		entity.collision.simRadiusPadding
-	);
-	const detailed = computeDetailedBoundsForEntity(
-		entity.type, 
-		entity.collision.aabb, 
-		entity.model, 
-		entity.collisionOverride
-	);
-	entity.collision.shape = detailed.collisionShape;
-	entity.collision.detailedBounds = detailed.detailedBounds;
-	entity.collision.physics = detailed.physics;
-	entity.collision.hurtbox = detailed.hurtbox;
-	entity.collision.hitbox = detailed.hitbox;
+	refreshEntityDerivedState(entity);
 }
 
 function SampleMovementPoint(entity, normalizedTime) {

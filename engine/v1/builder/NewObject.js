@@ -137,6 +137,28 @@ function resolveRampCurveSegments(complexity) {
 	}
 }
 
+function appendRadialVertices(positions, radiusX, y, radiusZ, segments) {
+	const start = positions.length / 3;
+	const vertexIndices = [];
+
+	for (let index = 0; index <= segments; index++) {
+		const angle = (index / segments) * Math.PI * 2;
+		positions.push(Math.cos(angle) * radiusX, y, Math.sin(angle) * radiusZ);
+		vertexIndices.push((positions.length / 3) - 1);
+	}
+
+	return { start, vertexIndices };
+}
+
+function appendTriangleFanIndices(indices, centerIndex, ringStart, segments, reverseWinding = false) {
+	for (let index = 0; index < segments; index++) {
+		const current = ringStart + index;
+		const next = ringStart + index + 1;
+		if (reverseWinding) indices.push(centerIndex, next, current);
+		else indices.push(centerIndex, current, next);
+	}
+}
+
 
 function generateSphereUvs(positions) {
 	const min = ToVector3(Infinity);
@@ -517,32 +539,16 @@ function buildCylinder(size, complexity) {
 	}
 
 	const topCenter = pushVertex(0, radius.y, 0);
-	const topVertices = [topCenter];
-	for (let index = 0; index <= segments; index++) {
-		const angle = (index / segments) * Math.PI * 2;
-		topVertices.push(pushVertex(Math.cos(angle) * radius.x, radius.y, Math.sin(angle) * radius.z));
-	}
-
-	for (let index = 0; index < segments; index++) {
-		const current = topVertices[index + 1];
-		const next = topVertices[index + 2];
-		indices.push(topCenter, current, next);
-	}
+	const topRing = appendRadialVertices(positions, radius.x, radius.y, radius.z, segments);
+	const topVertices = [topCenter, ...topRing.vertexIndices];
+	appendTriangleFanIndices(indices, topCenter, topRing.start, segments);
 
 	faceGroups.push({ normal: { x: 0, y: 1, z: 0 }, vertexIndices: topVertices });
 
 	const bottomCenter = pushVertex(0, -radius.y, 0);
-	const bottomVertices = [bottomCenter];
-	for (let index = 0; index <= segments; index++) {
-		const angle = (index / segments) * Math.PI * 2;
-		bottomVertices.push(pushVertex(Math.cos(angle) * radius.x, -radius.y, Math.sin(angle) * radius.z));
-	}
-
-	for (let index = 0; index < segments; index++) {
-		const current = bottomVertices[index + 1];
-		const next = bottomVertices[index + 2];
-		indices.push(bottomCenter, next, current);
-	}
+	const bottomRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
+	const bottomVertices = [bottomCenter, ...bottomRing.vertexIndices];
+	appendTriangleFanIndices(indices, bottomCenter, bottomRing.start, segments, true);
 
 	faceGroups.push({ normal: { x: 0, y: -1, z: 0 }, vertexIndices: bottomVertices });
 
@@ -596,41 +602,18 @@ function buildCone(size, complexity) {
 	positions.push(0, radius.y, 0);
 	sideVertexIndices.push(apexIndex);
 
-	const sideStart = positions.length / 3;
-	for (let index = 0; index <= segments; index++) {
-		const ratio = index / segments;
-		const angle = ratio * Math.PI * 2;
-		const x = Math.cos(angle) * radius.x;
-		const z = Math.sin(angle) * radius.z;
-		positions.push(x, -radius.y, z);
-		sideVertexIndices.push(sideStart + index);
-	}
+	const sideRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
+	sideVertexIndices.push(...sideRing.vertexIndices);
 
-	for (let index = 0; index < segments; index++) {
-		const current = sideStart + index;
-		const next = sideStart + index + 1;
-		indices.push(apexIndex, current, next);
-	}
+	for (let index = 0; index < segments; index++) indices.push(apexIndex, sideRing.start + index, sideRing.start + index + 1);
 
 	const baseCenter = positions.length / 3;
 	positions.push(0, -radius.y, 0);
 	baseVertexIndices.push(baseCenter);
 
-	const baseStart = positions.length / 3;
-	for (let index = 0; index <= segments; index++) {
-		const ratio = index / segments;
-		const angle = ratio * Math.PI * 2;
-		const x = Math.cos(angle) * radius.x;
-		const z = Math.sin(angle) * radius.z;
-		positions.push(x, -radius.y, z);
-		baseVertexIndices.push(baseStart + index);
-	}
-
-	for (let index = 0; index < segments; index++) {
-		const current = baseStart + index;
-		const next = baseStart + index + 1;
-		indices.push(baseCenter, next, current);
-	}
+	const baseRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
+	baseVertexIndices.push(...baseRing.vertexIndices);
+	appendTriangleFanIndices(indices, baseCenter, baseRing.start, segments, true);
 
 	return {
 		positions: positions,
@@ -654,18 +637,12 @@ function buildCapsule(size, complexity) {
 	const rings = [];
 
 	const pushRing = (y, ringScaleX, ringScaleZ, groupName) => {
-		const start = positions.length / 3;
-		for (let index = 0; index <= segments; index++) {
-			const ratio = index / segments;
-			const angle = ratio * Math.PI * 2;
-			positions.push(Math.cos(angle) * ringScaleX, y, Math.sin(angle) * ringScaleZ);
-		}
-		rings.push({ start: start, group: groupName });
+		const ring = appendRadialVertices(positions, ringScaleX, y, ringScaleZ, segments);
+		rings.push({ start: ring.start, group: groupName });
 	};
 
 	for (let stack = 0; stack <= capStacks; stack++) {
-		const ratio = stack / capStacks;
-		const angle = ratio * Math.PI * 0.5;
+		const angle = (stack / capStacks) * Math.PI * 0.5;
 		const ringScale = Math.sin(angle);
 		const y = cylinderHalf + Math.cos(angle) * capRadius;
 		pushRing(y, radius.x * ringScale, radius.z * ringScale, "top");
@@ -674,8 +651,7 @@ function buildCapsule(size, complexity) {
 	pushRing(-cylinderHalf, radius.x, radius.z, "body");
 
 	for (let stack = 1; stack <= capStacks; stack++) {
-		const ratio = stack / capStacks;
-		const angle = ratio * Math.PI * 0.5;
+		const angle = (stack / capStacks) * Math.PI * 0.5;
 		const ringScale = Math.cos(angle);
 		const y = -cylinderHalf - Math.sin(angle) * capRadius;
 		pushRing(y, radius.x * ringScale, radius.z * ringScale, "bottom");
@@ -686,26 +662,23 @@ function buildCapsule(size, complexity) {
 	const bottomVertices = [];
 
 	for (let ring = 0; ring < rings.length - 1; ring++) {
-		const current = rings[ring];
-		const next = rings[ring + 1];
 		for (let index = 0; index < segments; index++) {
-			const a = current.start + index;
-			const b = current.start + index++;
-			const c = next.start + index;
-			const d = next.start + index + 1;
+			const a = rings[ring].start + index;
+			const b = rings[ring].start + index++;
+			const c = rings[ring + 1].start + index;
+			const d = rings[ring + 1].start + index + 1;
 
 			indices.push(a, c, b);
 			indices.push(b, c, d);
 
-			if (current.group === "top" && next.group === "top") topVertices.push(a, b, c, d);
-			else if (current.group === "bottom" && next.group === "bottom") bottomVertices.push(a, b, c, d);
+			if (rings[ring].group === "top" && rings[ring + 1].group === "top") topVertices.push(a, b, c, d);
+			else if (rings[ring].group === "bottom" && rings[ring + 1].group === "bottom") bottomVertices.push(a, b, c, d);
 			else bodyVertices.push(a, b, c, d);
 		}
 	}
 
 	return {
-		positions: positions,
-		indices: indices,
+		positions, indices,
 		faceGroups: [
 			{ normal: { x: 0, y:  1, z: 0 }, vertexIndices: topVertices },
 			{ normal: { x: 1, y:  0, z: 0 }, vertexIndices: bodyVertices },
@@ -724,33 +697,10 @@ function buildTube(size, complexity, options) {
 	const positions = [];
 	const indices = [];
 
-	const outerBottomStart = positions.length / 3;
-	for (let index = 0; index <= segments; index++) {
-		const ratio = index / segments;
-		const angle = ratio * Math.PI * 2;
-		positions.push(Math.cos(angle) * outerRadius.x, -outerRadius.y, Math.sin(angle) * outerRadius.z);
-	}
-
-	const outerTopStart = positions.length / 3;
-	for (let index = 0; index <= segments; index++) {
-		const ratio = index / segments;
-		const angle = ratio * Math.PI * 2;
-		positions.push(Math.cos(angle) * outerRadius.x, outerRadius.y, Math.sin(angle) * outerRadius.z);
-	}
-
-	const innerBottomStart = positions.length / 3;
-	for (let index = 0; index <= segments; index++) {
-		const ratio = index / segments;
-		const angle = ratio * Math.PI * 2;
-		positions.push(Math.cos(angle) * innerRadiusX, -outerRadius.y, Math.sin(angle) * innerRadiusZ);
-	}
-
-	const innerTopStart = positions.length / 3;
-	for (let index = 0; index <= segments; index++) {
-		const ratio = index / segments;
-		const angle = ratio * Math.PI * 2;
-		positions.push(Math.cos(angle) * innerRadiusX, outerRadius.y, Math.sin(angle) * innerRadiusZ);
-	}
+	const outerBottomStart = appendRadialVertices(positions, outerRadius.x, -outerRadius.y, outerRadius.z, segments).start;
+	const outerTopStart = appendRadialVertices(positions, outerRadius.x, outerRadius.y, outerRadius.z, segments).start;
+	const innerBottomStart = appendRadialVertices(positions, innerRadiusX, -outerRadius.y, innerRadiusZ, segments).start;
+	const innerTopStart = appendRadialVertices(positions, innerRadiusX, outerRadius.y, innerRadiusZ, segments).start;
 
 	for (let index = 0; index < segments; index++) {
 		const ob0 = outerBottomStart + index;
@@ -787,8 +737,7 @@ function buildTube(size, complexity, options) {
 	}
 
 	return {
-		positions: positions,
-		indices: indices,
+		positions, indices,
 		faceGroups: [
 			{ normal: { x: 1, y: 0, z: 0 }, vertexIndices: outerVertices },
 			{ normal: { x: -1, y: 0, z: 0 }, vertexIndices: innerVertices },
@@ -799,10 +748,8 @@ function buildTube(size, complexity, options) {
 }
 
 function buildTorus(size, complexity, options) {
-	const fallbackRadius = size.x / 2;
-	const fallbackThickness = size.y / 4;
-	const majorRadius = Math.max(0.0002, ToNumber(options.radius, fallbackRadius));
-	const minorRadius = Math.max(0.0001, Math.min(ToNumber(options.thickness, fallbackThickness), majorRadius * 0.95));
+	const majorRadius = Math.max(0.0002, ToNumber(options.radius, size.x / 2));
+	const minorRadius = Math.max(0.0001, Math.min(ToNumber(options.thickness, size.y / 4), majorRadius * 0.95));
 	const resolution = resolveTorusResolution(complexity);
 	const majorSegments = resolution.majorSegments;
 	const minorSegments = resolution.minorSegments;
@@ -850,28 +797,18 @@ function buildTorus(size, complexity, options) {
 		}
 
 		const sectorMid = ((startMajor + endMajor) * 0.5 / majorSegments) * Math.PI * 2;
-		faceGroups.push({
-			normal: { x: Math.cos(sectorMid), y: 0, z: Math.sin(sectorMid) },
-			vertexIndices: vertexIndices,
-		});
+		faceGroups.push({ normal: { x: Math.cos(sectorMid), y: 0, z: Math.sin(sectorMid) }, vertexIndices });
 	}
 
-	return { positions: positions, indices: indices, faceGroups: faceGroups };
+	return { positions, indices, faceGroups };
 }
 
 function resolveRampShape(size, options) {
-	const height = size.y;
 	const halfDepth = size.z / 2;
-	const baseY = -height / 2;
+	const baseY = -size.y / 2;
 	const desiredRise = Math.tan(options.angle) * (halfDepth * 2);
-	const rise = Clamp(Math.abs(desiredRise) > 0 ? desiredRise : height, 0.0001, height);
-	return {
-		halfWidth: size.x / 2,
-		halfDepth: halfDepth,
-		baseY: baseY,
-		rise: rise,
-		backY: baseY + rise,
-	};
+	const rise = Clamp(Math.abs(desiredRise) > 0 ? desiredRise : size.y, 0.0001, size.y);
+	return { halfWidth: size.x / 2, halfDepth, baseY, rise, backY: baseY + rise };
 }
 
 function buildRampSimple(size, options) {
@@ -897,16 +834,13 @@ function buildRampSimple(size, options) {
 	];
 
 	const slopeAngle = Math.atan2(ramp.rise, ramp.halfDepth * 2);
-	const slopeNormalY = Math.cos(slopeAngle);
-	const slopeNormalZ = -Math.sin(slopeAngle);
-
 	return {
 		positions: positions,
 		indices: indices,
 		faceGroups: [
 			{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: [0, 1, 2, 3] },
 			{ normal: { x: 0, y: 0, z: 1 }, vertexIndices: [2, 3, 4, 5] },
-			{ normal: { x: 0, y: slopeNormalY, z: slopeNormalZ }, vertexIndices: [0, 1, 4, 5] },
+			{ normal: { x: 0, y: Math.cos(slopeAngle), z: -Math.sin(slopeAngle) }, vertexIndices: [0, 1, 4, 5] },
 			{ normal: { x: -1, y: 0, z: 0 }, vertexIndices: [0, 3, 5] },
 			{ normal: { x: 1, y: 0, z: 0 }, vertexIndices: [1, 2, 4] },
 		],
@@ -972,9 +906,6 @@ function buildRampComplex(size, complexity, options) {
 	indices.push(backBottomLeft, backBottomRight, backTopRight);
 	indices.push(backBottomLeft, backTopRight, backTopLeft);
 
-	const slopeAngle = Math.atan2(ramp.rise, ramp.halfDepth * 2);
-	const slopeNormalY = Math.cos(slopeAngle);
-	const slopeNormalZ = -Math.sin(slopeAngle);
 	const topVertexIndices = [];
 	const bottomVertexIndices = [];
 	const leftVertexIndices = [];
@@ -986,13 +917,14 @@ function buildRampComplex(size, complexity, options) {
 		rightVertexIndices.push(bottomRightIndices[index], topRightIndices[index]);
 	}
 
+	const slopeAngle = Math.atan2(ramp.rise, ramp.halfDepth * 2);
 	return {
 		positions: positions,
 		indices: indices,
 		faceGroups: [
 			{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: bottomVertexIndices },
 			{ normal: { x: 0, y: 0, z: 1 }, vertexIndices: [backBottomLeft, backBottomRight, backTopRight, backTopLeft] },
-			{ normal: { x: 0, y: slopeNormalY, z: slopeNormalZ }, vertexIndices: topVertexIndices },
+			{ normal: { x: 0, y: Math.cos(slopeAngle), z: -Math.sin(slopeAngle) }, vertexIndices: topVertexIndices },
 			{ normal: { x: -1, y: 0, z: 0 }, vertexIndices: leftVertexIndices },
 			{ normal: { x: 1, y: 0, z: 0 }, vertexIndices: rightVertexIndices },
 		],
@@ -1037,16 +969,16 @@ function BuildObject(source) {
 	const mesh = {
 		id        : source.id,
 		type      : "mesh3d",
-		shape     : shape,
+		shape,
 		primitive : shape,
-		complexity: complexity,
+		complexity,
 		role      : source.role,
-		transform : transform,
+		transform,
 		geometry  : {
 			positions: geometry.positions,
 			indices  : geometry.indices,
 			uvs      : GenerateUVs(geometry.positions, geometry),
-			bounds   : bounds,
+			bounds,
 		},
 		material: {
 			textureID  : texture.materialTextureID,
@@ -1062,10 +994,9 @@ function BuildObject(source) {
 			sticky   : source.sticky,
 		},
 		detail: {
-			texture         : texture,
-			scatter         : source.detail.scatter,
-			complexity      : complexity,
-			primitiveOptions: primitiveOptions,
+			texture,
+			scatter: source.detail.scatter,
+			complexity, primitiveOptions,
 		},
 		localBounds   : bounds,
 		worldAabb     : computeWorldAabbFromGeometry(geometry.positions, transform),

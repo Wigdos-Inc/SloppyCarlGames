@@ -295,9 +295,7 @@ function ValidateLevelPayload(payload) {
 	});
 
 	if (Array.isArray(rawPayload.entities)) {
-		rawPayload.entities.forEach((rawEntity, index) => {
-			validateOverride(rawEntity, `level.entities[${index}]`);
-		});
+		rawPayload.entities.forEach((rawEntity, index) => validateOverride(rawEntity, `level.entities[${index}]`));
 	}
 
 	if (isPlainObject(rawPayload.player)) validatePlayer(rawPayload.player, "level.player");

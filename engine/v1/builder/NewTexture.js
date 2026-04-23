@@ -131,7 +131,7 @@ function resolveTextureSize(textureDefinition, usageEntry) {
 	return toPowerOfTwoSize(baseSize * scaleMultiplier);
 }
 
-function buildTextureSurface(textureDefinition, resolvedSize, textureScale) {
+function BuildTextureSurface(textureDefinition, resolvedSize, textureScale) {
 	const size = resolvedSize || textureDefinition.size;
 	const canvas = document.createElement("canvas");
 	canvas.width = size;
@@ -142,35 +142,25 @@ function buildTextureSurface(textureDefinition, resolvedSize, textureScale) {
 	return canvas;
 }
 
-function BuildTextureSurface(textureDefinition, resolvedSize, textureScale) {
-	return buildTextureSurface(textureDefinition, resolvedSize, textureScale);
+function createUsageEntry(baseTextureID) {
+	return {
+		isTerrain        : false,
+		maxSpan          : 1,
+		density          : null,
+		speckSize        : null,
+		animatedRequested: false,
+		holdTimeSpeed    : 1,
+		blendTimeSpeed   : 1,
+		baseTextureID    : baseTextureID,
+		shape            : null,
+	};
 }
 
 function collectTextureUsage(sceneGraph) {
-	const usage = { "default-grid": { 
-		isTerrain: false, 
-		maxSpan: 1, 
-		density: null, 
-		speckSize: null,
-		animatedRequested: false,
-		holdTimeSpeed: 1,
-		blendTimeSpeed: 1,
-		baseTextureID: "default-grid", 
-		shape: null 
-	}};
+	const usage = { "default-grid": createUsageEntry("default-grid") };
 
 	const register = (id, options) => {
-		if (!usage[id]) usage[id] = { 
-			isTerrain: false, 
-			maxSpan: 1, 
-			density: null, 
-			speckSize: null,
-			animatedRequested: false,
-			holdTimeSpeed: 1,
-			blendTimeSpeed: 1,
-			baseTextureID: id, 
-			shape: null 
-		};
+		if (!usage[id]) usage[id] = createUsageEntry(id);
 		const entry = usage[id];
 		if (options.isTerrain) { entry.isTerrain = true; entry.maxSpan = options.maxSpan; }
 		if (options.density || options.density === 0) entry.density = options.density;

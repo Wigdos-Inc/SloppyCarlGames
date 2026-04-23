@@ -112,6 +112,10 @@ Enum canonicalization and referential-integrity checks for game payload fields a
 
 Once normalization has canonicalized a field, shape, event map, or other contract, downstream modules must consume that canonical form directly and must not fall back to alternatives, duplicate aliases, shorthand sources, or pre-normalized copies of the same semantic data.
 
+Once `core/normalize.js` has canonicalized an object- or array-typed field itself, that container is guaranteed immediately. Do not run `normalizeObject`, `normalizeArray`, or apply a second fallback to that same container later in the normalization flow.
+
+If a normalized field intentionally contains an opaque nested bag whose internal shape is not modeled by the schema, targeted checks on those unmodeled nested properties are allowed. Keep those checks scoped to the raw nested bag content itself, not the already-canonical container.
+
 Once normalization has canonicalized object `shape` or `collisionShape`, builders must not substitute a different primitive, collision mode, or null detailed-bounds result for unsupported ids. Fix the enum boundary in `core/normalize.js` or `core/validate.js` instead.
 
 Once a builder has generated internal geometry arrays, downstream builder helpers must not synthesize placeholder UVs, bounds, or AABBs to cover malformed geometry output. Fix the primitive builder or validate the generated geometry contract once at the builder boundary instead.

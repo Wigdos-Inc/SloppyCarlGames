@@ -298,6 +298,16 @@ async function BuildLevel(payload) {
 	const scatterMultiplier   = GetPerformanceScatterMultiplier();
 	const scatterBatches      = new Map();
 	const scatterDebugBounds  = [];
+	const enqueueScatterBatches = (objectMesh, indexSeed) => {
+		if (objectMesh.detail.scatter.length === 0) return;
+
+		BuildScatterBatches({
+			objectMesh, scatterMultiplier, world, indexSeed,
+			explicitScatter     : objectMesh.detail.scatter,
+			batchMap            : scatterBatches,
+			debugBboxAccumulator: scatterDebugBounds,
+		});
+	};
 
 	const terrain = terrainDefinitions.map((terrainObject, index) => {
 		terrainObject.position.y += terrainObject.dimensions.y * terrainObject.scale.y * 0.5;
@@ -311,19 +321,7 @@ async function BuildLevel(payload) {
 			}
 		);
 
-		// Generate scatter batches for this terrain object.
-		const scatterRequests = terrainMesh.detail.scatter;
-		if (scatterRequests.length > 0) {
-			BuildScatterBatches({
-				objectMesh          : terrainMesh,
-				scatterMultiplier   : scatterMultiplier,
-				world               : world,
-				indexSeed           : index + 1,
-				explicitScatter     : scatterRequests,
-				batchMap            : scatterBatches,
-				debugBboxAccumulator: scatterDebugBounds,
-			});
-		}
+		enqueueScatterBatches(terrainMesh, index + 1);
 
 		return terrainMesh;
 	});
@@ -332,21 +330,7 @@ async function BuildLevel(payload) {
 	const obstacleRecords = BuildObstacles(obstacleDefinitions, {});
 
 	// Generate scatter batches for obstacles that have scatter.
-	obstacleRecords.forEach((record, index) => {
-		const obstacleMesh = record.mesh;
-		const scatterRequests = obstacleMesh.detail.scatter;
-		if (scatterRequests.length > 0) {
-			BuildScatterBatches({
-				objectMesh          : obstacleMesh,
-				scatterMultiplier   : scatterMultiplier,
-				world               : world,
-				indexSeed           : (terrainDefinitions.length + index + 1),
-				explicitScatter     : scatterRequests,
-				batchMap            : scatterBatches,
-				debugBboxAccumulator: scatterDebugBounds,
-			});
-		}
-	});
+	obstacleRecords.forEach((record, index) => enqueueScatterBatches(record.mesh, terrainDefinitions.length + index + 1));
 
 	const primitiveGeometry = BuildScatterVisualResources(scatterBatches);
 
