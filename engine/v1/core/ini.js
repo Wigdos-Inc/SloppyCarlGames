@@ -25,8 +25,7 @@ import { CONFIG } from "./config.js";
 import { ApplyMenuUI, LoadScreen, ClearUI } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
 import {
-  PlaySfx,
-  PlayVoice,
+  PlayAudio,
   PlayMusic,
   PauseMusic,
   ResumeMusic,
@@ -95,8 +94,7 @@ function Initialize() {
       ClearUI: ClearUI,
     },
     Audio: {
-      PlaySfx: PlaySfx,
-	    PlayVoice: PlayVoice,
+      PlayAudio: PlayAudio,
       PlayMusic: PlayMusic,
       PauseMusic: PauseMusic,
       ResumeMusic: ResumeMusic,

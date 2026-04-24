@@ -506,9 +506,7 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 	if (!freeCamEnabled) {
 		freeCamRuntime.active = false;
 		freeCamRuntime.levelKey = null;
-		Object.keys(freeCamRuntime.keyState).forEach((key) => {
-			freeCamRuntime.keyState[key] = false;
-		});
+		for (const key in freeCamRuntime.keyState) freeCamRuntime.keyState[key] = false;
 		freeCamRuntime.lookDeltaX = 0;
 		freeCamRuntime.lookDeltaY = 0;
 		freeCamRuntime.wheelDelta = 0;
@@ -516,11 +514,7 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 		// Initialize DefaultCam (third-person follow).
 		initializeDefaultCamConfig(cameraConfig);
 
-		const base = resolveDefaultLevelCamera(sceneGraph, cameraConfig);
-		const state = {
-			...base,
-			mode: "defaultcam",
-		};
+		const state = { ...resolveDefaultLevelCamera(sceneGraph, cameraConfig), mode: "defaultcam" };
 		cacheCameraPosition(state);
 		cacheCameraVectors(state);
 		Log("ENGINE", "DefaultCam mode activated.", "log", "Level");
@@ -544,13 +538,11 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 
 	const base = resolveDefaultLevelCamera(sceneGraph, cameraConfig);
 	const forward = ResolveVector3Axis(SubtractVector3(base.target, base.position));
-	const yaw = (Math.atan2(forward.z, forward.x) * 180) / Math.PI;
-	const pitch = (Math.asin(Clamp(forward.y, -1, 1)) * 180) / Math.PI;
 
 	const created = createCameraState({
 		position: base.position,
-		yaw: yaw,
-		pitch: pitch,
+		yaw: (Math.atan2(forward.z, forward.x) * 180) / Math.PI,
+		pitch: (Math.asin(Clamp(forward.y, -1, 1)) * 180) / Math.PI,
 		fov: base.fov,
 		near: base.near,
 		far: base.far,

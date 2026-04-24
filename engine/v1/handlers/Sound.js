@@ -6,6 +6,7 @@
 // Logging support.
 
 import { CONFIG } from "../core/config.js";
+import { ValidateAudioPayload } from "../core/validate.js";
 import { Log } from "../core/meta.js";
 import { Clamp01 } from "../math/Utilities.js";
 
@@ -18,10 +19,18 @@ const activeMusic = {
 	options: null,
 };
 
-const activeSfx = [];
-const activeVoice = [];
-let nextSfxId = 1;
-let nextVoiceId = 1;
+const oneShotChannels = {
+	Sfx: {
+		active  : [],
+		logLabel: "sfx",
+		nextId  : 1,
+	},
+	Voice: {
+		active  : [],
+		logLabel: "voice",
+		nextId  : 1,
+	},
+};
 
 /* === INTERNALS === */
 // Audio creation helpers.
@@ -31,23 +40,20 @@ function resolveVolume(channel, options) {
 	const applyMaster = (value) => Clamp01(CONFIG.VOLUME.Master * value);
 
 	switch (channel) {
-		case "Music": return applyMaster(CONFIG.VOLUME.Music);
-		case "Sfc": 
-			const category = options && options.category ? options.category : "Game";
-			const sfxVolume = category === "Menu" ? CONFIG.VOLUME.MenuSfx : CONFIG.VOLUME.GameSfx;
-			return applyMaster(sfxVolume);
-		case "Voice": return applyMaster(CONFIG.VOLUME.Voice);
+		case "Music"   : return applyMaster(CONFIG.VOLUME.Music);
+		case "Sfx"     : return applyMaster(options.category === "Menu" ? CONFIG.VOLUME.MenuSfx : CONFIG.VOLUME.GameSfx);
+		case "Voice"   : return applyMaster(CONFIG.VOLUME.Voice);
 		case "Cutscene": return applyMaster(CONFIG.VOLUME.Cutscene);
-		default: applyMaster(1);
+		default        : return applyMaster(1);
 	}
 }
 
 function configureAudio(audio, options, channel) {
 	// Apply volume, rate, and looping options.
 	const volume = resolveVolume(channel, options);
-	if (typeof volume === "number") audio.volume = Clamp01(volume);
-	if (options && typeof options.rate === "number") audio.playbackRate = options.rate;
-	if (options && typeof options.loop === "boolean") audio.loop = options.loop;
+	audio.volume = Clamp01(volume);
+	audio.playbackRate = options.rate;
+	audio.loop = options.loop;
 }
 
 // Create and start a new audio instance.
@@ -58,61 +64,39 @@ function playAudio(src, options, channel) {
 	return audio;
 }
 
-/* === SFX === */
-// One-shot audio playback.
-
-function PlaySfx(src, options) {
-	// Reject empty sources early.
-	if (!src) return Promise.resolve();
-
-	const sfxId = nextSfxId;
-	nextSfxId++;
-	const label = (options && (options.id || options.name)) || src;
-
-	Log("ENGINE", `Audio play (sfx): ${sfxId} ${label}`, "log", "Audio");
-
-	const audio = playAudio(src, options, "Sfx");
-	activeSfx.push({ id: sfxId, src: src, label: label, audio: audio, options: options || null });
-
-	return new Promise((resolve) => {
-		// Clean up SFX tracking on completion.
-		const finalize = () => {
-			const index = activeSfx.findIndex((item) => item.id === sfxId);
-			if (index >= 0) activeSfx.splice(index, 1);
-			resolve();
-		};
-
-		audio.addEventListener("ended", finalize);
-		audio.addEventListener("error", finalize);
-	});
+function stopTrackedAudio(item, logLabel) {
+	Log("ENGINE", `Audio stop (${logLabel}): ${item.id} ${item.label}`, "log", "Audio");
+	item.audio.pause();
+	item.audio.currentTime = 0;
 }
 
-/* === VOICE === */
-// One-shot voice playback.
+/* === ONE-SHOT AUDIO === */
+// Shared one-shot playback for SFX and voice.
 
-function PlayVoice(src, options) {
-	// Reject empty sources early.
-	if (!src) return Promise.resolve();
+function PlayAudio(src, options, channel = "Sfx") {
+	const audioPayload = ValidateAudioPayload({ src, options });
+	if (audioPayload === null) return Promise.resolve();
 
-	const voiceId = nextVoiceId;
-	nextVoiceId++;
-	const label = (options && (options.id || options.name)) || src;
+	const state = oneShotChannels[channel];
+	const oneShotId = state.nextId;
+	state.nextId++;
+	const label = audioPayload.id || audioPayload.name || audioPayload.src;
 
-	Log("ENGINE", `Audio play (voice): ${voiceId} ${label}`, "log", "Audio");
+	Log("ENGINE", `Audio play (${state.logLabel}): ${oneShotId} ${label}`, "log", "Audio");
 
-	const audio = playAudio(src, options, "Voice");
-	activeVoice.push({ id: voiceId, src: src, label: label, audio: audio, options: options || null });
+	const audio = playAudio(audioPayload.src, audioPayload, channel);
+	state.active.push({ id: oneShotId, src: audioPayload.src, label, audio, options: audioPayload });
 
 	return new Promise((resolve) => {
-		// Clean up voice tracking on completion.
+		// Clean up audio tracking on completion.
 		const finalize = () => {
-			const index = activeVoice.findIndex((item) => item.id === voiceId);
-			if (index >= 0) activeVoice.splice(index, 1);
+			const index = state.active.findIndex((item) => item.id === oneShotId);
+			if (index >= 0) state.active.splice(index, 1);
 			resolve();
 		};
 
-		audio.addEventListener("ended", finalize);
-		audio.addEventListener("error", finalize);
+		audio.addEventListener("ended", finalize, { once: true });
+		audio.addEventListener("error", finalize, { once: true });
 	});
 }
 
@@ -120,10 +104,10 @@ function PlayVoice(src, options) {
 // Persistent music playback with track swapping.
 
 function PlayMusic(trackName, src, options) {
-	// Ignore invalid requests.
-	if (!trackName || !src) return;
+	const audioPayload = ValidateAudioPayload({ name: trackName, src, options });
+	if (audioPayload === null) return;
 
-	if (activeMusic.name === trackName && activeMusic.audio) return;
+	if (activeMusic.name === audioPayload.name && activeMusic.audio) return;
 
 	if (activeMusic.audio) {
 		// Stop the previous track before swapping.
@@ -132,12 +116,11 @@ function PlayMusic(trackName, src, options) {
 		activeMusic.audio.currentTime = 0;
 	}
 
-	Log("ENGINE", `Audio play (music): ${trackName}`, "log", "Audio");
+	Log("ENGINE", `Audio play (music): ${audioPayload.name}`, "log", "Audio");
 
-	const audio = playAudio(src, options, "Music");
-	activeMusic.name = trackName;
-	activeMusic.audio = audio;
-	activeMusic.options = options || null;
+	activeMusic.name = audioPayload.name;
+	activeMusic.audio = playAudio(audioPayload.src, audioPayload, "Music");
+	activeMusic.options = audioPayload;
 }
 
 function PauseMusic() {
@@ -170,6 +153,8 @@ function StopMusic() {
 }
 
 function StopSfx(idOrSrc) {
+	const activeSfx = oneShotChannels.Sfx.active;
+
 	// Bail when there are no active SFX.
 	if (activeSfx.length === 0) return;
 
@@ -180,11 +165,7 @@ function StopSfx(idOrSrc) {
 
 	if (!idOrSrc) return;
 
-	targets.forEach((item) => {
-		Log("ENGINE", `Audio stop (sfx): ${item.id} ${item.label}`, "log", "Audio");
-		item.audio.pause();
-		item.audio.currentTime = 0;
-	});
+	targets.forEach((item) => stopTrackedAudio(item, "sfx"));
 
 	for (let index = activeSfx.length - 1; index >= 0; index--) {
 		const item = activeSfx[index];
@@ -193,21 +174,15 @@ function StopSfx(idOrSrc) {
 }
 
 function StopAllAudio() {
+	const activeSfx = oneShotChannels.Sfx.active;
+	const activeVoice = oneShotChannels.Voice.active;
+
 	// Stop music first, then clear active one-shots.
 	StopMusic();
 	if (activeSfx.length === 0 && activeVoice.length === 0) return;
 
-	activeSfx.forEach((item) => {
-		Log("ENGINE", `Audio stop (sfx): ${item.id} ${item.label}`, "log", "Audio");
-		item.audio.pause();
-		item.audio.currentTime = 0;
-	});
-
-	activeVoice.forEach((item) => {
-		Log("ENGINE", `Audio stop (voice): ${item.id} ${item.label}`, "log", "Audio");
-		item.audio.pause();
-		item.audio.currentTime = 0;
-	});
+	activeSfx.forEach((item) => stopTrackedAudio(item, "sfx"));
+	activeVoice.forEach((item) => stopTrackedAudio(item, "voice"));
 
 	activeSfx.length = 0;
 	activeVoice.length = 0;
@@ -217,13 +192,8 @@ function UpdateActiveAudioVolumes() {
 	// Refresh volumes for any currently playing audio.
 	if (activeMusic.audio) configureAudio(activeMusic.audio, activeMusic.options, "Music");
 
-	activeSfx.forEach((item) => {
-		if (item && item.audio) configureAudio(item.audio, item.options, "Sfx");
-	});
-
-	activeVoice.forEach((item) => {
-		if (item && item.audio) configureAudio(item.audio, item.options, "Voice");
-	});
+	oneShotChannels.Sfx.active.forEach((item) => configureAudio(item.audio, item.options, "Sfx"));
+	oneShotChannels.Voice.active.forEach((item) => configureAudio(item.audio, item.options, "Voice"));
 
 	const cutsceneVideo = document.getElementById("engine-intro-video") ?? null;
 	if (cutsceneVideo) {
@@ -236,8 +206,7 @@ function UpdateActiveAudioVolumes() {
 // Public audio controls for engine modules.
 
 export {
-	PlaySfx,
-	PlayVoice,
+	PlayAudio,
 	PlayMusic,
 	PauseMusic,
 	ResumeMusic,

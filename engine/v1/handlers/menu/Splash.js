@@ -14,65 +14,39 @@ import {
 	SetElementStyle,
 } from "../Render.js";
 import { CreateUI } from "../UI.js";
-import { PlaySfx, PlayVoice } from "../Sound.js";
-import { Log, PushToSession, ReadFromSession, SESSION_KEYS } from "../../core/meta.js";
+import { PlayAudio } from "../Sound.js";
+import { Log, PushToSession, ReadFromSession, SESSION_KEYS, Wait } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { ValidateSplashPayload } from "../../core/validate.js";
 
 let splashRequested = false;
 let bufferedSplashPayload = null;
 
-/* === SEQUENCE === */
-// Runs the built-in splash and transitions to the title screen.
-
-function setupSplashSequence() {
-	// Provide shared context for splash sequencing.
-	const wait = (milliseconds) =>
-		new Promise((resolve) => {
-			setTimeout(resolve, milliseconds);
-		});
-
-	return {
-		overlayId: "engine-startup-overlay",
-		imageId: "engine-splash-image",
-		supplementalElementIds: [],
-		wait: wait,
-	};
-}
-
 function removeSplashSupplementalElements(context) {
-	for (let index = 0; index < context.supplementalElementIds.length; index++) {
-		const id = context.supplementalElementIds[index];
+	context.supplementalElementIds.forEach((id) => {
 		const element = document.getElementById(id);
 		element.parentNode.removeChild(element);
-	}
+	});
 
 	context.supplementalElementIds = [];
 }
 
-function buildSplashStepElements(step, stepIndex) {
+function buildSplashStepElements(step) {
 	const definitions = [];
 	const ids = [];
 
-	for (let index = 0; index < step.elements.length; index++) {
-		const source = step.elements[index];
-		const elementId = source.id;
-
+	step.elements.forEach((source) => {
 		definitions.push({
 			...source,
-			id: elementId,
+			id: source.id,
 		});
-		ids.push(elementId);
-	}
+		ids.push(source.id);
+	});
 
-	const textEntries = step.text;
-	for (let index = 0; index < textEntries.length; index++) {
-		const text = textEntries[index];
-		const elementId = text.id;
-
+	step.text.forEach((text) => {
 		definitions.push({
 			type: text.type,
-			id: elementId,
+			id: text.id,
 			className: text.className,
 			text: text.content,
 			attributes: text.attributes,
@@ -81,22 +55,22 @@ function buildSplashStepElements(step, stepIndex) {
 			on: {},
 			children: [],
 		});
-		ids.push(elementId);
-	}
+		ids.push(text.id);
+	});
 
 	return { definitions, ids };
 }
 
 function renderSplashStepElements(step, context, stepIndex) {
 	removeSplashSupplementalElements(context);
-	const { definitions, ids } = buildSplashStepElements(step, stepIndex);
-	if (definitions.length === 0) return;
+	const { elements, ids } = buildSplashStepElements(step);
+	if (elements.length === 0) return;
 
 	CreateUI({
 		screenId: `EngineSplashStep${stepIndex}`,
 		rootId: context.overlayId,
 		replace: false,
-		elements: definitions,
+		elements,
 	});
 
 	context.supplementalElementIds = ids;
@@ -224,41 +198,38 @@ async function runSequenceSteps(sequence, context) {
 		renderSplashStepElements(step, context, index);
 
 		// Initialize supplemental elements to fully transparent so they can fade with the image.
-		for (let i = 0; i < context.supplementalElementIds.length; i++) {
-			SetElementStyle(context.supplementalElementIds[i], { opacity: "0" });
-		}
+		context.supplementalElementIds.forEach((id) => SetElementStyle(id, { opacity: "0" }));
 
-		if (step.sfx !== null) PlaySfx(step.sfx.src, step.sfx.options);
-
-		if (step.voiceAtStart) PlayVoice(step.voice.src, step.voice.options);
+		if (step.sfx !== null) PlayAudio(step.sfx.src, step.sfx.options, "Sfx");
+		if (step.voiceAtStart) PlayAudio(step.voice.src, step.voice.options, "Voice");
 
 		// Fade image and supplemental elements together.
 		const fadeInPromises = [FadeElement(context.imageId, 1, step.fadeInSeconds)];
-		for (let i = 0; i < context.supplementalElementIds.length; i++) {
-			fadeInPromises.push(FadeElement(context.supplementalElementIds[i], 1, step.fadeInSeconds));
-		}
+		context.supplementalElementIds.forEach((id) => fadeInPromises.push(FadeElement(id, 1, step.fadeInSeconds)));
 		await Promise.all(fadeInPromises);
 
-		await context.wait(step.holdMs);
+		await Wait(step.holdMs);
 
-		if (!step.voiceAtStart && step.voice !== null) await PlayVoice(step.voice.src, step.voice.options);
+		if (!step.voiceAtStart && step.voice !== null) await PlayAudio(step.voice.src, step.voice.options, "Voice");
 
 		// Fade image and supplemental elements out together.
 		const fadeOutPromises = [FadeElement(context.imageId, 0, step.fadeOutSeconds)];
-		for (let i = 0; i < context.supplementalElementIds.length; i++) {
-			fadeOutPromises.push(FadeElement(context.supplementalElementIds[i], 0, step.fadeOutSeconds));
-		}
+		context.supplementalElementIds.forEach((id) => fadeOutPromises.push(FadeElement(id, 0, step.fadeOutSeconds)));
 		await Promise.all(fadeOutPromises);
 		removeSplashSupplementalElements(context);
 
 		// Pause between splash steps.
-		if (index < sequence.length - 1) await context.wait(1000);
+		if (index < sequence.length - 1) await Wait(1000);
 	}
 }
 
 async function runSplashSequence(requestedSplashPayload) {
 	// Build the full splash sequence pipeline.
-	const context = setupSplashSequence();
+	const context = {
+		overlayId: "engine-startup-overlay",
+		imageId: "engine-splash-image",
+		supplementalElementIds: [],
+	};
 
 	if (CONFIG.DEBUG.SKIP.Splash === true || ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true) {
 		Log("ENGINE", "Splash scren sequence skipped.", "log", "Startup");

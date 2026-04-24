@@ -291,6 +291,14 @@ function SplashPayload(payload) {
 		const voiceSource = normalizeObject(stepSource.voice);
 		step.sfx = sfxSource.bool ? AudioPayload(sfxSource.value) : null;
 		step.voice = voiceSource.bool ? AudioPayload(voiceSource.value) : null;
+		if (step.sfx !== null && step.sfx.category === null) {
+			step.sfx.category = "Menu";
+			step.sfx.options.category = "Menu";
+		}
+		if (step.voice !== null && step.voice.category === null) {
+			step.voice.category = "Voice";
+			step.voice.options.category = "Voice";
+		}
 		step.elements = normalizeElements(stepSource.elements);
 		step.text = normalizeText(stepSource.text);
 		return step;

@@ -82,9 +82,7 @@ const Cache = ReadFromSession(SESSION_KEYS.Cache) ?? {
 
 // Shared delay utility for async flows.
 function Wait(milliseconds) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function IsPointerLocked() {

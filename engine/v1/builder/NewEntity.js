@@ -69,13 +69,11 @@ function remapFacesAfterRotation(rotation) {
 	];
 
 	const remap = {};
-	const faceNames = Object.keys(faceNormals);
 	const claimed = new Set();
 
 	// Rotate each canonical face normal → find the world axis it best aligns with.
-	const rotatedEntries = faceNames.map((name) => {
-		const rotated = RotateByEuler(faceNormals[name], rotation);
-		return { name, rotated };
+	const rotatedEntries = Object.keys(faceNormals).map((name) => {
+		return { name, rotated: RotateByEuler(faceNormals[name], rotation) };
 	});
 
 	// Sort by best alignment (highest dot product first) to prevent ties from producing duplicates.
@@ -142,11 +140,10 @@ function cloneLocalTransform(transform) {
 
 function composeTransform(parentTransform, localTransform) {
 	const localPosition = localTransform.position.clone();
-	const localRotation = localTransform.rotation.clone();
 	const rotatedChildPos = RotateByEuler(localPosition, parentTransform.rotation);
 	return {
 		position: localPosition.set(AddVector3(parentTransform.position, rotatedChildPos)),
-		rotation: localRotation.add(parentTransform.rotation),
+		rotation: localTransform.rotation.clone().add(parentTransform.rotation),
 		scale: MultiplyVector3(parentTransform.scale, localTransform.scale),
 	};
 }
@@ -225,7 +222,7 @@ function buildPart(partDefinition) {
 		builtScale     : ToVector3(0),
 		builtDimensions: source.dimensions.clone(),
 		faceMap        : null,
-		mesh           : mesh,
+		mesh,
 	};
 }
 

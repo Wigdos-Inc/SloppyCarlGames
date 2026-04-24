@@ -7,7 +7,8 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { BuildObject, CreateModelMatrix, BuildGeometry, GenerateUVs } from "./NewObject.js";
+import { CreateModelMatrix } from "../math/Matrix.js";
+import { BuildObject, BuildGeometry, GenerateUVs } from "./NewObject.js";
 import { UnitVector3 } from "../math/Utilities.js";
 import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3 } from "../math/Vector3.js";
 import visualTemplates from "./templates/textures.json" with { type: "json" };
@@ -128,11 +129,10 @@ function resolveRootPart(parts, uniformScale) {
 	if (roots.length === 0) return null;
 
 	let selected = roots[0];
-	for (let index = 1; index < roots.length; index++) {
-		const candidate = roots[index];
+	roots.forEach(candidate => {
 		if (candidate.stackY < selected.stackY) {
 			selected = candidate;
-			continue;
+			return;
 		}
 
 		if (candidate.stackY === selected.stackY) {
@@ -140,7 +140,7 @@ function resolveRootPart(parts, uniformScale) {
 			const selectedHeight = getPartHalfHeight(selected, uniformScale);
 			if (candidateHeight > selectedHeight) selected = candidate;
 		}
-	}
+	});
 
 	return selected;
 }
@@ -378,9 +378,9 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 				return scatterMesh.worldAabb;
 			},
 			finishModel: (ctx, modelAabb, startIndex) => {
-				for (let index = startIndex; index < meshes.length; index++) {
-					meshes[index].meta.scatterModelAabb = { min: modelAabb.min.clone(), max: modelAabb.max.clone() };
-				}
+				meshes.slice(startIndex).forEach((mesh) => {
+					mesh.meta.scatterModelAabb = { min: modelAabb.min.clone(), max: modelAabb.max.clone() };
+				});
 			},
 		}
 	);

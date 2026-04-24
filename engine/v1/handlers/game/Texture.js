@@ -52,12 +52,9 @@ function InitializeTextureAnimation(sceneGraph) {
 		textureScale: sceneGraph.world.textureScale,
 	};
 
-	const textureIDs = Object.keys(textureRegistry);
-	for (let index = 0; index < textureIDs.length; index++) {
-		const textureID = textureIDs[index];
+	for (const textureID in textureRegistry) {
 		const textureEntry = textureRegistry[textureID];
 		if (textureEntry.definition.animation.able !== true) continue;
-
 		animationState.byTextureID[textureID] = createAnimationStateEntry(textureEntry);
 	}
 
@@ -72,11 +69,7 @@ function updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds
 		stateEntry.phase = "blend";
 		stateEntry.elapsedMs = 0;
 		stateEntry.fromSurface = textureEntry.source;
-		stateEntry.toSurface = BuildTextureSurface(
-			textureEntry.definition,
-			textureEntry.definition.size,
-			textureScale
-		);
+		stateEntry.toSurface = BuildTextureSurface(textureEntry.definition, textureEntry.definition.size, textureScale);
 	}
 
 	if (stateEntry.phase === "blend") {
@@ -97,14 +90,14 @@ function updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds
 
 function UpdateTextureAnimation(sceneGraph, deltaMilliseconds) {
 	const animationState = sceneGraph.visualResources.textureAnimation;
-	const textureRegistry = sceneGraph.visualResources.textureRegistry;
-	const textureIDs = Object.keys(animationState.byTextureID);
 
-	for (let index = 0; index < textureIDs.length; index++) {
-		const textureID = textureIDs[index];
-		const stateEntry = animationState.byTextureID[textureID];
-		const textureEntry = textureRegistry[textureID];
-		updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds, animationState.textureScale);
+	for (const textureID in animationState.byTextureID) {
+		updateTextureAnimationEntry(
+			sceneGraph.visualResources.textureRegistry[textureID],
+			animationState.byTextureID[textureID],
+			deltaMilliseconds,
+			animationState.textureScale
+		)
 	}
 }
 

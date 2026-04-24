@@ -72,13 +72,15 @@ class UIElement {
 	}
 }
 
-function BuildElement(definition) {
+function BuildElement(definition, ids = null) {
 	// Create a single DOM element from a normalized definition.
 	// `definition` is expected to be produced by `core/normalize.MenuUIPayload`.
-	const elementType = definition.type;
-	const element = document.createElement(elementType);
+	const element = document.createElement(definition.type);
 
-	if (definition.id) element.id = definition.id;
+	if (definition.id) {
+		element.id = definition.id;
+		if (ids) ids.push(definition.id);
+	}
 	if (definition.className) element.className = definition.className;
 	if (definition.text !== undefined) element.textContent = definition.text;
 
@@ -87,18 +89,12 @@ function BuildElement(definition) {
 	if ("value" in definition) element.value = definition.value;
 	if ("checked" in definition) element.checked = Boolean(definition.checked);
 
-	if (definition.src && elementType === "img") element.src = definition.src;
+	if (definition.src && definition.type === "img") element.src = definition.src;
 	Object.assign(element.style, definition.styles);
 
 	// Recursively append child elements (definitions.children is normalized to an array).
-	definition.children.forEach((child) => element.appendChild(BuildElement(child)));
+	definition.children.forEach((child) => element.appendChild(BuildElement(child, ids)));
 	return element;
-}
-
-function collectElementIds(definition, ids) {
-	// Gather ids for logging and input routing. `definition` is normalized.
-	if (definition.id) ids.push(definition.id);
-	definition.children.forEach((child) => collectElementIds(child, ids));
 }
 
 function BuildElements(definitions, menuId) {
@@ -107,8 +103,7 @@ function BuildElements(definitions, menuId) {
 	const ids = [];
 
 	// `definitions` is expected to be an array produced by `core/normalize.MenuUIPayload`.
-	definitions.forEach((definition) => collectElementIds(definition, ids));
-	definitions.forEach((definition) => fragment.appendChild(BuildElement(definition)));
+	definitions.forEach((definition) => fragment.appendChild(BuildElement(definition, ids)));
 
 	Log("ENGINE", `Building ${menuId}:\n- ${ids.join("\n- ")}`, "log", "UI");
 

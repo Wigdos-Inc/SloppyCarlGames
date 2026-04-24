@@ -8,6 +8,7 @@
 import { UIElement } from "../builder/NewUI.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
+import { CreateIdentityMatrix, CreateModelMatrix } from "../math/Matrix.js";
 import {
 	AddVector3,
 	CrossVector3,
@@ -75,29 +76,6 @@ const detailedBoundsTypeColors = {
 	Boss: { r: 1, g: 0.35, b: 0.85, a: 1 },
 };
 
-function createIdentityMatrix() {
-	return [
-		1, 0, 0, 0,
-		0, 1, 0, 0,
-		0, 0, 1, 0,
-		0, 0, 0, 1,
-	];
-}
-
-function multiplyMatrix4(a, b) {
-	const out = new Array(16);
-	for (let col = 0; col < 4; col++) {
-		for (let row = 0; row < 4; row++) {
-			out[col * 4 + row] =
-				a[0 * 4 + row] * b[col * 4 + 0] +
-				a[1 * 4 + row] * b[col * 4 + 1] +
-				a[2 * 4 + row] * b[col * 4 + 2] +
-				a[3 * 4 + row] * b[col * 4 + 3];
-		}
-	}
-	return out;
-}
-
 function createPerspectiveMatrix(fovDegrees, aspect, near, far) {
 	const safeAspect = aspect;
 	const fov = (fovDegrees * Math.PI) / 180;
@@ -125,77 +103,6 @@ function createLookAtMatrix(eye, target, up) {
 	];
 }
 
-function createTranslationMatrix(position) {
-	return [
-		1, 0, 0, 0,
-		0, 1, 0, 0,
-		0, 0, 1, 0,
-		position.x, position.y, position.z, 1,
-	];
-}
-
-function createScaleMatrix(scale) {
-	return [
-		scale.x, 0, 0, 0,
-		0, scale.y, 0, 0,
-		0, 0, scale.z, 0,
-		0, 0, 0, 1,
-	];
-}
-
-function createRotationX(radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
-	return [
-		1, 0, 0, 0,
-		0, c, s, 0,
-		0, -s, c, 0,
-		0, 0, 0, 1,
-	];
-}
-
-function createRotationY(radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
-	return [
-		c, 0, -s, 0,
-		0, 1, 0, 0,
-		s, 0, c, 0,
-		0, 0, 0, 1,
-	];
-}
-
-function createRotationZ(radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
-	return [
-		c, s, 0, 0,
-		-s, c, 0, 0,
-		0, 0, 1, 0,
-		0, 0, 0, 1,
-	];
-}
-
-/**
- * Build a model matrix converting CNU-space transform to WebGL world units.
- * Position and pivot use .toWorldUnit(); scale is multiplied by CNU_SCALE
- * (dimensionless multiplier applied to CNU geometry); rotation stays in radians.
- */
-function createWorldUnitModelMatrix(source) {
-	const rotation = source.rotation;
-	const pivot = source.pivot.toWorldUnit();
-
-	let matrix = createIdentityMatrix();
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(source.position.toWorldUnit()));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(pivot));
-	matrix = multiplyMatrix4(matrix, createRotationY(rotation.y));
-	matrix = multiplyMatrix4(matrix, createRotationX(rotation.x));
-	matrix = multiplyMatrix4(matrix, createRotationZ(rotation.z));
-	matrix = multiplyMatrix4(matrix, createScaleMatrix(source.scale));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(ScaleVector3(pivot, -1)));
-	return matrix;
-}
-
 function createShader(gl, type, source) {
 	const shader = gl.createShader(type);
 	if (!shader) {
@@ -210,6 +117,81 @@ function createShader(gl, type, source) {
 		return null;
 	}
 	return shader;
+}
+
+function resolveProgramLocations(gl, program, names, resolver) {
+	const locations = {};
+	for (const key in names) locations[key] = resolver(names[key]);
+	return locations;
+}
+
+function createLinkedProgram(gl, options) {
+	const vertex = createShader(gl, gl.VERTEX_SHADER, options.vertexShaderSource);
+	const fragment = createShader(gl, gl.FRAGMENT_SHADER, options.fragmentShaderSource);
+	if (!vertex || !fragment) return null;
+
+	const program = gl.createProgram();
+	if (!program) {
+		if (options.createError) Log("ENGINE", options.createError, "error", "Render");
+		return null;
+	}
+
+	gl.attachShader(program, vertex);
+	gl.attachShader(program, fragment);
+	gl.linkProgram(program);
+
+	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+		if (options.linkErrorPrefix) {
+			Log("ENGINE", `${options.linkErrorPrefix}: ${gl.getProgramInfoLog(program)}`, "error", "Render");
+		}
+		gl.deleteProgram(program);
+		return null;
+	}
+
+	return {
+		program,
+		attributes: resolveProgramLocations(
+			gl,
+			program,
+			options.attributeNames || {},
+			(name) => gl.getAttribLocation(program, name)
+		),
+		uniforms: resolveProgramLocations(
+			gl,
+			program,
+			options.uniformNames,
+			(name) => gl.getUniformLocation(program, name)
+		),
+	};
+}
+
+function createFoggedTextureFragmentShader(sharedDeclarations, shadedExpression) {
+	return `#version 300 es
+		precision highp float;
+		uniform sampler2D u_texture;
+		uniform float u_fogDensity;
+		uniform float u_far;
+		uniform vec3 u_colorShift;
+		uniform float u_underwater;
+		${sharedDeclarations}
+		in vec2 v_uv;
+		in float v_depth;
+		out vec4 fragColor;
+		void main() {
+			vec4 texel = texture(u_texture, v_uv);
+			vec4 shaded = ${shadedExpression};
+			if (shaded.a <= 0.01) {
+				discard;
+			}
+
+			float normalizedDepth = v_depth / max(1.0, u_far);
+			float fog = clamp(normalizedDepth * u_fogDensity, 0.0, 1.0);
+			vec3 shifted = shaded.rgb + u_colorShift;
+			vec3 fogColor = mix(vec3(0.04, 0.05, 0.08), vec3(0.03, 0.13, 0.2), clamp(u_underwater, 0.0, 1.0));
+			vec3 finalColor = mix(shifted, fogColor, fog);
+			fragColor = vec4(finalColor, shaded.a);
+		}
+	`;
 }
 
 function createProgram(gl) {
@@ -230,71 +212,30 @@ function createProgram(gl) {
 		}
 	`;
 
-	const fragmentShaderSource = `#version 300 es
-		precision highp float;
-		uniform sampler2D u_texture;
-		uniform vec4 u_tint;
-		uniform float u_fogDensity;
-		uniform float u_far;
-		uniform vec3 u_colorShift;
-		uniform float u_underwater;
-		in vec2 v_uv;
-		in float v_depth;
-		out vec4 fragColor;
-		void main() {
-			vec4 texel = texture(u_texture, v_uv);
-			vec4 shaded = vec4(texel.rgb * u_tint.rgb, texel.a * u_tint.a);
-			if (shaded.a <= 0.01) {
-				discard;
-			}
-
-			float normalizedDepth = v_depth / max(1.0, u_far);
-			float fog = clamp(normalizedDepth * u_fogDensity, 0.0, 1.0);
-			vec3 shifted = shaded.rgb + u_colorShift;
-			vec3 fogColor = mix(vec3(0.04, 0.05, 0.08), vec3(0.03, 0.13, 0.2), clamp(u_underwater, 0.0, 1.0));
-			vec3 finalColor = mix(shifted, fogColor, fog);
-			fragColor = vec4(finalColor, shaded.a);
-		}
-	`;
-
-	const vertex = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-	const fragment = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-	if (!vertex || !fragment) return null;
-
-	const program = gl.createProgram();
-	if (!program) {
-		Log("ENGINE", "WebGL program creation failed", "error", "Render");
-		return null;
-	}
-
-	gl.attachShader(program, vertex);
-	gl.attachShader(program, fragment);
-	gl.linkProgram(program);
-
-	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-		Log("ENGINE", `Program link error: ${gl.getProgramInfoLog(program)}`, "error", "Render");
-		gl.deleteProgram(program);
-		return null;
-	}
-
-	return {
-		program: program,
-		attributes: {
-			position: gl.getAttribLocation(program, "a_position"),
-			uv: gl.getAttribLocation(program, "a_uv"),
+	return createLinkedProgram(gl, {
+		vertexShaderSource: vertexShaderSource,
+		fragmentShaderSource: createFoggedTextureFragmentShader(
+			"uniform vec4 u_tint;",
+			"vec4(texel.rgb * u_tint.rgb, texel.a * u_tint.a)"
+		),
+		attributeNames: {
+			position: "a_position",
+			uv      : "a_uv",
 		},
-		uniforms: {
-			projection: gl.getUniformLocation(program, "u_projection"),
-			view: gl.getUniformLocation(program, "u_view"),
-			model: gl.getUniformLocation(program, "u_model"),
-			texture: gl.getUniformLocation(program, "u_texture"),
-			tint: gl.getUniformLocation(program, "u_tint"),
-			fogDensity: gl.getUniformLocation(program, "u_fogDensity"),
-			far: gl.getUniformLocation(program, "u_far"),
-			colorShift: gl.getUniformLocation(program, "u_colorShift"),
-			underwater: gl.getUniformLocation(program, "u_underwater"),
+		uniformNames: {
+			projection: "u_projection",
+			view      : "u_view",
+			model     : "u_model",
+			texture   : "u_texture",
+			tint      : "u_tint",
+			fogDensity: "u_fogDensity",
+			far       : "u_far",
+			colorShift: "u_colorShift",
+			underwater: "u_underwater",
 		},
-	};
+		createError    : "WebGL program creation failed",
+		linkErrorPrefix: "Program link error",
+	});
 }
 
 function createLineProgram(gl) {
@@ -317,34 +258,19 @@ function createLineProgram(gl) {
 		}
 	`;
 
-	const vertex = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-	const fragment = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-	if (!vertex || !fragment) return null;
-
-	const program = gl.createProgram();
-	if (!program) return null;
-
-	gl.attachShader(program, vertex);
-	gl.attachShader(program, fragment);
-	gl.linkProgram(program);
-
-	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-		gl.deleteProgram(program);
-		return null;
-	}
-
-	return {
-		program: program,
-		attributes: {
-			position: gl.getAttribLocation(program, "a_position"),
+	return createLinkedProgram(gl, {
+		vertexShaderSource: vertexShaderSource,
+		fragmentShaderSource: fragmentShaderSource,
+		attributeNames: {
+			position: "a_position",
 		},
-		uniforms: {
-			projection: gl.getUniformLocation(program, "u_projection"),
-			view: gl.getUniformLocation(program, "u_view"),
-			model: gl.getUniformLocation(program, "u_model"),
-			color: gl.getUniformLocation(program, "u_color"),
+		uniformNames: {
+			projection: "u_projection",
+			view      : "u_view",
+			model     : "u_model",
+			color     : "u_color",
 		},
-	};
+	});
 }
 
 function createScatterProgram(gl) {
@@ -382,62 +308,23 @@ function createScatterProgram(gl) {
 		}
 	`;
 
-	const fragmentShaderSource = `#version 300 es
-		precision highp float;
-		uniform sampler2D u_texture;
-		uniform float u_fogDensity;
-		uniform float u_far;
-		uniform vec3 u_colorShift;
-		uniform float u_underwater;
-		in vec2 v_uv;
-		in float v_depth;
-		in vec4 v_tint;
-		out vec4 fragColor;
-		void main() {
-			vec4 texel = texture(u_texture, v_uv);
-			vec4 shaded = vec4(texel.rgb * v_tint.rgb, texel.a * v_tint.a);
-			if (shaded.a <= 0.01) {
-				discard;
-			}
-
-			float normalizedDepth = v_depth / max(1.0, u_far);
-			float fog = clamp(normalizedDepth * u_fogDensity, 0.0, 1.0);
-			vec3 shifted = shaded.rgb + u_colorShift;
-			vec3 fogColor = mix(vec3(0.04, 0.05, 0.08), vec3(0.03, 0.13, 0.2), clamp(u_underwater, 0.0, 1.0));
-			vec3 finalColor = mix(shifted, fogColor, fog);
-			fragColor = vec4(finalColor, shaded.a);
-		}
-	`;
-
-	const vertex = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-	const fragment = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-	if (!vertex || !fragment) return null;
-
-	const program = gl.createProgram();
-	if (!program) return null;
-
-	gl.attachShader(program, vertex);
-	gl.attachShader(program, fragment);
-	gl.linkProgram(program);
-
-	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-		Log("ENGINE", `Scatter shader link error: ${gl.getProgramInfoLog(program)}`, "error", "Render");
-		gl.deleteProgram(program);
-		return null;
-	}
-
-	return {
-		program: program,
-		uniforms: {
-			projection: gl.getUniformLocation(program, "u_projection"),
-			view: gl.getUniformLocation(program, "u_view"),
-			texture: gl.getUniformLocation(program, "u_texture"),
-			fogDensity: gl.getUniformLocation(program, "u_fogDensity"),
-			far: gl.getUniformLocation(program, "u_far"),
-			colorShift: gl.getUniformLocation(program, "u_colorShift"),
-			underwater: gl.getUniformLocation(program, "u_underwater"),
+	return createLinkedProgram(gl, {
+		vertexShaderSource: vertexShaderSource,
+		fragmentShaderSource: createFoggedTextureFragmentShader(
+			"in vec4 v_tint;",
+			"vec4(texel.rgb * v_tint.rgb, texel.a * v_tint.a)"
+		),
+		uniformNames: {
+			projection: "u_projection",
+			view      : "u_view",
+			texture   : "u_texture",
+			fogDensity: "u_fogDensity",
+			far       : "u_far",
+			colorShift: "u_colorShift",
+			underwater: "u_underwater",
 		},
-	};
+		linkErrorPrefix: "Scatter shader link error",
+	});
 }
 
 /* === GEOMETRY REGISTRY === */
@@ -657,24 +544,23 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 	gl.useProgram(shader.program);
 	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
 	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
-	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(createIdentityMatrix()));
+	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
 	gl.enableVertexAttribArray(shader.attributes.position);
 	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
 
-	for (let index = 0; index < records.length; index++) {
-		const record = records[index];
-		if (!isBoundingBoxDebugEnabled(record.type)) continue;
+	records.forEach((record) => {
+		if (!isBoundingBoxDebugEnabled(record.type)) return;
 
 		const vertices = createBoundingBoxLineVertices(record);
-		if (!vertices) continue;
+		if (!vertices) return;
 
 		const color = boundingBoxTypeColors[record.type];
 		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 		gl.drawArrays(gl.LINES, 0, vertices.length / 3);
-	}
+	});
 }
 
 function drawGridOverlay(renderer, sceneGraph, projection, view) {
@@ -693,7 +579,7 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 	gl.useProgram(shader.program);
 	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
 	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
-	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(createIdentityMatrix()));
+	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
 	gl.enableVertexAttribArray(shader.attributes.position);
@@ -701,16 +587,15 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 
 	gl.uniform4f(shader.uniforms.color, 0.5, 0.5, 0.5, 0.6);
 
-	for (let index = 0; index < records.length; index++) {
-		const record = records[index];
-		if (!isBoundingBoxDebugEnabled(record.type)) continue;
+	records.forEach((record) => {
+		if (!isBoundingBoxDebugEnabled(record.type)) return;
 
 		const vertices = createGridLineVertices(record, spacing);
-		if (!vertices) continue;
+		if (!vertices) return;
 
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 		gl.drawArrays(gl.LINES, 0, vertices.length / 3);
-	}
+	});
 }
 
 function createObbLineVertices(bounds) {
@@ -827,8 +712,7 @@ function createSphereLineVertices(bounds, radialSegments = 16) {
 
 function createTriangleSoupLineVertices(bounds) {
 	const lines = [];
-	for (let index = 0; index < bounds.triangles.length; index++) {
-		const triangle = bounds.triangles[index];
+	bounds.triangles.forEach((triangle) => {
 		const a = triangle.a.toWorldUnit();
 		const b = triangle.b.toWorldUnit();
 		const c = triangle.c.toWorldUnit();
@@ -837,7 +721,7 @@ function createTriangleSoupLineVertices(bounds) {
 			b.x, b.y, b.z, c.x, c.y, c.z,
 			c.x, c.y, c.z, a.x, a.y, a.z
 		);
-	}
+	});
 	return new Float32Array(lines);
 }
 
@@ -850,14 +734,10 @@ function drawDetailedBoundsShape(gl, shader, bounds) {
 		case "aabb"         : vertices = createAabbLineVertices(bounds);         break;
 		case "triangle-soup": vertices = createTriangleSoupLineVertices(bounds); break;
 		case "compound"     :
-			for (let index = 0; index < bounds.parts.length; index++) {
-				drawDetailedBoundsShape(gl, shader, bounds.parts[index]);
-			}
+			bounds.parts.forEach((part) => drawDetailedBoundsShape(gl, shader, part));
 			return;
 		case "compound-sphere":
-			for (let index = 0; index < bounds.spheres.length; index++) {
-				drawDetailedBoundsShape(gl, shader, bounds.spheres[index]);
-			}
+			bounds.spheres.forEach((sphere) => drawDetailedBoundsShape(gl, shader, sphere));
 			return;
 		default: return;
 	}
@@ -880,20 +760,19 @@ function drawDetailedBounds(renderer, sceneGraph, projection, view) {
 	gl.useProgram(shader.program);
 	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
 	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
-	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(createIdentityMatrix()));
+	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
 	gl.enableVertexAttribArray(shader.attributes.position);
 	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
 
-	for (let index = 0; index < records.length; index++) {
-		const record = records[index];
-		if (!isDetailedBoundsDebugEnabled(record.type)) continue;
+	records.forEach((record) => {
+		if (!isDetailedBoundsDebugEnabled(record.type)) return;
 
 		const color = detailedBoundsTypeColors[record.type];
 		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
 		drawDetailedBoundsShape(gl, shader, record.bounds);
-	}
+	});
 }
 
 const trailTypeColors = {
@@ -935,7 +814,7 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 	gl.useProgram(shader.program);
 	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
 	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
-	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(createIdentityMatrix()));
+	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
 	gl.enableVertexAttribArray(shader.attributes.position);
@@ -1159,51 +1038,77 @@ function resolveWaterVisualMeshes(sceneGraph) {
 	return [waterVisual.body, waterVisual.top];
 }
 
-function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue) {
-	const waterMeshes = resolveWaterVisualMeshes(sceneGraph);
-	if (waterMeshes.length === 0) return;
+function configureTexturedMeshPass(gl, shader, passState) {
+	gl.useProgram(shader.program);
+	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(passState.projection));
+	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(passState.view));
+	gl.uniform1f(shader.uniforms.fogDensity, passState.fogDensity);
+	gl.uniform1f(shader.uniforms.far, passState.farValue);
+	gl.uniform3f(shader.uniforms.colorShift, passState.colorShift.r, passState.colorShift.g, passState.colorShift.b);
+	gl.uniform1f(shader.uniforms.underwater, passState.underwaterValue);
+}
+
+function ensureMeshBuffer(renderer, mesh, shader) {
+	const meshBufferKey = getMeshBufferKey(mesh);
+	if (!meshBufferKey) return null;
+
+	let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
+	if (!meshBuffer) {
+		meshBuffer = createMeshBuffers(renderer.gl, mesh, shader);
+		if (!meshBuffer) return null;
+		renderer.meshBuffers.set(meshBufferKey, meshBuffer);
+	}
+
+	return meshBuffer;
+}
+
+function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
+	if (meshes.length === 0) return;
 
 	const gl = renderer.gl;
 	const shader = renderer.shader;
-	gl.useProgram(shader.program);
-	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
-	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
-	gl.uniform1f(shader.uniforms.fogDensity, fogDensity);
-	gl.uniform1f(shader.uniforms.far, farValue);
-	gl.uniform3f(shader.uniforms.colorShift, colorShift.r, colorShift.g, colorShift.b);
-	gl.uniform1f(shader.uniforms.underwater, underwaterValue);
+	const disableDepthWriteForPass = options.depthMask === false;
+	const skipDepthWrite = options.skipDepthWrite || (() => false);
 
-	gl.depthMask(false);
-	for (let index = 0; index < waterMeshes.length; index++) {
-		const mesh = waterMeshes[index];
-		const meshBufferKey = getMeshBufferKey(mesh);
-		if (!meshBufferKey) continue;
+	configureTexturedMeshPass(gl, shader, passState);
+	if (disableDepthWriteForPass) gl.depthMask(false);
 
-		let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
-		if (!meshBuffer) {
-			meshBuffer = createMeshBuffers(gl, mesh, shader);
-			renderer.meshBuffers.set(meshBufferKey, meshBuffer);
-		}
+	for (const mesh of meshes) {
+		const meshBuffer = ensureMeshBuffer(renderer, mesh, shader);
+		if (!meshBuffer) continue;
 
-		const model = createWorldUnitModelMatrix(mesh.transform);
 		const color = mesh.material.color;
 		const texture = ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID);
+		const disableDepthWriteForMesh = disableDepthWriteForPass === false && skipDepthWrite(mesh) === true;
 
 		gl.bindVertexArray(meshBuffer.vao);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.uniform1i(shader.uniforms.texture, 0);
-		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(model));
+		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateModelMatrix(mesh.transform)));
 		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, mesh.material.opacity);
+		if (disableDepthWriteForMesh) gl.depthMask(false);
 		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
+		if (disableDepthWriteForMesh) gl.depthMask(true);
 		gl.bindVertexArray(null);
 	}
-	gl.depthMask(true);
+
+	if (disableDepthWriteForPass) gl.depthMask(true);
+}
+
+function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue) {
+	const waterMeshes = resolveWaterVisualMeshes(sceneGraph);
+	drawMeshList(
+		renderer,
+		sceneGraph,
+		waterMeshes,
+		{ projection, view, fogDensity, farValue, colorShift, underwaterValue },
+		{ depthMask: false }
+	);
 }
 
 function drawScene(renderer, sceneGraph) {
 	const gl = renderer.gl;
-	const shader = renderer.shader;
 
 	syncCanvasSize(renderer);
 	gl.viewport(0, 0, renderer.canvas.width, renderer.canvas.height);
@@ -1233,6 +1138,7 @@ function drawScene(renderer, sceneGraph) {
 	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
 	const farValue = cameraState.far.value;
 	const underwaterValue = underwater ? 1 : 0;
+	const passState = { projection, view, fogDensity, farValue, colorShift, underwaterValue };
 
 	if (
 		underwater &&
@@ -1243,42 +1149,8 @@ function drawScene(renderer, sceneGraph) {
 	}
 
 	// === PASS A: Non-scatter meshes (terrain, obstacles, triggers, entities) ===
-	gl.useProgram(shader.program);
-	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
-	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
-	gl.uniform1f(shader.uniforms.fogDensity, fogDensity);
-	gl.uniform1f(shader.uniforms.far, farValue);
-	gl.uniform3f(shader.uniforms.colorShift, colorShift.r, colorShift.g, colorShift.b);
-	gl.uniform1f(shader.uniforms.underwater, underwaterValue);
-
 	const meshes = collectRenderableMeshes(sceneGraph);
-	for (let index = 0; index < meshes.length; index++) {
-		const mesh = meshes[index];
-		const isTriggerMesh = mesh.role === "trigger";
-		const meshBufferKey = getMeshBufferKey(mesh);
-
-		let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
-		if (!meshBuffer) {
-			meshBuffer = createMeshBuffers(gl, mesh, shader);
-			if (!meshBuffer) continue;
-			renderer.meshBuffers.set(meshBufferKey, meshBuffer);
-		}
-
-		const model = createWorldUnitModelMatrix(mesh.transform);
-		const color = mesh.material.color;
-		const texture = ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID);
-
-		gl.bindVertexArray(meshBuffer.vao);
-		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.uniform1i(shader.uniforms.texture, 0);
-		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(model));
-		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, mesh.material.opacity);
-		if (isTriggerMesh) gl.depthMask(false);
-		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
-		if (isTriggerMesh) gl.depthMask(true);
-		gl.bindVertexArray(null);
-	}
+	drawMeshList(renderer, sceneGraph, meshes, passState, { skipDepthWrite: (mesh) => mesh.role === "trigger" });
 
 	// === PASS B: Instanced scatter rendering ===
 	if (!renderer.scatterInstancesBuilt) buildScatterInstanceBuffers(renderer, sceneGraph);

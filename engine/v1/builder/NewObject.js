@@ -3,6 +3,7 @@
 // Called by anything that wants any 3D object or wants to build models.
 
 import { BuildScatter } from "./NewScatter.js";
+import { CreateModelMatrix } from "../math/Matrix.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { AbsoluteVector3, AddVector3, CloneVector3, CrossVector3, DivideVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3Length, Vector3Sq } from "../math/Vector3.js";
 
@@ -280,95 +281,6 @@ function computeBounds(positions) {
 	}
 
 	return bounds;
-}
-
-function createIdentityMatrix() {
-	return [
-		1, 0, 0, 0,
-		0, 1, 0, 0,
-		0, 0, 1, 0,
-		0, 0, 0, 1,
-	];
-}
-
-function multiplyMatrix4(a, b) {
-	const out = new Array(16);
-	for (let col = 0; col < 4; col++) {
-		for (let row = 0; row < 4; row++) {
-			out[col * 4 + row] =
-				a[0 * 4 + row] * b[col * 4 + 0] +
-				a[1 * 4 + row] * b[col * 4 + 1] +
-				a[2 * 4 + row] * b[col * 4 + 2] +
-				a[3 * 4 + row] * b[col * 4 + 3];
-		}
-	}
-	return out;
-}
-
-function createTranslationMatrix(position) {
-	return [
-		1, 0, 0, 0,
-		0, 1, 0, 0,
-		0, 0, 1, 0,
-		position.x, position.y, position.z, 1,
-	];
-}
-
-function createScaleMatrix(scale) {
-	return [
-		scale.x, 0, 0, 0,
-		0, scale.y, 0, 0,
-		0, 0, scale.z, 0,
-		0, 0, 0, 1,
-	];
-}
-
-function createRotationX(radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
-	return [
-		1, 0, 0, 0,
-		0, c, s, 0,
-		0, -s, c, 0,
-		0, 0, 0, 1,
-	];
-}
-
-function createRotationY(radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
-	return [
-		c, 0, -s, 0,
-		0, 1, 0, 0,
-		s, 0, c, 0,
-		0, 0, 0, 1,
-	];
-}
-
-function createRotationZ(radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
-	return [
-		c, s, 0, 0,
-		-s, c, 0, 0,
-		0, 0, 1, 0,
-		0, 0, 0, 1,
-	];
-}
-
-function CreateModelMatrix(transform) {
-	// transform positions/pivots may be UnitVector3 (CNU) — convert to world units for matrix math.
-	const pivot = transform.pivot.toWorldUnit();
-
-	let matrix = createIdentityMatrix();
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(transform.position.toWorldUnit()));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(pivot));
-	matrix = multiplyMatrix4(matrix, createRotationY(transform.rotation.y));
-	matrix = multiplyMatrix4(matrix, createRotationX(transform.rotation.x));
-	matrix = multiplyMatrix4(matrix, createRotationZ(transform.rotation.z));
-	matrix = multiplyMatrix4(matrix, createScaleMatrix(transform.scale));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(ScaleVector3(pivot, -1)));
-	return matrix;
 }
 
 function transformPointByMatrix(localPoint, matrix) {
@@ -1032,4 +944,4 @@ function UpdateObjectWorldAabb(mesh) {
 	return mesh.worldAabb;
 }
 
-export { BuildObject, UpdateObjectWorldAabb, BuildGeometry, GenerateUVs, CreateModelMatrix };
+export { BuildObject, UpdateObjectWorldAabb, BuildGeometry, GenerateUVs };

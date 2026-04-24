@@ -16,13 +16,13 @@ import { UpdateMovement } from "./Movement.js";
 import characterData from "./characters.json" with { type: "json" };
 
 (function normalizeCharacterTemplates() {
-	const characterIds = Object.keys(characterData);
-	characterIds.forEach(characterId => characterData[characterId].model.parts.forEach(part => {
-		part.dimensions = new UnitVector3(part.dimensions.x, part.dimensions.y, part.dimensions.z, "cnu");
-		part.localPosition = new UnitVector3(part.localPosition.x, part.localPosition.y, part.localPosition.z, "cnu");
-		part.localRotation = new UnitVector3(part.localRotation.x, part.localRotation.y, part.localRotation.z, "degrees").toRadians(true);
-		part.pivot = new UnitVector3(part.pivot.x, part.pivot.y, part.pivot.z, "cnu");
-	}));
+	const toUnitVector3 = (vector, type) => new UnitVector3(vector.x, vector.y, vector.z, type);
+	for (const characterId in characterData) characterData[characterId].model.parts.forEach(part => {
+		part.dimensions = toUnitVector3(part.dimensions, "cnu");
+		part.localPosition = toUnitVector3(part.localPosition, "cnu");
+		part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
+		part.pivot = toUnitVector3(part.pivot, "cnu");
+	});
 })();
 
 /* === PLAYER INPUT FLAGS === */
@@ -40,9 +40,6 @@ const playerInputFlags = {
 
 let playerState = null;
 function createDefaultPlayerState(playerData) {
-	const character = playerData.character;
-	const spawnPos = playerData.spawnPosition;
-
 	const sphereBounds = {
 		type: "sphere",
 		center: new UnitVector3(0, 0, 0, "cnu"),
@@ -93,10 +90,10 @@ function createDefaultPlayerState(playerData) {
 
 	return {
 		active: true,
-		character: character,
-		model: BuildPlayerModel(character, spawnPos),
+		character: playerData.character,
+		model: BuildPlayerModel(playerData.character, playerData.spawnPosition),
 		transform: {
-			position: spawnPos,
+			position: playerData.spawnPosition,
 			rotation: new UnitVector3(0, 0, 0, "radians"),
 			scale: playerData.scale,
 		},
@@ -105,8 +102,8 @@ function createDefaultPlayerState(playerData) {
 		underwater: false,
 		surfaceNormal: { x: 0, y: 1, z: 0 },
 		alignedUp: { x: 0, y: 1, z: 0 },
-		jumpStartY: new Unit(spawnPos.y, "cnu"),
-		jumpApexY: new Unit(spawnPos.y, "cnu"),
+		jumpStartY: new Unit(playerData.spawnPosition.y, "cnu"),
+		jumpApexY: new Unit(playerData.spawnPosition.y, "cnu"),
 		stoppingActive: false,
 		primaryOppositeHeld: false,
 		state: "Idle",
@@ -131,14 +128,14 @@ function createDefaultPlayerState(playerData) {
 		},
 		activeTriggers: [],
 		checkpoint: null,
-		spawnPosition: spawnPos.clone(),
+		spawnPosition: playerData.spawnPosition.clone(),
 		physicsRuntime: {
-			previousPosition: spawnPos.clone(),
+			previousPosition: playerData.spawnPosition.clone(),
 			previousRotation: new UnitVector3(0, 0, 0, "radians"),
 			hasUnresolvedPenetration: false,
 			cachePrimed: false,
 		},
-		collision: collision,
+		collision,
 		mesh: null,
 		type: "player",
 		id: "player",
@@ -155,27 +152,19 @@ function InitializePlayer(payload, sceneGraph) {
 	const characterProfile = characterData[payload.character];
 	const hasCustomParts = payload.modelParts.length > 0;
 	const { list: metaOverrideList, ...metaOverrides } = payload.metaOverrides;
-	const mergedMeta = {
-		...characterProfile.meta,
-		...metaOverrides,
-	};
 	const effectiveCharacter = {
 		...characterProfile,
-		meta: mergedMeta,
-		model: hasCustomParts
-			? { ...characterProfile.model, parts: payload.modelParts }
-			: characterProfile.model,
+		meta: { ...characterProfile.meta, ...metaOverrides },
+		model: hasCustomParts ? { ...characterProfile.model, parts: payload.modelParts } : characterProfile.model,
 	};
 
 	// Log meta overrides using the normalized, formatted list from the payload.
 	Log("ENGINE", `Player meta overrides applied:\n- ${metaOverrideList.join('\n- ')}`, "log", "Player");
 
-	const spawnPos = payload.spawnPosition;
-
 	// Build Player State & Model
 	playerState = createDefaultPlayerState({
 		character: effectiveCharacter,
-		spawnPosition: spawnPos, 
+		spawnPosition: payload.spawnPosition, 
 		scale: payload.scale,
 		collectibles: payload.collectibles,
 		collisionRadius: effectiveCharacter.meta.collisionRadius
@@ -191,7 +180,16 @@ function InitializePlayer(payload, sceneGraph) {
 
 	const sourceType = hasCustomParts ? "custom-model" : "profile";
 
-	Log("ENGINE", `Player initialized: character="${effectiveCharacter.name}" source="${sourceType}" at (${spawnPos.x}, ${spawnPos.y}, ${spawnPos.z})`, "log", "Player");
+	Log(
+		"ENGINE", 
+		`
+			Player initialized: 
+			character="${effectiveCharacter.name}" 
+			source="${sourceType}" at (${spawnPos.x}, ${spawnPos.y}, ${spawnPos.z})
+		`, 
+		"log", 
+		"Player"
+	);
 	return playerState;
 }
 
@@ -212,10 +210,8 @@ function UpdatePlayer(deltaSeconds, cameraVectors) {
 	if (!playerState.active) return null;
 	if (playerState.state === "Dead") return playerState;
 
-	const input = playerInputFlags;
-
 	// Step 1–2: Movement (reads input, modifies velocity).
-	UpdateMovement(playerState, input, cameraVectors, deltaSeconds);
+	UpdateMovement(playerState, playerInputFlags, cameraVectors, deltaSeconds);
 
 	// Step 3: Ability updates (not implemented).
 

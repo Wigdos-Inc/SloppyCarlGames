@@ -241,20 +241,14 @@ function collectTextureUsage(sceneGraph) {
 }
 
 function createTextureRegistry(usage, options) {
-	const textureDefinitions = visualTemplates.textures;
-	const resolvedOptions = options;
-	const textureScale = resolvedOptions.textureScale;
-
 	const registry = {};
-	const textureIDs = Object.keys(usage);
-	textureIDs.forEach((textureID) => {
+	for (const textureID in usage) {
 		const usageEntry = usage[textureID];
 		const baseTextureID = usageEntry.baseTextureID;
-		const textureBlueprint = textureDefinitions[baseTextureID];
+		const textureBlueprint = visualTemplates.textures[baseTextureID];
 		const resolvedSize = resolveTextureSize(textureBlueprint, usage[textureID]);
 		const usageDensity = usage[textureID].density;
 		const usageSpeckSize = usage[textureID].speckSize;
-		const usageShape = usageEntry.shape;
 		let resolvedTextureBlueprint = (usageDensity || usageDensity === 0)
 			? { ...textureBlueprint, density: usageDensity }
 			: { ...textureBlueprint };
@@ -264,16 +258,15 @@ function createTextureRegistry(usage, options) {
 				speckSize: usageSpeckSize,
 			};
 		}
-		if (usageShape) {
+		if (usageEntry.shape) {
 			resolvedTextureBlueprint = {
 				...resolvedTextureBlueprint,
-				shape: usageShape,
+				shape: usageEntry.shape,
 			};
 		}
 
 		const animatedRequested = usageEntry.animatedRequested === true;
-		const templateAnimation = textureBlueprint.animation;
-		const templateSupportsAnimation = templateAnimation.able === true;
+		const templateSupportsAnimation = textureBlueprint.animation.able === true;
 		const animated = animatedRequested && templateSupportsAnimation;
 		if (animatedRequested && !templateSupportsAnimation) {
 			Log(
@@ -284,32 +277,23 @@ function createTextureRegistry(usage, options) {
 			);
 		}
 
-		// Speed multipliers.
-		const holdTimeSpeed = usageEntry.holdTimeSpeed;
-		const blendTimeSpeed = usageEntry.blendTimeSpeed;
-
-		// Animation stage time in seconds
-		const holdTime = templateAnimation.holdTime;
-		const blendTime = templateAnimation.blendTime;
-		
-		const source = buildTextureSurface(resolvedTextureBlueprint, resolvedSize, textureScale);
 		registry[textureID] = {
 			id: textureID,
 			definition: {
 				...resolvedTextureBlueprint,
 				size: resolvedSize,
-				holdTimeSpeed: holdTimeSpeed,
-				blendTimeSpeed: blendTimeSpeed,
+				holdTimeSpeed: usageEntry.holdTimeSpeed,
+				blendTimeSpeed: usageEntry.blendTimeSpeed,
 				animation: {
 					able: animated,
-					holdTime: holdTime,
-					blendTime: blendTime,
+					holdTime: textureBlueprint.animation.holdTime,
+					blendTime: textureBlueprint.animation.blendTime,
 				},
 			},
-			source: source,
+			source: buildTextureSurface(resolvedTextureBlueprint, resolvedSize, options.textureScale),
 			dirty: false,
 		};
-	});
+	};
 
 	Log(
 		"ENGINE",
@@ -322,14 +306,10 @@ function createTextureRegistry(usage, options) {
 }
 
 async function PrepareLevelVisualResources(sceneGraph) {
-	const textureUsage = collectTextureUsage(sceneGraph);
-	const textureRegistry = createTextureRegistry(
-		textureUsage, 
-		{ textureScale: sceneGraph.world.textureScale }
-	);
+	const textureRegistry = createTextureRegistry(collectTextureUsage(sceneGraph), { textureScale: sceneGraph.world.textureScale });
 
 	sceneGraph.visualResources = {
-		textureRegistry: textureRegistry,
+		textureRegistry,
 		scatterRegistry: visualTemplates.scatterTypes,
 		primitiveGeometry: sceneGraph.scatterPrimitiveGeometry,
 	};

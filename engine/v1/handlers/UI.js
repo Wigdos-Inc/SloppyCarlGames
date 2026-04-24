@@ -20,20 +20,8 @@ import { ValidateMenuUIPayload } from "../core/validate.js";
 
 function CreateUI(payload) { 
 	// Build UI elements from payload and render them.
-	const builtElements = BuildElements(payload.elements, payload.screenId);
-	RenderPayload({
-		rootId: payload.rootId,
-		...payload,
-		elements: builtElements,
-	});
-}
-
-function indexElements(definitions, index) {
-	// Walk element tree to map ids for input routing.
-	definitions.forEach((definition) => {
-		if (definition.id) index[definition.id] = definition;
-		indexElements(definition.children, index);
-	});
+	const elements = BuildElements(payload.elements, payload.screenId);
+	RenderPayload({ rootId: payload.rootId, ...payload, elements });
 }
 
 function createUiRuntimeMaps() {
@@ -47,13 +35,8 @@ function createUiRuntimeMaps() {
 	};
 }
 
-function setPrecomputedAction(targetMap, elementId, action) {
-	targetMap[elementId] = action;
-}
-
 function getActionFromDefinition(definition, eventType) {
 	if (definition.events[eventType]) return definition.events[eventType];
-
 	if (definition.on[eventType]) return definition.on[eventType];
 
 	const capitalized = eventType.charAt(0).toUpperCase() + eventType.slice(1);
@@ -61,24 +44,35 @@ function getActionFromDefinition(definition, eventType) {
 	return direct || null;
 }
 
-function buildUiRuntimeMapsFromIndex(index) {
-	const runtime = createUiRuntimeMaps();
+function analyzeUiDefinitions(definitions, analysis = null) {
+	const result = analysis || {
+		elementIndex             : {},
+		uiRuntime                : createUiRuntimeMaps(),
+		hasHeavyInlineStyleActions: false,
+	};
 
-	Object.keys(index).forEach((elementId) => {
-		const definition = index[elementId];
-
-		setPrecomputedAction(runtime.hoverOverMap, elementId, getActionFromDefinition(definition, "pointerover"));
-		setPrecomputedAction(runtime.hoverOutMap, elementId, getActionFromDefinition(definition, "pointerout"));
-		setPrecomputedAction(runtime.clickMap, elementId, getActionFromDefinition(definition, "click"));
-		setPrecomputedAction(runtime.inputMap, elementId, getActionFromDefinition(definition, "input"));
-		setPrecomputedAction(runtime.changeMap, elementId, getActionFromDefinition(definition, "change"));
-		setPrecomputedAction(runtime.keyMap, elementId, getActionFromDefinition(definition, "keydown"));
-		if (!runtime.keyMap[elementId]) {
-			setPrecomputedAction(runtime.keyMap, elementId, getActionFromDefinition(definition, "keyup"));
+	definitions.forEach((definition) => {
+		const elementId = definition.id;
+		if (elementId) {
+			result.elementIndex[definition.id] = definition;
+			result.uiRuntime.hoverOverMap[definition.id] = getActionFromDefinition(definition, "pointerover");
+			result.uiRuntime.hoverOutMap[definition.id] = getActionFromDefinition(definition, "pointerout");
+			result.uiRuntime.clickMap[definition.id] = getActionFromDefinition(definition, "click");
+			result.uiRuntime.inputMap[definition.id] = getActionFromDefinition(definition, "input");
+			result.uiRuntime.changeMap[definition.id] = getActionFromDefinition(definition, "change");
+			result.uiRuntime.keyMap[definition.id] =
+				getActionFromDefinition(definition, "keydown") || getActionFromDefinition(definition, "keyup");
 		}
+
+		if (!result.hasHeavyInlineStyleActions) {
+			result.hasHeavyInlineStyleActions = Object.keys(definition.events)
+				.some((eventName) => styleActionHasManyInlineStyles(definition.events[eventName]));
+		}
+
+		analyzeUiDefinitions(definition.children, result);
 	});
 
-	return runtime;
+	return result;
 }
 
 function ResolvePrecomputedAction(type, targetId) {
@@ -98,39 +92,16 @@ function ResolvePrecomputedAction(type, targetId) {
 
 function countInlineStyleKeys(styles) {
 	let count = 0;
-	Object.keys(styles).forEach((key) => {
+	for (const key in styles) {
 		if (key !== "classList") count++;
-	});
+	}
 	return count;
 }
 
 function styleActionHasManyInlineStyles(action) {
-	if (Array.isArray(action)) {
-		for (let index = 0; index < action.length; index++) {
-			if (styleActionHasManyInlineStyles(action[index])) return true;
-		}
-		return false;
-	}
-
+	if (Array.isArray(action)) return action.some((entry) => styleActionHasManyInlineStyles(entry));
 	if (action.type !== "style" || !action.styles) return false;
-
 	return countInlineStyleKeys(action.styles) >= 5;
-}
-
-function payloadHasHeavyInlineStyleActions(definitions) {
-	for (let index = 0; index < definitions.length; index++) {
-		const definition = definitions[index];
-
-		const events = definition.events;
-		const eventNames = Object.keys(events);
-		for (let eventIndex = 0; eventIndex < eventNames.length; eventIndex++) {
-			if (styleActionHasManyInlineStyles(events[eventNames[eventIndex]])) return true;
-		}
-
-		if (payloadHasHeavyInlineStyleActions(definition.children)) return true;
-	}
-
-	return false;
 }
 
 function HandleUiAction(action) {
@@ -157,11 +128,8 @@ function HandleUiAction(action) {
 				classListConfig.remove.forEach(removeClass => element.classList.remove(removeClass));
 
 				const inlineStyles = {};
-				const styleKeys = Object.keys(styles);
-				for (let index = 0; index < styleKeys.length; index++) {
-					const key = styleKeys[index];
-					if (key === "classList") continue;
-					inlineStyles[key] = styles[key];
+				for (const key in styles) {
+					if (key !== "classList") inlineStyles[key] = styles[key];
 				}
 				Object.assign(element.style, inlineStyles);
 
@@ -174,17 +142,15 @@ function HandleUiAction(action) {
 function ApplyMenuUI(payload) {
 	// Validation & Normalization
 	payload = ValidateMenuUIPayload(payload);
-	if (payload === null) {
-		Log("ENGINE", "ApplyMenuUI aborted: invalid payload.", "error", "UI");
-		return null;
-	}
+	if (payload === null) return null;
 
 	// Update Input Events Engine Listens for
-	UpdateInputEventTypes({ payloadType: "ui", payload: payload });
+	UpdateInputEventTypes({ payloadType: "ui", payload });
 
 	Log("ENGINE", `UI screen load: ${payload.screenId}`, "log", "UI");
+	const uiAnalysis = analyzeUiDefinitions(payload.elements);
 
-	if (payloadHasHeavyInlineStyleActions(payload.elements)) {
+	if (uiAnalysis.hasHeavyInlineStyleActions) {
 		Log(
 			"ENGINE",
 			"Many style actions detected. Consider using CSS Stylesheet + classList for better performance.",
@@ -196,11 +162,8 @@ function ApplyMenuUI(payload) {
 	// Cache the latest UI payload for input routing.
 	Cache.UI.lastPayload = payload;
 	Cache.UI.screenID = payload.screenId;
-
-	Cache.UI.elementIndex = {};
-	indexElements(payload.elements, Cache.UI.elementIndex);
-
-	Cache.UI.uiRuntime = buildUiRuntimeMapsFromIndex(Cache.UI.elementIndex);
+	Cache.UI.elementIndex = uiAnalysis.elementIndex;
+	Cache.UI.uiRuntime = uiAnalysis.uiRuntime;
 	PushToSession(SESSION_KEYS.Cache, Cache);
 
 	const screenLabel = payload.screenId;

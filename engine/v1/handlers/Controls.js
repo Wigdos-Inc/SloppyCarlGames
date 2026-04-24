@@ -37,7 +37,7 @@ const directEventNameMap = {
 };
 
 function ResetEventTypes() {
-	Object.keys(eventTypes).forEach((key) => eventTypes[key] = false);
+	for (const key in eventTypes) eventTypes[key] = false;
 }
 
 function setEventType(type, enabled) {
@@ -52,17 +52,11 @@ function markEventFromDefinitionEventName(eventName) {
 function scanUiDefinitionsForEvents(definitions) {
 
 	definitions.forEach((definition) => {
-		Object.keys(definition.events).forEach((eventName) => {
-			markEventFromDefinitionEventName(eventName);
-		});
-
-		Object.keys(definition.on).forEach((eventName) => {
-			markEventFromDefinitionEventName(eventName);
-		});
-
-		Object.keys(directEventNameMap).forEach((directKey) => {
+		for (const eventName in definition.events) markEventFromDefinitionEventName(eventName);
+		for (const eventName in definition.on) markEventFromDefinitionEventName(eventName);
+		for (const directKey in directEventNameMap) {
 			if (definition[directKey]) setEventType(directEventNameMap[directKey], true);
-		});
+		}
 
 		scanUiDefinitionsForEvents(definition.children);
 	});
@@ -198,7 +192,7 @@ function StartInputRouter(target) {
 		SendEvent("USER_INPUT", buildInteractionPayload(event));
 	};
 
-	Object.keys(eventTypes).forEach((eventType) => router.on(eventType, handler));
+	for (const eventType in eventTypes) router.on(eventType, handler);
 	return router;
 }
 
