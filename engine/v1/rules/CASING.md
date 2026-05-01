@@ -51,6 +51,23 @@ export function build_level(payload) { ... }  // snake_case is never used
 
 ---
 
+### Class Instance Methods
+
+Class instance methods use `lowerCamelCase`. The class itself is the exported identifier — its methods are accessed through instances and are never directly exported.
+
+```js
+// Unit is exported (UpperCamelCase)
+export class Unit { ... }
+
+// Methods are accessed through instances — never exported directly (lowerCamelCase)
+const u = new Unit(10, "cnu");
+u.toWorldUnit();    // lowerCamelCase
+u.clone();          // lowerCamelCase
+u.set(42);          // lowerCamelCase
+```
+
+---
+
 ## 3. Exported Constants: `FULL_CAPS`
 
 Any **exported constant** (a variable that never changes after declaration) uses `FULL_CAPS` with underscores separating words.
@@ -87,3 +104,4 @@ export const CnuScale = 1;       // UpperCamelCase is for non-constant exports
 - **Acronyms in UpperCamelCase**: Treat acronyms as words. `CNU` stays `CNU` as a standalone term, but in compound names follow natural reading: `CNUtoWorldUnit`, `ValidateUIPayload`.
 - **Non-exported constants**: Use `lowerCamelCase`, not `FULL_CAPS`. The `FULL_CAPS` convention only applies to exported constants.
 - **Object properties**: Follow the convention of their containing scope. Properties on exported objects follow `UpperCamelCase` if they represent public API surface (e.g. `ENGINE.Level.CreateLevel`), `lowerCamelCase` for internal data.
+- **Properties on exported FULL_CAPS objects**: Properties on exported constant objects (e.g. `SESSION_KEYS.Logs`, `CONFIG.DEBUG.ALL`) intentionally use `UpperCamelCase` for readability. This is a known inconsistency relative to class instance methods and is kept deliberately. Do not conflate the two conventions.

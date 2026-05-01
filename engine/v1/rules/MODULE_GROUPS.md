@@ -108,12 +108,20 @@ handlers/      ← top-level orchestrators
 
 Most dependencies flow upward through these shared layers. `core/` and `math/` may be used across the engine as needed. `handlers/` still sits at the top and coordinates everything below.
 
+Modules within the same tier may import from each other freely. The one-directional restriction applies only across tier boundaries — lower tiers must not import from higher tiers.
+
 ### Approved Exception: `core/normalize.js`
 
 - `core/normalize.js` may import static template JSON from `builder/templates/` strictly for payload canonicalization at the boundary.
 - This exception applies only to normalization-time lookups of allowed IDs/defaults.
 - `core/normalize.js` must not call builder runtime functions or depend on builder execution flow.
 - This exception does not apply to any other `core/` module.
+
+---
+
+### Nested Directories
+
+Nested directories belong to their parent module group by default. `builder/templates/` is part of `builder/`. A sub-directory is only a separate module group if it is explicitly declared as one in this document.
 
 ---
 
@@ -128,3 +136,9 @@ When adding new code, ask:
 5. Is it about physical forces or collision? → `physics/`
 6. Is it about cutscene sequencing? → `cutscene/`
 7. Is it about anything else? → probably `handlers/`
+
+---
+
+## testGame/
+
+`engine/v1/testGame/` is not an engine module. It is a game stored inside the engine directory for testing and showcase purposes. It is exempt from all module group rules. Its only constraint is the game communication contract: it may interact with the engine exclusively through the `ENGINE` API exposed by `ini.js` and `Bootup.js`.

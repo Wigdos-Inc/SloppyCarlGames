@@ -28,6 +28,24 @@ If engine-owned static JSON contains world-space values, canonicalize those valu
 
 Do not leave raw engine JSON in place and compensate by re-instancing it later inside shared runtime or builder paths.
 
+```js
+// Example: module-scoped IIFE canonicalizing world-space values in engine-owned JSON
+import templates from "./templates/characters.json" assert { type: "json" };
+import { Unit, UnitVector3 } from "../../math/Utilities.js";
+
+(() => {
+    for (const template in templates) {
+        template.meta.jumpForce = new Unit(template.meta.jumpForce, "cnu");
+        template.spawnOffset = new UnitVector3(
+            template.spawnOffset.x,
+            template.spawnOffset.y,
+            template.spawnOffset.z,
+            "cnu"
+        );
+    }
+})();
+```
+
 ---
 
 ## 2. No Re-instancing
@@ -72,7 +90,7 @@ new Unit(vector.x, vector.type)
 
 ### Clone exception
 
-If an existing instanced value must be copied so the original instance is not mutated, use its `clone()` method when one is provided.
+If an existing instanced value must be copied so the original instance is not mutated, use its `clone()` method. `clone()` is always available on `Unit` and `UnitVector3` — if it is missing, that is a class-level bug, not a caller responsibility.
 
 ```js
 const nextPosition = existingVector.clone();
@@ -199,6 +217,8 @@ vector.scale(scalar);
 ```
 
 Prefer these over patterns like `vector.set(AddVector3(vector, otherVector))`.
+
+The canonical list of available `UnitVector3` instance methods lives in `math/Utilities.js`. Check there rather than relying on this document — the rule is the preference pattern, not the API inventory.
 
 ### Converting with mutation (overwrite mode)
 

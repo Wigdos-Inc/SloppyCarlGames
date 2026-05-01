@@ -27,7 +27,7 @@ window.addEventListener("LEVEL_READY", (event) => {
 - The engine must never call game functions directly.
 - The engine must never import game modules.
 - The engine must never assume any game-side listener exists — events are fire-and-forget.
-- Event names must be strings. By convention, engine events are prefixed with `ENGINE_`.
+- Event names must be strings.
 
 ---
 

@@ -114,8 +114,6 @@ Once normalization has canonicalized a field, shape, event map, or other contrac
 
 Once `core/normalize.js` has canonicalized an object- or array-typed field itself, that container is guaranteed immediately. Do not run `normalizeObject`, `normalizeArray`, or apply a second fallback to that same container later in the normalization flow.
 
-If a normalized field intentionally contains an opaque nested bag whose internal shape is not modeled by the schema, targeted checks on those unmodeled nested properties are allowed. Keep those checks scoped to the raw nested bag content itself, not the already-canonical container.
-
 Once normalization has canonicalized object `shape` or `collisionShape`, builders must not substitute a different primitive, collision mode, or null detailed-bounds result for unsupported ids. Fix the enum boundary in `core/normalize.js` or `core/validate.js` instead.
 
 Once a builder has generated internal geometry arrays, downstream builder helpers must not synthesize placeholder UVs, bounds, or AABBs to cover malformed geometry output. Fix the primitive builder or validate the generated geometry contract once at the builder boundary instead.
@@ -146,7 +144,7 @@ These checks may only appear once on arrival or first usage and should never be 
 
 ### B. Explicitly Approved Initialization Guards
 
-If a guard is intentionally retained for initialization bootstrap (for example, controlled cache bootstrap in core meta state), it is allowed only where explicitly approved by rule decision.
+If a guard is intentionally retained for initialization bootstrap (for example, controlled cache bootstrap in core meta state), it is allowed only where explicitly approved by the project owner. In practice, this exception has never been invoked — it exists as a formal escape hatch for bootstrap edge cases only.
 
 ### C. Bootup Browser Capability Gate
 
@@ -161,7 +159,7 @@ Outside that startup gate, engine modules must treat required modern browser beh
 If a guaranteed symbol is missing, allow the natural exception to surface.
 
 Do not swallow, coerce, or default around the failure in downstream runtime modules.
-Deliberate fail-fast error throwing is not allowed. Errors must naturally surface, not be induced.
+Deliberate fail-fast error throwing is not allowed. Errors must naturally surface, not be induced. A deliberate throw requires checking for the symbol's existence first — that check is itself a forbidden defensive pattern on a guaranteed symbol.
 
 This keeps bugs visible and forces fixes at the correct architectural boundary.
 

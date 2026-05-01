@@ -33,7 +33,7 @@ World Units are what the **renderer** uses to draw sizes and positions on screen
 1 CNU = CNU_SCALE World Units
 ```
 
-- Defined in `core/meta.js`.
+- Declared in `math/Utilities.js`. It is a hardcoded definition, not a runtime configuration value — it is set once during development and never changed post-release.
 - Conversion functions are in `math/Utilities.js`:
   - `CNUtoWorldUnit(cnu)` → returns `cnu * CNU_SCALE`
   - `WorldUnitToCNU(worldUnit)` → returns `worldUnit / CNU_SCALE`
@@ -62,9 +62,11 @@ Gameplay values (speeds, distances, positions) remain the same in CNU regardless
 | Entity positions and sizes    | CNU         |
 | Player state                  | CNU         |
 | normalize.js defaults         | CNU         |
-| Camera.js                     | World Units |
+| Camera.js *(temporary)*       | World Units |
 | Render.js                     | World Units |
 | WebGL draw calls              | World Units |
+
+> **Camera.js** is a temporary exception: it operates in World Units while the correct `CNU_SCALE` value is being calibrated during development. Once calibrated, Camera.js will be migrated to CNU like all other non-renderer modules.
 
 ---
 
@@ -72,4 +74,4 @@ Gameplay values (speeds, distances, positions) remain the same in CNU regardless
 
 - **Never mix CNU and World Unit values in the same calculation** without explicit conversion.
 - **Convert at point of use**, not preemptively upstream (see `rules/UNIT_INSTANCING.md`, Section 5).
-- **All engine modules (except Render.js)** should operate purely in CNU unless otherwise stated.
+- **All engine modules (except Render.js and Camera.js)** should operate purely in CNU. Camera.js is a temporary exception pending `CNU_SCALE` calibration — see Section 4.
