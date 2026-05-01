@@ -33,6 +33,24 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 - `/project:dryad` — DRY Agent for Deduplication. Use for deduplication reviews and simplification.
 - `/project:ed` — Engine Developer. Use for scoped engine feature work and bug fixes.
 
+## Autonomous Subagent Use
+
+These commands can be invoked as subagents (via the Agent tool) without explicit user request. Use judgment — small fixes, debugging, and code migrations do not warrant subagents.
+
+**When to spawn autonomously:**
+
+- **ED** — When new functionality is being implemented (new features, non-trivial extensions to existing systems). Spawn ED as the implementing agent for that work.
+- **DRYAD** — When the task involves performance, deduplication, line count reduction, or efficiency concerns. Spawn DRYAD to review the relevant scope.
+- **ERA** — When the task involves rule adherence, compliance review, or you are uncertain whether a change satisfies engine rules.
+
+**Post-ED audit requirement:**
+
+After any ED pass that results in a significant amount of new or edited code — judged by scope (new functions, structural changes, multi-file edits) rather than a fixed line count — spawn both ERA and DRYAD as auditing agents on the changed code. Return their findings to the user after the regular response so the user can evaluate them. When spawning these audits after an ED pass, full edit authorization is granted: fix all significant findings rather than just reporting them.
+
+**What does not require subagents:**
+
+Small isolated fixes, debugging sessions, logging changes, code migrations (e.g. moving a declaration between files), and one-off lookups. These are handled directly.
+
 ## testGame
 
 `engine/v1/testGame/` is a game, not an engine module. It is exempt from engine module group rules. It interacts with the engine exclusively through the `ENGINE` API exposed by `ini.js`. Do not treat testGame code as engine code.
