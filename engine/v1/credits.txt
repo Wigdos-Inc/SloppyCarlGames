@@ -3,10 +3,13 @@ Engine:
 - Structure Planning: ChatGPT 5.2 Instant
 - Feature Planning  : ChatGPT 5.2 Codex
 - Building Menus    : ChatGPT 5.2 Codex
-- 3D World Rendering: ChatGPT 5.3 Codex
-- Cleanup           : ChatGPT 5-mini
-- WebGL GPU Deferal : Claude Opus 4.6
-- Rule Enforcement  : ERA Agent - ChatGPT 5.4
+- 3D World Rendering: ChatGPT 5.3 Codex & Claude Opus 4.5
+- Cleanup           : ChatGPT 5-mini & DRYAD Agent
+- WebGL GPU Deferral: Claude Opus 4.6
+- Rule Enforcement  : ERA Agent
+- Performance Agent : DRYAD Agent
+- ERA Agent         : ChatGPT 5.4-mini & ChatGPT 5.4 & Claude Code
+- DRYAD Agent       : ChatGPT 5.4 & Claude Code
 
 testGame:
 - carlStudios Assets : Sloppy Carl Games
