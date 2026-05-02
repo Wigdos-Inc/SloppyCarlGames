@@ -308,7 +308,7 @@ function Update(deltaMilliseconds) {
 	);
 
 	// === TEXTURE ANIMATIONS ===
-	UpdateTextureAnimation(sceneGraph, deltaMs);
+	UpdateTextureAnimation(sceneGraph, deltaMilliseconds);
 
 	syncEntityMeshes(sceneGraph);
 	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);

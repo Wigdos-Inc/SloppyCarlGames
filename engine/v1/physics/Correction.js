@@ -55,7 +55,9 @@ const CORRECTION_DISABLED = Object.freeze({
 });
 
 function applySurfaceNormal(playerState, normal) {
-	applySurfaceNormal(playerState, normal);
+	playerState.grounded = true;
+	playerState.surfaceNormal = CloneVector3(normal);
+	playerState.alignedUp = CloneVector3(normal);
 }
 
 /**

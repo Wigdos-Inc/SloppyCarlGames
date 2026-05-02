@@ -48,6 +48,23 @@ function GetPerformanceScatterMultiplier() {
 	return 0.5;
 }
 
+function isPointInDetailedBoundsXZ(worldX, worldZ, detailedBounds) {
+	if (detailedBounds.type === "aabb") {
+		return worldX >= detailedBounds.min.x && worldX <= detailedBounds.max.x &&
+		       worldZ >= detailedBounds.min.z && worldZ <= detailedBounds.max.z;
+	}
+	if (detailedBounds.type === "obb") {
+		const dx = worldX - detailedBounds.center.x;
+		const dz = worldZ - detailedBounds.center.z;
+		const h  = detailedBounds.halfExtents;
+		const a  = detailedBounds.axes;
+		return Math.abs(dx * a[0].x + dz * a[0].z) <= h.x &&
+		       Math.abs(dx * a[1].x + dz * a[1].z) <= h.y &&
+		       Math.abs(dx * a[2].x + dz * a[2].z) <= h.z;
+	}
+	return true;
+}
+
 function hashNoise(x, z, seed) {
 	const value = Math.sin(x * 12.9898 + z * 78.233 + seed * 37.719) * 43758.5453;
 	return value - Math.floor(value);
@@ -282,6 +299,7 @@ function iterateScatterInstances(params, handler) {
 			// Bounds and height checks keep instances inside the parent and within allowed heights
 			if (worldX < minX || worldX > maxX || worldZ < minZ || worldZ > maxZ) continue;
 			if (worldY < scatterType.heightMin || worldY > scatterType.heightMax) continue;
+			if (objectMesh.detailedBounds && !isPointInDetailedBoundsXZ(worldX, worldZ, objectMesh.detailedBounds)) continue;
 
 			// Simple slope estimate filter based on noise to avoid steep placements
 			const slopeEstimate = Math.abs(Math.sin((worldX + worldZ) * scatterType.noiseScale)) * 0.25;
@@ -307,23 +325,22 @@ function iterateScatterInstances(params, handler) {
 				typeCount++;
 
 				// Calculate World Position
-				const addPos = { x: worldX, y: modelRootY + part.stackY, z: worldZ };
-				const pos = part.localPosition.clone().add(addPos);
+				const position = part.localPosition.clone().add({ x: worldX, y: modelRootY + part.stackY, z: worldZ });
 
 				// Calculate World Rotation
-				const rot = part.localRotation.clone();
-				rot.y += hashNoise(worldX, worldZ, seed + partIndex) * Math.PI * 2;
+				const rotation = part.localRotation.clone();
+				rotation.y += hashNoise(worldX, worldZ, seed + partIndex) * Math.PI * 2;
 
 				// Calculate World Scale
 				const scale = ScaleVector3(part.localScale, uniformScale);
 
 				if (!samplePosition) {
-					samplePosition = pos.clone();
+					samplePosition = position.clone();
 					sampleDimensions = part.dimensions.clone();
 					sampleDimensions.set(ScaleVector3(part.dimensions, uniformScale));
 				}
 
-				partContexts.push({ part, partIndex, pos, rot, scale });
+				partContexts.push({ part, partIndex, position, rotation, scale });
 			});
 
 			if (partContexts.length === 0) continue;

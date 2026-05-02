@@ -290,7 +290,7 @@ function createTextureRegistry(usage, options) {
 					blendTime: textureBlueprint.animation.blendTime,
 				},
 			},
-			source: buildTextureSurface(resolvedTextureBlueprint, resolvedSize, options.textureScale),
+			source: BuildTextureSurface(resolvedTextureBlueprint, resolvedSize, options.textureScale),
 			dirty: false,
 		};
 	};

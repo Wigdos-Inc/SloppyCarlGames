@@ -549,7 +549,7 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 		if (!vertices) return;
 
 		const color = boundingBoxTypeColors[record.type];
-		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
+		gl.uniform4f(renderer.debugLineShader.uniforms.color, color.r, color.g, color.b, color.a);
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 		gl.drawArrays(gl.LINES, 0, vertices.length / 3);
 	});
@@ -948,8 +948,6 @@ function collectRenderableMeshes(sceneGraph) {
 	const terrain = sceneGraph.terrain;
 	const obstacleRecords = sceneGraph.obstacles;
 	const obstacleMeshes = [];
-	const triggers = sceneGraph.triggers;
-	const showTriggers = !!(sceneGraph.debug.showTriggerVolumes === true);
 	const entities = sceneGraph.entities;
 	const entityMeshes = [];
 
@@ -963,10 +961,8 @@ function collectRenderableMeshes(sceneGraph) {
 		entityMeshes.push(entity.mesh);
 	});
 
-	const triggerMeshes = showTriggers ? triggers : [];
-
-	// Scatter is excluded — rendered via instanced path.
-	return terrain.concat(obstacleMeshes, triggerMeshes, entityMeshes);
+	// Scatter and triggers are excluded — scatter via instanced path, triggers via post-scatter pass.
+	return terrain.concat(obstacleMeshes, entityMeshes);
 }
 
 function resolveWaterVisualMeshes(sceneGraph) {
@@ -1087,7 +1083,7 @@ function drawScene(renderer, sceneGraph) {
 
 	// === PASS A: Non-scatter meshes (terrain, obstacles, triggers, entities) ===
 	const meshes = collectRenderableMeshes(sceneGraph);
-	drawMeshList(renderer, sceneGraph, meshes, passState, { skipDepthWrite: (mesh) => mesh.role === "trigger" });
+	drawMeshList(renderer, sceneGraph, meshes, passState);
 
 	// === PASS B: Instanced scatter rendering ===
 	if (!renderer.scatterInstancesBuilt) buildScatterInstanceBuffers(renderer, sceneGraph);
@@ -1115,7 +1111,12 @@ function drawScene(renderer, sceneGraph) {
 		}
 	}
 
-	// === PASS C: Water overlay (translucent; top brighter than body) ===
+	// === PASS C: Trigger overlay (no depth write — color filter over all solid geometry) ===
+	if (sceneGraph.debug.showTriggerVolumes) {
+		drawMeshList(renderer, sceneGraph, sceneGraph.triggers, passState, { depthMask: false });
+	}
+
+	// === PASS D: Water overlay (translucent; top brighter than body) ===
 	drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue);
 
 	drawBoundingBoxes(renderer, sceneGraph, projection, view);

@@ -124,8 +124,10 @@ function HandleUiAction(action) {
 				const styles = action.styles;
 				const classListConfig = styles.classList;
 
-				classListConfig.add.forEach(addClass => element.classList.add(addClass));
-				classListConfig.remove.forEach(removeClass => element.classList.remove(removeClass));
+				if (classListConfig) {
+					if (classListConfig.add)    classListConfig.add.forEach(addClass => element.classList.add(addClass));
+					if (classListConfig.remove) classListConfig.remove.forEach(removeClass => element.classList.remove(removeClass));
+				}
 
 				const inlineStyles = {};
 				for (const key in styles) {

@@ -389,7 +389,7 @@ function LevelPayload(payload) {
 		object.texture = normalizeTexture(objectSource.texture !== undefined ? objectSource.texture : object.texture);
 		object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
 		object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part));
-		if (!object.collisionShape) object.collisionShape = fallbackCollisionShape;
+		if (!objectSource.collisionShape) object.collisionShape = fallbackCollisionShape;
 		surfaceIds.add(object.id);
 		return object;
 	};
@@ -495,8 +495,8 @@ function LevelPayload(payload) {
 	normalized.camera.levelOpening.startPosition = toUnitVector3(normalized.camera.levelOpening.startPosition, "cnu");
 	normalized.camera.levelOpening.endPosition = toUnitVector3(normalized.camera.levelOpening.endPosition, "cnu");
 
-	normalized.terrain.objects = normalizeArray(rawPayload.terrain?.objects).value.map((entry) => normalizeLevelObject(entry, "aabb"));
-	normalized.obstacles = normalizeArray(rawPayload.obstacles).value.map((entry) => normalizeLevelObject(entry, "aabb"));
+	normalized.terrain.objects = normalizeArray(rawPayload.terrain?.objects).value.map((entry) => normalizeLevelObject(entry, "obb"));
+	normalized.obstacles = normalizeArray(rawPayload.obstacles).value.map((entry) => normalizeLevelObject(entry, "obb"));
 	normalized.terrain.triggers = normalizeArray(rawPayload.terrain?.triggers).value.map((entry) => {
 		const trigger = normalizePayloadSchema(normalizeObject(entry).value, "levelTrigger");
 		trigger.start = toUnitVector3(trigger.start, "cnu");
@@ -528,6 +528,17 @@ function LevelPayload(payload) {
 		}
 
 		const merged = structuredClone(blueprint);
+
+		// structuredClone strips UnitVector3/Unit class prototypes — rehydrate before use.
+		const rt = merged.model.rootTransform;
+		merged.model.rootTransform = {
+			position: toUnitVector3(rt.position, "cnu"),
+			rotation: toUnitVector3(rt.rotation, "radians"),
+			scale   : rt.scale,
+			pivot   : toUnitVector3(rt.pivot, "cnu"),
+		};
+		merged.model.parts = merged.model.parts.map((part) => normalizePart(part));
+
 		merged.id = override.id;
 		merged.blueprintId = override.blueprintId;
 		if (entrySource.type !== undefined) merged.type = override.type;
