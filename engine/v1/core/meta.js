@@ -167,8 +167,7 @@ function resolveLevel(level) {
 function getMostRecentLogEntry() {
   if (logs.all.length === 0) return null;
 
-  const latest = logs.all[logs.all.length - 1];
-  return latest;
+  return logs.all[logs.all.length - 1];
 }
 
 function isDuplicateOfLatest(entry) {
@@ -331,20 +330,12 @@ function SendEvent(eventName, payload) {
   window.dispatchEvent(new CustomEvent(eventName, { detail: payload }));
 }
 
-/* === CNU === */
-// CarlNet Unit Scale: 1 CNU = ~1 Meter (what feels like 1 meter).
-// All engine measurement values are expressed in CNUs.
-// Multiply by CNU_SCALE when converting to WebGL world-space units (Done through Utilities.js classes).
-// TLDR: 1 CNU = CNU_SCALE WebGL Units
-
-const CNU_SCALE = 1;
 const EPSILON = 0.000001;
 
 /* === EXPORTS === */
 // Public metadata API for engine modules.
 
 export {
-  CNU_SCALE,
   EPSILON,
   Log,
   LogAll,

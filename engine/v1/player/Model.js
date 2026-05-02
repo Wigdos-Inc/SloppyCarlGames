@@ -46,13 +46,12 @@ function getFaceCenterOffset(dimensions, faceType) {
 }
 
 function composeTransform(parentTransform, localTransform) {
-	const parent = cloneTransform(parentTransform);
 	const local = cloneTransform(localTransform);
-	const rotatedChildPos = RotateByEuler(local.position, parent.rotation);
+	const rotatedChildPos = RotateByEuler(local.position, parentTransform.rotation);
 	return {
-		position: local.position.set(AddVector3(parent.position, rotatedChildPos)),
-		rotation: local.rotation.add(parent.rotation),
-		scale: MultiplyVector3(parent.scale, local.scale),
+		position: local.position.set(AddVector3(parentTransform.position, rotatedChildPos)),
+		rotation: local.rotation.add(parentTransform.rotation),
+		scale: MultiplyVector3(parentTransform.scale, local.scale),
 		pivot: local.pivot,
 	};
 }
@@ -177,10 +176,9 @@ function InitializePlayerCollisionProfile(playerState) {
 	const profileShape = totalDim.y > footprint ? "capsule" : "sphere";
 	const rootPosition = playerState.transform.position;
 	const bodyCenter = ScaleVector3(AddVector3(fullAabb.min, fullAabb.max), 0.5);
-	const sphereRadius = Math.max(0.0001, footprint * 0.5);
 	const sphereCenter = {
 		x: bodyCenter.x,
-		y: fullAabb.min.y + sphereRadius,
+		y: fullAabb.min.y + bodyRadius,
 		z: bodyCenter.z,
 	};
 	const capsule = computePlayerCapsuleFromAabb(fullAabb);
@@ -192,7 +190,7 @@ function InitializePlayerCollisionProfile(playerState) {
 	profile.bodyRadius.value = bodyRadius;
 	profile.bottomOffset.value = fullAabb.min.y - rootPosition.y;
 	profile.sphereCenterOffset.set(SubtractVector3(sphereCenter, rootPosition));
-	profile.sphereRadius.value = sphereRadius;
+	profile.sphereRadius.value = bodyRadius;
 	profile.capsuleRadius.value = capsule.radius;
 	profile.capsuleHalfHeight.value = capsule.halfHeight;
 	profile.capsuleStartOffset.set(SubtractVector3(capsule.segmentStart, rootPosition));

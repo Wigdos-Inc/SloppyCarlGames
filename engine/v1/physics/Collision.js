@@ -228,7 +228,7 @@ function offsetDetailedBounds(bounds, offset) {
 }
 
 // Should probably be moved to other contact helper functions in math/Physics.js
-function AabbAabbContact(boundsA, boundsB) {
+function aabbAabbContact(boundsA, boundsB) {
 	if (!AabbOverlap(boundsA, boundsB)) return NoContact();
 	const centerA = getAabbCenter(boundsA);
 	const centerB = getAabbCenter(boundsB);
@@ -261,7 +261,15 @@ function chooseDeepestContact(best, candidate) {
 	return best;
 }
 
-function NarrowphaseContact(boundsA, boundsB) {
+function iterateCompoundSpheres(compound, contactFn) {
+	let best = NoContact();
+	for (let index = 0; index < compound.spheres.length; index++) {
+		best = chooseDeepestContact(best, contactFn(compound.spheres[index]));
+	}
+	return best;
+}
+
+function narrowphaseContact(boundsA, boundsB) {
 	const typeA = boundsA.type;
 	const typeB = boundsB.type;
 
@@ -281,91 +289,16 @@ function NarrowphaseContact(boundsA, boundsB) {
 	if (typeA === "triangle-soup" && typeB === "sphere") return InvertContact(SphereTriangleSoupContact(boundsB.center, boundsB.radius, boundsA));
 	if (typeA === "capsule" && typeB === "triangle-soup") return CapsuleTriangleSoupContact(boundsA, boundsB);
 	if (typeA === "triangle-soup" && typeB === "capsule") return InvertContact(CapsuleTriangleSoupContact(boundsB, boundsA));
-	if (typeA === "aabb" && typeB === "aabb") return AabbAabbContact(boundsA, boundsB);
+	if (typeA === "aabb" && typeB === "aabb") return aabbAabbContact(boundsA, boundsB);
 	if (typeA === "aabb" && typeB === "obb") return AabbObbContact(boundsA, boundsB);
 	if (typeA === "obb" && typeB === "aabb") return InvertContact(AabbObbContact(boundsB, boundsA));
 
-	if (typeA === "sphere" && typeB === "compound-sphere") {
-		let best = NoContact();
-		for (let index = 0; index < boundsB.spheres.length; index++) {
-			best = chooseDeepestContact(
-				best, SphereSphereContact(
-					boundsA.center, 
-					boundsA.radius, boundsB.spheres[index].center, 
-					boundsB.spheres[index].radius
-				)
-			);
-		}
-		return best;
-	}
-	if (typeA === "compound-sphere" && typeB === "sphere") {
-		let best = NoContact();
-		for (let index = 0; index < boundsA.spheres.length; index++) {
-			best = chooseDeepestContact(
-				best, InvertContact(SphereSphereContact(
-					boundsB.center, 
-					boundsB.radius, 
-					boundsA.spheres[index].center, 
-					boundsA.spheres[index].radius
-				))
-			);
-		}
-		return best;
-	}
-	if (typeA === "capsule" && typeB === "compound-sphere") {
-		let best = NoContact();
-		for (let index = 0; index < boundsB.spheres.length; index++) {
-			best = chooseDeepestContact(
-				best, InvertContact(SphereCapsuleContact(
-					boundsB.spheres[index].center, 
-					boundsB.spheres[index].radius, 
-					boundsA
-				))
-			);
-		}
-		return best;
-	}
-	if (typeA === "compound-sphere" && typeB === "capsule") {
-		let best = NoContact();
-		for (let index = 0; index < boundsA.spheres.length; index++) {
-			best = chooseDeepestContact(
-				best, SphereCapsuleContact(
-					boundsA.spheres[index].center, 
-					boundsA.spheres[index].radius, 
-					boundsB
-				)
-			);
-		}
-		return best;
-	}
-
-	if (typeA === "compound-sphere") {
-		let best = NoContact();
-		for (let index = 0; index < boundsA.spheres.length; index++) {
-			best = chooseDeepestContact(
-				best, NarrowphaseContact({ 
-						type: "sphere", 
-						center: boundsA.spheres[index].center, 
-						radius: boundsA.spheres[index].radius 
-					}, boundsB
-				)
-			);
-		}
-		return best;
-	}
-	if (typeB === "compound-sphere") {
-		let best = NoContact();
-		for (let index = 0; index < boundsB.spheres.length; index++) {
-			best = chooseDeepestContact(
-				best, NarrowphaseContact(boundsA, { 
-					type: "sphere", 
-					center: boundsB.spheres[index].center, 
-					radius: boundsB.spheres[index].radius 
-				})
-			);
-		}
-		return best;
-	}
+	if (typeA === "sphere" && typeB === "compound-sphere") return iterateCompoundSpheres(boundsB, s => SphereSphereContact(boundsA.center, boundsA.radius, s.center, s.radius));
+	if (typeA === "compound-sphere" && typeB === "sphere") return iterateCompoundSpheres(boundsA, s => InvertContact(SphereSphereContact(boundsB.center, boundsB.radius, s.center, s.radius)));
+	if (typeA === "capsule" && typeB === "compound-sphere") return iterateCompoundSpheres(boundsB, s => InvertContact(SphereCapsuleContact(s.center, s.radius, boundsA)));
+	if (typeA === "compound-sphere" && typeB === "capsule") return iterateCompoundSpheres(boundsA, s => SphereCapsuleContact(s.center, s.radius, boundsB));
+	if (typeA === "compound-sphere") return iterateCompoundSpheres(boundsA, s => narrowphaseContact({ type: "sphere", center: s.center, radius: s.radius }, boundsB));
+	if (typeB === "compound-sphere") return iterateCompoundSpheres(boundsB, s => narrowphaseContact(boundsA, { type: "sphere", center: s.center, radius: s.radius }));
 
 	return NoContact();
 }
@@ -378,7 +311,7 @@ function NarrowphaseContact(boundsA, boundsB) {
  * Shape-gated narrowphase test. Returns true if boundsA overlaps boundsB.
  */
 function NarrowphaseTest(boundsA, boundsB) {
-	return NarrowphaseContact(boundsA, boundsB).hit;
+	return narrowphaseContact(boundsA, boundsB).hit;
 }
 
 /* ========================================================================
@@ -531,6 +464,20 @@ function checkSweptSphereCandidatePair(position, displacement, radius, candidate
 	return checkSweptSpherePair(position, displacement, radius, candidate.aabb);
 }
 
+function fillSolidResult(candidate, swept, contact, candidateBounds) {
+	const item = poolPush(solidResultPool);
+	item.target = candidate;
+	item.tEntry = swept.tEntry;
+	item.normal = contact.normal;
+	item.depth = contact.depth;
+	item.pushDepth = 0;
+	item.pushNormal = contact.normal;
+	item.point = contact.point;
+	item.supportPoint = resolveContactSupportPoint(candidateBounds, contact);
+	item.type = candidate.type;
+	return item;
+}
+
 /* ========================================================================
  * LAYER 1: PHYSICS COLLISION DETECTION
  * ======================================================================== */
@@ -601,10 +548,10 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 				if (!cachedPair) {
 					const entryOffset = ScaleVector3(vel, swept.tEntry);
 					const endBounds = offsetDetailedBounds(entityDetailedBounds, vel);
-					contact = NarrowphaseContact(endBounds, candidateBounds);
+					contact = narrowphaseContact(endBounds, candidateBounds);
 					if (!contact.hit) {
 						const entryBounds = offsetDetailedBounds(entityDetailedBounds, entryOffset);
-						contact = NarrowphaseContact(entryBounds, candidateBounds);
+						contact = narrowphaseContact(entryBounds, candidateBounds);
 					}
 					if (!contact.hit) {
 						removeActiveCollisionPair(entity, candidate);
@@ -612,17 +559,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 					}
 				}
 
-				const item = poolPush(solidResultPool);
-				item.target = candidate;
-				item.tEntry = swept.tEntry;
-				item.normal = contact.normal;
-				item.depth = contact.depth;
-				item.pushDepth = 0;
-				item.pushNormal = contact.normal;
-				item.point = contact.point;
-				item.supportPoint = resolveContactSupportPoint(candidateBounds, contact);
-				item.type = candidate.type;
-				item.shape = entityDetailedBounds.type;
+				fillSolidResult(candidate, swept, contact, candidateBounds).shape = entityDetailedBounds.type;
 				continue;
 			}
 
@@ -633,7 +570,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 					entityDetailedBounds,
 					ScaleVector3(vel, swept.tEntry)
 				);
-				contact = NarrowphaseContact(entityDetailed, candidateBounds);
+				contact = narrowphaseContact(entityDetailed, candidateBounds);
 				if (!contact.hit) {
 					removeActiveCollisionPair(entity, candidate);
 					continue;
@@ -641,16 +578,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 				cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
 			}
 
-			const item = poolPush(solidResultPool);
-			item.target = candidate;
-			item.tEntry = swept.tEntry;
-			item.normal = contact.normal;
-			item.depth = contact.depth;
-			item.pushDepth = 0;
-			item.pushNormal = contact.normal;
-			item.point = contact.point;
-			item.supportPoint = resolveContactSupportPoint(candidateBounds, contact);
-			item.type = candidate.type;
+			fillSolidResult(candidate, swept, contact, candidateBounds);
 		}
 	}
 
@@ -704,7 +632,7 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 		const cachedPair = entity.type === "player" ? null : readReusableActiveCollisionPair(entity, candidate);
 		const contact = cachedPair 
 			? buildContactFromCachedPair(cachedPair) 
-			: NarrowphaseContact(entityDetailedBounds, candidateBounds);
+			: narrowphaseContact(entityDetailedBounds, candidateBounds);
 		
 		if (!contact.hit) {
 			removeActiveCollisionPair(entity, candidate);
@@ -895,7 +823,7 @@ function ResolveCollisions(velocity, displacement, solids) {
 			}
 		}
 
-		LogCollision(collision);
+		logCollision(collision);
 	}
 
 	const anyChanged = changedPosition || changedVelocity;
@@ -917,7 +845,7 @@ function ResolveCollisions(velocity, displacement, solids) {
 let lastLoggedCollisionKeyA = "";
 let lastLoggedCollisionKeyB = "";
 
-function LogCollision(collision) {
+function logCollision(collision) {
 	const targetId = collision.target.id;
 	const key = `${collision.type}:${targetId}`;
 	if (key === lastLoggedCollisionKeyA || key === lastLoggedCollisionKeyB) return;

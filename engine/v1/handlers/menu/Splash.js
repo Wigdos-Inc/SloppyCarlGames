@@ -32,11 +32,11 @@ function removeSplashSupplementalElements(context) {
 }
 
 function buildSplashStepElements(step) {
-	const definitions = [];
+	const elements = [];
 	const ids = [];
 
 	step.elements.forEach((source) => {
-		definitions.push({
+		elements.push({
 			...source,
 			id: source.id,
 		});
@@ -44,7 +44,7 @@ function buildSplashStepElements(step) {
 	});
 
 	step.text.forEach((text) => {
-		definitions.push({
+		elements.push({
 			type: text.type,
 			id: text.id,
 			className: text.className,
@@ -58,7 +58,7 @@ function buildSplashStepElements(step) {
 		ids.push(text.id);
 	});
 
-	return { definitions, ids };
+	return { elements, ids };
 }
 
 function renderSplashStepElements(step, context, stepIndex) {
@@ -238,11 +238,11 @@ async function runSplashSequence(requestedSplashPayload) {
 	const steps = resolveSplashSteps(requestedSplashPayload);
 
 	// Initial pacing before the first splash.
-	await context.wait(1000);
+	await Wait(1000);
 	await runSequenceSteps(steps, context);
 
 	// Final pacing after splash(es).
-	await context.wait(1000);
+	await Wait(1000);
 	PushToSession(SESSION_KEYS.SplashPlayed, true);
 
 	return context;

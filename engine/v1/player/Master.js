@@ -185,7 +185,7 @@ function InitializePlayer(payload, sceneGraph) {
 		`
 			Player initialized: 
 			character="${effectiveCharacter.name}" 
-			source="${sourceType}" at (${spawnPos.x}, ${spawnPos.y}, ${spawnPos.z})
+			source="${sourceType}" at (${payload.spawnPosition.x}, ${payload.spawnPosition.y}, ${payload.spawnPosition.z})
 		`, 
 		"log", 
 		"Player"

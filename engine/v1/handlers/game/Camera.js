@@ -172,16 +172,6 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 	};
 }
 
-function createStationaryCameraState(sceneGraph, cameraConfig) {
-	const base = resolveDefaultLevelCamera(sceneGraph, cameraConfig);
-	const state = {
-		...base,
-		mode: "stationary",
-	};
-	cacheCameraPosition(state);
-	cacheCameraVectors(state);
-	return state;
-}
 
 function applyTuningStep(step) {
 	freeCamRuntime.tuningStep = Clamp(step, -6, 16);
@@ -326,15 +316,12 @@ function initializeDefaultCamConfig(cameraConfig) {
 }
 
 function HandleDefaultCamInput(eventLike) {
-	const eventType = eventLike.type;
-	const eventCode = eventLike.code;
-
 	switch (eventLike.type) {
 		case "pointerdown":
 			if (RequestPointerLock()) Log("ENGINE", "DefaultCam pointer lock requested.", "log", "Level");
 			return true;
 		case "keydown":
-			if (eventCode === "Escape") {
+			if (eventLike.code === "Escape") {
 				releasePointerLock();
 				return true;
 			}
@@ -467,10 +454,11 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 
 	// Smooth camera position (responsiveness > cinematic float).
 	const posLerpSpeed = 15;
+	const posT = Math.min(1, posLerpSpeed * deltaSeconds);
 	const smoothedPos = {
-		x: Lerp(cameraState.position.x, finalPos.x, Math.min(1, posLerpSpeed * deltaSeconds)),
-		y: Lerp(cameraState.position.y, finalPos.y, Math.min(1, posLerpSpeed * deltaSeconds)),
-		z: Lerp(cameraState.position.z, finalPos.z, Math.min(1, posLerpSpeed * deltaSeconds)),
+		x: Lerp(cameraState.position.x, finalPos.x, posT),
+		y: Lerp(cameraState.position.y, finalPos.y, posT),
+		z: Lerp(cameraState.position.z, finalPos.z, posT),
 	};
 
 	// Compute forward/right/up from camera position looking at target.
@@ -554,17 +542,9 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 }
 
 function UpdateCameraState(currentState, sceneGraph, cameraConfig, deltaSeconds, playerState) {
-	if (!freeCamEnabled) {
-		// DefaultCam mode: follow the player.
-		currentState.mode = "defaultcam";
-
-		const nextState = updateDefaultCamState(currentState, playerState, sceneGraph, deltaSeconds);
-		cacheCameraPosition(nextState);
-		cacheCameraVectors(nextState);
-		return nextState;
-	}
-
-	const nextState = updateFreeCamState(currentState, deltaSeconds);
+	const nextState = freeCamEnabled
+		? updateFreeCamState(currentState, deltaSeconds)
+		: updateDefaultCamState(currentState, playerState, sceneGraph, deltaSeconds);
 	cacheCameraPosition(nextState);
 	cacheCameraVectors(nextState);
 	return nextState;

@@ -24,12 +24,10 @@ import { CNUtoWorldUnit } from "../math/Utilities.js";
 // DOM helpers for rendering payloads.
 
 function ensureRoot(rootId, rootStyles) {
-	// Resolve or create the UI root container.
-	const resolvedRootId = rootId;
-	let root = document.getElementById(resolvedRootId);
+	let root = document.getElementById(rootId);
 	if (!root) {
 		root = document.createElement("div");
-		root.id = resolvedRootId;
+		root.id = rootId;
 		root.style.userSelect = "none";
 		root.style.webkitUserSelect = "none";
 		root.style.msUserSelect = "none";
@@ -77,13 +75,12 @@ const detailedBoundsTypeColors = {
 };
 
 function createPerspectiveMatrix(fovDegrees, aspect, near, far) {
-	const safeAspect = aspect;
 	const fov = (fovDegrees * Math.PI) / 180;
 	const f = 1 / Math.tan(fov / 2);
 	const nf = 1 / (near - far);
 
 	return [
-		f / safeAspect, 0, 0, 0,
+		f / aspect, 0, 0, 0,
 		0, f, 0, 0,
 		0, 0, (far + near) * nf, -1,
 		0, 0, (2 * far * near) * nf, 0,
@@ -331,11 +328,10 @@ function createScatterProgram(gl) {
 // Shared geometry pool: one set of GPU buffers per unique (primitive, dimensions) combo.
 
 function ensureSharedGeometry(renderer, sceneGraph, primitiveKey) {
-	const key = primitiveKey;
-	if (renderer.geometryRegistry.has(key)) return renderer.geometryRegistry.get(key);
+	if (renderer.geometryRegistry.has(primitiveKey)) return renderer.geometryRegistry.get(primitiveKey);
 
 	const gl = renderer.gl;
-	const geometry = sceneGraph.visualResources.primitiveGeometry[key];
+	const geometry = sceneGraph.visualResources.primitiveGeometry[primitiveKey];
 
 	const positionBuffer = gl.createBuffer();
 	const uvBuffer = gl.createBuffer();
@@ -358,7 +354,7 @@ function ensureSharedGeometry(renderer, sceneGraph, primitiveKey) {
 		indexCount: geometry.indices.length,
 	};
 
-	renderer.geometryRegistry.set(key, entry);
+	renderer.geometryRegistry.set(primitiveKey, entry);
 	return entry;
 }
 
@@ -469,19 +465,18 @@ function isDetailedBoundsDebugEnabled(type) {
 	return !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.DetailedBounds[type]);
 }
 
-function createBoundingBoxLineVertices(bounds) {
-	// Convert CNU bounding box coordinates to WebGL world units.
-	const min = bounds.min.toWorldUnit();
-	const max = bounds.max.toWorldUnit();
-	const p000 = [min.x, min.y, min.z];
-	const p001 = [min.x, min.y, max.z];
-	const p010 = [min.x, max.y, min.z];
-	const p011 = [min.x, max.y, max.z];
-	const p100 = [max.x, min.y, min.z];
-	const p101 = [max.x, min.y, max.z];
-	const p110 = [max.x, max.y, min.z];
-	const p111 = [max.x, max.y, max.z];
+function bindDebugLinePass(renderer, gl, projection, view) {
+	const shader = renderer.debugLineShader;
+	gl.useProgram(shader.program);
+	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
+	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
+	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
+	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
+	gl.enableVertexAttribArray(shader.attributes.position);
+	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
+}
 
+function buildBoxWireframe(p000, p001, p010, p011, p100, p101, p110, p111) {
 	return new Float32Array([
 		...p000, ...p001, ...p001, ...p011, ...p011, ...p010, ...p010, ...p000,
 		...p100, ...p101, ...p101, ...p111, ...p111, ...p110, ...p110, ...p100,
@@ -489,42 +484,47 @@ function createBoundingBoxLineVertices(bounds) {
 	]);
 }
 
+function createMinMaxBoxLineVertices(bounds) {
+	const min = bounds.min.toWorldUnit();
+	const max = bounds.max.toWorldUnit();
+	return buildBoxWireframe(
+		[min.x, min.y, min.z], [min.x, min.y, max.z],
+		[min.x, max.y, min.z], [min.x, max.y, max.z],
+		[max.x, min.y, min.z], [max.x, min.y, max.z],
+		[max.x, max.y, min.z], [max.x, max.y, max.z]
+	);
+}
+
 function createGridLineVertices(bounds, spacing) {
 	const wMin = bounds.min.toWorldUnit();
 	const wMax = bounds.max.toWorldUnit();
-	const minX = wMin.x;
-	const minY = wMin.y;
-	const minZ = wMin.z;
-	const maxX = wMax.x;
-	const maxY = wMax.y;
-	const maxZ = wMax.z;
 	const step = CNUtoWorldUnit(spacing);
 
 	const lines = [];
 
 	// --- Top face (Y = maxY) ---
-	for (let x = minX; x <= maxX + step * 0.001; x += step) lines.push(x, maxY, minZ, x, maxY, maxZ);
-	for (let z = minZ; z <= maxZ + step * 0.001; z += step) lines.push(minX, maxY, z, maxX, maxY, z);
+	for (let x = wMin.x; x <= wMax.x + step * 0.001; x += step) lines.push(x, wMax.y, wMin.z, x, wMax.y, wMax.z);
+	for (let z = wMin.z; z <= wMax.z + step * 0.001; z += step) lines.push(wMin.x, wMax.y, z, wMax.x, wMax.y, z);
 
 	// --- Bottom face (Y = minY) ---
-	for (let x = minX; x <= maxX + step * 0.001; x += step) lines.push(x, minY, minZ, x, minY, maxZ);
-	for (let z = minZ; z <= maxZ + step * 0.001; z += step) lines.push(minX, minY, z, maxX, minY, z);
+	for (let x = wMin.x; x <= wMax.x + step * 0.001; x += step) lines.push(x, wMin.y, wMin.z, x, wMin.y, wMax.z);
+	for (let z = wMin.z; z <= wMax.z + step * 0.001; z += step) lines.push(wMin.x, wMin.y, z, wMax.x, wMin.y, z);
 
 	// --- Front face (Z = maxZ) ---
-	for (let x = minX; x <= maxX + step * 0.001; x += step) lines.push(x, minY, maxZ, x, maxY, maxZ);
-	for (let y = minY; y <= maxY + step * 0.001; y += step) lines.push(minX, y, maxZ, maxX, y, maxZ);
+	for (let x = wMin.x; x <= wMax.x + step * 0.001; x += step) lines.push(x, wMin.y, wMax.z, x, wMax.y, wMax.z);
+	for (let y = wMin.y; y <= wMax.y + step * 0.001; y += step) lines.push(wMin.x, y, wMax.z, wMax.x, y, wMax.z);
 
 	// --- Back face (Z = minZ) ---
-	for (let x = minX; x <= maxX + step * 0.001; x += step) lines.push(x, minY, minZ, x, maxY, minZ);
-	for (let y = minY; y <= maxY + step * 0.001; y += step) lines.push(minX, y, minZ, maxX, y, minZ);
+	for (let x = wMin.x; x <= wMax.x + step * 0.001; x += step) lines.push(x, wMin.y, wMin.z, x, wMax.y, wMin.z);
+	for (let y = wMin.y; y <= wMax.y + step * 0.001; y += step) lines.push(wMin.x, y, wMin.z, wMax.x, y, wMin.z);
 
 	// --- Right face (X = maxX) ---
-	for (let z = minZ; z <= maxZ + step * 0.001; z += step) lines.push(maxX, minY, z, maxX, maxY, z);
-	for (let y = minY; y <= maxY + step * 0.001; y += step) lines.push(maxX, y, minZ, maxX, y, maxZ);
+	for (let z = wMin.z; z <= wMax.z + step * 0.001; z += step) lines.push(wMax.x, wMin.y, z, wMax.x, wMax.y, z);
+	for (let y = wMin.y; y <= wMax.y + step * 0.001; y += step) lines.push(wMax.x, y, wMin.z, wMax.x, y, wMax.z);
 
 	// --- Left face (X = minX) ---
-	for (let z = minZ; z <= maxZ + step * 0.001; z += step) lines.push(minX, minY, z, minX, maxY, z);
-	for (let y = minY; y <= maxY + step * 0.001; y += step) lines.push(minX, y, minZ, minX, y, maxZ);
+	for (let z = wMin.z; z <= wMax.z + step * 0.001; z += step) lines.push(wMin.x, wMin.y, z, wMin.x, wMax.y, z);
+	for (let y = wMin.y; y <= wMax.y + step * 0.001; y += step) lines.push(wMin.x, y, wMin.z, wMin.x, y, wMax.z);
 
 	if (lines.length === 0) return null;
 	return new Float32Array(lines);
@@ -540,20 +540,12 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 	if (!renderer.debugLineBuffer) renderer.debugLineBuffer = gl.createBuffer();
 	if (!renderer.debugLineBuffer) return;
 
-	const shader = renderer.debugLineShader;
-	gl.useProgram(shader.program);
-	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
-	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
-	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
-	gl.enableVertexAttribArray(shader.attributes.position);
-	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
+	bindDebugLinePass(renderer, gl, projection, view);
 
 	records.forEach((record) => {
 		if (!isBoundingBoxDebugEnabled(record.type)) return;
 
-		const vertices = createBoundingBoxLineVertices(record);
+		const vertices = createMinMaxBoxLineVertices(record);
 		if (!vertices) return;
 
 		const color = boundingBoxTypeColors[record.type];
@@ -575,16 +567,8 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 	const gridConfig = CONFIG.DEBUG.LEVELS.BoundingBox.Grid;
 	const spacing = gridConfig.Scale;
 
+	bindDebugLinePass(renderer, gl, projection, view);
 	const shader = renderer.debugLineShader;
-	gl.useProgram(shader.program);
-	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
-	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
-	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
-	gl.enableVertexAttribArray(shader.attributes.position);
-	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
-
 	gl.uniform4f(shader.uniforms.color, 0.5, 0.5, 0.5, 0.6);
 
 	records.forEach((record) => {
@@ -623,30 +607,7 @@ function createObbLineVertices(bounds) {
 	const p110 = add(center, sx, sy, ScaleVector3(sz, -1));
 	const p111 = add(center, sx, sy, sz);
 
-	return new Float32Array([
-		...p000, ...p001, ...p001, ...p011, ...p011, ...p010, ...p010, ...p000,
-		...p100, ...p101, ...p101, ...p111, ...p111, ...p110, ...p110, ...p100,
-		...p000, ...p100, ...p001, ...p101, ...p010, ...p110, ...p011, ...p111,
-	]);
-}
-
-function createAabbLineVertices(bounds) {
-	const min = bounds.min.toWorldUnit();
-	const max = bounds.max.toWorldUnit();
-	const p000 = [min.x, min.y, min.z];
-	const p001 = [min.x, min.y, max.z];
-	const p010 = [min.x, max.y, min.z];
-	const p011 = [min.x, max.y, max.z];
-	const p100 = [max.x, min.y, min.z];
-	const p101 = [max.x, min.y, max.z];
-	const p110 = [max.x, max.y, min.z];
-	const p111 = [max.x, max.y, max.z];
-
-	return new Float32Array([
-		...p000, ...p001, ...p001, ...p011, ...p011, ...p010, ...p010, ...p000,
-		...p100, ...p101, ...p101, ...p111, ...p111, ...p110, ...p110, ...p100,
-		...p000, ...p100, ...p001, ...p101, ...p010, ...p110, ...p011, ...p111,
-	]);
+	return buildBoxWireframe(p000, p001, p010, p011, p100, p101, p110, p111);
 }
 
 function createCapsuleLineVertices(bounds, longitudinalSegments = 8) {
@@ -731,7 +692,7 @@ function drawDetailedBoundsShape(gl, shader, bounds) {
 		case "capsule"      : vertices = createCapsuleLineVertices(bounds);      break;
 		case "obb"          : vertices = createObbLineVertices(bounds);          break;
 		case "sphere"       : vertices = createSphereLineVertices(bounds);       break;
-		case "aabb"         : vertices = createAabbLineVertices(bounds);         break;
+		case "aabb"         : vertices = createMinMaxBoxLineVertices(bounds);     break;
 		case "triangle-soup": vertices = createTriangleSoupLineVertices(bounds); break;
 		case "compound"     :
 			bounds.parts.forEach((part) => drawDetailedBoundsShape(gl, shader, part));
@@ -756,15 +717,8 @@ function drawDetailedBounds(renderer, sceneGraph, projection, view) {
 	if (!renderer.debugLineBuffer) renderer.debugLineBuffer = gl.createBuffer();
 	if (!renderer.debugLineBuffer) return;
 
+	bindDebugLinePass(renderer, gl, projection, view);
 	const shader = renderer.debugLineShader;
-	gl.useProgram(shader.program);
-	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
-	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
-	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
-	gl.enableVertexAttribArray(shader.attributes.position);
-	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
 
 	records.forEach((record) => {
 		if (!isDetailedBoundsDebugEnabled(record.type)) return;
@@ -810,16 +764,8 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 	const gl = renderer.gl;
 	if (!renderer.debugLineShader || !renderer.debugLineBuffer) return;
 
+	bindDebugLinePass(renderer, gl, projection, view);
 	const shader = renderer.debugLineShader;
-	gl.useProgram(shader.program);
-	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
-	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
-	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
-	gl.enableVertexAttribArray(shader.attributes.position);
-	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
-
 	const trailScale = 0.15;
 
 	for (let i = 0; i < entities.length; i++) {
@@ -866,9 +812,8 @@ function createMeshBuffers(gl, mesh, shader) {
 	gl.enableVertexAttribArray(shader.attributes.position);
 	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
 
-	const uvs = geometry.uvs;
 	gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.uvs), gl.STATIC_DRAW);
 	gl.enableVertexAttribArray(shader.attributes.uv);
 	gl.vertexAttribPointer(shader.attributes.uv, 2, gl.FLOAT, false, 0, 0);
 
@@ -887,12 +832,8 @@ function createMeshBuffers(gl, mesh, shader) {
 }
 
 function getMeshBufferKey(mesh) {
-	const meshId = mesh.id;
-	const prim = mesh.primitive;
-	const comp = mesh.complexity;
 	const dim = mesh.dimensions;
-
-	return `${meshId}|${prim}|${dim.x}|${dim.y}|${dim.z}|${comp}`;
+	return `${mesh.id}|${mesh.primitive}|${dim.x}|${dim.y}|${dim.z}|${mesh.complexity}`;
 }
 
 function createFallbackTexture(gl) {
@@ -909,14 +850,11 @@ function createFallbackTexture(gl) {
 }
 
 function ensureSceneTexture(renderer, sceneGraph, textureID) {
-	const id = textureID;
 	const gl = renderer.gl;
-	const visualResources = sceneGraph.visualResources;
-	const textureRegistry = visualResources.textureRegistry;
-	const entry = textureRegistry[id];
+	const entry = sceneGraph.visualResources.textureRegistry[textureID];
 
-	if (renderer.textures.has(id)) {
-		const cachedTexture = renderer.textures.get(id);
+	if (renderer.textures.has(textureID)) {
+		const cachedTexture = renderer.textures.get(textureID);
 		if (entry.dirty === true) {
 			gl.bindTexture(gl.TEXTURE_2D, cachedTexture);
 			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.source);
@@ -936,7 +874,7 @@ function ensureSceneTexture(renderer, sceneGraph, textureID) {
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	entry.dirty = false;
 
-	renderer.textures.set(id, texture);
+	renderer.textures.set(textureID, texture);
 	return texture;
 }
 
@@ -1050,7 +988,6 @@ function configureTexturedMeshPass(gl, shader, passState) {
 
 function ensureMeshBuffer(renderer, mesh, shader) {
 	const meshBufferKey = getMeshBufferKey(mesh);
-	if (!meshBufferKey) return null;
 
 	let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
 	if (!meshBuffer) {

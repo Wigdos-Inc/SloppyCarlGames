@@ -546,11 +546,7 @@ function CapsuleTriangleSoupContact(capsule, triangleSoup) {
 /* === ACCELERATION & VELOCITY === */
 
 function ApplyAcceleration(velocity, direction, acceleration, dt) {
-	const vel = velocity;
-	const dir = direction;
-	const accel = acceleration;
-	const delta = dt;
-	return AddVector3(vel, ScaleVector3(dir, accel * delta));
+	return AddVector3(velocity, ScaleVector3(direction, acceleration * dt));
 }
 
 function ApplyDeceleration(velocity, deceleration, dt) {

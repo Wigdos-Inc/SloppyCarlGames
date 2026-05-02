@@ -57,10 +57,6 @@ function cacheLevelPayload(payload) {
 }
 
 function buildIncomingPayloadSummary(payload) {
-	const terrainObjects = payload.terrain;
-	const terrainTriggers = payload.terrain.triggers.length;
-	const obstacles = payload.obstacles.length;
-	const entities = payload.entities.length;
 	const blueprints = payload.entityBlueprints;
 	const count = (key) => blueprints[key].length;
 
@@ -69,10 +65,10 @@ function buildIncomingPayloadSummary(payload) {
 		`- levelId: ${payload.meta.levelId}`,
 		`- stageId: ${payload.meta.stageId}`,
 		`- world: ${payload.world.length.value}x${payload.world.width.value}x${payload.world.height.value}`,
-		`- terrainObjects: ${terrainObjects}`,
-		`- terrainTriggers: ${terrainTriggers}`,
-		`- obstacles: ${obstacles}`,
-		`- entities(overrides): ${entities}`,
+		`- terrainObjects: ${payload.terrain}`,
+		`- terrainTriggers: ${payload.terrain.triggers.length}`,
+		`- obstacles: ${payload.obstacles.length}`,
+		`- entities(overrides): ${payload.entities.length}`,
 		`- blueprintCounts: enemies=${count("enemies")}, npcs=${count("npcs")}, collectibles=${count("collectibles")}, projectiles=${count("projectiles")}`,
 	].join("\n");
 }
@@ -266,10 +262,8 @@ async function CreateLevel(payload, options) {
 }
 
 function Update(deltaMilliseconds) {
-	const deltaMs = deltaMilliseconds;
-	const deltaSeconds = Math.max(0, deltaMs) / 1000;
+	const deltaSeconds = Math.max(0, deltaMilliseconds) / 1000;
 	const sceneGraph = levelRuntimeState.sceneGraph;
-	const entities = sceneGraph.entities;
 
 	// === PLAYER PIPELINE ===
 	const playerState = GetPlayerState();
@@ -296,8 +290,8 @@ function Update(deltaMilliseconds) {
 	const simDistance = GetSimDistanceValue();
 	const cameraPosition = sceneGraph.cameraConfig.state.position;
 
-	for (let index = 0; index < entities.length; index++) {
-		const entity = entities[index];
+	for (let index = 0; index < sceneGraph.entities.length; index++) {
+		const entity = sceneGraph.entities[index];
 		if (entity.type === "player") continue;
 		if (Vector3Distance(cameraPosition, entity.transform.position) > simDistance) continue;
 		updateEntityMovement(entity, deltaSeconds);

@@ -6,7 +6,7 @@
 
 const settings = JSON.parse(localStorage.getItem("settings")) ?? null;
 
-let CONFIG = {
+const CONFIG = {
   DEBUG: {
     ALL : settings?.debugMode ?? false,       // Global Debug Switch
     SKIP: {

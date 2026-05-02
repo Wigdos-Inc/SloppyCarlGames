@@ -1,5 +1,7 @@
-import { CNU_SCALE } from "../core/meta.js";
 import { AddVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "./Vector3.js";
+
+// 1 CNU = CNU_SCALE World Units (WebGL coordinate space). Set once during development.
+export const CNU_SCALE = 1;
 
 class Unit {
 	constructor(value, type) {

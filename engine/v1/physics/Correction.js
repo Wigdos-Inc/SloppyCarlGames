@@ -21,9 +21,9 @@ function hasMeaningfulDelta(currentValue, nextValue) {
 
 function hasMeaningfulVectorDelta(currentVector, nextVector) {
 	return (
-		hasMeaningfulDelta(currentVector.x, nextVector.x, EPSILON) ||
-		hasMeaningfulDelta(currentVector.y, nextVector.y, EPSILON) ||
-		hasMeaningfulDelta(currentVector.z, nextVector.z, EPSILON)
+		hasMeaningfulDelta(currentVector.x, nextVector.x) ||
+		hasMeaningfulDelta(currentVector.y, nextVector.y) ||
+		hasMeaningfulDelta(currentVector.z, nextVector.z)
 	);
 }
 
@@ -46,6 +46,18 @@ function resetSurfaceState(playerState) {
 	};
 }
 
+const CORRECTION_DISABLED = Object.freeze({
+	changedGrounded: false,
+	changedOrientation: false,
+	changedPosition: false,
+	changedVelocity: false,
+	anyChanged: false,
+});
+
+function applySurfaceNormal(playerState, normal) {
+	applySurfaceNormal(playerState, normal);
+}
+
 /**
  * Loop-time slope correction for Sonic-style running.
  * Updates grounded state, surface orientation state, and slope-projected velocity.
@@ -56,15 +68,7 @@ function resetSurfaceState(playerState) {
  */
 function ApplySurfaceCorrection(playerState, groundContact) {
 	const config = CONFIG.PHYSICS.Correction;
-	if (config.Enabled === false) {
-		return {
-			changedGrounded: false,
-			changedOrientation: false,
-			changedPosition: false,
-			changedVelocity: false,
-			anyChanged: false,
-		};
-	}
+	if (config.Enabled === false) return CORRECTION_DISABLED;
 
 	if (!groundContact.hit) return resetSurfaceState(playerState);
 	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return resetSurfaceState(playerState);
@@ -78,13 +82,11 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 
 	const changedGrounded = !playerState.grounded;
 	const changedOrientation =
-		hasMeaningfulVectorDelta(playerState.surfaceNormal, normal, EPSILON) ||
-		hasMeaningfulVectorDelta(playerState.alignedUp, normal, EPSILON);
+		hasMeaningfulVectorDelta(playerState.surfaceNormal, normal) ||
+		hasMeaningfulVectorDelta(playerState.alignedUp, normal);
 	let changedVelocity = false;
 
-	playerState.grounded = true;
-	playerState.surfaceNormal = CloneVector3(normal);
-	playerState.alignedUp = CloneVector3(normal);
+	applySurfaceNormal(playerState, normal);
 
 	// Correct vertical velocity: remove downward component upon ground contact.
 	if (playerState.velocity.y < 0) {
@@ -110,9 +112,9 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 		
 		// Adjust vertical velocity to follow slope naturally.
 		changedVelocity = changedVelocity ||
-			hasMeaningfulDelta(playerState.velocity.x, vel.x, EPSILON) ||
-			hasMeaningfulDelta(playerState.velocity.y, vel.y, EPSILON) ||
-			hasMeaningfulDelta(playerState.velocity.z, vel.z, EPSILON);
+			hasMeaningfulDelta(playerState.velocity.x, vel.x) ||
+			hasMeaningfulDelta(playerState.velocity.y, vel.y) ||
+			hasMeaningfulDelta(playerState.velocity.z, vel.z);
 	}
 
 	if (changedOrientation || changedVelocity) {
@@ -142,15 +144,7 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 
 function ApplyGroundSnap(playerState, groundContact) {
 	const config = CONFIG.PHYSICS.Correction;
-	if (config.Enabled === false) {
-		return {
-			changedGrounded: false,
-			changedOrientation: false,
-			changedPosition: false,
-			changedVelocity: false,
-			anyChanged: false,
-		};
-	}
+	if (config.Enabled === false) return CORRECTION_DISABLED;
 
 	if (!groundContact.hit) return resetSurfaceState(playerState);
 	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return resetSurfaceState(playerState);
@@ -172,12 +166,10 @@ function ApplyGroundSnap(playerState, groundContact) {
 
 	const changedGrounded = !playerState.grounded;
 	const changedOrientation =
-		hasMeaningfulVectorDelta(playerState.surfaceNormal, normal, EPSILON) ||
-		hasMeaningfulVectorDelta(playerState.alignedUp, normal, EPSILON);
+		hasMeaningfulVectorDelta(playerState.surfaceNormal, normal) ||
+		hasMeaningfulVectorDelta(playerState.alignedUp, normal);
 
-	playerState.grounded = true;
-	playerState.surfaceNormal = CloneVector3(normal);
-	playerState.alignedUp = CloneVector3(normal);
+	applySurfaceNormal(playerState, normal);
 
 	if (changedPosition) {
 		Log(
@@ -203,8 +195,8 @@ function ApplyPlayerSurfaceOrientation(playerState) {
 	const angles = ComputeAlignmentAngles(playerState.alignedUp);
 	const rotation = playerState.transform.rotation;
 	const changedOrientation =
-		hasMeaningfulDelta(rotation.x, angles.pitch, EPSILON) ||
-		hasMeaningfulDelta(rotation.z, angles.roll, EPSILON);
+		hasMeaningfulDelta(rotation.x, angles.pitch) ||
+		hasMeaningfulDelta(rotation.z, angles.roll);
 
 	rotation.x = angles.pitch;
 	rotation.z = angles.roll;
