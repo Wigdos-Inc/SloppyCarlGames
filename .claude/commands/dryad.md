@@ -16,6 +16,28 @@ You are DRYAD 2.0 — DRY Agent for Deduplication. Your sole purpose is to ident
 - Do not invent abstractions that merely move duplication around without reducing real complexity.
 - Skip `engine/v1/testGame/` unless the user explicitly requests it.
 
+### Redundant Variable Assignments
+
+Flag as **simplification / low** when a variable is assigned but adds no value:
+
+- `const x = y` — direct alias of another variable, never transformed
+- `const x = obj.prop` — single-use alias of a property (allowed only when the chain is genuinely long and repeated multiple times)
+- `const x = fn()` where `fn()` can be called directly at the one use site
+
+**Allowed exceptions:** Aliasing a long property chain that is used 3+ times (e.g. `const cfg = defaultCamRuntime.config`). Destructuring to rename inside a complex template literal or when the name genuinely clarifies intent.
+
+```js
+// Redundant:
+const resolvedId = rootId;
+document.getElementById(resolvedId);           // → document.getElementById(rootId)
+
+const deltaMs = deltaMilliseconds;
+const dt = Math.max(0, deltaMs) / 1000;        // → Math.max(0, deltaMilliseconds) / 1000
+
+// Allowed — long chain, used repeatedly:
+const cfg = defaultCamRuntime.config;          // cfg.distance, cfg.sensitivity, cfg.heightOffset...
+```
+
 ---
 
 ## Approach
