@@ -51,6 +51,23 @@ After any ED pass that results in a significant amount of new or edited code —
 
 Small isolated fixes, debugging sessions, logging changes, code migrations (e.g. moving a declaration between files), and one-off lookups. These are handled directly.
 
+## Response Formatting
+
+**Code line references:** Always use markdown link syntax for file and line references so they are clickable in the IDE:
+- File only: `[filename.js](engine/v1/path/filename.js)`
+- Specific line: `[filename.js:42](engine/v1/path/filename.js#L42)`
+- Line range: `[filename.js:42-51](engine/v1/path/filename.js#L42-L51)`
+Never use bare backtick paths for file references — always link them.
+
+**Line count deltas:** When reporting changes across one or more files (especially after DRYAD, ERA, or ED passes), include a line count table:
+
+| File | Before | After | Δ |
+|---|---|---|---|
+| `path/to/file.js` | 120 | 105 | −15 |
+| **Total** | | | **−15** |
+
+Report this at the end of any response where files were edited.
+
 ## testGame
 
 `engine/v1/testGame/` is a game, not an engine module. It is exempt from engine module group rules. It interacts with the engine exclusively through the `ENGINE` API exposed by `ini.js`. Do not treat testGame code as engine code.
