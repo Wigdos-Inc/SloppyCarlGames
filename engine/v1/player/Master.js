@@ -5,7 +5,7 @@
 
 import { Log } from "../core/meta.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
-import { ToVector3 } from "../math/Vector3.js";
+import { CloneVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { 
 	BuildPlayerModel, 
 	InitializePlayerCollisionProfile, 
@@ -100,8 +100,8 @@ function createDefaultPlayerState(playerData) {
 		velocity: new UnitVector3(0, 0, 0, "cnu"),
 		grounded: false,
 		underwater: false,
-		surfaceNormal: { x: 0, y: 1, z: 0 },
-		alignedUp: { x: 0, y: 1, z: 0 },
+		surfaceNormal: CloneVector3(WORLD_NORMALS.Up),
+		alignedUp: CloneVector3(WORLD_NORMALS.Up),
 		jumpStartY: new Unit(playerData.spawnPosition.y, "cnu"),
 		jumpApexY: new Unit(playerData.spawnPosition.y, "cnu"),
 		stoppingActive: false,

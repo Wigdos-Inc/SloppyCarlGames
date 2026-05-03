@@ -95,7 +95,7 @@ const CONFIG = {
     Resistance: { Enabled: true, AirDrag: 0.02, WaterDrag: 0.05 },
     Buoyancy  : { Enabled: true, Force: 0, SinkSpeed: 50 },
     Collision : { Enabled: true, Hurtbox: true, Hitbox: true },
-    Correction: { Enabled: true, MaxDeltaDegrees: 35, GroundSnapTolerance: 0.12 },
+    Correction: { Enabled: true, MinDeltaDegrees: 5, MaxDeltaDegrees: 35, GroundSnapTolerance: 0.12 },
   }
 };
 

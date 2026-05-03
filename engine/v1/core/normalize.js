@@ -378,7 +378,21 @@ function LevelPayload(payload) {
 	};
 
 	const surfaceIds = new Set();
-	const normalizeLevelObject = (rawObject, fallbackCollisionShape) => {
+	const defaultsByShape = {
+		cube: "obb",
+		plane: "obb",
+		"ramp-simple": "obb",
+		cylinder: "capsule",
+		capsule: "capsule",
+		sphere: "sphere",
+		pyramid: "triangle-soup",
+		cone: "triangle-soup",
+		tube: "triangle-soup",
+		torus: "triangle-soup",
+		"ramp-complex": "triangle-soup",
+	};
+
+	const normalizeLevelObject = (rawObject, multipartFallbackShape = null) => {
 		const objectSource = normalizeObject(rawObject).value;
 		const object = normalizePayloadSchema(objectSource, "levelObject");
 		object.dimensions = toUnitVector3(object.dimensions, "cnu");
@@ -389,7 +403,9 @@ function LevelPayload(payload) {
 		object.texture = normalizeTexture(objectSource.texture !== undefined ? objectSource.texture : object.texture);
 		object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
 		object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part));
-		if (!objectSource.collisionShape) object.collisionShape = fallbackCollisionShape;
+		object.collisionShape = object.collisionShape !== null ? object.collisionShape
+			: multipartFallbackShape !== null && object.parts.length > 1 ? multipartFallbackShape
+				: defaultsByShape[object.shape];
 		surfaceIds.add(object.id);
 		return object;
 	};
@@ -405,12 +421,12 @@ function LevelPayload(payload) {
 
 	const resolveCollisionOverride = (rawCollisionOverride, entityType) => {
 		const defaultsByType = {
-			enemy: { physics: "sphere", hurtbox: "sphere", hitbox: "sphere" },
+			enemy: { physics: "capsule", hurtbox: "sphere", hitbox: null },
 			npc: { physics: "capsule", hurtbox: null, hitbox: null },
-			collectible: { physics: "sphere", hurtbox: null, hitbox: null },
-			projectile: { physics: "sphere", hurtbox: null, hitbox: "sphere" },
-			boss: { physics: "capsule", hurtbox: "capsule", hitbox: "capsule" },
-			entity: { physics: "sphere", hurtbox: null, hitbox: null },
+			collectible: { physics: "sphere", hurtbox: "sphere", hitbox: null },
+			projectile: { physics: "sphere", hurtbox: "sphere", hitbox: "sphere" },
+			boss: { physics: "compound-sphere", hurtbox: "compound-sphere", hitbox: null },
+			entity: { physics: "capsule", hurtbox: null, hitbox: null },
 		};
 		const defaults = defaultsByType[entityType] || defaultsByType.entity;
 		const source = normalizeObject(rawCollisionOverride).value;
@@ -495,8 +511,8 @@ function LevelPayload(payload) {
 	normalized.camera.levelOpening.startPosition = toUnitVector3(normalized.camera.levelOpening.startPosition, "cnu");
 	normalized.camera.levelOpening.endPosition = toUnitVector3(normalized.camera.levelOpening.endPosition, "cnu");
 
-	normalized.terrain.objects = normalizeArray(rawPayload.terrain?.objects).value.map((entry) => normalizeLevelObject(entry, "obb"));
-	normalized.obstacles = normalizeArray(rawPayload.obstacles).value.map((entry) => normalizeLevelObject(entry, "obb"));
+	normalized.terrain.objects = normalizeArray(rawPayload.terrain?.objects).value.map((entry) => normalizeLevelObject(entry));
+	normalized.obstacles = normalizeArray(rawPayload.obstacles).value.map((entry) => normalizeLevelObject(entry, "triangle-soup"));
 	normalized.terrain.triggers = normalizeArray(rawPayload.terrain?.triggers).value.map((entry) => {
 		const trigger = normalizePayloadSchema(normalizeObject(entry).value, "levelTrigger");
 		trigger.start = toUnitVector3(trigger.start, "cnu");

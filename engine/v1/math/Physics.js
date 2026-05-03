@@ -18,30 +18,21 @@ import {
 	AbsoluteVector3,
 	MultiplyVector3,
 	ClampVector3,
+	WORLD_NORMALS,
 } from "./Vector3.js";
 import { Clamp01 } from "./Utilities.js";
 
 function NoContact() {
-	return { hit: false, normal: { x: 0, y: 1, z: 0 }, depth: 0, point: null };
+	return { hit: false, normal: CloneVector3(WORLD_NORMALS.Up), depth: 0, point: null };
 }
 
 function makeContact(normal, depth, point = null) {
-	return {
-		hit: depth >= 0,
-		normal: normal,
-		depth: Math.max(0, depth),
-		point,
-	};
+	return { hit: depth >= 0, normal: normal, depth: Math.max(0, depth), point };
 }
 
 function InvertContact(contact) {
 	if (!contact.hit) return contact;
-	return {
-		hit: true,
-		normal: ScaleVector3(contact.normal, -1),
-		depth: contact.depth,
-		point: contact.point,
-	};
+	return { hit: true, normal: ScaleVector3(contact.normal, -1), depth: contact.depth, point: contact.point };
 }
 
 function resolveUnitDirection(vector) {
@@ -52,12 +43,12 @@ function resolveUnitDirection(vector) {
 
 function resolveInsideAabbContact(center, radius, aabb) {
 	const distances = [
-		{ depth: (center.x - aabb.min.x) + radius, normal: { x: -1, y: 0, z: 0 } },
-		{ depth: (aabb.max.x - center.x) + radius, normal: { x: 1, y: 0, z: 0 } },
-		{ depth: (center.y - aabb.min.y) + radius, normal: { x: 0, y: -1, z: 0 } },
-		{ depth: (aabb.max.y - center.y) + radius, normal: { x: 0, y: 1, z: 0 } },
-		{ depth: (center.z - aabb.min.z) + radius, normal: { x: 0, y: 0, z: -1 } },
-		{ depth: (aabb.max.z - center.z) + radius, normal: { x: 0, y: 0, z: 1 } },
+		{ depth: (center.x - aabb.min.x) + radius, normal: WORLD_NORMALS.Left },
+		{ depth: (aabb.max.x - center.x) + radius, normal: WORLD_NORMALS.Right },
+		{ depth: (center.y - aabb.min.y) + radius, normal: WORLD_NORMALS.Down },
+		{ depth: (aabb.max.y - center.y) + radius, normal: WORLD_NORMALS.Up },
+		{ depth: (center.z - aabb.min.z) + radius, normal: WORLD_NORMALS.Backward },
+		{ depth: (aabb.max.z - center.z) + radius, normal: WORLD_NORMALS.Forward },
 	];
 
 	let best = distances[0];
@@ -65,7 +56,7 @@ function resolveInsideAabbContact(center, radius, aabb) {
 		if (distances[index].depth < best.depth) best = distances[index];
 	}
 
-	return makeContact(best.normal, best.depth, CloneVector3(center));
+	return makeContact(CloneVector3(best.normal), best.depth, CloneVector3(center));
 }
 
 function resolveInsideObbContact(localPoint, radius, obb) {
@@ -250,7 +241,7 @@ function closestPointOnTriangle(point, a, b, c) {
 function triangleNormal(a, b, c) {
 	const normal = resolveUnitDirection(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a)));
 	if (normal) return normal;
-	return { x: 0, y: 1, z: 0 };
+	return CloneVector3(WORLD_NORMALS.Up);
 }
 
 function closestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal) {
@@ -327,7 +318,7 @@ function SphereSphereContact(centerA, radiusA, centerB, radiusB) {
 	const radiusSum = resolvedRadiusA + resolvedRadiusB;
 	if (distSq > radiusSum * radiusSum) return NoContact();
 
-	if (distSq <= EPSILON) return makeContact({ x: 0, y: 1, z: 0 }, radiusSum, CloneVector3(centerA));
+	if (distSq <= EPSILON) return makeContact(CloneVector3(WORLD_NORMALS.Up), radiusSum, CloneVector3(centerA));
 
 	const distance = Math.sqrt(distSq);
 	const normal = ScaleVector3(delta, 1 / distance);
@@ -379,7 +370,7 @@ function SphereCapsuleContact(center, radius, capsule) {
 	if (distSq > radiusSum * radiusSum) return NoContact();
 	if (distSq <= EPSILON) {
 		const segmentMid = ScaleVector3(AddVector3(capsule.segmentStart, capsule.segmentEnd), 0.5);
-		const normal = resolveUnitDirection(SubtractVector3(center, segmentMid)) || { x: 0, y: 1, z: 0 };
+		const normal = resolveUnitDirection(SubtractVector3(center, segmentMid)) || CloneVector3(WORLD_NORMALS.Up);
 		return makeContact(normal, radiusSum, closest);
 	}
 
@@ -427,7 +418,7 @@ function CapsuleCapsuleContact(capsuleA, capsuleB) {
 	if (closest.distanceSq <= EPSILON) {
 		const midpointA = ScaleVector3(AddVector3(capsuleA.segmentStart, capsuleA.segmentEnd), 0.5);
 		const midpointB = ScaleVector3(AddVector3(capsuleB.segmentStart, capsuleB.segmentEnd), 0.5);
-		const normal = resolveUnitDirection(SubtractVector3(midpointA, midpointB)) || { x: 0, y: 1, z: 0 };
+		const normal = resolveUnitDirection(SubtractVector3(midpointA, midpointB)) || CloneVector3(WORLD_NORMALS.Up);
 		return makeContact(normal, radiusSum, closest.pointB);
 	}
 
@@ -477,11 +468,7 @@ function CapsuleOBBContact(capsule, obb) {
 function AabbObbContact(aabb, obb) {
 	const halfExtentsA = ScaleVector3(SubtractVector3(aabb.max, aabb.min), 0.5);
 	const centerDelta = SubtractVector3(ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5), obb.center);
-	const aabbAxes = [
-		{ x: 1, y: 0, z: 0 },
-		{ x: 0, y: 1, z: 0 },
-		{ x: 0, y: 0, z: 1 },
-	];
+	const aabbAxes = [WORLD_NORMALS.Right, WORLD_NORMALS.Up, WORLD_NORMALS.Forward];
 
 	let best = null;
 	for (let index = 0; index < aabbAxes.length; index++) {

@@ -140,8 +140,18 @@ function RotateByEuler(point, rotation) {
 	return { x: p2.x * cz - p2.y * sz, y: p2.x * sz + p2.y * cz, z: p2.z };
 }
 
+/* === ENGINE VARIABLES === */
+
+const WORLD_NORMALS = Object.freeze({
+	Up      : Object.freeze({ x:  0, y:  1, z:  0 }),
+	Down    : Object.freeze({ x:  0, y: -1, z:  0 }),
+	Left    : Object.freeze({ x: -1, y:  0, z:  0 }),
+	Right   : Object.freeze({ x:  1, y:  0, z:  0 }),
+	Forward : Object.freeze({ x:  0, y:  0, z:  1 }),
+	Backward: Object.freeze({ x:  0, y:  0, z: -1 }),
+});
+
 /* === EXPORTS === */
-// Public math helpers.
 
 export {
 	AddVector3,
@@ -162,4 +172,5 @@ export {
 	RotateByEuler,
 	ToVector3,
 	Vector3ChainMath,
+	WORLD_NORMALS,
 };

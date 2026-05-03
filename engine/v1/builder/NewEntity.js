@@ -15,19 +15,10 @@ import {
 	ScaleVector3, 
 	SubtractVector3, 
 	ToVector3, 
-	Vector3Sq 
+	Vector3Sq,
+	WORLD_NORMALS,
 } from "../math/Vector3.js";
 import { Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
-
-// Canonical face normal directions (unit vectors for each face).
-const faceNormals = {
-	top   : { x:  0, y:  1, z:  0 },
-	bottom: { x:  0, y: -1, z:  0 },
-	front : { x:  0, y:  0, z:  1 },
-	back  : { x:  0, y:  0, z: -1 },
-	left  : { x: -1, y:  0, z:  0 },
-	right : { x:  1, y:  0, z:  0 },
-};
 
 /**
  * Get the center position offset for a given face of a box with the given dimensions.
@@ -60,21 +51,26 @@ function remapFacesAfterRotation(rotation) {
 
 	// World-axis directions and the face label they correspond to.
 	const worldAxes = [
-		{ label: "right",  dir: { x:  1, y:  0, z:  0 } },
-		{ label: "left",   dir: { x: -1, y:  0, z:  0 } },
-		{ label: "top",    dir: { x:  0, y:  1, z:  0 } },
-		{ label: "bottom", dir: { x:  0, y: -1, z:  0 } },
-		{ label: "front",  dir: { x:  0, y:  0, z:  1 } },
-		{ label: "back",   dir: { x:  0, y:  0, z: -1 } },
+		{ label: "right",  dir: WORLD_NORMALS.Right },
+		{ label: "left",   dir: WORLD_NORMALS.Left },
+		{ label: "top",    dir: WORLD_NORMALS.Up },
+		{ label: "bottom", dir: WORLD_NORMALS.Down },
+		{ label: "front",  dir: WORLD_NORMALS.Forward },
+		{ label: "back",   dir: WORLD_NORMALS.Backward },
 	];
 
 	const remap = {};
 	const claimed = new Set();
 
 	// Rotate each canonical face normal → find the world axis it best aligns with.
-	const rotatedEntries = Object.keys(faceNormals).map((name) => {
-		return { name, rotated: RotateByEuler(faceNormals[name], rotation) };
-	});
+	const rotatedEntries = [
+		{ name: "top", rotated: RotateByEuler(WORLD_NORMALS.Up, rotation) },
+		{ name: "bottom", rotated: RotateByEuler(WORLD_NORMALS.Down, rotation) },
+		{ name: "front", rotated: RotateByEuler(WORLD_NORMALS.Forward, rotation) },
+		{ name: "back", rotated: RotateByEuler(WORLD_NORMALS.Backward, rotation) },
+		{ name: "left", rotated: RotateByEuler(WORLD_NORMALS.Left, rotation) },
+		{ name: "right", rotated: RotateByEuler(WORLD_NORMALS.Right, rotation) },
+	];
 
 	// Sort by best alignment (highest dot product first) to prevent ties from producing duplicates.
 	const assignments = [];
@@ -516,9 +512,9 @@ function computeObbFromAabb(aabb) {
 		center: aabb.min.clone().add(aabb.max).scale(0.5),
 		halfExtents: aabb.max.clone().subtract(aabb.min).scale(0.5),
 		axes: [
-			{ x: 1, y: 0, z: 0 },
-			{ x: 0, y: 1, z: 0 },
-			{ x: 0, y: 0, z: 1 },
+			WORLD_NORMALS.Right,
+			WORLD_NORMALS.Up,
+			WORLD_NORMALS.Forward,
 		],
 	};
 }
@@ -531,8 +527,7 @@ function computeObbFromAabb(aabb) {
 function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverride) {
 
 	// Physics collider bounds.
-	const physicsShape = collisionOverride.physics;
-	const physicsBounds = buildBoundsForShape(physicsShape, aabb, model);
+	const physicsBounds = buildBoundsForShape(collisionOverride.physics, aabb, model);
 
 	// Hurtbox bounds (null = immune to damage).
 	let hurtbox = null;
@@ -559,9 +554,9 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverri
 	}
 
 	return {
-		collisionShape: physicsShape,
+		collisionShape: collisionOverride.physics,
 		detailedBounds: physicsBounds,
-		physics: { shape: physicsShape, bounds: physicsBounds },
+		physics: { shape: collisionOverride.physics, bounds: physicsBounds },
 		hurtbox: hurtbox,
 		hitbox: hitbox,
 	};

@@ -10,10 +10,10 @@ import {
 	ScaleVector3,
 	ResolveVector3Axis,
 	CloneVector3,
+	Vector3Sq,
+	WORLD_NORMALS,
 } from "../math/Vector3.js";
 import { Clamp } from "../math/Utilities.js";
-
-const worldUp = { x: 0, y: 1, z: 0 };
 
 function hasMeaningfulDelta(currentValue, nextValue) {
 	return Math.abs(nextValue - currentValue) > EPSILON;
@@ -30,23 +30,22 @@ function hasMeaningfulVectorDelta(currentVector, nextVector) {
 function resetSurfaceState(playerState) {
 	const changedGrounded = playerState.grounded;
 	const changedOrientation =
-		hasMeaningfulVectorDelta(playerState.surfaceNormal, worldUp) ||
-		hasMeaningfulVectorDelta(playerState.alignedUp, worldUp);
+		hasMeaningfulVectorDelta(playerState.surfaceNormal, WORLD_NORMALS.Up) ||
+		hasMeaningfulVectorDelta(playerState.alignedUp, WORLD_NORMALS.Up);
 
 	playerState.grounded = false;
-	playerState.surfaceNormal = { x: 0, y: 1, z: 0 };
-	playerState.alignedUp = { x: 0, y: 1, z: 0 };
+	playerState.surfaceNormal = CloneVector3(WORLD_NORMALS.Up);
+	playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
 
 	return {
-		changedGrounded: changedGrounded,
-		changedOrientation: changedOrientation,
+		changedGrounded, changedOrientation,
 		changedPosition: false,
 		changedVelocity: false,
 		anyChanged: changedGrounded || changedOrientation,
 	};
 }
 
-const CORRECTION_DISABLED = Object.freeze({
+const correctionDisabled = Object.freeze({
 	changedGrounded: false,
 	changedOrientation: false,
 	changedPosition: false,
@@ -70,140 +69,112 @@ function applySurfaceNormal(playerState, normal) {
  */
 function ApplySurfaceCorrection(playerState, groundContact) {
 	const config = CONFIG.PHYSICS.Correction;
-	if (config.Enabled === false) return CORRECTION_DISABLED;
+	if (config.Enabled === false) return correctionDisabled;
 
 	if (!groundContact.hit) return resetSurfaceState(playerState);
 	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return resetSurfaceState(playerState);
 
 	const normal = ResolveVector3Axis(groundContact.normal);
 	const previousNormal = ResolveVector3Axis(playerState.surfaceNormal);
-	const normalDot = Clamp(DotVector3(previousNormal, normal), -1, 1);
-	const deltaAngleDegrees = (Math.acos(normalDot) * 180) / Math.PI;
-
+	const deltaAngleDegrees = (Math.acos(Clamp(DotVector3(previousNormal, normal), -1, 1)) * 180) / Math.PI;
 	if (deltaAngleDegrees > config.MaxDeltaDegrees) return resetSurfaceState(playerState);
 
 	const changedGrounded = !playerState.grounded;
-	const changedOrientation =
-		hasMeaningfulVectorDelta(playerState.surfaceNormal, normal) ||
-		hasMeaningfulVectorDelta(playerState.alignedUp, normal);
+	let changedOrientation = false;
 	let changedVelocity = false;
 
-	applySurfaceNormal(playerState, normal);
+	if (((Math.acos(Clamp(normal.y, -1, 1)) * 180) / Math.PI) < config.MinDeltaDegrees) {
+		// Near-flat surface: commit grounded state and real normal for angle tracking,
+		// but force alignedUp to worldUp so edge-contact noise never tilts the player.
+		changedOrientation = hasMeaningfulVectorDelta(playerState.alignedUp, WORLD_NORMALS.Up);
+		playerState.grounded = true;
+		playerState.surfaceNormal = CloneVector3(normal);
+		playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
 
-	// Correct vertical velocity: remove downward component upon ground contact.
-	if (playerState.velocity.y < 0) {
-		playerState.velocity.y = 0;
-		changedVelocity = true;
-	}
+		if (changedGrounded && playerState.velocity.y < 0) {
+			playerState.velocity.y = 0;
+			changedVelocity = true;
+		}
+	} else {
+		// Real slope: align to surface and project velocity onto slope plane.
+		changedOrientation = hasMeaningfulVectorDelta(playerState.alignedUp, normal);
+		applySurfaceNormal(playerState, normal);
 
-	// Project forward velocity onto the surface plane to preserve movement speed on slopes.
-	// This creates the illusion of flat-speed movement regardless of incline.
-	const vel = playerState.velocity;
-	const horizontalSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+		if (changedGrounded && playerState.velocity.y < 0) {
+			playerState.velocity.y = 0;
+			changedVelocity = true;
+		}
 
-	if (horizontalSpeed > 0.01 && Math.abs(normal.y) < 0.999) {
-		// Compute forward direction from horizontal velocity.
-		const forwardDir = ResolveVector3Axis({ x: vel.x, y: 0, z: vel.z });
+		// Project forward velocity onto the surface plane to preserve movement speed on slopes.
+		// This creates the illusion of flat-speed movement regardless of incline.
+		const vel = playerState.velocity;
 
-		// Project forward onto the surface plane.
-		const dot = DotVector3(forwardDir, normal);
-		const projected = ResolveVector3Axis(SubtractVector3(forwardDir, ScaleVector3(normal, dot)));
+		if (Math.sqrt(vel.x * vel.x + vel.z * vel.z) > 0.01 && Math.abs(normal.y) < 0.999) {
+			const forwardDir = ResolveVector3Axis({ x: vel.x, y: 0, z: vel.z });
+			const projected = ResolveVector3Axis(SubtractVector3(forwardDir, ScaleVector3(normal, DotVector3(forwardDir, normal))));
+			const newVelocity = ScaleVector3(projected, Math.sqrt(Vector3Sq(vel)));
 
-		// Scale projected direction to maintain original horizontal speed.
-		vel.set(ScaleVector3(projected, horizontalSpeed));
-		
-		// Adjust vertical velocity to follow slope naturally.
-		changedVelocity = changedVelocity ||
-			hasMeaningfulDelta(playerState.velocity.x, vel.x) ||
-			hasMeaningfulDelta(playerState.velocity.y, vel.y) ||
-			hasMeaningfulDelta(playerState.velocity.z, vel.z);
-	}
+			changedVelocity = changedVelocity ||
+				hasMeaningfulDelta(vel.x, newVelocity.x) ||
+				hasMeaningfulDelta(vel.y, newVelocity.y) ||
+				hasMeaningfulDelta(vel.z, newVelocity.z);
 
-	if (changedOrientation || changedVelocity) {
-		Log(
-			"ENGINE",
-			`
-				Slope correction applied: 
-				grounded=${playerState.grounded} 
-				normal=(${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)}) 
-				orientationChanged=${changedOrientation} velocityChanged=${changedVelocity}
-			`,
-			"log",
-			"Level"
-		);
+			vel.set(newVelocity);
+		}
+
+		if (changedOrientation || changedVelocity) {
+			Log(
+				"ENGINE",
+				`Slope correction applied: normal=(${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)}) orientationChanged=${changedOrientation} velocityChanged=${changedVelocity}`,
+				"log",
+				"Level"
+			);
+		}
 	}
 
 	const anyChanged = changedGrounded || changedOrientation || changedVelocity;
-
-	return {
-		changedGrounded: changedGrounded,
-		changedOrientation: changedOrientation,
-		changedPosition: false,
-		changedVelocity: changedVelocity,
-		anyChanged: anyChanged,
-	};
+	return { changedGrounded, changedOrientation, changedPosition: false, changedVelocity, anyChanged };
 }
 
 function ApplyGroundSnap(playerState, groundContact) {
 	const config = CONFIG.PHYSICS.Correction;
-	if (config.Enabled === false) return CORRECTION_DISABLED;
-
-	if (!groundContact.hit) return resetSurfaceState(playerState);
-	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return resetSurfaceState(playerState);
+	if (!config.Enabled || !groundContact.hit || (groundContact.type !== "terrain" && groundContact.type !== "obstacle")) {
+		return correctionDisabled;
+	}
 
 	const normal = ResolveVector3Axis(groundContact.normal);
-	let changedPosition = false;
-	let deltaY = 0;
+	if (normal.y <= 0.5) return correctionDisabled;
 
-	if (normal.y > 0.5) {
-		const collisionProfile = playerState.collision.profile;
-		const desiredPosY = groundContact.supportPoint.y - collisionProfile.bottomOffset.value;
-		deltaY = desiredPosY - playerState.transform.position.y;
+	const desiredPosY = groundContact.supportPoint.y - playerState.collision.profile.bottomOffset.value;
+	const deltaY = desiredPosY - playerState.transform.position.y;
 
-		if (Math.abs(deltaY) <= config.GroundSnapTolerance) {
-			changedPosition = Math.abs(deltaY) > EPSILON;
-			playerState.transform.position.y = desiredPosY;
-		}
-	}
+	if (Math.abs(deltaY) > config.GroundSnapTolerance) return correctionDisabled;
 
-	const changedGrounded = !playerState.grounded;
-	const changedOrientation =
-		hasMeaningfulVectorDelta(playerState.surfaceNormal, normal) ||
-		hasMeaningfulVectorDelta(playerState.alignedUp, normal);
-
-	applySurfaceNormal(playerState, normal);
-
+	const changedPosition = Math.abs(deltaY) > EPSILON;
 	if (changedPosition) {
-		Log(
-			"ENGINE",
-			`Ground snap applied: deltaY=${deltaY.toFixed(4)} grounded=${playerState.grounded}`,
-			"log",
-			"Level"
-		);
+		playerState.transform.position.y = desiredPosY;
+		Log("ENGINE", `Ground snap: deltaY=${deltaY.toFixed(4)}`, "log", "Level");
 	}
-
-	const anyChanged = changedGrounded || changedOrientation || changedPosition;
 
 	return {
-		changedGrounded: changedGrounded,
-		changedOrientation: changedOrientation,
-		changedPosition: changedPosition,
+		changedGrounded: false,
+		changedOrientation: false,
+		changedPosition,
 		changedVelocity: false,
-		anyChanged: anyChanged,
+		anyChanged: changedPosition,
 	};
 }
 
 function ApplyPlayerSurfaceOrientation(playerState) {
-	const angles = ComputeAlignmentAngles(playerState.alignedUp);
-	const rotation = playerState.transform.rotation;
+	const angles = computeAlignmentAngles(playerState.alignedUp);
 	const changedOrientation =
-		hasMeaningfulDelta(rotation.x, angles.pitch) ||
-		hasMeaningfulDelta(rotation.z, angles.roll);
+		hasMeaningfulDelta(playerState.transform.rotation.x, angles.pitch) ||
+		hasMeaningfulDelta(playerState.transform.rotation.z, angles.roll);
 
-	rotation.x = angles.pitch;
-	rotation.z = angles.roll;
+	playerState.transform.rotation.x = angles.pitch;
+	playerState.transform.rotation.z = angles.roll;
 
-	return { changedOrientation: changedOrientation, anyChanged: changedOrientation };
+	return { changedOrientation, anyChanged: changedOrientation };
 }
 
 /**
@@ -212,12 +183,9 @@ function ApplyPlayerSurfaceOrientation(playerState) {
  * @param {{ x, y, z }} surfaceNormal
  * @returns {{ pitch: number, roll: number }}
  */
-function ComputeAlignmentAngles(surfaceNormal) {
+function computeAlignmentAngles(surfaceNormal) {
 	const n = ResolveVector3Axis(surfaceNormal);
-	return {
-		pitch: Math.asin(-n.z),
-		roll: Math.asin(n.x),
-	};
+	return { pitch: Math.asin(-n.z), roll: Math.asin(n.x) };
 }
 
 /* === EXPORTS === */
@@ -226,5 +194,4 @@ export {
 	ApplySurfaceCorrection,
 	ApplyGroundSnap,
 	ApplyPlayerSurfaceOrientation,
-	ComputeAlignmentAngles,
 };

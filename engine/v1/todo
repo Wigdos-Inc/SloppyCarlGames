@@ -1,9 +1,5 @@
 This file contains current priorities.
 
-Add Terrain Blueprint Support (start using Claude Code):
-- Add Sonic-Style Loop Blueprint
-- Add Half-Pipe Blueprint
-- Add Full-Pipe Blueprint
 Finish Model Bounds Expansion (critical):
 - Fix platform edge correction spam bug
 - Change camera collision to narrowphase bounds instead of broadphase
@@ -11,4 +7,8 @@ Finish Model Bounds Expansion (critical):
 Finish Unit System by eyeballing correct CNU_SCALE.
 - CNU Scaling is completely broken right now.
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain. perhaps part of new NewTerrain.js)
+Add Terrain Blueprint Support (start using Claude Code):
+- Add Sonic-Style Loop Blueprint
+- Add Half-Pipe Blueprint
+- Add Full-Pipe Blueprint
 Build new test level (prompt in notepad).

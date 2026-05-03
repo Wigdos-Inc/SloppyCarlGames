@@ -15,6 +15,7 @@ import {
 	CloneVector3,
 	ToVector3,
 	AbsoluteVector3,
+	WORLD_NORMALS,
 } from "../math/Vector3.js";
 import {
 	SweptAABB,
@@ -235,15 +236,15 @@ function aabbAabbContact(boundsA, boundsB) {
 	const overlaps = [
 		{
 			depth: centerA.x <= centerB.x ? boundsA.max.x - boundsB.min.x : boundsB.max.x - boundsA.min.x,
-			normal: centerA.x <= centerB.x ? { x: -1, y: 0, z: 0 } : { x: 1, y: 0, z: 0 },
+			normal: centerA.x <= centerB.x ? WORLD_NORMALS.Left : WORLD_NORMALS.Right,
 		},
 		{
 			depth: centerA.y <= centerB.y ? boundsA.max.y - boundsB.min.y : boundsB.max.y - boundsA.min.y,
-			normal: centerA.y <= centerB.y ? { x: 0, y: -1, z: 0 } : { x: 0, y: 1, z: 0 },
+			normal: centerA.y <= centerB.y ? WORLD_NORMALS.Down : WORLD_NORMALS.Up,
 		},
 		{
 			depth: centerA.z <= centerB.z ? boundsA.max.z - boundsB.min.z : boundsB.max.z - boundsA.min.z,
-			normal: centerA.z <= centerB.z ? { x: 0, y: 0, z: -1 } : { x: 0, y: 0, z: 1 },
+			normal: centerA.z <= centerB.z ? WORLD_NORMALS.Backward : WORLD_NORMALS.Forward,
 		},
 	];
 
@@ -252,7 +253,7 @@ function aabbAabbContact(boundsA, boundsB) {
 		if (overlaps[index].depth < best.depth) best = overlaps[index];
 	}
 
-	return { hit: true, normal: best.normal, depth: best.depth };
+	return { hit: true, normal: CloneVector3(best.normal), depth: best.depth };
 }
 
 function chooseDeepestContact(best, candidate) {
@@ -743,7 +744,7 @@ function ResolveCollisions(velocity, displacement, solids) {
 	let disp = CloneVector3(displacement);
 	let groundContact = {
 		hit: false,
-		normal: { x: 0, y: 1, z: 0 },
+		normal: CloneVector3(WORLD_NORMALS.Up),
 		type: null,
 		targetId: null,
 		targetAabb: null,
@@ -779,7 +780,7 @@ function ResolveCollisions(velocity, displacement, solids) {
 			) {
 				groundContact = {
 					hit: true,
-					normal: { ...pushNormal },
+					normal: CloneVector3(pushNormal),
 					type: collision.type,
 					targetId: collision.target.id,
 					targetAabb: collision.target.aabb,
@@ -831,10 +832,7 @@ function ResolveCollisions(velocity, displacement, solids) {
 	return {
 		resolvedVelocity: vel,
 		resolvedDisplacement: disp,
-		groundContact: groundContact,
-		changedPosition: changedPosition,
-		changedVelocity: changedVelocity,
-		anyChanged: anyChanged,
+		groundContact, changedPosition, changedVelocity, anyChanged,
 	};
 }
 
@@ -866,6 +864,118 @@ function logCollision(collision) {
 	);
 }
 
+/* ========================================================================
+ * GROUND PROBE
+ * ======================================================================== */
+
+/**
+ * Downward point probe from the capsule cylinder bottom.
+ * Checks for flat-topped geometry directly below within capsule + snap range.
+ * This is the sole authority on player grounding state and snap target.
+ * Penetration pushout is unaffected — the capsule narrowphase handles that separately.
+ *
+ * @param {object} entity — player entity with collision.profile.capsuleStartOffset.
+ * @param {object} sceneGraph
+ * @returns {{ hit: boolean, normal?: object, type?: string, supportPoint?: object }}
+ */
+function ProbeGroundContact(entity, sceneGraph) {
+	if (CONFIG.PHYSICS.Collision.Enabled === false) return { hit: false };
+
+	const profile = entity.collision.profile;
+	const probe = entity.transform.position.clone().add(profile.capsuleStartOffset);
+	const maxDist = profile.capsuleRadius.value + CONFIG.PHYSICS.Correction.GroundSnapTolerance;
+	const simAabb = entity.collision.simRadiusAabb;
+
+	let bestT = Infinity;
+	let bestNormal = null;
+	let bestType = null;
+
+	// Downward ray vs axis-aligned box: entry t = vertical distance from probe to top face.
+	const tryAABB = (bounds, type) => {
+		if (probe.x < bounds.min.x || probe.x > bounds.max.x) return;
+		if (probe.z < bounds.min.z || probe.z > bounds.max.z) return;
+		const t = probe.y - bounds.max.y;
+		if (t < 0 || t > maxDist) return;
+		if (t < bestT) { bestT = t; bestNormal = WORLD_NORMALS.Up; bestType = type; }
+	};
+
+	// Downward ray (0,-1,0) vs oriented box via slab test in OBB local space.
+	// Returns the entry face normal, which must be upward-facing to count as ground.
+	const tryOBB = (obb, type) => {
+		const ax = obb.axes;
+		const he = obb.halfExtents;
+		const dx = probe.x - obb.center.x;
+		const dy = probe.y - obb.center.y;
+		const dz = probe.z - obb.center.z;
+
+		// Project probe offset and ray dir (0,-1,0) onto each OBB axis.
+		const lo = [ dx * ax[0].x + dy * ax[0].y + dz * ax[0].z,
+		              dx * ax[1].x + dy * ax[1].y + dz * ax[1].z,
+		              dx * ax[2].x + dy * ax[2].y + dz * ax[2].z ];
+		const ld = [ -ax[0].y, -ax[1].y, -ax[2].y ];
+		const hev = [ he.x, he.y, he.z ];
+
+		let tMin = 0;
+		let tMax = maxDist;
+		let hitAxis = -1;
+
+		for (let k = 0; k < 3; k++) {
+			if (Math.abs(ld[k]) < EPSILON) {
+				if (Math.abs(lo[k]) > hev[k]) return; // parallel and outside slab
+			} else {
+				const inv = 1 / ld[k];
+				let t1 = (-hev[k] - lo[k]) * inv;
+				let t2 = ( hev[k] - lo[k]) * inv;
+				if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+				if (t1 > tMin) { tMin = t1; hitAxis = k; }
+				if (t2 < tMax) tMax = t2;
+				if (tMin > tMax) return;
+			}
+		}
+
+		if (tMin < 0 || tMin > maxDist) return;
+
+		// Normal of the entry face: the axis that set tMin, pointing away from the OBB.
+		// sign = +1 when the ray travels in the negative local-axis direction (hits +he face).
+		const k = hitAxis >= 0 ? hitAxis : 1;
+		const sign = hitAxis >= 0 && ld[hitAxis] < 0 ? 1 : -1;
+		const ny = ax[k].y * sign;
+		if (ny <= 0) return; // side face or bottom — not a landing surface
+		if (tMin < bestT) {
+			bestT = tMin;
+			bestNormal = { x: ax[k].x * sign, y: ny, z: ax[k].z * sign };
+			bestType = type;
+		}
+	};
+
+	const terrain = sceneGraph.terrain;
+	for (let i = 0; i < terrain.length; i++) {
+		const mesh = terrain[i];
+		if (!AabbOverlap(simAabb, mesh.worldAabb)) continue;
+		const b = mesh.detailedBounds;
+		if (b.type === "aabb") tryAABB(b, "terrain");
+		else if (b.type === "obb") tryOBB(b, "terrain");
+	}
+
+	const obstacles = sceneGraph.obstacles;
+	for (let i = 0; i < obstacles.length; i++) {
+		const obs = obstacles[i];
+		if (!AabbOverlap(simAabb, obs.bounds)) continue;
+		const b = obs.detailedBounds;
+		if (b.type === "aabb") tryAABB(b, "obstacle");
+		else if (b.type === "obb") tryOBB(b, "obstacle");
+	}
+
+	if (bestType === null) return { hit: false };
+
+	return {
+		hit: true,
+		normal: bestNormal === WORLD_NORMALS.Up ? CloneVector3(WORLD_NORMALS.Up) : bestNormal,
+		type: bestType,
+		supportPoint: { x: probe.x, y: probe.y - bestT, z: probe.z },
+	};
+}
+
 /* === EXPORTS === */
 
 export {
@@ -874,6 +984,7 @@ export {
 	DetectCombatOverlaps,
 	ResolveCollisions,
 	ResetCollisionPools,
+	ProbeGroundContact,
 	NarrowphaseTest,
 	GetSimDistanceValue,
 	CheckEntityAabbOverlap,

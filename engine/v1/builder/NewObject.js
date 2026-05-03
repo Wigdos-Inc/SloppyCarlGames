@@ -5,7 +5,20 @@
 import { BuildScatter } from "./NewScatter.js";
 import { CreateModelMatrix } from "../math/Matrix.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
-import { AbsoluteVector3, AddVector3, CloneVector3, CrossVector3, DivideVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3Length, Vector3Sq } from "../math/Vector3.js";
+import { 
+	AbsoluteVector3, 
+	AddVector3, 
+	CloneVector3, 
+	CrossVector3, 
+	DivideVector3, 
+	ResolveVector3Axis, 
+	ScaleVector3, 
+	SubtractVector3, 
+	ToVector3, 
+	Vector3Length, 
+	Vector3Sq, 
+	WORLD_NORMALS 
+} from "../math/Vector3.js";
 
 function computeObbFromMesh(mesh) {
 	const modelMatrix = CreateModelMatrix(mesh.transform);
@@ -341,15 +354,15 @@ function buildCube(size) {
 	];
 
 	const faceGroups = [
-		{ normal: { x: 0, y: 0, z: 1 }, vertexIndices: [0, 1, 2, 3] },
-		{ normal: { x: 0, y: 0, z: -1 }, vertexIndices: [4, 5, 6, 7] },
-		{ normal: { x: -1, y: 0, z: 0 }, vertexIndices: [8, 9, 10, 11] },
-		{ normal: { x: 1, y: 0, z: 0 }, vertexIndices: [12, 13, 14, 15] },
-		{ normal: { x: 0, y: 1, z: 0 }, vertexIndices: [16, 17, 18, 19] },
-		{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: [20, 21, 22, 23] },
+		{ normal: WORLD_NORMALS.Forward, vertexIndices: [0, 1, 2, 3] },
+		{ normal: WORLD_NORMALS.Backward, vertexIndices: [4, 5, 6, 7] },
+		{ normal: WORLD_NORMALS.Left, vertexIndices: [8, 9, 10, 11] },
+		{ normal: WORLD_NORMALS.Right, vertexIndices: [12, 13, 14, 15] },
+		{ normal: WORLD_NORMALS.Up, vertexIndices: [16, 17, 18, 19] },
+		{ normal: WORLD_NORMALS.Down, vertexIndices: [20, 21, 22, 23] },
 	];
 
-	return { positions: positions, indices: indices, faceGroups: faceGroups };
+	return { positions, indices, faceGroups };
 }
 
 function buildPyramid(size) {
@@ -391,7 +404,7 @@ function buildPyramid(size) {
 		faceGroups.push({ normal: normal, vertexIndices: [start, start + 1, start + 2] });
 	};
 
-	addQuadFace(baseFrontLeft, baseFrontRight, baseBackRight, baseBackLeft, { x: 0, y: 1, z: 0 });
+	addQuadFace(baseFrontLeft, baseFrontRight, baseBackRight, baseBackLeft, WORLD_NORMALS.Up);
 	addTriangleFace(baseFrontLeft, baseFrontRight, apex);
 	addTriangleFace(baseFrontRight, baseBackRight, apex);
 	addTriangleFace(baseBackRight, baseBackLeft, apex);
@@ -412,7 +425,7 @@ function buildPlane(size) {
 			-sx, 0, -sz,
 		],
 		indices: [0, 1, 2, 0, 2, 3],
-		faceGroups: [{ normal: { x: 0, y: 1, z: 0 }, vertexIndices: [0, 1, 2, 3] }],
+		faceGroups: [{ normal: WORLD_NORMALS.Up, vertexIndices: [0, 1, 2, 3] }],
 	};
 }
 
@@ -455,14 +468,14 @@ function buildCylinder(size, complexity) {
 	const topVertices = [topCenter, ...topRing.vertexIndices];
 	appendTriangleFanIndices(indices, topCenter, topRing.start, segments);
 
-	faceGroups.push({ normal: { x: 0, y: 1, z: 0 }, vertexIndices: topVertices });
+	faceGroups.push({ normal: WORLD_NORMALS.Up, vertexIndices: topVertices });
 
 	const bottomCenter = pushVertex(0, -radius.y, 0);
 	const bottomRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
 	const bottomVertices = [bottomCenter, ...bottomRing.vertexIndices];
 	appendTriangleFanIndices(indices, bottomCenter, bottomRing.start, segments, true);
 
-	faceGroups.push({ normal: { x: 0, y: -1, z: 0 }, vertexIndices: bottomVertices });
+	faceGroups.push({ normal: WORLD_NORMALS.Down, vertexIndices: bottomVertices });
 
 	return { positions: positions, indices: indices, faceGroups: faceGroups };
 }
@@ -531,8 +544,8 @@ function buildCone(size, complexity) {
 		positions: positions,
 		indices: indices,
 		faceGroups: [
-			{ normal: { x: 0, y:  1, z: 0 }, vertexIndices: sideVertexIndices },
-			{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: baseVertexIndices },
+			{ normal: WORLD_NORMALS.Up, vertexIndices: sideVertexIndices },
+			{ normal: WORLD_NORMALS.Down, vertexIndices: baseVertexIndices },
 		],
 	};
 }
@@ -592,9 +605,9 @@ function buildCapsule(size, complexity) {
 	return {
 		positions, indices,
 		faceGroups: [
-			{ normal: { x: 0, y:  1, z: 0 }, vertexIndices: topVertices },
-			{ normal: { x: 1, y:  0, z: 0 }, vertexIndices: bodyVertices },
-			{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: bottomVertices },
+			{ normal: WORLD_NORMALS.Up, vertexIndices: topVertices },
+			{ normal: WORLD_NORMALS.Right, vertexIndices: bodyVertices },
+			{ normal: WORLD_NORMALS.Down, vertexIndices: bottomVertices },
 		],
 	};
 }
@@ -651,10 +664,10 @@ function buildTube(size, complexity, options) {
 	return {
 		positions, indices,
 		faceGroups: [
-			{ normal: { x: 1, y: 0, z: 0 }, vertexIndices: outerVertices },
-			{ normal: { x: -1, y: 0, z: 0 }, vertexIndices: innerVertices },
-			{ normal: { x: 0, y: 1, z: 0 }, vertexIndices: topVertices },
-			{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: bottomVertices },
+			{ normal: WORLD_NORMALS.Right, vertexIndices: outerVertices },
+			{ normal: WORLD_NORMALS.Left, vertexIndices: innerVertices },
+			{ normal: WORLD_NORMALS.Up, vertexIndices: topVertices },
+			{ normal: WORLD_NORMALS.Down, vertexIndices: bottomVertices },
 		],
 	};
 }
@@ -750,11 +763,11 @@ function buildRampSimple(size, options) {
 		positions: positions,
 		indices: indices,
 		faceGroups: [
-			{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: [0, 1, 2, 3] },
-			{ normal: { x: 0, y: 0, z: 1 }, vertexIndices: [2, 3, 4, 5] },
+			{ normal: WORLD_NORMALS.Down, vertexIndices: [0, 1, 2, 3] },
+			{ normal: WORLD_NORMALS.Forward, vertexIndices: [2, 3, 4, 5] },
 			{ normal: { x: 0, y: Math.cos(slopeAngle), z: -Math.sin(slopeAngle) }, vertexIndices: [0, 1, 4, 5] },
-			{ normal: { x: -1, y: 0, z: 0 }, vertexIndices: [0, 3, 5] },
-			{ normal: { x: 1, y: 0, z: 0 }, vertexIndices: [1, 2, 4] },
+			{ normal: WORLD_NORMALS.Left, vertexIndices: [0, 3, 5] },
+			{ normal: WORLD_NORMALS.Right, vertexIndices: [1, 2, 4] },
 		],
 	};
 }
@@ -834,11 +847,11 @@ function buildRampComplex(size, complexity, options) {
 		positions: positions,
 		indices: indices,
 		faceGroups: [
-			{ normal: { x: 0, y: -1, z: 0 }, vertexIndices: bottomVertexIndices },
-			{ normal: { x: 0, y: 0, z: 1 }, vertexIndices: [backBottomLeft, backBottomRight, backTopRight, backTopLeft] },
+			{ normal: WORLD_NORMALS.Down, vertexIndices: bottomVertexIndices },
+			{ normal: WORLD_NORMALS.Forward, vertexIndices: [backBottomLeft, backBottomRight, backTopRight, backTopLeft] },
 			{ normal: { x: 0, y: Math.cos(slopeAngle), z: -Math.sin(slopeAngle) }, vertexIndices: topVertexIndices },
-			{ normal: { x: -1, y: 0, z: 0 }, vertexIndices: leftVertexIndices },
-			{ normal: { x: 1, y: 0, z: 0 }, vertexIndices: rightVertexIndices },
+			{ normal: WORLD_NORMALS.Left, vertexIndices: leftVertexIndices },
+			{ normal: WORLD_NORMALS.Right, vertexIndices: rightVertexIndices },
 		],
 	};
 }

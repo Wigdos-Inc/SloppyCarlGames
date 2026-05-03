@@ -10,7 +10,7 @@ import { Log } from "../core/meta.js";
 import { CreateModelMatrix } from "../math/Matrix.js";
 import { BuildObject, BuildGeometry, GenerateUVs } from "./NewObject.js";
 import { UnitVector3 } from "../math/Utilities.js";
-import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3 } from "../math/Vector3.js";
+import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import visualTemplates from "./templates/textures.json" with { type: "json" };
 
 // Normalize JSON template vectors into UnitVector3 instances
@@ -132,9 +132,9 @@ function getPartHalfHeight(part, uniformScale) {
 
 	// Columns of rotation matrix = R * basis vectors. We want the Y-row contributions, which
 	// are the y components of those columns. Use shared RotateByEuler (Y->X->Z) to rotate basis.
-	const colX = RotateByEuler({ x: 1, y: 0, z: 0 }, part.localRotation);
-	const colY = RotateByEuler({ x: 0, y: 1, z: 0 }, part.localRotation);
-	const colZ = RotateByEuler({ x: 0, y: 0, z: 1 }, part.localRotation);
+	const colX = RotateByEuler(WORLD_NORMALS.Right, part.localRotation);
+	const colY = RotateByEuler(WORLD_NORMALS.Up, part.localRotation);
+	const colZ = RotateByEuler(WORLD_NORMALS.Forward, part.localRotation);
 
 	const h = ScaleVector3(MultiplyVector3(part.dimensions, part.localScale), uniformScale * 0.5);
 	const halfHeight = Math.abs(colX.y) * h.x + Math.abs(colY.y) * h.y + Math.abs(colZ.y) * h.z;

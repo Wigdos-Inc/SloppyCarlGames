@@ -15,11 +15,10 @@ import {
 	ScaleVector3,
 	Vector3Length,
 	ToVector3,
+	WORLD_NORMALS,
 } from "../../math/Vector3.js";
 import { ClampVelocity, RayAABBIntersect } from "../../math/Physics.js";
 import { Lerp, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
-
-const worldUp = { x: 0, y: 1, z: 0 };
 const pitchClampDegrees = 89;
 // FreeCam must be explicitly enabled in levels and global debug mode must be on.
 const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true);
@@ -117,7 +116,7 @@ function createForwardFromAngles(yawDegrees, pitchDegrees) {
 function createCameraState(source) {
 	const pitch = Clamp(source.pitch, -pitchClampDegrees, pitchClampDegrees);
 	const forward = createForwardFromAngles(source.yaw, pitch);
-	const right = ResolveVector3Axis(CrossVector3(forward, worldUp));
+	const right = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
 
 	return {
 		position: source.position,
@@ -138,7 +137,7 @@ function createCameraState(source) {
 
 function updateOrientationVectors(cameraState) {
 	cameraState.forward = createForwardFromAngles(cameraState.yaw, cameraState.pitch);
-	cameraState.right = ResolveVector3Axis(CrossVector3(cameraState.forward, worldUp));
+	cameraState.right = ResolveVector3Axis(CrossVector3(cameraState.forward, WORLD_NORMALS.Up));
 	cameraState.up = ResolveVector3Axis(CrossVector3(cameraState.right, cameraState.forward));
 	cameraState.target.set(AddVector3(cameraState.position, cameraState.forward));
 }
@@ -156,7 +155,7 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 	);
 	const position = cameraConfig.levelOpening.startPosition.toWorldUnit(true);
 	const forward = ResolveVector3Axis(SubtractVector3(center, position));
-	const right = ResolveVector3Axis(CrossVector3(forward, worldUp));
+	const right = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
 	const up = ResolveVector3Axis(CrossVector3(right, forward));
 
 	return {
@@ -248,8 +247,8 @@ function getMoveDirectionFromKeys(cameraState) {
 	if (keyState.KeyS || keyState.ArrowDown) direction = AddVector3(direction, ScaleVector3(cameraState.forward, -1));
 	if (keyState.KeyD || keyState.ArrowRight) direction = AddVector3(direction, cameraState.right);
 	if (keyState.KeyA || keyState.ArrowLeft) direction = AddVector3(direction, ScaleVector3(cameraState.right, -1));
-	if (keyState.Space) direction = AddVector3(direction, worldUp);
-	if (keyState.ShiftLeft || keyState.ShiftRight) direction = AddVector3(direction, ScaleVector3(worldUp, -1));
+	if (keyState.Space) direction = AddVector3(direction, WORLD_NORMALS.Up);
+	if (keyState.ShiftLeft || keyState.ShiftRight) direction = AddVector3(direction, ScaleVector3(WORLD_NORMALS.Up, -1));
 
 	if (Vector3Length(direction) <= EPSILON) return ToVector3(0);
 
@@ -463,7 +462,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 
 	// Compute forward/right/up from camera position looking at target.
 	const forward = ResolveVector3Axis(SubtractVector3(targetPoint, smoothedPos));
-	const right = ResolveVector3Axis(CrossVector3(forward, worldUp));
+	const right = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
 
 	cameraState.position.set(smoothedPos);
 	cameraState.forward = forward;

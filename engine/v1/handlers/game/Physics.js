@@ -5,7 +5,7 @@
 
 import { CONFIG } from "../../core/config.js";
 import { Log, EPSILON } from "../../core/meta.js";
-import { ScaleVector3, ToVector3 } from "../../math/Vector3.js";
+import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../../math/Vector3.js";
 import { ApplyGravity } from "../../physics/Gravity.js";
 import { ApplyResistance } from "../../physics/Resistance.js";
 import { ApplyBuoyancy } from "../../physics/Buoyancy.js";
@@ -14,6 +14,7 @@ import {
 	DetectCurrentPhysicsOverlaps,
 	ResolveCollisions,
 	ResetCollisionPools,
+	ProbeGroundContact,
 } from "../../physics/Collision.js";
 import {
 	ApplySurfaceCorrection,
@@ -105,7 +106,7 @@ function updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration) {
 
 function RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 	let latestTriggers = null;
-	let groundContact = { hit: false, normal: { x: 0, y: 1, z: 0 } };
+	let groundContact = { hit: false, normal: CloneVector3(WORLD_NORMALS.Up) };
 	let iterations = 0;
 	let hadMeaningfulWork = false;
 
@@ -136,6 +137,7 @@ function RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 
 		RebuildBounds(entity);
 
+		if (entity.type === "player") groundContact = ProbeGroundContact(entity, sceneGraph);
 		const correction = ApplyCorrection(entity, groundContact, deltaSeconds);
 		const orientation = ApplyOrientation(entity);
 		hadMeaningfulWork = hadMeaningfulWork || correction.anyChanged || orientation.anyChanged;
@@ -174,11 +176,7 @@ function RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 		);
 	}
 
-	return {
-		groundContact: groundContact,
-		triggers: latestTriggers,
-		hasUnresolvedPenetration: hasUnresolvedPenetration,
-	};
+	return { groundContact, triggers: latestTriggers, hasUnresolvedPenetration };
 }
 
 /**

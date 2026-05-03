@@ -6,18 +6,14 @@
 import { BuildObject } from "./NewObject.js";
 import { Log } from "../core/meta.js";
 import { Unit } from "../math/Utilities.js";
-import { MultiplyVector3, Vector3Sq } from "../math/Vector3.js";
+import { MultiplyVector3, Vector3Sq, WORLD_NORMALS } from "../math/Vector3.js";
 
 function createEnvelopeObb(bounds) {
 	return {
 		type: "obb",
 		center: bounds.min.clone().add(bounds.max).scale(0.5),
 		halfExtents: bounds.max.clone().subtract(bounds.min).scale(0.5),
-		axes: [
-			{ x: 1, y: 0, z: 0 },
-			{ x: 0, y: 1, z: 0 },
-			{ x: 0, y: 0, z: 1 },
-		],
+		axes: [WORLD_NORMALS.Right, WORLD_NORMALS.Up, WORLD_NORMALS.Forward],
 	};
 }
 
