@@ -17,8 +17,8 @@ import {
 	ToVector3,
 	WORLD_NORMALS,
 } from "../../math/Vector3.js";
-import { ClampVelocity, RayAABBIntersect } from "../../math/Physics.js";
-import { Lerp, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
+import { ClampVelocity, RayAABBDetailedBoundsIntersect } from "../../math/Physics.js";
+import { CNUtoWorldUnit, Lerp, Clamp, Unit, UnitVector3, WorldUnitToCNU } from "../../math/Utilities.js";
 const pitchClampDegrees = 89;
 // FreeCam must be explicitly enabled in levels and global debug mode must be on.
 const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true);
@@ -153,18 +153,16 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 		wWidth * 0.5,
 		"worldunit"
 	);
-	const position = cameraConfig.levelOpening.startPosition.toWorldUnit(true);
+	const position = cameraConfig.levelOpening.startPosition.clone().toWorldUnit(true);
 	const forward = ResolveVector3Axis(SubtractVector3(center, position));
 	const right = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
 	const up = ResolveVector3Axis(CrossVector3(right, forward));
 
 	return {
 		mode: "level",
-		position: position,
+		position,
 		target: center,
-		forward: forward,
-		right: right,
-		up: up,
+		forward, right, up,
 		fov: 60,
 		near: new Unit(0.1, "worldunit"),
 		far: new Unit(Math.max(worldDistanceDefaults.defaultLevelMinFar.value, wLength + wWidth + wHeight), "worldunit"),
@@ -334,51 +332,50 @@ function HandleDefaultCamInput(eventLike) {
 	}
 }
 
+function worldVectorToCNU(vector) {
+	return {
+		x: WorldUnitToCNU(vector.x),
+		y: WorldUnitToCNU(vector.y),
+		z: WorldUnitToCNU(vector.z),
+	};
+}
+
 function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	const ray = SubtractVector3(desiredCamPos, playerHeadPos);
 	const rayLen = Vector3Length(ray);
 	if (rayLen < 0.01) return { obstructed: false, clippedDistance: rayLen };
 
 	const rayDir = ResolveVector3Axis(ray);
-	let closestT = rayLen;
+	const rayOriginCNU = worldVectorToCNU(playerHeadPos);
+	let closestT = WorldUnitToCNU(rayLen);
 	let obstructed = false;
+	const testCandidate = (aabb, detailedBounds) => {
+		const hit = RayAABBDetailedBoundsIntersect(rayOriginCNU, rayDir, aabb, detailedBounds, closestT);
+		if (!hit.hit || hit.t <= 0 || hit.t >= closestT) return;
 
-	// Check terrain (AABBs are CNU UnitVector3 instances, convert to world-units for ray test).
+		closestT = hit.t;
+		obstructed = true;
+	};
+
+	// Broadphase is AABB-only; obstruction only counts after detailed-bounds narrowphase.
 	const terrain = sceneGraph.terrain;
 	for (let i = 0; i < terrain.length; i++) {
 		const mesh = terrain[i];
-		const aabb = mesh.worldAabb;
-		const scaled = {
-			min: aabb.min.toWorldUnit(),
-			max: aabb.max.toWorldUnit(),
-		};
-		const hit = RayAABBIntersect(playerHeadPos, rayDir, scaled);
-		if (hit.hit && hit.t > 0 && hit.t < closestT) {
-			closestT = hit.t;
-			obstructed = true;
-		}
+		testCandidate(mesh.worldAabb, mesh.detailedBounds);
 	}
 
-	// Check obstacles (AABBs are CNU UnitVector3 instances, convert to world-units for ray test).
 	const obstacles = sceneGraph.obstacles;
 	for (let i = 0; i < obstacles.length; i++) {
 		const obs = obstacles[i];
-		const scaled = {
-			min: obs.bounds.min.toWorldUnit(),
-			max: obs.bounds.max.toWorldUnit(),
-		};
-		const hit = RayAABBIntersect(playerHeadPos, rayDir, scaled);
-		if (hit.hit && hit.t > 0 && hit.t < closestT) {
-			closestT = hit.t;
-			obstructed = true;
-		}
+		testCandidate(obs.bounds, obs.detailedBounds);
 	}
 
 	// Ignore scatter objects entirely.
 
 	if (obstructed) {
 		const offset = worldDistanceDefaults.obstructionOffset.value;
-		closestT = Math.max(worldDistanceDefaults.obstructionMinDistance.value, closestT - offset);
+		const hitDistance = CNUtoWorldUnit(closestT);
+		closestT = Math.max(worldDistanceDefaults.obstructionMinDistance.value, hitDistance - offset);
 	}
 
 	return { obstructed, clippedDistance: closestT };

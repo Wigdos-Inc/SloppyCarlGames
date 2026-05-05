@@ -640,6 +640,21 @@ function SweptAABB(position, velocity, halfExtents, staticAabb) {
 // Used by camera obstruction detection.
 // Returns { hit, t, normal }.
 
+function noRayHit() {
+	return { hit: false, t: Infinity, normal: ToVector3(0) };
+}
+
+function chooseClosestRayHit(best, candidate) {
+	if (!candidate.hit) return best;
+	if (!best.hit || candidate.t < best.t) return candidate;
+	return best;
+}
+
+function limitRayHit(result, maxDistance) {
+	if (!result.hit || result.t > maxDistance) return noRayHit();
+	return result;
+}
+
 function RayAABBIntersect(origin, direction, aabb) {
 	const result = { hit: false, t: Infinity, normal: ToVector3(0) };
 	const o = origin;
@@ -691,6 +706,177 @@ function RayAABBIntersect(origin, direction, aabb) {
 	return result;
 }
 
+function RaySphereIntersect(origin, direction, sphere, maxDistance = Infinity) {
+	const radius = sphere.radius.value;
+	const offset = SubtractVector3(origin, sphere.center);
+	const b = DotVector3(offset, direction);
+	const c = DotVector3(offset, offset) - (radius * radius);
+
+	if (c > 0 && b > 0) return noRayHit();
+
+	const discriminant = (b * b) - c;
+	if (discriminant < 0) return noRayHit();
+
+	const root = Math.sqrt(discriminant);
+	let t = -b - root;
+	if (t < 0) t = -b + root;
+	if (t < 0 || t > maxDistance) return noRayHit();
+
+	const point = AddVector3(origin, ScaleVector3(direction, t));
+	return {
+		hit: true,
+		t,
+		normal: ResolveVector3Axis(SubtractVector3(point, sphere.center)),
+	};
+}
+
+function RayOBBIntersect(origin, direction, obb, maxDistance = Infinity) {
+	const localOrigin = projectToObbLocal(origin, obb);
+	const localDirection = projectDirectionToObbLocal(direction, obb);
+	const localBounds = { min: ScaleVector3(obb.halfExtents, -1), max: CloneVector3(obb.halfExtents), };
+	const result = limitRayHit(RayAABBIntersect(localOrigin, localDirection, localBounds), maxDistance);
+	if (!result.hit) return result;
+	return {
+		hit: true,
+		t: result.t,
+		normal: projectObbNormalToWorld(result.normal, obb),
+	};
+}
+
+function RayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity) {
+	const segment = SubtractVector3(capsule.segmentEnd, capsule.segmentStart);
+	const segmentLengthSq = DotVector3(segment, segment);
+	if (segmentLengthSq <= EPSILON) {
+		return RaySphereIntersect(origin, direction, {
+			center: capsule.segmentStart,
+			radius: capsule.radius,
+		}, maxDistance);
+	}
+
+	const originOffset = SubtractVector3(origin, capsule.segmentStart);
+	const radius = capsule.radius.value;
+	const segmentDotDirection = DotVector3(segment, direction);
+	const segmentDotOrigin = DotVector3(segment, originOffset);
+	const directionDotOrigin = DotVector3(direction, originOffset);
+	const originLengthSq = DotVector3(originOffset, originOffset);
+	const a = segmentLengthSq - (segmentDotDirection * segmentDotDirection);
+	const b = (segmentLengthSq * directionDotOrigin) - (segmentDotOrigin * segmentDotDirection);
+	const c = (segmentLengthSq * originLengthSq) - (segmentDotOrigin * segmentDotOrigin) - (radius * radius * segmentLengthSq);
+
+	let best = noRayHit();
+
+	if (Math.abs(a) > EPSILON) {
+		const discriminant = (b * b) - (a * c);
+		if (discriminant >= 0) {
+			const root = Math.sqrt(discriminant);
+			const roots = [(-b - root) / a, (-b + root) / a];
+
+			for (let index = 0; index < roots.length; index++) {
+				const t = roots[index];
+				if (t < 0 || t > maxDistance) continue;
+
+				const y = segmentDotOrigin + (t * segmentDotDirection);
+				if (y <= 0 || y >= segmentLengthSq) continue;
+
+				const point = AddVector3(origin, ScaleVector3(direction, t));
+				const axisPoint = AddVector3(capsule.segmentStart, ScaleVector3(segment, y / segmentLengthSq));
+				best = chooseClosestRayHit(best, {
+					hit: true,
+					t,
+					normal: ResolveVector3Axis(SubtractVector3(point, axisPoint)),
+				});
+			}
+		}
+	}
+
+	best = chooseClosestRayHit(best, RaySphereIntersect(origin, direction, {
+		center: capsule.segmentStart,
+		radius: capsule.radius,
+	}, maxDistance));
+	best = chooseClosestRayHit(best, RaySphereIntersect(origin, direction, {
+		center: capsule.segmentEnd,
+		radius: capsule.radius,
+	}, maxDistance));
+
+	return best;
+}
+
+function rayTriangleIntersect(origin, direction, triangle, maxDistance = Infinity) {
+	const edgeAB = SubtractVector3(triangle.b, triangle.a);
+	const edgeAC = SubtractVector3(triangle.c, triangle.a);
+	const p = CrossVector3(direction, edgeAC);
+	const determinant = DotVector3(edgeAB, p);
+	if (Math.abs(determinant) <= EPSILON) return noRayHit();
+
+	const invDet = 1 / determinant;
+	const tvec = SubtractVector3(origin, triangle.a);
+	const u = DotVector3(tvec, p) * invDet;
+	if (u < 0 || u > 1) return noRayHit();
+
+	const q = CrossVector3(tvec, edgeAB);
+	const v = DotVector3(direction, q) * invDet;
+	if (v < 0 || (u + v) > 1) return noRayHit();
+
+	const t = DotVector3(edgeAC, q) * invDet;
+	if (t < 0 || t > maxDistance) return noRayHit();
+
+	return {
+		hit: true,
+		t,
+		normal: DotVector3(triangle.normal, direction) <= 0
+			? CloneVector3(triangle.normal)
+			: ScaleVector3(triangle.normal, -1),
+	};
+}
+
+function RayTriangleSoupIntersect(origin, direction, triangleSoup, maxDistance = Infinity) {
+	let best = noRayHit();
+
+	for (let index = 0; index < triangleSoup.triangles.length; index++) {
+		best = chooseClosestRayHit(
+			best,
+			rayTriangleIntersect(origin, direction, triangleSoup.triangles[index], Math.min(best.t, maxDistance))
+		);
+	}
+
+	return best;
+}
+
+function rayCompoundSphereIntersect(origin, direction, compound, maxDistance = Infinity) {
+	let best = noRayHit();
+
+	for (let index = 0; index < compound.spheres.length; index++) {
+		best = chooseClosestRayHit(
+			best,
+			RaySphereIntersect(origin, direction, compound.spheres[index], Math.min(best.t, maxDistance))
+		);
+	}
+
+	return best;
+}
+
+function RayAABBDetailedBoundsIntersect(origin, direction, aabb, detailedBounds, maxDistance = Infinity) {
+	if (detailedBounds === null) return noRayHit();
+	const broadHit = limitRayHit(RayAABBIntersect(origin, direction, aabb), maxDistance);
+	if (!broadHit.hit) return broadHit;
+	if (detailedBounds.type === "aabb") return broadHit;
+	return RayDetailedBoundsIntersect(detailedBounds, origin, direction, broadHit.t);
+}
+
+const rayDetailedBoundsIntersectors = {
+	aabb: (bounds, origin, direction, maxDistance) => limitRayHit(RayAABBIntersect(origin, direction, bounds), maxDistance),
+	obb: (bounds, origin, direction, maxDistance) => RayOBBIntersect(origin, direction, bounds, maxDistance),
+	sphere: (bounds, origin, direction, maxDistance) => RaySphereIntersect(origin, direction, bounds, maxDistance),
+	capsule: (bounds, origin, direction, maxDistance) => RayCapsuleIntersect(origin, direction, bounds, maxDistance),
+	"triangle-soup": (bounds, origin, direction, maxDistance) => RayTriangleSoupIntersect(origin, direction, bounds, maxDistance),
+	"compound-sphere": (bounds, origin, direction, maxDistance) => rayCompoundSphereIntersect(origin, direction, bounds, maxDistance),
+};
+
+function RayDetailedBoundsIntersect(bounds, origin, direction, maxDistance = Infinity) {
+	if (bounds === null) return noRayHit();
+	return rayDetailedBoundsIntersectors[bounds.type](bounds, origin, direction, maxDistance);
+}
+
 /* === SWEPT SPHERE-AABB === */
 // Expand AABB by sphere radius, ray-march center.
 // Returns { hit, tEntry, normal }.
@@ -736,6 +922,12 @@ export {
 	AabbOverlap,
 	SweptAABB,
 	RayAABBIntersect,
+	RayAABBDetailedBoundsIntersect,
+	RaySphereIntersect,
+	RayOBBIntersect,
+	RayCapsuleIntersect,
+	RayTriangleSoupIntersect,
+	RayDetailedBoundsIntersect,
 	SweptSphereAABB,
 	SweptSphereOBB,
 	SphereSphereContact,

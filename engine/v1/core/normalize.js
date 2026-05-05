@@ -421,7 +421,7 @@ function LevelPayload(payload) {
 
 	const resolveCollisionOverride = (rawCollisionOverride, entityType) => {
 		const defaultsByType = {
-			enemy: { physics: "capsule", hurtbox: "sphere", hitbox: null },
+			enemy: { physics: "capsule", hurtbox: "sphere", hitbox: "capsule" },
 			npc: { physics: "capsule", hurtbox: null, hitbox: null },
 			collectible: { physics: "sphere", hurtbox: "sphere", hitbox: null },
 			projectile: { physics: "sphere", hurtbox: "sphere", hitbox: "sphere" },

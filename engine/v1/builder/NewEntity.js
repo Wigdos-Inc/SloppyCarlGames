@@ -613,7 +613,7 @@ function BuildEntity(definition, surfaceMap) {
 			hurtbox: detailed.hurtbox,
 			hitbox: detailed.hitbox,
 		},
-		hitboxActive: false,
+		hitboxActive: detailed.hitbox !== null,
 		animations: definition.animations,
 		state: {
 			movementProgress: initialMovementProgress,

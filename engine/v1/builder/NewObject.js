@@ -48,11 +48,10 @@ function computeAabbFromMesh(mesh) {
 
 function computeSphereFromMesh(mesh) {
 	const half = mesh.worldAabb.max.clone().subtract(mesh.worldAabb.min).scale(0.5);
-	const radius = Math.sqrt(Vector3Sq(half));
 	return {
 		type: "sphere",
 		center: mesh.worldAabb.min.clone().add(mesh.worldAabb.max).scale(0.5),
-		radius: new Unit(Math.max(0.0001, radius), "cnu"),
+		radius: new Unit(Math.max(0.0001, Math.sqrt(Vector3Sq(half))), "cnu"),
 	};
 }
 
@@ -91,10 +90,7 @@ function computeTriangleSoupFromMesh(mesh) {
 		const a = readVertex(indices[index]);
 		const b = readVertex(indices[index + 1]);
 		const c = readVertex(indices[index + 2]);
-		const ab = SubtractVector3(b, a);
-		const ac = SubtractVector3(c, a);
-		const n = CrossVector3(ab, ac);
-		triangles.push({ a, b, c, normal: ResolveVector3Axis(n) });
+		triangles.push({ a, b, c, normal: ResolveVector3Axis(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a))) });
 	}
 
 	return { type: "triangle-soup", triangles };
@@ -198,13 +194,9 @@ function generateSphereUvs(positions) {
 
 	const uvs = [];
 	for (let index = 0; index < positions.length; index += 3) {
-		const x = (positions[index + 0] - center.x) / radius.x;
-		const y = Clamp((positions[index + 1] - center.y) / radius.y, -1, 1);
-		const z = (positions[index + 2] - center.z) / radius.z;
-		const theta = Math.atan2(z, x);
-		const phi = Math.acos(y);
+		const theta = Math.atan2(((positions[index + 2] - center.z) / radius.z), ((positions[index + 0] - center.x) / radius.x));
 		const u = (theta + Math.PI) / (Math.PI * 2);
-		const v = phi / Math.PI;
+		const v = Math.acos(Clamp((positions[index + 1] - center.y) / radius.y, -1, 1)) / Math.PI;
 		uvs.push(u, v);
 	}
 
@@ -212,27 +204,22 @@ function generateSphereUvs(positions) {
 }
 
 function generateFaceProjectedUvs(positions, faceGroups) {
-	function getProjectedAxesFromNormal(normal) {
+	const getProjectedAxesFromNormal = (normal) => {
 		const n = AbsoluteVector3(normal);
 		if (n.x >= n.y && n.x >= n.z) return ["z", "y"];
 		if (n.y >= n.x && n.y >= n.z) return ["x", "z"];
-		return ["x", "y"];
+		return                               ["x", "y"];
 	}
 
-	function getVertexVector(positions, vertexIndex) {
+	const getVertexVector = (positions, vertexIndex) => {
 		const offset = vertexIndex * 3;
-		return {
-			x: positions[offset + 0],
-			y: positions[offset + 1],
-			z: positions[offset + 2],
-		};
+		return { x: positions[offset + 0], y: positions[offset + 1], z: positions[offset + 2] };
 	}
 	
 	const vertexCount = positions.length / 3;
 	const uvs = new Array(vertexCount * 2).fill(0);
 
-	for (let groupIndex = 0; groupIndex < faceGroups.length; groupIndex++) {
-		const group = faceGroups[groupIndex];
+	for (const group of faceGroups) {
 		const [uAxis, vAxis] = getProjectedAxesFromNormal(group.normal);
 
 		let minU = Infinity;
@@ -240,8 +227,7 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 		let minV = Infinity;
 		let maxV = -Infinity;
 
-		for (let index = 0; index < group.vertexIndices.length; index++) {
-			const vertexIndex = group.vertexIndices[index];
+		for (const vertexIndex of group.vertexIndices) {
 			const vertex = getVertexVector(positions, vertexIndex);
 			const u = vertex[uAxis];
 			const v = vertex[vAxis];
@@ -253,17 +239,12 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 
 		const rawSpanU = maxU - minU;
 		const rawSpanV = maxV - minV;
-		const spanU = rawSpanU === 0 ? 1 : rawSpanU;
-		const spanV = rawSpanV === 0 ? 1 : rawSpanV;
 
-		for (let index = 0; index < group.vertexIndices.length; index++) {
-			const vertexIndex = group.vertexIndices[index];
+		for (const vertexIndex of group.vertexIndices) {
 			const vertex = getVertexVector(positions, vertexIndex);
-			const normalizedU = (vertex[uAxis] - minU) / spanU;
-			const normalizedV = (vertex[vAxis] - minV) / spanV;
 			const uvOffset = vertexIndex * 2;
-			uvs[uvOffset + 0] = normalizedU;
-			uvs[uvOffset + 1] = normalizedV;
+			uvs[uvOffset + 0] = (vertex[uAxis] - minU) / rawSpanU === 0 ? 1 : rawSpanU;
+			uvs[uvOffset + 1] = (vertex[vAxis] - minV) / rawSpanV === 0 ? 1 : rawSpanV;
 		}
 	}
 

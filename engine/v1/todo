@@ -1,9 +1,6 @@
 This file contains current priorities.
 
-Finish Model Bounds Expansion (critical):
-- Fix platform edge correction spam bug
-- Change camera collision to narrowphase bounds instead of broadphase
-- Investigate player to enemy collision not working
+Texture Generation Bugs
 Finish Unit System by eyeballing correct CNU_SCALE.
 - CNU Scaling is completely broken right now.
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain. perhaps part of new NewTerrain.js)

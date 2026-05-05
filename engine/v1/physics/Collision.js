@@ -31,6 +31,7 @@ import {
 	SphereTriangleSoupContact,
 	CapsuleTriangleSoupContact,
 	InvertContact,
+	RayOBBIntersect,
 	SweptSphereAABB,
 	SweptSphereOBB,
 	NoContact,
@@ -902,48 +903,11 @@ function ProbeGroundContact(entity, sceneGraph) {
 	// Downward ray (0,-1,0) vs oriented box via slab test in OBB local space.
 	// Returns the entry face normal, which must be upward-facing to count as ground.
 	const tryOBB = (obb, type) => {
-		const ax = obb.axes;
-		const he = obb.halfExtents;
-		const dx = probe.x - obb.center.x;
-		const dy = probe.y - obb.center.y;
-		const dz = probe.z - obb.center.z;
-
-		// Project probe offset and ray dir (0,-1,0) onto each OBB axis.
-		const lo = [ dx * ax[0].x + dy * ax[0].y + dz * ax[0].z,
-		              dx * ax[1].x + dy * ax[1].y + dz * ax[1].z,
-		              dx * ax[2].x + dy * ax[2].y + dz * ax[2].z ];
-		const ld = [ -ax[0].y, -ax[1].y, -ax[2].y ];
-		const hev = [ he.x, he.y, he.z ];
-
-		let tMin = 0;
-		let tMax = maxDist;
-		let hitAxis = -1;
-
-		for (let k = 0; k < 3; k++) {
-			if (Math.abs(ld[k]) < EPSILON) {
-				if (Math.abs(lo[k]) > hev[k]) return; // parallel and outside slab
-			} else {
-				const inv = 1 / ld[k];
-				let t1 = (-hev[k] - lo[k]) * inv;
-				let t2 = ( hev[k] - lo[k]) * inv;
-				if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
-				if (t1 > tMin) { tMin = t1; hitAxis = k; }
-				if (t2 < tMax) tMax = t2;
-				if (tMin > tMax) return;
-			}
-		}
-
-		if (tMin < 0 || tMin > maxDist) return;
-
-		// Normal of the entry face: the axis that set tMin, pointing away from the OBB.
-		// sign = +1 when the ray travels in the negative local-axis direction (hits +he face).
-		const k = hitAxis >= 0 ? hitAxis : 1;
-		const sign = hitAxis >= 0 && ld[hitAxis] < 0 ? 1 : -1;
-		const ny = ax[k].y * sign;
-		if (ny <= 0) return; // side face or bottom — not a landing surface
-		if (tMin < bestT) {
-			bestT = tMin;
-			bestNormal = { x: ax[k].x * sign, y: ny, z: ax[k].z * sign };
+		const hit = RayOBBIntersect(probe, WORLD_NORMALS.Down, obb, maxDist);
+		if (!hit.hit || hit.normal.y <= 0) return;
+		if (hit.t < bestT) {
+			bestT = hit.t;
+			bestNormal = hit.normal;
 			bestType = type;
 		}
 	};
