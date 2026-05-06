@@ -21,6 +21,7 @@ import {
 	ApplyGroundSnap,
 	ApplyPlayerSurfaceOrientation,
 } from "../../physics/Correction.js";
+import { TriggerPlayerRespawnSequence } from "../../player/Master.js";
 import { UpdatePlayerModelFromState, SyncPlayerCollisionFromState } from "../../player/Model.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 
@@ -234,8 +235,10 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 		playerState.transform.position.y = deathBarrierY;
 		playerState.velocity.y = 0;
 		RebuildBounds(playerState);
-		// Signal death — will be handled by the state machine or Enemy.js.
-		if (playerState.state !== "Dead") Log("ENGINE", "Player hit death barrier.", "log", "Level");
+		if (playerState.state !== "Dead") {
+			Log("ENGINE", "Player hit death barrier.", "log", "Level");
+			TriggerPlayerRespawnSequence();
+		}
 	}
 
 	updatePhysicsRuntimeCache(playerState, hasUnresolvedPenetration);

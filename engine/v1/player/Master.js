@@ -3,7 +3,7 @@
 // Used by handlers/game/Level.js as the per-frame player update orchestrator.
 // Uses all player modules: Movement.js, Abilities.js, Model.js.
 
-import { Log } from "../core/meta.js";
+import { Log, SendEvent } from "../core/meta.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { CloneVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { 
@@ -35,6 +35,8 @@ const playerInputFlags = {
 	jump: false,
 	boost: false,
 };
+
+const deathWaitMs = 1500;
 
 /* === PLAYER STATE === */
 
@@ -286,6 +288,15 @@ function TriggerPlayerDeath() {
 	Log("ENGINE", "Player death triggered.", "log", "Player");
 }
 
+function TriggerPlayerRespawnSequence() {
+	if (playerState.state === "Dead") return;
+
+	TriggerPlayerDeath();
+	SendEvent("PLAYER_DEATH", {});
+
+	setTimeout(() => RespawnPlayer(), deathWaitMs);
+}
+
 /**
  * Respawn the player at checkpoint or spawn position.
  */
@@ -330,6 +341,7 @@ export {
 	UpdatePlayerModel,
 	ResolvePlayerState,
 	TriggerPlayerDeath,
+	TriggerPlayerRespawnSequence,
 	RespawnPlayer,
 	GetPlayerState,
 	GetPlayerInput,

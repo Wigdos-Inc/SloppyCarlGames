@@ -3,18 +3,16 @@
 // Receives enemy data from Level.js when enemy is within AI distance.
 // Uses builder/NewEntity.js to build enemy projectile attacks.
 
-import { CONFIG } from "../../core/config.js";
 import { Log, SendEvent } from "../../core/meta.js";
 import {
 	SubtractVector3,
 	ResolveVector3Axis,
 } from "../../math/Vector3.js";
 import { GetSimDistanceValue, DetectCombatOverlaps } from "../../physics/Collision.js";
-import { TriggerPlayerDeath, RespawnPlayer } from "../../player/Master.js";
+import { TriggerPlayerRespawnSequence } from "../../player/Master.js";
 
 const KNOCKBACK_FORCE = 12;
 const INVULNERABILITY_DURATION = 2.0;
-const DEATH_WAIT_MS = 1500;
 
 /**
  * Handle collisions between the player and all enemy entities.
@@ -62,13 +60,13 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 			const entity = result.attacker;
 			if (entity.type !== "enemy") continue;
 
-			applyPlayerDamage(playerState, entity.transform.position, sceneGraph);
+			applyPlayerDamage(playerState, entity.transform.position);
 			break; // Only process one damage event per frame.
 		}
 	}
 }
 
-function applyPlayerDamage(playerState, damageSourcePosition, sceneGraph) {
+function applyPlayerDamage(playerState, damageSourcePosition) {
 	const playerPos = playerState.transform.position;
 
 	// Drop ALL primary collectibles on damage.
@@ -82,7 +80,7 @@ function applyPlayerDamage(playerState, damageSourcePosition, sceneGraph) {
 
 	// Check for death when no collectibles were available at hit time.
 	if (dropCount <= 0) {
-		triggerDeathSequence(playerState, sceneGraph);
+		TriggerPlayerRespawnSequence();
 		return;
 	}
 
@@ -105,21 +103,6 @@ function applyPlayerDamage(playerState, damageSourcePosition, sceneGraph) {
 	playerState.grounded = false;
 
 	SendEvent("PLAYER_DAMAGED", { collectibles: playerState.collectibles, dropped: dropCount });
-}
-
-async function triggerDeathSequence(playerState, sceneGraph) {
-	TriggerPlayerDeath();
-
-	SendEvent("PLAYER_DEATH", {});
-
-	// Wait for death animation / minimum duration.
-	SendEvent("FADE_OUT", { duration: 500 });
-
-	// Use setTimeout to allow the fade to play, then respawn.
-	setTimeout(() => {
-		RespawnPlayer();
-		SendEvent("FADE_IN", { duration: 500 });
-	}, DEATH_WAIT_MS);
 }
 
 /* === EXPORTS === */

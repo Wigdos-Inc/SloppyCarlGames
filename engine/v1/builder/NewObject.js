@@ -243,8 +243,8 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 		for (const vertexIndex of group.vertexIndices) {
 			const vertex = getVertexVector(positions, vertexIndex);
 			const uvOffset = vertexIndex * 2;
-			uvs[uvOffset + 0] = (vertex[uAxis] - minU) / rawSpanU === 0 ? 1 : rawSpanU;
-			uvs[uvOffset + 1] = (vertex[vAxis] - minV) / rawSpanV === 0 ? 1 : rawSpanV;
+			uvs[uvOffset + 0] = (vertex[uAxis] - minU) / (rawSpanU === 0 ? 1 : rawSpanU);
+			uvs[uvOffset + 1] = (vertex[vAxis] - minV) / (rawSpanV === 0 ? 1 : rawSpanV);
 		}
 	}
 
@@ -252,6 +252,7 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 }
 
 function GenerateUVs(positions, geometry) {
+	if (geometry.uvs) return geometry.uvs;
 	if (geometry.uvMode === "sphere") return generateSphereUvs(positions);
 	return generateFaceProjectedUvs(positions, geometry.faceGroups);
 }
@@ -391,7 +392,7 @@ function buildPyramid(size) {
 	addTriangleFace(baseBackRight, baseBackLeft, apex);
 	addTriangleFace(baseBackLeft, baseFrontLeft, apex);
 
-	return { positions: positions, indices: indices, faceGroups: faceGroups };
+	return { positions, indices, faceGroups };
 }
 
 function buildPlane(size) {
@@ -458,7 +459,7 @@ function buildCylinder(size, complexity) {
 
 	faceGroups.push({ normal: WORLD_NORMALS.Down, vertexIndices: bottomVertices });
 
-	return { positions: positions, indices: indices, faceGroups: faceGroups };
+	return { positions, indices, faceGroups };
 }
 
 function buildSphere(size, complexity) {
@@ -469,6 +470,7 @@ function buildSphere(size, complexity) {
 
 	const positions = [];
 	const indices = [];
+	const uvs = [];
 
 	for (let stack = 0; stack <= stacks; stack++) {
 		const v = stack / stacks;
@@ -480,6 +482,7 @@ function buildSphere(size, complexity) {
 			const y = Math.cos(phi) * radius.y;
 			const z = Math.sin(theta) * Math.sin(phi) * radius.z;
 			positions.push(x, y, z);
+			uvs.push(u, v);
 		}
 	}
 
@@ -492,7 +495,7 @@ function buildSphere(size, complexity) {
 		}
 	}
 
-	return { positions: positions, indices: indices, uvMode: "sphere" };
+	return { positions, indices, uvs, uvMode: "sphere" };
 }
 
 function buildCone(size, complexity) {
@@ -522,8 +525,7 @@ function buildCone(size, complexity) {
 	appendTriangleFanIndices(indices, baseCenter, baseRing.start, segments, true);
 
 	return {
-		positions: positions,
-		indices: indices,
+		positions, indices,
 		faceGroups: [
 			{ normal: WORLD_NORMALS.Up, vertexIndices: sideVertexIndices },
 			{ normal: WORLD_NORMALS.Down, vertexIndices: baseVertexIndices },
@@ -741,8 +743,7 @@ function buildRampSimple(size, options) {
 
 	const slopeAngle = Math.atan2(ramp.rise, ramp.halfDepth * 2);
 	return {
-		positions: positions,
-		indices: indices,
+		positions, indices,
 		faceGroups: [
 			{ normal: WORLD_NORMALS.Down, vertexIndices: [0, 1, 2, 3] },
 			{ normal: WORLD_NORMALS.Forward, vertexIndices: [2, 3, 4, 5] },
@@ -825,8 +826,7 @@ function buildRampComplex(size, complexity, options) {
 
 	const slopeAngle = Math.atan2(ramp.rise, ramp.halfDepth * 2);
 	return {
-		positions: positions,
-		indices: indices,
+		positions, indices,
 		faceGroups: [
 			{ normal: WORLD_NORMALS.Down, vertexIndices: bottomVertexIndices },
 			{ normal: WORLD_NORMALS.Forward, vertexIndices: [backBottomLeft, backBottomRight, backTopRight, backTopLeft] },
@@ -875,11 +875,9 @@ function BuildObject(source) {
 	const mesh = {
 		id        : source.id,
 		type      : "mesh3d",
-		shape,
+		shape, complexity, transform,
 		primitive : shape,
-		complexity,
 		role      : source.role,
-		transform,
 		geometry  : {
 			positions: geometry.positions,
 			indices  : geometry.indices,
@@ -900,9 +898,8 @@ function BuildObject(source) {
 			sticky   : source.sticky,
 		},
 		detail: {
-			texture,
 			scatter: source.detail.scatter,
-			complexity, primitiveOptions,
+			texture, complexity, primitiveOptions,
 		},
 		localBounds   : bounds,
 		worldAabb     : computeWorldAabbFromGeometry(geometry.positions, transform),
