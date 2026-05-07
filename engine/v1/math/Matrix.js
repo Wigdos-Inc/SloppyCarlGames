@@ -1,4 +1,5 @@
 import { ScaleVector3 } from "./Vector3.js";
+import { CNU_SCALE } from "./Utilities.js";
 
 function CreateIdentityMatrix() {
 	return [
@@ -74,21 +75,40 @@ function createRotationZ(radians) {
 	];
 }
 
-function CreateModelMatrix(transform) {
-	const pivot = transform.pivot.toWorldUnit();
-
+function buildModelMatrix(position, pivotPost, rotation, scale, pivotPre) {
 	let matrix = CreateIdentityMatrix();
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(transform.position.toWorldUnit()));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(pivot));
-	matrix = multiplyMatrix4(matrix, createRotationY(transform.rotation.y));
-	matrix = multiplyMatrix4(matrix, createRotationX(transform.rotation.x));
-	matrix = multiplyMatrix4(matrix, createRotationZ(transform.rotation.z));
-	matrix = multiplyMatrix4(matrix, createScaleMatrix(transform.scale));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(ScaleVector3(pivot, -1)));
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix(position));
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix(pivotPost));
+	matrix = multiplyMatrix4(matrix, createRotationY(rotation.y));
+	matrix = multiplyMatrix4(matrix, createRotationX(rotation.x));
+	matrix = multiplyMatrix4(matrix, createRotationZ(rotation.z));
+	matrix = multiplyMatrix4(matrix, createScaleMatrix(scale));
+	matrix = multiplyMatrix4(matrix, createTranslationMatrix(ScaleVector3(pivotPre, -1)));
 	return matrix;
+}
+
+function CreateModelMatrix(transform) {
+	return buildModelMatrix(
+		transform.position,
+		transform.pivot,
+		transform.rotation,
+		transform.scale,
+		transform.pivot,
+	);
+}
+
+function CreateRenderMatrix(transform) {
+	return buildModelMatrix(
+		transform.position.toWorldUnit(),
+		transform.pivot.toWorldUnit(),
+		transform.rotation,
+		ScaleVector3(transform.scale, CNU_SCALE),
+		transform.pivot,
+	);
 }
 
 export {
 	CreateIdentityMatrix,
 	CreateModelMatrix,
+	CreateRenderMatrix,
 };

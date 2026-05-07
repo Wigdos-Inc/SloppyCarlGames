@@ -42,7 +42,8 @@ import {
 import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
 import { GetPlayerInput, GetPlayerState } from "../player/Master.js";
-import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3 } from "../math/Utilities.js"
+import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3, CNU_SCALE } from "../math/Utilities.js"
+import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3, Vector3ChainMath } from "../math/Vector3.js";
 
 /* === INITIALIZATION === */
 // Bootstraps engine subsystems and returns the public API.
@@ -60,69 +61,32 @@ function Initialize() {
 
   // Expose the engine public API surface.
   return {
-    Log: Log,
+    Log,
     Config: CONFIG,
-    Cache: Cache,
+    Cache,
     Meta: {
-      LogAll: LogAll,
-      LogCache: LogCache,
-      Cursor: Cursor,
-      ExitGame: ExitGame,
-      SendEvent: SendEvent,
-      Wait: Wait,
-      IsPointerLocked: IsPointerLocked,
-      RequestPointerLock: RequestPointerLock,
-      PushToSession: PushToSession,
-      ReadFromSession: ReadFromSession,
+      LogAll, LogCache, Cursor, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
       SessionKey: SESSION_KEYS,
+      CNU_SCALE
     },
     Controls: Controls,
     Input: {
       Router: inputRouter,
-      StartInputRouter: StartInputRouter,
+      StartInputRouter,
     },
-    Cutscene: {
-      PlayEngineCutscene: PlayEngineCutscene,
-      PlayRenderedCutscene: PlayRenderedCutscene,
-    },
-    Startup: {
-      ProvideSplashScreenPayload: ProvideSplashScreenPayload,
-    },
-    UI: {
-      ApplyMenuUI: ApplyMenuUI,
-      LoadScreen: LoadScreen,
-      ClearUI: ClearUI,
-    },
-    Audio: {
-      PlayAudio: PlayAudio,
-      PlayMusic: PlayMusic,
-      PauseMusic: PauseMusic,
-      ResumeMusic: ResumeMusic,
-      StopMusic: StopMusic,
-      StopSfx: StopSfx,
-      StopAllAudio: StopAllAudio,
-      UpdateActiveAudioVolumes: UpdateActiveAudioVolumes,
-    },
-    Level: {
-      CreateLevel: CreateLevel,
-      Update: UpdateLevel,
-      GetActiveLevel: GetActiveLevel,
-    },
+    Cutscene: { PlayEngineCutscene, PlayRenderedCutscene },
+    Startup: { ProvideSplashScreenPayload },
+    UI: { ApplyMenuUI, LoadScreen, ClearUI },
+    Audio: { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes },
+    Level: { CreateLevel, UpdateLevel, GetActiveLevel },
     Player: {
       Input: GetPlayerInput(),
       GetState: GetPlayerState,
     },
     Math: {
-      Convert: {
-        DegreesToRadians: DegreesToRadians,
-        RadiansToDegrees: RadiansToDegrees,
-        CNUtoWorldUnit: CNUtoWorldUnit,
-        WorldUnitToCNU: WorldUnitToCNU,
-      },
-      Instancing: {
-        Unit: Unit,
-        UnitVector3: UnitVector3,
-      },
+      Convert: { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU },
+      Vector3: { AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3, Vector3ChainMath },
+      Instancing: { Unit, UnitVector3 },
     },
   };
 }

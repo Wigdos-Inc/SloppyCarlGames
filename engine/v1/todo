@@ -1,8 +1,9 @@
 This file contains current priorities.
 
-Texture Generation Bugs
+Physics wrongly push out narrowbounds again instead of broadbounds, causing teleporting upon collision
 Finish Unit System by eyeballing correct CNU_SCALE.
 - CNU Scaling is completely broken right now.
+- Entities don't move at higher CNU_SCALE bug
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain. perhaps part of new NewTerrain.js)
 Add Terrain Blueprint Support (start using Claude Code):
 - Add Sonic-Style Loop Blueprint

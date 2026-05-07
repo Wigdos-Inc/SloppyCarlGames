@@ -12,6 +12,7 @@ initEngine(ENGINE);
 await import("./menus/ui.js");
 await import("./cutscene/cutscene.js");
 const { RequestLevelCreate } = await import("./levels/level.js");
+const { RequestLvl1Stage2Create } = await import("./levels/lvl1_stage2.js");
 
 function resolveStartupSplashPayload() {
 	// Use engine default built-in splash sequence.
@@ -233,12 +234,18 @@ function startGame(saveData) {
 }
 
 async function requestLevelLoad(payload) {
-	return RequestLevelCreate(payload, {
+	const loadOptions = {
 		source: "testGame",
 		renderOptions: {
 			rootId: "engine-level-root",
 		},
-	});
+	};
+
+	if (payload.levelIndex === 0 && payload.stageIndex === 1) {
+		return RequestLvl1Stage2Create(payload, loadOptions);
+	}
+
+	return RequestLevelCreate(payload, loadOptions);
 }
 
 function handleLevelRequest(event) {

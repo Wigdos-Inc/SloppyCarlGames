@@ -8,7 +8,7 @@
 import { UIElement } from "../builder/NewUI.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { CreateIdentityMatrix, CreateModelMatrix } from "../math/Matrix.js";
+import { CreateIdentityMatrix, CreateRenderMatrix } from "../math/Matrix.js";
 import {
 	AddVector3,
 	CrossVector3,
@@ -1018,7 +1018,7 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.uniform1i(shader.uniforms.texture, 0);
-		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateModelMatrix(mesh.transform)));
+		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.transform)));
 		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, mesh.material.opacity);
 		if (disableDepthWriteForMesh) gl.depthMask(false);
 		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);

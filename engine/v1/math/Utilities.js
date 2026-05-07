@@ -1,4 +1,4 @@
-import { AddVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "./Vector3.js";
+import { AddVector3, CloneVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "./Vector3.js";
 
 // 1 CNU = CNU_SCALE World Units (WebGL coordinate space). Set once during development.
 export const CNU_SCALE = 1;
@@ -121,7 +121,7 @@ class UnitVector3 {
 			return converted;
 		}
 		if (replace === true) return this;
-		return { x: this.x, y: this.y, z: this.z };
+		return CloneVector3(this);
 	}
 
 	toCNU(replace = false) {
@@ -134,7 +134,7 @@ class UnitVector3 {
 			return converted;
 		}
 		if (replace === true) return this;
-		return { x: this.x, y: this.y, z: this.z };
+		return CloneVector3(this);
 	}
 
 	toRadians(replace = false) {
@@ -147,7 +147,7 @@ class UnitVector3 {
 			return converted;
 		}
 		if (replace === true) return this;
-		return { x: this.x, y: this.y, z: this.z };
+		return CloneVector3(this);
 	}
 
 	toDegrees(replace = false) {
@@ -160,7 +160,7 @@ class UnitVector3 {
 			return converted;
 		}
 		if (replace === true) return this;
-		return { x: this.x, y: this.y, z: this.z };
+		return CloneVector3(this);
 	}
 
 	clone() {

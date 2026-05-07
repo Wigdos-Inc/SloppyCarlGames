@@ -297,6 +297,383 @@
                             }
                         }
                     ]
+                },
+                {
+                    "id": "stage1",
+                    "title": "Scale Tester",
+                    "world": {
+                        "length": 24,
+                        "width": 20,
+                        "height": 8,
+                        "deathBarrierY": -6,
+                        "waterLevel": null,
+                        "textureScale": 2,
+                        "scatterScale": 1
+                    },
+                    "music": {
+                        "name": "LEVEL_TEST_01",
+                        "src": "../audio/level1Stage2Theme.mp3",
+                        "loop": true
+                    },
+                    "camera": {
+                        "distance": 9,
+                        "sensitivity": 0.12,
+                        "heightOffset": 1.6,
+                        "levelOpening": {
+                            "startPosition": { "x": 12, "y": 4.5, "z": 24 },
+                            "endPosition": { "x": 12, "y": 4.5, "z": 24 }
+                        }
+                    },
+                    "player": {
+                        "character": "carl",
+                        "spawnPosition": { "x": 4, "y": 1, "z": 16 },
+                        "scale": { "x": 1, "y": 1, "z": 1 }
+                    },
+                    "terrain": {
+                        "objects": [
+                            {
+                                "id": "scale-floor",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 24, "y": 1, "z": 20 },
+                                "position": { "x": 12, "y": 0, "z": 10 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "default-grid",
+                                    "color": { "r": 0.88, "g": 0.95, "b": 1, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "scale-wall-back",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 24, "y": 4, "z": 0.5 },
+                                "position": { "x": 12, "y": 0, "z": 19.75 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "default-grid",
+                                    "color": { "r": 0.32, "g": 0.38, "b": 0.46, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "scale-wall-left",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 0.5, "y": 4, "z": 20 },
+                                "position": { "x": 0.25, "y": 0, "z": 10 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "default-grid",
+                                    "color": { "r": 0.32, "g": 0.38, "b": 0.46, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "scale-wall-right",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 0.5, "y": 4, "z": 20 },
+                                "position": { "x": 23.75, "y": 0, "z": 10 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "default-grid",
+                                    "color": { "r": 0.32, "g": 0.38, "b": 0.46, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "meter-cube",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 1, "y": 1, "z": 1 },
+                                "position": { "x": 4, "y": 0, "z": 5 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "stone-block",
+                                    "color": { "r": 0.98, "g": 0.72, "b": 0.34, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "two-meter-post",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 0.5, "y": 2, "z": 0.5 },
+                                "position": { "x": 6.5, "y": 0, "z": 5 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "metal-panel",
+                                    "color": { "r": 0.43, "g": 0.78, "b": 1, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "human-reference",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 0.55, "y": 1.8, "z": 0.35 },
+                                "position": { "x": 9, "y": 0, "z": 5 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "metal-panel",
+                                    "color": { "r": 0.92, "g": 0.87, "b": 0.78, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "door-left-post",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 0.15, "y": 2, "z": 0.15 },
+                                "position": { "x": 14.475, "y": 0, "z": 5 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "metal-panel",
+                                    "color": { "r": 0.97, "g": 0.95, "b": 0.62, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "door-right-post",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 0.15, "y": 2, "z": 0.15 },
+                                "position": { "x": 15.525, "y": 0, "z": 5 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "metal-panel",
+                                    "color": { "r": 0.97, "g": 0.95, "b": 0.62, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "door-lintel",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 1.2, "y": 0.2, "z": 0.15 },
+                                "position": { "x": 15, "y": 2, "z": 5 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "metal-panel",
+                                    "color": { "r": 0.97, "g": 0.95, "b": 0.62, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "step-1",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 1, "y": 0.18, "z": 0.28 },
+                                "position": { "x": 4, "y": 0, "z": 11 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "stone-block",
+                                    "color": { "r": 0.84, "g": 0.84, "b": 0.88, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "step-2",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 1, "y": 0.36, "z": 0.28 },
+                                "position": { "x": 5, "y": 0, "z": 11 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "stone-block",
+                                    "color": { "r": 0.84, "g": 0.84, "b": 0.88, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            },
+                            {
+                                "id": "step-3",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 1, "y": 0.54, "z": 0.28 },
+                                "position": { "x": 6, "y": 0, "z": 11 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {
+                                    "thickness": 0,
+                                    "radius": 0,
+                                    "subdivisionsX": 1,
+                                    "subdivisionsZ": 1
+                                },
+                                "texture": {
+                                    "textureID": "stone-block",
+                                    "color": { "r": 0.84, "g": 0.84, "b": 0.88, "a": 1 },
+                                    "opacity": 1,
+                                    "density": 1,
+                                    "speckSize": 1
+                                },
+                                "detail": {
+                                    "scatter": []
+                                }
+                            }
+                        ],
+                        "triggers": []
+                    },
+                    "obstacles": [],
+                    "entities": []
                 }
             ]
         }

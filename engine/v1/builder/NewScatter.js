@@ -7,7 +7,7 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { CreateModelMatrix } from "../math/Matrix.js";
+import { CreateRenderMatrix } from "../math/Matrix.js";
 import { BuildObject, BuildGeometry, GenerateUVs } from "./NewObject.js";
 import { UnitVector3 } from "../math/Utilities.js";
 import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3, WORLD_NORMALS } from "../math/Vector3.js";
@@ -16,27 +16,12 @@ import visualTemplates from "./templates/textures.json" with { type: "json" };
 // Normalize JSON template vectors into UnitVector3 instances
 // NO OTHER TYPE OF NORMALISATION IS ALLOWED HERE
 (function normalizeVisualTemplates() {
-  	const types = visualTemplates.scatterTypes;
-  	for (const key in types) {
-  	  	types[key].parts.forEach((part) => {
-  	  	  	part.dimensions = new UnitVector3(
-				part.dimensions.x, 
-				part.dimensions.y, 
-				part.dimensions.z, 
-				"cnu"
-			);
-  	  	  	part.localPosition = new UnitVector3(
-				part.localPosition.x, 
-				part.localPosition.y, 
-				part.localPosition.z, 
-				"cnu"
-			);
-  	  	  	part.localRotation = new UnitVector3(
-				part.localRotation.x, 
-				part.localRotation.y, 
-				part.localRotation.z, 
-				"degrees"
-			).toRadians(true);
+	const toUnitVector3 = (v, t) => new UnitVector3(v.x, v.y, v.z, t)
+  	for (const key in visualTemplates.scatterTypes) {
+  	  	visualTemplates.scatterTypes[key].parts.forEach((part) => {
+  	  	  	part.dimensions = toUnitVector3(part.dimensions, "cnu");
+  	  	  	part.localPosition = toUnitVector3(part.localPosition, "cnu");
+  	  	  	part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
   	  	});
   	}
 })();
@@ -423,7 +408,7 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 		{
 			processPart: (ctx, partContext) => {
 				const { part, position, rotation, scale } = partContext;
-				const modelMatrix = CreateModelMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot });
+				const modelMatrix = CreateRenderMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot });
 				const color = part.textureColor;
 				const opacity = part.textureOpacity;
 				const textureID = part.textureID;
