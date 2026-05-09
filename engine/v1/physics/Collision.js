@@ -480,6 +480,55 @@ function fillSolidResult(candidate, swept, contact, candidateBounds) {
 	return item;
 }
 
+function createEmptyGroundContact() {
+	return {
+		hit: false,
+		normal: CloneVector3(WORLD_NORMALS.Up),
+		type: null,
+		supportPoint: null,
+		supportY: -1,
+		tEntry: 1,
+	};
+}
+
+function buildGroundContact(collision, supportY) {
+	return {
+		hit: true,
+		normal: CloneVector3(collision.pushNormal),
+		type: collision.type,
+		supportPoint: CloneVector3(collision.supportPoint),
+		supportY: supportY,
+		tEntry: collision.tEntry,
+	};
+}
+
+function createEmptyWallContact() {
+	return {
+		hit: false,
+		normal: CloneVector3(WORLD_NORMALS.Forward),
+		tEntry: 1,
+		approach: 0,
+	};
+}
+
+function buildWallContact(collision, approach) {
+	return {
+		hit: true,
+		normal: CloneVector3(collision.normal),
+		tEntry: collision.tEntry,
+		approach: approach,
+	};
+}
+
+function resolveWallApproachStrength(velocity, normal) {
+	const horizontalVelocity = { x: velocity.x, y: 0, z: velocity.z };
+	const horizontalNormal = { x: normal.x, y: 0, z: normal.z };
+	const velocityLengthSq = Vector3Sq(horizontalVelocity);
+	const normalLengthSq = Vector3Sq(horizontalNormal);
+	if (velocityLengthSq <= EPSILON || normalLengthSq <= EPSILON) return 0;
+	return -DotVector3(horizontalVelocity, horizontalNormal) / Math.sqrt(velocityLengthSq * normalLengthSq);
+}
+
 /* ========================================================================
  * LAYER 1: PHYSICS COLLISION DETECTION
  * ======================================================================== */
@@ -630,11 +679,11 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 
 		if (!AabbOverlap(entityAabb, candidate.aabb)) continue;
 
-		const candidateBounds = candidate.detailedBounds;
 		const cachedPair = entity.type === "player" ? null : readReusableActiveCollisionPair(entity, candidate);
 		const contact = cachedPair 
 			? buildContactFromCachedPair(cachedPair) 
-			: narrowphaseContact(entityDetailedBounds, candidateBounds);
+			: narrowphaseContact(entityDetailedBounds, candidate.detailedBounds);
+		const pushContact = aabbAabbContact(entityAabb, candidate.aabb);
 		
 		if (!contact.hit) {
 			removeActiveCollisionPair(entity, candidate);
@@ -647,10 +696,14 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 		item.tEntry = 0;
 		item.normal = contact.normal;
 		item.depth = contact.depth;
-		item.pushDepth = contact.depth;
-		item.pushNormal = contact.normal;
+		item.pushDepth = pushContact.depth;
+		item.pushNormal = pushContact.normal;
 		item.point = contact.point;
-		item.supportPoint = resolveContactSupportPoint(candidateBounds, contact);
+		item.supportPoint = resolveContactSupportPoint({
+			type: "aabb",
+			min: candidate.aabb.min,
+			max: candidate.aabb.max,
+		}, pushContact);
 		item.type = candidate.type;
 		item.shape = entityDetailedBounds.type;
 	}
@@ -738,21 +791,13 @@ function DetectCombatOverlaps(playerState, entities, simRadius, cameraPos) {
  * @param {{ x, y, z }} velocity — per-second velocity.
  * @param {{ x, y, z }} displacement — velocity * dt.
  * @param {{ items, count }|Array} solids — sorted collision results.
- * @returns {{ resolvedVelocity, resolvedDisplacement, groundContact, changedPosition, changedVelocity, anyChanged }}
+ * @returns {{ resolvedVelocity, resolvedDisplacement, groundContact, wallContact, changedPosition, changedVelocity, anyChanged }}
  */
 function ResolveCollisions(velocity, displacement, solids) {
 	let vel = CloneVector3(velocity);
 	let disp = CloneVector3(displacement);
-	let groundContact = {
-		hit: false,
-		normal: CloneVector3(WORLD_NORMALS.Up),
-		type: null,
-		targetId: null,
-		targetAabb: null,
-		supportPoint: null,
-		supportY: -1,
-		tEntry: 1,
-	};
+	let groundContact = createEmptyGroundContact();
+	let wallContact = createEmptyWallContact();
 	let changedPosition = false;
 	let changedVelocity = false;
 
@@ -761,34 +806,43 @@ function ResolveCollisions(velocity, displacement, solids) {
 			resolvedVelocity: vel,
 			resolvedDisplacement: disp,
 			groundContact: groundContact,
+			wallContact: wallContact,
 			changedPosition: false,
 			changedVelocity: false,
 			anyChanged: false,
 		};
 	}
 
+	const wallFacingMinApproachDot = CONFIG.PHYSICS.Correction.WallFacingMinApproachDot;
+
 	for (let i = 0; i < solids.count; i++) {
 		const collision = solids.items[i];
 		const pushNormal = collision.pushNormal;
+		const isSurfaceCandidate = collision.type === "terrain" || collision.type === "obstacle";
 		const groundSupportY = pushNormal.y;
+		const wallApproach = isSurfaceCandidate
+			? resolveWallApproachStrength(velocity, collision.normal)
+			: 0;
+		const isWallCandidate = isSurfaceCandidate && wallApproach >= wallFacingMinApproachDot;
 
-		const isGroundCandidate = (collision.type === "terrain" || collision.type === "obstacle") && pushNormal.y > 0.5;
+		const isGroundCandidate = isSurfaceCandidate && pushNormal.y > 0.5;
 		if (isGroundCandidate) {
 			if (
 				!groundContact.hit ||
 				groundSupportY > groundContact.supportY ||
 				(groundSupportY === groundContact.supportY && collision.tEntry < groundContact.tEntry)
 			) {
-				groundContact = {
-					hit: true,
-					normal: CloneVector3(pushNormal),
-					type: collision.type,
-					targetId: collision.target.id,
-					targetAabb: collision.target.aabb,
-					supportPoint: CloneVector3(collision.supportPoint),
-					supportY: groundSupportY,
-					tEntry: collision.tEntry,
-				};
+				groundContact = buildGroundContact(collision, groundSupportY);
+			}
+		}
+
+		if (isWallCandidate) {
+			if (
+				!wallContact.hit ||
+				wallApproach > wallContact.approach ||
+				(wallApproach === wallContact.approach && collision.tEntry < wallContact.tEntry)
+			) {
+				wallContact = buildWallContact(collision, wallApproach);
 			}
 		}
 
@@ -833,7 +887,11 @@ function ResolveCollisions(velocity, displacement, solids) {
 	return {
 		resolvedVelocity: vel,
 		resolvedDisplacement: disp,
-		groundContact, changedPosition, changedVelocity, anyChanged,
+		groundContact,
+		wallContact,
+		changedPosition,
+		changedVelocity,
+		anyChanged,
 	};
 }
 
