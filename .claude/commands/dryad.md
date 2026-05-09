@@ -38,6 +38,14 @@ const dt = Math.max(0, deltaMs) / 1000;        // → Math.max(0, deltaMilliseco
 const cfg = defaultCamRuntime.config;          // cfg.distance, cfg.sensitivity, cfg.heightOffset...
 ```
 
+### Redundant Helper Functions
+
+Flag as **simplification / low** when a very short helper function (that is only used once) could easily be used inline.
+
+This covers both short functions with relatively simple logic and functions that exist simply to return an object.
+
+
+
 ---
 
 ## Approach
