@@ -1516,7 +1516,7 @@
     }
   },
   "levelPlayer": {
-    "character": { "__meta": { "description": "Player character id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "carl", "deprecated": false } },
+    "character": { "__meta": { "description": "Player character id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "chara", "deprecated": false } },
     "spawnPosition": {
       "__meta": { "description": "Spawn position", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
       "x": { "__meta": { "description": "Spawn x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },

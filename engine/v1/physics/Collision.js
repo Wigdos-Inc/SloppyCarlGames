@@ -183,6 +183,50 @@ function resolveContactSupportPoint(bounds, contact) {
 	return resolveBoundsSupportPoint(bounds, contact.normal);
 }
 
+function resolvePushSupportPoint(bounds, contact) {
+	if (bounds.type === "triangle-soup" && contact.point) return CloneVector3(contact.point);
+	const supportPoint = resolveBoundsSupportPoint(bounds, contact.normal);
+	if (supportPoint) return supportPoint;
+	if (contact.point) return CloneVector3(contact.point);
+	return null;
+}
+
+function projectAabbPushContact(entityAabb, candidateBounds, contact) {
+	if (!contact.hit) return { contact: NoContact(), supportPoint: null };
+
+	const supportPoint = resolvePushSupportPoint(candidateBounds, contact);
+	if (!supportPoint) return { contact: NoContact(), supportPoint: null };
+
+	const normal = ScaleVector3(contact.normal, -1);
+	const entitySupportPoint = {
+		x: normal.x >= 0 ? entityAabb.max.x : entityAabb.min.x,
+		y: normal.y >= 0 ? entityAabb.max.y : entityAabb.min.y,
+		z: normal.z >= 0 ? entityAabb.max.z : entityAabb.min.z,
+	};
+	const depth = DotVector3(SubtractVector3(supportPoint, entitySupportPoint), contact.normal);
+	if (depth <= EPSILON) return { contact: NoContact(), supportPoint };
+
+	return {
+		contact: { hit: true, normal: CloneVector3(contact.normal), depth, point: CloneVector3(supportPoint) },
+		supportPoint,
+	};
+}
+
+function resolveAabbDetailedPushContact(entityAabb, candidateBounds, contact) {
+	if (candidateBounds.type !== "triangle-soup") {
+		const pushContact = narrowphaseContact({
+			type: "aabb",
+			min: entityAabb.min,
+			max: entityAabb.max,
+		}, candidateBounds);
+		if (pushContact.hit) {
+			return { contact: pushContact, supportPoint: resolvePushSupportPoint(candidateBounds, pushContact) };
+		}
+	}
+
+	return projectAabbPushContact(entityAabb, candidateBounds, contact);
+}
+
 /* ========================================================================
  * HELPERS
  * ======================================================================== */
@@ -679,16 +723,19 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 
 		if (!AabbOverlap(entityAabb, candidate.aabb)) continue;
 
-		const cachedPair = entity.type === "player" ? null : readReusableActiveCollisionPair(entity, candidate);
+		const candidateBounds = candidate.detailedBounds;
+		const cachedPair = entity.type === "player" || candidateBounds.type === "triangle-soup"
+			? null
+			: readReusableActiveCollisionPair(entity, candidate);
 		const contact = cachedPair 
 			? buildContactFromCachedPair(cachedPair) 
-			: narrowphaseContact(entityDetailedBounds, candidate.detailedBounds);
-		const pushContact = aabbAabbContact(entityAabb, candidate.aabb);
+			: narrowphaseContact(entityDetailedBounds, candidateBounds);
 		
 		if (!contact.hit) {
 			removeActiveCollisionPair(entity, candidate);
 			continue;
 		}
+		const push = resolveAabbDetailedPushContact(entityAabb, candidateBounds, contact);
 		if (entity.type !== "player") cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
 
 		const item = poolPush(solidResultPool);
@@ -696,14 +743,10 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 		item.tEntry = 0;
 		item.normal = contact.normal;
 		item.depth = contact.depth;
-		item.pushDepth = pushContact.depth;
-		item.pushNormal = pushContact.normal;
+		item.pushDepth = push.contact.depth;
+		item.pushNormal = push.contact.hit ? push.contact.normal : contact.normal;
 		item.point = contact.point;
-		item.supportPoint = resolveContactSupportPoint({
-			type: "aabb",
-			min: candidate.aabb.min,
-			max: candidate.aabb.max,
-		}, pushContact);
+		item.supportPoint = push.supportPoint || resolveContactSupportPoint(candidateBounds, contact);
 		item.type = candidate.type;
 		item.shape = entityDetailedBounds.type;
 	}

@@ -64,15 +64,6 @@ function preprocessWorld(world, cnuScale) {
 	return nextWorld;
 }
 
-function preprocessCamera(camera, cnuScale) {
-	const nextCamera = structuredClone(camera);
-	nextCamera.distance = divideScalar(nextCamera.distance, cnuScale);
-	nextCamera.heightOffset = divideScalar(nextCamera.heightOffset, cnuScale);
-	nextCamera.levelOpening.startPosition = divideVector3(nextCamera.levelOpening.startPosition, cnuScale);
-	nextCamera.levelOpening.endPosition = divideVector3(nextCamera.levelOpening.endPosition, cnuScale);
-	return nextCamera;
-}
-
 function preprocessPlayer(player, cnuScale) {
 	const nextPlayer = structuredClone(player);
 	nextPlayer.spawnPosition = divideVector3(nextPlayer.spawnPosition, cnuScale);
@@ -97,7 +88,6 @@ function preprocessTerrain(terrain, cnuScale) {
 function preprocessStage(stage, cnuScale) {
 	const nextStage = structuredClone(stage);
 	nextStage.world = preprocessWorld(nextStage.world, cnuScale);
-	nextStage.camera = preprocessCamera(nextStage.camera, cnuScale);
 	nextStage.player = preprocessPlayer(nextStage.player, cnuScale);
 	nextStage.terrain = preprocessTerrain(nextStage.terrain, cnuScale);
 	nextStage.obstacles = Array.isArray(nextStage.obstacles)
