@@ -1,4 +1,4 @@
-// Adapts velocity underwater to make vertical movement more realistic
+// Applies buoyancy upward force when entity is submerged
 
 // Used by handlers/game/Physics.js
 
@@ -6,30 +6,34 @@ import { CONFIG } from "../core/config.js";
 
 /**
  * Apply buoyancy to velocity when entity is submerged.
- * Provides upward force that partially counters gravity and caps sink speed.
+ * Upward force is linearly interpolated between Force.Min (at surface) and
+ * Force.Max (at GradientDepth and deeper). Terminal velocity underwater is
+ * enforced by the physics pipeline, not here.
  * @param {{ x: number, y: number, z: number }} velocity
  * @param {{ x: number, y: number, z: number }} position — entity position
- * @param {number} waterLevel — world water level Y
+ * @param {Unit} waterLevel — world water level Y as a Unit instance
  * @param {number} deltaSeconds
  * @returns {{ x: number, y: number, z: number }}
  */
 function ApplyBuoyancy(velocity, position, waterLevel, deltaSeconds) {
 	if (CONFIG.PHYSICS.Buoyancy.Enabled === false) return velocity;
 
-	if (position.y >= waterLevel) return velocity;
+	if (position.y >= waterLevel.value) return velocity;
 
-	const submersionDepth = Math.min(3, waterLevel - position.y);
-	const submersionRatio = Math.min(1, submersionDepth / 3);
-	const buoyancyStrength = CONFIG.PHYSICS.Buoyancy.Force * submersionRatio;
+	const config = CONFIG.PHYSICS.Buoyancy;
+	const depth = waterLevel.value - position.y;
 
-	let newY = velocity.y + buoyancyStrength * deltaSeconds;
-
-	// Cap downward speed when submerged.
-	if (newY < -CONFIG.PHYSICS.Buoyancy.SinkSpeed) newY = -CONFIG.PHYSICS.Buoyancy.SinkSpeed;
+	let force;
+	if (config.GradientDepth.value === 0) {
+		force = config.Force.Max.value;
+	} else {
+		const t = Math.min(1, depth / config.GradientDepth.value);
+		force = config.Force.Min.value + (config.Force.Max.value - config.Force.Min.value) * t;
+	}
 
 	return {
 		x: velocity.x,
-		y: newY,
+		y: velocity.y + force * deltaSeconds,
 		z: velocity.z,
 	};
 }

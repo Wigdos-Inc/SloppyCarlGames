@@ -408,5 +408,74 @@
 			}
 		}
 	],
-	"entities": []
+	"entities": [
+		{
+			"id": "entity.cnu-fall-cube",
+			"type": "entity",
+			"hp": 1,
+			"movement": {
+				"start": { "x": 0, "y": 0, "z": 0 },
+				"end": { "x": 0, "y": 0, "z": 0 },
+				"repeat": false,
+				"backAndForth": false,
+				"speed": 0,
+				"jump": 0,
+				"jumpInterval": 0,
+				"jumpOnSight": false,
+				"disappear": false,
+				"chase": false,
+				"physics": true
+			},
+			"velocity": { "x": 0, "y": 0, "z": 0 },
+			"platform": null,
+			"attacks": [],
+			"hardcoded": {},
+			"animations": {},
+			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
+			"customEvents": {
+				"spawn": true,
+				"collision": true
+			},
+			"model": {
+				"spawnSurfaceId": null,
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				"parts": [
+					{
+						"id": "body",
+						"parentId": "root",
+						"anchorPoint": "bottom",
+						"attachmentPoint": "top",
+						"shape": "cube",
+						"complexity": "medium",
+						"dimensions": { "x": 1, "y": 1, "z": 1 },
+						"localPosition": { "x": 0, "y": 0, "z": 0 },
+						"localRotation": { "x": 0, "y": 0, "z": 0 },
+						"localScale": { "x": 1, "y": 1, "z": 1 },
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"primitiveOptions": {
+							"thickness": 0,
+							"radius": 0,
+							"subdivisionsX": 1,
+							"subdivisionsZ": 1
+						},
+						"texture": {
+							"textureID": "metal-panel",
+							"color": { "r": 0.6, "g": 0.9, "b": 1, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1
+						},
+						"detail": {
+							"scatter": []
+						}
+					}
+				]
+			}
+		}
+	]
 }

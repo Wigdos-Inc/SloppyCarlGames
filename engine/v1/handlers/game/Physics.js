@@ -4,7 +4,7 @@
 // Uses all Modules in the physics directory.
 
 import { CONFIG } from "../../core/config.js";
-import { Log, EPSILON } from "../../core/meta.js";
+import { Log, SendEvent, EPSILON } from "../../core/meta.js";
 import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../../math/Vector3.js";
 import { ApplyGravity } from "../../physics/Gravity.js";
 import { ApplyResistance } from "../../physics/Resistance.js";
@@ -123,6 +123,31 @@ function RunPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 	latestTriggers = swept.triggers;
 	hadMeaningfulWork = hadMeaningfulWork || sweptResolution.anyChanged;
 
+	const gc = sweptResolution.groundContact;
+	const wc = sweptResolution.wallContact;
+	const collisionKey = swept.solids.count > 0
+		? (gc.hit && wc.hit ? "ground+wall" : gc.hit ? "ground" : wc.hit ? "wall" : "solid")
+		: "";
+	const isNewContact = collisionKey !== "" && collisionKey !== entity.physicsRuntime.lastPhysicsCollisionKey;
+	if (collisionKey !== "") {
+		entity.physicsRuntime.lastPhysicsCollisionKey = collisionKey;
+	} else if (entity.type !== "player" || !entity.grounded) {
+		entity.physicsRuntime.lastPhysicsCollisionKey = "";
+	}
+
+	if (isNewContact && entity.customEvents.collision && CONFIG.CUSTOM_EVENTS.Entities.collision) {
+		SendEvent(entity.type === "player" ? "PLAYER_COLLISION" : "ENTITY_COLLISION", {
+			id           : entity.id,
+			type         : entity.type,
+			position     : CloneVector3(entity.transform.position),
+			velocity     : CloneVector3(entity.velocity),
+			contactType  : "physics",
+			groundContact: gc.hit,
+			wallContact  : wc.hit,
+			contactNormal: gc.hit ? CloneVector3(gc.normal) : wc.hit ? CloneVector3(wc.normal) : null,
+		});
+	}
+
 	ApplyOrientation(entity);
 	RebuildBounds(entity);
 
@@ -192,6 +217,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	const world = sceneGraph.world;
 	const deathBarrierY = world.deathBarrierY.value;
 	const pos = playerState.transform.position;
+	const wasGrounded = playerState.grounded;
 
 	// Determine medium.
 	playerState.underwater = world.waterLevel !== null && pos.y < world.waterLevel.value;
@@ -199,10 +225,9 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 
 	// Step 1: Gravity (if not grounded or always apply — ground correction will nullify).
 	if (!playerState.grounded) {
-		const gravityOptions = playerState.underwater 
-			? { strengthOverride: CONFIG.PHYSICS.Gravity.Strength * 0.4 } 
-			: {};
-		playerState.velocity.set(ApplyGravity(playerState.velocity, deltaSeconds, gravityOptions));
+		playerState.velocity.set(ApplyGravity(playerState.velocity, deltaSeconds));
+		const termVel = CONFIG.PHYSICS.Gravity.TerminalVelocity[playerState.underwater ? "Water" : "Air"].value;
+		if (playerState.velocity.y < -termVel) playerState.velocity.y = -termVel;
 	}
 
 	// Step 2: Resistance (drag).
@@ -210,7 +235,7 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 
 	// Step 3: Buoyancy (underwater float).
 	if (playerState.underwater) {
-		playerState.velocity.set(ApplyBuoyancy(playerState.velocity, pos, world.waterLevel.value, deltaSeconds));
+		playerState.velocity.set(ApplyBuoyancy(playerState.velocity, pos, world.waterLevel, deltaSeconds));
 	}
 
 	// Step 4: Compute intended displacement.
@@ -242,6 +267,16 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	}
 
 	updatePhysicsRuntimeCache(playerState, hasUnresolvedPenetration);
+
+	if (playerState.grounded !== wasGrounded && playerState.customEvents.groundedChange && CONFIG.CUSTOM_EVENTS.Entities.groundedChange) {
+		SendEvent("PLAYER_GROUNDED_CHANGE", {
+			id      : playerState.id,
+			type    : playerState.type,
+			position: { x: playerState.transform.position.x, y: playerState.transform.position.y, z: playerState.transform.position.z },
+			velocity: { x: playerState.velocity.x, y: playerState.velocity.y, z: playerState.velocity.z },
+			grounded: playerState.grounded,
+		});
+	}
 }
 
 /**

@@ -554,6 +554,15 @@ function LevelPayload(payload) {
 			pivot   : toUnitVector3(rt.pivot, "cnu"),
 		};
 		merged.model.parts = merged.model.parts.map((part) => normalizePart(part));
+		const mv = merged.movement;
+		merged.movement = {
+			...mv,
+			start: toUnitVector3(mv.start, "cnu"),
+			end  : toUnitVector3(mv.end,   "cnu"),
+			speed: new Unit(mv.speed.value, "cnu"),
+			jump : new Unit(mv.jump.value,  "cnu"),
+		};
+		merged.velocity = toUnitVector3(merged.velocity, "cnu");
 
 		merged.id = override.id;
 		merged.blueprintId = override.blueprintId;

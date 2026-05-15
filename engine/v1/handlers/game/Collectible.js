@@ -41,6 +41,14 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 		Log("ENGINE", `Collectible "${entity.id}" picked up. Total: ${playerState.collectibles}`, "log", "Level");
 
 		// Remove from scene.
+		if (entity.customEvents.despawn && CONFIG.CUSTOM_EVENTS.Entities.despawn) {
+			SendEvent("ENTITY_DESPAWN", {
+				id      : entity.id,
+				type    : entity.type,
+				position: { x: entity.transform.position.x, y: entity.transform.position.y, z: entity.transform.position.z },
+				velocity: { x: entity.velocity.x, y: entity.velocity.y, z: entity.velocity.z },
+			});
+		}
 		entities.splice(i, 1);
 
 		SendEvent("COLLECTIBLE_PICKED_UP", {

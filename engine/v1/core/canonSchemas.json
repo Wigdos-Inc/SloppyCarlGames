@@ -1435,6 +1435,16 @@
     "hardcoded": { "__meta": { "description": "Hardcoded behavior bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "animations": { "__meta": { "description": "Animation config bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "collisionOverride": { "__meta": { "description": "Collision override bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "customEvents": {
+      "__meta": { "description": "Custom event subscription flags", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
+      "spawn":           { "__meta": { "description": "Emit spawn event on hot-path entry", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "despawn":         { "__meta": { "description": "Emit despawn event on removal", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "stateChange":     { "__meta": { "description": "Emit stateChange event on FSM transition", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "collision":       { "__meta": { "description": "Emit collision event on physics or combat contact", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "groundedChange":  { "__meta": { "description": "Emit groundedChange event on grounded transition", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "damageReceived":  { "__meta": { "description": "Emit damageReceived event on damage taken", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "damageInflicted": { "__meta": { "description": "Emit damageInflicted event on damage dealt", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
+    },
     "model": {
       "__meta": { "description": "Entity model block", "aliases": [], "dataType": "object", "isRequired": true, "isExpected": true, "fallback": {}, "deprecated": false },
       "spawnSurfaceId": { "__meta": { "description": "Spawn surface id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
@@ -1508,6 +1518,16 @@
     "attacks": { "__meta": { "description": "Override attacks", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
     "platform": { "__meta": { "description": "Override platform bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "animations": { "__meta": { "description": "Override animations bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "customEvents": {
+      "__meta": { "description": "Custom event subscription flags", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
+      "spawn":           { "__meta": { "description": "Emit spawn event on hot-path entry", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "despawn":         { "__meta": { "description": "Emit despawn event on removal", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "stateChange":     { "__meta": { "description": "Emit stateChange event on FSM transition", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "collision":       { "__meta": { "description": "Emit collision event on physics or combat contact", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "groundedChange":  { "__meta": { "description": "Emit groundedChange event on grounded transition", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "damageReceived":  { "__meta": { "description": "Emit damageReceived event on damage taken", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "damageInflicted": { "__meta": { "description": "Emit damageInflicted event on damage dealt", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
+    },
     "velocity": {
       "__meta": { "description": "Override velocity", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
       "x": { "__meta": { "description": "Velocity x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
@@ -1531,6 +1551,16 @@
     },
     "modelParts": { "__meta": { "description": "Custom model part list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
     "metaOverrides": { "__meta": { "description": "Meta override bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": { "list": [] }, "deprecated": false } },
-    "collectibles": { "__meta": { "description": "Starting collectibles", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 100000 }, "deprecated": false } }
+    "collectibles": { "__meta": { "description": "Starting collectibles", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
+    "customEvents": {
+      "__meta": { "description": "Custom event subscription flags", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
+      "spawn":           { "__meta": { "description": "Emit spawn event on hot-path entry", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "despawn":         { "__meta": { "description": "Emit despawn event on removal", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "stateChange":     { "__meta": { "description": "Emit stateChange event on FSM transition", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "collision":       { "__meta": { "description": "Emit collision event on physics or combat contact", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "groundedChange":  { "__meta": { "description": "Emit groundedChange event on grounded transition", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "damageReceived":  { "__meta": { "description": "Emit damageReceived event on damage taken", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "damageInflicted": { "__meta": { "description": "Emit damageInflicted event on damage dealt", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
+    }
   }
 }

@@ -1,5 +1,7 @@
 import { ENGINE } from "../../Bootup.js";
 
+const decoupledCNU = false;
+
 let levelsDataPromise = null;
 let entitiesDataPromise = null;
 
@@ -163,8 +165,9 @@ async function RequestLvl1Stage2Create(request, options) {
 	}
 
 	const cnuScale = ENGINE.Meta.CNU_SCALE;
-	let payload = buildCreateLevelPayload(level, stage, entitiesData, cnuScale);
-	logPayloadSummary(payload, cnuScale);
+	const effectiveScale = decoupledCNU ? cnuScale : 1;
+	let payload = buildCreateLevelPayload(level, stage, entitiesData, effectiveScale);
+	logPayloadSummary(payload, effectiveScale);
 
 	if (payload.music && payload.music.src) {
 		payload = {

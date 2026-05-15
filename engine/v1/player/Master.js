@@ -4,6 +4,7 @@
 // Uses all player modules: Movement.js, Abilities.js, Model.js.
 
 import { Log, SendEvent } from "../core/meta.js";
+import { CONFIG } from "../core/config.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { CloneVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { 
@@ -17,12 +18,16 @@ import characterData from "./characters.json" with { type: "json" };
 
 (function normalizeCharacterTemplates() {
 	const toUnitVector3 = (vector, type) => new UnitVector3(vector.x, vector.y, vector.z, type);
-	for (const characterId in characterData) characterData[characterId].model.parts.forEach(part => {
-		part.dimensions = toUnitVector3(part.dimensions, "cnu");
-		part.localPosition = toUnitVector3(part.localPosition, "cnu");
-		part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
-		part.pivot = toUnitVector3(part.pivot, "cnu");
-	});
+	for (const characterId in characterData) {
+		const char = characterData[characterId];
+		char.meta.jumpHeight = new Unit(char.meta.jumpHeight, "cnu");
+		char.model.parts.forEach(part => {
+			part.dimensions = toUnitVector3(part.dimensions, "cnu");
+			part.localPosition = toUnitVector3(part.localPosition, "cnu");
+			part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
+			part.pivot = toUnitVector3(part.pivot, "cnu");
+		});
+	}
 })();
 
 /* === PLAYER INPUT FLAGS === */
@@ -136,8 +141,10 @@ function createDefaultPlayerState(playerData) {
 			previousRotation: new UnitVector3(0, 0, 0, "radians"),
 			hasUnresolvedPenetration: false,
 			cachePrimed: false,
+			lastPhysicsCollisionKey: "",
 		},
 		collision,
+		customEvents: playerData.customEvents,
 		mesh: null,
 		type: "player",
 		id: "player",
@@ -165,11 +172,12 @@ function InitializePlayer(payload, sceneGraph) {
 
 	// Build Player State & Model
 	playerState = createDefaultPlayerState({
-		character: effectiveCharacter,
-		spawnPosition: payload.spawnPosition, 
-		scale: payload.scale,
-		collectibles: payload.collectibles,
-		collisionRadius: effectiveCharacter.meta.collisionRadius
+		character      : effectiveCharacter,
+		spawnPosition  : payload.spawnPosition,
+		scale          : payload.scale,
+		collectibles   : payload.collectibles,
+		collisionRadius: effectiveCharacter.meta.collisionRadius,
+		customEvents   : payload.customEvents,
 	});
 	InitializePlayerCollisionProfile(playerState);
 	SyncPlayerCollisionFromState(playerState);
@@ -273,6 +281,16 @@ function ResolvePlayerState() {
 	if (oldState !== playerState.state) {
 		Log("ENGINE", `Player state: ${oldState} → ${playerState.state}`, "log", "Player");
 		playerState.previousState = oldState;
+		if (playerState.customEvents.stateChange && CONFIG.CUSTOM_EVENTS.Entities.stateChange) {
+			SendEvent("PLAYER_STATE_CHANGE", {
+				id      : playerState.id,
+				type    : playerState.type,
+				position: { x: playerState.transform.position.x, y: playerState.transform.position.y, z: playerState.transform.position.z },
+				velocity: { x: playerState.velocity.x, y: playerState.velocity.y, z: playerState.velocity.z },
+				from    : oldState,
+				to      : playerState.state,
+			});
+		}
 	}
 }
 

@@ -323,7 +323,7 @@ function SendEvent(eventName, payload) {
   // Dispatch with payload as detail.
   if (eventName !== "USER_INPUT") Log(
     "ENGINE", 
-    `Event: ${eventName}\nPayload: ${JSON.stringify(payload)}`, 
+    `Event: ${eventName}\n\nPayload:\n${JSON.stringify(payload).replaceAll(",", "\n")}`, 
     "log", 
     "Meta"
   );

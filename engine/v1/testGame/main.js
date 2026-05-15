@@ -450,11 +450,78 @@ function handleUserInput(event) {
 	handlePlayerInput(payload);
 }
 
+const fallTestState = {
+	startTime: null,
+	startPosition: null,
+	landed: false,
+};
+
+function handleEntitySpawn(event) {
+	const detail = event.detail;
+	if (!detail || detail.id !== "cnu-fall-cube") return;
+
+	fallTestState.startTime = performance.now();
+	fallTestState.startPosition = { x: detail.position.x, y: detail.position.y, z: detail.position.z };
+	fallTestState.landed = false;
+
+	const Log = window.engineOptional('Log');
+	if (Log) Log(
+		"GAME",
+		[
+			"CNU fall test: cube spawned",
+			`- startPosition.y: ${detail.position.y.toFixed(4)} CNU`,
+			`- startVelocity.y: ${detail.velocity.y.toFixed(4)} CNU/s`,
+		].join("\n"),
+		"log",
+		"Level"
+	);
+}
+
+function handleEntityCollision(event) {
+	const detail = event.detail;
+	if (!detail || detail.id !== "cnu-fall-cube") return;
+	if (fallTestState.landed || fallTestState.startTime === null) return;
+
+	fallTestState.landed = true;
+	const endTime = performance.now();
+	const elapsedSeconds = (endTime - fallTestState.startTime) / 1000;
+	const deltaHeight = fallTestState.startPosition.y - detail.position.y;
+	const cfg = window.engineOptional('Config');
+	const gravityStrength = cfg?.PHYSICS?.Gravity?.Strength ?? null;
+
+	const Log = window.engineOptional('Log');
+	if (Log) {
+		Log(
+			"GAME",
+			[
+				"CNU fall test: cube landed",
+				`- endPosition.y: ${detail.position.y.toFixed(4)} CNU`,
+				`- endVelocity.y: ${detail.velocity.y.toFixed(4)} CNU/s`,
+			].join("\n"),
+			"log",
+			"Level"
+		);
+		Log(
+			"GAME",
+			[
+				"CNU fall test: summary",
+				`- deltaHeight: ${deltaHeight.toFixed(4)} CNU`,
+				`- elapsedTime: ${elapsedSeconds.toFixed(4)} s`,
+				`- gravityStrength: ${gravityStrength} CNU/s²`,
+			].join("\n"),
+			"log",
+			"Level"
+		);
+	}
+}
+
 window.addEventListener("SPLASH_REQUEST", handleSplashRequest);
 window.addEventListener("USER_INPUT", handleUserInput);
 window.addEventListener("DELETE_SAVE_DATA", handleDeleteSave);
 window.addEventListener("LEVEL_REQUEST", handleLevelRequest);
 window.addEventListener("LOAD_GAME", handleLoadGame);
+window.addEventListener("ENTITY_SPAWN", handleEntitySpawn);
+window.addEventListener("ENTITY_COLLISION", handleEntityCollision);
 window.addEventListener("UI_RENDERED", (event) => {
 	const screenId = event && event.detail ? event.detail.screenId : null;
 	if (screenId === "Settings") {

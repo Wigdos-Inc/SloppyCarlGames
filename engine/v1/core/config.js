@@ -1,4 +1,4 @@
-// Editable base values, multipliers and rule switches.
+import { Unit } from "../math/Utilities.js";
 
 /* === CONFIG === */
 // Base values and rule switches for the engine.
@@ -91,11 +91,30 @@ const CONFIG = {
     FrameRate     : 120
   },
   PHYSICS: {
-    Gravity   : { Enabled: true, Strength: 9.8, fallSpeed: 50 },
-    Resistance: { Enabled: false, AirDrag: 0.02, WaterDrag: 0.05 },
-    Buoyancy  : { Enabled: false, Force: 0, SinkSpeed: 50 },
-    Collision : { Enabled: true, Hurtbox: true, Hitbox: true },
+    Gravity   : { 
+      Enabled: true, 
+      Strength: new Unit(9.8, "cnu"), 
+      TerminalVelocity: { Air: new Unit(50, "cnu"), Water: new Unit(10, "cnu") } 
+    },
+    Resistance: { Enabled: false, AirDrag: new Unit(2, "cnu"), WaterDrag: new Unit(5, "cnu") },
+    Buoyancy  : { 
+      Enabled: false, 
+      Force: { Min: new Unit(0, "cnu"), Max: new Unit(0, "cnu") }, 
+      GradientDepth: new Unit(20, "cnu") 
+    },
+    Collision : { Enabled: true, Hurtbox: false, Hitbox: false },
     Correction: { Enabled: true, MinDeltaDegrees: 5, MaxDeltaDegrees: 35, GroundSnapTolerance: 0.12 },
+  },
+  CUSTOM_EVENTS: {
+    Entities: {
+      spawn          : true,
+      despawn        : true,
+      stateChange    : true,
+      collision      : true,
+      groundedChange : true,
+      damageReceived : true,
+      damageInflicted: true,
+    }
   }
 };
 

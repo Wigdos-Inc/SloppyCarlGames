@@ -3,30 +3,33 @@
 // Used by handlers/game/Physics.js
 
 import { CONFIG } from "../core/config.js";
+import { EPSILON } from "../core/meta.js";
 
 /**
  * Apply medium-based drag to a velocity vector.
- * Air drag affects only horizontal axes (XZ), water drag affects all axes.
+ * Drag is authored as CNU/s of opposing deceleration applied per-axis per tick,
+ * clamped so it never reverses direction of travel.
  * @param {{ x: number, y: number, z: number }} velocity
  * @param {number} deltaSeconds
  * @param {"air"|"water"} medium
  * @returns {{ x: number, y: number, z: number }}
  */
 function ApplyResistance(velocity, deltaSeconds, medium) {
-	const resistanceConfig = CONFIG.PHYSICS.Resistance;
-	if (resistanceConfig.Enabled === false) return velocity;
+	const config = CONFIG.PHYSICS.Resistance;
+	if (config.Enabled === false) return velocity;
 
-	const inwater = medium === "water";
-	const coefficient = inwater ? resistanceConfig.WaterDrag : resistanceConfig.AirDrag;
-	const factor = Math.max(0, 1 - coefficient * deltaSeconds * 60);
+	const drag = (medium === "water" ? config.WaterDrag : config.AirDrag).value;
+	const decel = drag * deltaSeconds;
 
-	if (inwater) return velocity.scale(factor);
+	const applyAxis = (v) => {
+		if (Math.abs(v) < EPSILON) return 0;
+		return v > 0 ? Math.max(0, v - decel) : Math.min(0, v + decel);
+	};
 
-	// Air: only horizontal drag, preserve vertical velocity.
 	return {
-		x: velocity.x * factor,
-		y: velocity.y,
-		z: velocity.z * factor,
+		x: applyAxis(velocity.x),
+		y: applyAxis(velocity.y),
+		z: applyAxis(velocity.z),
 	};
 }
 

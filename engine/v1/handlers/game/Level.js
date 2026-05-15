@@ -198,7 +198,7 @@ async function CreateLevel(payload, options) {
 	}
 
 	// Update Input Events Engine Listens for
-	UpdateInputEventTypes({ payloadType: "level", payload: payload });
+	UpdateInputEventTypes({ payloadType: "level", payload });
 
 	const cachedPayload = cacheLevelPayload(payload);
 	if (!cachedPayload) {
@@ -220,6 +220,7 @@ async function CreateLevel(payload, options) {
 	}
 
 	const sceneGraph = await BuildLevel(cachedPayload);
+	Log("ENGINE", `Level sceneGraph created: ${cachedPayload.id}`, "log", "Level");
 
 	// Initialize player if payload defines one.
 	if (sceneGraph.playerConfig) {
@@ -248,6 +249,8 @@ async function CreateLevel(payload, options) {
 	}
 
 	RenderLevel(sceneGraph, levelRuntimeState.renderOptions);
+	Log("ENGINE", "Level render initialized.", "log", "Level");
+
 	StartLevelLoop();
 	Log("ENGINE", "Level loop started.", "log", "Level");
 
@@ -256,8 +259,29 @@ async function CreateLevel(payload, options) {
 		title: cachedPayload.title,
 	});
 
-	Log("ENGINE", `Level created: ${cachedPayload.id}`, "log", "Level");
-	Log("ENGINE", "Level generation finished and render initialized.", "log", "Level");
+	if (CONFIG.CUSTOM_EVENTS.Entities.spawn) {
+		if (sceneGraph.playerConfig) {
+			const playerState = GetPlayerState();
+			if (playerState.customEvents.spawn) {
+				SendEvent("PLAYER_SPAWN", {
+					id      : playerState.id,
+					type    : playerState.type,
+					position: { x: playerState.transform.position.x, y: playerState.transform.position.y, z: playerState.transform.position.z },
+					velocity: { x: playerState.velocity.x, y: playerState.velocity.y, z: playerState.velocity.z },
+				});
+			}
+		}
+		sceneGraph.entities.forEach(entity => {
+			if (entity.customEvents.spawn) SendEvent("ENTITY_SPAWN", {
+				id      : entity.id,
+				type    : entity.type,
+				position: { x: entity.transform.position.x, y: entity.transform.position.y, z: entity.transform.position.z },
+				velocity: { x: entity.velocity.x, y: entity.velocity.y, z: entity.velocity.z },
+			});
+		});
+	}
+
+
 	return sceneGraph;
 }
 
@@ -290,13 +314,12 @@ function Update(deltaMilliseconds) {
 	const simDistance = GetSimDistanceValue();
 	const cameraPosition = sceneGraph.cameraConfig.state.position;
 
-	for (let index = 0; index < sceneGraph.entities.length; index++) {
-		const entity = sceneGraph.entities[index];
-		if (entity.type === "player") continue;
-		if (Vector3Distance(cameraPosition, entity.transform.position) > simDistance) continue;
+	sceneGraph.entities.forEach(entity => {
+		if (entity.type === "player") return;
+		if (Vector3Distance(cameraPosition, entity.transform.position) > simDistance) return;
 		updateEntityMovement(entity, deltaSeconds);
 		ApplyEntityPhysics(entity, sceneGraph, deltaSeconds);
-	}
+	});
 
 	// === CAMERA ===
 	sceneGraph.cameraConfig.state = UpdateCameraState(

@@ -192,12 +192,11 @@ function buildPart(partDefinition) {
 			parentId        : source.parentId,
 		}
 	);
-
-	const resolvedParentId = source.parentId;
+	
 	return {
 		id             : mesh.id,
 		label          : source.label || null,
-		parentId       : resolvedParentId,
+		parentId       : source.parentId,
 		anchorPoint    : source.anchorPoint,
 		attachmentPoint: source.attachmentPoint,
 		children: [],
@@ -594,6 +593,7 @@ function BuildEntity(definition, surfaceMap) {
 		hardcoded: definition.hardcoded,
 		platform: definition.platform,
 		collisionOverride: definition.collisionOverride,
+		customEvents: definition.customEvents,
 		movement: movement,
 		transform: {
 			position: rootTrans.position,
@@ -626,6 +626,7 @@ function BuildEntity(definition, surfaceMap) {
 			previousRotation: rootTrans.rotation.clone(),
 			hasUnresolvedPenetration: false,
 			cachePrimed: false,
+			lastPhysicsCollisionKey: "",
 		},
 	};
 }

@@ -3,6 +3,7 @@ import { AddVector3, CloneVector3, MultiplyVector3, ScaleVector3, SubtractVector
 // 1 CNU = CNU_SCALE World Units (WebGL coordinate space). Set once during development.
 export const CNU_SCALE = 1;
 // Visual testing showed 0.7 as ideal.
+// Gravity testing showed 1 as close.
 
 class Unit {
 	constructor(value, type) {

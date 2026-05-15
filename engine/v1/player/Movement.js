@@ -3,6 +3,7 @@
 // Used by player/Master.js to process movement intent each frame.
 // Returns modified velocity. Does NOT modify position directly.
 
+import { CONFIG } from "../core/config.js";
 import {
 	ResolveVector3Axis,
 	AddVector3,
@@ -152,7 +153,7 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 		playerState.state !== "Stunned" && 
 		playerState.state !== "Dead"
 	) {
-		playerState.velocity.y = meta.jumpForce;
+		playerState.velocity.y = Math.sqrt(2 * CONFIG.PHYSICS.Gravity.Strength.value * meta.jumpHeight.value);
 		playerState.grounded = false;
 		const jumpStartY = playerState.transform.position.y;
 		// Player jump Y values are Unit instances—mutate their `.value`.
