@@ -88,22 +88,22 @@ const CONFIG = {
     RenderDistance: "High",
     SimDistance   : "High",
     Animations    : true,
-    FrameRate     : 120
+    FrameRate     : 60
   },
   PHYSICS: {
     Gravity   : { 
       Enabled: true, 
-      Strength: new Unit(9.8, "cnu"), 
-      TerminalVelocity: { Air: new Unit(50, "cnu"), Water: new Unit(10, "cnu") } 
+      Strength: new Unit(10, "cnu"), 
+      TerminalVelocity: { Air: new Unit(30, "cnu"), Water: new Unit(3, "cnu") } 
     },
-    Resistance: { Enabled: false, AirDrag: new Unit(2, "cnu"), WaterDrag: new Unit(5, "cnu") },
+    Resistance: { Enabled: true },
     Buoyancy  : { 
-      Enabled: false, 
-      Force: { Min: new Unit(0, "cnu"), Max: new Unit(0, "cnu") }, 
-      GradientDepth: new Unit(20, "cnu") 
+      Enabled: true, 
+      Force: { Min: new Unit(2, "cnu"), Max: new Unit(10, "cnu") }, 
+      GradientDepth: new Unit(5, "cnu") 
     },
     Collision : { Enabled: true, Hurtbox: false, Hitbox: false },
-    Correction: { Enabled: true, MinDeltaDegrees: 5, MaxDeltaDegrees: 35, GroundSnapTolerance: 0.12 },
+    Correction: { Enabled: true, MinDeltaDegrees: 5, MaxDeltaDegrees: 35, GroundSnapTolerance: 0.05 },
   },
   CUSTOM_EVENTS: {
     Entities: {

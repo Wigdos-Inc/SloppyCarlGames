@@ -226,8 +226,6 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	// Step 1: Gravity (if not grounded or always apply — ground correction will nullify).
 	if (!playerState.grounded) {
 		playerState.velocity.set(ApplyGravity(playerState.velocity, deltaSeconds));
-		const termVel = CONFIG.PHYSICS.Gravity.TerminalVelocity[playerState.underwater ? "Water" : "Air"].value;
-		if (playerState.velocity.y < -termVel) playerState.velocity.y = -termVel;
 	}
 
 	// Step 2: Resistance (drag).

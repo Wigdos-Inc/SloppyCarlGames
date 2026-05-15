@@ -1,11 +1,15 @@
 This file contains current priorities.
 
+Add functionality for custom image-based textures
 Update test characters to test multiple types of characters with intuitive physics
-Add new primitive type: nullSpace (for "gaps" and "holes" in terrain. perhaps part of new NewTerrain.js)
 Add Terrain Blueprint Support (start using Claude Code):
 - Add Sonic-Style Loop Blueprint
 - Add Half-Pipe Blueprint
 - Add Full-Pipe Blueprint
+Fully re-attach Camera.js to CNU.
+Let physics-enabled entities also go through the full physics pipeline (they skip grounding and correction etc)
+Add "Floating", "Sinking" and "Swimming" entity states
+Add new primitive type: nullSpace (for "gaps" and "holes" in terrain)
 Build new test level (prompt in notepad).
 Add Game-side sceneGraph update API
 - Think of uses

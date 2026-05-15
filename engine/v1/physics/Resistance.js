@@ -3,36 +3,30 @@
 // Used by handlers/game/Physics.js
 
 import { CONFIG } from "../core/config.js";
-import { EPSILON } from "../core/meta.js";
+
+const AIR_DRAG_COEFFICIENT = CONFIG.PHYSICS.Gravity.Strength.value / CONFIG.PHYSICS.Gravity.TerminalVelocity.Air.value;
+const WATER_DRAG_COEFFICIENT = CONFIG.PHYSICS.Gravity.Strength.value / CONFIG.PHYSICS.Gravity.TerminalVelocity.Water.value;
 
 /**
- * Apply medium-based drag to a velocity vector.
- * Drag is authored as CNU/s of opposing deceleration applied per-axis per tick,
- * clamped so it never reverses direction of travel.
+ * Apply medium-based velocity-proportional drag to a velocity vector.
+ * drag force = -velocity * dragCoefficient per axis.
  * @param {{ x: number, y: number, z: number }} velocity
  * @param {number} deltaSeconds
  * @param {"air"|"water"} medium
  * @returns {{ x: number, y: number, z: number }}
  */
 function ApplyResistance(velocity, deltaSeconds, medium) {
-	const config = CONFIG.PHYSICS.Resistance;
-	if (config.Enabled === false) return velocity;
+	if (CONFIG.PHYSICS.Resistance.Enabled === false) return velocity;
 
-	const drag = (medium === "water" ? config.WaterDrag : config.AirDrag).value;
-	const decel = drag * deltaSeconds;
-
-	const applyAxis = (v) => {
-		if (Math.abs(v) < EPSILON) return 0;
-		return v > 0 ? Math.max(0, v - decel) : Math.min(0, v + decel);
-	};
+	const scale = 1 - (medium === "water" ? WATER_DRAG_COEFFICIENT : AIR_DRAG_COEFFICIENT) * deltaSeconds;
 
 	return {
-		x: applyAxis(velocity.x),
-		y: applyAxis(velocity.y),
-		z: applyAxis(velocity.z),
+		x: velocity.x * scale,
+		y: velocity.y * scale,
+		z: velocity.z * scale,
 	};
 }
 
 /* === EXPORTS === */
 
-export { ApplyResistance };
+export { ApplyResistance, AIR_DRAG_COEFFICIENT, WATER_DRAG_COEFFICIENT };

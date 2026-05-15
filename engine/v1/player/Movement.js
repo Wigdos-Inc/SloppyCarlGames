@@ -13,6 +13,47 @@ import {
 	ToVector3,
 } from "../math/Vector3.js";
 import { ApplyAcceleration, ApplyDeceleration, ClampVelocity } from "../math/Physics.js";
+import { AIR_DRAG_COEFFICIENT, WATER_DRAG_COEFFICIENT } from "../physics/Resistance.js";
+
+const jumpVelocityCache = { jumpHeight: -1, medium: "", v0: 0 };
+
+function solveJumpLaunchVelocity(jumpHeight, medium) {
+	if (jumpVelocityCache.jumpHeight === jumpHeight && jumpVelocityCache.medium === medium) {
+		return jumpVelocityCache.v0;
+	}
+
+	const gravity = CONFIG.PHYSICS.Gravity.Strength.value;
+	const k = medium === "water" ? WATER_DRAG_COEFFICIENT : AIR_DRAG_COEFFICIENT;
+	const buoyancyEnabled = medium === "water" && CONFIG.PHYSICS.Buoyancy.Enabled !== false;
+	const simDt = 1 / 240;
+
+	const simApex = (v0) => {
+		let vy = v0;
+		let y = 0;
+		for (let step = 0; step < 10000; step++) {
+			vy -= gravity * simDt;
+			vy *= (1 - k * simDt);
+			if (buoyancyEnabled) vy += CONFIG.PHYSICS.Buoyancy.Force.Max.value * simDt;
+			if (vy <= 0) break;
+			y += vy * simDt;
+		}
+		return y;
+	};
+
+	let lo = 0;
+	let hi = jumpHeight * 10 + 10;
+	for (let iter = 0; iter < 64; iter++) {
+		const mid = (lo + hi) * 0.5;
+		if (simApex(mid) < jumpHeight) lo = mid;
+		else hi = mid;
+	}
+
+	const v0 = (lo + hi) * 0.5;
+	jumpVelocityCache.jumpHeight = jumpHeight;
+	jumpVelocityCache.medium = medium;
+	jumpVelocityCache.v0 = v0;
+	return v0;
+}
 
 /**
  * Compute a camera-relative movement direction on the XZ plane (or surface plane).
@@ -153,7 +194,8 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 		playerState.state !== "Stunned" && 
 		playerState.state !== "Dead"
 	) {
-		playerState.velocity.y = Math.sqrt(2 * CONFIG.PHYSICS.Gravity.Strength.value * meta.jumpHeight.value);
+		const medium = playerState.underwater ? "water" : "air";
+		playerState.velocity.y = solveJumpLaunchVelocity(meta.jumpHeight.value, medium);
 		playerState.grounded = false;
 		const jumpStartY = playerState.transform.position.y;
 		// Player jump Y values are Unit instances—mutate their `.value`.

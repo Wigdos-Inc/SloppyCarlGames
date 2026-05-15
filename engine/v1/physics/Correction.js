@@ -53,6 +53,10 @@ const correctionDisabled = Object.freeze({
 	anyChanged: false,
 });
 
+function shouldSkipJumpGrounding(playerState) {
+	return playerState.state === "Jumping" && playerState.velocity.y > EPSILON;
+}
+
 function applySurfaceNormal(playerState, normal) {
 	playerState.grounded = true;
 	playerState.surfaceNormal = CloneVector3(normal);
@@ -70,6 +74,7 @@ function applySurfaceNormal(playerState, normal) {
 function ApplySurfaceCorrection(playerState, groundContact) {
 	const config = CONFIG.PHYSICS.Correction;
 	if (config.Enabled === false) return correctionDisabled;
+	if (shouldSkipJumpGrounding(playerState)) return resetSurfaceState(playerState);
 
 	if (!groundContact.hit) return resetSurfaceState(playerState);
 	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return resetSurfaceState(playerState);
@@ -141,6 +146,7 @@ function ApplyGroundSnap(playerState, groundContact) {
 	if (!config.Enabled || !groundContact.hit || (groundContact.type !== "terrain" && groundContact.type !== "obstacle")) {
 		return correctionDisabled;
 	}
+	if (shouldSkipJumpGrounding(playerState)) return correctionDisabled;
 
 	const normal = ResolveVector3Axis(groundContact.normal);
 	if (normal.y <= 0.5) return correctionDisabled;
