@@ -17,7 +17,7 @@ import {
 	ToVector3,
 	WORLD_NORMALS,
 } from "../../math/Vector3.js";
-import { ClampVelocity, RayAABBDetailedBoundsIntersect } from "../../math/Physics.js";
+import { ClampVelocity, RayAABBDetailedBoundsIntersect } from "../../math/Collision.js";
 import { CNUtoWorldUnit, Lerp, Clamp, Unit, UnitVector3, WorldUnitToCNU } from "../../math/Utilities.js";
 const pitchClampDegrees = 89;
 // FreeCam must be explicitly enabled in levels and global debug mode must be on.

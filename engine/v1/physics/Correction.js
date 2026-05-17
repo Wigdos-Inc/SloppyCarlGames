@@ -1,6 +1,6 @@
 // Corrects velocity, position, rotation, etc to prevent weird clipping or misalignment.
 
-// Used by handlers/game/Physics.js
+// Used by physics/Master.js
 
 import { CONFIG } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";

@@ -1,6 +1,6 @@
 // Physics math helpers — acceleration, swept AABB, ray intersection, projection.
 
-// Used by physics/ modules and handlers/game/Physics.js.
+// Used by physics/ modules and physics/Master.js.
 // Uses math/Vector3.js for vector operations.
 
 import { EPSILON } from "../core/meta.js";

@@ -21,7 +21,7 @@ import {
 	ResolvePlayerState, 
 	GetPlayerState 
 } from "../../player/Master.js";
-import { ApplyPhysicsPipeline, ApplyEntityPhysics } from "./Physics.js";
+import { ApplyPhysicsPipeline, ApplyEntityPhysics } from "../../physics/Master.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
 import { GetSimDistanceValue } from "../../physics/Collision.js";

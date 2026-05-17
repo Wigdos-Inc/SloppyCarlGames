@@ -1,5 +1,7 @@
 This file contains current priorities.
 
+Update physics functions to be more export friendly and add them to the ENGINE API
+Add per-entity definition for no physics, simple physics or full physics
 Add functionality for custom image-based textures
 Update test characters to test multiple types of characters with intuitive physics
 Add Terrain Blueprint Support (start using Claude Code):

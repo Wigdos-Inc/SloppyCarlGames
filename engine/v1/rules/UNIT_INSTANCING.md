@@ -246,7 +246,7 @@ const worldPos = vector.toWorldUnit();       // returns plain {x, y, z}
 | `Camera.js`     | Declare worldunit defaults. Convert CNU at point of use.      |
 | `NewObject.js`  | Instance geometry bounds as UnitVector3("cnu").               |
 | `Master.js`     | Instance player position as UnitVector3("cnu").               |
-| `Physics.js`    | Update positions via .set(). Never re-instance.               |
+| `Master.js`     | Update positions via .set(). Never re-instance.               |
 
 ---
 

@@ -14,9 +14,8 @@ import {
 	Vector3Length,
 	ToVector3,
 } from "../math/Vector3.js";
-import { ApplyAcceleration, ApplyDeceleration, ClampVelocity } from "../math/Physics.js";
-import { AIR_DRAG_COEFFICIENT, WATER_DRAG_COEFFICIENT } from "../physics/Resistance.js";
-import { StepVerticalVelocity } from "../handlers/game/Physics.js";
+import { ApplyAcceleration, ApplyDeceleration, ClampVelocity } from "../math/Collision.js";
+import { AIR_DRAG_COEFFICIENT, WATER_DRAG_COEFFICIENT, StepVerticalVelocity } from "../math/Forces.js";
 
 const jumpVelocityCache = { jumpHeight: -1, medium: "", floatiness: -1, v0: 0 };
 

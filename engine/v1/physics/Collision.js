@@ -2,7 +2,7 @@
 // Physics layer resolves geometry (swept detection + slide).
 // Hurtbox/Hitbox layers resolve combat overlaps (static tests, no geometry resolution).
 
-// Used by handlers/game/Physics.js, handlers/game/Enemy.js, handlers/game/Collectible.js.
+// Used by physics/Master.js
 
 import { CONFIG } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";
@@ -35,7 +35,7 @@ import {
 	SweptSphereAABB,
 	SweptSphereOBB,
 	NoContact,
-} from "../math/Physics.js";
+} from "../math/Collision.js";
 
 /* ========================================================================
  * RESULT POOLS — grow-once, zero GC per frame.
@@ -273,7 +273,7 @@ function offsetDetailedBounds(bounds, offset) {
 	}
 }
 
-// Should probably be moved to other contact helper functions in math/Physics.js
+// Should probably be moved to other contact helper functions in math/Collision.js
 function aabbAabbContact(boundsA, boundsB) {
 	if (!AabbOverlap(boundsA, boundsB)) return NoContact();
 	const centerA = getAabbCenter(boundsA);
