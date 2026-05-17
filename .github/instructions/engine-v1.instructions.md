@@ -10,6 +10,7 @@ applyTo: "engine/v1/**/*.js"
 - Give highest priority to `FORBIDDEN_DEFENSIVE_CHECKS.md`, `UNIT_INSTANCING.md`, and `CASING.md`.
 - Follow the rules during both feature development and debugging. Debugging is not an exception path for adding forbidden patterns.
 - Never create new modules unless explicitly requested.
+- Ignore CLAUDE.md. It is not meant for you. These instructions are your source of truth.
 
 ## Engine Rule Expectations
 
