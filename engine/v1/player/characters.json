@@ -12,7 +12,9 @@
 			"airControl": 0.2,
 			"underwaterAirControl": 0.5,
 			"momentumTurnRate": 14,
-			"jumpHeight": 2
+			"jumpHeight": 2,
+			"airFloatiness": 1,
+			"waterFloatiness": 1
 		},
 		"model": {
 			"parts": [
@@ -158,7 +160,9 @@
 			"airControl": 0.1,
 			"underwaterAirControl": 0.7,
 			"momentumTurnRate": 14,
-			"jumpHeight": 5
+			"jumpHeight": 2,
+			"airFloatiness": 5,
+			"waterFloatiness": 3
 		},
 		"model": {
 			"parts": [

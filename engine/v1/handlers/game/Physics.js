@@ -7,8 +7,8 @@ import { CONFIG } from "../../core/config.js";
 import { Log, SendEvent, EPSILON } from "../../core/meta.js";
 import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../../math/Vector3.js";
 import { ApplyGravity } from "../../physics/Gravity.js";
-import { ApplyResistance } from "../../physics/Resistance.js";
-import { ApplyBuoyancy } from "../../physics/Buoyancy.js";
+import { AIR_DRAG_COEFFICIENT, WATER_DRAG_COEFFICIENT } from "../../physics/Resistance.js";
+import { ComputeBuoyancyDeltaV } from "../../physics/Buoyancy.js";
 import {
 	DetectPhysicsCollisions,
 	DetectCurrentPhysicsOverlaps,
@@ -215,7 +215,7 @@ function runPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 
 /**
  * Full physics pipeline for the player entity each fixed frame.
- * Order: gravity → buoyancy → resistance → displacement → collision detect → resolve → position → correction → death barrier.
+ * Order: gravity → buoyancy → resistance → floatiness → displacement → collision detect → resolve → position → correction → death barrier.
  *
  * @param {object} playerState — full mutable player state.
  * @param {object} sceneGraph — active scene graph.
@@ -236,23 +236,29 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	playerState.buoyancyForce = 0;
 	playerState.underwater = submergence >= 0.5;
 
-	// Step 1: Gravity (always; collision resolver cancels into-surface component on contact).
-	playerState.velocity.set(ApplyGravity(playerState.velocity, deltaSeconds));
+	// Steps 1–4: Gravity → Buoyancy → Resistance → Floatiness (unified vertical step).
+	const gravity = CONFIG.PHYSICS.Gravity.Strength.value;
+	const k = AIR_DRAG_COEFFICIENT + (WATER_DRAG_COEFFICIENT - AIR_DRAG_COEFFICIENT) * submergence;
+	const meta = playerState.character.meta;
+	const activeFloatiness = playerState.underwater ? meta.waterFloatiness : meta.airFloatiness;
+	const buoyancyDeltaV = ComputeBuoyancyDeltaV(
+		playerState.transform.position, sceneGraph.world.waterLevel, submergence, deltaSeconds, playerState
+	);
+	playerState.velocity.y = StepVerticalVelocity(
+		playerState.velocity.y, gravity, k, buoyancyDeltaV, activeFloatiness, deltaSeconds
+	);
 
-	// Step 2: Buoyancy (underwater float).
-	if (submergence > 0) {
-		playerState.velocity.set(ApplyBuoyancy(playerState.velocity, playerState.transform.position, sceneGraph.world.waterLevel, submergence, deltaSeconds, playerState));
-	}
+	// Horizontal resistance (floatiness is vertical only; gravity and buoyancy are vertical-only).
+	const hFactor = 1 - k * deltaSeconds;
+	playerState.velocity.x *= hFactor;
+	playerState.velocity.z *= hFactor;
 
-	// Step 3: Resistance (drag) — applied to the net of all forces.
-	playerState.velocity.set(ApplyResistance(playerState.velocity, deltaSeconds, submergence));
-
-	// Step 4: Compute intended displacement.
+	// Step 5: Compute intended displacement.
 	const displacement = ScaleVector3(playerState.velocity, deltaSeconds);
 	const shouldSkipCollision = shouldSkipCollisionPipeline(playerState, displacement);
 	let hasUnresolvedPenetration = playerState.physicsRuntime.hasUnresolvedPenetration;
 
-	// Step 5: Collision & Correction Pipeline
+	// Step 6: Collision & Correction Pipeline
 	if (!shouldSkipCollision) {
 		const physicsResult = runPhysicsLoop(playerState, sceneGraph, deltaSeconds, displacement);
 		storePlayerTriggers(playerState, physicsResult.triggers);
@@ -322,6 +328,25 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 	updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration);
 }
 
+/**
+ * One frame of the composed vertical force step, shared by ApplyPhysicsPipeline (runtime)
+ * and the jump solver in Movement.js. Order: gravity → buoyancy → resistance → floatiness.
+ * @param {number} vy
+ * @param {number} gravity — CONFIG.PHYSICS.Gravity.Strength.value
+ * @param {number} k — drag coefficient for this medium/frame
+ * @param {number} buoyancyDeltaV — upward ΔV this frame (0 if not submerged / disabled)
+ * @param {number} floatiness — active airFloatiness or waterFloatiness (> 0, authored)
+ * @param {number} dt
+ * @returns {number}
+ */
+function StepVerticalVelocity(vy, gravity, k, buoyancyDeltaV, floatiness, dt) {
+	const vyBefore = vy;
+	vy -= gravity * dt;
+	vy += buoyancyDeltaV;
+	vy *= (1 - k * dt);
+	return vyBefore + (vy - vyBefore) / floatiness;
+}
+
 /* === EXPORTS === */
 
-export { ApplyPhysicsPipeline, ApplyEntityPhysics, ResetCollisionPools };
+export { ApplyPhysicsPipeline, ApplyEntityPhysics, ResetCollisionPools, StepVerticalVelocity };
