@@ -325,7 +325,7 @@ function SendEvent(eventName, payload) {
     "ENGINE", 
     `Event: ${eventName}\n\nPayload:\n${JSON.stringify(payload).replaceAll(",", "\n")}`, 
     "log", 
-    "Meta"
+    "Events"
   );
   window.dispatchEvent(new CustomEvent(eventName, { detail: payload }));
 }

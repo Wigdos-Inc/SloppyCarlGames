@@ -72,6 +72,7 @@ const CONFIG = {
         Validation: true,
         Meta: true,
         Player: true,
+        Events: true,
       },
     },
   },
@@ -99,21 +100,21 @@ const CONFIG = {
     Resistance: { Enabled: true },
     Buoyancy  : { 
       Enabled: true, 
-      Force: { Min: new Unit(2, "cnu"), Max: new Unit(10, "cnu") }, 
-      GradientDepth: new Unit(5, "cnu") 
+      Force: { Min: new Unit(1, "cnu"), Max: new Unit(10, "cnu") }, 
+      GradientDepth: new Unit(0, "cnu") 
     },
     Collision : { Enabled: true, Hurtbox: false, Hitbox: false },
-    Correction: { Enabled: true, MinDeltaDegrees: 5, MaxDeltaDegrees: 35, GroundSnapTolerance: 0.05 },
+    Correction: { Enabled: true, MinDeltaDegrees: 5, MaxDeltaDegrees: 35, GroundSnapTolerance: 0.01 },
   },
   CUSTOM_EVENTS: {
     Entities: {
-      spawn          : true,
-      despawn        : true,
-      stateChange    : true,
-      collision      : true,
-      groundedChange : true,
-      damageReceived : true,
-      damageInflicted: true,
+      spawn          : false,
+      despawn        : false,
+      stateChange    : false,
+      collision      : false,
+      groundedChange : false,
+      damageReceived : false,
+      damageInflicted: false,
     }
   }
 };

@@ -325,7 +325,7 @@ function buildModel(entityDefinition, surfaceMap) {
 			scale: rtScale,
 			pivot: rtSource.pivot,
 		},
-		spawnSurfaceId: spawnSurfaceId,
+		spawnSurfaceId,
 		surfacePosition: surfaceOrigin,
 		parts: parts,
 		index: index,
@@ -476,7 +476,8 @@ function computeScaledBounds(bounds, scaleFactor) {
 				spheres: bounds.spheres.map((s) => ({
 					center: s.center.clone(),
 					radius: (() => {
-						const radius = s.radius.clone(); radius.value *= scaleFactor;
+						const radius = s.radius.clone(); 
+						radius.value *= scaleFactor;
 						return radius;
 					})(),
 					partId: s.partId,

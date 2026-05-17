@@ -28,11 +28,11 @@ function hasMeaningfulVectorDelta(currentVector, nextVector) {
 }
 
 function resetSurfaceState(playerState) {
-	const changedGrounded = playerState.grounded;
 	const changedOrientation =
 		hasMeaningfulVectorDelta(playerState.surfaceNormal, WORLD_NORMALS.Up) ||
 		hasMeaningfulVectorDelta(playerState.alignedUp, WORLD_NORMALS.Up);
 
+	const changedGrounded = playerState.grounded;
 	playerState.grounded = false;
 	playerState.surfaceNormal = CloneVector3(WORLD_NORMALS.Up);
 	playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
@@ -88,6 +88,11 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 	let changedOrientation = false;
 	let changedVelocity = false;
 
+	if (changedGrounded && playerState.velocity.y < 0) {
+		playerState.velocity.y = 0;
+		changedVelocity = true;
+	}
+
 	if (((Math.acos(Clamp(normal.y, -1, 1)) * 180) / Math.PI) < config.MinDeltaDegrees) {
 		// Near-flat surface: commit grounded state and real normal for angle tracking,
 		// but force alignedUp to worldUp so edge-contact noise never tilts the player.
@@ -95,20 +100,10 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 		playerState.grounded = true;
 		playerState.surfaceNormal = CloneVector3(normal);
 		playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
-
-		if (changedGrounded && playerState.velocity.y < 0) {
-			playerState.velocity.y = 0;
-			changedVelocity = true;
-		}
 	} else {
 		// Real slope: align to surface and project velocity onto slope plane.
 		changedOrientation = hasMeaningfulVectorDelta(playerState.alignedUp, normal);
 		applySurfaceNormal(playerState, normal);
-
-		if (changedGrounded && playerState.velocity.y < 0) {
-			playerState.velocity.y = 0;
-			changedVelocity = true;
-		}
 
 		// Project forward velocity onto the surface plane to preserve movement speed on slopes.
 		// This creates the illusion of flat-speed movement regardless of incline.
@@ -143,20 +138,17 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 
 function ApplyGroundSnap(playerState, groundContact) {
 	const config = CONFIG.PHYSICS.Correction;
-	if (!config.Enabled || !groundContact.hit || (groundContact.type !== "terrain" && groundContact.type !== "obstacle")) {
-		return correctionDisabled;
-	}
-	if (shouldSkipJumpGrounding(playerState)) return correctionDisabled;
-
-	const normal = ResolveVector3Axis(groundContact.normal);
-	if (normal.y <= 0.5) return correctionDisabled;
+	if (config.Enabled === false || !playerState.grounded) return correctionDisabled;
+	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return correctionDisabled;
+	if (ResolveVector3Axis(groundContact.normal).y <= 0.5) return correctionDisabled;
 
 	const desiredPosY = groundContact.supportPoint.y - playerState.collision.profile.bottomOffset.value;
 	const deltaY = desiredPosY - playerState.transform.position.y;
 
-	if (Math.abs(deltaY) > config.GroundSnapTolerance) return correctionDisabled;
+	const absDeltaY = Math.abs(deltaY);
+	if (absDeltaY > config.GroundSnapTolerance) return correctionDisabled;
 
-	const changedPosition = Math.abs(deltaY) > EPSILON;
+	const changedPosition = absDeltaY > EPSILON;
 	if (changedPosition) {
 		playerState.transform.position.y = desiredPosY;
 		Log("ENGINE", `Ground snap: deltaY=${deltaY.toFixed(4)}`, "log", "Level");

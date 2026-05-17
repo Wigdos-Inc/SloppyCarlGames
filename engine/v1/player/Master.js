@@ -6,7 +6,7 @@
 import { Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
-import { CloneVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
+import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { 
 	BuildPlayerModel, 
 	InitializePlayerCollisionProfile, 
@@ -40,8 +40,6 @@ const playerInputFlags = {
 	jump: false,
 	boost: false,
 };
-
-const deathWaitMs = 1500;
 
 /* === PLAYER STATE === */
 
@@ -107,6 +105,8 @@ function createDefaultPlayerState(playerData) {
 		velocity: new UnitVector3(0, 0, 0, "cnu"),
 		grounded: false,
 		underwater: false,
+		submergence: 0,
+		buoyancyForce: 0,
 		surfaceNormal: CloneVector3(WORLD_NORMALS.Up),
 		alignedUp: CloneVector3(WORLD_NORMALS.Up),
 		jumpStartY: new Unit(playerData.spawnPosition.y, "cnu"),
@@ -259,22 +259,26 @@ function ResolvePlayerState() {
 	// State transitions (priority order).
 	if (playerState.state === "Stunned") return;
 
-	if (!playerState.grounded) {
+	if (playerState.underwater && playerState.state !== "Swimming") {
+		// Sinking requires genuine ungrounded descent; grounded underwater = resting on floor = Floating.
+		playerState.state = !playerState.grounded && playerState.velocity.y < 0 ? "Sinking" : "Floating";
+	}
+	else if (!playerState.grounded && playerState.state !== "Flying") {
 		if (playerState.state === "Jumping") {
 			const currentY = playerState.transform.position.y;
 			playerState.jumpApexY.value = Math.max(playerState.jumpApexY.value, currentY);
 
 			// Switch to Falling after descending below jump start height by 1 unit.
 			if (currentY <= playerState.jumpStartY.value - 1) playerState.state = "Falling";
-		} 
+		}
 		else playerState.state = "Falling";
-	} 
+	}
 	else {
 		// Grounded states.
-		if (playerState.boost.active) playerState.state = "Boosting";
+		if      (playerState.boost.active)   playerState.state = "Boosting";
 		else if (playerState.stoppingActive) playerState.state = "Stopping";
-		else if (speed > 0.5) playerState.state = "Running";
-		else playerState.state = "Idle";
+		else if (speed > 0.5)                playerState.state = "Running";
+		else                                 playerState.state = "Idle";
 	}
 
 	// Log state transitions.
@@ -285,8 +289,8 @@ function ResolvePlayerState() {
 			SendEvent("PLAYER_STATE_CHANGE", {
 				id      : playerState.id,
 				type    : playerState.type,
-				position: { x: playerState.transform.position.x, y: playerState.transform.position.y, z: playerState.transform.position.z },
-				velocity: { x: playerState.velocity.x, y: playerState.velocity.y, z: playerState.velocity.z },
+				position: CloneVector3(playerState.transform.position),
+				velocity: CloneVector3(playerState.velocity),
 				from    : oldState,
 				to      : playerState.state,
 			});
@@ -312,7 +316,7 @@ function TriggerPlayerRespawnSequence() {
 	TriggerPlayerDeath();
 	SendEvent("PLAYER_DEATH", {});
 
-	setTimeout(() => RespawnPlayer(), deathWaitMs);
+	setTimeout(() => RespawnPlayer(), 200);
 }
 
 /**

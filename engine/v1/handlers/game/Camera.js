@@ -94,7 +94,7 @@ function cacheCameraPosition(cameraState) {
 
 function getCurrentCameraPosition() {
 	if (!latestCameraPosition) {
-		console.warn("window.camPos can only be used while in a level.");
+		Log("ENGINE", "window.camPos can only be used while in a level", "log", "Level");
 		return null;
 	}
 

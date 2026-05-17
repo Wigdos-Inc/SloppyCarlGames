@@ -4,7 +4,9 @@
 // Returns modified velocity. Does NOT modify position directly.
 
 import { CONFIG } from "../core/config.js";
+import { Log, SendEvent } from "../core/meta.js";
 import {
+	CloneVector3,
 	ResolveVector3Axis,
 	AddVector3,
 	ScaleVector3,
@@ -203,6 +205,17 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 		playerState.jumpApexY.value = jumpStartY;
 		playerState.previousState = playerState.state;
 		playerState.state = "Jumping";
+		Log("ENGINE", `Player state: ${playerState.previousState} → Jumping`, "log", "Player");
+		if (playerState.customEvents.stateChange && CONFIG.CUSTOM_EVENTS.Entities.stateChange) {
+			SendEvent("PLAYER_STATE_CHANGE", {
+				id      : playerState.id,
+				type    : playerState.type,
+				position: CloneVector3(playerState.transform.position),
+				velocity: CloneVector3(playerState.velocity),
+				from    : playerState.previousState,
+				to      : "Jumping",
+			});
+		}
 	}
 
 	// === FACE MOMENTUM DIRECTION ===
