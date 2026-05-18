@@ -6,7 +6,7 @@
 import { CONFIG } from "../core/config.js";
 import { Log, SendEvent, EPSILON } from "../core/meta.js";
 import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
-import { ApplyGravity, AIR_DRAG_COEFFICIENT, WATER_DRAG_COEFFICIENT, ComputeBuoyancyDeltaV, StepVerticalVelocity } from "../math/Forces.js";
+import { ComputeGravity, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence } from "../math/Forces.js";
 import {
 	DetectPhysicsCollisions,
 	DetectCurrentPhysicsOverlaps,
@@ -224,33 +224,22 @@ function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
 	const wasGrounded = playerState.grounded;
 
 	// Compute submergence ratio (0–1): fraction of capsule below waterLevel.
-	const profile = playerState.collision.profile;
-	const capsuleBottom = playerState.transform.position.y + profile.bottomOffset.value;
-	const capsuleHeight = 2 * (profile.capsuleRadius.value + profile.capsuleHalfHeight.value);
-	const submergence = sceneGraph.world.waterLevel !== null
-		? Math.max(0, Math.min(1, (sceneGraph.world.waterLevel.value - capsuleBottom) / capsuleHeight))
-		: 0;
+	const submergence = ComputeSubmergence(playerState.transform.position, playerState.collision.profile, sceneGraph.world.waterLevel);
 	playerState.submergence = submergence;
 	playerState.buoyancyForce = 0;
 	playerState.underwater = submergence >= 0.5;
 
 	// Steps 1–4: Gravity → Buoyancy → Resistance → Floatiness (unified vertical step).
-	const gravity = CONFIG.PHYSICS.Gravity.Strength.value;
-	const k = AIR_DRAG_COEFFICIENT + (WATER_DRAG_COEFFICIENT - AIR_DRAG_COEFFICIENT) * submergence;
 	const meta = playerState.character.meta;
 	const activeFloatiness = playerState.underwater ? meta.waterFloatiness : meta.airFloatiness;
-	const { deltaV: buoyancyDeltaV, buoyancyForce } = ComputeBuoyancyDeltaV(
+	const { buoyancyForce } = ComputeBuoyancy(
 		playerState.transform.position, sceneGraph.world.waterLevel, submergence, deltaSeconds
 	);
 	playerState.buoyancyForce = buoyancyForce;
-	playerState.velocity.y = StepVerticalVelocity(
-		playerState.velocity.y, gravity, k, buoyancyDeltaV, activeFloatiness, deltaSeconds
-	);
-
-	// Horizontal resistance (floatiness is vertical only; gravity and buoyancy are vertical-only).
-	const hFactor = 1 - k * deltaSeconds;
-	playerState.velocity.x *= hFactor;
-	playerState.velocity.z *= hFactor;
+	playerState.velocity.set(ComputeStepVelocity.vector(
+		playerState.velocity, submergence, playerState.transform.position, sceneGraph.world.waterLevel, deltaSeconds,
+		{ flag: true, floatiness: activeFloatiness }
+	));
 
 	// Step 5: Compute intended displacement.
 	const displacement = ScaleVector3(playerState.velocity, deltaSeconds);
@@ -304,7 +293,7 @@ function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
 	const deathBarrierY = sceneGraph.world.deathBarrierY.value;
 
 	// Gravity.
-	entity.velocity.set(ApplyGravity(entity.velocity, deltaSeconds));
+	entity.velocity.set(ComputeGravity(entity.velocity, deltaSeconds));
 
 	// Calculate Displacement
 	const displacement = ScaleVector3(entity.velocity, deltaSeconds);

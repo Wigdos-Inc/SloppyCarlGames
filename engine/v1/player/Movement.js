@@ -15,7 +15,7 @@ import {
 	ToVector3,
 } from "../math/Vector3.js";
 import { ApplyAcceleration, ApplyDeceleration, ClampVelocity } from "../math/Collision.js";
-import { AIR_DRAG_COEFFICIENT, WATER_DRAG_COEFFICIENT, StepVerticalVelocity } from "../math/Forces.js";
+import { ComputeStepVelocity } from "../math/Forces.js";
 
 const jumpVelocityCache = { jumpHeight: -1, medium: "", floatiness: -1, v0: 0 };
 
@@ -26,17 +26,20 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
 		jumpVelocityCache.floatiness === floatiness
 	) return jumpVelocityCache.v0;
 
-	const gravity = CONFIG.PHYSICS.Gravity.Strength.value;
-	const k = medium === "water" ? WATER_DRAG_COEFFICIENT : AIR_DRAG_COEFFICIENT;
 	const buoyancyEnabled = medium === "water" && CONFIG.PHYSICS.Buoyancy.Enabled !== false;
 	const simDt = 1 / 240;
-	const buoyancyDeltaV = buoyancyEnabled ? CONFIG.PHYSICS.Buoyancy.Force.Max.value * simDt : 0;
+	const simSubmergence = medium === "water" ? 1 : 0;
+	const simForces = {
+		gravity: true,
+		resistance: { submergence: simSubmergence },
+		...(buoyancyEnabled ? { buoyancy: { position: { y: 0 }, waterLevel: { value: 0 }, submergence: 1 } } : {}),
+	};
 
 	const simApex = (v0) => {
 		let vy = v0;
 		let y = 0;
 		for (let step = 0; step < 10000; step++) {
-			vy = StepVerticalVelocity(vy, gravity, k, buoyancyDeltaV, floatiness, simDt);
+			vy = ComputeStepVelocity.scalar(vy, simForces, simDt, { flag: true, floatiness });
 			if (vy <= 0) break;
 			y += vy * simDt;
 		}

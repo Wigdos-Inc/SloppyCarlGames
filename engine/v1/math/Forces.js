@@ -1,90 +1,188 @@
-// Pure force calculation: gravity, buoyancy, resistance, and vertical velocity step
+// Pure force calculation: gravity, buoyancy, resistance, and step-velocity composition
 
 import { CONFIG } from "../core/config.js";
-import { ScaleVector3 } from "./Vector3.js";
+import { Log } from "../core/meta.js";
 
 const AIR_DRAG_COEFFICIENT = CONFIG.PHYSICS.Gravity.Strength.value / CONFIG.PHYSICS.Gravity.TerminalVelocity.Air.value;
 const WATER_DRAG_COEFFICIENT = CONFIG.PHYSICS.Gravity.Strength.value / CONFIG.PHYSICS.Gravity.TerminalVelocity.Water.value;
 
+const logFlags = { gravity: false, resistance: false, buoyancy: false };
+
+// --- Scalar helpers (axis-agnostic, pure arithmetic, no Enabled checks) ---
+
+function gravityScalar(v, dt) {
+	return v - CONFIG.PHYSICS.Gravity.Strength.value * dt;
+}
+
+function resistanceScalar(v, submergence, dt) {
+	const k = AIR_DRAG_COEFFICIENT + (WATER_DRAG_COEFFICIENT - AIR_DRAG_COEFFICIENT) * submergence;
+	return v * (1 - k * dt);
+}
+
+// buoyancy legitimately takes more inputs than the others; returns per-frame ΔV (not force).
+function buoyancyScalar(position, waterLevel, submergence, dt) {
+	if (submergence <= 0) return 0;
+	const config = CONFIG.PHYSICS.Buoyancy;
+	let gradientForce;
+	if (config.GradientDepth.value === 0) gradientForce = config.Force.Max.value;
+	else {
+		const t = Math.min(1, (waterLevel.value - position.y) / config.GradientDepth.value);
+		gradientForce = config.Force.Min.value + (config.Force.Max.value - config.Force.Min.value) * t;
+	}
+	return gradientForce * submergence * dt;
+}
+
+// --- Exported functions ---
+
 /**
  * Apply gravity to a velocity vector.
- * @param {{ x: number, y: number, z: number }} velocity — current velocity (mutated copy returned).
+ * @param {{ x: number, y: number, z: number }} velocity
  * @param {number} deltaSeconds — frame delta in seconds.
- * @returns {{ x: number, y: number, z: number }} — updated velocity.
+ * @returns {{ x: number, y: number, z: number }} — new vector with gravity applied to y; x/z unchanged.
  */
-function ApplyGravity(velocity, deltaSeconds) {
-	const config = CONFIG.PHYSICS.Gravity;
-	if (config.Enabled === false) return velocity;
-
-	velocity.y -= config.Strength.value * deltaSeconds;
-	return velocity;
+function ComputeGravity(velocity, deltaSeconds) {
+	if (CONFIG.PHYSICS.Gravity.Enabled === false) {
+		if (!logFlags.gravity) { Log("Forces", "Gravity disabled — ComputeGravity is a no-op", "warn", "Physics"); logFlags.gravity = true; }
+		return { x: velocity.x, y: velocity.y, z: velocity.z };
+	}
+	return { x: velocity.x, y: gravityScalar(velocity.y, deltaSeconds), z: velocity.z };
 }
 
 /**
  * Apply velocity-proportional drag blended by submergence ratio.
- * drag force = -velocity * k per axis, where k interpolates between
- * AIR_DRAG_COEFFICIENT (submergence 0) and WATER_DRAG_COEFFICIENT (submergence 1).
  * @param {{ x: number, y: number, z: number }} velocity
  * @param {number} deltaSeconds
- * @param {number} submergence — fraction of capsule below waterLevel (0–1)
- * @returns {{ x: number, y: number, z: number }}
+ * @param {number} submergence — fraction of capsule below waterLevel (0–1).
+ * @returns {{ x: number, y: number, z: number }} — new vector with resistance applied to all axes.
  */
-function ApplyResistance(velocity, deltaSeconds, submergence) {
-	if (CONFIG.PHYSICS.Resistance.Enabled === false) return velocity;
-
-	const k = AIR_DRAG_COEFFICIENT + (WATER_DRAG_COEFFICIENT - AIR_DRAG_COEFFICIENT) * submergence;
-
-	return ScaleVector3(velocity, 1 - k * deltaSeconds);
-}
-
-/**
- * Compute the buoyancy ΔV for this frame and return the effective force for the caller to record.
- * GradientDepth blends force from Force.Min (at surface) to Force.Max (at depth),
- * then submergence ratio (0–1) scales the result. The effective per-second upward
- * acceleration (gradientForce * submergence) is returned as buoyancyForce so the caller
- * can write it to player state for use by the correction pipeline. Terminal velocity is
- * enforced by the physics pipeline, not here.
- * @param {{ x: number, y: number, z: number }} position — entity position
- * @param {Unit} waterLevel — world water level Y as a Unit instance
- * @param {number} submergence — fraction of capsule below waterLevel (0–1)
- * @param {number} deltaSeconds
- * @returns {{ deltaV: number, buoyancyForce: number }}
- */
-function ComputeBuoyancyDeltaV(position, waterLevel, submergence, deltaSeconds) {
-	if (CONFIG.PHYSICS.Buoyancy.Enabled === false || submergence <= 0) return { deltaV: 0, buoyancyForce: 0 };
-
-	const config = CONFIG.PHYSICS.Buoyancy;
-
-	let gradientForce;
-	if (config.GradientDepth.value === 0) gradientForce = config.Force.Max.value;
-	else {
-		const t = Math.min(1, waterLevel.value - position.y / config.GradientDepth.value);
-		gradientForce = config.Force.Min.value + (config.Force.Max.value - config.Force.Min.value) * t;
+function ComputeResistance(velocity, deltaSeconds, submergence) {
+	if (CONFIG.PHYSICS.Resistance.Enabled === false) {
+		if (!logFlags.resistance) { Log("Forces", "Resistance disabled — ComputeResistance is a no-op", "warn", "Physics"); logFlags.resistance = true; }
+		return { x: velocity.x, y: velocity.y, z: velocity.z };
 	}
-
-	const effectiveForce = gradientForce * submergence;
-	return { deltaV: effectiveForce * deltaSeconds, buoyancyForce: effectiveForce };
+	return {
+		x: resistanceScalar(velocity.x, submergence, deltaSeconds),
+		y: resistanceScalar(velocity.y, submergence, deltaSeconds),
+		z: resistanceScalar(velocity.z, submergence, deltaSeconds),
+	};
 }
 
 /**
- * One frame of the composed vertical force step, shared by ApplyPhysicsPipeline (runtime)
- * and the jump solver in Movement.js. Order: gravity → buoyancy → resistance → floatiness.
- * @param {number} vy
- * @param {number} gravity — CONFIG.PHYSICS.Gravity.Strength.value
- * @param {number} k — drag coefficient for this medium/frame
- * @param {number} buoyancyDeltaV — upward ΔV this frame (0 if not submerged / disabled)
- * @param {number} floatiness — active airFloatiness or waterFloatiness (> 0, authored)
- * @param {number} dt
- * @returns {number}
+ * Compute buoyancy velocity change and effective force for this frame.
+ * GradientDepth blends force from Force.Min (surface) to Force.Max (depth), scaled by submergence.
+ * @param {{ x: number, y: number, z: number }} position — entity position.
+ * @param {Unit} waterLevel — world water level Y as a Unit instance.
+ * @param {number} submergence — fraction of capsule below waterLevel (0–1).
+ * @param {number} deltaSeconds
+ * @returns {{ velocityChange: number, buoyancyForce: number }}
  */
-function StepVerticalVelocity(vy, gravity, k, buoyancyDeltaV, floatiness, dt) {
-	const vyBefore = vy;
-	vy -= gravity * dt;
-	vy += buoyancyDeltaV;
-	vy *= (1 - k * dt);
-	return vyBefore + (vy - vyBefore) / floatiness;
+function ComputeBuoyancy(position, waterLevel, submergence, deltaSeconds) {
+	if (CONFIG.PHYSICS.Buoyancy.Enabled === false || submergence <= 0) {
+		if (!logFlags.buoyancy) { 
+			Log("Forces", "Buoyancy disabled or no submergence — ComputeBuoyancy is a no-op", "warn", "Physics"); 
+			logFlags.buoyancy = true; 
+		}
+		return { velocityChange: 0, buoyancyForce: 0 };
+	}
+	const velocityChange = buoyancyScalar(position, waterLevel, submergence, deltaSeconds);
+	const config = CONFIG.PHYSICS.Buoyancy;
+	const gradientForce = config.GradientDepth === 0
+		? config.Force.Max.value
+		: config.Force.Min.value + (config.Force.Max.value - config.Force.Min.value) * Math.min(1, (waterLevel.value - position.y) / config.GradientDepth.value);
+	return { velocityChange, buoyancyForce: gradientForce * submergence };
+}
+
+/**
+ * Composable step-velocity computer. Two entry points:
+ *   scalar — one velocity component, configurable forces, optional floatiness.
+ *   vector — all three axes in one call; standard force axes (gravity/buoyancy → y, resistance → all).
+ *
+ * forces shape for scalar:
+ *   { gravity?: true, buoyancy?: { position, waterLevel, submergence }, resistance?: { submergence } }
+ *   Presence of a key = apply that force. gravity has no payload (reads CONFIG).
+ *
+ * vertical shape (last param on both methods):
+ *   { flag: boolean, floatiness: number }
+ *   flag true = apply floatiness smoothing after forces.
+ */
+const ComputeStepVelocity = {
+	/**
+	 * @param {number} v — current velocity component.
+	 * @param {{ gravity?: true, buoyancy?: object, resistance?: object }} forces
+	 * @param {number} dt
+	 * @param {{ flag: boolean, floatiness: number }} vertical
+	 * @returns {number}
+	 */
+	scalar(v, forces, dt, vertical) {
+		const vBefore = v;
+		if (forces.gravity) {
+			if (CONFIG.PHYSICS.Gravity.Enabled === false) {
+				if (!logFlags.gravity) { 
+					Log("Forces", "Gravity disabled — scalar gravity skipped", "warn", "Physics"); 
+					logFlags.gravity = true; 
+				}
+			} 
+			else v = gravityScalar(v, dt);
+		}
+		if (forces.buoyancy) {
+			if (CONFIG.PHYSICS.Buoyancy.Enabled === false) {
+				if (!logFlags.buoyancy) { 
+					Log("Forces", "Buoyancy disabled — scalar buoyancy skipped", "warn", "Physics"); 
+					logFlags.buoyancy = true; 
+				}
+			} 
+			else v += buoyancyScalar(forces.buoyancy.position, forces.buoyancy.waterLevel, forces.buoyancy.submergence, dt);
+		}
+		if (forces.resistance) {
+			if (CONFIG.PHYSICS.Resistance.Enabled === false) {
+				if (!logFlags.resistance) { 
+					Log("Forces", "Resistance disabled — scalar resistance skipped", "warn", "Physics"); 
+					logFlags.resistance = true; 
+				}
+			} 
+			else v = resistanceScalar(v, forces.resistance.submergence, dt);
+		}
+		if (vertical.flag) return vBefore + (v - vBefore) / vertical.floatiness;
+		return v;
+	},
+
+	/**
+	 * @param {{ x: number, y: number, z: number }} velocity
+	 * @param {number} submergence — fraction of capsule below waterLevel (0–1).
+	 * @param {{ x: number, y: number, z: number }} position
+	 * @param {Unit} waterLevel
+	 * @param {number} deltaSeconds
+	 * @param {{ flag: boolean, floatiness: number }} vertical
+	 * @returns {{ x: number, y: number, z: number }}
+	 */
+	vector(velocity, submergence, position, waterLevel, deltaSeconds, vertical) {
+		return {
+			x: this.scalar(velocity.x, { resistance: { submergence } }, deltaSeconds, { flag: false }),
+			y: this.scalar(
+				velocity.y, 
+				{ gravity: true, buoyancy: { position, waterLevel, submergence }, resistance: { submergence } }, 
+				deltaSeconds, 
+				vertical
+			),
+			z: this.scalar(velocity.z, { resistance: { submergence } }, deltaSeconds, { flag: false }),
+		};
+	},
+};
+
+/**
+ * Compute the 0–1 submergence ratio of a capsule in water.
+ * @param {{ x: number, y: number, z: number }} position — entity position.
+ * @param {{ bottomOffset: Unit, capsuleRadius: Unit, capsuleHalfHeight: Unit }} profile — collision profile.
+ * @param {Unit | null} waterLevel — world water level, or null if no water.
+ * @returns {number} — fraction of capsule below waterLevel (0–1).
+ */
+function ComputeSubmergence(position, profile, waterLevel) {
+	if (waterLevel === null) return 0;
+	const capsuleBottom = position.y + profile.bottomOffset.value;
+	const capsuleHeight = 2 * (profile.capsuleRadius.value + profile.capsuleHalfHeight.value);
+	return Math.max(0, Math.min(1, (waterLevel.value - capsuleBottom) / capsuleHeight));
 }
 
 /* === EXPORTS === */
 
-export { ApplyGravity, ComputeBuoyancyDeltaV, ApplyResistance, AIR_DRAG_COEFFICIENT, WATER_DRAG_COEFFICIENT, StepVerticalVelocity };
+export { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence };
