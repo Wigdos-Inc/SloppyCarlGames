@@ -230,7 +230,7 @@
                                 "repeat": true,
                                 "backAndForth": true,
                                 "speed": 6,
-                                "physics": false
+                                "physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false }
                             },
                             "dialogue": ["Hostile scout detected."]
                         },
@@ -252,7 +252,7 @@
                                 "repeat": true,
                                 "backAndForth": true,
                                 "speed": 5,
-                                "physics": false
+                                "physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false }
                             },
                             "hardcoded": {
                                 "aggroRange": 18
@@ -275,7 +275,7 @@
                                 "repeat": true,
                                 "backAndForth": true,
                                 "speed": 1.2,
-                                "physics": false
+                                "physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false }
                             },
                             "dialogue": ["Keep your eye on that beacon."]
                         },
@@ -296,7 +296,7 @@
                                 "repeat": true,
                                 "backAndForth": true,
                                 "speed": 0.9,
-                                "physics": false
+                                "physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false }
                             }
                         }
                     ]

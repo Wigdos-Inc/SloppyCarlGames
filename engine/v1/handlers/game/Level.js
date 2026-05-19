@@ -21,7 +21,7 @@ import {
 	ResolvePlayerState, 
 	GetPlayerState 
 } from "../../player/Master.js";
-import { ApplyPhysicsPipeline, ApplyEntityPhysics } from "../../physics/Master.js";
+import { ApplyPhysicsPipeline } from "../../physics/Master.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
 import { GetSimDistanceValue } from "../../physics/Collision.js";
@@ -318,7 +318,7 @@ function Update(deltaMilliseconds) {
 		if (entity.type === "player") return;
 		if (Vector3Distance(cameraPosition, entity.transform.position) > simDistance) return;
 		updateEntityMovement(entity, deltaSeconds);
-		ApplyEntityPhysics(entity, sceneGraph, deltaSeconds);
+		ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds);
 	});
 
 	// === CAMERA ===

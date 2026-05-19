@@ -602,6 +602,9 @@ function BuildEntity(definition, surfaceMap) {
 			scale: rootTrans.scale,
 		},
 		velocity: definition.velocity,
+		submergence: 0,
+		underwater: false,
+		buoyancyForce: 0,
 		model: model,
 		mesh: model.parts[0].mesh,
 		collision: {

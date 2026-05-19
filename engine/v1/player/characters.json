@@ -16,6 +16,7 @@
 			"airFloatiness": 1,
 			"waterFloatiness": 1
 		},
+		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
 		"model": {
 			"parts": [
 				{
@@ -164,6 +165,7 @@
 			"airFloatiness": 5,
 			"waterFloatiness": 3
 		},
+		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
 		"model": {
 			"parts": [
 				{

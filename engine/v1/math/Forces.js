@@ -155,7 +155,7 @@ const ComputeStepVelocity = {
 	 * @param {{ flag: boolean, floatiness: number }} vertical
 	 * @returns {{ x: number, y: number, z: number }}
 	 */
-	vector(velocity, submergence, position, waterLevel, deltaSeconds, vertical) {
+	sim(velocity, submergence, position, waterLevel, deltaSeconds, vertical) {
 		return {
 			x: this.scalar(velocity.x, { resistance: { submergence } }, deltaSeconds, { flag: false }),
 			y: this.scalar(
@@ -170,17 +170,15 @@ const ComputeStepVelocity = {
 };
 
 /**
- * Compute the 0–1 submergence ratio of a capsule in water.
- * @param {{ x: number, y: number, z: number }} position — entity position.
- * @param {{ bottomOffset: Unit, capsuleRadius: Unit, capsuleHalfHeight: Unit }} profile — collision profile.
+ * Compute the 0–1 submergence ratio of a volume in water.
+ * @param {number} bottom — world-space Y of the volume's lowest point.
+ * @param {number} height — total height of the volume.
  * @param {Unit | null} waterLevel — world water level, or null if no water.
- * @returns {number} — fraction of capsule below waterLevel (0–1).
+ * @returns {number} — fraction of volume below waterLevel (0–1).
  */
-function ComputeSubmergence(position, profile, waterLevel) {
+function ComputeSubmergence(bottom, height, waterLevel) {
 	if (waterLevel === null) return 0;
-	const capsuleBottom = position.y + profile.bottomOffset.value;
-	const capsuleHeight = 2 * (profile.capsuleRadius.value + profile.capsuleHalfHeight.value);
-	return Math.max(0, Math.min(1, (waterLevel.value - capsuleBottom) / capsuleHeight));
+	return Math.max(0, Math.min(1, (waterLevel.value - bottom) / height));
 }
 
 /* === EXPORTS === */

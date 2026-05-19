@@ -6,7 +6,7 @@
 import { CONFIG } from "../core/config.js";
 import { Log, SendEvent, EPSILON } from "../core/meta.js";
 import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
-import { ComputeGravity, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence } from "../math/Forces.js";
+import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence } from "./Forces.js";
 import {
 	DetectPhysicsCollisions,
 	DetectCurrentPhysicsOverlaps,
@@ -33,32 +33,19 @@ function rebuildBounds(entity) {
 	UpdateEntityModelFromTransform(entity);
 }
 
-function applyOrientation(entity) {
-	if (entity.type === "player") return ApplyPlayerSurfaceOrientation(entity);
-	return { changedOrientation: false, anyChanged: false };
-}
-
-function applyCorrection(entity, groundContact, deltaSeconds) {
-	if (entity.type === "player") return ApplySurfaceCorrection(entity, groundContact, deltaSeconds);
-	return {
+const noResult = Object.freeze({
+	orientation: Object.freeze({
+		changedOrientation: false,
+		anyChanged: false,
+	}),
+	correction: Object.freeze({
 		changedGrounded: false,
 		changedOrientation: false,
 		changedPosition: false,
 		changedVelocity: false,
 		anyChanged: false,
-	};
-}
-
-function applyFinalGroundSnap(entity, groundContact) {
-	if (entity.type === "player") return ApplyGroundSnap(entity, groundContact);
-	return {
-		changedGrounded: false,
-		changedOrientation: false,
-		changedPosition: false,
-		changedVelocity: false,
-		anyChanged: false,
-	};
-}
+	}),
+});
 
 function storePlayerTriggers(playerState, triggers) {
 	playerState.activeTriggers.length = 0;
@@ -103,13 +90,16 @@ function updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration) {
 	cache.cachePrimed = true;
 }
 
-function runPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
-	let latestTriggers = null;
+function runPhysicsLoop(entity, sceneGraph, displacement) {
+	const isPlayer = entity.type === "player";
+	const entityPhysics = isPlayer ? entity.character.physics : entity.movement.physics;
+	const applyCorrection = entityPhysics.correction;
+	let latestTriggers;
 	let groundContact = { hit: false, normal: CloneVector3(WORLD_NORMALS.Up) };
-	let iterations = 0;
+	let iterations;
 	let hadMeaningfulWork = false;
 
-	applyOrientation(entity);
+	if (applyCorrection) ApplyPlayerSurfaceOrientation(entity);
 	rebuildBounds(entity);
 
 	ResetCollisionPools();
@@ -124,17 +114,13 @@ function runPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 	const gc = sweptResolution.groundContact;
 	const wc = sweptResolution.wallContact;
 	const collisionKey = swept.solids.count > 0
-		? (gc.hit && wc.hit ? "ground+wall" : gc.hit ? "ground" : wc.hit ? "wall" : "solid")
-		: "";
+		? (gc.hit && wc.hit ? "ground+wall" : gc.hit ? "ground" : wc.hit ? "wall" : "solid") : "";
 	const isNewContact = collisionKey !== "" && collisionKey !== entity.physicsRuntime.lastPhysicsCollisionKey;
-	if (collisionKey !== "") {
-		entity.physicsRuntime.lastPhysicsCollisionKey = collisionKey;
-	} else if (entity.type !== "player" || !entity.grounded) {
-		entity.physicsRuntime.lastPhysicsCollisionKey = "";
-	}
+	if (collisionKey !== "") entity.physicsRuntime.lastPhysicsCollisionKey = collisionKey;
+	else if (!isPlayer || !entity.grounded) entity.physicsRuntime.lastPhysicsCollisionKey = "";
 
 	if (isNewContact && entity.customEvents.collision && CONFIG.CUSTOM_EVENTS.Entities.collision) {
-		SendEvent(entity.type === "player" ? "PLAYER_COLLISION" : "ENTITY_COLLISION", {
+		SendEvent(isPlayer ? "PLAYER_COLLISION" : "ENTITY_COLLISION", {
 			id           : entity.id,
 			type         : entity.type,
 			position     : CloneVector3(entity.transform.position),
@@ -146,7 +132,7 @@ function runPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 		});
 	}
 
-	applyOrientation(entity);
+	if (applyCorrection) ApplyPlayerSurfaceOrientation(entity);
 	rebuildBounds(entity);
 
 	for (iterations = 0; iterations < 3; iterations++) {
@@ -161,31 +147,26 @@ function runPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 
 		rebuildBounds(entity);
 
-		if (entity.type === "player") groundContact = ProbeGroundContact(entity, sceneGraph);
-		const correction = applyCorrection(entity, groundContact, deltaSeconds);
-		const orientation = applyOrientation(entity);
+		if (isPlayer) groundContact = ProbeGroundContact(entity, sceneGraph);
+		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact) : noResult.correction;
+		const orientation = applyCorrection ? ApplyPlayerSurfaceOrientation(entity) : noResult.orientation;
 		hadMeaningfulWork = hadMeaningfulWork || correction.anyChanged || orientation.anyChanged;
-		if (
-			correction.changedPosition ||
-			correction.changedOrientation ||
-			orientation.changedOrientation
-		) {
+		if (correction.changedPosition || correction.changedOrientation || orientation.changedOrientation) {
 			rebuildBounds(entity);
 		}
 
 		if (!overlapResolution.anyChanged && !correction.anyChanged && !orientation.anyChanged) break;
 	}
 
-	if (entity.type === "player") {
-		const jumping = entity.state === "Jumping" && entity.velocity.y > EPSILON;
-		if (!jumping) {
+	if (isPlayer) {
+		if (!entity.state === "Jumping" && entity.velocity.y > EPSILON) {
 			entity.grounded = groundContact.hit &&
 				entity.buoyancyForce <= CONFIG.PHYSICS.Gravity.Strength.value;
 		}
 	}
 
-	const snap = applyFinalGroundSnap(entity, groundContact);
-	const finalOrientation = applyOrientation(entity);
+	const snap = applyCorrection ? ApplyGroundSnap(entity, groundContact) : noResult.correction;
+	const finalOrientation = applyCorrection ? ApplyPlayerSurfaceOrientation(entity) : noResult.orientation;
 	hadMeaningfulWork = hadMeaningfulWork || snap.anyChanged || finalOrientation.anyChanged;
 	if (
 		snap.changedPosition ||
@@ -199,7 +180,7 @@ function runPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 	const finalOverlaps = DetectCurrentPhysicsOverlaps(entity, sceneGraph);
 	latestTriggers = finalOverlaps.triggers;
 	const hasUnresolvedPenetration = finalOverlaps.solids.count > 0;
-	if (entity.type === "player" && hadMeaningfulWork && iterations) {
+	if (isPlayer && hadMeaningfulWork && iterations) {
 		Log(
 			"ENGINE",
 			`Collision/correction loop finished: iterations=${iterations}`,
@@ -212,110 +193,108 @@ function runPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement) {
 }
 
 /**
- * Full physics pipeline for the player entity each fixed frame.
- * Order: gravity → buoyancy → resistance → floatiness → displacement → collision detect → resolve → position → correction → death barrier.
+ * Unified physics pipeline for all entities (player and non-player).
+ * Active stages are driven by per-entity flags: movement.physics (entities) or character.physics (player).
+ * Order: submergence → gravity → buoyancy → resistance → floatiness* → displacement → collision → correction* → death barrier.
+ * (* player-only stages)
  *
- * @param {object} playerState — full mutable player state.
+ * @param {object} entity — full mutable entity or player state.
  * @param {object} sceneGraph — active scene graph.
  * @param {number} deltaSeconds
  */
-function ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds) {
+function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
+	const isPlayer = entity.type === "player";
+	const entityPhysics = isPlayer ? entity.character.physics : entity.movement.physics;
 	const deathBarrierY = sceneGraph.world.deathBarrierY.value;
-	const wasGrounded = playerState.grounded;
+	const wasGrounded = isPlayer ? entity.grounded : undefined;
 
-	// Compute submergence ratio (0–1): fraction of capsule below waterLevel.
-	const submergence = ComputeSubmergence(playerState.transform.position, playerState.collision.profile, sceneGraph.world.waterLevel);
-	playerState.submergence = submergence;
-	playerState.buoyancyForce = 0;
-	playerState.underwater = submergence >= 0.5;
+	const physicsState = {
+		deltaSeconds,
+		submergence: 0,
+		waterLevel: sceneGraph.world.waterLevel,
+		gravity: {
+			enabled:               CONFIG.PHYSICS.Gravity.Enabled    && entityPhysics.gravity,
+			strength:              CONFIG.PHYSICS.Gravity.Strength.value,
+			airTerminalVelocity:   CONFIG.PHYSICS.Gravity.TerminalVelocity.Air.value,
+			waterTerminalVelocity: CONFIG.PHYSICS.Gravity.TerminalVelocity.Water.value,
+			result: null,
+		},
+		buoyancy: {
+			enabled:       CONFIG.PHYSICS.Buoyancy.Enabled   && entityPhysics.buoyancy,
+			gradientDepth: CONFIG.PHYSICS.Buoyancy.GradientDepth.value,
+			forceMin:      CONFIG.PHYSICS.Buoyancy.Force.Min.value,
+			forceMax:      CONFIG.PHYSICS.Buoyancy.Force.Max.value,
+			result: null,
+		},
+		resistance: {
+			enabled: CONFIG.PHYSICS.Resistance.Enabled && entityPhysics.resistance,
+			result: null,
+		},
+	};
 
-	// Steps 1–4: Gravity → Buoyancy → Resistance → Floatiness (unified vertical step).
-	const meta = playerState.character.meta;
-	const activeFloatiness = playerState.underwater ? meta.waterFloatiness : meta.airFloatiness;
-	const { buoyancyForce } = ComputeBuoyancy(
-		playerState.transform.position, sceneGraph.world.waterLevel, submergence, deltaSeconds
-	);
-	playerState.buoyancyForce = buoyancyForce;
-	playerState.velocity.set(ComputeStepVelocity.vector(
-		playerState.velocity, submergence, playerState.transform.position, sceneGraph.world.waterLevel, deltaSeconds,
-		{ flag: true, floatiness: activeFloatiness }
-	));
+	if (physicsState.buoyancy.enabled || physicsState.resistance.enabled) {
+		physicsState.submergence = GetSubmergence(entity, sceneGraph.world.waterLevel);
+		entity.submergence = physicsState.submergence;
+		entity.underwater   = physicsState.submergence >= 0.5;
+		entity.buoyancyForce = 0;
+	}
 
-	// Step 5: Compute intended displacement.
-	const displacement = ScaleVector3(playerState.velocity, deltaSeconds);
-	const shouldSkipCollision = shouldSkipCollisionPipeline(playerState, displacement);
-	let hasUnresolvedPenetration = playerState.physicsRuntime.hasUnresolvedPenetration;
+	const yBefore = entity.velocity.y;
 
-	// Step 6: Collision & Correction Pipeline
+	if (physicsState.gravity.enabled) {
+		physicsState.gravity.result = entity.velocity.set(GetGravity(entity, physicsState));
+	}
+
+	if (physicsState.buoyancy.enabled) {
+		physicsState.buoyancy.result = GetBuoyancy(entity, physicsState);
+		entity.buoyancyForce   = physicsState.buoyancy.result.buoyancyForce;
+		entity.velocity.y     += physicsState.buoyancy.result.velocityChange;
+	}
+
+	if (physicsState.resistance.enabled) {
+		physicsState.resistance.result = entity.velocity.set(GetResistance(entity, physicsState));
+	}
+
+	if (isPlayer) {
+		const activeFloatiness = entity.underwater
+			? entity.character.meta.waterFloatiness
+			: entity.character.meta.airFloatiness;
+		entity.velocity.y = yBefore + (entity.velocity.y - yBefore) / activeFloatiness;
+	}
+
+	const displacement = ScaleVector3(entity.velocity, deltaSeconds);
+	const shouldSkipCollision = shouldSkipCollisionPipeline(entity, displacement);
+	let hasUnresolvedPenetration = entity.physicsRuntime.hasUnresolvedPenetration;
+
 	if (!shouldSkipCollision) {
-		const physicsResult = runPhysicsLoop(playerState, sceneGraph, deltaSeconds, displacement);
-		storePlayerTriggers(playerState, physicsResult.triggers);
+		const physicsResult = runPhysicsLoop(entity, sceneGraph, displacement);
+		if (isPlayer) storePlayerTriggers(entity, physicsResult.triggers);
 		hasUnresolvedPenetration = physicsResult.hasUnresolvedPenetration;
 	}
 
-	// Step 9: Death barrier check.
-	if (playerState.transform.position.y < deathBarrierY) {
-		playerState.transform.position.y = deathBarrierY;
-		playerState.velocity.y = 0;
-		rebuildBounds(playerState);
-		if (playerState.state !== "Dead") {
+	if (entity.transform.position.y < deathBarrierY) {
+		entity.transform.position.y = deathBarrierY;
+		entity.velocity.y = 0;
+		rebuildBounds(entity);
+		if (isPlayer && entity.state !== "Dead") {
 			Log("ENGINE", "Player hit death barrier.", "log", "Level");
 			TriggerPlayerRespawnSequence();
 		}
 	}
 
-	updatePhysicsRuntimeCache(playerState, hasUnresolvedPenetration);
+	updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration);
 
-	if (playerState.grounded !== wasGrounded && playerState.customEvents.groundedChange && CONFIG.CUSTOM_EVENTS.Entities.groundedChange) {
+	if (isPlayer && entity.grounded !== wasGrounded && entity.customEvents.groundedChange && CONFIG.CUSTOM_EVENTS.Entities.groundedChange) {
 		SendEvent("PLAYER_GROUNDED_CHANGE", {
-			id      : playerState.id,
-			type    : playerState.type,
-			position: CloneVector3(playerState.transform.position),
-			velocity: CloneVector3(playerState.velocity),
-			grounded: playerState.grounded,
+			id      : entity.id,
+			type    : entity.type,
+			position: CloneVector3(entity.transform.position),
+			velocity: CloneVector3(entity.velocity),
+			grounded: entity.grounded,
 		});
 	}
 }
 
-/**
- * Simplified physics for non-player entities (enemies, collectibles, etc.).
- * Replaces the inline gravity in Level.js.
- * Only applies gravity + death barrier. Collision optional per entity.
- *
- * @param {object} entity
- * @param {object} sceneGraph
- * @param {number} deltaSeconds
- */
-function ApplyEntityPhysics(entity, sceneGraph, deltaSeconds) {
-	// Check if Physics are Enabled for this entity.
-	if (!entity.movement.physics) return;
-
-	const deathBarrierY = sceneGraph.world.deathBarrierY.value;
-
-	// Gravity.
-	entity.velocity.set(ComputeGravity(entity.velocity, deltaSeconds));
-
-	// Calculate Displacement
-	const displacement = ScaleVector3(entity.velocity, deltaSeconds);
-	const shouldSkipCollision = shouldSkipCollisionPipeline(entity, displacement);
-	let hasUnresolvedPenetration = entity.physicsRuntime.hasUnresolvedPenetration;
-
-	// Apply Collision & Correction Pipeline
-	if (!shouldSkipCollision) {
-		const physicsResult = runPhysicsLoop(entity, sceneGraph, deltaSeconds, displacement);
-		hasUnresolvedPenetration = physicsResult.hasUnresolvedPenetration;
-	}
-
-	// Death barrier.
-	if (entity.transform.position.y < deathBarrierY) {
-		entity.transform.position.y = deathBarrierY;
-		entity.velocity.y = 0;
-		rebuildBounds(entity);
-	}
-
-	updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration);
-}
-
 /* === EXPORTS === */
 
-export { ApplyPhysicsPipeline, ApplyEntityPhysics, ResetCollisionPools };
+export { ApplyPhysicsPipeline, ResetCollisionPools };

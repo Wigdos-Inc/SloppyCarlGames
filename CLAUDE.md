@@ -45,7 +45,7 @@ These commands can be invoked as subagents (via the Agent tool) without explicit
 
 **Post-ED audit requirement:**
 
-After any ED pass that results in a significant amount of new or edited code — judged by scope (new functions, structural changes, multi-file edits) rather than a fixed line count — spawn both ERA and DRYAD as auditing agents on the changed code. Return their findings to the user after the regular response so the user can evaluate them. When spawning these audits after an ED pass, full edit authorization is granted: fix all significant findings rather than just reporting them.
+After any ED pass that results in a significant amount of new or edited code — judged by scope (new functions, structural changes, multi-file edits) rather than a fixed line count — spawn both the ERA and DRYAD skills through subagents on the changed code.
 
 **What does not require subagents:**
 

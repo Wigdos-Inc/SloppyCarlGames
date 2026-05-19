@@ -99,9 +99,9 @@ const CONFIG = {
     },
     Resistance: { Enabled: true },
     Buoyancy  : { 
-      Enabled: false, 
-      Force: { Min: new Unit(1, "cnu"), Max: new Unit(1, "cnu") }, 
-      GradientDepth: new Unit(0, "cnu") 
+      Enabled: true, 
+      Force: { Min: new Unit(1, "cnu"), Max: new Unit(8, "cnu") }, 
+      GradientDepth: new Unit(2, "cnu") 
     },
     Collision : { Enabled: true, Hurtbox: false, Hitbox: false },
     Correction: { Enabled: true, MinDeltaDegrees: 5, MaxDeltaDegrees: 35, GroundSnapTolerance: 0.01 },

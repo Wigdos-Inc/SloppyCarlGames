@@ -1374,7 +1374,13 @@
     "jumpOnSight": { "__meta": { "description": "Jump on sight flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "disappear": { "__meta": { "description": "Disappear flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "chase": { "__meta": { "description": "Chase flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
-    "physics": { "__meta": { "description": "Physics flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
+    "physics": {
+      "__meta": { "description": "Per-stage physics flags", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false }, "deprecated": false },
+      "gravity":    { "__meta": { "description": "Gravity stage",    "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": true, "fallback": false, "deprecated": false } },
+      "buoyancy":   { "__meta": { "description": "Buoyancy stage",   "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": true, "fallback": false, "deprecated": false } },
+      "resistance": { "__meta": { "description": "Resistance stage", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": true, "fallback": false, "deprecated": false } },
+      "correction": { "__meta": { "description": "Correction stage", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": true, "fallback": false, "deprecated": false } }
+    }
   },
   "levelAttack": {
     "id": { "__meta": { "description": "Attack id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "attack", "deprecated": false } },
