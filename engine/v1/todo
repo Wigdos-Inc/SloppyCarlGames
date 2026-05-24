@@ -1,16 +1,14 @@
 This file contains current priorities.
 
-Update physics functions to be more export friendly and add them to the ENGINE API
-Add per-entity definition for no physics, simple physics or full physics (instead of being stuck on simple physics)
-Add functionality for custom image-based textures
+Test functionality for custom image-based textures
 Update test characters to test multiple types of characters with intuitive physics
 Add Terrain Blueprint Support (start using Claude Code):
 - Add Sonic-Style Loop Blueprint
 - Add Half-Pipe Blueprint
 - Add Full-Pipe Blueprint
 Fully re-attach Camera.js to CNU.
-Add "Floating", "Sinking" and "Swimming" entity states
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain)
 Build new test level (prompt in notepad).
-Add Game-side sceneGraph update API
-- Think of uses
+Add proper Level API (replace debug stubs below)
+- ENGINE.Debug.PauseLevel / ResumeLevel
+- ENGINE.Debug.SetPlayerPosition
