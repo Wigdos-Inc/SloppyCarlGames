@@ -5,6 +5,7 @@
 
 import { Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
+import { NormalizeImage } from "../core/normalize.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { 
@@ -21,7 +22,7 @@ import characterData from "./characters.json" with { type: "json" };
 	for (const characterId in characterData) {
 		const char = characterData[characterId];
 		char.meta.jumpHeight = new Unit(char.meta.jumpHeight, "cnu");
-		char.model.parts.forEach(part => {
+		char.model.parts.forEach((part) => {
 			part.dimensions = toUnitVector3(part.dimensions, "cnu");
 			part.localPosition = toUnitVector3(part.localPosition, "cnu");
 			part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
@@ -157,7 +158,7 @@ function createDefaultPlayerState(playerData) {
  * @param {object} sceneGraph — the active scene graph.
  * @returns {object} — the initialized playerState.
  */
-function InitializePlayer(payload, sceneGraph) {
+async function InitializePlayer(payload, sceneGraph) {
 	const characterProfile = characterData[payload.character];
 	const hasCustomParts = payload.modelParts.length > 0;
 	const { list: metaOverrideList, ...metaOverrides } = payload.metaOverrides;
@@ -166,6 +167,21 @@ function InitializePlayer(payload, sceneGraph) {
 		meta: { ...characterProfile.meta, ...metaOverrides },
 		model: hasCustomParts ? { ...characterProfile.model, parts: payload.modelParts } : characterProfile.model,
 	};
+
+	if (!hasCustomParts) {
+		const imageLoads = [];
+		effectiveCharacter.model.parts.forEach((part) => {
+			part.customTextures.forEach((ct) => imageLoads.push(
+				NormalizeImage(new URL(ct.imagePath, import.meta.url).href, ct.sourceType, "webgl").then((result) => {
+					ct.bitmap = result.bool ? result.value : null;
+				})
+			));
+		});
+		await Promise.all(imageLoads);
+		effectiveCharacter.model.parts.forEach((part) => {
+			part.customTextures = part.customTextures.filter((ct) => ct.bitmap !== null);
+		});
+	}
 
 	// Log meta overrides using the normalized, formatted list from the payload.
 	Log("ENGINE", `Player meta overrides applied:\n- ${metaOverrideList.join('\n- ')}`, "log", "Player");
@@ -354,9 +370,25 @@ function GetPlayerInput() {
 	return playerInputFlags;
 }
 
+/* === ENGINE API === */
+// Attached to ENGINE.Player by ini.js.
+
+const PlayerAPI = {
+	Input   : playerInputFlags,
+	GetState: GetPlayerState,
+	SetPosition: (x, y, z) => {
+		playerState.transform.position.set(ToVector3({ x, y, z }));
+		playerState.velocity.set(ToVector3(0));
+		playerState.jumpStartY.value = y;
+		playerState.jumpApexY.value = y;
+		UpdatePlayerCollision();
+	},
+};
+
 /* === EXPORTS === */
 
 export {
+	PlayerAPI,
 	InitializePlayer,
 	UpdatePlayer,
 	UpdatePlayerCollision,

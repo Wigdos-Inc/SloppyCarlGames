@@ -38,7 +38,8 @@
 						"color": { "r": 0.95, "g": 0.85, "b": 0.7, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": []
 				},
 				{
 					"id": "leftArm",
@@ -59,7 +60,8 @@
 						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": []
 				},
 				{
 					"id": "rightArm",
@@ -80,7 +82,8 @@
 						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": []
 				},
 				{
 					"id": "torso",
@@ -100,7 +103,16 @@
 						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": [
+						{
+							"imagePath": "../assets/carlStudios/sloppyCarl.png",
+							"sourceType": "local",
+							"side": "front",
+							"localTransform": { "x": 0, "y": 0, "z": 0 },
+							"scale": { "x": 0.4, "y": 0.4, "z": 1 }
+						}
+					]
 				},
 				{
 					"id": "leftLeg",
@@ -121,7 +133,8 @@
 						"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": []
 				},
 				{
 					"id": "rightLeg",
@@ -142,7 +155,8 @@
 						"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": []
 				}
 			]
 		}
@@ -187,7 +201,8 @@
 						"color": { "r": 0.95, "g": 0.85, "b": 0.7, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": []
 				},
 				{
 					"id": "leftArm",
@@ -208,7 +223,8 @@
 						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": []
 				},
 				{
 					"id": "rightArm",
@@ -229,7 +245,8 @@
 						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": []
 				},
 				{
 					"id": "torso",
@@ -249,7 +266,16 @@
 						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": [
+						{
+							"imagePath": "../assets/carlStudios/sloppyCarl.png",
+							"sourceType": "local",
+							"side": "front",
+							"localTransform": { "x": 0, "y": 0, "z": 0 },
+							"scale": { "x": 0.4, "y": 0.4, "z": 1 }
+						}
+					]
 				},
 				{
 					"id": "leftLeg",
@@ -270,7 +296,8 @@
 						"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": []
 				},
 				{
 					"id": "rightLeg",
@@ -291,7 +318,8 @@
 						"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
 						"opacity": 1
 					},
-					"detail": { "scatter": [] }
+					"detail": { "scatter": [] },
+					"customTextures": []
 				}
 			]
 		}

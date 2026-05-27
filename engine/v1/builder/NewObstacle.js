@@ -99,10 +99,11 @@ function buildObstacleParts(source, index, options) {
 				scale: source.scale,
 				pivot: source.pivot,
 				primitiveOptions: source.primitiveOptions,
-				texture: source.texture,
-				detail: source.detail,
-				role: "obstacle",
+				texture       : source.texture,
+				detail        : source.detail,
+				role          : "obstacle",
 				collisionShape: source.collisionShape,
+				customTextures: [],
 				scatterContext: options.scatterContext
 					? { ...options.scatterContext, indexSeed: 500 + index }
 					: null

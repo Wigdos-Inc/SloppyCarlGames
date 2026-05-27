@@ -190,9 +190,10 @@ function buildPart(partDefinition) {
 			role            : "entity-part",
 			collisionShape  : "none",
 			parentId        : source.parentId,
+			customTextures  : source.customTextures,
 		}
 	);
-	
+
 	return {
 		id             : mesh.id,
 		label          : source.label || null,
@@ -605,11 +606,10 @@ function BuildEntity(definition, surfaceMap) {
 		submergence: 0,
 		underwater: false,
 		buoyancyForce: 0,
-		model: model,
+		model,
 		mesh: model.parts[0].mesh,
 		collision: {
-			aabb: aabb,
-			simRadiusPadding: simRadiusPadding,
+			aabb, simRadiusPadding,
 			simRadiusAabb: computeExpandedAabb(aabb, simRadiusPadding),
 			shape: detailed.collisionShape,
 			detailedBounds: detailed.detailedBounds,

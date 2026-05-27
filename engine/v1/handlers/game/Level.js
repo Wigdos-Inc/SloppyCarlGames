@@ -15,17 +15,18 @@ import { Vector3Distance, LerpVector3, CloneVector3 } from "../../math/Vector3.j
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { UpdateInputEventTypes } from "../Controls.js";
 import { ValidateLevelPayload } from "../../core/validate.js";
-import { 
-	InitializePlayer, 
-	UpdatePlayer, 
-	ResolvePlayerState, 
-	GetPlayerState 
+import {
+	InitializePlayer,
+	UpdatePlayer,
+	ResolvePlayerState,
+	GetPlayerState,
 } from "../../player/Master.js";
 import { ApplyPhysicsPipeline } from "../../physics/Master.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
 import { GetSimDistanceValue } from "../../physics/Collision.js";
 import { InitializeTextureAnimation, UpdateTextureAnimation } from "./Texture.js";
+import { PrepareLevelVisualResources } from "../../builder/NewTexture.js";
 import { Clamp01 } from "../../math/Utilities.js";
 
 const levelRuntimeState = {
@@ -191,7 +192,7 @@ async function CreateLevel(payload, options) {
 
 	// === VALIDATION & NORMALIZATION PIPELINE ===
 
-	payload = ValidateLevelPayload(payload);
+	payload = await ValidateLevelPayload(payload);
 	if (!payload) {
 		Log("ENGINE", "Level.CreateLevel aborted: invalid payload.", "error", "Level");
 		return null;
@@ -224,9 +225,11 @@ async function CreateLevel(payload, options) {
 
 	// Initialize player if payload defines one.
 	if (sceneGraph.playerConfig) {
-		InitializePlayer(sceneGraph.playerConfig, sceneGraph);
+		await InitializePlayer(sceneGraph.playerConfig, sceneGraph);
 		Log("ENGINE", `Player initialized: character=${sceneGraph.playerConfig.character}`, "log", "Level");
 	}
+
+	await PrepareLevelVisualResources(sceneGraph);
 
 	sceneGraph.cameraConfig.state = InitializeCameraState(
 		sceneGraph,

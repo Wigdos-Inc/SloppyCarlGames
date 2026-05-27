@@ -5,7 +5,7 @@
 // Used by physics/Master.js
 
 import { CONFIG } from "../core/config.js";
-import { Log, EPSILON } from "../core/meta.js";
+import { EPSILON } from "../core/meta.js";
 import {
 	AddVector3,
 	SubtractVector3,
@@ -848,27 +848,23 @@ function ResolveCollisions(velocity, displacement, solids) {
 		return {
 			resolvedVelocity: vel,
 			resolvedDisplacement: disp,
-			groundContact: groundContact,
-			wallContact: wallContact,
+			groundContact,
+			wallContact,
 			changedPosition: false,
 			changedVelocity: false,
 			anyChanged: false,
 		};
 	}
 
-	const wallFacingMinApproachDot = CONFIG.PHYSICS.Correction.WallFacingMinApproachDot;
-
-	for (let i = 0; i < solids.count; i++) {
-		const collision = solids.items[i];
-		const pushNormal = collision.pushNormal;
+	for (const collision of solids.items){
 		const isSurfaceCandidate = collision.type === "terrain" || collision.type === "obstacle";
-		const groundSupportY = pushNormal.y;
+		const groundSupportY = collision.pushNormal.y;
 		const wallApproach = isSurfaceCandidate
 			? resolveWallApproachStrength(velocity, collision.normal)
 			: 0;
-		const isWallCandidate = isSurfaceCandidate && wallApproach >= wallFacingMinApproachDot;
+		const isWallCandidate = isSurfaceCandidate && wallApproach >= CONFIG.PHYSICS.Correction.WallFacingMinApproachDot;
 
-		const isGroundCandidate = isSurfaceCandidate && pushNormal.y > 0.5;
+		const isGroundCandidate = isSurfaceCandidate && collision.pushNormal.y > 0.5;
 		if (isGroundCandidate) {
 			if (
 				!groundContact.hit ||
@@ -891,7 +887,7 @@ function ResolveCollisions(velocity, displacement, solids) {
 
 		const pushDepth = collision.pushDepth;
 		if (pushDepth > 0) {
-			disp = AddVector3(disp, ScaleVector3(pushNormal, pushDepth));
+			disp = AddVector3(disp, ScaleVector3(collision.pushNormal, pushDepth));
 			changedPosition = changedPosition || pushDepth > EPSILON;
 		}
 
@@ -922,7 +918,6 @@ function ResolveCollisions(velocity, displacement, solids) {
 			}
 		}
 
-		logCollision(collision);
 	}
 
 	const anyChanged = changedPosition || changedVelocity;
@@ -936,34 +931,6 @@ function ResolveCollisions(velocity, displacement, solids) {
 		changedVelocity,
 		anyChanged,
 	};
-}
-
-/* ========================================================================
- * LOGGING
- * ======================================================================== */
-
-let lastLoggedCollisionKeyA = "";
-let lastLoggedCollisionKeyB = "";
-
-function logCollision(collision) {
-	const targetId = collision.target.id;
-	const key = `${collision.type}:${targetId}`;
-	if (key === lastLoggedCollisionKeyA || key === lastLoggedCollisionKeyB) return;
-	lastLoggedCollisionKeyB = lastLoggedCollisionKeyA;
-	lastLoggedCollisionKeyA = key;
-
-	Log(
-		"ENGINE",
-		`
-			Collision: ${collision.type} with "${targetId}" | 
-			normal=(${collision.normal.x.toFixed(2)}, ${collision.normal.y.toFixed(2)}, ${collision.normal.z.toFixed(2)}) 
-			depth=${collision.depth.toFixed(4)} 
-			pushDepth=${collision.pushDepth.toFixed(4)} 
-			t=${collision.tEntry.toFixed(4)}
-		`,
-		"log",
-		"Level"
-	);
 }
 
 /* ========================================================================
@@ -990,53 +957,47 @@ function ProbeGroundContact(entity, sceneGraph) {
 
 	let bestT = Infinity;
 	let bestNormal = null;
-	let bestType = null;
+	let type = null;
 
 	// Downward ray vs axis-aligned box: entry t = vertical distance from probe to top face.
-	const tryAABB = (bounds, type) => {
+	const tryAABB = (bounds, meshType) => {
 		if (probe.x < bounds.min.x || probe.x > bounds.max.x) return;
 		if (probe.z < bounds.min.z || probe.z > bounds.max.z) return;
 		const t = probe.y - bounds.max.y;
 		if (t < 0 || t > maxDist) return;
-		if (t < bestT) { bestT = t; bestNormal = WORLD_NORMALS.Up; bestType = type; }
+		if (t < bestT) { bestT = t; bestNormal = WORLD_NORMALS.Up; type = meshType; }
 	};
 
 	// Downward ray (0,-1,0) vs oriented box via slab test in OBB local space.
 	// Returns the entry face normal, which must be upward-facing to count as ground.
-	const tryOBB = (obb, type) => {
+	const tryOBB = (obb, meshType) => {
 		const hit = RayOBBIntersect(probe, WORLD_NORMALS.Down, obb, maxDist);
 		if (!hit.hit || hit.normal.y <= 0) return;
 		if (hit.t < bestT) {
 			bestT = hit.t;
 			bestNormal = hit.normal;
-			bestType = type;
+			type = meshType;
 		}
 	};
 
-	const terrain = sceneGraph.terrain;
-	for (let i = 0; i < terrain.length; i++) {
-		const mesh = terrain[i];
-		if (!AabbOverlap(simAabb, mesh.worldAabb)) continue;
-		const b = mesh.detailedBounds;
-		if (b.type === "aabb") tryAABB(b, "terrain");
-		else if (b.type === "obb") tryOBB(b, "terrain");
+	for (const mesh of sceneGraph.terrain) {
+		if      (!AabbOverlap(simAabb, mesh.worldAabb)) continue;
+		if      (mesh.detailedBounds.type === "aabb")   tryAABB(mesh.detailedBounds, "terrain");
+		else if (mesh.detailedBounds.type === "obb")    tryOBB(mesh.detailedBounds, "terrain");
 	}
 
-	const obstacles = sceneGraph.obstacles;
-	for (let i = 0; i < obstacles.length; i++) {
-		const obs = obstacles[i];
-		if (!AabbOverlap(simAabb, obs.bounds)) continue;
-		const b = obs.detailedBounds;
-		if (b.type === "aabb") tryAABB(b, "obstacle");
-		else if (b.type === "obb") tryOBB(b, "obstacle");
+	for (const obs of sceneGraph.obstacles) {
+		if      (!AabbOverlap(simAabb, obs.bounds))  continue;
+		if      (obs.detailedBounds.type === "aabb") tryAABB(obs.detailedBounds, "obstacle");
+		else if (obs.detailedBounds.type === "obb")  tryOBB(obs.detailedBounds , "obstacle");
 	}
 
-	if (bestType === null) return { hit: false };
+	if (type === null) return { hit: false };
 
 	return {
 		hit: true,
 		normal: bestNormal === WORLD_NORMALS.Up ? CloneVector3(WORLD_NORMALS.Up) : bestNormal,
-		type: bestType,
+		type,
 		supportPoint: { x: probe.x, y: probe.y - bestT, z: probe.z },
 	};
 }

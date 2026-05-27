@@ -369,9 +369,10 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 						position, rotation, scale,
 						pivot: objectMesh.transform.pivot,
 						primitiveOptions: part.primitiveOptions,
-						texture: part.texture,
-						detail: { scatter: [] },
-						role: "scatter",
+						texture       : part.texture,
+						detail        : { scatter: [] },
+						role          : "scatter",
+						customTextures: [],
 					},
 					{ role: "scatter" }
 				);

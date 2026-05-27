@@ -38,12 +38,15 @@ import {
   CreateLevel,
   Update as UpdateLevel,
   GetActiveLevel,
+  PauseLevelLoop,
+  ResumeLevelLoop,
 } from "../handlers/game/Level.js";
 import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
-import { GetPlayerInput, GetPlayerState } from "../player/Master.js";
+import { PlayerAPI } from "../player/Master.js";
 import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3, CNU_SCALE } from "../math/Utilities.js"
 import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3, Vector3ChainMath } from "../math/Vector3.js";
+import { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence } from "../math/Forces.js";
 
 /* === INITIALIZATION === */
 // Bootstraps engine subsystems and returns the public API.
@@ -55,6 +58,7 @@ function Initialize() {
   Log("ENGINE", "Initializing Logging System.", "log", "Startup");
   Log("ENGINE", "Initializing Event System.", "log", "Startup");
   Log("ENGINE", "Initializing Background Processes.", "log", "Startup");
+  Log("ENGINE", "Initializing ENGINE API.", "log", "Startup");
   
   // Start global input routing.
   const inputRouter = StartInputRouter();
@@ -79,14 +83,16 @@ function Initialize() {
     UI: { ApplyMenuUI, LoadScreen, ClearUI },
     Audio: { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes },
     Level: { CreateLevel, UpdateLevel, GetActiveLevel },
-    Player: {
-      Input: GetPlayerInput(),
-      GetState: GetPlayerState,
-    },
+    Player: PlayerAPI,
     Math: {
       Convert: { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU },
       Vector3: { AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3, Vector3ChainMath },
       Instancing: { Unit, UnitVector3 },
+      Physics: { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence },
+    },
+    Debug: {
+      PauseLevel: PauseLevelLoop,
+      ResumeLevel: ResumeLevelLoop,
     },
   };
 }

@@ -158,6 +158,7 @@ function createUsageEntry(baseTextureID) {
 
 function collectTextureUsage(sceneGraph) {
 	const usage = { "default-grid": createUsageEntry("default-grid") };
+	const customTextureUsage = {};
 
 	const register = (id, options) => {
 		if (!usage[id]) usage[id] = createUsageEntry(id);
@@ -188,16 +189,14 @@ function collectTextureUsage(sceneGraph) {
 			speckSize: detailTexture.speckSize,
 			baseTextureID: detailTexture.baseTextureID,
 			shape: detailTexture.shape,
-			animatedRequested: animatedRequested,
+			animatedRequested,
 			holdTimeSpeed: detailTexture.holdTimeSpeed,
 			blendTimeSpeed: detailTexture.blendTimeSpeed,
 		});
 	};
 
 	sceneGraph.terrain.forEach((mesh) => {
-		const dimensions = mesh.dimensions;
-		const scale = mesh.transform.scale;
-		const span = Math.max(dimensions.x * scale.x, dimensions.z * scale.z);
+		const span = Math.max(mesh.dimensions.x * mesh.transform.scale.x, mesh.dimensions.z * mesh.transform.scale.z);
 		collectMesh(mesh, { isTerrain: true, maxSpan: span }, mesh.id);
 	});
 
@@ -206,7 +205,15 @@ function collectTextureUsage(sceneGraph) {
 	sceneGraph.scatter.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id));
 	sceneGraph.obstacles.forEach((obstacle) => {
 		collectMesh(obstacle.mesh, nonTerrainOptions, obstacle.mesh.id);
-		obstacle.parts.forEach((part) => collectMesh(part, nonTerrainOptions, part.id));
+		obstacle.parts.forEach((part) => {
+			collectMesh(part, nonTerrainOptions, part.id);
+			part.customTextures.forEach((ct, index) => {
+				customTextureUsage[`${part.id}::customTexture::${index}`] = {
+					bitmap   : ct.bitmap,
+					placement: { side: ct.side, localTransform: ct.localTransform, scale: ct.scale },
+				};
+			});
+		});
 	});
 
 	// Include any water visual meshes so their textures are registered as well.
@@ -232,30 +239,36 @@ function collectTextureUsage(sceneGraph) {
 		});
 	});
 
-	// Collect & register mesh for each part of each entity.
+	// Collect & register mesh for each part of each entity; also register any custom (decal) textures.
 	sceneGraph.entities.forEach((entity) => {
-		entity.model.parts.forEach((part) => collectMesh(part.mesh, nonTerrainOptions, part.mesh.id));
+		entity.model.parts.forEach((part) => {
+			collectMesh(part.mesh, nonTerrainOptions, part.mesh.id);
+			part.mesh.customTextures.forEach((ct, index) => {
+				const id = `${part.mesh.id}::customTexture::${index}`;
+				customTextureUsage[id] = {
+					bitmap   : ct.bitmap,
+					placement: { side: ct.side, localTransform: ct.localTransform, scale: ct.scale },
+				};
+			});
+		});
 	});
 
-	return usage;
+	return { usage, customTextureUsage };
 }
 
-function createTextureRegistry(usage, options) {
+function createTextureRegistry(usage, customTextureUsage, options) {
 	const registry = {};
 	for (const textureID in usage) {
 		const usageEntry = usage[textureID];
-		const baseTextureID = usageEntry.baseTextureID;
-		const textureBlueprint = visualTemplates.textures[baseTextureID];
-		const resolvedSize = resolveTextureSize(textureBlueprint, usage[textureID]);
-		const usageDensity = usage[textureID].density;
-		const usageSpeckSize = usage[textureID].speckSize;
-		let resolvedTextureBlueprint = (usageDensity || usageDensity === 0)
-			? { ...textureBlueprint, density: usageDensity }
+		const textureBlueprint = visualTemplates.textures[usageEntry.baseTextureID];
+		const resolvedSize = resolveTextureSize(textureBlueprint, usageEntry);
+		let resolvedTextureBlueprint = (usageEntry.density || usageEntry.density === 0)
+			? { ...textureBlueprint, density: usageEntry.density }
 			: { ...textureBlueprint };
-		if (usageSpeckSize || usageSpeckSize === 0) {
+		if (usageEntry.speckSize || usageEntry.speckSize === 0) {
 			resolvedTextureBlueprint = {
 				...resolvedTextureBlueprint,
-				speckSize: usageSpeckSize,
+				speckSize: usageEntry.speckSize,
 			};
 		}
 		if (usageEntry.shape) {
@@ -267,11 +280,10 @@ function createTextureRegistry(usage, options) {
 
 		const animatedRequested = usageEntry.animatedRequested === true;
 		const templateSupportsAnimation = textureBlueprint.animation.able === true;
-		const animated = animatedRequested && templateSupportsAnimation;
 		if (animatedRequested && !templateSupportsAnimation) {
 			Log(
 				"ENGINE",
-				`'${baseTextureID}' does not support animation.\nSource: '${textureID}'`,
+				`'${usageEntry.baseTextureID}' does not support animation.\nSource: '${textureID}'`,
 				"warn",
 				"Level"
 			);
@@ -285,7 +297,7 @@ function createTextureRegistry(usage, options) {
 				holdTimeSpeed: usageEntry.holdTimeSpeed,
 				blendTimeSpeed: usageEntry.blendTimeSpeed,
 				animation: {
-					able: animated,
+					able: animatedRequested && templateSupportsAnimation,
 					holdTime: textureBlueprint.animation.holdTime,
 					blendTime: textureBlueprint.animation.blendTime,
 				},
@@ -294,6 +306,16 @@ function createTextureRegistry(usage, options) {
 			dirty: false,
 		};
 	};
+
+	for (const id in customTextureUsage) {
+		const cu = customTextureUsage[id];
+		registry[id] = {
+			id,
+			source   : cu.bitmap,
+			placement: cu.placement,
+			dirty    : false,
+		};
+	}
 
 	Log(
 		"ENGINE",
@@ -306,7 +328,8 @@ function createTextureRegistry(usage, options) {
 }
 
 async function PrepareLevelVisualResources(sceneGraph) {
-	const textureRegistry = createTextureRegistry(collectTextureUsage(sceneGraph), { textureScale: sceneGraph.world.textureScale });
+	const { usage, customTextureUsage } = collectTextureUsage(sceneGraph);
+	const textureRegistry = createTextureRegistry(usage, customTextureUsage, { textureScale: sceneGraph.world.textureScale });
 
 	sceneGraph.visualResources = {
 		textureRegistry,

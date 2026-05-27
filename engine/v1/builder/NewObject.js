@@ -903,9 +903,10 @@ function BuildObject(source) {
 		},
 		localBounds   : bounds,
 		worldAabb     : computeWorldAabbFromGeometry(geometry.positions, transform),
-		dimensions    : source.dimensions,
-		collisionShape: source.collisionShape,
-		detailedBounds: null,
+		dimensions     : source.dimensions,
+		collisionShape : source.collisionShape,
+		customTextures : source.customTextures,
+		detailedBounds : null,
 	};
 	mesh.detailedBounds = computeDetailedBounds(mesh);
 

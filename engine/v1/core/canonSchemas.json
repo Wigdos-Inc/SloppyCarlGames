@@ -1308,7 +1308,25 @@
     },
     "primitiveOptions": { "__meta": { "description": "Primitive option bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "texture": { "__meta": { "description": "Part texture object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
-    "detail": { "__meta": { "description": "Part detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
+    "detail": { "__meta": { "description": "Part detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "customTextures": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
+  },
+  "levelCustomTexture": {
+    "imagePath":  { "__meta": { "description": "Asset path or URL",          "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null,    "deprecated": false } },
+    "sourceType": { "__meta": { "description": "Source kind",                "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null,    "allowedValues": ["local","url"], "deprecated": false } },
+    "side":       { "__meta": { "description": "Face the decal attaches to", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": "front", "allowedValues": ["front","back","left","right","top","bottom"], "deprecated": false } },
+    "localTransform": {
+      "__meta": { "description": "Face-local offset (cnu)", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Offset x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Offset y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Offset z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "scale": {
+      "__meta": { "description": "Decal quad size", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
+      "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+    }
   },
   "levelObject": {
     "id": { "__meta": { "description": "Object id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "object", "deprecated": false } },

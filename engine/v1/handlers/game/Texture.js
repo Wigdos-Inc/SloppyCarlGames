@@ -22,8 +22,8 @@ function createAnimationStateEntry(textureEntry) {
 	return {
 		phase: "hold",
 		elapsedMs: 0,
-		holdDurationMs: holdDurationMs,
-		blendDurationMs: blendDurationMs,
+		holdDurationMs,
+		blendDurationMs,
 		fromSurface: textureEntry.source,
 		toSurface: null,
 		activeSurface: activeCanvas,
@@ -54,6 +54,7 @@ function InitializeTextureAnimation(sceneGraph) {
 
 	for (const textureID in textureRegistry) {
 		const textureEntry = textureRegistry[textureID];
+		if (!textureEntry.definition) continue;
 		if (textureEntry.definition.animation.able !== true) continue;
 		animationState.byTextureID[textureID] = createAnimationStateEntry(textureEntry);
 	}

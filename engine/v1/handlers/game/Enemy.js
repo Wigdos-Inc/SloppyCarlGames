@@ -41,25 +41,15 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 	for (let i = combatResults.count - 1; i >= 0; i--) {
 		const result = combatResults.items[i];
 
-		const initiator = result.type === "player-attacks" ? playerState : result.attacker;
-		const recipient = result.type === "player-attacks" ? result.target : playerState;
-
-		if (CONFIG.CUSTOM_EVENTS.Entities.collision) {
-			if (initiator.customEvents.collision) SendEvent(initiator.type === "player" ? "PLAYER_COLLISION" : "ENTITY_COLLISION", {
-				id         : initiator.id,
-				type       : initiator.type,
-				position   : { x: initiator.transform.position.x, y: initiator.transform.position.y, z: initiator.transform.position.z },
-				velocity   : { x: initiator.velocity.x, y: initiator.velocity.y, z: initiator.velocity.z },
+		if (CONFIG.CUSTOM_EVENTS.Entities.collision && playerState.customEvents.collision) {
+			const combatEntity = result.type === "player-attacks" ? result.target : result.attacker;
+			SendEvent("PLAYER_COLLISION", {
+				id         : playerState.id,
+				type       : playerState.type,
+				position   : { x: playerState.transform.position.x, y: playerState.transform.position.y, z: playerState.transform.position.z },
+				velocity   : { x: playerState.velocity.x, y: playerState.velocity.y, z: playerState.velocity.z },
 				contactType: "combat",
-				otherId    : recipient.id,
-			});
-			if (recipient.customEvents.collision) SendEvent(recipient.type === "player" ? "PLAYER_COLLISION" : "ENTITY_COLLISION", {
-				id         : recipient.id,
-				type       : recipient.type,
-				position   : { x: recipient.transform.position.x, y: recipient.transform.position.y, z: recipient.transform.position.z },
-				velocity   : { x: recipient.velocity.x, y: recipient.velocity.y, z: recipient.velocity.z },
-				contactType: "combat",
-				otherId    : initiator.id,
+				otherId    : combatEntity.id,
 			});
 		}
 

@@ -13,7 +13,6 @@ import { GetPerformanceScatterMultiplier, BuildScatterBatches, BuildScatterVisua
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { Clamp, UnitVector3 } from "../math/Utilities.js";
-import { PrepareLevelVisualResources } from "./NewTexture.js";
 import { ToVector3 } from "../math/Vector3.js";
 
 function resolveEntityBlueprintMap(payload) {
@@ -96,10 +95,11 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 				holdTimeSpeed    : 1,
 				blendTimeSpeed   : 1,
 			},
-			detail        : { scatter: [] },
-			role          : "trigger",
-			collisionShape: "none",
-			trigger       : {
+			detail         : { scatter: [] },
+			role           : "trigger",
+			collisionShape : "none",
+			customTextures : [],
+			trigger        : {
 				type        : source.type,
 				payload     : source.payload,
 				activateOnce: source.activateOnce,
@@ -143,9 +143,10 @@ function buildWaterVisualMeshes(world) {
 				holdTimeSpeed    : 1,
 				blendTimeSpeed   : 1,
 			},
-			detail        : { scatter: [] },
-			role          : "water",
-			collisionShape: "none",
+			detail         : { scatter: [] },
+			role           : "water",
+			collisionShape : "none",
+			customTextures : [],
 		}
 	);
 
@@ -173,9 +174,10 @@ function buildWaterVisualMeshes(world) {
 				holdTimeSpeed    : 1,
 				blendTimeSpeed   : 1,
 			},
-			detail        : { scatter: [] },
-			role          : "water",
-			collisionShape: "none",
+			detail         : { scatter: [] },
+			role           : "water",
+			collisionShape : "none",
+			customTextures : [],
 		}
 	);
 
@@ -318,6 +320,7 @@ async function BuildLevel(payload) {
 				id            : terrainObject.id,
 				role          : "terrain",
 				collisionShape: terrainObject.collisionShape,
+				customTextures: [],
 			}
 		);
 
@@ -383,7 +386,6 @@ async function BuildLevel(payload) {
 		meta        : source.meta,
 	};
 
-	await PrepareLevelVisualResources(sceneGraph);
 	RefreshSceneBoundingBoxes(sceneGraph);
 	Log(
 		"ENGINE",

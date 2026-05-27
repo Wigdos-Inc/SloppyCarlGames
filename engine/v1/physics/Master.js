@@ -158,28 +158,18 @@ function runPhysicsLoop(entity, sceneGraph, displacement) {
 		if (!overlapResolution.anyChanged && !correction.anyChanged && !orientation.anyChanged) break;
 	}
 
-	if (isPlayer) {
-		if (!entity.state === "Jumping" && entity.velocity.y > EPSILON) {
-			entity.grounded = groundContact.hit &&
-				entity.buoyancyForce <= CONFIG.PHYSICS.Gravity.Strength.value;
-		}
+	if (isPlayer && entity.state !== "Jumping") {
+		entity.grounded = groundContact.hit && entity.buoyancyForce <= CONFIG.PHYSICS.Gravity.Strength.value;
 	}
 
 	const snap = applyCorrection ? ApplyGroundSnap(entity, groundContact) : noResult.correction;
 	const finalOrientation = applyCorrection ? ApplyPlayerSurfaceOrientation(entity) : noResult.orientation;
 	hadMeaningfulWork = hadMeaningfulWork || snap.anyChanged || finalOrientation.anyChanged;
-	if (
-		snap.changedPosition ||
-		snap.changedOrientation ||
-		finalOrientation.changedOrientation
-	) {
-		rebuildBounds(entity);
-	}
+	if (snap.changedPosition || snap.changedOrientation || finalOrientation.changedOrientation) rebuildBounds(entity);
 
 	ResetCollisionPools();
 	const finalOverlaps = DetectCurrentPhysicsOverlaps(entity, sceneGraph);
 	latestTriggers = finalOverlaps.triggers;
-	const hasUnresolvedPenetration = finalOverlaps.solids.count > 0;
 	if (isPlayer && hadMeaningfulWork && iterations) {
 		Log(
 			"ENGINE",
@@ -189,6 +179,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement) {
 		);
 	}
 
+	const hasUnresolvedPenetration = finalOverlaps.solids.count > 0;
 	return { groundContact, triggers: latestTriggers, hasUnresolvedPenetration };
 }
 

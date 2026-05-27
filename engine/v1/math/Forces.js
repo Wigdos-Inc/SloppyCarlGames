@@ -57,7 +57,7 @@ function ComputeGravity(velocity, deltaSeconds) {
  */
 function ComputeResistance(velocity, deltaSeconds, submergence) {
 	if (CONFIG.PHYSICS.Resistance.Enabled === false) {
-		if (!logFlags.resistance) { Log("Forces", "Resistance disabled — ComputeResistance is a no-op", "warn", "Physics"); logFlags.resistance = true; }
+		if (!logFlags.resistance) { Log("ENGINE", "Resistance disabled — ComputeResistance is a no-op", "warn", "Physics"); logFlags.resistance = true; }
 		return { x: velocity.x, y: velocity.y, z: velocity.z };
 	}
 	return {
@@ -79,7 +79,7 @@ function ComputeResistance(velocity, deltaSeconds, submergence) {
 function ComputeBuoyancy(position, waterLevel, submergence, deltaSeconds) {
 	if (CONFIG.PHYSICS.Buoyancy.Enabled === false || submergence <= 0) {
 		if (!logFlags.buoyancy) { 
-			Log("Forces", "Buoyancy disabled or no submergence — ComputeBuoyancy is a no-op", "warn", "Physics"); 
+			Log("ENGINE", "Buoyancy disabled or no submergence — ComputeBuoyancy is a no-op", "warn", "Physics"); 
 			logFlags.buoyancy = true; 
 		}
 		return { velocityChange: 0, buoyancyForce: 0 };
@@ -118,7 +118,7 @@ const ComputeStepVelocity = {
 		if (forces.gravity) {
 			if (CONFIG.PHYSICS.Gravity.Enabled === false) {
 				if (!logFlags.gravity) { 
-					Log("Forces", "Gravity disabled — scalar gravity skipped", "warn", "Physics"); 
+					Log("ENGINE", "Gravity disabled — scalar gravity skipped", "warn", "Physics"); 
 					logFlags.gravity = true; 
 				}
 			} 
@@ -127,7 +127,7 @@ const ComputeStepVelocity = {
 		if (forces.buoyancy) {
 			if (CONFIG.PHYSICS.Buoyancy.Enabled === false) {
 				if (!logFlags.buoyancy) { 
-					Log("Forces", "Buoyancy disabled — scalar buoyancy skipped", "warn", "Physics"); 
+					Log("ENGINE", "Buoyancy disabled — scalar buoyancy skipped", "warn", "Physics"); 
 					logFlags.buoyancy = true; 
 				}
 			} 
@@ -136,7 +136,7 @@ const ComputeStepVelocity = {
 		if (forces.resistance) {
 			if (CONFIG.PHYSICS.Resistance.Enabled === false) {
 				if (!logFlags.resistance) { 
-					Log("Forces", "Resistance disabled — scalar resistance skipped", "warn", "Physics"); 
+					Log("ENGINE", "Resistance disabled — scalar resistance skipped", "warn", "Physics"); 
 					logFlags.resistance = true; 
 				}
 			} 

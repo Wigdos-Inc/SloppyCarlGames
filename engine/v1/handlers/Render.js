@@ -928,6 +928,7 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		loggedScatterSubmission: false,
 		debugLineShader: null,
 		debugLineBuffer: null,
+		decalQuadBuffer: null,
 	};
 
 	levelRendererCache.set(rootId, renderer);
@@ -1040,6 +1041,134 @@ function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farVa
 	);
 }
 
+function ensureDecalQuadBuffer(renderer) {
+	if (renderer.decalQuadBuffer) return renderer.decalQuadBuffer;
+
+	const gl = renderer.gl;
+	const shader = renderer.shader;
+
+	const positionBuffer = gl.createBuffer();
+	const uvBuffer = gl.createBuffer();
+	const indexBuffer = gl.createBuffer();
+	if (!positionBuffer || !uvBuffer || !indexBuffer) {
+		Log("ENGINE", "Decal quad buffer creation failed", "error", "Render");
+		return null;
+	}
+
+	const vao = gl.createVertexArray();
+	gl.bindVertexArray(vao);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-0.5, -0.5, 0,  0.5, -0.5, 0,  0.5, 0.5, 0,  -0.5, 0.5, 0]), gl.STATIC_DRAW);
+	gl.enableVertexAttribArray(shader.attributes.position);
+	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 1,  1, 1,  1, 0,  0, 0]), gl.STATIC_DRAW);
+	gl.enableVertexAttribArray(shader.attributes.uv);
+	gl.vertexAttribPointer(shader.attributes.uv, 2, gl.FLOAT, false, 0, 0);
+
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2,  0, 2, 3]), gl.STATIC_DRAW);
+
+	gl.bindVertexArray(null);
+
+	renderer.decalQuadBuffer = { vao, position: positionBuffer, uv: uvBuffer, index: indexBuffer };
+	return renderer.decalQuadBuffer;
+}
+
+function buildDecalModelMatrix(partMesh, decalEntry) {
+	const partMatrix = CreateRenderMatrix(partMesh.transform);
+
+	// Column-major 4×4 matrix multiply.
+	const mul = (a, b) => {
+		const out = new Array(16);
+		for (let col = 0; col < 4; col++) {
+			for (let row = 0; row < 4; row++) {
+				out[col * 4 + row] =
+					a[0 * 4 + row] * b[col * 4 + 0] +
+					a[1 * 4 + row] * b[col * 4 + 1] +
+					a[2 * 4 + row] * b[col * 4 + 2] +
+					a[3 * 4 + row] * b[col * 4 + 3];
+			}
+		}
+		return out;
+	};
+
+	const dim = partMesh.dimensions;
+	const lt  = decalEntry.localTransform;
+	const sc  = decalEntry.scale;
+
+	// Face center + local offset combined into a single translation in part-local CNU space.
+	const faceTranslations = {
+		front:  [lt.x,             lt.y,             lt.z + dim.z / 2],
+		back:   [lt.x,             lt.y,             lt.z - dim.z / 2],
+		top:    [lt.x,             lt.y + dim.y / 2, lt.z            ],
+		bottom: [lt.x,             lt.y - dim.y / 2, lt.z            ],
+		right:  [lt.x + dim.x / 2, lt.y,             lt.z            ],
+		left:   [lt.x - dim.x / 2, lt.y,             lt.z            ],
+	};
+
+	// Face rotation matrices (column-major). Each aligns the quad's +Z normal to the face normal.
+	// Computed from standard rotation formulas with exact trig values at 0°/90°/180°.
+	const faceRotations = {
+		front:  [1, 0,  0, 0,  0, 1,  0, 0,  0,  0, 1, 0,  0, 0, 0, 1], // identity
+		back:   [-1, 0, 0, 0,  0, 1,  0, 0,  0,  0,-1, 0,  0, 0, 0, 1], // 180° Y
+		top:    [1, 0,  0, 0,  0, 0, -1, 0,  0,  1, 0, 0,  0, 0, 0, 1], // −90° X
+		bottom: [1, 0,  0, 0,  0, 0,  1, 0,  0, -1, 0, 0,  0, 0, 0, 1], // +90° X
+		right:  [0, 0, -1, 0,  0, 1,  0, 0,  1,  0, 0, 0,  0, 0, 0, 1], // +90° Y
+		left:   [0, 0,  1, 0,  0, 1,  0, 0, -1,  0, 0, 0,  0, 0, 0, 1], // −90° Y
+	};
+
+	const [tx, ty, tz] = faceTranslations[decalEntry.side];
+	// T(face_center + local_offset) × R_face × S(scale) — then pre-multiplied by part world matrix.
+	const tMatrix = [1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  tx, ty, tz, 1];
+	const sMatrix = [sc.x, 0, 0, 0,  0, sc.y, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
+
+	return new Float32Array(mul(partMatrix, mul(tMatrix, mul(faceRotations[decalEntry.side], sMatrix))));
+}
+
+function drawDecalPass(renderer, sceneGraph, passState) {
+	const quadBuffer = ensureDecalQuadBuffer(renderer);
+	if (!quadBuffer) return;
+
+	const gl = renderer.gl;
+	const shader = renderer.shader;
+
+	configureTexturedMeshPass(gl, shader, passState);
+	gl.enable(gl.POLYGON_OFFSET_FILL);
+	gl.polygonOffset(-1, -1);
+	gl.depthMask(false);
+
+	const drawDecalsForMesh = (mesh, index) => {
+		const texture = ensureSceneTexture(renderer, sceneGraph, `${mesh.id}::customTexture::${index}`);
+		const modelMatrix = buildDecalModelMatrix(mesh, mesh.customTextures[index]);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		gl.uniform1i(shader.uniforms.texture, 0);
+		gl.uniformMatrix4fv(shader.uniforms.model, false, modelMatrix);
+		gl.uniform4f(shader.uniforms.tint, 1, 1, 1, 1);
+		gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+	};
+
+	gl.bindVertexArray(quadBuffer.vao);
+	sceneGraph.entities.forEach((entity) => {
+		if (!entity.model) return;
+		entity.model.parts.forEach((part) => {
+			part.mesh.customTextures.forEach((_, index) => drawDecalsForMesh(part.mesh, index));
+		});
+	});
+	sceneGraph.obstacles.forEach((obstacle) => {
+		obstacle.parts.forEach((part) => {
+			part.customTextures.forEach((_, index) => drawDecalsForMesh(part, index));
+		});
+	});
+
+	gl.bindVertexArray(null);
+	gl.depthMask(true);
+	gl.disable(gl.POLYGON_OFFSET_FILL);
+}
+
 function drawScene(renderer, sceneGraph) {
 	const gl = renderer.gl;
 
@@ -1084,6 +1213,9 @@ function drawScene(renderer, sceneGraph) {
 	// === PASS A: Non-scatter meshes (terrain, obstacles, triggers, entities) ===
 	const meshes = collectRenderableMeshes(sceneGraph);
 	drawMeshList(renderer, sceneGraph, meshes, passState);
+
+	// === PASS E: Decal quads (custom textures, alpha-blended on top of geometry) ===
+	drawDecalPass(renderer, sceneGraph, passState);
 
 	// === PASS B: Instanced scatter rendering ===
 	if (!renderer.scatterInstancesBuilt) buildScatterInstanceBuffers(renderer, sceneGraph);

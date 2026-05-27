@@ -339,7 +339,24 @@ function CutscenePayload(payload, type) {
 	return normalized;
 }
 
-function LevelPayload(payload) {
+export async function NormalizeImage(path, sourceType, renderType) {
+	try {
+		const response = await fetch(path);
+		if (!response.ok) throw new Error(`HTTP ${response.status}`);
+		const blob = await response.blob();
+		const bitmap = await createImageBitmap(blob);
+		if (renderType === "html") return { bool: true, value: { image: bitmap, url: path } };
+		return { bool: true, value: bitmap };
+	} catch (e) {
+		warnLog(`NormalizeImage: failed to load '${path}' (${sourceType}): ${e.message}`);
+		return { bool: false, value: null };
+	}
+}
+
+async function LevelPayload(payload) {
+	const pendingImageLoads = [];
+	const affectedParts    = new Set();
+
 	const normalizeTexture = (rawTexture) => {
 		const texture = normalizePayloadSchema(normalizeObject(rawTexture).value, "levelTexture");
 		if (texture.baseTextureID === null) texture.baseTextureID = texture.textureID;
@@ -363,6 +380,29 @@ function LevelPayload(payload) {
 		return { scatter: normalizeScatter(normalizeObject(rawDetail).value.scatter) };
 	};
 
+	const normalizeCustomTextures = (rawCustomTextures, part) => {
+		const entries = [];
+
+		normalizeArray(rawCustomTextures).value.forEach((rawEntry) => {
+			const entrySource = normalizeObject(rawEntry);
+			if (!entrySource.bool) return;
+			const entry = normalizePayloadSchema(entrySource.value, "levelCustomTexture");
+			entry.localTransform = toUnitVector3(entry.localTransform, "cnu");
+			entry.scale = CloneVector3(entry.scale);
+
+			if (entry.imagePath === null || entry.sourceType === null || entry.side === null) {
+				warnLog(`normalizeCustomTextures: dropping entry with null identity fields (imagePath=${entry.imagePath}, sourceType=${entry.sourceType}, side=${entry.side}).`);
+				return;
+			}
+
+			entries.push(entry);
+			pendingImageLoads.push({ entry, promise: NormalizeImage(entry.imagePath, entry.sourceType, "webgl") });
+			affectedParts.add(part);
+		});
+
+		return entries;
+	};
+
 	const normalizePart = (rawPart) => {
 		const partSource = normalizeObject(rawPart).value;
 		const part = normalizePayloadSchema(partSource, "levelPart");
@@ -373,6 +413,10 @@ function LevelPayload(payload) {
 		part.pivot = toUnitVector3(part.pivot, "cnu");
 		part.texture = normalizeTexture(partSource.texture !== undefined ? partSource.texture : part.texture);
 		part.detail = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail);
+		part.customTextures = normalizeCustomTextures(
+			partSource.customTextures !== undefined ? partSource.customTextures : part.customTextures,
+			part
+		);
 		if (part.label === null) delete part.label;
 		return part;
 	};
@@ -610,6 +654,13 @@ function LevelPayload(payload) {
 
 	const musicSource = normalizeObject(rawPayload.music);
 	normalized.music = musicSource.bool ? AudioPayload(musicSource.value) : null;
+
+	await Promise.all(pendingImageLoads.map(({ entry, promise }) =>
+		promise.then((result) => { entry.bitmap = result.bool ? result.value : null; })
+	));
+	affectedParts.forEach((part) => {
+		part.customTextures = part.customTextures.filter((e) => e.bitmap !== null);
+	});
 
 	return normalized;
 }
