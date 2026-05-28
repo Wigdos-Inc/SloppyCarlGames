@@ -1,6 +1,7 @@
 This file contains current priorities.
 
-Test functionality for custom image-based textures
+Add customTexture shape support (with claude)
+Make all image loaders use NormalizeImage (splash + UI)
 Update test characters to test multiple types of characters with intuitive physics
 Add Terrain Blueprint Support (start using Claude Code):
 - Add Sonic-Style Loop Blueprint

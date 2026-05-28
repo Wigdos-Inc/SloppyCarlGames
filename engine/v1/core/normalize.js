@@ -1,5 +1,6 @@
 import canonSchemas from "./canonSchemas.json" with { type: "json" };
 import characterData from "../player/characters.json" with { type: "json" };
+import objectDetail from "../builder/templates/textures.json" with { type: "json" };
 import { Log } from "./meta.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { CloneVector3 } from "../math/Vector3.js";
@@ -359,8 +360,19 @@ async function LevelPayload(payload) {
 
 	const normalizeTexture = (rawTexture) => {
 		const texture = normalizePayloadSchema(normalizeObject(rawTexture).value, "levelTexture");
+
+		const resolveTextureId = (textureId, fallbackTextureId, fieldPath = "") => {
+			if (objectDetail.textures[textureId] !== undefined) return textureId;
+			if (fieldPath !== "") warnLog(`${fieldPath}: '${textureId}' invalid, using 'levelTexture.${fallbackTextureId}'.`);
+			return fallbackTextureId;
+		}
+
+		const fallback = canonSchemas.levelTexture.textureID.__meta.fallback;
+		texture.textureID = resolveTextureId(texture.textureID, fallback, "textureID");
 		if (texture.baseTextureID === null) texture.baseTextureID = texture.textureID;
+		else texture.baseTextureID = resolveTextureId(texture.baseTextureID, texture.textureID);
 		if (texture.materialTextureID === null) texture.materialTextureID = texture.textureID;
+		else texture.materialTextureID = resolveTextureId(texture.materialTextureID, texture.textureID);
 		return texture;
 	};
 
@@ -370,7 +382,12 @@ async function LevelPayload(payload) {
 		normalizeArray(rawScatter).value.forEach((rawEntry) => {
 			const entrySource = normalizeObject(rawEntry);
 			if (!entrySource.bool) return;
-			resolvedScatter.push(normalizePayloadSchema(entrySource.value, "levelScatterEntry"));
+			const entry = normalizePayloadSchema(entrySource.value, "levelScatterEntry");
+			if (objectDetail.scatterTypes[entry.typeID] === undefined) {
+				warnLog(`levelScatterEntry.typeID: '${entry.typeID}' invalid, dropping entry.`);
+				return;
+			}
+			resolvedScatter.push(entry);
 		});
 
 		return resolvedScatter;
