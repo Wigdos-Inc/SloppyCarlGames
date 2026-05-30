@@ -18,6 +18,110 @@ import { PlayAudio } from "../Sound.js";
 import { Log, PushToSession, ReadFromSession, SESSION_KEYS, Wait } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { ValidateSplashPayload } from "../../core/validate.js";
+import { NormalizeImage } from "../../core/normalize.js";
+
+class splashSequenceStep {
+	constructor(rawStep) {
+		this.name           = rawStep.name;
+		this.image          = rawStep.image;
+		this.sfx            = rawStep.sfx;
+		this.voice          = rawStep.voice;
+		this.voiceAtStart   = rawStep.voiceAtStart;
+		this.fadeInSeconds  = rawStep.fadeInSeconds;
+		this.holdMs         = rawStep.holdMs;
+		this.fadeOutSeconds = rawStep.fadeOutSeconds;
+		this.elements       = rawStep.elements;
+		this.text           = rawStep.text;
+
+		this.estimatedLength = (this.fadeInSeconds * 1000) + this.holdMs + (this.fadeOutSeconds * 1000);
+		this._preloadPromise = NormalizeImage(this.image, "splash", "html");
+	}
+
+	async play(context, stepIndex) {
+		this.imageData = await this._preloadPromise;
+		const resolvedUrl = this.imageData.bool ? this.imageData.value.url : this.image;
+
+		Log("ENGINE", `Splash stage start: ${this.name}.`, "log", "Startup");
+
+		SetElementSource(context.imageId, resolvedUrl);
+		renderSplashStepElements(this, context, stepIndex);
+
+		context.supplementalElementIds.forEach((id) => SetElementStyle(id, { opacity: "0" }));
+
+		if (this.sfx !== null) PlayAudio(this.sfx.src, this.sfx.options, "Sfx");
+		if (this.voiceAtStart) PlayAudio(this.voice.src, this.voice.options, "Voice");
+
+		const fadeInPromises = [FadeElement(context.imageId, 1, this.fadeInSeconds)];
+		context.supplementalElementIds.forEach((id) => fadeInPromises.push(FadeElement(id, 1, this.fadeInSeconds)));
+		await Promise.all(fadeInPromises);
+
+		await Wait(this.holdMs);
+
+		if (!this.voiceAtStart && this.voice !== null) await PlayAudio(this.voice.src, this.voice.options, "Voice");
+
+		const fadeOutPromises = [FadeElement(context.imageId, 0, this.fadeOutSeconds)];
+		context.supplementalElementIds.forEach((id) => fadeOutPromises.push(FadeElement(id, 0, this.fadeOutSeconds)));
+		await Promise.all(fadeOutPromises);
+		removeSplashSupplementalElements(context);
+	}
+}
+
+const splashData = {
+	order: [],
+	steps: {},
+	baseLength: 0,
+	waitAction(length) {
+		return Wait(length);
+	},
+};
+
+splashData.steps["Sloppy Carl Games"] = new splashSequenceStep({
+	name: "Sloppy Carl Games",
+	image: new URL("../../assets/carlStudios/sloppyCarl.png", import.meta.url).href,
+	sfx: {
+		src: new URL("../../assets/carlStudios/splat.mp3", import.meta.url).href,
+		options: { id: "SPLAT", rate: 1.5 },
+	},
+	voice: {
+		src: new URL("../../assets/carlStudios/sloppyCarl.mp3", import.meta.url).href,
+		options: { id: "SLOPPY_CARL" },
+	},
+	voiceAtStart: false,
+	fadeInSeconds: 0.3,
+	holdMs: 600,
+	fadeOutSeconds: 1,
+	elements: [],
+	text: [],
+});
+
+splashData.steps["Wigdos Studios Inc"] = new splashSequenceStep({
+	name: "Wigdos Studios Inc",
+	image: new URL("../../assets/wigdosStudios/wigdosPublisher.png", import.meta.url).href,
+	sfx: null,
+	voice: null,
+	voiceAtStart: false,
+	fadeInSeconds: 0.5,
+	holdMs: 2000,
+	fadeOutSeconds: 1,
+	elements: [],
+	text: [],
+});
+
+splashData.steps["CarlNet Engine"] = new splashSequenceStep({
+	name: "CarlNet Engine",
+	image: new URL("../../assets/engine/carlNetEngine.png", import.meta.url).href,
+	sfx: null,
+	voice: {
+		src: new URL("../../assets/engine/carlNetEngine.mp3", import.meta.url).href,
+		options: { id: "CARLNET_ENGINE" },
+	},
+	voiceAtStart: true,
+	fadeInSeconds: 0.3,
+	holdMs: 2500,
+	fadeOutSeconds: 1,
+	elements: [],
+	text: [],
+});
 
 let splashRequested = false;
 let bufferedSplashPayload = null;
@@ -76,155 +180,33 @@ function renderSplashStepElements(step, context, stepIndex) {
 	context.supplementalElementIds = ids;
 }
 
+function resolveOrder(requestedSplashPayload) {
+	splashData.order = [];
 
-// Splash steps for Sloppy Carl Games.
-function getCarlStudiosSequence() {
-	return [
-		{
-			name: "Sloppy Carl Games",
-			image: new URL(
-				"../../assets/carlStudios/sloppyCarl.png",
-				import.meta.url
-			).href,
-			sfx: {
-				src: new URL("../../assets/carlStudios/splat.mp3", import.meta.url)
-					.href,
-				options: { id: "SPLAT", rate: 1.5 },
-			},
-			voice: {
-				src: new URL("../../assets/carlStudios/sloppyCarl.mp3", import.meta.url)
-					.href,
-				options: { id: "SLOPPY_CARL" },
-			},
-			voiceAtStart: false,
-			fadeInSeconds: 0.3,
-			holdMs: 600,
-			fadeOutSeconds: 1,
-			elements: [],
-			text: [],
-		},
-	];
-}
-
-// Splash steps for Wigdos Studios Inc.
-function getWigdosStudiosSequence() {
-	return [
-		{
-			name: "Wigdos Studios Inc",
-			image: new URL(
-				"../../assets/wigdosStudios/wigdosPublisher.png",
-				import.meta.url
-			).href,
-			sfx: null,
-			voice: null,
-			voiceAtStart: false,
-			fadeInSeconds: 0.5,
-			holdMs: 2000,
-			fadeOutSeconds: 1,
-			elements: [],
-			text: [],
-		},
-	];
-}
-
-// Splash steps for CarlNet Engine.
-function getCarlNetEngineSequence() {
-	return [
-		{
-			name: "CarlNet Engine",
-			image: new URL(
-				"../../assets/engine/carlNetEngine.png",
-				import.meta.url
-			).href,
-			voice: {
-				src: new URL("../../assets/engine/carlNetEngine.mp3", import.meta.url)
-					.href,
-				options: { id: "CARLNET_ENGINE" },
-			},
-			voiceAtStart: true,
-			sfx: null,
-			fadeInSeconds: 0.3,
-			holdMs: 2500,
-			fadeOutSeconds: 1,
-			elements: [],
-			text: [],
-		},
-	];
-}
-
-function getDefaultSequence() {
-	const providers = [
-		getCarlStudiosSequence,
-		getWigdosStudiosSequence,
-		getCarlNetEngineSequence,
-	];
-
-	return providers.flatMap((provider) => provider());
-}
-
-function getBuiltInSequenceById(presetId) {
-	switch (presetId) {
-		case "sloppycarl": return getCarlStudiosSequence();
-		case "wigdos"    : return getWigdosStudiosSequence();
-		case "carlnet"   : return getCarlNetEngineSequence();
-		case "default"   : return getDefaultSequence();
-		default          : return getDefaultSequence();
+	switch (requestedSplashPayload.outputType) {
+		case "default": splashData.order.push("Sloppy Carl Games", "Wigdos Studios Inc", "CarlNet Engine"); break;
+		case "preset": {
+			const presetKeyMap = {
+				sloppycarl: "Sloppy Carl Games",
+				wigdos:     "Wigdos Studios Inc",
+				carlnet:    "CarlNet Engine",
+			};
+			requestedSplashPayload.presetId.forEach((id) => splashData.order.push(presetKeyMap[id]));
+			break;
+		}
+		default:
+			requestedSplashPayload.sequence.forEach((rawStep) => {
+				const step = new splashSequenceStep(rawStep);
+				splashData.steps[step.name] = step;
+				splashData.order.push(step.name);
+			});
+			break;
 	}
-}
 
-function resolveSplashSteps(requestedSplashPayload) {
-	if (!requestedSplashPayload) return getDefaultSequence();
-
-	// Allow canonical default payloads to explicitly indicate the engine default
-	if (requestedSplashPayload.outputType === "default") return getDefaultSequence();
-
-	if (requestedSplashPayload.presetId) return getBuiltInSequenceById(requestedSplashPayload.presetId);
-
-	return requestedSplashPayload.sequence;
-}
-
-// Execute each splash step in order.
-async function runSequenceSteps(sequence, context) {
-	for (let index = 0; index < sequence.length; index++) {
-		const step = sequence[index];
-		Log(
-			"ENGINE",
-			`Splash stage start: ${step.name}.`,
-			"log",
-			"Startup"
-		);
-
-		SetElementSource(context.imageId, step.image);
-		renderSplashStepElements(step, context, index);
-
-		// Initialize supplemental elements to fully transparent so they can fade with the image.
-		context.supplementalElementIds.forEach((id) => SetElementStyle(id, { opacity: "0" }));
-
-		if (step.sfx !== null) PlayAudio(step.sfx.src, step.sfx.options, "Sfx");
-		if (step.voiceAtStart) PlayAudio(step.voice.src, step.voice.options, "Voice");
-
-		// Fade image and supplemental elements together.
-		const fadeInPromises = [FadeElement(context.imageId, 1, step.fadeInSeconds)];
-		context.supplementalElementIds.forEach((id) => fadeInPromises.push(FadeElement(id, 1, step.fadeInSeconds)));
-		await Promise.all(fadeInPromises);
-
-		await Wait(step.holdMs);
-
-		if (!step.voiceAtStart && step.voice !== null) await PlayAudio(step.voice.src, step.voice.options, "Voice");
-
-		// Fade image and supplemental elements out together.
-		const fadeOutPromises = [FadeElement(context.imageId, 0, step.fadeOutSeconds)];
-		context.supplementalElementIds.forEach((id) => fadeOutPromises.push(FadeElement(id, 0, step.fadeOutSeconds)));
-		await Promise.all(fadeOutPromises);
-		removeSplashSupplementalElements(context);
-
-		// Pause between splash steps.
-		if (index < sequence.length - 1) await Wait(1000);
-	}
+	splashData.baseLength = (splashData.order.length + 1) * 1000;
 }
 
 async function runSplashSequence(requestedSplashPayload) {
-	// Build the full splash sequence pipeline.
 	const context = {
 		overlayId: "engine-startup-overlay",
 		imageId: "engine-splash-image",
@@ -232,19 +214,39 @@ async function runSplashSequence(requestedSplashPayload) {
 	};
 
 	if (CONFIG.DEBUG.SKIP.Splash === true || ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true) {
-		Log("ENGINE", "Splash scren sequence skipped.", "log", "Startup");
+		Log("ENGINE", "Splash screen sequence skipped.", "log", "Startup");
 		return context;
 	}
-	const steps = resolveSplashSteps(requestedSplashPayload);
 
-	// Initial pacing before the first splash.
-	await Wait(1000);
-	await runSequenceSteps(steps, context);
+	resolveOrder(requestedSplashPayload);
 
-	// Final pacing after splash(es).
-	await Wait(1000);
+	const names = splashData.order.map((k, i) => `${i + 1}:${k}`).join("\n- ");
+	switch (requestedSplashPayload.outputType) {
+		case "custom": {
+			Log("ENGINE", `Using custom splash payload with ${splashData.order.length} step(s):\n- ${names}`, "log", "Startup");
+			break;
+		}
+		case "preset": {
+			Log("ENGINE", `Using preset splashId='${requestedSplashPayload.presetId.join(", ")}'. Preset order:\n- ${names}`, "log", "Startup");
+			break;
+		}
+		default:
+			Log("ENGINE", "Using default splash sequence.", "log", "Startup");
+	}
+
+	const stepTotal = splashData.order.reduce((sum, k) => sum + splashData.steps[k].estimatedLength, 0);
+	Log("ENGINE", `Estimated splash sequence length: ${stepTotal + splashData.baseLength}ms`, "log", "Startup");
+
+	await splashData.waitAction(1000);
+
+	for (let i = 0; i < splashData.order.length; i++) {
+		await splashData.steps[splashData.order[i]].play(context, i);
+		if (i < splashData.order.length - 1) await splashData.waitAction(1000);
+	}
+
+	await splashData.waitAction(1000);
+
 	PushToSession(SESSION_KEYS.SplashPlayed, true);
-
 	return context;
 }
 
@@ -253,7 +255,7 @@ function AcceptSplashPayload() {
 	bufferedSplashPayload = null;
 }
 
-function DeclineSplashPayload() {
+function declineSplashPayload() {
 	splashRequested = false;
 }
 
@@ -270,31 +272,13 @@ function ProvideSplashScreenPayload(payload) {
 
 async function ApplySplashScreenSequence(options) {
 	// Stop accepting payloads immediately as splash sequence is about to start.
-	DeclineSplashPayload();
+	declineSplashPayload();
 
 	// Validate (and normalize) buffered splash payload.
 	let payload = ValidateSplashPayload(bufferedSplashPayload);
 	if (payload === null) {
 		Log("ENGINE", "Splash.ApplySplashScreenSequence falling back to default sequence after validation failure.", "error", "Startup");
 		payload = { outputType: "default", presetId: null, sequence: [] };
-	}
-
-	// Log whether this is a custom sequence, a preset, or the default using normalized outputType.
-	switch (payload.outputType) {
-		case "custom": {
-			const names = payload.sequence.map((s, i) => s.name ? `${i + 1}:${s.name}` : `${i + 1}:<unnamed>`).join("\n- ");
-			Log("ENGINE", `Using custom splash payload with ${payload.sequence.length} step(s):\n- ${names}`, "log", "Startup");
-			break;
-		}
-		case "preset": {
-			const preset = payload.presetId;
-			const seq = getBuiltInSequenceById(preset);
-			const names = seq.map((s, i) => s.name ? `${i + 1}:${s.name}` : `${i + 1}:<unnamed>`).join("\n- ");
-			Log("ENGINE", `Using preset splashId='${preset}'. Preset order:\n- ${names}`, "log", "Startup");
-			break;
-		}
-		default:
-			Log("ENGINE", "Using default splash sequence.", "log", "Startup");
 	}
 
 	// Start Sequence

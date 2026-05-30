@@ -132,6 +132,18 @@ function normalizePayloadSchema(payload, rootKey) {
 					);
 					resolvedValue = cloneFallback(meta);
 				}
+
+				if (meta.allowedValues && meta.dataType === "array" && resolvedValue !== null) {
+					resolvedValue = resolvedValue.filter((item) => {
+						if (meta.allowedValues.includes(item)) return true;
+						warnLog(`${rootKey}.${key}: '${item}' not in allowedValues, removed.`);
+						return false;
+					});
+					if (resolvedValue.length === 0) {
+						warnLog(`${rootKey}.${key}: no valid entries remain, using fallback ${JSON.stringify(meta.fallback)}.`);
+						resolvedValue = cloneFallback(meta);
+					}
+				}
 			}
 
 			if (fieldSchema.__entry && Array.isArray(resolvedValue)) {
@@ -160,17 +172,7 @@ function normalizePayloadSchema(payload, rootKey) {
 
 function AudioPayload(payload) {
 	const rawPayload = normalizeObject(payload).value;
-	const rateMeta = canonSchemas.audio.rate.__meta;
-	const normalized = normalizePayloadSchema(rawPayload, "audio");
-	const rawOptions = normalizeObject(rawPayload.options).value;
-
-	if (normalizeString(rawOptions.id).bool && normalized.id === null) normalized.id = rawOptions.id;
-	if (normalizeString(rawOptions.name).bool && normalized.name === null) normalized.name = rawOptions.name;
-	if (normalizeNumber(rawOptions.rate).bool && rawPayload.rate === undefined) {
-		normalized.rate = Clamp(rawOptions.rate, rateMeta.range.min, rateMeta.range.max);
-	}
-	if (normalizeBool(rawOptions.loop).bool && rawPayload.loop === undefined) normalized.loop = rawOptions.loop;
-	if (normalizeString(rawOptions.category).bool && rawPayload.category === undefined) normalized.category = rawOptions.category;
+	const normalized = normalizePayloadSchema({ ...normalizeObject(rawPayload.options).value, ...rawPayload }, "audio");
 
 	if (normalized.name === null) {
 		if (normalized.id !== null) normalized.name = normalized.id;
@@ -181,12 +183,7 @@ function AudioPayload(payload) {
 		}
 	}
 
-	const categoryMeta = canonSchemas.audio.category.__meta;
 	if (normalized.id === null) normalized.id = normalized.name;
-	if (normalized.category !== null && categoryMeta.allowedValues.includes(normalized.category) === false) {
-		warnLog(`audio.category: '${normalized.category}' invalid, fallback to null.`);
-		normalized.category = categoryMeta.fallback;
-	}
 
 	const options = structuredClone(normalized.options);
 	if (options.id === undefined && normalized.id !== null) options.id = normalized.id;
@@ -305,14 +302,9 @@ function SplashPayload(payload) {
 		return step;
 	});
 
-	if (normalized.outputType === "preset") {
-		const presetIds = ["sloppycarl", "wigdos", "carlnet", "default"];
-		if (normalized.presetId === null || presetIds.includes(normalized.presetId) === false) {
-			warnLog(`splash.presetId: '${normalized.presetId}' invalid, using default.`);
-			normalized.outputType = "default";
-			normalized.presetId = null;
-			normalized.sequence = [];
-		}
+	if (normalized.outputType === "preset" && normalized.presetId === null) {
+		warnLog("splash.presetId: expected a non-empty array of preset IDs, using default.");
+		normalized.outputType = "default";
 	}
 
 	if (normalized.outputType === "custom" && normalized.sequence.length === 0) {

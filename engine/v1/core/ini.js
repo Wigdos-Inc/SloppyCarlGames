@@ -6,44 +6,15 @@
 /* === IMPORTS === */
 // Core diagnostics and logging support.
 
-import {
-  Log,
-  LogAll,
-  LogCache,
-  IsPointerLocked,
-  RequestPointerLock,
-  SendEvent,
-  Wait,
-  Cache,
-  Cursor,
-  ExitGame,
-  PushToSession,
-  ReadFromSession,
-  SESSION_KEYS,
-} from "./meta.js";
-import { CONFIG } from "./config.js";
+import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey } from "./meta.js";
+import { CONFIG as Config } from "./config.js";
 import { ApplyMenuUI, LoadScreen, ClearUI } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
-import {
-  PlayAudio,
-  PlayMusic,
-  PauseMusic,
-  ResumeMusic,
-  StopMusic,
-  StopSfx,
-  StopAllAudio,
-  UpdateActiveAudioVolumes,
-} from "../handlers/Sound.js";
-import {
-  CreateLevel,
-  Update as UpdateLevel,
-  GetActiveLevel,
-  PauseLevelLoop,
-  ResumeLevelLoop,
-} from "../handlers/game/Level.js";
+import { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes } from "../handlers/Sound.js";
+import { CreateLevel, Update as UpdateLevel, GetActiveLevel, PauseLevelLoop as PauseLevel, ResumeLevelLoop as ResumeLevel } from "../handlers/game/Level.js";
 import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
-import { PlayerAPI } from "../player/Master.js";
+import { PlayerAPI as Player } from "../player/Master.js";
 import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3, CNU_SCALE } from "../math/Utilities.js"
 import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3, Vector3ChainMath } from "../math/Vector3.js";
 import { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence } from "../math/Forces.js";
@@ -66,11 +37,11 @@ function Initialize() {
   // Expose the engine public API surface.
   return {
     Log,
-    Config: CONFIG,
+    Config,
     Cache,
     Meta: {
       LogAll, LogCache, Cursor, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
-      SessionKey: SESSION_KEYS,
+      SessionKey,
       CNU_SCALE
     },
     Controls: Controls,
@@ -82,18 +53,13 @@ function Initialize() {
     Startup: { ProvideSplashScreenPayload },
     UI: { ApplyMenuUI, LoadScreen, ClearUI },
     Audio: { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes },
-    Level: { CreateLevel, UpdateLevel, GetActiveLevel },
-    Player: PlayerAPI,
+    Level: { CreateLevel, UpdateLevel, GetActiveLevel, PauseLevel, ResumeLevel, Player },
     Math: {
       Convert: { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU },
       Vector3: { AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3, Vector3ChainMath },
       Instancing: { Unit, UnitVector3 },
       Physics: { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence },
-    },
-    Debug: {
-      PauseLevel: PauseLevelLoop,
-      ResumeLevel: ResumeLevelLoop,
-    },
+    }
   };
 }
 

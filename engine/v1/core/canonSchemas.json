@@ -297,12 +297,13 @@
     },
     "presetId": {
       "__meta": {
-        "description": "Built-in preset id",
+        "description": "Ordered array of built-in preset IDs to play",
         "aliases": [],
-        "dataType": "string",
+        "dataType": "array",
         "isRequired": false,
         "isExpected": false,
         "fallback": null,
+        "allowedValues": ["sloppycarl", "wigdos", "carlnet"],
         "deprecated": false
       }
     },
