@@ -32,16 +32,18 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 - `/project:era` — Engine Rules Auditor. Use for rule compliance reviews and violation detection or cleanup.
 - `/project:dryad` — DRY Agent for Deduplication. Use for deduplication reviews and simplification.
 - `/project:ed` — Engine Developer. Use for scoped engine feature work and bug fixes.
+- `/project:argus` — Automated Runtime Game-testing & User Simulation. Use for browser-based game testing, feature verification, and runtime error detection via MCP tools.
 
 ## Autonomous Subagent Use
 
-These commands can be invoked as subagents (via the Agent tool) without explicit user request. Use judgment — small fixes, debugging, and code migrations do not warrant subagents.
+These commands can be invoked as subagents (via the Agent tool) without explicit user request. Use judgment — small fixes, debugging, and code migrations do not warrant subagents. Feature additions, refactors and research can warrant subagents.
 
 **When to spawn autonomously:**
 
-- **ED** — When new functionality is being implemented (new features, non-trivial extensions to existing systems). Spawn ED as the implementing agent for that work.
-- **DRYAD** — When the task involves performance, deduplication, line count reduction, or efficiency concerns. Spawn DRYAD to review the relevant scope.
-- **ERA** — When the task involves rule adherence, compliance review, or you are uncertain whether a change satisfies engine rules.
+- **ED** — When new functionality is being implemented (new features, non-trivial extensions to existing systems or notable refactors). Spawn ED as the implementing agent for that work.
+- **DRYAD** — When any task involves performance, deduplication, line count reduction, or efficiency concerns. Spawn DRYAD to ensure concise and efficient code. Large additions or refactors should always be reviewed.
+- **ERA** — When the task involves rule adherence, compliance review, or you are uncertain whether a change satisfies engine rules. Large additions or refactors should always be reviewed.
+- **ARGUS** — When browser-based verification of a feature or fix is needed. ED will always spawn ARGUS autonomously, but it may be invoked for other use-cases as well.
 
 **Post-ED audit requirement:**
 
@@ -49,7 +51,7 @@ After any ED pass that results in a significant amount of new or edited code —
 
 **What does not require subagents:**
 
-Small isolated fixes, debugging sessions, logging changes, code migrations (e.g. moving a declaration between files), and one-off lookups. These are handled directly.
+Small isolated fixes (may still call ARGUS), debugging sessions, logging changes, code migrations (e.g. moving a declaration between files), and one-off lookups. These are handled directly.
 
 ## Response Formatting
 
