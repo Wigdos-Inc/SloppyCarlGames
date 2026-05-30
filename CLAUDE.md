@@ -43,11 +43,16 @@ These commands can be invoked as subagents (via the Agent tool) without explicit
 - **ED** — When new functionality is being implemented (new features, non-trivial extensions to existing systems or notable refactors). Spawn ED as the implementing agent for that work.
 - **DRYAD** — When any task involves performance, deduplication, line count reduction, or efficiency concerns. Spawn DRYAD to ensure concise and efficient code. Large additions or refactors should always be reviewed.
 - **ERA** — When the task involves rule adherence, compliance review, or you are uncertain whether a change satisfies engine rules. Large additions or refactors should always be reviewed.
-- **ARGUS** — When browser-based verification of a feature or fix is needed. ED will always spawn ARGUS autonomously, but it may be invoked for other use-cases as well.
+- **ARGUS** — When browser-based verification of a feature or fix is needed (changes that may cause runtime errors, behavioral changes, or visual changes). Spawned by main Claude after ED's turn ends — never by ED itself. See post-ED rules below.
 
 **Post-ED audit requirement:**
 
 After any ED pass that results in a significant amount of new or edited code — judged by scope (new functions, structural changes, multi-file edits) rather than a fixed line count — spawn both the ERA and DRYAD skills through subagents on the changed code.
+
+After ERA and DRYAD return, apply the following ARGUS rules:
+- If ERA and DRYAD both returned clean (no genuine violations): spawn ARGUS to verify the change in the browser.
+- If ERA and/or DRYAD flagged genuine issues: report the findings to the user and note that ARGUS will run once those findings have been reviewed. Do not spawn ARGUS until the issues are resolved.
+- If browser verification is not warranted for the change (no risk of runtime errors, behavioral changes, or visual changes), skip ARGUS regardless of audit results.
 
 **What does not require subagents:**
 
