@@ -54,6 +54,8 @@ After ERA and DRYAD return, apply the following ARGUS rules:
 - If ERA and/or DRYAD flagged genuine issues: report the findings to the user and note that ARGUS will run once those findings have been reviewed. Do not spawn ARGUS until the issues are resolved.
 - If browser verification is not warranted for the change (no risk of runtime errors, behavioral changes, or visual changes), skip ARGUS regardless of audit results.
 
+If ARGUS returns unsolved issues, report back to the user, offering to have ED resolve them.
+
 **What does not require subagents:**
 
 Small isolated fixes (may still call ARGUS), debugging sessions, logging changes, code migrations (e.g. moving a declaration between files), and one-off lookups. These are handled directly.
