@@ -171,15 +171,18 @@ async function InitializePlayer(payload, sceneGraph) {
 	if (!hasCustomParts) {
 		const imageLoads = [];
 		effectiveCharacter.model.parts.forEach((part) => {
-			part.customTextures.forEach((ct) => imageLoads.push(
-				NormalizeImage(new URL(ct.imagePath, import.meta.url).href, ct.sourceType, "webgl").then((result) => {
-					ct.bitmap = result.bool ? result.value : null;
-				})
-			));
+			part.customTextures.forEach((ct) => {
+				if (ct.decalType !== "image") return;
+				imageLoads.push(
+					NormalizeImage(new URL(ct.imagePath, import.meta.url).href, ct.sourceType, "webgl").then((result) => {
+						ct.bitmap = result.bool ? result.value : null;
+					})
+				);
+			});
 		});
 		await Promise.all(imageLoads);
 		effectiveCharacter.model.parts.forEach((part) => {
-			part.customTextures = part.customTextures.filter((ct) => ct.bitmap !== null);
+			part.customTextures = part.customTextures.filter((ct) => ct.decalType !== "image" || ct.bitmap !== null);
 		});
 	}
 

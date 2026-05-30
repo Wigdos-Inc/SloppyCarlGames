@@ -1097,16 +1097,17 @@ function buildDecalModelMatrix(partMesh, decalEntry) {
 
 	const dim = partMesh.dimensions;
 	const lt  = decalEntry.localTransform;
-	const sc  = decalEntry.scale;
+	const pos = lt.position;
+	const sc  = lt.scale;
 
 	// Face center + local offset combined into a single translation in part-local CNU space.
 	const faceTranslations = {
-		front:  [lt.x,             lt.y,             lt.z + dim.z / 2],
-		back:   [lt.x,             lt.y,             lt.z - dim.z / 2],
-		top:    [lt.x,             lt.y + dim.y / 2, lt.z            ],
-		bottom: [lt.x,             lt.y - dim.y / 2, lt.z            ],
-		right:  [lt.x + dim.x / 2, lt.y,             lt.z            ],
-		left:   [lt.x - dim.x / 2, lt.y,             lt.z            ],
+		front:  [pos.x,             pos.y,             pos.z + dim.z / 2],
+		back:   [pos.x,             pos.y,             pos.z - dim.z / 2],
+		top:    [pos.x,             pos.y + dim.y / 2, pos.z            ],
+		bottom: [pos.x,             pos.y - dim.y / 2, pos.z            ],
+		right:  [pos.x + dim.x / 2, pos.y,             pos.z            ],
+		left:   [pos.x - dim.x / 2, pos.y,             pos.z            ],
 	};
 
 	// Face rotation matrices (column-major). Each aligns the quad's +Z normal to the face normal.
@@ -1121,11 +1122,13 @@ function buildDecalModelMatrix(partMesh, decalEntry) {
 	};
 
 	const [tx, ty, tz] = faceTranslations[decalEntry.side];
-	// T(face_center + local_offset) × R_face × S(scale) — then pre-multiplied by part world matrix.
-	const tMatrix = [1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  tx, ty, tz, 1];
-	const sMatrix = [sc.x, 0, 0, 0,  0, sc.y, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
+	const c = Math.cos(lt.rotation.value), s = Math.sin(lt.rotation.value);
+	// T(face_center + local_offset) × R_face × R_z(rotation) × S(scale) — then pre-multiplied by part world matrix.
+	const tMatrix  = [1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  tx, ty, tz, 1];
+	const rzMatrix = [c, s, 0, 0,  -s, c, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
+	const sMatrix  = [sc.x, 0, 0, 0,  0, sc.y, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
 
-	return new Float32Array(mul(partMatrix, mul(tMatrix, mul(faceRotations[decalEntry.side], sMatrix))));
+	return new Float32Array(mul(partMatrix, mul(tMatrix, mul(faceRotations[decalEntry.side], mul(rzMatrix, sMatrix)))));
 }
 
 function drawDecalPass(renderer, sceneGraph, passState) {
@@ -1162,6 +1165,9 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 		obstacle.parts.forEach((part) => {
 			part.customTextures.forEach((_, index) => drawDecalsForMesh(part, index));
 		});
+	});
+	sceneGraph.terrain.forEach((mesh) => {
+		mesh.customTextures.forEach((_, index) => drawDecalsForMesh(mesh, index));
 	});
 
 	gl.bindVertexArray(null);

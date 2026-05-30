@@ -1312,20 +1312,39 @@
     "customTextures": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
   },
   "levelCustomTexture": {
-    "imagePath":  { "__meta": { "description": "Asset path or URL",          "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null,    "deprecated": false } },
-    "sourceType": { "__meta": { "description": "Source kind",                "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null,    "allowedValues": ["local","url"], "deprecated": false } },
+    "decalType":  { "__meta": { "description": "Decal kind",                 "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null,    "allowedValues": ["image","shape"], "deprecated": false } },
+    "imagePath":  { "__meta": { "description": "Asset path or URL",          "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "deprecated": false } },
+    "sourceType": { "__meta": { "description": "Source kind",                "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "allowedValues": ["local","url"], "deprecated": false } },
+    "shape":      { "__meta": { "description": "Decal shape",                "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "allowedValues": ["square","circle","triangle"], "deprecated": false } },
+    "color": {
+      "__meta": { "description": "Decal fill color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+      "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+    },
+    "detail": {
+      "__meta": { "description": "Shape texture detail", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "baseTextureID": { "__meta": { "description": "Base texture id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": null, "deprecated": false } },
+      "density":       { "__meta": { "description": "Texture density",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } },
+      "speckSize":     { "__meta": { "description": "Speck size",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } }
+    },
     "side":       { "__meta": { "description": "Face the decal attaches to", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": "front", "allowedValues": ["front","back","left","right","top","bottom"], "deprecated": false } },
     "localTransform": {
-      "__meta": { "description": "Face-local offset (cnu)", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
-      "x": { "__meta": { "description": "Offset x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
-      "y": { "__meta": { "description": "Offset y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
-      "z": { "__meta": { "description": "Offset z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
-    },
-    "scale": {
-      "__meta": { "description": "Decal quad size", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
-      "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
-      "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
-      "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+      "__meta": { "description": "Decal local transform", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": {}, "deprecated": false },
+      "position": {
+        "__meta": { "description": "Face-local offset (cnu)", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": true, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+        "x": { "__meta": { "description": "Offset x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "y": { "__meta": { "description": "Offset y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "z": { "__meta": { "description": "Offset z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+      },
+      "rotation": { "__meta": { "description": "Rotation around face normal (degrees)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "scale": {
+        "__meta": { "description": "Decal quad scale", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": true, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
+        "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+        "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+        "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+      }
     }
   },
   "levelObject": {
@@ -1369,7 +1388,8 @@
     "destructible": { "__meta": { "description": "Destructible flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "hp": { "__meta": { "description": "Obstacle hp", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
     "static": { "__meta": { "description": "Static flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } },
-    "parts": { "__meta": { "description": "Obstacle part list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
+    "parts": { "__meta": { "description": "Obstacle part list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
+    "customTextures": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
   },
   "levelMovement": {
     "start": {

@@ -4,7 +4,13 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\\" -Recurse -Directory | Select-Object -ExpandProperty FullName | Sort-Object)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\" -Recurse -Filter \"canonSchemas.json\" -ErrorAction SilentlyContinue)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\" -Recurse -File)",
-      "Bash(Select-Object -ExpandProperty Name)"
+      "Bash(Select-Object -ExpandProperty Name)",
+      "mcp__chrome-devtools__list_pages",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__chrome-devtools__press_key",
+      "mcp__chrome-devtools__evaluate_script",
+      "mcp__chrome-devtools__list_console_messages"
     ]
   }
 }

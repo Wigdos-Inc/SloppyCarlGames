@@ -198,6 +198,23 @@ function collectTextureUsage(sceneGraph) {
 	sceneGraph.terrain.forEach((mesh) => {
 		const span = Math.max(mesh.dimensions.x * mesh.transform.scale.x, mesh.dimensions.z * mesh.transform.scale.z);
 		collectMesh(mesh, { isTerrain: true, maxSpan: span }, mesh.id);
+		mesh.customTextures.forEach((ct, index) => {
+			const id = `${mesh.id}::customTexture::${index}`;
+			if (ct.decalType === "image") {
+				customTextureUsage[id] = {
+					decalType: "image",
+					bitmap   : ct.bitmap,
+					placement: { side: ct.side, localTransform: ct.localTransform },
+				};
+			} else {
+				customTextureUsage[id] = {
+					decalType: "shape",
+					ct,
+					mesh,
+					placement: { side: ct.side, localTransform: ct.localTransform },
+				};
+			}
+		});
 	});
 
 	const nonTerrainOptions = { isTerrain: false, maxSpan: 1 };
@@ -208,10 +225,21 @@ function collectTextureUsage(sceneGraph) {
 		obstacle.parts.forEach((part) => {
 			collectMesh(part, nonTerrainOptions, part.id);
 			part.customTextures.forEach((ct, index) => {
-				customTextureUsage[`${part.id}::customTexture::${index}`] = {
-					bitmap   : ct.bitmap,
-					placement: { side: ct.side, localTransform: ct.localTransform, scale: ct.scale },
-				};
+				const id = `${part.id}::customTexture::${index}`;
+				if (ct.decalType === "image") {
+					customTextureUsage[id] = {
+						decalType: "image",
+						bitmap   : ct.bitmap,
+						placement: { side: ct.side, localTransform: ct.localTransform },
+					};
+				} else {
+					customTextureUsage[id] = {
+						decalType: "shape",
+						ct,
+						mesh     : part,
+						placement: { side: ct.side, localTransform: ct.localTransform },
+					};
+				}
 			});
 		});
 	});
@@ -245,15 +273,111 @@ function collectTextureUsage(sceneGraph) {
 			collectMesh(part.mesh, nonTerrainOptions, part.mesh.id);
 			part.mesh.customTextures.forEach((ct, index) => {
 				const id = `${part.mesh.id}::customTexture::${index}`;
-				customTextureUsage[id] = {
-					bitmap   : ct.bitmap,
-					placement: { side: ct.side, localTransform: ct.localTransform, scale: ct.scale },
-				};
+				if (ct.decalType === "image") {
+					customTextureUsage[id] = {
+						decalType: "image",
+						bitmap   : ct.bitmap,
+						placement: { side: ct.side, localTransform: ct.localTransform },
+					};
+				} else {
+					customTextureUsage[id] = {
+						decalType: "shape",
+						ct,
+						mesh     : part.mesh,
+						placement: { side: ct.side, localTransform: ct.localTransform },
+					};
+				}
 			});
 		});
 	});
 
 	return { usage, customTextureUsage };
+}
+
+// Adding a shape: add its method here AND in normalize.js shapeRequiredFields AND in
+// canonSchemas.json levelCustomTexture.shape.allowedValues.
+const shapeMaskBuilders = {
+	square: (w, h) => {
+		const canvas = document.createElement("canvas");
+		canvas.width = w; canvas.height = h;
+		const ctx = canvas.getContext("2d");
+		ctx.fillStyle = "white";
+		ctx.fillRect(0, 0, w, h);
+		return canvas;
+	},
+	circle: (w, h) => {
+		const canvas = document.createElement("canvas");
+		canvas.width = w; canvas.height = h;
+		const ctx = canvas.getContext("2d");
+		ctx.fillStyle = "white";
+		ctx.beginPath();
+		ctx.ellipse(w * 0.5, h * 0.5, w * 0.5, h * 0.5, 0, 0, Math.PI * 2);
+		ctx.fill();
+		return canvas;
+	},
+	triangle: (w, h) => {
+		const canvas = document.createElement("canvas");
+		canvas.width = w; canvas.height = h;
+		const ctx = canvas.getContext("2d");
+		ctx.fillStyle = "white";
+		ctx.beginPath();
+		ctx.moveTo(w * 0.5, 0);
+		ctx.lineTo(w, h);
+		ctx.lineTo(0, h);
+		ctx.closePath();
+		ctx.fill();
+		return canvas;
+	},
+};
+
+function compositeShapeDecal(ct, mesh, textureScale) {
+	const size = 256;
+	const mask = shapeMaskBuilders[ct.shape](size, size);
+
+	const canvas = document.createElement("canvas");
+	canvas.width = size; canvas.height = size;
+	const ctx = canvas.getContext("2d");
+
+	ctx.fillStyle = `rgba(${Math.round(ct.color.r * 255)}, ${Math.round(ct.color.g * 255)}, ${Math.round(ct.color.b * 255)}, ${ct.color.a})`;
+	ctx.fillRect(0, 0, size, size);
+	ctx.globalCompositeOperation = "destination-in";
+	ctx.drawImage(mask, 0, 0);
+	ctx.globalCompositeOperation = "source-over";
+
+	if (ct.detail !== null && ct.detail.baseTextureID !== null) {
+		const sc    = ct.localTransform.scale;
+		const dim   = mesh.dimensions;
+		const faceSizes = {
+			front: [dim.x, dim.y], back:   [dim.x, dim.y],
+			top:   [dim.x, dim.z], bottom: [dim.x, dim.z],
+			right: [dim.z, dim.y], left:   [dim.z, dim.y],
+		};
+		const [faceW, faceH] = faceSizes[ct.side];
+		const partFaceSize  = Math.max(faceW, faceH);
+		const decalFaceSize = Math.max(sc.x, sc.y);
+		const autoRatio     = partFaceSize > 0 ? decalFaceSize / partFaceSize : 1;
+
+		const partDetail        = mesh.detail.texture;
+		const partBlueprint     = visualTemplates.textures[partDetail.baseTextureID];
+		const partEffDensity    = partDetail.density    !== null ? partDetail.density    : partBlueprint.density;
+		const partEffSpeckSize  = partDetail.speckSize  !== null ? partDetail.speckSize  : partBlueprint.speckSize;
+
+		const decalBlueprint    = visualTemplates.textures[ct.detail.baseTextureID];
+		const resolvedBlueprint = {
+			...decalBlueprint,
+			density:   partEffDensity   * ct.detail.density,
+			speckSize: partEffSpeckSize * ct.detail.speckSize,
+		};
+		const resolvedSize       = toPowerOfTwoSize(decalBlueprint.size);
+		const effectiveScale     = autoRatio > 0 ? textureScale / autoRatio : textureScale;
+		const texCanvas          = BuildTextureSurface(resolvedBlueprint, resolvedSize, effectiveScale);
+
+		ctx.globalCompositeOperation = "source-atop";
+		ctx.drawImage(texCanvas, 0, 0, size, size);
+		ctx.globalCompositeOperation = "source-over";
+	}
+
+	return canvas;
 }
 
 function createTextureRegistry(usage, customTextureUsage, options) {
@@ -309,9 +433,12 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 
 	for (const id in customTextureUsage) {
 		const cu = customTextureUsage[id];
+		const source = cu.decalType === "image"
+			? cu.bitmap
+			: compositeShapeDecal(cu.ct, cu.mesh, options.textureScale);
 		registry[id] = {
 			id,
-			source   : cu.bitmap,
+			source,
 			placement: cu.placement,
 			dirty    : false,
 		};

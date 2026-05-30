@@ -52,7 +52,7 @@ A `chrome-devtools` MCP server is available. Use it to verify changes by loading
 
 - Game URL: `http://127.0.0.1:5500/engine/v1/testGame/output.html` (served by VS Code LiveServer)
 - After making engine changes, navigate to this URL, observe runtime behavior, and check the browser console for errors or unexpected output.
-- LiveServer must be running (started manually in VS Code) before browser testing is possible.
+- LiveServer must be running (started manually in VS Code) before browser testing is possible. If it's not running, tell me to run it
 
 If any problems arise during testing that do not have straight-forward solutions, report back to me in a human-readable form. Then, we will decide how to continue.
 

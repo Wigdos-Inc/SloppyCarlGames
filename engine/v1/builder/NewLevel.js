@@ -320,7 +320,7 @@ async function BuildLevel(payload) {
 				id            : terrainObject.id,
 				role          : "terrain",
 				collisionShape: terrainObject.collisionShape,
-				customTextures: [],
+				customTextures: terrainObject.customTextures,
 			}
 		);
 

@@ -99,7 +99,20 @@
                                     "scatter": [
                                         { "typeID": "pebbles", "density": 0.3 }
                                     ]
-                                }
+                                },
+                                "customTextures": [
+                                    {
+                                        "decalType": "shape",
+                                        "shape": "circle",
+                                        "color": { "r": 1, "g": 0.05, "b": 0.9, "a": 1 },
+                                        "side": "bottom",
+                                        "localTransform": {
+                                            "position": { "x": 0, "y": 0, "z": 0 },
+                                            "rotation": 0,
+                                            "scale": { "x": 14, "y": 14, "z": 1 }
+                                        }
+                                    }
+                                ]
                             },
                             {
                                 "id": "platform-b",

@@ -358,14 +358,14 @@ async function LevelPayload(payload) {
 	const pendingImageLoads = [];
 	const affectedParts    = new Set();
 
+	const resolveTextureId = (textureId, fallbackTextureId, fieldPath = "") => {
+		if (objectDetail.textures[textureId] !== undefined) return textureId;
+		if (fieldPath !== "") warnLog(`${fieldPath}: '${textureId}' invalid, using 'levelTexture.${fallbackTextureId}'.`);
+		return fallbackTextureId;
+	};
+
 	const normalizeTexture = (rawTexture) => {
 		const texture = normalizePayloadSchema(normalizeObject(rawTexture).value, "levelTexture");
-
-		const resolveTextureId = (textureId, fallbackTextureId, fieldPath = "") => {
-			if (objectDetail.textures[textureId] !== undefined) return textureId;
-			if (fieldPath !== "") warnLog(`${fieldPath}: '${textureId}' invalid, using 'levelTexture.${fallbackTextureId}'.`);
-			return fallbackTextureId;
-		}
 
 		const fallback = canonSchemas.levelTexture.textureID.__meta.fallback;
 		texture.textureID = resolveTextureId(texture.textureID, fallback, "textureID");
@@ -400,21 +400,60 @@ async function LevelPayload(payload) {
 	const normalizeCustomTextures = (rawCustomTextures, part) => {
 		const entries = [];
 
+		// Adding a shape: register its key here AND in NewTexture.js shapeMaskBuilders AND in
+		// canonSchemas.json levelCustomTexture.shape.allowedValues.
+		const shapeRequiredFields = {
+			square:   () => true,
+			circle:   () => true,
+			triangle: () => true,
+		};
+
 		normalizeArray(rawCustomTextures).value.forEach((rawEntry) => {
 			const entrySource = normalizeObject(rawEntry);
 			if (!entrySource.bool) return;
 			const entry = normalizePayloadSchema(entrySource.value, "levelCustomTexture");
-			entry.localTransform = toUnitVector3(entry.localTransform, "cnu");
-			entry.scale = CloneVector3(entry.scale);
 
-			if (entry.imagePath === null || entry.sourceType === null || entry.side === null) {
-				warnLog(`normalizeCustomTextures: dropping entry with null identity fields (imagePath=${entry.imagePath}, sourceType=${entry.sourceType}, side=${entry.side}).`);
+			entry.localTransform.position = toUnitVector3(entry.localTransform.position, "cnu");
+			entry.localTransform.rotation = new Unit(entry.localTransform.rotation, "degrees").toRadians(true);
+			entry.localTransform.scale    = CloneVector3(entry.localTransform.scale);
+
+			if (entry.decalType === null) {
+				warnLog(`normalizeCustomTextures: dropping entry with null decalType.`);
 				return;
 			}
 
-			entries.push(entry);
-			pendingImageLoads.push({ entry, promise: NormalizeImage(entry.imagePath, entry.sourceType, "webgl") });
-			affectedParts.add(part);
+			if (entry.decalType === "image") {
+				if (entry.imagePath === null || entry.sourceType === null) {
+					warnLog(`normalizeCustomTextures: image decal missing required fields (imagePath=${entry.imagePath}, sourceType=${entry.sourceType}), dropping entry.`);
+					return;
+				}
+				entries.push(entry);
+				pendingImageLoads.push({ entry, promise: NormalizeImage(entry.imagePath, entry.sourceType, "webgl") });
+				affectedParts.add(part);
+				return;
+			}
+
+			if (entry.decalType === "shape") {
+				if (entry.shape === null) {
+					warnLog(`normalizeCustomTextures: shape decal missing required 'shape' field, dropping entry.`);
+					return;
+				}
+				if (!shapeRequiredFields[entry.shape]()) {
+					warnLog(`normalizeCustomTextures: shape '${entry.shape}' failed required field check, dropping entry.`);
+					return;
+				}
+				if (entry.detail !== null) {
+					const rawBaseId = entry.detail.baseTextureID;
+					const validBaseId = resolveTextureId(rawBaseId, null);
+					if (validBaseId === null && rawBaseId !== null) {
+						warnLog(`normalizeCustomTextures: detail.baseTextureID '${rawBaseId}' is not a valid texture ID, dropping entry.`);
+						return;
+					}
+					entry.detail.baseTextureID = validBaseId;
+				}
+				entries.push(entry);
+				affectedParts.add(part);
+			}
 		});
 
 		return entries;
@@ -464,6 +503,10 @@ async function LevelPayload(payload) {
 		object.texture = normalizeTexture(objectSource.texture !== undefined ? objectSource.texture : object.texture);
 		object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
 		object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part));
+		object.customTextures = normalizeCustomTextures(
+			objectSource.customTextures !== undefined ? objectSource.customTextures : object.customTextures,
+			object
+		);
 		object.collisionShape = object.collisionShape !== null ? object.collisionShape
 			: multipartFallbackShape !== null && object.parts.length > 1 ? multipartFallbackShape
 				: defaultsByShape[object.shape];
@@ -676,7 +719,7 @@ async function LevelPayload(payload) {
 		promise.then((result) => { entry.bitmap = result.bool ? result.value : null; })
 	));
 	affectedParts.forEach((part) => {
-		part.customTextures = part.customTextures.filter((e) => e.bitmap !== null);
+		part.customTextures = part.customTextures.filter((e) => e.decalType !== "image" || e.bitmap !== null);
 	});
 
 	return normalized;
