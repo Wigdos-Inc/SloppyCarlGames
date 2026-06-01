@@ -33,6 +33,7 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 - `/project:dryad` — DRY Agent for Deduplication. Use for deduplication reviews and simplification.
 - `/project:ed` — Engine Developer. Use for scoped engine feature work and bug fixes.
 - `/project:argus` — Automated Runtime Game-testing & User Simulation. Use for browser-based game testing, feature verification, and runtime error detection via MCP tools.
+- `/project:sage` — System Analysis for Game Engines. Use to answer questions about the engine: how systems work, where to find things, and what specific modules do (UNDER DEVELOPMENT).
 
 ## Autonomous Subagent Use
 
