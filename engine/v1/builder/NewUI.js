@@ -74,7 +74,7 @@ class UIElement {
 
 function BuildElement(definition, ids = null) {
 	// Create a single DOM element from a normalized definition.
-	// `definition` is expected to be produced by `core/normalize.MenuUIPayload`.
+	// `definition` is expected to be produced by `core/normalize.MenuPayload`.
 	const element = document.createElement(definition.type);
 
 	if (definition.id) {
@@ -102,7 +102,7 @@ function BuildElements(definitions, menuId) {
 	const fragment = document.createDocumentFragment();
 	const ids = [];
 
-	// `definitions` is expected to be an array produced by `core/normalize.MenuUIPayload`.
+	// `definitions` is expected to be an array produced by `core/normalize.MenuPayload`.
 	definitions.forEach((definition) => fragment.appendChild(BuildElement(definition, ids)));
 
 	Log("ENGINE", `Building ${menuId}:\n- ${ids.join("\n- ")}`, "log", "UI");

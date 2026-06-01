@@ -12,7 +12,7 @@ import { BuildElements } from "../builder/NewUI.js";
 import { RenderPayload, RemoveRoot } from "./Render.js";
 import { PlayMusic } from "./Sound.js";
 import { UpdateInputEventTypes } from "./Controls.js";
-import { ValidateMenuUIPayload } from "../core/validate.js";
+import { ValidateMenuPayload } from "../core/validate.js";
 
 
 /* === MENU UI === */
@@ -114,7 +114,7 @@ function HandleUiAction(action) {
 	}
 
 	switch (action.type) {
-		case "ui"     : ApplyMenuUI(action.payload);                            return true;
+		case "ui"     : void ApplyMenuUI(action.payload);                       return true;
 		case "request": SendEvent("UI_REQUEST", { screenId: action.screenId }); return true;
 		case "event"  : SendEvent(action.name, action.payload);                 return true;
 		case "exit"   : ExitGame();                                             return true;
@@ -141,9 +141,9 @@ function HandleUiAction(action) {
 	}
 }
 
-function ApplyMenuUI(payload) {
+async function ApplyMenuUI(payload) {
 	// Validation & Normalization
-	payload = ValidateMenuUIPayload(payload);
+	payload = await ValidateMenuPayload(payload);
 	if (payload === null) return null;
 
 	// Update Input Events Engine Listens for
@@ -191,7 +191,7 @@ function ApplyMenuUI(payload) {
 function LoadScreen(payload) {
 	UpdateInputEventTypes({ request: "ui" });
 	Cursor.changeState("hidden");
-	ApplyMenuUI(payload);
+	void ApplyMenuUI(payload);
 }
 
 function ClearUI(rootId) {

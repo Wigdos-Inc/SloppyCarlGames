@@ -196,7 +196,7 @@ function AudioPayload(payload) {
 	return normalized;
 }
 
-function MenuUIPayload(payload) {
+async function MenuPayload(payload) {
 	const normalizeElements = (rawElements) => {
 		const resolved = [];
 		const sourceElements = normalizeArray(rawElements).value;
@@ -242,6 +242,44 @@ function MenuUIPayload(payload) {
 	normalized.elements = normalizeElements(rawPayload.elements);
 	const musicSource = normalizeObject(rawPayload.music);
 	normalized.music = musicSource.bool ? AudioPayload(musicSource.value) : null;
+
+	const pendingImageLoads = [];
+	const preloadedImages = [];
+	const queuedImagePaths = new Set();
+	const queueImagePath = (path) => {
+		if (path === "" || queuedImagePaths.has(path)) return;
+		queuedImagePaths.add(path);
+		pendingImageLoads.push(
+			NormalizeImage(path, "menu", "html").then((result) => {
+				if (result.bool) preloadedImages.push(result.value.image);
+			})
+		);
+	};
+	const queueElementImages = (elements) => {
+		elements.forEach((element) => {
+			if (element.type === "img" && element.src !== undefined) queueImagePath(element.src);
+
+			if (typeof element.styles.backgroundImage === "string") {
+				for (const match of element.styles.backgroundImage.matchAll(/url\((['\"]?)([^'\"()]+)\1\)/gi)) {
+					queueImagePath(match[2]);
+				}
+			}
+
+			queueElementImages(element.children);
+		});
+	};
+
+	queueElementImages(normalized.elements);
+	await Promise.all(pendingImageLoads);
+
+	if (preloadedImages.length > 0) {
+		Object.defineProperty(normalized, "preloadedImages", {
+			value: preloadedImages,
+			writable: true,
+			configurable: true,
+			enumerable: false,
+		});
+	}
 
 	return normalized;
 }
@@ -719,7 +757,7 @@ async function LevelPayload(payload) {
 
 export default {
 	AudioPayload,
-	MenuUIPayload,
+	MenuPayload,
 	SplashPayload,
 	CutscenePayload,
 	LevelPayload,

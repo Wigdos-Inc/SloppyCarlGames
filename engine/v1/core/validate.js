@@ -135,7 +135,7 @@ function ValidateAudioPayload(payload) {
 	return Normalize.AudioPayload(payload);
 }
 
-function ValidateMenuUIPayload(payload) {
+function ValidateMenuPayload(payload) {
 	const errors = validatePayloadSchema(payload, "menu");
 	const rawPayload = isPlainObject(payload) ? payload : {};
 
@@ -144,7 +144,7 @@ function ValidateMenuUIPayload(payload) {
 
 	logValidationErrors(errors);
 	if (errors.length > 0) return null;
-	return Normalize.MenuUIPayload(payload);
+	return Normalize.MenuPayload(payload);
 }
 
 function ValidateSplashPayload(payload) {
@@ -308,7 +308,7 @@ function ValidateLevelPayload(payload) {
 
 export {
 	ValidateAudioPayload,
-	ValidateMenuUIPayload,
+	ValidateMenuPayload,
 	ValidateSplashPayload,
 	ValidateCutscenePayload,
 	ValidateLevelPayload,
