@@ -143,27 +143,24 @@ function updateOrientationVectors(cameraState) {
 }
 
 function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
-	const world = sceneGraph.world;
-	const wLength = world.length.toWorldUnit();
-	const wHeight = world.height.toWorldUnit();
-	const wWidth = world.width.toWorldUnit();
-	const center = new UnitVector3(
+	const wLength = sceneGraph.world.length.toWorldUnit();
+	const wHeight = sceneGraph.world.height.toWorldUnit();
+	const wWidth = sceneGraph.world.width.toWorldUnit();
+	const target = new UnitVector3(
 		wLength * 0.5,
 		Math.max(0, wHeight * 0.35),
 		wWidth * 0.5,
 		"worldunit"
 	);
 	const position = cameraConfig.levelOpening.startPosition.clone().toWorldUnit(true);
-	const forward = ResolveVector3Axis(SubtractVector3(center, position));
+	const forward = ResolveVector3Axis(SubtractVector3(target, position));
 	const right = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
 	const up = ResolveVector3Axis(CrossVector3(right, forward));
 
 	return {
 		mode: "level",
-		position,
-		target: center,
-		forward, right, up,
-		fov: 60,
+		position, target, forward, right, up,
+		fov: CONFIG.CAMERA.Fov,
 		near: new Unit(0.1, "worldunit"),
 		far: new Unit(Math.max(worldDistanceDefaults.defaultLevelMinFar.value, wLength + wWidth + wHeight), "worldunit"),
 	};
@@ -204,8 +201,6 @@ function applyLookInput(cameraState, movementX, movementY) {
 function HandleFreeCamInput(eventLike) {
 	if (!freeCamEnabled) return false;
 
-	const eventCode = eventLike.code;
-
 	switch (eventLike.type) {
 		case "pointerdown":
 			if (RequestPointerLock()) Log("ENGINE", "FreeCam pointer lock requested.", "log", "Level");
@@ -214,18 +209,18 @@ function HandleFreeCamInput(eventLike) {
 			freeCamRuntime.wheelDelta += eventLike.deltaY;
 			return true;
 		case "keydown":
-			if (eventCode === "Escape") {
+			if (eventLike.code === "Escape") {
 				releasePointerLock();
 				return true;
 			}
-			if (eventCode in freeCamRuntime.keyState) {
-				freeCamRuntime.keyState[eventCode] = true;
+			if (eventLike.code in freeCamRuntime.keyState) {
+				freeCamRuntime.keyState[eventLike.code] = true;
 				return true;
 			}
 			return false;
 		case "keyup":
-			if (eventCode in freeCamRuntime.keyState) {
-				freeCamRuntime.keyState[eventCode] = false;
+			if (eventLike.code in freeCamRuntime.keyState) {
+				freeCamRuntime.keyState[eventLike.code] = false;
 				return true;
 			}
 			return false;
@@ -249,7 +244,6 @@ function getMoveDirectionFromKeys(cameraState) {
 	if (keyState.ShiftLeft || keyState.ShiftRight) direction = AddVector3(direction, ScaleVector3(WORLD_NORMALS.Up, -1));
 
 	if (Vector3Length(direction) <= EPSILON) return ToVector3(0);
-
 	return ResolveVector3Axis(direction);
 }
 
@@ -259,16 +253,13 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 	}
 
 	if (freeCamRuntime.wheelDelta !== 0) {
-		const direction = freeCamRuntime.wheelDelta < 0 ? 1 : -1;
-		applyTuningStep(freeCamRuntime.tuningStep + direction);
+		applyTuningStep(freeCamRuntime.tuningStep + (freeCamRuntime.wheelDelta < 0 ? 1 : -1));
 	}
 
 	updateOrientationVectors(cameraState);
 
 	const inputDirection = getMoveDirectionFromKeys(cameraState);
-	const hasInput = Vector3Length(inputDirection) > EPSILON;
-
-	if (hasInput) {
+	if (Vector3Length(inputDirection) > EPSILON) {
 		cameraState.velocity.set(
 			AddVector3(
 				cameraState.velocity,
@@ -278,8 +269,7 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 	} 
 	else cameraState.velocity.scale(Math.pow(freeCamRuntime.dampingFactor, deltaSeconds * 60));
 
-	const speed = Vector3Length(cameraState.velocity);
-	if (speed > freeCamRuntime.maxSpeed.value) {
+	if (Vector3Length(cameraState.velocity) > freeCamRuntime.maxSpeed.value) {
 		cameraState.velocity.set(ClampVelocity(cameraState.velocity, freeCamRuntime.maxSpeed.value));
 	}
 
@@ -309,7 +299,12 @@ function initializeDefaultCamConfig(cameraConfig) {
 	defaultCamRuntime.lookDeltaY = 0;
 	defaultCamRuntime.active = true;
 
-	Log("ENGINE", `DefaultCam initialized: distance=${defaultCamRuntime.config.distance.value}, heightOffset=${defaultCamRuntime.config.heightOffset.value}, sensitivity=${defaultCamRuntime.config.sensitivity}`, "log", "Level");
+	Log(
+		"ENGINE", 
+		`DefaultCam initialized: distance=${defaultCamRuntime.config.distance.value}, heightOffset=${defaultCamRuntime.config.heightOffset.value}, sensitivity=${defaultCamRuntime.config.sensitivity}`, 
+		"log", 
+		"Level"
+	);
 }
 
 function HandleDefaultCamInput(eventLike) {
@@ -345,12 +340,10 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	const rayLen = Vector3Length(ray);
 	if (rayLen < 0.01) return { obstructed: false, clippedDistance: rayLen };
 
-	const rayDir = ResolveVector3Axis(ray);
-	const rayOriginCNU = worldVectorToCNU(playerHeadPos);
 	let closestT = WorldUnitToCNU(rayLen);
 	let obstructed = false;
 	const testCandidate = (aabb, detailedBounds) => {
-		const hit = RayAABBDetailedBoundsIntersect(rayOriginCNU, rayDir, aabb, detailedBounds, closestT);
+		const hit = RayAABBDetailedBoundsIntersect(worldVectorToCNU(playerHeadPos), ResolveVector3Axis(ray), aabb, detailedBounds, closestT);
 		if (!hit.hit || hit.t <= 0 || hit.t >= closestT) return;
 
 		closestT = hit.t;
@@ -358,24 +351,14 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	};
 
 	// Broadphase is AABB-only; obstruction only counts after detailed-bounds narrowphase.
-	const terrain = sceneGraph.terrain;
-	for (let i = 0; i < terrain.length; i++) {
-		const mesh = terrain[i];
-		testCandidate(mesh.worldAabb, mesh.detailedBounds);
-	}
-
-	const obstacles = sceneGraph.obstacles;
-	for (let i = 0; i < obstacles.length; i++) {
-		const obs = obstacles[i];
-		testCandidate(obs.bounds, obs.detailedBounds);
-	}
-
-	// Ignore scatter objects entirely.
+	for (const mesh of terrain) testCandidate(mesh.worldAabb, mesh.detailedBounds);
+	for (const obs of obstacles) testCandidate(obs.bounds, obs.detailedBounds);
 
 	if (obstructed) {
-		const offset = worldDistanceDefaults.obstructionOffset.value;
-		const hitDistance = CNUtoWorldUnit(closestT);
-		closestT = Math.max(worldDistanceDefaults.obstructionMinDistance.value, hitDistance - offset);
+		closestT = Math.max(
+			worldDistanceDefaults.obstructionMinDistance.value, 
+			CNUtoWorldUnit(closestT) - worldDistanceDefaults.obstructionOffset.value
+		);
 	}
 
 	return { obstructed, clippedDistance: closestT };

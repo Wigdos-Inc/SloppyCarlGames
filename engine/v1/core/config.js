@@ -88,7 +88,10 @@ const CONFIG = {
     TerrainScatter: "low",
     RenderDistance: "High",
     SimDistance   : "High",
-    Animations    : true,
+    Animations    : {
+      Active : true,
+      Quality: "high"
+    },
     FrameRate     : 60
   },
   PHYSICS: {
@@ -116,6 +119,9 @@ const CONFIG = {
       damageReceived : false,
       damageInflicted: false,
     }
+  },
+  CAMERA: {
+    Fov: 60
   }
 };
 

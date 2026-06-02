@@ -171,9 +171,7 @@ function normalizeMovement(movement, surface) {
 
 /* === PART BUILDING === */
 
-function buildPart(partDefinition) {
-	const source = partDefinition;
-
+function buildPart(source) {
 	const mesh = BuildObject(
 		{
 			id              : source.id,
@@ -225,16 +223,11 @@ function buildPart(partDefinition) {
 /* === MODEL BUILDING === */
 
 function buildModel(entityDefinition, surfaceMap) {
-	const sourceModel = entityDefinition.model;
-
 	// --- Step 1: Resolve rootTransform from data ---
-	const rtSource   = sourceModel.rootTransform;
-	const rtPosition = rtSource.position;
-	const rtRotation = rtSource.rotation;
-	const rtScale    = rtSource.scale;
+	const rtScale    = entityDefinition.model.rootTransform.scale;
 
 	// Build all parts (each part wraps its own values in Unit/UnitVector3).
-	const parts = sourceModel.parts.map((part) => buildPart(part));
+	const parts = entityDefinition.model.parts.map((part) => buildPart(part));
 
 	// Build index and parent-child links.
 	const index = {};
@@ -247,7 +240,7 @@ function buildModel(entityDefinition, surfaceMap) {
 	const rootPartIds = parts.filter((p) => p.parentId === "root").map((p) => p.id);
 
 	// Resolve spawn surface.
-	const spawnSurfaceId = sourceModel.spawnSurfaceId;
+	const spawnSurfaceId = entityDefinition.model.spawnSurfaceId;
 	const surface = surfaceMap[spawnSurfaceId];
 	const surfaceOrigin = getSurfaceOrigin(surface);
 
@@ -265,11 +258,8 @@ function buildModel(entityDefinition, surfaceMap) {
 		// Combined scale for dimensions computation.
 		const combinedScale = MultiplyVector3(rtScale, rootPart.localTransform.scale);
 
-		// Grounding: half-height of scaled part so bottom face sits at Y=0 in model-local space.
-		const scaledHalfHeight = rootPart.dimensions.y * combinedScale.y * 0.5;
-
 		// Set localTransform.position: grounding + localPosition (model-local, relative to rootTransform).
-		rootPart.localTransform.position.y += scaledHalfHeight;
+		rootPart.localTransform.position.y += rootPart.dimensions.y * combinedScale.y * 0.5;
 
 		// Store builtDimensions (scaled) for child attachment offset computation.
 		rootPart.builtDimensions.set(MultiplyVector3(rootPart.dimensions, combinedScale));
@@ -277,8 +267,7 @@ function buildModel(entityDefinition, surfaceMap) {
 
 	const processQueue = [];
 	for (const rootPartId of rootPartIds) {
-		const rootPart = index[rootPartId];
-		for (const childId of rootPart.children) processQueue.push(childId);
+		for (const childId of index[rootPartId].children) processQueue.push(childId);
 	}
 
 	const processed = new Set(rootPartIds);
@@ -289,47 +278,40 @@ function buildModel(entityDefinition, surfaceMap) {
 
 		const part = index[partId];
 
-		const parentPart = index[part.parentId];
-
-		const partDims = part.dimensions;
-		const localScale = part.localTransform.scale;
-
 		// Combined scale.
-		const combinedScale = MultiplyVector3(rtScale, localScale);
+		const combinedScale = MultiplyVector3(rtScale, part.localTransform.scale);
 
 		// Parent's attachment point offset (in parent's scaled dimensions).
-		const attachOffset = getFaceCenterOffset(parentPart.builtDimensions, part.attachmentPoint);
+		const attachOffset = getFaceCenterOffset(index[part.parentId].builtDimensions, part.attachmentPoint);
 
 		// Part's anchor point offset (in part's unscaled dimensions), then scaled.
-		const anchorOffset = getFaceCenterOffset(partDims, part.anchorPoint);
+		const anchorOffset = getFaceCenterOffset(part.dimensions, part.anchorPoint);
 		const scaledAnchorOffset = MultiplyVector3(anchorOffset, combinedScale);
 
 		// Position: attachment offset on parent - scaled anchor offset on part + localPosition.
 		part.localTransform.position.add(SubtractVector3(attachOffset, scaledAnchorOffset));
 
 		// Store builtDimensions (scaled) for child attachment offset computation.
-		part.builtDimensions.set(MultiplyVector3(partDims, combinedScale));
+		part.builtDimensions.set(MultiplyVector3(part.dimensions, combinedScale));
 		part.faceMap = remapFacesAfterRotation(part.localTransform.rotation);
 
 		// Enqueue children.
 		for (const childId of part.children) processQueue.push(childId);
 	}
 
-	// --- Assemble model with world-space rootTransform ---
+	// --- Model assembled with world-space rootTransform ---
 	// Factor 1 (spawn surface position) + Factor 2 (rootTransform.position) = world position.
-	const rootPosition = rtPosition.clone().add(surfaceOrigin);
 
 	const model = {
 		rootTransform: {
-			position: rootPosition,
-			rotation: rtRotation,
+			position: entityDefinition.model.rootTransform.position.clone().add(surfaceOrigin),
+			rotation: entityDefinition.model.rootTransform.rotation,
 			scale: rtScale,
-			pivot: rtSource.pivot,
+			pivot: entityDefinition.model.rootTransform.pivot,
 		},
 		spawnSurfaceId,
 		surfacePosition: surfaceOrigin,
-		parts: parts,
-		index: index,
+		parts, index,
 		roots: rootPartIds,
 	};
 
@@ -351,9 +333,8 @@ function buildModel(entityDefinition, surfaceMap) {
 /* === RUNTIME POSE APPLICATION === */
 
 function applyModelPose(model) {
-	const byId = model.index;
 	const applyPart = (partId, parentTransform) => {
-		const part = byId[partId];
+		const part = model.index[partId];
 
 		const worldTransform = composeTransform(parentTransform, part.localTransform);
 		part.mesh.transform.position.set(worldTransform.position);
@@ -673,9 +654,8 @@ function ResetEntityToDefaultPose(entity) {
 	targetRoot.scale = defaultRoot.scale;
 	targetRoot.pivot.set(defaultRoot.pivot);
 
-	const byId = entity.model.index;
 	entity.model.defaultPose.parts.forEach((posePart) => {
-		const part = byId[posePart.id];
+		const part = entity.model.index[posePart.id];
 		const src = posePart.localTransform;
 		part.localTransform.position.set(src.position);
 		part.localTransform.rotation.set(src.rotation);
