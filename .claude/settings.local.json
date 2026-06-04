@@ -17,7 +17,14 @@
       "Bash(node --check engine/v1/core/normalize.js)",
       "Bash(node --check engine/v1/player/Master.js)",
       "Bash(node --input-type=module -e \"import\\('./engine/v1/core/normalize.js'\\).then\\(\\(\\)=>console.log\\('normalize.js imports OK in Node'\\)\\).catch\\(e=>console.log\\('IMPORT FAIL:', e.message\\)\\)\")",
-      "Bash(node .tmp_anim_test.mjs)"
+      "Bash(node .tmp_anim_test.mjs)",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\core\\\\normalize.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\builder\\\\NewObject.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\game\\\\Animation.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\Render.js\")",
+      "mcp__chrome-devtools__wait_for",
+      "mcp__chrome-devtools__click",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\player\\\\Master.js\")"
     ]
   }
 }

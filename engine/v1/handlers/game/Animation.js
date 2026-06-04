@@ -1,10 +1,11 @@
 // Shared, entity-agnostic animation runtime.
 //
-// Computes per-frame DISPLAY transforms for an entity's parts and shape decals: the rest pose
-// composed with a sampled, soft-corrected, hierarchically-propagated animation offset. Output is
-// visual-only — it writes only mesh/decal `displayTransform` and never mutates true transforms,
-// model values, or physics bounds. Driven per frame from the handler layer (Level.js for the
-// player); the same `ResolveEntityAnimation` serves any entity once a driver wires it.
+// Computes per-frame DISPLAY transforms and DISPLAY colors for an entity's parts and shape decals:
+// the rest pose composed with a sampled, soft-corrected, hierarchically-propagated animation offset.
+// Output is visual-only — it writes only mesh/decal `displayTransform` / `displayColor` and never
+// mutates true transforms, true colors, model values, or physics bounds. Driven per frame from the
+// handler layer (Level.js for the player); the same `ResolveEntityAnimation` serves any entity once
+// a driver wires it.
 
 import { CONFIG } from "../../core/config.js";
 import { Log } from "../../core/meta.js";
@@ -48,6 +49,9 @@ function ensureAnimationRuntime(entity) {
 			partLocals       : new Map(),  // partId  → persistent animated local transform
 			partDisplays     : new Map(),  // mesh    → persistent display transform
 			decalDisplays    : new Map(),  // decal   → persistent display transform
+			colorDisplayed   : new Map(),  // targetKey → last applied color (for transition snapshots)
+			colorSnapshots   : new Map(),  // targetKey → color at last state transition
+			colorDisplays    : new Map(),  // mesh|decalEntry → persistent {r,g,b,a} display color
 			restLocals       : buildRestLocals(entity.model),
 			decalIndex       : buildDecalIndex(entity.model),
 		};
@@ -86,6 +90,24 @@ function lerpOffset(from, to, factor, isDecal) {
 		rotation: isDecal ? Lerp(from.rotation, to.rotation, factor) : LerpVector3(from.rotation, to.rotation, factor),
 		scale: LerpVector3(from.scale, to.scale, factor),
 	};
+}
+
+function sampleColorTrack(track, t) {
+	if (track === undefined || track.keyframes.length === 0) return null;
+	const kfs = track.keyframes;
+	const upper = kfs.findIndex((kf) => kf.time >= t);
+	if (upper <= 0) return { ...(upper === 0 ? kfs[0] : kfs[kfs.length - 1]).value };
+	const from = kfs[upper - 1], to = kfs[upper];
+	const span = to.time - from.time;
+	const f = ApplyEasing(to.easing, span > 0 ? (t - from.time) / span : 0);
+	return { r: Lerp(from.value.r, to.value.r, f), g: Lerp(from.value.g, to.value.g, f),
+	         b: Lerp(from.value.b, to.value.b, f), a: Lerp(from.value.a, to.value.a, f) };
+}
+
+function lerpColor(from, to, factor) {
+	const r = {};
+	Object.keys(from).forEach(k => r[k] = Lerp(from[k], to[k], factor));
+	return r;
 }
 
 // Sample a transform track at normalized time t → offset-from-rest. Linear between the two
@@ -154,7 +176,16 @@ function applyDecalDisplay(runtime, decalEntry, offset) {
 	display.scale = MultiplyVector3(rest.scale, offset.scale);
 }
 
-// Restore every animated target's render source to its true transform (no active animation).
+function applyDisplayColor(runtime, target, color) {
+	let d = runtime.colorDisplays.get(target);
+	if (d === undefined) {
+		d = { r: color.r, g: color.g, b: color.b, a: color.a };
+		runtime.colorDisplays.set(target, d);
+		target.displayColor = d;
+	} else { d.r = color.r; d.g = color.g; d.b = color.b; d.a = color.a; }
+}
+
+// Restore every animated target's render source to its true transform/color (no active animation).
 function clearDisplay(runtime) {
 	runtime.partDisplays.forEach((_, mesh) => { mesh.displayTransform = mesh.transform; });
 	runtime.decalDisplays.forEach((_, decalEntry) => { decalEntry.displayTransform = decalEntry.localTransform; });
@@ -162,9 +193,22 @@ function clearDisplay(runtime) {
 	runtime.decalDisplays.clear();
 	runtime.partLocals.clear();
 	runtime.displayedOffsets.clear();
+	runtime.colorDisplays.forEach((_, target) => { target.displayColor = null; });
+	runtime.colorDisplays.clear();
+	runtime.colorDisplayed.clear();
 }
 
 /* === PER-FRAME STEP === */
+
+function resolveColorValue(runtime, track, t, targetKey, correctionActive, factor) {
+	const sampled = sampleColorTrack(track, t);
+	if (sampled === null) return null;
+	const color = (correctionActive && runtime.colorSnapshots.has(targetKey))
+		? lerpColor(runtime.colorSnapshots.get(targetKey), sampled, factor)
+		: sampled;
+	runtime.colorDisplayed.set(targetKey, color);
+	return color;
+}
 
 function resolveTargetOffset(runtime, track, t, targetKey, correctionActive, factor, isDecal) {
 	const sampled = sampleTrack(track, t, isDecal);
@@ -192,11 +236,16 @@ function resolveAnimationStep(model, runtime, set, deltaSeconds) {
 		const world = ComposeTransform(parentWorld, applyPartLocal(runtime, partId, offset));
 		writePartDisplay(runtime, part.mesh, world);
 
+		const partColor = resolveColorValue(runtime, partTrack !== undefined ? partTrack.color : undefined, t, partId, correctionActive, factor);
+		if (partColor !== null) applyDisplayColor(runtime, part.mesh, partColor);
+
 		if (partTrack !== undefined) {
 			for (const decalId in partTrack.decals) {
 				const decalEntry = runtime.decalIndex.get(decalId);
 				const decalOffset = resolveTargetOffset(runtime, partTrack.decals[decalId].transform, t, `${partId}::${decalId}`, correctionActive, factor, true);
 				applyDecalDisplay(runtime, decalEntry, decalOffset);
+				const decalColor = resolveColorValue(runtime, partTrack.decals[decalId].color, t, `${partId}::${decalId}::color`, correctionActive, factor);
+				if (decalColor !== null) applyDisplayColor(runtime, decalEntry, decalColor);
 			}
 		}
 
@@ -212,9 +261,8 @@ function resolveAnimationStep(model, runtime, set, deltaSeconds) {
 
 // Case-insensitive naming-convention match of a state to an animation set key.
 function resolveSetName(animations, currentState) {
-	const target = currentState.toLowerCase();
 	for (const setName in animations) {
-		if (setName.toLowerCase() === target) return setName;
+		if (setName.toLowerCase() === currentState.toLowerCase()) return setName;
 	}
 	return null;
 }
@@ -228,12 +276,13 @@ function ResolveEntityAnimation(entity, deltaSeconds) {
 	if (currentState !== runtime.lastState) {
 		const setName = resolveSetName(entity.animations, currentState);
 		runtime.snapshots = new Map(runtime.displayedOffsets);
+		runtime.colorSnapshots = new Map(runtime.colorDisplayed);
 		runtime.lastState = currentState;
 		runtime.currentSetName = setName;
 		runtime.elapsed = 0;
 		runtime.correctionN = resolveCorrectionFrames(entity.type);
 		runtime.correctionCounter = runtime.correctionN;
-		if (setName === null) Log("Animation", `no set matches state '${currentState}' on '${entity.id}', holding rest`, "warn", "Animation");
+		if (setName === null) Log("ENGINE", `no set matches state '${currentState}' on '${entity.id}', holding rest`, "warn", "Animation");
 	}
 
 	if (runtime.currentSetName === null) {

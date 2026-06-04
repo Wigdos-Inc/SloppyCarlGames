@@ -33,8 +33,9 @@ Rules apply during both feature development and debugging. Debugging is not an e
 
 Use `Log(source, message, level, channel)` from `core/meta.js`.
 
-- Keep messages short and descriptive: `Log("Physics", "running swept collision loop", "debug", "Physics")`.
-- Use a source and channel that match the subsystem.
+- Keep messages short and descriptive: `Log("ENGINE", "running swept collision loop", "debug", "Physics")`.
+- Source is either "ENGINE" or "GAME"
+- Use channel that matches the subsystem.
 - Avoid logging inside hot loops unless temporarily needed to isolate a bug.
 - Remove debug-only logs after the issue is resolved.
 

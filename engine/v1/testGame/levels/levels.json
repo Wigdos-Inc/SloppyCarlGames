@@ -356,6 +356,31 @@
                                                 { "time": 0.5, "value": { "rotation": { "x": 0, "y": 0, "z": 8 } }, "easing": "easeInOut" },
                                                 { "time": 1,   "value": { "rotation": { "x": 0, "y": 0, "z": 0 } }, "easing": "easeInOut" }
                                             ]
+                                        },
+                                        "color": {
+                                            "keyframes": [
+                                                { "time": 0,   "value": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 } },
+                                                { "time": 0.5, "value": { "r": 0.9, "g": 0.2, "b": 0.2, "a": 1 }, "easing": "easeInOut" },
+                                                { "time": 1,   "value": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 }, "easing": "easeInOut" }
+                                            ]
+                                        },
+                                        "decals": {
+                                            "torso-badge": {
+                                                "transform": {
+                                                    "keyframes": [
+                                                        { "time": 0,   "value": { "position": { "x": 0, "y": 0, "z": 0 }, "rotation": 0 } },
+                                                        { "time": 0.5, "value": { "position": { "x": 0.1, "y": 0, "z": 0 }, "rotation": 45 }, "easing": "easeInOut" },
+                                                        { "time": 1,   "value": { "position": { "x": 0, "y": 0, "z": 0 }, "rotation": 0 }, "easing": "easeInOut" }
+                                                    ]
+                                                },
+                                                "color": {
+                                                    "keyframes": [
+                                                        { "time": 0,   "value": { "r": 0.2, "g": 0.8, "b": 1,   "a": 1 } },
+                                                        { "time": 0.5, "value": { "r": 1,   "g": 0.5, "b": 0.1, "a": 1 }, "easing": "easeInOut" },
+                                                        { "time": 1,   "value": { "r": 0.2, "g": 0.8, "b": 1,   "a": 1 }, "easing": "easeInOut" }
+                                                    ]
+                                                }
+                                            }
                                         }
                                     },
                                     "head": {

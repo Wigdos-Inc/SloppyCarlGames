@@ -27,6 +27,10 @@ import characterData from "./characters.json" with { type: "json" };
 			part.localPosition = toUnitVector3(part.localPosition, "cnu");
 			part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
 			part.pivot = toUnitVector3(part.pivot, "cnu");
+			part.customTextures.forEach((ct) => {
+				ct.localTransform.position = toUnitVector3(ct.localTransform.position, "cnu");
+				ct.localTransform.rotation = new Unit(ct.localTransform.rotation, "degrees").toRadians(true);
+			});
 		});
 	}
 })();

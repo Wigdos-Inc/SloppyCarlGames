@@ -1011,7 +1011,7 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		const meshBuffer = ensureMeshBuffer(renderer, mesh, shader);
 		if (!meshBuffer) continue;
 
-		const color = mesh.material.color;
+		const dc = mesh.displayColor;
 		const texture = ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID);
 		const disableDepthWriteForMesh = disableDepthWriteForPass === false && skipDepthWrite(mesh) === true;
 
@@ -1020,7 +1020,11 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.uniform1i(shader.uniforms.texture, 0);
 		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
-		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, mesh.material.opacity);
+		gl.uniform4f(shader.uniforms.tint,
+			dc !== null ? dc.r : mesh.material.color.r,
+			dc !== null ? dc.g : mesh.material.color.g,
+			dc !== null ? dc.b : mesh.material.color.b,
+			dc !== null ? dc.a : mesh.material.opacity);
 		if (disableDepthWriteForMesh) gl.depthMask(false);
 		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
 		if (disableDepthWriteForMesh) gl.depthMask(true);
@@ -1144,13 +1148,17 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	gl.depthMask(false);
 
 	const drawDecalsForMesh = (mesh, index) => {
+		const decalEntry = mesh.customTextures[index];
 		const texture = ensureSceneTexture(renderer, sceneGraph, `${mesh.id}::customTexture::${index}`);
-		const modelMatrix = buildDecalModelMatrix(mesh, mesh.customTextures[index]);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.uniform1i(shader.uniforms.texture, 0);
-		gl.uniformMatrix4fv(shader.uniforms.model, false, modelMatrix);
-		gl.uniform4f(shader.uniforms.tint, 1, 1, 1, 1);
+		gl.uniformMatrix4fv(shader.uniforms.model, false, buildDecalModelMatrix(mesh, decalEntry));
+		if (decalEntry.mutable === true) {
+			const tint = decalEntry.displayColor !== null ? decalEntry.displayColor : decalEntry.color;
+			gl.uniform4f(shader.uniforms.tint, tint.r, tint.g, tint.b, tint.a);
+		} 
+		else gl.uniform4f(shader.uniforms.tint, 1, 1, 1, 1);
 		gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 	};
 
@@ -1194,11 +1202,7 @@ function drawScene(renderer, sceneGraph) {
 		cameraState.near.value,
 		cameraState.far.value
 	);
-	const view = createLookAtMatrix(
-		cameraState.position,
-		cameraState.target,
-		cameraState.up
-	);
+	const view = createLookAtMatrix(cameraState.position, cameraState.target, cameraState.up);
 
 	const waterLevelWorldUnits = sceneGraph.world.waterLevel ? sceneGraph.world.waterLevel.toWorldUnit() : null;
 	const underwater = waterLevelWorldUnits !== null && cameraState.position.y < waterLevelWorldUnits;

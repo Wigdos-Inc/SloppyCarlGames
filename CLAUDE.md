@@ -22,8 +22,9 @@ These rules apply during both feature development and debugging. Debugging is no
 
 Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentation.
 
-- Keep messages short and descriptive: `Log("Camera", "converting player position to world units", "debug", "Camera")`.
-- Use a source and channel that match the subsystem being worked on.
+- Keep messages short and descriptive: `Log("ENGINE", "converting player position to world units", "debug", "Camera")`.
+- Source is either "ENGINE" or "GAME"
+- Use a channel that matches the subsystem being worked on.
 - Avoid logging inside hot loops unless temporarily needed to isolate a bug.
 - Remove debug-only logs after the issue is resolved unless they provide ongoing diagnostic value.
 

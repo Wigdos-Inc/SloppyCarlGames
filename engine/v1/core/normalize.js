@@ -517,6 +517,27 @@ function instanceAnimationTracks(animations) {
 	}
 }
 
+function markMutableDecals(animations, parts) {
+	const decalMap = new Map();
+	parts.forEach((part) => {
+		part.customTextures.forEach((ct) => { 
+			if (ct.id && ct.decalType === "shape") decalMap.set(ct.id, ct); 
+		});
+	});
+	for (const animName in animations) {
+		const animParts = animations[animName].parts;
+		for (const partId in animParts) {
+			for (const decalId in animParts[partId].decals) {
+				const track = animParts[partId].decals[decalId];
+				if (track.color !== undefined && track.color.keyframes.length > 0) {
+					const ct = decalMap.get(decalId);
+					if (ct !== undefined) ct.mutable = true;
+				}
+			}
+		}
+	}
+}
+
 async function LevelPayload(payload) {
 	const pendingImageLoads = [];
 	const affectedParts    = new Set();
@@ -614,6 +635,7 @@ async function LevelPayload(payload) {
 					}
 					entry.detail.baseTextureID = validBaseId;
 				}
+				entry.mutable = false;
 				entries.push(entry);
 				affectedParts.add(part);
 			}
@@ -688,12 +710,12 @@ async function LevelPayload(payload) {
 
 	const resolveCollisionOverride = (rawCollisionOverride, entityType) => {
 		const defaultsByType = {
-			enemy: { physics: "capsule", hurtbox: "sphere", hitbox: "capsule" },
-			npc: { physics: "capsule", hurtbox: null, hitbox: null },
-			collectible: { physics: "sphere", hurtbox: "sphere", hitbox: null },
-			projectile: { physics: "sphere", hurtbox: "sphere", hitbox: "sphere" },
-			boss: { physics: "compound-sphere", hurtbox: "compound-sphere", hitbox: null },
-			entity: { physics: "capsule", hurtbox: null, hitbox: null },
+			enemy      : { physics: "capsule",         hurtbox: "sphere",          hitbox: "capsule" },
+			npc        : { physics: "capsule",         hurtbox: null,              hitbox: null },
+			collectible: { physics: "sphere",          hurtbox: "sphere",          hitbox: null },
+			projectile : { physics: "sphere",          hurtbox: "sphere",          hitbox: "sphere" },
+			boss       : { physics: "compound-sphere", hurtbox: "compound-sphere", hitbox: null },
+			entity     : { physics: "capsule",         hurtbox: null,              hitbox: null },
 		};
 		const defaults = defaultsByType[entityType] || defaultsByType.entity;
 		const source = normalizeObject(rawCollisionOverride).value;
@@ -701,20 +723,16 @@ async function LevelPayload(payload) {
 
 		return { 
 			physics: collisionOverride.physics !== null ? collisionOverride.physics : defaults.physics, 
-			hurtbox: source.hurtbox === null
-				? null
-				: source.hurtbox === undefined
-					? defaults.hurtbox
-					: collisionOverride.hurtbox !== null
-						? collisionOverride.hurtbox
-						: defaults.hurtbox, 
-			hitbox: source.hitbox === null
-				? null
-				: source.hitbox === undefined
-					? defaults.hitbox
-					: collisionOverride.hitbox !== null
-						? collisionOverride.hitbox
-						: defaults.hitbox
+			hurtbox: source.hurtbox === null ? null : source.hurtbox === undefined
+				? defaults.hurtbox
+				: collisionOverride.hurtbox !== null
+					? collisionOverride.hurtbox
+					: defaults.hurtbox, 
+			hitbox: source.hitbox === null ? null : source.hitbox === undefined
+				? defaults.hitbox
+				: collisionOverride.hitbox !== null
+					? collisionOverride.hitbox
+					: defaults.hitbox
 		};
 	};
 
@@ -735,8 +753,8 @@ async function LevelPayload(payload) {
 		blueprint.model.rootTransform = {
 			position: toUnitVector3(blueprint.model.rootTransform.position, "cnu"),
 			rotation: toUnitVector3(blueprint.model.rootTransform.rotation, "degrees").toRadians(true),
-			scale: CloneVector3(blueprint.model.rootTransform.scale),
-			pivot: toUnitVector3(blueprint.model.rootTransform.pivot, "cnu"),
+			scale   : CloneVector3(blueprint.model.rootTransform.scale),
+			pivot   : toUnitVector3(blueprint.model.rootTransform.pivot, "cnu"),
 		};
 		blueprint.model.parts = normalizeArray(blueprintSource.model?.parts).value.map((part) => normalizePart(part));
 		// Resolved but left raw (un-instanced) — instanced once per entity at the merge below.
@@ -847,6 +865,7 @@ async function LevelPayload(payload) {
 		}
 		// Single instancing point: merged.animations is raw-resolved (cloned blueprint or override) here.
 		instanceAnimationTracks(merged.animations);
+		markMutableDecals(merged.animations, merged.model.parts);
 		if (entrySource.collisionOverride !== undefined) merged.collisionOverride = resolveCollisionOverride(entrySource.collisionOverride, merged.type);
 		if (entrySource.movement !== undefined) merged.movement = override.movement;
 		if (entrySource.velocity !== undefined) merged.velocity = override.velocity;
@@ -866,8 +885,6 @@ async function LevelPayload(payload) {
 	}).filter((entry) => entry !== null);
 
 	const characterIds = Object.keys(characterData);
-	const defaultCharacterId = characterIds[0];
-	
 	const playerSource = normalizeObject(rawPayload.player);
 	if (playerSource.bool) {
 		normalized.player = normalizePayloadSchema(playerSource.value, "levelPlayer");
@@ -877,8 +894,8 @@ async function LevelPayload(payload) {
 		normalized.player.metaOverrides = structuredClone(normalized.player.metaOverrides);
 		if (!Array.isArray(normalized.player.metaOverrides.list)) normalized.player.metaOverrides.list = [];
 		if (characterIds.includes(normalized.player.character) === false) {
-			warnLog(`level.player.character: '${normalized.player.character}' missing, using '${defaultCharacterId}'.`);
-			normalized.player.character = defaultCharacterId;
+			warnLog(`level.player.character: '${normalized.player.character}' missing, using '${characterIds[0]}'.`);
+			normalized.player.character = characterIds[0];
 		}
 		// Animation targets resolve against custom modelParts, or the character profile's parts when absent.
 		const playerParts = normalized.player.modelParts.length > 0
@@ -886,6 +903,7 @@ async function LevelPayload(payload) {
 			: characterData[normalized.player.character].model.parts;
 		normalized.player.animations = resolveAnimations(playerSource.value.animations, buildAnimationContext(playerParts), globalShared);
 		instanceAnimationTracks(normalized.player.animations);
+		markMutableDecals(normalized.player.animations, playerParts);
 	}
 	else normalized.player = null;
 

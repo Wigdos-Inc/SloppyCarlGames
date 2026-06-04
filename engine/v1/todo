@@ -1,8 +1,8 @@
 This file contains current priorities.
 
 Add the 3D and 2D-shape animation system
-- Add shape decal color animation
 - Add shape changes, shape > image, image > shape (snap, can't be multiframe, seperate function)
+Add Simulator API
 Update test characters to test multiple types of characters with intuitive physics
 Add Terrain Blueprint Support (start using Claude Code):
 - Add Sonic-Style Loop Blueprint

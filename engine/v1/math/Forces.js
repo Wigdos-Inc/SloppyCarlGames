@@ -42,7 +42,7 @@ function buoyancyScalar(position, waterLevel, submergence, dt) {
  */
 function ComputeGravity(velocity, deltaSeconds) {
 	if (CONFIG.PHYSICS.Gravity.Enabled === false) {
-		if (!logFlags.gravity) { Log("Forces", "Gravity disabled — ComputeGravity is a no-op", "warn", "Physics"); logFlags.gravity = true; }
+		if (!logFlags.gravity) { Log("ENGINE", "Gravity disabled — ComputeGravity is a no-op", "warn", "Physics"); logFlags.gravity = true; }
 		return { x: velocity.x, y: velocity.y, z: velocity.z };
 	}
 	return { x: velocity.x, y: gravityScalar(velocity.y, deltaSeconds), z: velocity.z };

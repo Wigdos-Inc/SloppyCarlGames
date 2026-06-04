@@ -879,6 +879,7 @@ function BuildObject(source) {
 		// Render source. Same reference as the true transform until the animation runtime swaps
 		// in a separate object for animated parts (true transform / bounds stay untouched).
 		displayTransform: transform,
+		displayColor    : null,
 		primitive : shape,
 		role      : source.role,
 		geometry  : {
@@ -915,7 +916,10 @@ function BuildObject(source) {
 
 	// Decal render source — same reference as the face-local transform until the animation
 	// runtime swaps in a separate object for animated decals.
-	mesh.customTextures.forEach((decal) => { decal.displayTransform = decal.localTransform; });
+	mesh.customTextures.forEach((decal) => { 
+		decal.displayTransform = decal.localTransform; 
+		decal.displayColor = null; 
+	});
 
 	const scatterContext = source.scatterContext;
 	if (scatterContext && mesh.detail.scatter.length > 0) {

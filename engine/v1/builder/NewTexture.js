@@ -338,7 +338,9 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 	canvas.width = size; canvas.height = size;
 	const ctx = canvas.getContext("2d");
 
-	ctx.fillStyle = `rgba(${Math.round(ct.color.r * 255)}, ${Math.round(ct.color.g * 255)}, ${Math.round(ct.color.b * 255)}, ${ct.color.a})`;
+	ctx.fillStyle = ct.mutable
+		? "rgba(255, 255, 255, 1)"
+		: `rgba(${Math.round(ct.color.r * 255)}, ${Math.round(ct.color.g * 255)}, ${Math.round(ct.color.b * 255)}, ${ct.color.a})`;
 	ctx.fillRect(0, 0, size, size);
 	ctx.globalCompositeOperation = "destination-in";
 	ctx.drawImage(mask, 0, 0);
