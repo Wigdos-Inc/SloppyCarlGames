@@ -12,7 +12,12 @@
       "mcp__chrome-devtools__evaluate_script",
       "mcp__chrome-devtools__list_console_messages",
       "mcp__chrome-devtools__new_page",
-      "mcp__chrome-devtools__close_page"
+      "mcp__chrome-devtools__close_page",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('engine/v1/core/canonSchemas.json','utf8'\\)\\); console.log\\('canonSchemas.json OK'\\)\")",
+      "Bash(node --check engine/v1/core/normalize.js)",
+      "Bash(node --check engine/v1/player/Master.js)",
+      "Bash(node --input-type=module -e \"import\\('./engine/v1/core/normalize.js'\\).then\\(\\(\\)=>console.log\\('normalize.js imports OK in Node'\\)\\).catch\\(e=>console.log\\('IMPORT FAIL:', e.message\\)\\)\")",
+      "Bash(node .tmp_anim_test.mjs)"
     ]
   }
 }
