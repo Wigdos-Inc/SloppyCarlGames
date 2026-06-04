@@ -45,7 +45,7 @@ const ENGINE = await initialize();
 ENGINE.Level.CreateLevel(levelPayload);
 ENGINE.Audio.PlayMusic("theme.mp3");
 ENGINE.UI.ApplyMenuUI(menuPayload);
-const playerState = ENGINE.Player.GetState();
+const playerState = ENGINE.Level.Player.GetState();
 ```
 
 ### Rules

@@ -51,7 +51,7 @@ These commands can be invoked as subagents (via the Agent tool) without explicit
 After any ED pass that results in a significant amount of new or edited code — judged by scope (new functions, structural changes, multi-file edits) rather than a fixed line count — spawn both the ERA and DRYAD skills through subagents on the changed code.
 
 After ERA and DRYAD return, apply the following ARGUS rules:
-- If ERA and DRYAD both returned clean (no genuine violations): spawn ARGUS to verify the change in the browser.
+- If ERA and DRYAD both returned clean (no genuine violations): spawn ARGUS immediately to verify the change in the browser.
 - If ERA and/or DRYAD flagged genuine issues: report the findings to the user and note that ARGUS will run once those findings have been reviewed. Do not spawn ARGUS until the issues are resolved.
 - If browser verification is not warranted for the change (no risk of runtime errors, behavioral changes, or visual changes), skip ARGUS regardless of audit results.
 
@@ -77,6 +77,16 @@ Never use bare backtick paths for file references — always link them.
 | **Total** | | | **−15** |
 
 Report this at the end of any response where files were edited.
+
+## Node.js Bash Checks — Limitations
+
+`node --check <file>` (syntax checking) works on any engine module and should be used after edits.
+
+**Importing or executing engine modules in Node does not work** and must not be attempted. Two permanent blockers:
+1. **Browser APIs** — `localStorage`, `sessionStorage`, WebGL (`gl.*`), `createImageBitmap`, etc. are referenced at module scope throughout the engine.
+2. **Module load cycle** — `config.js` (and others) instantiate `Unit` at the top level while `Utilities.js` hasn't finished initializing, causing a TDZ crash on any import chain that reaches `config.js` or modules with similar dependencies.
+
+These are structural, not fixable with shims. **ARGUS (browser) is the only runtime verification path.** Do not write Node harnesses or attempt `node -e "import(...)"` on engine modules — it will always fail and wastes tokens.
 
 ## testGame
 
