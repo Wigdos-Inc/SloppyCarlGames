@@ -1019,7 +1019,7 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.uniform1i(shader.uniforms.texture, 0);
-		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.transform)));
+		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
 		gl.uniform4f(shader.uniforms.tint, color.r, color.g, color.b, mesh.material.opacity);
 		if (disableDepthWriteForMesh) gl.depthMask(false);
 		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
@@ -1078,7 +1078,7 @@ function ensureDecalQuadBuffer(renderer) {
 }
 
 function buildDecalModelMatrix(partMesh, decalEntry) {
-	const partMatrix = CreateRenderMatrix(partMesh.transform);
+	const partMatrix = CreateRenderMatrix(partMesh.displayTransform);
 
 	// Column-major 4×4 matrix multiply.
 	const mul = (a, b) => {
@@ -1096,7 +1096,7 @@ function buildDecalModelMatrix(partMesh, decalEntry) {
 	};
 
 	const dim = partMesh.dimensions;
-	const lt  = decalEntry.localTransform;
+	const lt  = decalEntry.displayTransform;
 	const pos = lt.position;
 	const sc  = lt.scale;
 

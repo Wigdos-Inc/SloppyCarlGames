@@ -32,7 +32,7 @@ import characterData from "./characters.json" with { type: "json" };
 })();
 
 /* === PLAYER INPUT FLAGS === */
-// Mutable object exposed as ENGINE.Player.Input.
+// Mutable object exposed as ENGINE.Level.Player.Input.
 // Game code writes to this directly each frame.
 
 const playerInputFlags = {
@@ -97,6 +97,7 @@ function createDefaultPlayerState(playerData) {
 	return {
 		active: true,
 		character: playerData.character,
+		animations: playerData.animations,
 		model: BuildPlayerModel(playerData.character, playerData.spawnPosition),
 		transform: {
 			position: playerData.spawnPosition,
@@ -197,6 +198,7 @@ async function InitializePlayer(payload, sceneGraph) {
 		collectibles   : payload.collectibles,
 		collisionRadius: effectiveCharacter.meta.collisionRadius,
 		customEvents   : payload.customEvents,
+		animations     : payload.animations,
 	});
 	InitializePlayerCollisionProfile(playerState);
 	SyncPlayerCollisionFromState(playerState);
@@ -374,7 +376,7 @@ function GetPlayerInput() {
 }
 
 /* === ENGINE API === */
-// Attached to ENGINE.Player by ini.js.
+// Attached to ENGINE.Level.Player by ini.js.
 
 const PlayerAPI = {
 	Input   : playerInputFlags,

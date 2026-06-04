@@ -5,7 +5,7 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log, SendEvent, EPSILON } from "../core/meta.js";
-import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
+import { AbsoluteVector3, CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence } from "./Forces.js";
 import {
 	DetectPhysicsCollisions,
@@ -61,14 +61,13 @@ function hasZeroDisplacement(displacement) {
 }
 
 function transformMatchesCachedPhysicsState(entity) {
-	const cache = entity.physicsRuntime;
 	return (
-		entity.transform.position.x === cache.previousPosition.x &&
-		entity.transform.position.y === cache.previousPosition.y &&
-		entity.transform.position.z === cache.previousPosition.z &&
-		entity.transform.rotation.x === cache.previousRotation.x &&
-		entity.transform.rotation.y === cache.previousRotation.y &&
-		entity.transform.rotation.z === cache.previousRotation.z
+		entity.transform.position.x === entity.physicsRuntime.previousPosition.x &&
+		entity.transform.position.y === entity.physicsRuntime.previousPosition.y &&
+		entity.transform.position.z === entity.physicsRuntime.previousPosition.z &&
+		entity.transform.rotation.x === entity.physicsRuntime.previousRotation.x &&
+		entity.transform.rotation.y === entity.physicsRuntime.previousRotation.y &&
+		entity.transform.rotation.z === entity.physicsRuntime.previousRotation.z
 	);
 }
 
@@ -90,7 +89,7 @@ function updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration) {
 	cache.cachePrimed = true;
 }
 
-function runPhysicsLoop(entity, sceneGraph, displacement) {
+function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	const isPlayer = entity.type === "player";
 	const entityPhysics = isPlayer ? entity.character.physics : entity.movement.physics;
 	const applyCorrection = entityPhysics.correction;
@@ -147,7 +146,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement) {
 
 		rebuildBounds(entity);
 
-		if (isPlayer) groundContact = ProbeGroundContact(entity, sceneGraph);
+		if (isPlayer) groundContact = ProbeGroundContact(entity, sceneGraph, physicsState.groundSnapTolerance);
 		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact) : noResult.correction;
 		const orientation = applyCorrection ? ApplyPlayerSurfaceOrientation(entity) : noResult.orientation;
 		hadMeaningfulWork = hadMeaningfulWork || correction.anyChanged || orientation.anyChanged;
@@ -162,7 +161,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement) {
 		entity.grounded = groundContact.hit && entity.buoyancyForce <= CONFIG.PHYSICS.Gravity.Strength.value;
 	}
 
-	const snap = applyCorrection ? ApplyGroundSnap(entity, groundContact) : noResult.correction;
+	const snap = applyCorrection ? ApplyGroundSnap(entity, groundContact, physicsState.groundSnapTolerance) : noResult.correction;
 	const finalOrientation = applyCorrection ? ApplyPlayerSurfaceOrientation(entity) : noResult.orientation;
 	hadMeaningfulWork = hadMeaningfulWork || snap.anyChanged || finalOrientation.anyChanged;
 	if (snap.changedPosition || snap.changedOrientation || finalOrientation.changedOrientation) rebuildBounds(entity);
@@ -203,6 +202,10 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 		deltaSeconds,
 		submergence: 0,
 		waterLevel: sceneGraph.world.waterLevel,
+		// Hardcoded anti-phasing tolerance (CNU). Owned by the orchestrator and
+		// handed to the ground probe / ground-snap assemblers as input, so they
+		// consume it rather than defining or sharing it between themselves.
+		groundSnapTolerance: 0.01,
 		gravity: {
 			enabled:               CONFIG.PHYSICS.Gravity.Enabled    && entityPhysics.gravity,
 			strength:              CONFIG.PHYSICS.Gravity.Strength.value,
@@ -232,9 +235,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 
 	const yBefore = entity.velocity.y;
 
-	if (physicsState.gravity.enabled) {
-		physicsState.gravity.result = entity.velocity.set(GetGravity(entity, physicsState));
-	}
+	if (physicsState.gravity.enabled) physicsState.gravity.result = entity.velocity.set(GetGravity(entity, physicsState));
 
 	if (physicsState.buoyancy.enabled) {
 		physicsState.buoyancy.result = GetBuoyancy(entity, physicsState);
@@ -247,18 +248,15 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 	}
 
 	if (isPlayer) {
-		const activeFloatiness = entity.underwater
-			? entity.character.meta.waterFloatiness
-			: entity.character.meta.airFloatiness;
+		const activeFloatiness = entity.underwater ? entity.character.meta.waterFloatiness : entity.character.meta.airFloatiness;
 		entity.velocity.y = yBefore + (entity.velocity.y - yBefore) / activeFloatiness;
 	}
 
 	const displacement = ScaleVector3(entity.velocity, deltaSeconds);
-	const shouldSkipCollision = shouldSkipCollisionPipeline(entity, displacement);
 	let hasUnresolvedPenetration = entity.physicsRuntime.hasUnresolvedPenetration;
 
-	if (!shouldSkipCollision) {
-		const physicsResult = runPhysicsLoop(entity, sceneGraph, displacement);
+	if (!shouldSkipCollisionPipeline(entity, displacement)) {
+		const physicsResult = runPhysicsLoop(entity, sceneGraph, displacement, physicsState);
 		if (isPlayer) storePlayerTriggers(entity, physicsResult.triggers);
 		hasUnresolvedPenetration = physicsResult.hasUnresolvedPenetration;
 	}

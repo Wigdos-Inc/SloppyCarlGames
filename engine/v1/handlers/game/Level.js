@@ -24,6 +24,7 @@ import {
 import { ApplyPhysicsPipeline } from "../../physics/Master.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
+import { ResolveEntityAnimation } from "./Animation.js";
 import { GetSimDistanceValue } from "../../physics/Collision.js";
 import { InitializeTextureAnimation, UpdateTextureAnimation } from "./Texture.js";
 import { PrepareLevelVisualResources } from "../../builder/NewTexture.js";
@@ -337,6 +338,11 @@ function Update(deltaMilliseconds) {
 	UpdateTextureAnimation(sceneGraph, deltaMilliseconds);
 
 	syncEntityMeshes(sceneGraph);
+
+	// === ANIMATION (visual-only display transforms; player only this pass) ===
+	// Runs after true poses are settled and before render reads displayTransform.
+	if (playerState.active) ResolveEntityAnimation(playerState, deltaSeconds);
+
 	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
 }
 

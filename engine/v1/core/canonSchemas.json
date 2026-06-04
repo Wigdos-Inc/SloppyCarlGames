@@ -836,6 +836,28 @@
         }
       }
     },
+    "animations": {
+      "__meta": {
+        "description": "Global animation resources",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": {},
+        "deprecated": false
+      },
+      "shared": {
+        "__meta": {
+          "description": "Global shared track definitions keyed by key",
+          "aliases": [],
+          "dataType": "object",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": {},
+          "deprecated": false
+        }
+      }
+    },
     "camera": {
       "__meta": {
         "description": "Camera config",
@@ -1313,6 +1335,7 @@
     "customTextures": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
   },
   "levelCustomTexture": {
+    "id":         { "__meta": { "description": "Decal id (animation targeting)", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "deprecated": false } },
     "decalType":  { "__meta": { "description": "Decal kind",                 "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null,    "allowedValues": ["image","shape"], "deprecated": false } },
     "imagePath":  { "__meta": { "description": "Asset path or URL",          "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "deprecated": false } },
     "sourceType": { "__meta": { "description": "Source kind",                "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "allowedValues": ["local","url"], "deprecated": false } },
@@ -1347,6 +1370,20 @@
         "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
       }
     }
+  },
+  "levelAnimationSet": {
+    "duration": { "__meta": { "description": "Animation duration (seconds)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
+    "loop":     { "__meta": { "description": "Loop the timeline", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
+  },
+  "levelAnimationTarget": {
+    "shared":    { "__meta": { "description": "Referenced shared definition keys", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
+    "transform": { "__meta": { "description": "Transform timeline (pos/rot/scale)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "color":     { "__meta": { "description": "Color timeline", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "decals":    { "__meta": { "description": "Decal targets keyed by decal id (part targets only)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
+  },
+  "levelAnimationKeyframe": {
+    "time":   { "__meta": { "description": "Normalized timeline position", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+    "easing": { "__meta": { "description": "Interpolation easing", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "linear", "allowedValues": ["linear", "easeIn", "easeOut", "easeInOut"], "deprecated": false } }
   },
   "levelObject": {
     "id": { "__meta": { "description": "Object id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "object", "deprecated": false } },
@@ -1478,7 +1515,7 @@
     "platform": { "__meta": { "description": "Platform config", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "attacks": { "__meta": { "description": "Attack list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
     "hardcoded": { "__meta": { "description": "Hardcoded behavior bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
-    "animations": { "__meta": { "description": "Animation config bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "animations": { "__meta": { "description": "Animation map (helper-normalized)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "collisionOverride": { "__meta": { "description": "Collision override bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "customEvents": {
       "__meta": { "description": "Custom event subscription flags", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
@@ -1562,7 +1599,7 @@
     "collisionOverride": { "__meta": { "description": "Override collision bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "attacks": { "__meta": { "description": "Override attacks", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
     "platform": { "__meta": { "description": "Override platform bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
-    "animations": { "__meta": { "description": "Override animations bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "animations": { "__meta": { "description": "Override animation map (helper-normalized)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "customEvents": {
       "__meta": { "description": "Custom event subscription flags", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
       "spawn":           { "__meta": { "description": "Emit spawn event on hot-path entry", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
@@ -1606,6 +1643,7 @@
       "groundedChange":  { "__meta": { "description": "Emit groundedChange event on grounded transition", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
       "damageReceived":  { "__meta": { "description": "Emit damageReceived event on damage taken", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
       "damageInflicted": { "__meta": { "description": "Emit damageInflicted event on damage dealt", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
-    }
+    },
+    "animations": { "__meta": { "description": "Player animation map (helper-normalized)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
   }
 }

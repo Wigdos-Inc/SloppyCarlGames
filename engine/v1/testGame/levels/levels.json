@@ -343,7 +343,33 @@
                     "player": {
                         "character": "chara_prop",
                         "spawnPosition": { "x": 4, "y": 1, "z": 16 },
-                        "scale": { "x": 1, "y": 1, "z": 1 }
+                        "scale": { "x": 1, "y": 1, "z": 1 },
+                        "animations": {
+                            "idle": {
+                                "duration": 1.6,
+                                "loop": true,
+                                "parts": {
+                                    "torso": {
+                                        "transform": {
+                                            "keyframes": [
+                                                { "time": 0,   "value": { "rotation": { "x": 0, "y": 0, "z": 0 } } },
+                                                { "time": 0.5, "value": { "rotation": { "x": 0, "y": 0, "z": 8 } }, "easing": "easeInOut" },
+                                                { "time": 1,   "value": { "rotation": { "x": 0, "y": 0, "z": 0 } }, "easing": "easeInOut" }
+                                            ]
+                                        }
+                                    },
+                                    "head": {
+                                        "transform": {
+                                            "keyframes": [
+                                                { "time": 0,   "value": { "position": { "x": 0, "y": 0, "z": 0 } } },
+                                                { "time": 0.5, "value": { "position": { "x": 0, "y": 0.4, "z": 0 } }, "easing": "easeInOut" },
+                                                { "time": 1,   "value": { "position": { "x": 0, "y": 0, "z": 0 } }, "easing": "easeInOut" }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     },
                     "terrain": {
                         "objects": [

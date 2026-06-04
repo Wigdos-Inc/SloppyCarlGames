@@ -140,18 +140,16 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	const { direction, hasInput, cameraForward, cameraRight } = getMovementDirection(input, cameraVectors);
 
 	// Resolve effective stats (may be modified by boost).
-	const boostActive = playerState.boost.active;
-	const maxSpeed = meta.maxSpeed * (boostActive ? playerState.boost.maxSpeedMultiplier : 1);
-	const accel = meta.acceleration * (boostActive ? playerState.boost.accelMultiplier : 1);
+	const maxSpeed = meta.maxSpeed * (playerState.boost.active ? playerState.boost.maxSpeedMultiplier : 1);
+	const accel = meta.acceleration * (playerState.boost.active ? playerState.boost.accelMultiplier : 1);
 	const decel = meta.deceleration;
 	const stoppingThreshold = maxSpeed * meta.stoppingThresholdRatio;
 
 	// Separate horizontal and vertical velocity for movement calculations.
 	let hVel = playerState.velocity.clone(); hVel.y = 0;
 	const currentHSpeed = Vector3Length(hVel);
-	const hasHorizontalVelocity = currentHSpeed > 0.001;
-	const velocityDirection = hasHorizontalVelocity ? ResolveVector3Axis(hVel) : ToVector3(0);
-	const reverseIntent = hasInput && hasHorizontalVelocity && DotVector3(velocityDirection, direction) < 0;
+	const velocityDirection = currentHSpeed > 0.001 ? ResolveVector3Axis(hVel) : ToVector3(0);
+	const reverseIntent = hasInput && currentHSpeed > 0.001 && DotVector3(velocityDirection, direction) < 0;
 	const primaryOppositeHeld = hasInput && getPrimaryOppositeHeld(input, hVel, cameraForward, cameraRight);
 	
 	playerState.stoppingActive = 
@@ -169,8 +167,7 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	if (hasInput) {
 		const effectiveAcceleration = accel * controlMultiplier;
 		if (playerState.grounded && reverseIntent) {
-			const brakingStrength = decel + (effectiveAcceleration * 0.75);
-			hVel = ApplyDeceleration(hVel, brakingStrength, deltaSeconds);
+			hVel = ApplyDeceleration(hVel, decel + (effectiveAcceleration * 0.75), deltaSeconds);
 
 			const postBrakeSpeed = Vector3Length(hVel);
 			if (postBrakeSpeed <= stoppingThreshold || !playerState.stoppingActive) {
@@ -201,14 +198,15 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 		playerState.state !== "Stunned" && 
 		playerState.state !== "Dead"
 	) {
-		const medium = playerState.underwater ? "water" : "air";
-		const floatiness = playerState.underwater ? meta.waterFloatiness : meta.airFloatiness;
-		playerState.velocity.y = solveJumpLaunchVelocity(meta.jumpHeight.value, medium, floatiness);
+		playerState.velocity.y = solveJumpLaunchVelocity(
+			meta.jumpHeight.value, 
+			playerState.underwater ? "water" : "air", 
+			playerState.underwater ? meta.waterFloatiness : meta.airFloatiness
+		);
 		playerState.grounded = false;
-		const jumpStartY = playerState.transform.position.y;
+		
 		// Player jump Y values are Unit instances—mutate their `.value`.
-		playerState.jumpStartY.value = jumpStartY;
-		playerState.jumpApexY.value = jumpStartY;
+		playerState.jumpApexY.value = playerState.transform.position.y;
 		playerState.previousState = playerState.state;
 		playerState.state = "Jumping";
 		Log("ENGINE", `Player state: ${playerState.previousState} → Jumping`, "log", "Player");
@@ -226,8 +224,7 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 
 	// === FACE MOMENTUM DIRECTION ===
 	// Yaw follows horizontal momentum so turn orientation feels fluid.
-	const horizontalSpeed = Vector3Length(hVel);
-	if (horizontalSpeed > 0.05) {
+	if (Vector3Length(hVel) > 0.05) {
 		playerState.transform.rotation.y = moveAngleToward(
 			playerState.transform.rotation.y, 
 			Math.atan2(hVel.x, hVel.z), 

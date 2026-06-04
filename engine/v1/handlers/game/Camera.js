@@ -351,8 +351,8 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	};
 
 	// Broadphase is AABB-only; obstruction only counts after detailed-bounds narrowphase.
-	for (const mesh of terrain) testCandidate(mesh.worldAabb, mesh.detailedBounds);
-	for (const obs of obstacles) testCandidate(obs.bounds, obs.detailedBounds);
+	for (const mesh of sceneGraph.terrain) testCandidate(mesh.worldAabb, mesh.detailedBounds);
+	for (const obs of sceneGraph.obstacles) testCandidate(obs.bounds, obs.detailedBounds);
 
 	if (obstructed) {
 		closestT = Math.max(
@@ -392,12 +392,11 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	// Compute desired camera position using spherical coordinates.
 	const yawRad = (defaultCamRuntime.yaw * Math.PI) / 180;
 	const pitchRad = (defaultCamRuntime.pitch * Math.PI) / 180;
-	const desiredDistance = cfg.distance.value;
 
 	const desiredPos = {
-		x: playerPos.x + desiredDistance * Math.cos(pitchRad) * Math.sin(yawRad),
-		y: playerPos.y + cfg.heightOffset.value + desiredDistance * Math.sin(pitchRad),
-		z: playerPos.z + desiredDistance * Math.cos(pitchRad) * Math.cos(yawRad),
+		x: playerPos.x + cfg.distance.value * Math.cos(pitchRad) * Math.sin(yawRad),
+		y: playerPos.y + cfg.heightOffset.value + cfg.distance.value * Math.sin(pitchRad),
+		z: playerPos.z + cfg.distance.value * Math.cos(pitchRad) * Math.cos(yawRad),
 	};
 
 	// Camera obstruction detection.
@@ -412,7 +411,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 		}
 	} 
 	else {
-		defaultCamRuntime.targetDistance.value = desiredDistance;
+		defaultCamRuntime.targetDistance.value = cfg.distance.value;
 		if (defaultCamRuntime.obstructionLogged) defaultCamRuntime.obstructionLogged = false;
 	}
 

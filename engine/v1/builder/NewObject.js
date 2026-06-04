@@ -876,6 +876,9 @@ function BuildObject(source) {
 		id        : source.id,
 		type      : "mesh3d",
 		shape, complexity, transform,
+		// Render source. Same reference as the true transform until the animation runtime swaps
+		// in a separate object for animated parts (true transform / bounds stay untouched).
+		displayTransform: transform,
 		primitive : shape,
 		role      : source.role,
 		geometry  : {
@@ -909,6 +912,10 @@ function BuildObject(source) {
 		detailedBounds : null,
 	};
 	mesh.detailedBounds = computeDetailedBounds(mesh);
+
+	// Decal render source — same reference as the face-local transform until the animation
+	// runtime swaps in a separate object for animated decals.
+	mesh.customTextures.forEach((decal) => { decal.displayTransform = decal.localTransform; });
 
 	const scatterContext = source.scatterContext;
 	if (scatterContext && mesh.detail.scatter.length > 0) {

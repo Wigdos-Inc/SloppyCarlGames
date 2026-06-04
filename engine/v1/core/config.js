@@ -107,7 +107,7 @@ const CONFIG = {
       GradientDepth: new Unit(2, "cnu") 
     },
     Collision : { Enabled: true, Hurtbox: false, Hitbox: false },
-    Correction: { Enabled: true, MinDeltaDegrees: 5, MaxDeltaDegrees: 35, GroundSnapTolerance: 0.01 },
+    Correction: { Enabled: true, MinDeltaDegrees: 5, MaxDeltaDegrees: 35 },
   },
   CUSTOM_EVENTS: {
     Entities: {

@@ -418,7 +418,7 @@ function handleLevelSelectInput(payload) {
 
 function handlePlayerInput(payload) {
 	if (!payload) return;
-	const input = window.engineOptional('Player.Input');
+	const input = window.engineOptional('Level.Player.Input');
 	if (!input) return;
 	const code = payload.code || "";
 

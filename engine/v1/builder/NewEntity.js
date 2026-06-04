@@ -134,7 +134,7 @@ function cloneLocalTransform(transform) {
 	return { position, rotation, scale };
 }
 
-function composeTransform(parentTransform, localTransform) {
+function ComposeTransform(parentTransform, localTransform) {
 	const localPosition = localTransform.position.clone();
 	const rotatedChildPos = RotateByEuler(localPosition, parentTransform.rotation);
 	return {
@@ -336,7 +336,7 @@ function applyModelPose(model) {
 	const applyPart = (partId, parentTransform) => {
 		const part = model.index[partId];
 
-		const worldTransform = composeTransform(parentTransform, part.localTransform);
+		const worldTransform = ComposeTransform(parentTransform, part.localTransform);
 		part.mesh.transform.position.set(worldTransform.position);
 		part.mesh.transform.rotation.set(worldTransform.rotation);
 		part.mesh.transform.scale = worldTransform.scale;
@@ -676,4 +676,5 @@ export {
 	UpdateEntityModelFromTransform,
 	ResetEntityToDefaultPose,
 	SampleMovementPoint,
+	ComposeTransform,
 };

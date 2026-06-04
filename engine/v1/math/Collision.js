@@ -30,11 +30,6 @@ function makeContact(normal, depth, point = null) {
 	return { hit: depth >= 0, normal: normal, depth: Math.max(0, depth), point };
 }
 
-function InvertContact(contact) {
-	if (!contact.hit) return contact;
-	return { hit: true, normal: ScaleVector3(contact.normal, -1), depth: contact.depth, point: contact.point };
-}
-
 function resolveUnitDirection(vector) {
 	const lengthSq = Vector3Sq(vector);
 	if (lengthSq <= EPSILON) return null;
@@ -940,6 +935,5 @@ export {
 	CapsuleOBBContact,
 	SphereTriangleSoupContact,
 	CapsuleTriangleSoupContact,
-	InvertContact,
 	NoContact,
 };

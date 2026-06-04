@@ -196,22 +196,15 @@ function AudioPayload(payload) {
 	return normalized;
 }
 
+/* === MENU PAYLOAD NORMALIZATION === */
+
 async function MenuPayload(payload) {
 	const normalizeElements = (rawElements) => {
 		const resolved = [];
 		const sourceElements = normalizeArray(rawElements).value;
 		const directEventKeys = [
-			"onClick",
-			"onInput",
-			"onChange",
-			"onPointerover",
-			"onPointerout",
-			"onPointerdown",
-			"onPointerup",
-			"onKeydown",
-			"onKeyup",
-			"onWheel",
-			"onMousemove"
+			"onClick", "onInput", "onChange", "onPointerover", "onPointerout", "onPointerdown", 
+			"onPointerup", "onKeydown", "onKeyup", "onWheel", "onMousemove"
 		];
 
 		sourceElements.forEach((rawEntry) => {
@@ -381,6 +374,146 @@ export async function NormalizeImage(path, sourceType, renderType) {
 	} catch (e) {
 		warnLog(`NormalizeImage: failed to load '${path}' (${sourceType}): ${e.message}`);
 		return { bool: false, value: null };
+	}
+}
+
+/* Animation Normalization */
+
+const animationChannels = ["transform", "color"];
+
+// Map each part id to the Set of its addressable (id-bearing) decal ids, for referential drops.
+function buildAnimationContext(parts) {
+	const context = {};
+	parts.forEach((part) => {
+		const decalIds = new Set();
+		part.customTextures.forEach((decal) => { if (decal.id) decalIds.add(decal.id); });
+		context[part.id] = decalIds;
+	});
+	return context;
+}
+
+// Keyframe value is left raw here (instanced later, in target-type context).
+function normalizeKeyframeList(rawKeyframes) {
+	return normalizeArray(rawKeyframes).value.map((rawEntry) => {
+		const source = normalizeObject(rawEntry).value;
+		const keyframe = normalizePayloadSchema(source, "levelAnimationKeyframe");
+		keyframe.value = normalizeObject(source.value).value;
+		return keyframe;
+	});
+}
+
+function normalizeTrackChannels(rawTrack) {
+	const track = {};
+	for (const channel of animationChannels) {
+		const channelSource = normalizeObject(rawTrack[channel]);
+		if (channelSource.bool) track[channel] = { keyframes: normalizeKeyframeList(channelSource.value.keyframes) };
+	}
+	return track;
+}
+
+// Resolve one target's own channels, then bake referenced shared channels (overlap → warn + drop).
+function resolveAnimationTarget(rawTarget, effectiveShared, label) {
+	const source = normalizeObject(rawTarget).value;
+	const resolved = normalizeTrackChannels(source);
+
+	normalizeArray(source.shared).value.forEach((key) => {
+		const def = normalizeObject(effectiveShared[key]);
+		if (!def.bool) {
+			warnLog(`${label}: shared key '${key}' not found, dropping.`);
+			return;
+		}
+		const defChannels = normalizeTrackChannels(def.value);
+		for (const channel of animationChannels) {
+			if (defChannels[channel] === undefined) continue;
+			if (resolved[channel] !== undefined) {
+				warnLog(`${label}: shared '${key}' ${channel} overlaps own track, dropping shared entry.`);
+				continue;
+			}
+			resolved[channel] = defChannels[channel];
+		}
+	});
+
+	return resolved;
+}
+
+// Structure + shared resolution (overlap/referential warn + drop). Keyframe values stay raw.
+function resolveAnimations(rawAnimations, context, globalShared) {
+	const source = normalizeObject(rawAnimations).value;
+	const effectiveShared = { ...globalShared };
+	const entityShared = normalizeObject(source.shared).value;
+	for (const key in entityShared) {
+		if (effectiveShared[key] !== undefined) warnLog(`animations.shared: entity key '${key}' shadows global definition.`);
+		effectiveShared[key] = entityShared[key];
+	}
+
+	const animations = {};
+	for (const animName in source) {
+		if (animName === "shared") continue;
+		const rawSet = normalizeObject(source[animName]).value;
+		const set = normalizePayloadSchema(rawSet, "levelAnimationSet");
+		set.parts = {};
+
+		const rawParts = normalizeObject(rawSet.parts).value;
+		for (const partId in rawParts) {
+			const decalIds = context[partId];
+			if (decalIds === undefined) {
+				warnLog(`animations.${animName}.parts: unknown part '${partId}', dropping.`);
+				continue;
+			}
+			const partLabel = `animations.${animName}.parts.${partId}`;
+			const rawPartTarget = normalizeObject(rawParts[partId]).value;
+			const partTarget = resolveAnimationTarget(rawPartTarget, effectiveShared, partLabel);
+			partTarget.decals = {};
+
+			const rawDecals = normalizeObject(rawPartTarget.decals).value;
+			for (const decalId in rawDecals) {
+				if (!decalIds.has(decalId)) {
+					warnLog(`${partLabel}.decals: unknown decal '${decalId}', dropping.`);
+					continue;
+				}
+				partTarget.decals[decalId] = resolveAnimationTarget(rawDecals[decalId], effectiveShared, `${partLabel}.decals.${decalId}`);
+			}
+			set.parts[partId] = partTarget;
+		}
+		animations[animName] = set;
+	}
+	return animations;
+}
+
+// Instance keyframe values once, in target-type context: position cnu, rotation degrees→radians
+// (vector3 for parts, scalar for decals), scale cloned, color raw. Missing props stay absent (→ rest).
+function instanceKeyframeValue(value, channel, isDecal) {
+	if (channel === "color") return { ...value };
+	const instanced = {};
+	if (value.position !== undefined) instanced.position = toUnitVector3(value.position, "cnu");
+	if (value.rotation !== undefined) {
+		instanced.rotation = isDecal
+			? new Unit(value.rotation, "degrees").toRadians(true)
+			: toUnitVector3(value.rotation, "degrees").toRadians(true);
+	}
+	if (value.scale !== undefined) instanced.scale = CloneVector3(value.scale);
+	return instanced;
+}
+
+function instanceTargetTracks(target, isDecal) {
+	for (const channel of animationChannels) {
+		if (target[channel] === undefined) continue;
+		target[channel].keyframes.forEach((keyframe) => {
+			keyframe.value = instanceKeyframeValue(keyframe.value, channel, isDecal);
+		});
+	}
+}
+
+// Walk resolved animations and instance every keyframe value exactly once. Only ever called on
+// raw resolved data (never on already-instanced values), so it never re-instances.
+function instanceAnimationTracks(animations) {
+	for (const animName in animations) {
+		const parts = animations[animName].parts;
+		for (const partId in parts) {
+			const partTarget = parts[partId];
+			instanceTargetTracks(partTarget, false);
+			for (const decalId in partTarget.decals) instanceTargetTracks(partTarget.decals[decalId], true);
+		}
 	}
 }
 
@@ -598,7 +731,6 @@ async function LevelPayload(payload) {
 		blueprint.velocity = toUnitVector3(blueprint.velocity, "cnu");
 		blueprint.attacks = normalizeAttacks(blueprintSource.attacks);
 		blueprint.hardcoded = normalizeObject(blueprint.hardcoded).value;
-		blueprint.animations = normalizeObject(blueprint.animations).value;
 		blueprint.collisionOverride = resolveCollisionOverride(blueprintSource.collisionOverride, blueprint.type);
 		blueprint.model.rootTransform = {
 			position: toUnitVector3(blueprint.model.rootTransform.position, "cnu"),
@@ -607,6 +739,8 @@ async function LevelPayload(payload) {
 			pivot: toUnitVector3(blueprint.model.rootTransform.pivot, "cnu"),
 		};
 		blueprint.model.parts = normalizeArray(blueprintSource.model?.parts).value.map((part) => normalizePart(part));
+		// Resolved but left raw (un-instanced) — instanced once per entity at the merge below.
+		blueprint.animations = resolveAnimations(blueprintSource.animations, buildAnimationContext(blueprint.model.parts), globalShared);
 		return blueprint;
 	};
 
@@ -627,6 +761,9 @@ async function LevelPayload(payload) {
 
 	const rawPayload = normalizeObject(payload).value;
 	const normalized = normalizePayloadSchema(rawPayload, "level");
+
+	// Global shared animation definitions — kept raw; baked into each target during resolution.
+	const globalShared = normalized.animations.shared;
 
 	normalized.world.length = new Unit(normalized.world.length, "cnu");
 	normalized.world.width = new Unit(normalized.world.width, "cnu");
@@ -705,7 +842,11 @@ async function LevelPayload(payload) {
 		if (entrySource.hardcoded !== undefined && override.hardcoded !== null) merged.hardcoded = override.hardcoded;
 		if (entrySource.attacks !== undefined) merged.attacks = override.attacks;
 		if (entrySource.platform !== undefined && override.platform !== null) merged.platform = override.platform;
-		if (entrySource.animations !== undefined && override.animations !== null) merged.animations = override.animations;
+		if (entrySource.animations !== undefined && override.animations !== null) {
+			merged.animations = resolveAnimations(override.animations, buildAnimationContext(merged.model.parts), globalShared);
+		}
+		// Single instancing point: merged.animations is raw-resolved (cloned blueprint or override) here.
+		instanceAnimationTracks(merged.animations);
 		if (entrySource.collisionOverride !== undefined) merged.collisionOverride = resolveCollisionOverride(entrySource.collisionOverride, merged.type);
 		if (entrySource.movement !== undefined) merged.movement = override.movement;
 		if (entrySource.velocity !== undefined) merged.velocity = override.velocity;
@@ -739,6 +880,12 @@ async function LevelPayload(payload) {
 			warnLog(`level.player.character: '${normalized.player.character}' missing, using '${defaultCharacterId}'.`);
 			normalized.player.character = defaultCharacterId;
 		}
+		// Animation targets resolve against custom modelParts, or the character profile's parts when absent.
+		const playerParts = normalized.player.modelParts.length > 0
+			? normalized.player.modelParts
+			: characterData[normalized.player.character].model.parts;
+		normalized.player.animations = resolveAnimations(playerSource.value.animations, buildAnimationContext(playerParts), globalShared);
+		instanceAnimationTracks(normalized.player.animations);
 	}
 	else normalized.player = null;
 

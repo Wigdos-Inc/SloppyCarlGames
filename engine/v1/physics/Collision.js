@@ -30,12 +30,18 @@ import {
 	CapsuleOBBContact,
 	SphereTriangleSoupContact,
 	CapsuleTriangleSoupContact,
-	InvertContact,
 	RayOBBIntersect,
 	SweptSphereAABB,
 	SweptSphereOBB,
 	NoContact,
 } from "../math/Collision.js";
+
+// Minimum cosine of horizontal incidence for a surface contact to count as a
+// wall hit (~60° from head-on). Below this the entity is grazing the surface
+// rather than running into it, so no wall contact is reported. Local to this
+// module, so lowerCamelCase per CASING.md — the ground-snap tolerance, by
+// contrast, is shared and is supplied by the orchestrator (physics/Master.js).
+const wallFacingMinApproachDot = 0.5;
 
 /* ========================================================================
  * RESULT POOLS — grow-once, zero GC per frame.
@@ -319,30 +325,38 @@ function narrowphaseContact(boundsA, boundsB) {
 	const typeA = boundsA.type;
 	const typeB = boundsB.type;
 
-	if (typeA === "sphere" && typeB === "sphere") return SphereSphereContact(boundsA.center, boundsA.radius, boundsB.center, boundsB.radius);
-	if (typeA === "sphere" && typeB === "aabb") return SphereAABBContact(boundsA.center, boundsA.radius, boundsB);
-	if (typeA === "aabb" && typeB === "sphere") return InvertContact(SphereAABBContact(boundsB.center, boundsB.radius, boundsA));
-	if (typeA === "sphere" && typeB === "obb") return SphereOBBContact(boundsA.center, boundsA.radius, boundsB);
-	if (typeA === "obb" && typeB === "sphere") return InvertContact(SphereOBBContact(boundsB.center, boundsB.radius, boundsA));
-	if (typeA === "sphere" && typeB === "capsule") return SphereCapsuleContact(boundsA.center, boundsA.radius, boundsB);
-	if (typeA === "capsule" && typeB === "sphere") return InvertContact(SphereCapsuleContact(boundsB.center, boundsB.radius, boundsA));
-	if (typeA === "capsule" && typeB === "aabb") return CapsuleAABBContact(boundsA, boundsB);
-	if (typeA === "aabb" && typeB === "capsule") return InvertContact(CapsuleAABBContact(boundsB, boundsA));
-	if (typeA === "capsule" && typeB === "capsule") return CapsuleCapsuleContact(boundsA, boundsB);
-	if (typeA === "capsule" && typeB === "obb") return CapsuleOBBContact(boundsA, boundsB);
-	if (typeA === "obb" && typeB === "capsule") return InvertContact(CapsuleOBBContact(boundsB, boundsA));
-	if (typeA === "sphere" && typeB === "triangle-soup") return SphereTriangleSoupContact(boundsA.center, boundsA.radius, boundsB);
-	if (typeA === "triangle-soup" && typeB === "sphere") return InvertContact(SphereTriangleSoupContact(boundsB.center, boundsB.radius, boundsA));
-	if (typeA === "capsule" && typeB === "triangle-soup") return CapsuleTriangleSoupContact(boundsA, boundsB);
-	if (typeA === "triangle-soup" && typeB === "capsule") return InvertContact(CapsuleTriangleSoupContact(boundsB, boundsA));
-	if (typeA === "aabb" && typeB === "aabb") return aabbAabbContact(boundsA, boundsB);
-	if (typeA === "aabb" && typeB === "obb") return AabbObbContact(boundsA, boundsB);
-	if (typeA === "obb" && typeB === "aabb") return InvertContact(AabbObbContact(boundsB, boundsA));
+	const invertContact = (contact) => {
+		if (!contact.hit) return contact;
+		return { hit: true, normal: ScaleVector3(contact.normal, -1), depth: contact.depth, point: contact.point };
+	}
 
-	if (typeA === "sphere" && typeB === "compound-sphere") return iterateCompoundSpheres(boundsB, s => SphereSphereContact(boundsA.center, boundsA.radius, s.center, s.radius));
-	if (typeA === "compound-sphere" && typeB === "sphere") return iterateCompoundSpheres(boundsA, s => InvertContact(SphereSphereContact(boundsB.center, boundsB.radius, s.center, s.radius)));
-	if (typeA === "capsule" && typeB === "compound-sphere") return iterateCompoundSpheres(boundsB, s => InvertContact(SphereCapsuleContact(s.center, s.radius, boundsA)));
-	if (typeA === "compound-sphere" && typeB === "capsule") return iterateCompoundSpheres(boundsA, s => SphereCapsuleContact(s.center, s.radius, boundsB));
+	switch (typeA.substring(0, 2) + typeB.substring(0, 2)) {
+		case "spsp": return SphereSphereContact(boundsA.center, boundsA.radius, boundsB.center, boundsB.radius);
+		case "spaa": return SphereAABBContact(boundsA.center, boundsA.radius, boundsB);
+		case "aasp": return invertContact(SphereAABBContact(boundsB.center, boundsB.radius, boundsA));
+		case "spob": return SphereOBBContact(boundsA.center, boundsA.radius, boundsB);
+		case "obsp": return invertContact(SphereOBBContact(boundsB.center, boundsB.radius, boundsA));
+		case "spca": return SphereCapsuleContact(boundsA.center, boundsA.radius, boundsB);
+		case "casp": return invertContact(SphereCapsuleContact(boundsB.center, boundsB.radius, boundsA));
+		case "caaa": return CapsuleAABBContact(boundsA, boundsB);
+		case "aaca": return invertContact(CapsuleAABBContact(boundsB, boundsA));
+		case "caca": return CapsuleCapsuleContact(boundsA, boundsB);
+		case "caob": return CapsuleOBBContact(boundsA, boundsB);
+		case "obca": return invertContact(CapsuleOBBContact(boundsB, boundsA));
+		case "sptr": return SphereTriangleSoupContact(boundsA.center, boundsA.radius, boundsB);
+		case "trsp": return invertContact(SphereTriangleSoupContact(boundsB.center, boundsB.radius, boundsA));
+		case "catr": return CapsuleTriangleSoupContact(boundsA, boundsB);
+		case "trca": return invertContact(CapsuleTriangleSoupContact(boundsB, boundsA));
+		case "aaaa": return aabbAabbContact(boundsA, boundsB);
+		case "aaob": return AabbObbContact(boundsA, boundsB);
+		case "obaa": return invertContact(AabbObbContact(boundsB, boundsA));
+
+		case "spco": return iterateCompoundSpheres(boundsB, s => SphereSphereContact(boundsA.center, boundsA.radius, s.center, s.radius));
+		case "cosp": return iterateCompoundSpheres(boundsA, s => invertContact(SphereSphereContact(boundsB.center, boundsB.radius, s.center, s.radius)));
+		case "caco": return iterateCompoundSpheres(boundsB, s => invertContact(SphereCapsuleContact(s.center, s.radius, boundsA)));
+		case "coca": return iterateCompoundSpheres(boundsA, s => SphereCapsuleContact(s.center, s.radius, boundsB));
+	}
+	
 	if (typeA === "compound-sphere") return iterateCompoundSpheres(boundsA, s => narrowphaseContact({ type: "sphere", center: s.center, radius: s.radius }, boundsB));
 	if (typeB === "compound-sphere") return iterateCompoundSpheres(boundsB, s => narrowphaseContact(boundsA, { type: "sphere", center: s.center, radius: s.radius }));
 
@@ -856,22 +870,21 @@ function ResolveCollisions(velocity, displacement, solids) {
 		};
 	}
 
-	for (const collision of solids.items){
+	for (let index = 0; index < solids.count; index++) {
+		const collision = solids.items[index];
 		const isSurfaceCandidate = collision.type === "terrain" || collision.type === "obstacle";
-		const groundSupportY = collision.pushNormal.y;
 		const wallApproach = isSurfaceCandidate
 			? resolveWallApproachStrength(velocity, collision.normal)
 			: 0;
-		const isWallCandidate = isSurfaceCandidate && wallApproach >= CONFIG.PHYSICS.Correction.WallFacingMinApproachDot;
+		const isWallCandidate = isSurfaceCandidate && wallApproach >= wallFacingMinApproachDot;
 
-		const isGroundCandidate = isSurfaceCandidate && collision.pushNormal.y > 0.5;
-		if (isGroundCandidate) {
+		if (isSurfaceCandidate && collision.pushNormal.y > 0.5) {
 			if (
 				!groundContact.hit ||
-				groundSupportY > groundContact.supportY ||
-				(groundSupportY === groundContact.supportY && collision.tEntry < groundContact.tEntry)
+				collision.pushNormal.y > groundContact.supportY ||
+				(collision.pushNormal.y === groundContact.supportY && collision.tEntry < groundContact.tEntry)
 			) {
-				groundContact = buildGroundContact(collision, groundSupportY);
+				groundContact = buildGroundContact(collision, collision.pushNormal.y);
 			}
 		}
 
@@ -885,10 +898,9 @@ function ResolveCollisions(velocity, displacement, solids) {
 			}
 		}
 
-		const pushDepth = collision.pushDepth;
-		if (pushDepth > 0) {
-			disp = AddVector3(disp, ScaleVector3(collision.pushNormal, pushDepth));
-			changedPosition = changedPosition || pushDepth > EPSILON;
+		if (collision.pushDepth > 0) {
+			disp = AddVector3(disp, ScaleVector3(collision.pushNormal, collision.pushDepth));
+			changedPosition = changedPosition || collision.pushDepth > EPSILON;
 		}
 
 		// Slide: remove velocity component along collision normal.
@@ -925,11 +937,7 @@ function ResolveCollisions(velocity, displacement, solids) {
 	return {
 		resolvedVelocity: vel,
 		resolvedDisplacement: disp,
-		groundContact,
-		wallContact,
-		changedPosition,
-		changedVelocity,
-		anyChanged,
+		groundContact, wallContact, changedPosition, changedVelocity, anyChanged,
 	};
 }
 
@@ -947,13 +955,11 @@ function ResolveCollisions(velocity, displacement, solids) {
  * @param {object} sceneGraph
  * @returns {{ hit: boolean, normal?: object, type?: string, supportPoint?: object }}
  */
-function ProbeGroundContact(entity, sceneGraph) {
+function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance) {
 	if (CONFIG.PHYSICS.Collision.Enabled === false) return { hit: false };
 
-	const profile = entity.collision.profile;
-	const probe = entity.transform.position.clone().add(profile.capsuleStartOffset);
-	const maxDist = profile.capsuleRadius.value + CONFIG.PHYSICS.Correction.GroundSnapTolerance;
-	const simAabb = entity.collision.simRadiusAabb;
+	const probe = entity.transform.position.clone().add(entity.collision.profile.capsuleStartOffset);
+	const maxDist = entity.collision.profile.capsuleRadius.value + groundSnapTolerance;
 
 	let bestT = Infinity;
 	let bestNormal = null;
@@ -981,13 +987,13 @@ function ProbeGroundContact(entity, sceneGraph) {
 	};
 
 	for (const mesh of sceneGraph.terrain) {
-		if      (!AabbOverlap(simAabb, mesh.worldAabb)) continue;
+		if      (!AabbOverlap(entity.collision.simRadiusAabb, mesh.worldAabb)) continue;
 		if      (mesh.detailedBounds.type === "aabb")   tryAABB(mesh.detailedBounds, "terrain");
 		else if (mesh.detailedBounds.type === "obb")    tryOBB(mesh.detailedBounds, "terrain");
 	}
 
 	for (const obs of sceneGraph.obstacles) {
-		if      (!AabbOverlap(simAabb, obs.bounds))  continue;
+		if      (!AabbOverlap(entity.collision.simRadiusAabb, obs.bounds))  continue;
 		if      (obs.detailedBounds.type === "aabb") tryAABB(obs.detailedBounds, "obstacle");
 		else if (obs.detailedBounds.type === "obb")  tryOBB(obs.detailedBounds , "obstacle");
 	}

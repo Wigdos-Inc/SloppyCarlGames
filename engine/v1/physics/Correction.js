@@ -136,7 +136,7 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 	return { changedGrounded, changedOrientation, changedPosition: false, changedVelocity, anyChanged };
 }
 
-function ApplyGroundSnap(playerState, groundContact) {
+function ApplyGroundSnap(playerState, groundContact, groundSnapTolerance) {
 	const config = CONFIG.PHYSICS.Correction;
 	if (config.Enabled === false || !playerState.grounded) return correctionDisabled;
 	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return correctionDisabled;
@@ -146,7 +146,7 @@ function ApplyGroundSnap(playerState, groundContact) {
 	const deltaY = desiredPosY - playerState.transform.position.y;
 
 	const absDeltaY = Math.abs(deltaY);
-	if (absDeltaY > config.GroundSnapTolerance) return correctionDisabled;
+	if (absDeltaY > groundSnapTolerance) return correctionDisabled;
 
 	const changedPosition = absDeltaY > EPSILON;
 	if (changedPosition) {
