@@ -468,7 +468,41 @@ function cacheCameraVectors(cameraState) {
 	latestCameraRight = { ...cameraState.right };
 }
 
-function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
+function computeInitialDefaultCamPosition(playerState, levelBase) {
+	const cfg = defaultCamRuntime.config;
+	const playerPos = playerState.transform.position.toWorldUnit();
+	const yawRad = (defaultCamRuntime.yaw * Math.PI) / 180;
+	const pitchRad = (defaultCamRuntime.pitch * Math.PI) / 180;
+
+	const position = new UnitVector3(
+		playerPos.x + cfg.distance.value * Math.cos(pitchRad) * Math.sin(yawRad),
+		playerPos.y + cfg.heightOffset.value + cfg.distance.value * Math.sin(pitchRad),
+		playerPos.z + cfg.distance.value * Math.cos(pitchRad) * Math.cos(yawRad),
+		"worldunit"
+	);
+	const target = new UnitVector3(
+		playerPos.x,
+		playerPos.y + cfg.heightOffset.value,
+		playerPos.z,
+		"worldunit"
+	);
+	const forward = ResolveVector3Axis(SubtractVector3(target, position));
+	const right = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
+
+	return {
+		position,
+		target,
+		forward,
+		right,
+		up: ResolveVector3Axis(CrossVector3(right, forward)),
+		mode: "defaultcam",
+		fov: levelBase.fov,
+		near: levelBase.near,
+		far: levelBase.far,
+	};
+}
+
+function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta, playerState) {
 	if (!freeCamEnabled) {
 		freeCamRuntime.active = false;
 		freeCamRuntime.levelKey = null;
@@ -480,7 +514,10 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta) {
 		// Initialize DefaultCam (third-person follow).
 		initializeDefaultCamConfig(cameraConfig);
 
-		const state = { ...resolveDefaultLevelCamera(sceneGraph, cameraConfig), mode: "defaultcam" };
+		const levelBase = resolveDefaultLevelCamera(sceneGraph, cameraConfig);
+		const state = playerState
+			? computeInitialDefaultCamPosition(playerState, levelBase)
+			: { ...levelBase, mode: "defaultcam" };
 		cacheCameraPosition(state);
 		cacheCameraVectors(state);
 		Log("ENGINE", "DefaultCam mode activated.", "log", "Level");

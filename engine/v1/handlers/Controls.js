@@ -4,7 +4,7 @@
 
 import { Cache, Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
-import { GetActiveLevel } from "./game/Level.js";
+import { GetActiveLevel, ToggleLevelLoopPause } from "./game/Level.js";
 import { HandleFreeCamInput, HandleDefaultCamInput } from "./game/Camera.js";
 import { HandleUiAction, ResolvePrecomputedAction } from "./UI.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";
@@ -183,7 +183,11 @@ function StartInputRouter(target) {
 
 			const activeLevel = GetActiveLevel();
 			const levelIsLoaded = Boolean(activeLevel);
-			if (levelIsLoaded && handleDebugLevelInput(event, activeLevel)) consumed = true;
+			if (levelIsLoaded && event.type === "keydown" && event.code === "KeyP") {
+				ToggleLevelLoopPause();
+				consumed = true;
+			} 
+			else if (levelIsLoaded && handleDebugLevelInput(event, activeLevel)) consumed = true;
 			else {
 				// FreeCam should only be enabled when global debug is on and level FreeCam is true.
 				const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true);

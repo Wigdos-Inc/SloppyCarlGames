@@ -1,6 +1,5 @@
 This file contains current priorities.
 
-Detach level runtime from PointerLock
 Place DefaultCam in correct starting position relative to player at first frame.
 Add Simulator API
 Update test characters to test multiple types of characters with intuitive physics

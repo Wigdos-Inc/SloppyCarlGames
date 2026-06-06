@@ -8,7 +8,7 @@
 
 import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js";
 import { RenderLevel } from "../Render.js";
-import { Cache, IsPointerLocked, Log, PushToSession, SendEvent, SESSION_KEYS } from "../../core/meta.js";
+import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
 import { Vector3Distance, LerpVector3, CloneVector3 } from "../../math/Vector3.js";
@@ -139,6 +139,12 @@ function syncEntityMeshes(sceneGraph) {
 	}
 }
 
+function onPointerLockChange() {
+	if (!levelLoop.active) return;
+	if (document.pointerLockElement) ResumeLevelLoop();
+	else PauseLevelLoop();
+}
+
 function StartLevelLoop() {
 	if (levelLoop.active) return;
 
@@ -147,6 +153,7 @@ function StartLevelLoop() {
 	levelLoop.lastFrameTime = performance.now();
 	levelLoop.accumulator = 0;
 	levelLoop.fixedTimeStep = 1000 / frameRate;
+	document.addEventListener("pointerlockchange", onPointerLockChange);
 
 	const frame = () => {
 		if (!levelLoop.active) return;
@@ -156,10 +163,10 @@ function StartLevelLoop() {
 		levelLoop.lastFrameTime = now;
 
 		if (frameTime > levelLoop.maxFrameTime) frameTime = levelLoop.maxFrameTime;
-		levelLoop.accumulator += frameTime;
+		if (!levelLoop.paused) levelLoop.accumulator += frameTime;
 
 		while (levelLoop.accumulator >= levelLoop.fixedTimeStep && !levelLoop.paused) {
-			if (IsPointerLocked()) Update(levelLoop.fixedTimeStep);
+			Update(levelLoop.fixedTimeStep);
 			levelLoop.accumulator -= levelLoop.fixedTimeStep;
 		}
 
@@ -172,8 +179,12 @@ function StartLevelLoop() {
 }
 
 function StopLevelLoop() {
-	if (levelLoop.active) Log("ENGINE", "Level loop stopped.", "log", "Level");
+	if (levelLoop.active) {
+		Log("ENGINE", "Level loop stopped.", "log", "Level");
+		SendEvent("LEVEL_STOPPED", {});
+	}
 	levelLoop.active = false;
+	document.removeEventListener("pointerlockchange", onPointerLockChange);
 
 	if (levelLoop.animationFrameId !== null) {
 		cancelAnimationFrame(levelLoop.animationFrameId);
@@ -182,11 +193,20 @@ function StopLevelLoop() {
 }
 
 function PauseLevelLoop() {
+	if (levelLoop.paused) return;
 	levelLoop.paused = true;
+	SendEvent("LEVEL_PAUSED", {});
 }
 
 function ResumeLevelLoop() {
+	if (!levelLoop.paused) return;
 	levelLoop.paused = false;
+	SendEvent("LEVEL_RESUMED", {});
+}
+
+function ToggleLevelLoopPause() {
+	if (levelLoop.paused) ResumeLevelLoop();
+	else PauseLevelLoop();
 }
 
 async function CreateLevel(payload, options) {
@@ -235,7 +255,8 @@ async function CreateLevel(payload, options) {
 	sceneGraph.cameraConfig.state = InitializeCameraState(
 		sceneGraph,
 		sceneGraph.cameraConfig,
-		cachedPayload.meta
+		cachedPayload.meta,
+		sceneGraph.playerConfig ? GetPlayerState() : null
 	);
 
 	InitializeTextureAnimation(sceneGraph);
@@ -256,6 +277,7 @@ async function CreateLevel(payload, options) {
 	Log("ENGINE", "Level render initialized.", "log", "Level");
 
 	StartLevelLoop();
+	RequestPointerLock();
 	Log("ENGINE", "Level loop started.", "log", "Level");
 
 	SendEvent("LEVEL_READY", {
@@ -350,12 +372,13 @@ function GetActiveLevel() {
 	return levelRuntimeState.sceneGraph;
 }
 
-export { 
-	CreateLevel, 
-	Update, 
-	GetActiveLevel, 
-	StartLevelLoop, 
-	StopLevelLoop, 
-	PauseLevelLoop, 
-	ResumeLevelLoop 
+export {
+	CreateLevel,
+	Update,
+	GetActiveLevel,
+	StartLevelLoop,
+	StopLevelLoop,
+	PauseLevelLoop,
+	ResumeLevelLoop,
+	ToggleLevelLoopPause,
 };
