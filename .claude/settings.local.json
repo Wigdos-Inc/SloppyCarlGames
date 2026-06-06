@@ -24,7 +24,10 @@
       "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\Render.js\")",
       "mcp__chrome-devtools__wait_for",
       "mcp__chrome-devtools__click",
-      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\player\\\\Master.js\")"
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\player\\\\Master.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\builder\\\\NewTexture.js\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/testGame/levels/levels.json','utf8'\\)\\); console.log\\('valid'\\)\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/player/characters.json','utf8'\\)\\); console.log\\('valid'\\)\")"
     ]
   }
 }

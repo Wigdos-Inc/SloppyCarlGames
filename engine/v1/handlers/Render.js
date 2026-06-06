@@ -1149,12 +1149,14 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 
 	const drawDecalsForMesh = (mesh, index) => {
 		const decalEntry = mesh.customTextures[index];
-		const texture = ensureSceneTexture(renderer, sceneGraph, `${mesh.id}::customTexture::${index}`);
+		const baseKey = `${mesh.id}::customTexture::${index}`;
+		const textureKey = decalEntry.activeSourceKey !== null ? `${baseKey}::${decalEntry.activeSourceKey}` : baseKey;
+		const texture = ensureSceneTexture(renderer, sceneGraph, textureKey);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.uniform1i(shader.uniforms.texture, 0);
 		gl.uniformMatrix4fv(shader.uniforms.model, false, buildDecalModelMatrix(mesh, decalEntry));
-		if (decalEntry.mutable === true) {
+		if (decalEntry.mutable === true && decalEntry.activeSourceKey === null) {
 			const tint = decalEntry.displayColor !== null ? decalEntry.displayColor : decalEntry.color;
 			gl.uniform4f(shader.uniforms.tint, tint.r, tint.g, tint.b, tint.a);
 		} 

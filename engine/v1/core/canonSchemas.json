@@ -1354,6 +1354,7 @@
       "speckSize":     { "__meta": { "description": "Speck size",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } }
     },
     "side":       { "__meta": { "description": "Face the decal attaches to", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": "front", "allowedValues": ["front","back","left","right","top","bottom"], "deprecated": false } },
+    "sources":    { "__meta": { "description": "Alternate source pool (keyed by source key)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "localTransform": {
       "__meta": { "description": "Decal local transform", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": {}, "deprecated": false },
       "position": {
@@ -1369,6 +1370,25 @@
         "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
         "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
       }
+    }
+  },
+  "levelDecalSource": {
+    "decalType":  { "__meta": { "description": "Source decal kind",        "aliases": [], "dataType": "string",  "isRequired": false, "isExpected": true,  "fallback": null, "allowedValues": ["image","shape"], "deprecated": false } },
+    "shape":      { "__meta": { "description": "Source shape",             "aliases": [], "dataType": "string",  "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["square","circle","triangle"], "deprecated": false } },
+    "imagePath":  { "__meta": { "description": "Source asset path or URL", "aliases": [], "dataType": "string",  "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "sourceType": { "__meta": { "description": "Source kind",              "aliases": [], "dataType": "string",  "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["local","url"], "deprecated": false } },
+    "color": {
+      "__meta": { "description": "Source fill color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+      "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+    },
+    "detail": {
+      "__meta": { "description": "Shape texture detail", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "baseTextureID": { "__meta": { "description": "Base texture id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null, "deprecated": false } },
+      "density":       { "__meta": { "description": "Texture density",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } },
+      "speckSize":     { "__meta": { "description": "Speck size",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } }
     }
   },
   "levelAnimationSet": {

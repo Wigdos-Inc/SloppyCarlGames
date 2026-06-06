@@ -433,6 +433,20 @@ function resolveAnimationTarget(rawTarget, effectiveShared, label) {
 		}
 	});
 
+	const rawSwap = normalizeArray(source.swap).value;
+	if (rawSwap.length > 0) {
+		const snaps = [];
+		rawSwap.forEach((rawSnap) => {
+			const snap = normalizeObject(rawSnap).value;
+			if (typeof snap.time !== "number" || typeof snap.sourceKey !== "string") {
+				warnLog(`${label}: swap snap has invalid time or sourceKey, dropping.`);
+				return;
+			}
+			snaps.push({ time: Math.max(0, Math.min(1, snap.time)), sourceKey: snap.sourceKey });
+		});
+		if (snaps.length > 0) resolved.swap = snaps.sort((a, b) => a.time - b.time);
+	}
+
 	return resolved;
 }
 
@@ -519,19 +533,31 @@ function instanceAnimationTracks(animations) {
 
 function markMutableDecals(animations, parts) {
 	const decalMap = new Map();
-	parts.forEach((part) => {
-		part.customTextures.forEach((ct) => { 
-			if (ct.id && ct.decalType === "shape") decalMap.set(ct.id, ct); 
-		});
-	});
+	parts.forEach((part) => part.customTextures.forEach((ct) => { if (ct.id) decalMap.set(ct.id, ct); }));
 	for (const animName in animations) {
 		const animParts = animations[animName].parts;
 		for (const partId in animParts) {
 			for (const decalId in animParts[partId].decals) {
 				const track = animParts[partId].decals[decalId];
-				if (track.color !== undefined && track.color.keyframes.length > 0) {
-					const ct = decalMap.get(decalId);
-					if (ct !== undefined) ct.mutable = true;
+				const ct = decalMap.get(decalId);
+				if (ct === undefined) continue;
+				if (track.color !== undefined && track.color.keyframes.length > 0 && ct.decalType === "shape") {
+					ct.mutable = true;
+				}
+				if (track.swap !== undefined && track.swap.length > 0) {
+					if (ct.decalType === "shape") ct.mutable = true;
+					if (ct.sources !== null) {
+						const validKeys = new Set(Object.keys(ct.sources));
+						track.swap = track.swap.filter((snap) => {
+							if (validKeys.has(snap.sourceKey)) return true;
+							warnLog(`animations.${animName}: decal '${decalId}' swap to unknown source '${snap.sourceKey}', dropping.`);
+							return false;
+						});
+						if (track.swap.length === 0) delete track.swap;
+					} else {
+						warnLog(`animations.${animName}: decal '${decalId}' has swap track but no sources declared, dropping swap.`);
+						delete track.swap;
+					}
 				}
 			}
 		}
@@ -539,8 +565,9 @@ function markMutableDecals(animations, parts) {
 }
 
 async function LevelPayload(payload) {
-	const pendingImageLoads = [];
-	const affectedParts    = new Set();
+	const pendingImageLoads    = [];
+	const affectedParts        = new Set();
+	const affectedDecalSources = new Set();
 
 	const resolveTextureId = (textureId, fallbackTextureId, fieldPath = "") => {
 		if (objectDetail.textures[textureId] !== undefined) return textureId;
@@ -592,6 +619,48 @@ async function LevelPayload(payload) {
 			triangle: () => true,
 		};
 
+		const normalizeSources = (entry) => {
+			const localWarnLog = (text) => warnLog(`normalizeCustomTextures: ${text}, dropping.`);
+
+			if (entry.sources === null) return;
+
+			const normalized = {};
+			for (const key in entry.sources) {
+				const rawSrc = normalizeObject(entry.sources[key]);
+				if (!rawSrc.bool) { 
+					localWarnLog(`nsource '${key}' is not a valid object`); 
+					continue; 
+				}
+				const src = normalizePayloadSchema(rawSrc.value, "levelDecalSource");
+				switch (src.decalType) {
+					case null   : localWarnLog(`source '${key}' has null decalType`); continue;
+					case "image":
+						if (src.imagePath === null || src.sourceType === null) {
+							localWarnLog(`image source '${key}' missing required fields`);
+							continue;
+						}
+						normalized[key] = src;
+						pendingImageLoads.push({ entry: src, promise: NormalizeImage(src.imagePath, src.sourceType, "webgl") });
+						affectedDecalSources.add(entry);
+						break;
+					case "shape":
+						if (src.shape === null) { localWarnLog(`shape source '${key}' missing required 'shape' field`); continue; }
+						if (src.detail !== null) {
+							const validBaseId = resolveTextureId(src.detail.baseTextureID, null);
+							if (validBaseId === null && src.detail.baseTextureID !== null) {
+								localWarnLog(`shape source '${key}' detail.baseTextureID '${src.detail.baseTextureID}' invalid`);
+								continue;
+							}
+							src.detail.baseTextureID = validBaseId;
+						}
+						src.mutable = false;
+						normalized[key] = src;
+						break;
+				}
+			}
+			entry.sources = Object.keys(normalized).length > 0 ? normalized : null;
+		};
+
 		normalizeArray(rawCustomTextures).value.forEach((rawEntry) => {
 			const entrySource = normalizeObject(rawEntry);
 			if (!entrySource.bool) return;
@@ -601,43 +670,40 @@ async function LevelPayload(payload) {
 			entry.localTransform.rotation = new Unit(entry.localTransform.rotation, "degrees").toRadians(true);
 			entry.localTransform.scale    = CloneVector3(entry.localTransform.scale);
 
-			if (entry.decalType === null) {
-				warnLog(`normalizeCustomTextures: dropping entry with null decalType.`);
-				return;
-			}
-
-			if (entry.decalType === "image") {
-				if (entry.imagePath === null || entry.sourceType === null) {
-					warnLog(`normalizeCustomTextures: image decal missing required fields (imagePath=${entry.imagePath}, sourceType=${entry.sourceType}), dropping entry.`);
-					return;
-				}
-				entries.push(entry);
-				pendingImageLoads.push({ entry, promise: NormalizeImage(entry.imagePath, entry.sourceType, "webgl") });
-				affectedParts.add(part);
-				return;
-			}
-
-			if (entry.decalType === "shape") {
-				if (entry.shape === null) {
-					warnLog(`normalizeCustomTextures: shape decal missing required 'shape' field, dropping entry.`);
-					return;
-				}
-				if (!shapeRequiredFields[entry.shape]()) {
-					warnLog(`normalizeCustomTextures: shape '${entry.shape}' failed required field check, dropping entry.`);
-					return;
-				}
-				if (entry.detail !== null) {
-					const rawBaseId = entry.detail.baseTextureID;
-					const validBaseId = resolveTextureId(rawBaseId, null);
-					if (validBaseId === null && rawBaseId !== null) {
-						warnLog(`normalizeCustomTextures: detail.baseTextureID '${rawBaseId}' is not a valid texture ID, dropping entry.`);
+			switch (entry.decalType) {
+				case null   : warnLog(`normalizeCustomTextures: dropping entry with null decalType.`); return;
+				case "image":
+					if (entry.imagePath === null || entry.sourceType === null) {
+						warnLog(`normalizeCustomTextures: image decal missing required fields (imagePath=${entry.imagePath}, sourceType=${entry.sourceType}), dropping entry.`);
 						return;
 					}
-					entry.detail.baseTextureID = validBaseId;
-				}
-				entry.mutable = false;
-				entries.push(entry);
-				affectedParts.add(part);
+					normalizeSources(entry);
+					entries.push(entry);
+					pendingImageLoads.push({ entry, promise: NormalizeImage(entry.imagePath, entry.sourceType, "webgl") });
+					affectedParts.add(part);
+					return;
+				case "shape":
+					if (entry.shape === null) {
+						warnLog(`normalizeCustomTextures: shape decal missing required 'shape' field, dropping entry.`);
+						return;
+					}
+					if (!shapeRequiredFields[entry.shape]()) {
+						warnLog(`normalizeCustomTextures: shape '${entry.shape}' failed required field check, dropping entry.`);
+						return;
+					}
+					if (entry.detail !== null) {
+						const validBaseId = resolveTextureId(entry.detail.baseTextureID, null);
+						if (validBaseId === null && entry.detail.baseTextureID !== null) {
+							warnLog(`normalizeCustomTextures: detail.baseTextureID '${entry.detail.baseTextureID}' is not a valid texture ID, dropping entry.`);
+							return;
+						}
+						entry.detail.baseTextureID = validBaseId;
+					}
+					entry.mutable = false;
+					normalizeSources(entry);
+					entries.push(entry);
+					affectedParts.add(part);
+					break;
 			}
 		});
 
@@ -915,6 +981,14 @@ async function LevelPayload(payload) {
 	));
 	affectedParts.forEach((part) => {
 		part.customTextures = part.customTextures.filter((e) => e.decalType !== "image" || e.bitmap !== null);
+	});
+	affectedDecalSources.forEach((decalEntry) => {
+		for (const key in decalEntry.sources) {
+			if (decalEntry.sources[key].decalType === "image" && decalEntry.sources[key].bitmap === null) {
+				delete decalEntry.sources[key];
+			}
+		}
+		if (Object.keys(decalEntry.sources).length === 0) decalEntry.sources = null;
 	});
 
 	return normalized;

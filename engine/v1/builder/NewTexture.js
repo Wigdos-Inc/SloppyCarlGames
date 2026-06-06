@@ -195,6 +195,28 @@ function collectTextureUsage(sceneGraph) {
 		});
 	};
 
+	const collectDecalAlternateSources = (baseId, ct, mesh) => {
+		if (ct.sources === null) return;
+		const placement = { side: ct.side, localTransform: ct.localTransform };
+		for (const sourceKey in ct.sources) {
+			const src = ct.sources[sourceKey];
+			const altId = `${baseId}::${sourceKey}`;
+			if (src.decalType === "image") {
+				customTextureUsage[altId] = { decalType: "image", bitmap: src.bitmap, placement };
+			} 
+			else {
+				customTextureUsage[altId] = {
+					decalType: "shape",
+					ct: { 
+						shape: src.shape, color: src.color, detail: src.detail,
+					    localTransform: { scale: ct.localTransform.scale }, side: ct.side, mutable: false 
+					},
+					mesh, placement,
+				};
+			}
+		}
+	};
+
 	sceneGraph.terrain.forEach((mesh) => {
 		const span = Math.max(mesh.dimensions.x * mesh.transform.scale.x, mesh.dimensions.z * mesh.transform.scale.z);
 		collectMesh(mesh, { isTerrain: true, maxSpan: span }, mesh.id);
@@ -214,6 +236,7 @@ function collectTextureUsage(sceneGraph) {
 					placement: { side: ct.side, localTransform: ct.localTransform },
 				};
 			}
+			collectDecalAlternateSources(id, ct, mesh);
 		});
 	});
 
@@ -240,6 +263,7 @@ function collectTextureUsage(sceneGraph) {
 						placement: { side: ct.side, localTransform: ct.localTransform },
 					};
 				}
+				collectDecalAlternateSources(id, ct, part);
 			});
 		});
 	});
@@ -287,6 +311,7 @@ function collectTextureUsage(sceneGraph) {
 						placement: { side: ct.side, localTransform: ct.localTransform },
 					};
 				}
+				collectDecalAlternateSources(id, ct, part.mesh);
 			});
 		});
 	});

@@ -393,6 +393,21 @@
                                         }
                                     }
                                 }
+                            },
+                            "running": {
+                                "duration": 1,
+                                "loop": true,
+                                "parts": {
+                                    "torso": {
+                                        "decals": {
+                                            "torso-logo": {
+                                                "swap": [
+                                                    { "time": 0, "sourceKey": "triangle" }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     },

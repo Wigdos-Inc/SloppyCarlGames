@@ -1,7 +1,7 @@
 This file contains current priorities.
 
-Add the 3D and 2D-shape animation system
-- Add shape changes, shape > image, image > shape (snap, can't be multiframe, seperate function)
+Detach level runtime from PointerLock
+Place DefaultCam in correct starting position relative to player at first frame.
 Add Simulator API
 Update test characters to test multiple types of characters with intuitive physics
 Add Terrain Blueprint Support (start using Claude Code):
@@ -11,9 +11,57 @@ Add Terrain Blueprint Support (start using Claude Code):
 Fully re-attach Camera.js to CNU.
 - Dedup Camera.js
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain)
+Entity AI:
+- Default behaviours (not mutually exclusive):
+  - Chase
+  - Search
+  - Idle
+  - Wander
+  - Guard
+  - Attack
+  - Defend
+- Custom behaviours: Game attaches handlers OR events.
+Rework Collectible system into collections with built-in handling support.
 Build new test level (prompt in notepad).
+Build Load Screen functionality.
+- Background Image support
+- HTML Element support
+- Music Support
 
 
 Additions to Level API:
-- GetEntity(id)
-- GetEntityIds
+- Entities:
+  - Get(entityId)
+  - GetAll
+  - Animate(entityId, ...)
+  - Action(entityId, ...)
+  - Kill(entityId)
+  - Delete(entityId)
+  - Heal(entityId, amount)
+  - EnablePhysics(entityId)
+  - DisablePhysics(entityId)
+  - SetMeta(entityId, ...)
+  - SetTransform(entityId)
+  - Damage(entityId, amount)
+  - SetState(entityId)
+- Player:
+  - Animate
+  - CharacterSwitch
+  - SetTransform
+  - SetMeta
+  - Kill
+  - Heal
+  - Damage
+- Spawn:
+  - Terrain
+  - Obstacle
+  - Entity
+  - Trigger
+- Camera:
+  - Switch
+  - PutPosition
+  - Snapshot
+- Trigger(triggerId)
+- Do:
+  - 
+- Snapshot

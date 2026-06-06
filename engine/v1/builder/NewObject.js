@@ -916,9 +916,10 @@ function BuildObject(source) {
 
 	// Decal render source — same reference as the face-local transform until the animation
 	// runtime swaps in a separate object for animated decals.
-	mesh.customTextures.forEach((decal) => { 
-		decal.displayTransform = decal.localTransform; 
-		decal.displayColor = null; 
+	mesh.customTextures.forEach((decal) => {
+		decal.displayTransform = decal.localTransform;
+		decal.displayColor = null;
+		decal.activeSourceKey = null;
 	});
 
 	const scatterContext = source.scatterContext;

@@ -273,9 +273,18 @@
 					"detail": { "scatter": [] },
 					"customTextures": [
 						{
+							"id": "torso-logo",
 							"decalType": "image",
 							"imagePath": "../assets/carlStudios/sloppyCarl.png",
 							"sourceType": "local",
+							"sources": {
+								"triangle": {
+									"decalType": "shape",
+									"shape": "triangle",
+									"color": { "r": 1, "g": 0.4, "b": 0.1, "a": 1 },
+									"detail": null
+								}
+							},
 							"side": "front",
 							"localTransform": {
 								"position": { "x": 0, "y": 0, "z": 0 },

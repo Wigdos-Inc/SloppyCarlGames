@@ -176,6 +176,15 @@ function applyDecalDisplay(runtime, decalEntry, offset) {
 	display.scale = MultiplyVector3(rest.scale, offset.scale);
 }
 
+function applyDecalSwap(decalEntry, swapTrack, t) {
+	let active = null;
+	for (const snap of swapTrack) {
+		if (snap.time <= t) active = snap.sourceKey;
+		else break;
+	}
+	decalEntry.activeSourceKey = active;
+}
+
 function applyDisplayColor(runtime, target, color) {
 	let d = runtime.colorDisplays.get(target);
 	if (d === undefined) {
@@ -196,6 +205,7 @@ function clearDisplay(runtime) {
 	runtime.colorDisplays.forEach((_, target) => { target.displayColor = null; });
 	runtime.colorDisplays.clear();
 	runtime.colorDisplayed.clear();
+	runtime.decalIndex.forEach((decalEntry) => { decalEntry.activeSourceKey = null; });
 }
 
 /* === PER-FRAME STEP === */
@@ -242,10 +252,12 @@ function resolveAnimationStep(model, runtime, set, deltaSeconds) {
 		if (partTrack !== undefined) {
 			for (const decalId in partTrack.decals) {
 				const decalEntry = runtime.decalIndex.get(decalId);
-				const decalOffset = resolveTargetOffset(runtime, partTrack.decals[decalId].transform, t, `${partId}::${decalId}`, correctionActive, factor, true);
+				const decalTarget = partTrack.decals[decalId];
+				const decalOffset = resolveTargetOffset(runtime, decalTarget.transform, t, `${partId}::${decalId}`, correctionActive, factor, true);
 				applyDecalDisplay(runtime, decalEntry, decalOffset);
-				const decalColor = resolveColorValue(runtime, partTrack.decals[decalId].color, t, `${partId}::${decalId}::color`, correctionActive, factor);
+				const decalColor = resolveColorValue(runtime, decalTarget.color, t, `${partId}::${decalId}::color`, correctionActive, factor);
 				if (decalColor !== null) applyDisplayColor(runtime, decalEntry, decalColor);
+				if (decalTarget.swap !== undefined) applyDecalSwap(decalEntry, decalTarget.swap, t);
 			}
 		}
 
@@ -277,6 +289,7 @@ function ResolveEntityAnimation(entity, deltaSeconds) {
 		const setName = resolveSetName(entity.animations, currentState);
 		runtime.snapshots = new Map(runtime.displayedOffsets);
 		runtime.colorSnapshots = new Map(runtime.colorDisplayed);
+		runtime.decalIndex.forEach((decalEntry) => decalEntry.activeSourceKey = null);
 		runtime.lastState = currentState;
 		runtime.currentSetName = setName;
 		runtime.elapsed = 0;
