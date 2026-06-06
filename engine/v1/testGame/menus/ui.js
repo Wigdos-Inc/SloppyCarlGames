@@ -1,8 +1,3 @@
-// Provides all UI data to Engine on startup
-// Tells Engine which to use after each Event
-
-import { ENGINE } from "../../Bootup.js";
-
 let uiDataPromise = null;
 
 function loadUiData() {

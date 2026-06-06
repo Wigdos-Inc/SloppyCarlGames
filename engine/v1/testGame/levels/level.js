@@ -1,7 +1,3 @@
-// Sends Complete Level Data to Engine to build level.
-
-import { ENGINE } from "../../Bootup.js";
-
 let levelsDataPromise = null;
 let entitiesDataPromise = null;
 

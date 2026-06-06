@@ -17,11 +17,6 @@ import { Controls } from "./handlers/Controls.js";
 import { PlayEngineCutscene, PlayRenderedCutscene } from "./handlers/Cutscene.js";
 import { ApplySplashScreenSequence, AcceptSplashPayload } from "./handlers/menu/Splash.js";
 
-/* === GLOBALS === */
-// Single global entry point for the game.
-
-let ENGINE = null;
-
 /* === STARTUP === */
 // Runs the boot sequence and exposes the public API.
 
@@ -220,17 +215,17 @@ function browserContextCheck() {
   return true;
 }
 
-(() => {
+
+export function StartEngine() {
   // Check for Up-to-Date Browser Context
   if (!browserContextCheck()) return;
 
-  ENGINE = Initialize();
+  const ENGINE = Initialize();
   ENGINE.Startup.PlayIntroCinematic = PlayIntroCinematic;
+  globalThis.ENGINE = ENGINE;
+
   Log("ENGINE", "Bootup complete.", "log", "Startup");
+  Log("ENGINE", "'ENGINE' is now globally accesible.", "log", "Startup");
+  
   waitForUserStart();
-})();
-
-/* === EXPORTS === */
-// Public engine surface for the game.
-
-export { ENGINE };
+}

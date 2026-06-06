@@ -2,8 +2,9 @@
 
 console.log("Importing Engine");
 
-const boot = await import("../Bootup.js");
-const { ENGINE } = boot;
+import { StartEngine } from "../Bootup.js";
+StartEngine();
+
 // Initialize testGame engine helpers (throws if ENGINE missing).
 const { initEngine } = await import("./engineHelpers.js");
 initEngine(ENGINE);

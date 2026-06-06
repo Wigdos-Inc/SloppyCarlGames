@@ -30,7 +30,8 @@
       "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/player/characters.json','utf8'\\)\\); console.log\\('valid'\\)\")",
       "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\game\\\\Level.js\")",
       "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\Controls.js\")",
-      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\game\\\\Camera.js\")"
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\game\\\\Camera.js\")",
+      "Bash(Get-ChildItem \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\\" -Name)"
     ]
   }
 }
