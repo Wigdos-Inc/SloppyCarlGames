@@ -194,12 +194,14 @@ function LoadScreen(payload) {
 	void ApplyMenuUI(payload);
 }
 
-function ClearUI(rootId) {
-	Cache.UI.lastPayload = null;
-	Cache.UI.screenID = null;
-	Cache.UI.elementIndex = {};
-	Cache.UI.uiRuntime = createUiRuntimeMaps();
-	PushToSession(SESSION_KEYS.Cache, Cache);
+function ClearUI(rootId, clearCache = true) {
+	if (clearCache) {
+		Cache.UI.lastPayload = null;
+		Cache.UI.screenID = null;
+		Cache.UI.elementIndex = {};
+		Cache.UI.uiRuntime = createUiRuntimeMaps();
+		PushToSession(SESSION_KEYS.Cache, Cache);
+	}
 
 	RemoveRoot(rootId);
 	Log("ENGINE", `UI cleared: ${rootId}`, "log", "UI");

@@ -8,16 +8,16 @@ const settings = JSON.parse(localStorage.getItem("settings")) ?? null;
 
 const CONFIG = {
   DEBUG: {
-    ALL : settings?.debugMode ?? false,       // Global Debug Switch
+    ALL : settings?.debugMode ?? true,       // Global Debug Switch
     SKIP: {
-      Splash  : false,
-      Intro   : settings?.skipIntro ?? false,
-      Cutscene: false,
+      Splash  : false,                       // Skip Splash Screens
+      Intro   : settings?.skipIntro ?? true, // SKip Intro Cutscene
+      Cutscene: false,                       // Skip All Cutscenes
     },
     LEVELS: {
-      Triggers: true,
-      FreeCam : false,
-      BoundingBox: {
+      Triggers: true,                        // Render Trigger Meshes
+      FreeCam : false,                        // Free Camera Mode
+      BoundingBox: {                         // Render Bounding Boxes
         Terrain   : true,
         Scatter   : false,
         Entity    : false,
@@ -27,19 +27,19 @@ const CONFIG = {
         PlayerPart: false,
         Boss      : false,
         BossPart  : false,
-        Grid      : {
+        Grid      : {                        // Render Debug Grid
           Visible: true,
           Scale  : 1,
         }
       },
-      DetailedBounds: {
+      DetailedBounds: {                      // Render Detailed Bounds
         Terrain : true,
         Obstacle: true,
         Entity  : true,
         Player  : true,
         Boss    : true,
       },
-      Trails: {
+      Trails: {                              // Render Movement Trails
         Player     : true,
         Boss       : false,
         Enemies    : false,
@@ -47,7 +47,7 @@ const CONFIG = {
         Projectile : false,
       },
     },
-    LOGGING: {
+    LOGGING: {                               // Logging Flags
       All: true,
       Type: {
         Log  : true,

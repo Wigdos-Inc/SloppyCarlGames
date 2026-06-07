@@ -11,7 +11,7 @@ import { CONFIG as Config } from "./config.js";
 import { ApplyMenuUI, LoadScreen, ClearUI } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
 import { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes } from "../handlers/Sound.js";
-import { CreateLevel, Update as UpdateLevel, GetActiveLevel, PauseLevelLoop as PauseLevel, ResumeLevelLoop as ResumeLevel } from "../handlers/game/Level.js";
+import { CreateLevel, ClearLevel, Update as UpdateLevel, GetActiveLevel, PauseLevelLoop as PauseLevel, ResumeLevelLoop as ResumeLevel, SimulatorLoad as Load, SimulatorClear as Clear, SimulatorExit as Exit } from "../handlers/game/Level.js";
 import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
 import { PlayerAPI as Player } from "../player/Master.js";
@@ -44,7 +44,7 @@ function Initialize() {
       SessionKey,
       CNU_SCALE
     },
-    Controls: Controls,
+    Controls,
     Input: {
       Router: inputRouter,
       StartInputRouter,
@@ -53,13 +53,14 @@ function Initialize() {
     Startup: { ProvideSplashScreenPayload },
     UI: { ApplyMenuUI, LoadScreen, ClearUI },
     Audio: { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes },
-    Level: { CreateLevel, UpdateLevel, GetActiveLevel, PauseLevel, ResumeLevel, Player },
+    Level: { CreateLevel, ClearLevel, UpdateLevel, GetActiveLevel, PauseLevel, ResumeLevel, Player },
     Math: {
       Convert: { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU },
       Vector3: { AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3, Vector3ChainMath },
       Instancing: { Unit, UnitVector3 },
       Physics: { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence },
-    }
+    },
+    Simulator: { Load, Clear, Exit }
   };
 }
 

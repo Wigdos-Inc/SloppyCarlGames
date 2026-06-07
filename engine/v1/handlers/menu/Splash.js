@@ -235,7 +235,7 @@ async function runSplashSequence(requestedSplashPayload) {
 	}
 
 	const stepTotal = splashData.order.reduce((sum, k) => sum + splashData.steps[k].estimatedLength, 0);
-	Log("ENGINE", `Estimated splash sequence length: ${stepTotal + splashData.baseLength}ms`, "log", "Startup");
+	Log("ENGINE", `Estimated splash sequence length: ${stepTotal + splashData.baseLength + 1000}ms`, "log", "Startup");
 
 	await splashData.waitAction(1000);
 

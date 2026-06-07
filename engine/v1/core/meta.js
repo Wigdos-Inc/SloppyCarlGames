@@ -72,26 +72,16 @@ const Cache = ReadFromSession(SESSION_KEYS.Cache) ?? {
       keyMap: {},
     },
   },
-  Level: {
-    lastPayload: null,
-  },
-  Cutscene: {
-    lastPayload: null,
-  },
+  Level: { lastPayload: null },
+  Cutscene: { lastPayload: null },
 }
 
-// Shared delay utility for async flows.
-function Wait(milliseconds) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-function IsPointerLocked() {
-  return Boolean(document.pointerLockElement);
-}
+const Wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const IsPointerLocked = () => Boolean(document.pointerLockElement);
 
 function RequestPointerLock(targetElement) {
   const element = targetElement || document.getElementById("engine-level-root-canvas") || document.body;
-  element.requestPointerLock();
+  element.requestPointerLock()?.catch(() => {});
   return true;
 }
 
@@ -166,7 +156,6 @@ function resolveLevel(level) {
 
 function getMostRecentLogEntry() {
   if (logs.all.length === 0) return null;
-
   return logs.all[logs.all.length - 1];
 }
 

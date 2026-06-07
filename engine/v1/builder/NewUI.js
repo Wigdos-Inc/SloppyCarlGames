@@ -17,23 +17,23 @@ class UIElement {
 		return document.getElementById(this.elementId);
 	}
 
-	setText(text) {
+	setText(text, runtime = false) {
 		// Update element text content.
-		Log("ENGINE", `Set ${this.elementId} Text to ${text}`, "log", "UI");
+		if (!runtime) Log("ENGINE", `Set ${this.elementId} Text to ${text}`, "log", "UI");
 		this.element.textContent = text;
 		return this;
 	}
 
-	setSource(src) {
+	setSource(src, runtime = false) {
 		// Update image or media source.
-		Log("ENGINE", `Set ${this.elementId} Source to "${src}".`, "log", "UI");
+		if (!runtime) Log("ENGINE", `Set ${this.elementId} Source to "${src}".`, "log", "UI");
 		this.element.src = src;
 		return this;
 	}
 
-	setStyle(styles) {
+	setStyle(styles, runtime = false) {
 		// Apply inline styles to the element.
-		Log("ENGINE", `Applied Styles to ${this.elementId}.`, "log", "UI");
+		if (!runtime) Log("ENGINE", `Applied Styles to ${this.elementId}.`, "log", "UI");
 		Object.assign(this.element.style, styles);
 		return this;
 	}

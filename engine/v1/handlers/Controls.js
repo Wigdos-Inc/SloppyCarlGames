@@ -4,7 +4,7 @@
 
 import { Cache, Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
-import { GetActiveLevel, ToggleLevelLoopPause } from "./game/Level.js";
+import { GetActiveLevel, ToggleLevelLoopPause, IsSimulatorActive, HandleSimulatorInput } from "./game/Level.js";
 import { HandleFreeCamInput, HandleDefaultCamInput } from "./game/Camera.js";
 import { HandleUiAction, ResolvePrecomputedAction } from "./UI.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";
@@ -188,11 +188,12 @@ function StartInputRouter(target) {
 				consumed = true;
 			} 
 			else if (levelIsLoaded && handleDebugLevelInput(event, activeLevel)) consumed = true;
-			else {
-				// FreeCam should only be enabled when global debug is on and level FreeCam is true.
+			else if (levelIsLoaded && IsSimulatorActive()) consumed = HandleSimulatorInput(event);
+
+			if (!consumed && levelIsLoaded) {
 				const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true);
-				if (levelIsLoaded && freeCamEnabled) consumed = HandleFreeCamInput(event, activeLevel);
-				else if (levelIsLoaded && !freeCamEnabled) consumed = HandleDefaultCamInput(event);
+				if (freeCamEnabled) consumed = HandleFreeCamInput(event, activeLevel);
+				else consumed = HandleDefaultCamInput(event);
 			}
 		}
 
@@ -214,9 +215,4 @@ function StartInputRouter(target) {
 	return router;
 }
 
-export {
-	Controls,
-	StartInputRouter,
-	ResetEventTypes,
-	UpdateInputEventTypes,
-};
+export { Controls, StartInputRouter, ResetEventTypes, UpdateInputEventTypes };

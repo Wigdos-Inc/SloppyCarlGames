@@ -20,6 +20,8 @@ import {
 } from "../math/Vector3.js";
 import { CNUtoWorldUnit } from "../math/Utilities.js";
 
+// Ik haat dit kanker programma
+
 /* === INTERNALS === */
 // DOM helpers for rendering payloads.
 
@@ -1279,20 +1281,18 @@ function RenderLevel(sceneGraph, options) {
 /* === ELEMENTS === */
 // Utility helpers for updating rendered elements.
 
-function GetElement(elementId) {
-	return UIElement.get(elementId).element;
-}
+const GetElement = (elementId) => UIElement.get(elementId).element;
 
 function SetElementText(elementId, text) {
-	UIElement.get(elementId).setText(text);
+	UIElement.get(elementId).setText(text, true);
 }
 
 function SetElementSource(elementId, src) {
-	UIElement.get(elementId).setSource(src);
+	UIElement.get(elementId).setSource(src, true);
 }
 
 function SetElementStyle(elementId, styles) {
-	UIElement.get(elementId).setStyle(styles);
+	UIElement.get(elementId).setStyle(styles, true);
 }
 
 function FadeElement(elementId, targetOpacity, durationSeconds) {
@@ -1301,6 +1301,10 @@ function FadeElement(elementId, targetOpacity, durationSeconds) {
 
 function RemoveRoot(rootId) {
 	UIElement.removeRoot(rootId);
+}
+
+function ClearLevelRenderer(rootId) {
+	levelRendererCache.delete(rootId);
 }
 
 /* === EXPORTS === */
@@ -1315,4 +1319,5 @@ export {
 	SetElementStyle,
 	FadeElement,
 	RemoveRoot,
+	ClearLevelRenderer,
 };

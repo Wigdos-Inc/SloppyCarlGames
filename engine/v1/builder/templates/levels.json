@@ -1,0 +1,49 @@
+{
+    "simulatorLevel": {
+        "id": "simulator-level",
+        "title": "Simulator",
+        "world": {
+            "length": 20,
+            "width": 20,
+            "height": 20,
+            "deathBarrierY": -50,
+            "textureScale": 1,
+            "scatterScale": 0
+        },
+        "camera": {
+            "distance": 7,
+            "sensitivity": 0.12,
+            "heightOffset": 1.5,
+            "levelOpening": {
+                "startPosition": { "x": 10, "y": 8, "z": 18 },
+                "endPosition":   { "x": 10, "y": 8, "z": 18 }
+            }
+        },
+        "terrain": {
+            "objects": [
+                {
+                    "id": "sim-disc",
+                    "shape": "cylinder",
+                    "complexity": "medium",
+                    "dimensions": { "x": 8, "y": 0.5, "z": 8 },
+                    "position": { "x": 10, "y": 0, "z": 10 },
+                    "rotation": { "x": 0, "y": 0, "z": 0 },
+                    "scale": { "x": 1, "y": 1, "z": 1 },
+                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                    "primitiveOptions": {},
+                    "texture": {
+                        "textureID": "stone-block",
+                        "color": { "r": 0.68, "g": 0.72, "b": 0.78, "a": 1 },
+                        "opacity": 1,
+                        "density": 1,
+                        "speckSize": 1
+                    },
+                    "detail": { "scatter": [] },
+                    "collisionShape": "none",
+                    "static": true
+                }
+            ],
+            "triggers": []
+        }
+    }
+}

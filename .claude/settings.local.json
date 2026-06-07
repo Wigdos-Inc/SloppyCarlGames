@@ -31,7 +31,21 @@
       "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\game\\\\Level.js\")",
       "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\Controls.js\")",
       "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\game\\\\Camera.js\")",
-      "Bash(Get-ChildItem \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\\" -Name)"
+      "Bash(Get-ChildItem \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\\" -Name)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\core\\\\ini.js\")",
+      "Bash(node -e \"const s = require\\('./engine/v1/core/canonSchemas.json'\\); const level = s.level; const required = []; for \\(const key in level\\) { if \\(key === '__meta' || key === '__entry'\\) continue; if \\(level[key].__meta && level[key].__meta.isRequired\\) required.push\\(key\\); } console.log\\('Required level fields:', required\\);\")",
+      "Bash(node -e \"const s = require\\('./engine/v1/core/canonSchemas.json'\\); const eo = s.levelEntityOverride; const required = []; for \\(const key in eo\\) { if \\(key === '__meta' || key === '__entry'\\) continue; if \\(eo[key].__meta && eo[key].__meta.isRequired\\) required.push\\(key\\); } console.log\\('Required override fields:', required\\);\")",
+      "mcp__chrome-devtools__get_console_message",
+      "Bash(node --check \"C:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\UI.js\")",
+      "Bash(node --check \"C:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\game\\\\Level.js\")",
+      "Bash(node --check \"C:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\core\\\\ini.js\")",
+      "Bash(node --check \"engine/v1/handlers/Controls.js\")",
+      "Bash(node --check \"engine/v1/builder/NewUI.js\")",
+      "Bash(node --check \"engine/v1/handlers/Render.js\")",
+      "Bash(node --check \"engine/v1/handlers/game/Level.js\")",
+      "Bash(Get-ChildItem \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\testGame\" -Recurse)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }
