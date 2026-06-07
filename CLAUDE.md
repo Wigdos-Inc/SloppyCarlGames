@@ -56,7 +56,12 @@ After ERA and DRYAD return, apply the following ARGUS rules:
 - If ERA and/or DRYAD flagged genuine issues: report the findings to the user and note that ARGUS will run once those findings have been reviewed. Do not spawn ARGUS until the issues are resolved.
 - If browser verification is not warranted for the change (no risk of runtime errors, behavioral changes, or visual changes), skip ARGUS regardless of audit results.
 
-If ARGUS returns unsolved issues, report back to the user, offering to have ED resolve them.
+**When ARGUS returns bugs:**
+- Investigate all reported issues.
+- Very simple, self-contained fixes may be applied autonomously.
+- Fixes that may affect multiple modules or systems must be handled by ED (treated as a full ED pass with ERA/DRYAD follow-up).
+- After resolving issues, report to the user: what ARGUS tested, what was found, what was resolved and how, and any bigger architectural issues that were not fixed.
+- If no unresolved architectural issues remain but ARGUS did not complete its full test scope (it was blocked), suggest letting ARGUS continue testing now that the blocker is resolved.
 
 **What does not require subagents:**
 
@@ -92,3 +97,7 @@ These are structural, not fixable with shims. **ARGUS (browser) is the only runt
 ## testGame
 
 `engine/v1/testGame/` is a game, not an engine module. It is exempt from engine module group rules. It interacts with the engine exclusively through the `ENGINE` API exposed by `ini.js`. Do not treat testGame code as engine code.
+
+## Conclusions & Responses
+
+If you can't find evidence that supports a claim, don't make that claim. Just tell me you don't know, what you looked through, and what you think might be going on. But don't present a guess as a real finding.
