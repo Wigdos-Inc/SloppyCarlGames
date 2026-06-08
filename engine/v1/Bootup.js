@@ -219,7 +219,6 @@ function browserContextCheck() {
 export function StartEngine() {
   // Check for Up-to-Date Browser Context
   if (!browserContextCheck()) return;
-  document.body.style.backgroundColor = "black";
 
   const ENGINE = Initialize();
   ENGINE.Startup.PlayIntroCinematic = PlayIntroCinematic;
