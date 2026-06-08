@@ -1665,5 +1665,12 @@
       "damageInflicted": { "__meta": { "description": "Emit damageInflicted event on damage dealt", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
     },
     "animations": { "__meta": { "description": "Player animation map (helper-normalized)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
+  },
+  "simulatorCached": {
+    "id": { "__meta": { "description": "Cached definition id to look up", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": null, "deprecated": false } }
+  },
+  "simulatorDefinition": {
+    "definition": { "__meta": { "description": "Entity or object definition to normalize", "aliases": [], "dataType": "object", "isRequired": true, "isExpected": true, "fallback": {}, "deprecated": false } },
+    "objectType": { "__meta": { "description": "Object type for normalization branching", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": null, "allowedValues": ["entity","enemy","npc","collectible","projectile","terrain","obstacle"], "deprecated": false } }
   }
 }

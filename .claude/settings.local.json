@@ -45,7 +45,20 @@
       "Bash(node --check \"engine/v1/handlers/Render.js\")",
       "Bash(node --check \"engine/v1/handlers/game/Level.js\")",
       "Bash(Get-ChildItem \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\testGame\" -Recurse)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\core\\\\validate.js\")",
+      "Bash(node --check handlers/game/Simulator.js)",
+      "Bash(node --check handlers/game/Level.js)",
+      "Bash(node --check handlers/Controls.js)",
+      "Bash(node --check core/ini.js)",
+      "Bash(node --check core/validate.js)",
+      "Bash(node --check core/meta.js)",
+      "Bash(node --check core/normalize.js)",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\game\\\\Texture.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\handlers\\\\game\\\\Simulator.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\core\\\\meta.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\Bootup.js\")",
+      "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/handlers/game/Simulator.js\")"
     ]
   }
 }

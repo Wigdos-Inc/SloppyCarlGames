@@ -4,7 +4,7 @@
 // Uses NewObject.js to build simple 3D textures (like grass, pebbles, etc)
 
 import visualTemplates from "./templates/textures.json" with { type: "json" };
-import { Log } from "../core/meta.js";
+import { Log, ENTITY_TYPES } from "../core/meta.js";
 
 function parseHexColor(hex) {
 	// Builders assume templates are canonicalized upstream; minimal parsing only.
@@ -156,115 +156,99 @@ function createUsageEntry(baseTextureID) {
 	};
 }
 
+function registerTextureUsage(id, options, usage) {
+	if (!usage[id]) usage[id] = createUsageEntry(id);
+	const entry = usage[id];
+	if (options.isTerrain) { entry.isTerrain = true; entry.maxSpan = options.maxSpan; }
+	if (options.density || options.density === 0) entry.density = options.density;
+	if (options.speckSize || options.speckSize === 0) entry.speckSize = options.speckSize;
+	if (options.baseTextureID) entry.baseTextureID = options.baseTextureID;
+	if (options.shape) entry.shape = options.shape;
+	if (options.animatedRequested === true) entry.animatedRequested = true;
+	if (options.holdTimeSpeed || options.holdTimeSpeed === 0) entry.holdTimeSpeed = options.holdTimeSpeed;
+	if (options.blendTimeSpeed || options.blendTimeSpeed === 0) entry.blendTimeSpeed = options.blendTimeSpeed;
+}
+
+function collectMesh(mesh, options, ownerKey, usage, customTextureUsage) {
+	let materialTextureID = mesh.material.textureID;
+	const animatedRequested = mesh.detail.texture.animated === true;
+	if (animatedRequested) {
+		materialTextureID = `${mesh.material.textureID}::animated=${ownerKey}`;
+		mesh.material.textureID = materialTextureID;
+	}
+	registerTextureUsage(materialTextureID, {
+		isTerrain     : options.isTerrain,
+		maxSpan       : options.maxSpan,
+		density       : mesh.detail.texture.density,
+		speckSize     : mesh.detail.texture.speckSize,
+		baseTextureID : mesh.detail.texture.baseTextureID,
+		shape         : mesh.detail.texture.shape,
+		animatedRequested,
+		holdTimeSpeed : mesh.detail.texture.holdTimeSpeed,
+		blendTimeSpeed: mesh.detail.texture.blendTimeSpeed,
+	}, usage);
+}
+
+function collectDecalAlternateSources(baseId, ct, mesh, customTextureUsage) {
+	if (ct.sources === null) return;
+	const placement = { side: ct.side, localTransform: ct.localTransform };
+	for (const sourceKey in ct.sources) {
+		const src = ct.sources[sourceKey];
+		const altId = `${baseId}::${sourceKey}`;
+		if (src.decalType === "image") customTextureUsage[altId] = { decalType: "image", bitmap: src.bitmap, placement };
+		else {
+			customTextureUsage[altId] = {
+				decalType: "shape",
+				ct: {
+					shape: src.shape, color: src.color, detail: src.detail,
+					localTransform: { scale: ct.localTransform.scale }, side: ct.side, mutable: false,
+				},
+				mesh, placement,
+			};
+		}
+	}
+}
+
+function collectCustomTextures(mesh, customTextureUsage) {
+	mesh.customTextures.forEach((ct, index) => {
+		const id = `${mesh.id}::customTexture::${index}`;
+		if (ct.decalType === "image") {
+			customTextureUsage[id] = {
+				decalType: "image",
+				bitmap   : ct.bitmap,
+				placement: { side: ct.side, localTransform: ct.localTransform },
+			};
+		} 
+		else {
+			customTextureUsage[id] = {
+				decalType: "shape",
+				ct,
+				mesh,
+				placement: { side: ct.side, localTransform: ct.localTransform },
+			};
+		}
+		collectDecalAlternateSources(id, ct, mesh, customTextureUsage);
+	});
+}
+
 function collectTextureUsage(sceneGraph) {
 	const usage = { "default-grid": createUsageEntry("default-grid") };
 	const customTextureUsage = {};
-
-	const register = (id, options) => {
-		if (!usage[id]) usage[id] = createUsageEntry(id);
-		const entry = usage[id];
-		if (options.isTerrain) { entry.isTerrain = true; entry.maxSpan = options.maxSpan; }
-		if (options.density || options.density === 0) entry.density = options.density;
-		if (options.speckSize || options.speckSize === 0) entry.speckSize = options.speckSize;
-		if (options.baseTextureID) entry.baseTextureID = options.baseTextureID;
-		if (options.shape) entry.shape = options.shape;
-		if (options.animatedRequested === true) entry.animatedRequested = true;
-		if (options.holdTimeSpeed || options.holdTimeSpeed === 0) entry.holdTimeSpeed = options.holdTimeSpeed;
-		if (options.blendTimeSpeed || options.blendTimeSpeed === 0) entry.blendTimeSpeed = options.blendTimeSpeed;
-	};
-
-	const collectMesh = (mesh, options, ownerKey) => {
-		const detailTexture = mesh.detail.texture;
-		let materialTextureID = mesh.material.textureID;
-		const animatedRequested = detailTexture.animated === true;
-		if (animatedRequested) {
-			materialTextureID = `${mesh.material.textureID}::animated=${ownerKey}`;
-			mesh.material.textureID = materialTextureID;
-		}
-
-		register(materialTextureID, {
-			isTerrain: options.isTerrain,
-			maxSpan: options.maxSpan,
-			density: detailTexture.density,
-			speckSize: detailTexture.speckSize,
-			baseTextureID: detailTexture.baseTextureID,
-			shape: detailTexture.shape,
-			animatedRequested,
-			holdTimeSpeed: detailTexture.holdTimeSpeed,
-			blendTimeSpeed: detailTexture.blendTimeSpeed,
-		});
-	};
-
-	const collectDecalAlternateSources = (baseId, ct, mesh) => {
-		if (ct.sources === null) return;
-		const placement = { side: ct.side, localTransform: ct.localTransform };
-		for (const sourceKey in ct.sources) {
-			const src = ct.sources[sourceKey];
-			const altId = `${baseId}::${sourceKey}`;
-			if (src.decalType === "image") {
-				customTextureUsage[altId] = { decalType: "image", bitmap: src.bitmap, placement };
-			} 
-			else {
-				customTextureUsage[altId] = {
-					decalType: "shape",
-					ct: { 
-						shape: src.shape, color: src.color, detail: src.detail,
-					    localTransform: { scale: ct.localTransform.scale }, side: ct.side, mutable: false 
-					},
-					mesh, placement,
-				};
-			}
-		}
-	};
+	const nonTerrainOptions = { isTerrain: false, maxSpan: 1 };
 
 	sceneGraph.terrain.forEach((mesh) => {
 		const span = Math.max(mesh.dimensions.x * mesh.transform.scale.x, mesh.dimensions.z * mesh.transform.scale.z);
-		collectMesh(mesh, { isTerrain: true, maxSpan: span }, mesh.id);
-		mesh.customTextures.forEach((ct, index) => {
-			const id = `${mesh.id}::customTexture::${index}`;
-			if (ct.decalType === "image") {
-				customTextureUsage[id] = {
-					decalType: "image",
-					bitmap   : ct.bitmap,
-					placement: { side: ct.side, localTransform: ct.localTransform },
-				};
-			} else {
-				customTextureUsage[id] = {
-					decalType: "shape",
-					ct,
-					mesh,
-					placement: { side: ct.side, localTransform: ct.localTransform },
-				};
-			}
-			collectDecalAlternateSources(id, ct, mesh);
-		});
+		collectMesh(mesh, { isTerrain: true, maxSpan: span }, mesh.id, usage, customTextureUsage);
+		collectCustomTextures(mesh, customTextureUsage);
 	});
 
-	const nonTerrainOptions = { isTerrain: false, maxSpan: 1 };
-	sceneGraph.triggers.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id));
-	sceneGraph.scatter.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id));
+	sceneGraph.triggers.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id, usage, customTextureUsage));
+	sceneGraph.scatter.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id, usage, customTextureUsage));
 	sceneGraph.obstacles.forEach((obstacle) => {
-		collectMesh(obstacle.mesh, nonTerrainOptions, obstacle.mesh.id);
+		collectMesh(obstacle.mesh, nonTerrainOptions, obstacle.mesh.id, usage, customTextureUsage);
 		obstacle.parts.forEach((part) => {
-			collectMesh(part, nonTerrainOptions, part.id);
-			part.customTextures.forEach((ct, index) => {
-				const id = `${part.id}::customTexture::${index}`;
-				if (ct.decalType === "image") {
-					customTextureUsage[id] = {
-						decalType: "image",
-						bitmap   : ct.bitmap,
-						placement: { side: ct.side, localTransform: ct.localTransform },
-					};
-				} else {
-					customTextureUsage[id] = {
-						decalType: "shape",
-						ct,
-						mesh     : part,
-						placement: { side: ct.side, localTransform: ct.localTransform },
-					};
-				}
-				collectDecalAlternateSources(id, ct, part);
-			});
+			collectMesh(part, nonTerrainOptions, part.id, usage, customTextureUsage);
+			collectCustomTextures(part, customTextureUsage);
 		});
 	});
 
@@ -273,50 +257,62 @@ function collectTextureUsage(sceneGraph) {
 		const waterMeshes = [];
 		if (sceneGraph.waterVisual.body) waterMeshes.push(sceneGraph.waterVisual.body);
 		if (sceneGraph.waterVisual.top) waterMeshes.push(sceneGraph.waterVisual.top);
-		waterMeshes.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id));
+		waterMeshes.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id, usage, customTextureUsage));
 	}
 
 	// Collect texture IDs from instanced scatter batches.
 	sceneGraph.scatterBatches.forEach((batch) => {
-		register(batch.textureID, {
-			isTerrain: false,
-			maxSpan: 1,
-			density: null,
-			speckSize: null,
-			baseTextureID: batch.textureID,
-			shape: null,
+		registerTextureUsage(batch.textureID, {
+			isTerrain      : false,
+			maxSpan        : 1,
+			density        : null,
+			speckSize      : null,
+			baseTextureID  : batch.textureID,
+			shape          : null,
 			animatedRequested: false,
-			holdTimeSpeed: 1,
-			blendTimeSpeed: 1,
-		});
+			holdTimeSpeed  : 1,
+			blendTimeSpeed : 1,
+		}, usage);
 	});
 
-	// Collect & register mesh for each part of each entity; also register any custom (decal) textures.
 	sceneGraph.entities.forEach((entity) => {
 		entity.model.parts.forEach((part) => {
-			collectMesh(part.mesh, nonTerrainOptions, part.mesh.id);
-			part.mesh.customTextures.forEach((ct, index) => {
-				const id = `${part.mesh.id}::customTexture::${index}`;
-				if (ct.decalType === "image") {
-					customTextureUsage[id] = {
-						decalType: "image",
-						bitmap   : ct.bitmap,
-						placement: { side: ct.side, localTransform: ct.localTransform },
-					};
-				} else {
-					customTextureUsage[id] = {
-						decalType: "shape",
-						ct,
-						mesh     : part.mesh,
-						placement: { side: ct.side, localTransform: ct.localTransform },
-					};
-				}
-				collectDecalAlternateSources(id, ct, part.mesh);
-			});
+			collectMesh(part.mesh, nonTerrainOptions, part.mesh.id, usage, customTextureUsage);
+			collectCustomTextures(part.mesh, customTextureUsage);
 		});
 	});
 
 	return { usage, customTextureUsage };
+}
+
+function AddToVisualResources(built, objectType, sceneGraph) {
+	const usage = {};
+	const customTextureUsage = {};
+	const nonTerrainOptions = { isTerrain: false, maxSpan: 1 };
+
+	if (ENTITY_TYPES.includes(objectType)) {
+		built.model.parts.forEach((part) => {
+			collectMesh(part.mesh, nonTerrainOptions, part.mesh.id, usage, customTextureUsage);
+			collectCustomTextures(part.mesh, customTextureUsage);
+		});
+	} 
+	else if (objectType === "obstacle") {
+		collectMesh(built.mesh, nonTerrainOptions, built.mesh.id, usage, customTextureUsage);
+		built.parts.forEach((part) => {
+			collectMesh(part, nonTerrainOptions, part.id, usage, customTextureUsage);
+			collectCustomTextures(part, customTextureUsage);
+		});
+	} 
+	else {
+		const span = Math.max(built.dimensions.x * built.transform.scale.x, built.dimensions.z * built.transform.scale.z);
+		collectMesh(built, { isTerrain: true, maxSpan: span }, built.id, usage, customTextureUsage);
+		collectCustomTextures(built, customTextureUsage);
+	}
+
+	const newEntries = createTextureRegistry(usage, customTextureUsage, { textureScale: sceneGraph.world.textureScale });
+	for (const id in newEntries) {
+		if (!sceneGraph.visualResources.textureRegistry[id]) sceneGraph.visualResources.textureRegistry[id] = newEntries[id];
+	}
 }
 
 // Adding a shape: add its method here AND in normalize.js shapeRequiredFields AND in
@@ -357,8 +353,6 @@ const shapeMaskBuilders = {
 
 function compositeShapeDecal(ct, mesh, textureScale) {
 	const size = 256;
-	const mask = shapeMaskBuilders[ct.shape](size, size);
-
 	const canvas = document.createElement("canvas");
 	canvas.width = size; canvas.height = size;
 	const ctx = canvas.getContext("2d");
@@ -368,7 +362,7 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 		: `rgba(${Math.round(ct.color.r * 255)}, ${Math.round(ct.color.g * 255)}, ${Math.round(ct.color.b * 255)}, ${ct.color.a})`;
 	ctx.fillRect(0, 0, size, size);
 	ctx.globalCompositeOperation = "destination-in";
-	ctx.drawImage(mask, 0, 0);
+	ctx.drawImage(shapeMaskBuilders[ct.shape](size, size), 0, 0);
 	ctx.globalCompositeOperation = "source-over";
 
 	if (ct.detail !== null && ct.detail.baseTextureID !== null) {
@@ -381,8 +375,7 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 		};
 		const [faceW, faceH] = faceSizes[ct.side];
 		const partFaceSize  = Math.max(faceW, faceH);
-		const decalFaceSize = Math.max(sc.x, sc.y);
-		const autoRatio     = partFaceSize > 0 ? decalFaceSize / partFaceSize : 1;
+		const autoRatio     = partFaceSize > 0 ? Math.max(sc.x, sc.y) / partFaceSize : 1;
 
 		const partDetail        = mesh.detail.texture;
 		const partBlueprint     = visualTemplates.textures[partDetail.baseTextureID];
@@ -503,4 +496,4 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	return sceneGraph;
 }
 
-export { PrepareLevelVisualResources, BuildTextureSurface };
+export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources };

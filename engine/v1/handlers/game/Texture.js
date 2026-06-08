@@ -89,6 +89,18 @@ function updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds
 	}
 }
 
+function AddTextureAnimationEntries(sceneGraph) {
+	const textureRegistry = sceneGraph.visualResources.textureRegistry;
+	const byTextureID = sceneGraph.visualResources.textureAnimation.byTextureID;
+	for (const textureID in textureRegistry) {
+		if (byTextureID[textureID]) continue;
+		const textureEntry = textureRegistry[textureID];
+		if (!textureEntry.definition) continue;
+		if (textureEntry.definition.animation.able !== true) continue;
+		byTextureID[textureID] = createAnimationStateEntry(textureEntry);
+	}
+}
+
 function UpdateTextureAnimation(sceneGraph, deltaMilliseconds) {
 	const animationState = sceneGraph.visualResources.textureAnimation;
 
@@ -102,4 +114,4 @@ function UpdateTextureAnimation(sceneGraph, deltaMilliseconds) {
 	}
 }
 
-export { InitializeTextureAnimation, UpdateTextureAnimation };
+export { InitializeTextureAnimation, UpdateTextureAnimation, AddTextureAnimationEntries };

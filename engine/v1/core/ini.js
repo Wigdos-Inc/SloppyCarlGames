@@ -11,7 +11,8 @@ import { CONFIG as Config } from "./config.js";
 import { ApplyMenuUI, LoadScreen, ClearUI } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
 import { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes } from "../handlers/Sound.js";
-import { CreateLevel, ClearLevel, Update as UpdateLevel, GetActiveLevel, PauseLevelLoop as PauseLevel, ResumeLevelLoop as ResumeLevel, SimulatorLoad as Load, SimulatorClear as Clear, SimulatorExit as Exit } from "../handlers/game/Level.js";
+import { CreateLevel, ClearLevel, Update as UpdateLevel, GetActiveLevel, PauseLevelLoop as PauseLevel, ResumeLevelLoop as ResumeLevel } from "../handlers/game/Level.js";
+import { Start, Load, Cache, Clear, Exit } from "../handlers/game/Simulator.js";
 import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
 import { PlayerAPI as Player } from "../player/Master.js";
@@ -60,7 +61,7 @@ function Initialize() {
       Instancing: { Unit, UnitVector3 },
       Physics: { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence },
     },
-    Simulator: { Load, Clear, Exit }
+    Simulator: { Start, Load, Cache, Clear, Exit }
   };
 }
 

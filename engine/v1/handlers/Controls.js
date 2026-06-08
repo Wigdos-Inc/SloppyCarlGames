@@ -4,7 +4,8 @@
 
 import { Cache, Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
-import { GetActiveLevel, ToggleLevelLoopPause, IsSimulatorActive, HandleSimulatorInput } from "./game/Level.js";
+import { GetActiveLevel, ToggleLevelLoopPause } from "./game/Level.js";
+import { IsSimulatorActive, HandleSimulatorInput } from "./game/Simulator.js";
 import { HandleFreeCamInput, HandleDefaultCamInput } from "./game/Camera.js";
 import { HandleUiAction, ResolvePrecomputedAction } from "./UI.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";

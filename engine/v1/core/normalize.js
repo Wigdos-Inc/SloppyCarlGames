@@ -1,7 +1,7 @@
 import canonSchemas from "./canonSchemas.json" with { type: "json" };
 import characterData from "../player/characters.json" with { type: "json" };
 import objectDetail from "../builder/templates/textures.json" with { type: "json" };
-import { Log } from "./meta.js";
+import { Log, ENTITY_TYPES } from "./meta.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { CloneVector3 } from "../math/Vector3.js";
 
@@ -564,283 +564,368 @@ function markMutableDecals(animations, parts) {
 	}
 }
 
-async function LevelPayload(payload) {
-	const pendingImageLoads    = [];
-	const affectedParts        = new Set();
-	const affectedDecalSources = new Set();
+const defaultsByShape = {
+	cube         : "obb",
+	plane        : "obb",
+	"ramp-simple": "obb",
+	cylinder     : "capsule",
+	capsule      : "capsule",
+	sphere       : "sphere",
+	pyramid      : "triangle-soup",
+	cone         : "triangle-soup",
+	tube         : "triangle-soup",
+	torus        : "triangle-soup",
+	"ramp-complex": "triangle-soup",
+};
 
-	const resolveTextureId = (textureId, fallbackTextureId, fieldPath = "") => {
-		if (objectDetail.textures[textureId] !== undefined) return textureId;
-		if (fieldPath !== "") warnLog(`${fieldPath}: '${textureId}' invalid, using 'levelTexture.${fallbackTextureId}'.`);
-		return fallbackTextureId;
+function resolveTextureId(textureId, fallbackTextureId, fieldPath = "") {
+	if (objectDetail.textures[textureId] !== undefined) return textureId;
+	if (fieldPath !== "") warnLog(`${fieldPath}: '${textureId}' invalid, using 'levelTexture.${fallbackTextureId}'.`);
+	return fallbackTextureId;
+}
+
+function normalizeTexture(rawTexture) {
+	const texture = normalizePayloadSchema(normalizeObject(rawTexture).value, "levelTexture");
+
+	const fallback = canonSchemas.levelTexture.textureID.__meta.fallback;
+	texture.textureID = resolveTextureId(texture.textureID, fallback, "textureID");
+	if (texture.baseTextureID === null) texture.baseTextureID = texture.textureID;
+	else texture.baseTextureID = resolveTextureId(texture.baseTextureID, texture.textureID);
+	if (texture.materialTextureID === null) texture.materialTextureID = texture.textureID;
+	else texture.materialTextureID = resolveTextureId(texture.materialTextureID, texture.textureID);
+	return texture;
+}
+
+function normalizeScatter(rawScatter) {
+	const resolvedScatter = [];
+
+	normalizeArray(rawScatter).value.forEach((rawEntry) => {
+		const entrySource = normalizeObject(rawEntry);
+		if (!entrySource.bool) return;
+		const entry = normalizePayloadSchema(entrySource.value, "levelScatterEntry");
+		if (objectDetail.scatterTypes[entry.typeID] === undefined) {
+			warnLog(`levelScatterEntry.typeID: '${entry.typeID}' invalid, dropping entry.`);
+			return;
+		}
+		resolvedScatter.push(entry);
+	});
+
+	return resolvedScatter;
+}
+
+function normalizeDetail(rawDetail) {
+	return { scatter: normalizeScatter(normalizeObject(rawDetail).value.scatter) };
+}
+
+function normalizeCustomTextures(rawCustomTextures, part, ctx) {
+	const entries = [];
+
+	// Adding a shape: register its key here AND in NewTexture.js shapeMaskBuilders AND in
+	// canonSchemas.json levelCustomTexture.shape.allowedValues.
+	const shapeRequiredFields = {
+		square:   () => true,
+		circle:   () => true,
+		triangle: () => true,
 	};
 
-	const normalizeTexture = (rawTexture) => {
-		const texture = normalizePayloadSchema(normalizeObject(rawTexture).value, "levelTexture");
+	const normalizeSources = (entry) => {
+		const localWarnLog = (text) => warnLog(`normalizeCustomTextures: ${text}, dropping.`);
 
-		const fallback = canonSchemas.levelTexture.textureID.__meta.fallback;
-		texture.textureID = resolveTextureId(texture.textureID, fallback, "textureID");
-		if (texture.baseTextureID === null) texture.baseTextureID = texture.textureID;
-		else texture.baseTextureID = resolveTextureId(texture.baseTextureID, texture.textureID);
-		if (texture.materialTextureID === null) texture.materialTextureID = texture.textureID;
-		else texture.materialTextureID = resolveTextureId(texture.materialTextureID, texture.textureID);
-		return texture;
-	};
+		if (entry.sources === null) return;
 
-	const normalizeScatter = (rawScatter) => {
-		const resolvedScatter = [];
-
-		normalizeArray(rawScatter).value.forEach((rawEntry) => {
-			const entrySource = normalizeObject(rawEntry);
-			if (!entrySource.bool) return;
-			const entry = normalizePayloadSchema(entrySource.value, "levelScatterEntry");
-			if (objectDetail.scatterTypes[entry.typeID] === undefined) {
-				warnLog(`levelScatterEntry.typeID: '${entry.typeID}' invalid, dropping entry.`);
-				return;
+		const normalized = {};
+		for (const key in entry.sources) {
+			const rawSrc = normalizeObject(entry.sources[key]);
+			if (!rawSrc.bool) {
+				localWarnLog(`nsource '${key}' is not a valid object`);
+				continue;
 			}
-			resolvedScatter.push(entry);
-		});
-
-		return resolvedScatter;
-	};
-
-	const normalizeDetail = (rawDetail) => {
-		return { scatter: normalizeScatter(normalizeObject(rawDetail).value.scatter) };
-	};
-
-	const normalizeCustomTextures = (rawCustomTextures, part) => {
-		const entries = [];
-
-		// Adding a shape: register its key here AND in NewTexture.js shapeMaskBuilders AND in
-		// canonSchemas.json levelCustomTexture.shape.allowedValues.
-		const shapeRequiredFields = {
-			square:   () => true,
-			circle:   () => true,
-			triangle: () => true,
-		};
-
-		const normalizeSources = (entry) => {
-			const localWarnLog = (text) => warnLog(`normalizeCustomTextures: ${text}, dropping.`);
-
-			if (entry.sources === null) return;
-
-			const normalized = {};
-			for (const key in entry.sources) {
-				const rawSrc = normalizeObject(entry.sources[key]);
-				if (!rawSrc.bool) { 
-					localWarnLog(`nsource '${key}' is not a valid object`); 
-					continue; 
-				}
-				const src = normalizePayloadSchema(rawSrc.value, "levelDecalSource");
-				switch (src.decalType) {
-					case null   : localWarnLog(`source '${key}' has null decalType`); continue;
-					case "image":
-						if (src.imagePath === null || src.sourceType === null) {
-							localWarnLog(`image source '${key}' missing required fields`);
+			const src = normalizePayloadSchema(rawSrc.value, "levelDecalSource");
+			switch (src.decalType) {
+				case null   : localWarnLog(`source '${key}' has null decalType`); continue;
+				case "image":
+					if (src.imagePath === null || src.sourceType === null) {
+						localWarnLog(`image source '${key}' missing required fields`);
+						continue;
+					}
+					normalized[key] = src;
+					ctx.pendingImageLoads.push({ entry: src, promise: NormalizeImage(src.imagePath, src.sourceType, "webgl") });
+					ctx.affectedDecalSources.add(entry);
+					break;
+				case "shape":
+					if (src.shape === null) { localWarnLog(`shape source '${key}' missing required 'shape' field`); continue; }
+					if (src.detail !== null) {
+						const validBaseId = resolveTextureId(src.detail.baseTextureID, null);
+						if (validBaseId === null && src.detail.baseTextureID !== null) {
+							localWarnLog(`shape source '${key}' detail.baseTextureID '${src.detail.baseTextureID}' invalid`);
 							continue;
 						}
-						normalized[key] = src;
-						pendingImageLoads.push({ entry: src, promise: NormalizeImage(src.imagePath, src.sourceType, "webgl") });
-						affectedDecalSources.add(entry);
-						break;
-					case "shape":
-						if (src.shape === null) { localWarnLog(`shape source '${key}' missing required 'shape' field`); continue; }
-						if (src.detail !== null) {
-							const validBaseId = resolveTextureId(src.detail.baseTextureID, null);
-							if (validBaseId === null && src.detail.baseTextureID !== null) {
-								localWarnLog(`shape source '${key}' detail.baseTextureID '${src.detail.baseTextureID}' invalid`);
-								continue;
-							}
-							src.detail.baseTextureID = validBaseId;
-						}
-						src.mutable = false;
-						normalized[key] = src;
-						break;
-				}
-			}
-			entry.sources = Object.keys(normalized).length > 0 ? normalized : null;
-		};
-
-		normalizeArray(rawCustomTextures).value.forEach((rawEntry) => {
-			const entrySource = normalizeObject(rawEntry);
-			if (!entrySource.bool) return;
-			const entry = normalizePayloadSchema(entrySource.value, "levelCustomTexture");
-
-			entry.localTransform.position = toUnitVector3(entry.localTransform.position, "cnu");
-			entry.localTransform.rotation = new Unit(entry.localTransform.rotation, "degrees").toRadians(true);
-			entry.localTransform.scale    = CloneVector3(entry.localTransform.scale);
-
-			switch (entry.decalType) {
-				case null   : warnLog(`normalizeCustomTextures: dropping entry with null decalType.`); return;
-				case "image":
-					if (entry.imagePath === null || entry.sourceType === null) {
-						warnLog(`normalizeCustomTextures: image decal missing required fields (imagePath=${entry.imagePath}, sourceType=${entry.sourceType}), dropping entry.`);
-						return;
+						src.detail.baseTextureID = validBaseId;
 					}
-					normalizeSources(entry);
-					entries.push(entry);
-					pendingImageLoads.push({ entry, promise: NormalizeImage(entry.imagePath, entry.sourceType, "webgl") });
-					affectedParts.add(part);
-					return;
-				case "shape":
-					if (entry.shape === null) {
-						warnLog(`normalizeCustomTextures: shape decal missing required 'shape' field, dropping entry.`);
-						return;
-					}
-					if (!shapeRequiredFields[entry.shape]()) {
-						warnLog(`normalizeCustomTextures: shape '${entry.shape}' failed required field check, dropping entry.`);
-						return;
-					}
-					if (entry.detail !== null) {
-						const validBaseId = resolveTextureId(entry.detail.baseTextureID, null);
-						if (validBaseId === null && entry.detail.baseTextureID !== null) {
-							warnLog(`normalizeCustomTextures: detail.baseTextureID '${entry.detail.baseTextureID}' is not a valid texture ID, dropping entry.`);
-							return;
-						}
-						entry.detail.baseTextureID = validBaseId;
-					}
-					entry.mutable = false;
-					normalizeSources(entry);
-					entries.push(entry);
-					affectedParts.add(part);
+					src.mutable = false;
+					normalized[key] = src;
 					break;
 			}
-		});
-
-		return entries;
+		}
+		entry.sources = Object.keys(normalized).length > 0 ? normalized : null;
 	};
 
-	const normalizePart = (rawPart) => {
-		const partSource = normalizeObject(rawPart).value;
-		const part = normalizePayloadSchema(partSource, "levelPart");
-		part.dimensions = toUnitVector3(part.dimensions, "cnu");
-		part.localPosition = toUnitVector3(part.localPosition, "cnu");
-		part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
-		part.localScale = CloneVector3(part.localScale);
-		part.pivot = toUnitVector3(part.pivot, "cnu");
-		part.texture = normalizeTexture(partSource.texture !== undefined ? partSource.texture : part.texture);
-		part.detail = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail);
-		part.customTextures = normalizeCustomTextures(
-			partSource.customTextures !== undefined ? partSource.customTextures : part.customTextures,
-			part
-		);
-		if (part.label === null) delete part.label;
-		return part;
+	normalizeArray(rawCustomTextures).value.forEach((rawEntry) => {
+		const entrySource = normalizeObject(rawEntry);
+		if (!entrySource.bool) return;
+		const entry = normalizePayloadSchema(entrySource.value, "levelCustomTexture");
+
+		entry.localTransform.position = toUnitVector3(entry.localTransform.position, "cnu");
+		entry.localTransform.rotation = new Unit(entry.localTransform.rotation, "degrees").toRadians(true);
+		entry.localTransform.scale    = CloneVector3(entry.localTransform.scale);
+
+		switch (entry.decalType) {
+			case null   : warnLog(`normalizeCustomTextures: dropping entry with null decalType.`); return;
+			case "image":
+				if (entry.imagePath === null || entry.sourceType === null) {
+					warnLog(`normalizeCustomTextures: image decal missing required fields (imagePath=${entry.imagePath}, sourceType=${entry.sourceType}), dropping entry.`);
+					return;
+				}
+				normalizeSources(entry);
+				entries.push(entry);
+				ctx.pendingImageLoads.push({ entry, promise: NormalizeImage(entry.imagePath, entry.sourceType, "webgl") });
+				ctx.affectedParts.add(part);
+				return;
+			case "shape":
+				if (entry.shape === null) {
+					warnLog(`normalizeCustomTextures: shape decal missing required 'shape' field, dropping entry.`);
+					return;
+				}
+				if (!shapeRequiredFields[entry.shape]()) {
+					warnLog(`normalizeCustomTextures: shape '${entry.shape}' failed required field check, dropping entry.`);
+					return;
+				}
+				if (entry.detail !== null) {
+					const validBaseId = resolveTextureId(entry.detail.baseTextureID, null);
+					if (validBaseId === null && entry.detail.baseTextureID !== null) {
+						warnLog(`normalizeCustomTextures: detail.baseTextureID '${entry.detail.baseTextureID}' is not a valid texture ID, dropping entry.`);
+						return;
+					}
+					entry.detail.baseTextureID = validBaseId;
+				}
+				entry.mutable = false;
+				normalizeSources(entry);
+				entries.push(entry);
+				ctx.affectedParts.add(part);
+				break;
+		}
+	});
+
+	return entries;
+}
+
+function normalizePart(rawPart, ctx) {
+	const partSource = normalizeObject(rawPart).value;
+	const part = normalizePayloadSchema(partSource, "levelPart");
+	part.dimensions = toUnitVector3(part.dimensions, "cnu");
+	part.localPosition = toUnitVector3(part.localPosition, "cnu");
+	part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
+	part.localScale = CloneVector3(part.localScale);
+	part.pivot = toUnitVector3(part.pivot, "cnu");
+	part.texture = normalizeTexture(partSource.texture !== undefined ? partSource.texture : part.texture);
+	part.detail = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail);
+	part.customTextures = normalizeCustomTextures(
+		partSource.customTextures !== undefined ? partSource.customTextures : part.customTextures,
+		part,
+		ctx
+	);
+	if (part.label === null) delete part.label;
+	return part;
+}
+
+function normalizeLevelObject(rawObject, ctx, multipartFallbackShape = null) {
+	const objectSource = normalizeObject(rawObject).value;
+	const object = normalizePayloadSchema(objectSource, "levelObject");
+	object.dimensions = toUnitVector3(object.dimensions, "cnu");
+	object.position = toUnitVector3(object.position, "cnu");
+	object.rotation = toUnitVector3(object.rotation, "degrees").toRadians(true);
+	object.scale = CloneVector3(object.scale);
+	object.pivot = toUnitVector3(object.pivot, "cnu");
+	object.texture = normalizeTexture(objectSource.texture !== undefined ? objectSource.texture : object.texture);
+	object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
+	object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part, ctx));
+	object.customTextures = normalizeCustomTextures(
+		objectSource.customTextures !== undefined ? objectSource.customTextures : object.customTextures,
+		object,
+		ctx
+	);
+	object.collisionShape = object.collisionShape !== null ? object.collisionShape
+		: multipartFallbackShape !== null && object.parts.length > 1 ? multipartFallbackShape
+			: defaultsByShape[object.shape];
+	ctx.surfaceIds.add(object.id);
+	return object;
+}
+
+function normalizeMovement(rawMovement) {
+	const movement = normalizePayloadSchema(normalizeObject(rawMovement).value, "levelMovement");
+	movement.start = toUnitVector3(movement.start, "cnu");
+	movement.end = toUnitVector3(movement.end, "cnu");
+	movement.speed = new Unit(movement.speed, "cnu");
+	movement.jump = new Unit(movement.jump, "cnu");
+	return movement;
+}
+
+function resolveCollisionOverride(rawCollisionOverride, entityType) {
+	const defaultsByType = {
+		enemy      : { physics: "capsule",         hurtbox: "sphere",          hitbox: "capsule" },
+		npc        : { physics: "capsule",         hurtbox: null,              hitbox: null },
+		collectible: { physics: "sphere",          hurtbox: "sphere",          hitbox: null },
+		projectile : { physics: "sphere",          hurtbox: "sphere",          hitbox: "sphere" },
+		boss       : { physics: "compound-sphere", hurtbox: "compound-sphere", hitbox: null },
+		entity     : { physics: "capsule",         hurtbox: null,              hitbox: null },
 	};
+	const defaults = defaultsByType[entityType] || defaultsByType.entity;
+	const source = normalizeObject(rawCollisionOverride).value;
+	const collisionOverride = normalizePayloadSchema(source, "levelCollisionOverride");
 
-	const surfaceIds = new Set();
-	const defaultsByShape = {
-		cube: "obb",
-		plane: "obb",
-		"ramp-simple": "obb",
-		cylinder: "capsule",
-		capsule: "capsule",
-		sphere: "sphere",
-		pyramid: "triangle-soup",
-		cone: "triangle-soup",
-		tube: "triangle-soup",
-		torus: "triangle-soup",
-		"ramp-complex": "triangle-soup",
+	return {
+		physics: collisionOverride.physics !== null ? collisionOverride.physics : defaults.physics,
+		hurtbox: source.hurtbox === null ? null : source.hurtbox === undefined
+			? defaults.hurtbox
+			: collisionOverride.hurtbox !== null
+				? collisionOverride.hurtbox
+				: defaults.hurtbox,
+		hitbox: source.hitbox === null ? null : source.hitbox === undefined
+			? defaults.hitbox
+			: collisionOverride.hitbox !== null
+				? collisionOverride.hitbox
+				: defaults.hitbox
 	};
+}
 
-	const normalizeLevelObject = (rawObject, multipartFallbackShape = null) => {
-		const objectSource = normalizeObject(rawObject).value;
-		const object = normalizePayloadSchema(objectSource, "levelObject");
-		object.dimensions = toUnitVector3(object.dimensions, "cnu");
-		object.position = toUnitVector3(object.position, "cnu");
-		object.rotation = toUnitVector3(object.rotation, "degrees").toRadians(true);
-		object.scale = CloneVector3(object.scale);
-		object.pivot = toUnitVector3(object.pivot, "cnu");
-		object.texture = normalizeTexture(objectSource.texture !== undefined ? objectSource.texture : object.texture);
-		object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
-		object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part));
-		object.customTextures = normalizeCustomTextures(
-			objectSource.customTextures !== undefined ? objectSource.customTextures : object.customTextures,
-			object
-		);
-		object.collisionShape = object.collisionShape !== null ? object.collisionShape
-			: multipartFallbackShape !== null && object.parts.length > 1 ? multipartFallbackShape
-				: defaultsByShape[object.shape];
-		surfaceIds.add(object.id);
-		return object;
+function normalizeAttacks(rawAttacks) {
+	return normalizeArray(rawAttacks).value.map((rawAttack) => {
+		normalizePayloadSchema(normalizeObject(rawAttack).value, "levelAttack");
+	});
+}
+
+function normalizeBlueprint(rawBlueprint, ctx, globalShared) {
+	const blueprintSource = normalizeObject(rawBlueprint).value;
+	const blueprint = normalizePayloadSchema(blueprintSource, "levelEntityBlueprint");
+	blueprint.movement = normalizeMovement(blueprintSource.movement);
+	blueprint.velocity = toUnitVector3(blueprint.velocity, "cnu");
+	blueprint.attacks = normalizeAttacks(blueprintSource.attacks);
+	blueprint.hardcoded = normalizeObject(blueprint.hardcoded).value;
+	blueprint.collisionOverride = resolveCollisionOverride(blueprintSource.collisionOverride, blueprint.type);
+	blueprint.model.rootTransform = {
+		position: toUnitVector3(blueprint.model.rootTransform.position, "cnu"),
+		rotation: toUnitVector3(blueprint.model.rootTransform.rotation, "degrees").toRadians(true),
+		scale   : CloneVector3(blueprint.model.rootTransform.scale),
+		pivot   : toUnitVector3(blueprint.model.rootTransform.pivot, "cnu"),
 	};
+	blueprint.model.parts = normalizeArray(blueprintSource.model?.parts).value.map((part) => normalizePart(part, ctx));
+	// Resolved but left raw (un-instanced) — instanced once per entity at the merge below.
+	blueprint.animations = resolveAnimations(blueprintSource.animations, buildAnimationContext(blueprint.model.parts), globalShared);
+	return blueprint;
+}
 
-	const normalizeMovement = (rawMovement) => {
-		const movement = normalizePayloadSchema(normalizeObject(rawMovement).value, "levelMovement");
-		movement.start = toUnitVector3(movement.start, "cnu");
-		movement.end = toUnitVector3(movement.end, "cnu");
-		movement.speed = new Unit(movement.speed, "cnu");
-		movement.jump = new Unit(movement.jump, "cnu");
-		return movement;
+function normalizeOverride(rawOverride) {
+	const overrideSource = normalizeObject(rawOverride).value;
+	const override = normalizePayloadSchema(overrideSource, "levelEntityOverride");
+	override.movement = normalizeMovement(overrideSource.movement);
+	override.velocity = toUnitVector3(override.velocity, "cnu");
+	override.attacks = normalizeAttacks(overrideSource.attacks);
+	override.rootTransform = {
+		position: toUnitVector3(override.rootTransform.position, "cnu"),
+		rotation: toUnitVector3(override.rootTransform.rotation, "degrees").toRadians(true),
+		scale: CloneVector3(override.rootTransform.scale),
+		pivot: toUnitVector3(override.rootTransform.pivot, "cnu"),
 	};
+	return override;
+}
 
-	const resolveCollisionOverride = (rawCollisionOverride, entityType) => {
-		const defaultsByType = {
-			enemy      : { physics: "capsule",         hurtbox: "sphere",          hitbox: "capsule" },
-			npc        : { physics: "capsule",         hurtbox: null,              hitbox: null },
-			collectible: { physics: "sphere",          hurtbox: "sphere",          hitbox: null },
-			projectile : { physics: "sphere",          hurtbox: "sphere",          hitbox: "sphere" },
-			boss       : { physics: "compound-sphere", hurtbox: "compound-sphere", hitbox: null },
-			entity     : { physics: "capsule",         hurtbox: null,              hitbox: null },
-		};
-		const defaults = defaultsByType[entityType] || defaultsByType.entity;
-		const source = normalizeObject(rawCollisionOverride).value;
-		const collisionOverride = normalizePayloadSchema(source, "levelCollisionOverride");
+function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
+	const entrySource = normalizeObject(rawOverride).value;
+	const override = normalizeOverride(entrySource);
 
-		return { 
-			physics: collisionOverride.physics !== null ? collisionOverride.physics : defaults.physics, 
-			hurtbox: source.hurtbox === null ? null : source.hurtbox === undefined
-				? defaults.hurtbox
-				: collisionOverride.hurtbox !== null
-					? collisionOverride.hurtbox
-					: defaults.hurtbox, 
-			hitbox: source.hitbox === null ? null : source.hitbox === undefined
-				? defaults.hitbox
-				: collisionOverride.hitbox !== null
-					? collisionOverride.hitbox
-					: defaults.hitbox
-		};
+	const merged = structuredClone(blueprint);
+
+	// structuredClone strips UnitVector3/Unit class prototypes — rehydrate before use.
+	const rt = merged.model.rootTransform;
+	merged.model.rootTransform = {
+		position: toUnitVector3(rt.position, "cnu"),
+		rotation: toUnitVector3(rt.rotation, "radians"),
+		scale   : rt.scale,
+		pivot   : toUnitVector3(rt.pivot, "cnu"),
 	};
-
-	const normalizeAttacks = (rawAttacks) => {
-		return normalizeArray(rawAttacks).value.map((rawAttack) => {
-			normalizePayloadSchema(normalizeObject(rawAttack).value, "levelAttack");
-		});
+	merged.model.parts = merged.model.parts.map((part) => normalizePart(part, ctx));
+	const mv = merged.movement;
+	merged.movement = {
+		...mv,
+		start: toUnitVector3(mv.start, "cnu"),
+		end  : toUnitVector3(mv.end,   "cnu"),
+		speed: new Unit(mv.speed.value, "cnu"),
+		jump : new Unit(mv.jump.value,  "cnu"),
 	};
+	merged.velocity = toUnitVector3(merged.velocity, "cnu");
 
-	const normalizeBlueprint = (rawBlueprint) => {
-		const blueprintSource = normalizeObject(rawBlueprint).value;
-		const blueprint = normalizePayloadSchema(blueprintSource, "levelEntityBlueprint");
-		blueprint.movement = normalizeMovement(blueprintSource.movement);
-		blueprint.velocity = toUnitVector3(blueprint.velocity, "cnu");
-		blueprint.attacks = normalizeAttacks(blueprintSource.attacks);
-		blueprint.hardcoded = normalizeObject(blueprint.hardcoded).value;
-		blueprint.collisionOverride = resolveCollisionOverride(blueprintSource.collisionOverride, blueprint.type);
-		blueprint.model.rootTransform = {
-			position: toUnitVector3(blueprint.model.rootTransform.position, "cnu"),
-			rotation: toUnitVector3(blueprint.model.rootTransform.rotation, "degrees").toRadians(true),
-			scale   : CloneVector3(blueprint.model.rootTransform.scale),
-			pivot   : toUnitVector3(blueprint.model.rootTransform.pivot, "cnu"),
-		};
-		blueprint.model.parts = normalizeArray(blueprintSource.model?.parts).value.map((part) => normalizePart(part));
-		// Resolved but left raw (un-instanced) — instanced once per entity at the merge below.
-		blueprint.animations = resolveAnimations(blueprintSource.animations, buildAnimationContext(blueprint.model.parts), globalShared);
-		return blueprint;
-	};
+	merged.id = override.id;
+	merged.blueprintId = override.blueprintId;
+	if (entrySource.type !== undefined) merged.type = override.type;
+	if (entrySource.hp !== undefined && override.hp !== null) merged.hp = override.hp;
+	if (entrySource.hardcoded !== undefined && override.hardcoded !== null) merged.hardcoded = override.hardcoded;
+	if (entrySource.attacks !== undefined) merged.attacks = override.attacks;
+	if (entrySource.platform !== undefined && override.platform !== null) merged.platform = override.platform;
+	if (entrySource.animations !== undefined && override.animations !== null) {
+		merged.animations = resolveAnimations(override.animations, buildAnimationContext(merged.model.parts), globalShared);
+	}
+	// Single instancing point: merged.animations is raw-resolved (cloned blueprint or override) here.
+	instanceAnimationTracks(merged.animations);
+	markMutableDecals(merged.animations, merged.model.parts);
+	if (entrySource.collisionOverride !== undefined) merged.collisionOverride = resolveCollisionOverride(entrySource.collisionOverride, merged.type);
+	if (entrySource.movement !== undefined) merged.movement = override.movement;
+	if (entrySource.velocity !== undefined) merged.velocity = override.velocity;
+	if (entrySource.spawnSurfaceId !== undefined && override.spawnSurfaceId !== null) merged.model.spawnSurfaceId = override.spawnSurfaceId;
+	if (entrySource.rootTransform !== undefined) merged.model.rootTransform = override.rootTransform;
+	merged.dialogue = override.dialogue;
+	merged.collisionOverride = resolveCollisionOverride(merged.collisionOverride, merged.type);
 
-	const normalizeOverride = (rawOverride) => {
-		const overrideSource = normalizeObject(rawOverride).value;
-		const override = normalizePayloadSchema(overrideSource, "levelEntityOverride");
-		override.movement = normalizeMovement(overrideSource.movement);
-		override.velocity = toUnitVector3(override.velocity, "cnu");
-		override.attacks = normalizeAttacks(overrideSource.attacks);
-		override.rootTransform = {
-			position: toUnitVector3(override.rootTransform.position, "cnu"),
-			rotation: toUnitVector3(override.rootTransform.rotation, "degrees").toRadians(true),
-			scale: CloneVector3(override.rootTransform.scale),
-			pivot: toUnitVector3(override.rootTransform.pivot, "cnu"),
-		};
-		return override;
+	if (merged.model.spawnSurfaceId === null || ctx.surfaceIds.has(merged.model.spawnSurfaceId) === false) {
+		const firstSurfaceId = ctx.surfaceIds.size > 0 ? [...ctx.surfaceIds][0] : null;
+		if (firstSurfaceId !== null) {
+			warnLog(`level.entities: invalid spawnSurfaceId for '${merged.id}', using '${firstSurfaceId}'.`);
+			merged.model.spawnSurfaceId = firstSurfaceId;
+		}
+	}
+
+	return merged;
+}
+
+function mergeSimulatorEntity(blueprint, ctx) {
+	ctx.surfaceIds.add("sim-disc");
+	return mergeBlueprintWithOverride(
+		blueprint,
+		{ id: blueprint.id, type: blueprint.type, blueprintId: blueprint.id, spawnSurfaceId: "sim-disc" },
+		ctx,
+		{}
+	);
+}
+
+function applyImageLoadResults(affectedParts, affectedDecalSources) {
+	affectedParts.forEach((part) => {
+		part.customTextures = part.customTextures.filter((e) => e.decalType !== "image" || e.bitmap !== null);
+	});
+	affectedDecalSources.forEach((decalEntry) => {
+		for (const key in decalEntry.sources) {
+			if (decalEntry.sources[key].decalType === "image" && decalEntry.sources[key].bitmap === null) {
+				delete decalEntry.sources[key];
+			}
+		}
+		if (Object.keys(decalEntry.sources).length === 0) decalEntry.sources = null;
+	});
+}
+
+async function LevelPayload(payload) {
+	const ctx = {
+		pendingImageLoads   : [],
+		affectedParts       : new Set(),
+		affectedDecalSources: new Set(),
+		surfaceIds          : new Set(),
 	};
 
 	const rawPayload = normalizeObject(payload).value;
@@ -866,8 +951,8 @@ async function LevelPayload(payload) {
 	normalized.camera.levelOpening.startPosition = toUnitVector3(normalized.camera.levelOpening.startPosition, "cnu");
 	normalized.camera.levelOpening.endPosition = toUnitVector3(normalized.camera.levelOpening.endPosition, "cnu");
 
-	normalized.terrain.objects = normalizeArray(rawPayload.terrain?.objects).value.map((entry) => normalizeLevelObject(entry));
-	normalized.obstacles = normalizeArray(rawPayload.obstacles).value.map((entry) => normalizeLevelObject(entry, "triangle-soup"));
+	normalized.terrain.objects = normalizeArray(rawPayload.terrain?.objects).value.map((entry) => normalizeLevelObject(entry, ctx));
+	normalized.obstacles = normalizeArray(rawPayload.obstacles).value.map((entry) => normalizeLevelObject(entry, ctx, "triangle-soup"));
 	normalized.terrain.triggers = normalizeArray(rawPayload.terrain?.triggers).value.map((entry) => {
 		const trigger = normalizePayloadSchema(normalizeObject(entry).value, "levelTrigger");
 		trigger.start = toUnitVector3(trigger.start, "cnu");
@@ -879,7 +964,7 @@ async function LevelPayload(payload) {
 	blueprintBuckets.forEach((bucket) => {
 		normalized.entityBlueprints[bucket] = normalizeArray(
 			normalizeObject(rawPayload.entityBlueprints).value[bucket]
-		).value.map((entry) => normalizeBlueprint(entry));
+		).value.map((entry) => normalizeBlueprint(entry, ctx, globalShared));
 	});
 
 	const blueprintMap = {};
@@ -887,7 +972,6 @@ async function LevelPayload(payload) {
 		normalized.entityBlueprints[bucketName].forEach((entry) => blueprintMap[entry.id] = entry);
 	});
 
-	const firstSurfaceId = normalized.terrain.objects[0]?.id || normalized.obstacles[0]?.id || null;
 	normalized.entities = normalizeArray(rawPayload.entities).value.map((entry) => {
 		const entrySource = normalizeObject(entry).value;
 		const override = normalizeOverride(entrySource);
@@ -898,56 +982,7 @@ async function LevelPayload(payload) {
 			return null;
 		}
 
-		const merged = structuredClone(blueprint);
-
-		// structuredClone strips UnitVector3/Unit class prototypes — rehydrate before use.
-		const rt = merged.model.rootTransform;
-		merged.model.rootTransform = {
-			position: toUnitVector3(rt.position, "cnu"),
-			rotation: toUnitVector3(rt.rotation, "radians"),
-			scale   : rt.scale,
-			pivot   : toUnitVector3(rt.pivot, "cnu"),
-		};
-		merged.model.parts = merged.model.parts.map((part) => normalizePart(part));
-		const mv = merged.movement;
-		merged.movement = {
-			...mv,
-			start: toUnitVector3(mv.start, "cnu"),
-			end  : toUnitVector3(mv.end,   "cnu"),
-			speed: new Unit(mv.speed.value, "cnu"),
-			jump : new Unit(mv.jump.value,  "cnu"),
-		};
-		merged.velocity = toUnitVector3(merged.velocity, "cnu");
-
-		merged.id = override.id;
-		merged.blueprintId = override.blueprintId;
-		if (entrySource.type !== undefined) merged.type = override.type;
-		if (entrySource.hp !== undefined && override.hp !== null) merged.hp = override.hp;
-		if (entrySource.hardcoded !== undefined && override.hardcoded !== null) merged.hardcoded = override.hardcoded;
-		if (entrySource.attacks !== undefined) merged.attacks = override.attacks;
-		if (entrySource.platform !== undefined && override.platform !== null) merged.platform = override.platform;
-		if (entrySource.animations !== undefined && override.animations !== null) {
-			merged.animations = resolveAnimations(override.animations, buildAnimationContext(merged.model.parts), globalShared);
-		}
-		// Single instancing point: merged.animations is raw-resolved (cloned blueprint or override) here.
-		instanceAnimationTracks(merged.animations);
-		markMutableDecals(merged.animations, merged.model.parts);
-		if (entrySource.collisionOverride !== undefined) merged.collisionOverride = resolveCollisionOverride(entrySource.collisionOverride, merged.type);
-		if (entrySource.movement !== undefined) merged.movement = override.movement;
-		if (entrySource.velocity !== undefined) merged.velocity = override.velocity;
-		if (entrySource.spawnSurfaceId !== undefined && override.spawnSurfaceId !== null) merged.model.spawnSurfaceId = override.spawnSurfaceId;
-		if (entrySource.rootTransform !== undefined) merged.model.rootTransform = override.rootTransform;
-		merged.dialogue = override.dialogue;
-		merged.collisionOverride = resolveCollisionOverride(merged.collisionOverride, merged.type);
-
-		if (merged.model.spawnSurfaceId === null || surfaceIds.has(merged.model.spawnSurfaceId) === false) {
-			if (firstSurfaceId !== null) {
-				warnLog(`level.entities: invalid spawnSurfaceId for '${merged.id}', using '${firstSurfaceId}'.`);
-				merged.model.spawnSurfaceId = firstSurfaceId;
-			}
-		}
-
-		return merged;
+		return mergeBlueprintWithOverride(blueprint, entrySource, ctx, globalShared);
 	}).filter((entry) => entry !== null);
 
 	const characterIds = Object.keys(characterData);
@@ -956,7 +991,7 @@ async function LevelPayload(payload) {
 		normalized.player = normalizePayloadSchema(playerSource.value, "levelPlayer");
 		normalized.player.spawnPosition = toUnitVector3(normalized.player.spawnPosition, "cnu");
 		normalized.player.scale = CloneVector3(normalized.player.scale);
-		normalized.player.modelParts = normalizeArray(playerSource.value.modelParts).value.map((part) => normalizePart(part));
+		normalized.player.modelParts = normalizeArray(playerSource.value.modelParts).value.map((part) => normalizePart(part, ctx));
 		normalized.player.metaOverrides = structuredClone(normalized.player.metaOverrides);
 		if (!Array.isArray(normalized.player.metaOverrides.list)) normalized.player.metaOverrides.list = [];
 		if (characterIds.includes(normalized.player.character) === false) {
@@ -976,20 +1011,45 @@ async function LevelPayload(payload) {
 	const musicSource = normalizeObject(rawPayload.music);
 	normalized.music = musicSource.bool ? AudioPayload(musicSource.value) : null;
 
-	await Promise.all(pendingImageLoads.map(({ entry, promise }) =>
+	await Promise.all(ctx.pendingImageLoads.map(({ entry, promise }) =>
 		promise.then((result) => { entry.bitmap = result.bool ? result.value : null; })
 	));
-	affectedParts.forEach((part) => {
-		part.customTextures = part.customTextures.filter((e) => e.decalType !== "image" || e.bitmap !== null);
-	});
-	affectedDecalSources.forEach((decalEntry) => {
-		for (const key in decalEntry.sources) {
-			if (decalEntry.sources[key].decalType === "image" && decalEntry.sources[key].bitmap === null) {
-				delete decalEntry.sources[key];
-			}
-		}
-		if (Object.keys(decalEntry.sources).length === 0) decalEntry.sources = null;
-	});
+	applyImageLoadResults(ctx.affectedParts, ctx.affectedDecalSources);
+
+	return normalized;
+}
+
+async function SimulatorPayload(payload) {
+	if (payload.payloadType === "cached") {
+		const normalized = normalizePayloadSchema(normalizeObject(payload).value, "simulatorCached");
+		normalized.payloadType = "cached";
+		return normalized;
+	}
+
+	const normalized = normalizePayloadSchema(normalizeObject(payload).value, "simulatorDefinition");
+	normalized.payloadType = "definition";
+
+	const ctx = {
+		pendingImageLoads   : [],
+		affectedParts       : new Set(),
+		affectedDecalSources: new Set(),
+		surfaceIds          : new Set(),
+	};
+	const isEntityType = ENTITY_TYPES.includes(normalized.objectType);
+
+	if (isEntityType) {
+		const blueprint = normalizeBlueprint(payload.definition, ctx, {});
+		normalized.definition = mergeSimulatorEntity(blueprint, ctx);
+	} 
+	else {
+		const multipartFallbackShape = normalized.objectType === "obstacle" ? "triangle-soup" : null;
+		normalized.definition = normalizeLevelObject(payload.definition, ctx, multipartFallbackShape);
+	}
+
+	await Promise.all(ctx.pendingImageLoads.map(({ entry, promise }) =>
+		promise.then((result) => { entry.bitmap = result.bool ? result.value : null; })
+	));
+	applyImageLoadResults(ctx.affectedParts, ctx.affectedDecalSources);
 
 	return normalized;
 }
@@ -1000,4 +1060,5 @@ export default {
 	SplashPayload,
 	CutscenePayload,
 	LevelPayload,
+	SimulatorPayload,
 };

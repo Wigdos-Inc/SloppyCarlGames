@@ -69,6 +69,7 @@ const CONFIG = {
           Key  : true,
         },
         Level: true,
+        Simulator: true,
         Validation: true,
         Meta: true,
         Player: true,
@@ -85,7 +86,7 @@ const CONFIG = {
     Cutscene: settings?.cutscene ?? 1
   },
   PERFORMANCE: {
-    TerrainScatter: "low",
+    TerrainScatter: "High",
     RenderDistance: "High",
     SimDistance   : "High",
     Animations    : {
@@ -120,9 +121,7 @@ const CONFIG = {
       damageInflicted: false,
     }
   },
-  CAMERA: {
-    Fov: 60
-  }
+  CAMERA: { Fov: 60 }
 };
 
 /* === EXPORTS === */

@@ -9,7 +9,7 @@
 // Core initialization and logging.
 
 import { Initialize } from "./core/ini.js";
-import { Cache, Cursor, Log, SendEvent } from "./core/meta.js";
+import { Cache, Cursor, Log, SendEvent, EngineInitialized } from "./core/meta.js";
 import { CONFIG } from "./core/config.js";
 import { FadeElement, RemoveRoot, SetElementStyle, SetElementText } from "./handlers/Render.js";
 import { CreateUI } from "./handlers/UI.js";
@@ -157,6 +157,7 @@ async function runStartupSequence() {
     else await PlayEngineCutscene(requestedPayload, options);
   }
 
+  EngineInitialized = true;
   SendEvent("UI_REQUEST", { screenId: "TitleScreen" });
 
   // Provide a shared resolver on Cache so UI modules can notify Bootup
@@ -225,7 +226,7 @@ export function StartEngine() {
   globalThis.ENGINE = ENGINE;
 
   Log("ENGINE", "Bootup complete.", "log", "Startup");
-  Log("ENGINE", "'ENGINE' is now globally accesible.", "log", "Startup");
+  Log("ENGINE", "'ENGINE' API is now globally accesible.", "log", "Startup");
   
   waitForUserStart();
 }

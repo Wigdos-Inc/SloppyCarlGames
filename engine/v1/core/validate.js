@@ -1,6 +1,6 @@
 import canonSchemas from "./canonSchemas.json" with { type: "json" };
 import Normalize from "./normalize.js";
-import { Log } from "./meta.js";
+import { Log, ENTITY_TYPES } from "./meta.js";
 
 function isPlainObject(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -306,10 +306,54 @@ function ValidateLevelPayload(payload) {
 	return Normalize.LevelPayload(payload);
 }
 
+async function ValidateSimulatorPayload(payload) {
+	const rawPayload = isPlainObject(payload) ? payload : {};
+	const payloadType = rawPayload.definition !== undefined ? "definition" : "cached";
+	const schemaKey = payloadType === "definition" ? "simulatorDefinition" : "simulatorCached";
+
+	const errors = validatePayloadSchema(payload, schemaKey);
+
+	if (payloadType === "definition" && errors.length === 0) {
+		let objectType = null;
+		for (const key in rawPayload) {
+			if (normalizeSchemaKey(key) === "objecttype") {
+				objectType = typeof rawPayload[key] === "string" ? rawPayload[key] : null;
+				break;
+			}
+		}
+		const definitionSchemaKey = ENTITY_TYPES.includes(objectType) ? "levelEntityBlueprint" : "levelObject";
+		errors.push(...validatePayloadSchema(rawPayload.definition, definitionSchemaKey, "simulatorDefinition.definition"));
+	}
+
+	logValidationErrors(errors);
+	if (errors.length > 0) return null;
+	return await Normalize.SimulatorPayload({ ...payload, payloadType });
+}
+
+async function ValidateSimulatorBulkPayload(bulkPayload) {
+	const entries = Array.isArray(bulkPayload) ? bulkPayload : [bulkPayload];
+	const results = [];
+	for (const entry of entries) {
+		const validated = await ValidateSimulatorPayload(entry);
+		if (validated === null) {
+			Log("ENGINE", "ValidateSimulatorBulkPayload: skipping invalid entry.", "warn", "Validation");
+			continue;
+		}
+		if (validated.payloadType !== "definition") {
+			Log("ENGINE", `ValidateSimulatorBulkPayload: payloadType must be 'definition', got '${validated.payloadType}', skipping.`, "warn", "Validation");
+			continue;
+		}
+		results.push(validated);
+	}
+	return results;
+}
+
 export {
 	ValidateAudioPayload,
 	ValidateMenuPayload,
 	ValidateSplashPayload,
 	ValidateCutscenePayload,
 	ValidateLevelPayload,
+	ValidateSimulatorPayload,
+	ValidateSimulatorBulkPayload,
 };

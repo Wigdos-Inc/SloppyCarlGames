@@ -320,12 +320,17 @@ function SendEvent(eventName, payload) {
 }
 
 const EPSILON = 0.000001;
+const ENTITY_TYPES = ["entity", "enemy", "npc", "collectible", "projectile"];
+
+let EngineInitialized = false;
 
 /* === EXPORTS === */
 // Public metadata API for engine modules.
 
 export {
   EPSILON,
+  ENTITY_TYPES,
+  EngineInitialized,
   Log,
   LogAll,
   LogCache,
