@@ -9,7 +9,7 @@
 // Core initialization and logging.
 
 import { Initialize } from "./core/ini.js";
-import { Cache, Cursor, Log, SendEvent, EngineInitialized } from "./core/meta.js";
+import { Cache, Cursor, Log, SendEvent, SetEngineInitialized } from "./core/meta.js";
 import { CONFIG } from "./core/config.js";
 import { FadeElement, RemoveRoot, SetElementStyle, SetElementText } from "./handlers/Render.js";
 import { CreateUI } from "./handlers/UI.js";
@@ -25,7 +25,6 @@ const introCutscene = {
   type: null,
   payload: null,
 };
-const startupOverlayID = "engine-startup-overlay";
 const startupTextID = "engine-startup-text";
 
 function clearIntroCinematicBuffer() {
@@ -87,7 +86,7 @@ function waitForUserStart() {
 
   CreateUI({
     screenId: "EngineStartup",
-    rootId: startupOverlayID,
+    rootId: "engine-startup-overlay",
     rootStyles: startupOverlayStyles,
     elements: [
       {
@@ -157,7 +156,7 @@ async function runStartupSequence() {
     else await PlayEngineCutscene(requestedPayload, options);
   }
 
-  EngineInitialized = true;
+  SetEngineInitialized();
   SendEvent("UI_REQUEST", { screenId: "TitleScreen" });
 
   // Provide a shared resolver on Cache so UI modules can notify Bootup

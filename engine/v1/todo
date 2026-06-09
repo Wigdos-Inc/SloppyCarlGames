@@ -24,6 +24,7 @@ Build Load Screen functionality.
 - Background Image support
 - HTML Element support
 - Music Support
+Add aliases to canonSchemas.json
 
 
 Additions to Level API:

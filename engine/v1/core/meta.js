@@ -323,6 +323,7 @@ const EPSILON = 0.000001;
 const ENTITY_TYPES = ["entity", "enemy", "npc", "collectible", "projectile"];
 
 let EngineInitialized = false;
+const SetEngineInitialized = () => EngineInitialized = true;
 
 /* === EXPORTS === */
 // Public metadata API for engine modules.
@@ -344,4 +345,5 @@ export {
   PushToSession,
   ReadFromSession,
   SESSION_KEYS,
+  SetEngineInitialized
 };

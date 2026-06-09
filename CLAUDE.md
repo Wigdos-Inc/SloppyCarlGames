@@ -101,3 +101,5 @@ These are structural, not fixable with shims. **ARGUS (browser) is the only runt
 ## Conclusions & Responses
 
 If you can't find evidence that supports a claim, don't make that claim. Just tell me you don't know, what you looked through, and what you think might be going on. But don't present a guess as a real finding.
+
+Prefer asking questions about intended design or actions taken instead of assuming.

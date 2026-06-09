@@ -3,6 +3,8 @@
 console.log("Importing Engine");
 
 import { StartEngine } from "../Bootup.js";
+import entitiesData from "./levels/entities.json" with { type: "json" };
+import levelsData   from "./levels/levels.json"   with { type: "json" };
 StartEngine();
 
 // Initialize testGame engine helpers (throws if ENGINE missing).
@@ -516,7 +518,36 @@ function handleEntityCollision(event) {
 	}
 }
 
+function cacheSimulatorEntries() {
+	const entries = [];
+	const seen = new Set();
+
+	["enemies", "npcs", "collectibles", "projectiles", "entities"].forEach((bucket) => {
+		(entitiesData[bucket] || []).forEach((definition) => {
+			entries.push({ definition, objectType: definition.type });
+		});
+	});
+
+	levelsData.levels.forEach((level) => {
+		level.stages.forEach((stage) => {
+			(stage.terrain?.objects || []).forEach((definition) => {
+				if (seen.has(definition.id)) return;
+				seen.add(definition.id);
+				entries.push({ definition, objectType: "terrain" });
+			});
+			(stage.obstacles || []).forEach((definition) => {
+				if (seen.has(definition.id)) return;
+				seen.add(definition.id);
+				entries.push({ definition, objectType: "obstacle" });
+			});
+		});
+	});
+
+	void ENGINE.Simulator.Cache(entries);
+}
+
 window.addEventListener("SPLASH_REQUEST", handleSplashRequest);
+window.addEventListener("UI_REQUEST", cacheSimulatorEntries, { once: true });
 window.addEventListener("USER_INPUT", handleUserInput);
 window.addEventListener("DELETE_SAVE_DATA", handleDeleteSave);
 window.addEventListener("LEVEL_REQUEST", handleLevelRequest);
