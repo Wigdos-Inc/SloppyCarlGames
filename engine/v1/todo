@@ -5,8 +5,6 @@ Add Terrain Blueprint Support (start using Claude Code):
 - Add Sonic-Style Loop Blueprint
 - Add Half-Pipe Blueprint
 - Add Full-Pipe Blueprint
-Fully re-attach Camera.js to CNU.
-- Dedup Camera.js
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain)
 Entity AI:
 - Default behaviours (not mutually exclusive):

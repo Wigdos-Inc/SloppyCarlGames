@@ -18,7 +18,7 @@ All world-space values (distance, rotation, dimension, position) must be instanc
 |-------------------|----------------|----------------------------------------|
 | Distance/position | `"cnu"`        | `new Unit(10, "cnu")`                  |
 | Rotation/angle    | `"degrees"`    | `new Unit(45, "degrees")`              |
-| Camera defaults   | `"worldunit"`  | `new Unit(10, "worldunit")`            |
+| Camera defaults   | `"cnu"`        | `new Unit(10, "cnu")`                  |
 
 These defaults apply unless the source explicitly states otherwise.
 
@@ -138,10 +138,6 @@ If a builder or runtime subsystem deterministically computes auxiliary collision
 When a function operates in a different unit space than the incoming instance, convert at point of use via built-in methods. Do not pre-convert upstream "just in case."
 
 ```js
-// Camera operates in worldunit; player position arrives as CNU.
-// Convert at the moment of use:
-const playerPos = playerState.transform.position.toWorldUnit();  // returns plain {x,y,z}
-
 // AABB bounds are CNU UnitVector3 instances.
 // Convert at the moment of use:
 const scaledMin = aabb.min.toWorldUnit();  // returns plain {x,y,z}
@@ -174,17 +170,14 @@ NewLevel.js → BuildLevel()
     │
     ▼
 Camera.js → InitializeCameraState()
-    │  - Camera defaults are worldunit (declared locally)
+    │  - Camera defaults are cnu (declared locally)
     │  - Incoming cameraConfig values are CNU (from normalize)
-    │  - Converts CNU → worldunit via .toWorldUnit() at point of use
     │  - Never re-instances
     │
     ▼
 Update Loop
     │  - playerState.transform.position is UnitVector3("cnu")
-    │  - Camera converts at point of use via .toWorldUnit()
     │  - worldAabb min/max are UnitVector3("cnu")
-    │  - Camera converts at point of use via .toWorldUnit()
 ```
 
 ---
@@ -243,7 +236,7 @@ const worldPos = vector.toWorldUnit();       // returns plain {x, y, z}
 | `normalize.js`  | Instance raw payload values as Unit/UnitVector3 (CNU/degrees) |
 | `validate.js`   | Validate payload structure, call normalize, return instanced  |
 | `NewLevel.js`   | Build scene from pre-instanced data. Never instance.          |
-| `Camera.js`     | Declare worldunit defaults. Convert CNU at point of use.      |
+| `Camera.js`     | Instance default values as Unit/UnitVector3("cnu")            |
 | `NewObject.js`  | Instance geometry bounds as UnitVector3("cnu").               |
 | `Master.js`     | Instance player position as UnitVector3("cnu").               |
 | `Master.js`     | Update positions via .set(). Never re-instance.               |

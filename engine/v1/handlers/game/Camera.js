@@ -3,8 +3,6 @@
 // Receives camera instructions from Level.js and Cutscene.js
 // Returns ready to use Camera State
 
-// Module uses World Units instead of CNU for testing.
-
 import { CONFIG } from "../../core/config.js";
 import { EPSILON, IsPointerLocked, Log, RequestPointerLock } from "../../core/meta.js";
 import {
@@ -18,35 +16,34 @@ import {
 	WORLD_NORMALS,
 } from "../../math/Vector3.js";
 import { ClampVelocity, RayAABBDetailedBoundsIntersect } from "../../math/Collision.js";
-import { CNUtoWorldUnit, Lerp, Clamp, Unit, UnitVector3, WorldUnitToCNU } from "../../math/Utilities.js";
+import { Lerp, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
 const pitchClampDegrees = 89;
 // FreeCam must be explicitly enabled in levels and global debug mode must be on.
 const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true);
 
-const worldDistanceDefaults = {
-	freeCamStartPosition: new UnitVector3(0, 20, 40, "worldunit"),
-	freeCamAcceleration: new Unit(44, "worldunit"),
-	freeCamMaxSpeed: new Unit(14, "worldunit"),
-	freeCamStartY: new Unit(20, "worldunit"),
-	freeCamStartZ: new Unit(40, "worldunit"),
-	freeCamFar: new Unit(800, "worldunit"),
+const distanceDefaults = {
+	freeCamStartPosition: new UnitVector3(0, 20, 40, "cnu"),
+	freeCamAcceleration: new Unit(44, "cnu"),
+	freeCamMaxSpeed: new Unit(14, "cnu"),
+	freeCamStartY: new Unit(20, "cnu"),
+	freeCamStartZ: new Unit(40, "cnu"),
+	freeCamFar: new Unit(800, "cnu"),
 
-	defaultCamDistance: new Unit(10, "worldunit"),
-	defaultCamHeightOffset: new Unit(3, "worldunit"),
-	defaultCamCurrentDistance: new Unit(10, "worldunit"),
-	defaultCamTargetDistance: new Unit(10, "worldunit"),
-	defaultLevelMinY: new Unit(20, "worldunit"),
-	defaultLevelMinZ: new Unit(30, "worldunit"),
-	defaultLevelMinFar: new Unit(200, "worldunit"),
+	defaultCamDistance: new Unit(10, "cnu"),
+	defaultCamHeightOffset: new Unit(3, "cnu"),
+	defaultCamCurrentDistance: new Unit(10, "cnu"),
+	defaultCamTargetDistance: new Unit(10, "cnu"),
+	defaultLevelMinY: new Unit(20, "cnu"),
+	defaultLevelMinZ: new Unit(30, "cnu"),
+	defaultLevelMinFar: new Unit(200, "cnu"),
 
-	obstructionOffset: new Unit(0.3, "worldunit"),
-	obstructionMinDistance: new Unit(0.5, "worldunit"),
+	obstructionOffset: new Unit(0.3, "cnu"),
+	obstructionMinDistance: new Unit(0.5, "cnu"),
 };
 
 const persistedFreeCamStates = new Map();
 let latestCameraPosition = null;
 const freeCamRuntime = {
-	active: false,
 	levelKey: null,
 	keyState: {
 		KeyW: false,
@@ -63,9 +60,9 @@ const freeCamRuntime = {
 	},
 	moveSensitivity: 0.12,
 	tuningStep: 0,
-	acceleration: worldDistanceDefaults.freeCamAcceleration.clone(),
+	acceleration: distanceDefaults.freeCamAcceleration.clone(),
 	dampingFactor: 0.12,
-	maxSpeed: worldDistanceDefaults.freeCamMaxSpeed.clone(),
+	maxSpeed: distanceDefaults.freeCamMaxSpeed.clone(),
 	lookDeltaX: 0,
 	lookDeltaY: 0,
 	wheelDelta: 0,
@@ -74,23 +71,21 @@ const defaultCamRuntime = {
 	active: false,
 	yaw: 0,
 	pitch: -15,
-	currentDistance: worldDistanceDefaults.defaultCamCurrentDistance.clone(),
-	targetDistance: worldDistanceDefaults.defaultCamTargetDistance.clone(),
+	currentDistance: distanceDefaults.defaultCamCurrentDistance.clone(),
+	targetDistance: distanceDefaults.defaultCamTargetDistance.clone(),
 	lookDeltaX: 0,
 	lookDeltaY: 0,
 	obstructionLogged: false,
 	config: {
-		distance: worldDistanceDefaults.defaultCamDistance.clone(),
+		distance: distanceDefaults.defaultCamDistance.clone(),
 		sensitivity: 0.12,
-		heightOffset: worldDistanceDefaults.defaultCamHeightOffset.clone(),
+		heightOffset: distanceDefaults.defaultCamHeightOffset.clone(),
 		minPitch: -60,
 		maxPitch: 60,
 	},
 };
 
-function cacheCameraPosition(cameraState) {
-	latestCameraPosition = cameraState.position;
-}
+const cacheCameraPosition = (cameraState) => latestCameraPosition = cameraState.position;
 
 function getCurrentCameraPosition() {
 	if (!latestCameraPosition) {
@@ -126,7 +121,7 @@ function createCameraState(source) {
 		right: right,
 		up: ResolveVector3Axis(CrossVector3(right, forward)),
 		speed: freeCamRuntime.maxSpeed,
-		velocity: new UnitVector3(0, 0, 0, "worldunit"),
+		velocity: new UnitVector3(0, 0, 0, "cnu"),
 		mode: "freecam",
 		target: source.position.clone().add(forward),
 		fov: source.fov,
@@ -143,16 +138,16 @@ function updateOrientationVectors(cameraState) {
 }
 
 function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
-	const wLength = sceneGraph.world.length.toWorldUnit();
-	const wHeight = sceneGraph.world.height.toWorldUnit();
-	const wWidth = sceneGraph.world.width.toWorldUnit();
+	const wLength = sceneGraph.world.length.value;
+	const wHeight = sceneGraph.world.height.value;
+	const wWidth = sceneGraph.world.width.value;
 	const target = new UnitVector3(
 		wLength * 0.5,
 		Math.max(0, wHeight * 0.35),
 		wWidth * 0.5,
-		"worldunit"
+		"cnu"
 	);
-	const position = cameraConfig.levelOpening.startPosition.clone().toWorldUnit(true);
+	const position = cameraConfig.levelOpening.startPosition.clone();
 	const forward = ResolveVector3Axis(SubtractVector3(target, position));
 	const right = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
 	const up = ResolveVector3Axis(CrossVector3(right, forward));
@@ -161,8 +156,8 @@ function resolveDefaultLevelCamera(sceneGraph, cameraConfig) {
 		mode: "level",
 		position, target, forward, right, up,
 		fov: CONFIG.CAMERA.Fov,
-		near: new Unit(0.1, "worldunit"),
-		far: new Unit(Math.max(worldDistanceDefaults.defaultLevelMinFar.value, wLength + wWidth + wHeight), "worldunit"),
+		near: new Unit(0.1, "cnu"),
+		far: new Unit(Math.max(distanceDefaults.defaultLevelMinFar.value, wLength + wWidth + wHeight), "cnu"),
 	};
 }
 
@@ -266,7 +261,7 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 				ScaleVector3(inputDirection, freeCamRuntime.acceleration.value * deltaSeconds)
 			)
 		);
-	} 
+	}
 	else cameraState.velocity.scale(Math.pow(freeCamRuntime.dampingFactor, deltaSeconds * 60));
 
 	if (Vector3Length(cameraState.velocity) > freeCamRuntime.maxSpeed.value) {
@@ -281,16 +276,16 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 	freeCamRuntime.lookDeltaY = 0;
 	freeCamRuntime.wheelDelta = 0;
 
-	if (freeCamRuntime.levelKey) persistedFreeCamStates.set(freeCamRuntime.levelKey, cameraState);
+	persistedFreeCamStates.set(freeCamRuntime.levelKey, cameraState);
 	return cameraState;
 }
 
 /* === DEFAULT CAM (Third-Person Follow) === */
 
 function initializeDefaultCamConfig(cameraConfig) {
-	defaultCamRuntime.config.distance.value = cameraConfig.distance.toWorldUnit();
+	defaultCamRuntime.config.distance.value = cameraConfig.distance.value;
 	defaultCamRuntime.config.sensitivity = cameraConfig.sensitivity;
-	defaultCamRuntime.config.heightOffset.value = cameraConfig.heightOffset.toWorldUnit();
+	defaultCamRuntime.config.heightOffset.value = cameraConfig.heightOffset.value;
 	defaultCamRuntime.currentDistance.value = defaultCamRuntime.config.distance.value;
 	defaultCamRuntime.targetDistance.value = defaultCamRuntime.config.distance.value;
 	defaultCamRuntime.yaw = 0;
@@ -300,9 +295,9 @@ function initializeDefaultCamConfig(cameraConfig) {
 	defaultCamRuntime.active = true;
 
 	Log(
-		"ENGINE", 
-		`DefaultCam initialized: distance=${defaultCamRuntime.config.distance.value}, heightOffset=${defaultCamRuntime.config.heightOffset.value}, sensitivity=${defaultCamRuntime.config.sensitivity}`, 
-		"log", 
+		"ENGINE",
+		`DefaultCam initialized: distance=${defaultCamRuntime.config.distance.value}, heightOffset=${defaultCamRuntime.config.heightOffset.value}, sensitivity=${defaultCamRuntime.config.sensitivity}`,
+		"log",
 		"Level"
 	);
 }
@@ -327,23 +322,15 @@ function HandleDefaultCamInput(eventLike) {
 	}
 }
 
-function worldVectorToCNU(vector) {
-	return {
-		x: WorldUnitToCNU(vector.x),
-		y: WorldUnitToCNU(vector.y),
-		z: WorldUnitToCNU(vector.z),
-	};
-}
-
 function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	const ray = SubtractVector3(desiredCamPos, playerHeadPos);
 	const rayLen = Vector3Length(ray);
 	if (rayLen < 0.01) return { obstructed: false, clippedDistance: rayLen };
 
-	let closestT = WorldUnitToCNU(rayLen);
+	let closestT = rayLen;
 	let obstructed = false;
 	const testCandidate = (aabb, detailedBounds) => {
-		const hit = RayAABBDetailedBoundsIntersect(worldVectorToCNU(playerHeadPos), ResolveVector3Axis(ray), aabb, detailedBounds, closestT);
+		const hit = RayAABBDetailedBoundsIntersect(playerHeadPos, ResolveVector3Axis(ray), aabb, detailedBounds, closestT);
 		if (!hit.hit || hit.t <= 0 || hit.t >= closestT) return;
 
 		closestT = hit.t;
@@ -356,8 +343,8 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 
 	if (obstructed) {
 		closestT = Math.max(
-			worldDistanceDefaults.obstructionMinDistance.value, 
-			CNUtoWorldUnit(closestT) - worldDistanceDefaults.obstructionOffset.value
+			distanceDefaults.obstructionMinDistance.value,
+			closestT - distanceDefaults.obstructionOffset.value
 		);
 	}
 
@@ -379,8 +366,8 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 		defaultCamRuntime.lookDeltaY = 0;
 	}
 
-	// Player position (already a CNU UnitVector3 — convert to worldunit values at point of use).
-	const playerPos = playerState.transform.position.toWorldUnit();
+	// Player position is a CNU UnitVector3 — access components directly.
+	const playerPos = playerState.transform.position;
 
 	// Camera target: player position + height offset.
 	const targetPoint = {
@@ -400,8 +387,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	};
 
 	// Camera obstruction detection.
-	const playerHeadPos = { x: playerPos.x, y: playerPos.y + cfg.heightOffset.value, z: playerPos.z };
-	const { obstructed, clippedDistance } = checkCameraObstruction(playerHeadPos, desiredPos, sceneGraph);
+	const { obstructed, clippedDistance } = checkCameraObstruction(targetPoint, desiredPos, sceneGraph);
 
 	if (obstructed) {
 		defaultCamRuntime.targetDistance.value = clippedDistance;
@@ -409,18 +395,17 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 			Log("ENGINE", `DefaultCam obstruction detected at t=${clippedDistance.toFixed(2)}`, "log", "Level");
 			defaultCamRuntime.obstructionLogged = true;
 		}
-	} 
+	}
 	else {
 		defaultCamRuntime.targetDistance.value = cfg.distance.value;
 		if (defaultCamRuntime.obstructionLogged) defaultCamRuntime.obstructionLogged = false;
 	}
 
 	// Smooth distance interpolation.
-	const lerpSpeed = obstructed ? 100 : 4;
 	defaultCamRuntime.currentDistance.value = Lerp(
 		defaultCamRuntime.currentDistance.value,
 		defaultCamRuntime.targetDistance.value,
-		Math.min(1, lerpSpeed * deltaSeconds)
+		Math.min(1, (obstructed ? 100 : 4) * deltaSeconds)
 	);
 
 	// Final camera position at current distance.
@@ -431,8 +416,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	};
 
 	// Smooth camera position (responsiveness > cinematic float).
-	const posLerpSpeed = 15;
-	const posT = Math.min(1, posLerpSpeed * deltaSeconds);
+	const posT = Math.min(1, 15 * deltaSeconds);
 	const smoothedPos = {
 		x: Lerp(cameraState.position.x, finalPos.x, posT),
 		y: Lerp(cameraState.position.y, finalPos.y, posT),
@@ -453,12 +437,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	return cameraState;
 }
 
-function GetCameraVectors() {
-	return {
-		forward: latestCameraForward,
-		right: latestCameraRight,
-	};
-}
+const GetCameraVectors = () => { return { forward: latestCameraForward.right, right: latestCameraRight } };
 
 let latestCameraForward = null;
 let latestCameraRight = null;
@@ -470,7 +449,7 @@ function cacheCameraVectors(cameraState) {
 
 function computeInitialDefaultCamPosition(playerState, levelBase) {
 	const cfg = defaultCamRuntime.config;
-	const playerPos = playerState.transform.position.toWorldUnit();
+	const playerPos = playerState.transform.position;
 	const yawRad = (defaultCamRuntime.yaw * Math.PI) / 180;
 	const pitchRad = (defaultCamRuntime.pitch * Math.PI) / 180;
 
@@ -478,22 +457,19 @@ function computeInitialDefaultCamPosition(playerState, levelBase) {
 		playerPos.x + cfg.distance.value * Math.cos(pitchRad) * Math.sin(yawRad),
 		playerPos.y + cfg.heightOffset.value + cfg.distance.value * Math.sin(pitchRad),
 		playerPos.z + cfg.distance.value * Math.cos(pitchRad) * Math.cos(yawRad),
-		"worldunit"
+		"cnu"
 	);
 	const target = new UnitVector3(
 		playerPos.x,
 		playerPos.y + cfg.heightOffset.value,
 		playerPos.z,
-		"worldunit"
+		"cnu"
 	);
 	const forward = ResolveVector3Axis(SubtractVector3(target, position));
 	const right = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
 
 	return {
-		position,
-		target,
-		forward,
-		right,
+		position, target, forward, right,
 		up: ResolveVector3Axis(CrossVector3(right, forward)),
 		mode: "defaultcam",
 		fov: levelBase.fov,
@@ -504,9 +480,8 @@ function computeInitialDefaultCamPosition(playerState, levelBase) {
 
 function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta, playerState) {
 	if (!freeCamEnabled) {
-		freeCamRuntime.active = false;
 		freeCamRuntime.levelKey = null;
-		for (const key in freeCamRuntime.keyState) freeCamRuntime.keyState[key] = false;
+		Object.keys(freeCamRuntime.keyState).forEach(key => { freeCamRuntime.keyState[key] = false; });
 		freeCamRuntime.lookDeltaX = 0;
 		freeCamRuntime.lookDeltaY = 0;
 		freeCamRuntime.wheelDelta = 0;
@@ -525,11 +500,10 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta, playerStat
 	}
 
 	// Check if game uses stages at all and store key
-	const levelKey = payloadMeta.stageId 
+	const levelKey = payloadMeta.stageId
 		? `${payloadMeta.levelId}:${payloadMeta.stageId}`
 		: payloadMeta.levelId;
 
-	freeCamRuntime.active = true;
 	freeCamRuntime.levelKey = levelKey;
 
 	const existing = persistedFreeCamStates.get(levelKey);
