@@ -30,12 +30,8 @@ function resolveEntityBlueprintMap(payload) {
 	return map;
 }
 
-function buildEntityInput(entityDefinition, blueprintMap) {
-	const source = entityDefinition;
-	const merged = source.blueprintId
-		? { ...source, baseBlueprint: blueprintMap[source.blueprintId] }
-		: source;
-
+function buildEntityInput(source, blueprintMap) {
+	const merged = source.blueprintId ? { ...source, baseBlueprint: blueprintMap[source.blueprintId] } : source;
 	return {
 		...merged,
 		id: merged.id,
@@ -43,41 +39,34 @@ function buildEntityInput(entityDefinition, blueprintMap) {
 }
 
 function resolveTriggerColor(triggerType) {
-	if (triggerType === "cutscene") return { r: 0.45, g: 0.75, b: 1, a: 0.35 };
-	if (triggerType === "dialogue") return { r: 0.4, g: 1, b: 0.65, a: 0.35 };
-	if (triggerType === "combat") return { r: 1, g: 0.45, b: 0.45, a: 0.35 };
-	// Future Additions: Checkpoint, Custom
-	return { r: 1, g: 0.85, b: 0.4, a: 0.3 };
+	switch (triggerType) {
+		case "cutscene": return { r: 0.45, g: 0.75, b: 1, a: 0.35 };
+		case "dialogue": return { r: 0.4, g: 1, b: 0.65, a: 0.35 };
+		case "combat"  : return { r: 1, g: 0.45, b: 0.45, a: 0.35 };
+		default        : return { r: 1, g: 0.85, b: 0.4, a: 0.3 };
+	}
 }
 
 function buildTriggerMesh(triggerDefinition, world, index) {
-	const source = triggerDefinition;
-	const start = source.start;
-	const end = source.end;
-	const triggerY = start.y;
-	const triggerHeight = world.height.value - triggerY;
-	const center = new UnitVector3(
-		start.x + end.x,
-		triggerY + triggerHeight,
-		start.z + end.z,
-		"cnu"
-	).scale(0.5);
-
-	const size = new UnitVector3(
-		Math.max(1, Math.abs(end.x - start.x)),
-		triggerHeight,
-		Math.max(1, Math.abs(end.z - start.z)),
-		"cnu"
-	);
-
-	const color = resolveTriggerColor(source.type);
+	const triggerHeight = world.height.value - triggerDefinition.start.y;
+	const color = resolveTriggerColor(triggerDefinition.type);
 	return BuildObject(
 		{
-			id              : source.id,
+			id              : triggerDefinition.id,
 			shape           : "cube",
 			complexity      : "medium",
-			dimensions      : size,
-			position        : center,
+			dimensions      : new UnitVector3(
+				Math.max(1, Math.abs(triggerDefinition.end.x - triggerDefinition.start.x)),
+				triggerHeight,
+				Math.max(1, Math.abs(triggerDefinition.end.z - triggerDefinition.start.z)),
+				"cnu"
+			),
+			position        : new UnitVector3(
+				triggerDefinition.start.x + triggerDefinition.end.x,
+				triggerDefinition.start.y + triggerHeight,
+				triggerDefinition.start.z + triggerDefinition.end.z,
+				"cnu"
+			).scale(0.5),
 			rotation        : new UnitVector3(0, 0, 0, "radians"),
 			scale           : ToVector3(1),
 			pivot           : new UnitVector3(0, 0, 0, "cnu"),
@@ -100,9 +89,9 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 			collisionShape : "none",
 			customTextures : [],
 			trigger        : {
-				type        : source.type,
-				payload     : source.payload,
-				activateOnce: source.activateOnce,
+				type        : triggerDefinition.type,
+				payload     : triggerDefinition.payload,
+				activateOnce: triggerDefinition.activateOnce,
 			}
 		}
 	);
@@ -111,20 +100,17 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 function buildWaterVisualMeshes(world) {
 	if (!world.waterLevel) return null;
 
-	const waterLength = world.length.value;
-	const waterWidth  = world.width.value;
-	const centerX     = waterLength * 0.5;
-	const centerZ     = waterWidth * 0.5;
-	const waterLevel  = world.waterLevel.value;
-	const waterBottom = Clamp(waterLevel - 0.1, 0, world.deathBarrierY.value);
-	const waterHeight = Math.max(0.1, waterLevel - waterBottom);
+	const centerX     = world.length.value * 0.5;
+	const centerZ     = world.width.value * 0.5;
+	const waterBottom = Clamp(world.waterLevel.value - 0.1, 0, world.deathBarrierY.value);
+	const waterHeight = Math.max(0.1, world.waterLevel.value - waterBottom);
 
 	const body = BuildObject(
 		{
-			id              : `water-body-${waterLength}-${waterWidth}-${waterBottom}-${waterLevel}`,
+			id              : `water-body-${world.length.value}-${world.width.value}-${waterBottom}-${world.waterLevel.value}`,
 			shape           : "cube",
 			complexity      : "medium",
-			dimensions      : new UnitVector3(waterLength, waterHeight, waterWidth, "cnu"),
+			dimensions      : new UnitVector3(world.length.value, waterHeight, world.width.value, "cnu"),
 			position        : new UnitVector3(centerX, waterBottom + waterHeight * 0.5, centerZ, "cnu"),
 			rotation        : new UnitVector3(0, 0, 0, "radians"),
 			scale           : ToVector3(1),
@@ -152,36 +138,24 @@ function buildWaterVisualMeshes(world) {
 
 	const top = BuildObject(
 		{
-			id              : `water-top-${waterLength}-${waterWidth}-${waterLevel}`,
-			shape           : "plane",
-			complexity      : "medium",
-			dimensions      : new UnitVector3(waterLength, 1, waterWidth, "cnu"),
-			position        : new UnitVector3( centerX, waterLevel + 0.02, centerZ, "cnu"),
+			id: `water-top-${world.length.value}-${world.width.value}-${world.waterLevel.value}`,
+			shape: "plane", complexity: "medium",
+			dimensions      : new UnitVector3(world.length.value, 1, world.width.value, "cnu"),
+			position        : new UnitVector3( centerX, world.waterLevel.value + 0.02, centerZ, "cnu"),
 			rotation        : new UnitVector3(0, 0, 0, "radians"),
 			scale           : ToVector3(1),
 			pivot           : new UnitVector3(0, 0, 0, "cnu"),
 			primitiveOptions: {},
 			texture         : {
-				textureID        : "sea-surface",
-				baseTextureID    : "sea-surface",
-				materialTextureID: "sea-surface",
-				shape            : "square",
-				color            : { r: 0.38, g: 0.62, b: 0.85, a: 1 },
-				opacity          : 0.35,
-				density          : 1,
-				speckSize        : 2,
-				animated         : true,
-				holdTimeSpeed    : 1,
-				blendTimeSpeed   : 1,
+				textureID: "sea-surface", baseTextureID: "sea-surface", materialTextureID: "sea-surface", shape: "square",
+				color: { r: 0.38, g: 0.62, b: 0.85, a: 1 },
+				opacity: 0.35, density: 1, speckSize: 2, animated: true, holdTimeSpeed: 1, blendTimeSpeed: 1,
 			},
-			detail         : { scatter: [] },
-			role           : "water",
-			collisionShape : "none",
-			customTextures : [],
+			detail: { scatter: [] }, role: "water", collisionShape: "none", customTextures: [],
 		}
 	);
 
-	return { body: body, top : top };
+	return { body, top };
 }
 
 function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
@@ -202,9 +176,8 @@ function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
 function buildSceneBoundingBoxes(sceneGraph) {
 	const bounds = [];
 	const classifyEntityType = (entity) => {
-		const type = entity.type;
-		if (type.includes("player")) return { whole: "Player", part: "PlayerPart" };
-		if (type.includes("boss")) return { whole: "Boss", part: "BossPart" };
+		if (entity.type.includes("player")) return { whole: "Player", part: "PlayerPart" };
+		if (entity.type.includes("boss")) return { whole: "Boss", part: "BossPart" };
 		return { whole: "Entity", part: "EntityPart" };
 	};
 
@@ -215,28 +188,18 @@ function buildSceneBoundingBoxes(sceneGraph) {
 		max : aabb.max 
 	});
 
-	const terrain = sceneGraph.terrain;
-	terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.worldAabb));
-
-	const scatter = sceneGraph.scatter;
-	scatter.forEach((mesh) => push("Scatter", mesh.id, mesh.worldAabb));
+	sceneGraph.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.worldAabb));
+	sceneGraph.scatter.forEach((mesh) => push("Scatter", mesh.id, mesh.worldAabb));
 
 	// Per-model scatter bounding boxes from instanced batch generation.
-	sceneGraph.debug.scatterBounds.forEach((record) => bounds.push({ 
-		type: record.type, 
-		id  : record.id, 
-		min : record.min, 
-		max : record.max 
-	}));
+	sceneGraph.debug.scatterBounds.forEach(({ type, id, min, max }) => bounds.push({ type, id, min, max }));
 
-	const obstacles = sceneGraph.obstacles;
-	obstacles.forEach((obstacle) => {
+	sceneGraph.obstacles.forEach((obstacle) => {
 		push("Obstacle", obstacle.id, obstacle.bounds);
 		obstacle.parts.forEach((part) => push("Obstacle", part.id, part.worldAabb));
 	});
 
-	const entities = sceneGraph.entities;
-	entities.forEach((entity) => {
+	sceneGraph.entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
 		if (entity.type === "player") push(category.whole, entity.id, entity.collision.profile.modelAabb);
 		else push(category.whole, entity.id, entity.collision.aabb);
@@ -265,19 +228,19 @@ function buildSceneDetailedBounds(sceneGraph) {
 
 	sceneGraph.entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
-		const physBounds = entity.collision.physics.bounds;
-		if (physBounds.type === "capsule") {
+		if (entity.collision.physics.bounds.type === "capsule") {
 			push(category, entity.id, {
 				type        : "capsule",
-				radius      : physBounds.radius,
-				halfHeight  : physBounds.halfHeight,
-				segmentStart: physBounds.segmentStart,
-				segmentEnd  : physBounds.segmentEnd,
+				radius      : entity.collision.physics.bounds.radius,
+				halfHeight  : entity.collision.physics.bounds.halfHeight,
+				segmentStart: entity.collision.physics.bounds.segmentStart,
+				segmentEnd  : entity.collision.physics.bounds.segmentEnd,
 			});
+
 			return;
 		}
 
-		push(category, entity.id, physBounds);
+		push(category, entity.id, entity.collision.physics.bounds);
 	});
 
 	return detailed;
@@ -290,28 +253,21 @@ function RefreshSceneBoundingBoxes(sceneGraph) {
 }
 
 async function BuildLevel(payload) {
-	const source              = payload;
-	const world               = source.world;
-	const terrainDefinitions  = source.terrain.objects;
-	const triggerDefinitions  = source.terrain.triggers;
-	const obstacleDefinitions = source.obstacles;
-	const entityDefinitions   = source.entities;
-	const blueprintMap        = resolveEntityBlueprintMap(source);
-	const scatterMultiplier   = GetPerformanceScatterMultiplier();
 	const scatterBatches      = new Map();
 	const scatterDebugBounds  = [];
 	const enqueueScatterBatches = (objectMesh, indexSeed) => {
 		if (objectMesh.detail.scatter.length === 0) return;
-
 		BuildScatterBatches({
-			objectMesh, scatterMultiplier, world, indexSeed,
+			objectMesh, indexSeed, 
+			scatterMultiplier   : GetPerformanceScatterMultiplier(),
+			world               : payload.world,
 			explicitScatter     : objectMesh.detail.scatter,
 			batchMap            : scatterBatches,
 			debugBboxAccumulator: scatterDebugBounds,
 		});
 	};
 
-	const terrain = terrainDefinitions.map((terrainObject, index) => {
+	const terrain = payload.terrain.objects.map((terrainObject, index) => {
 		terrainObject.position.y += terrainObject.dimensions.y * terrainObject.scale.y * 0.5;
 
 		const terrainMesh = BuildObject(
@@ -330,12 +286,10 @@ async function BuildLevel(payload) {
 	});
 	if (terrain.length > 0) Log("ENGINE", `Terrain object group created: count=${terrain.length}`, "log", "Level");
 
-	const obstacleRecords = BuildObstacles(obstacleDefinitions, {});
+	const obstacleRecords = BuildObstacles(payload.obstacles, {});
 
 	// Generate scatter batches for obstacles that have scatter.
-	obstacleRecords.forEach((record, index) => enqueueScatterBatches(record.mesh, terrainDefinitions.length + index + 1));
-
-	const primitiveGeometry = BuildScatterVisualResources(scatterBatches);
+	obstacleRecords.forEach((record, index) => enqueueScatterBatches(record.mesh, payload.terrain.objects.length + index + 1));
 
 	let totalBatchInstances = 0;
 	scatterBatches.forEach((batch) => { totalBatchInstances += batch.instanceCount; });
@@ -348,28 +302,24 @@ async function BuildLevel(payload) {
 		);
 	}
 
-	const triggers = triggerDefinitions.map((triggerDefinition, index) =>
-		buildTriggerMesh(triggerDefinition, world, index)
-	);
+	const triggers = payload.terrain.triggers.map((triggerDefinition, index) => {
+		return buildTriggerMesh(triggerDefinition, payload.world, index);
+	});
 	if (triggers.length > 0) Log("ENGINE", `Trigger group created: count=${triggers.length}`, "log", "Level");
 
-	const surfaceMap = buildSurfaceMap(terrainDefinitions, obstacleDefinitions);
+	const surfaceMap = buildSurfaceMap(payload.terrain.objects, payload.obstacles);
 
-	const entities = entityDefinitions.map((entity) =>
-		BuildEntity(buildEntityInput(entity, blueprintMap), surfaceMap)
-	);
+	const entities = payload.entities.map((entity) => {
+		return BuildEntity(buildEntityInput(entity, resolveEntityBlueprintMap(payload)), surfaceMap);
+	});
 	if (entities.length > 0) Log("ENGINE", `Entity group created: count=${entities.length}`, "log", "Level");
 
 	const sceneGraph = {
-		world                   : world,
-		waterVisual             : buildWaterVisualMeshes(world),
-		terrain                 : terrain,
+		world: payload.world, 
+		terrain, entities, triggers, scatter: [], scatterBatches, 
 		obstacles               : obstacleRecords,
-		entities                : entities,
-		triggers                : triggers,
-		scatter                 : [],
-		scatterBatches          : scatterBatches,
-		scatterPrimitiveGeometry: primitiveGeometry,
+		waterVisual             : buildWaterVisualMeshes(payload.world),
+		scatterPrimitiveGeometry: BuildScatterVisualResources(scatterBatches),
 		debug                   : {
 			showTriggerVolumes: !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.Triggers === true),
 			detailedBounds    : [],
@@ -381,9 +331,9 @@ async function BuildLevel(payload) {
 				particleHook: null,
 			},
 		},
-		cameraConfig: source.camera,
-		playerConfig: source.player,
-		meta        : source.meta,
+		cameraConfig: payload.camera,
+		playerConfig: payload.player,
+		meta        : payload.meta,
 	};
 
 	RefreshSceneBoundingBoxes(sceneGraph);

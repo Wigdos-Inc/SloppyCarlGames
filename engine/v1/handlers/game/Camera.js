@@ -14,6 +14,7 @@ import {
 	Vector3Length,
 	ToVector3,
 	WORLD_NORMALS,
+	LerpVector3,
 } from "../../math/Vector3.js";
 import { ClampVelocity, RayAABBDetailedBoundsIntersect } from "../../math/Collision.js";
 import { Lerp, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
@@ -116,9 +117,7 @@ function createCameraState(source) {
 	return {
 		position: source.position,
 		yaw: source.yaw,
-		pitch: pitch,
-		forward: forward,
-		right: right,
+		pitch, forward, right,
 		up: ResolveVector3Axis(CrossVector3(right, forward)),
 		speed: freeCamRuntime.maxSpeed,
 		velocity: new UnitVector3(0, 0, 0, "cnu"),
@@ -197,13 +196,9 @@ function HandleFreeCamInput(eventLike) {
 	if (!freeCamEnabled) return false;
 
 	switch (eventLike.type) {
-		case "pointerdown":
-			if (RequestPointerLock()) Log("ENGINE", "FreeCam pointer lock requested.", "log", "Level");
-			return true;
-		case "wheel":
-			freeCamRuntime.wheelDelta += eventLike.deltaY;
-			return true;
-		case "keydown":
+		case "pointerdown": if (RequestPointerLock()) Log("ENGINE", "FreeCam pointer lock requested.", "log", "Level"); return true;
+		case "wheel"      : freeCamRuntime.wheelDelta += eventLike.deltaY; return true;
+		case "keydown"    :
 			if (eventLike.code === "Escape") {
 				releasePointerLock();
 				return true;
@@ -256,10 +251,7 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 	const inputDirection = getMoveDirectionFromKeys(cameraState);
 	if (Vector3Length(inputDirection) > EPSILON) {
 		cameraState.velocity.set(
-			AddVector3(
-				cameraState.velocity,
-				ScaleVector3(inputDirection, freeCamRuntime.acceleration.value * deltaSeconds)
-			)
+			AddVector3(cameraState.velocity, ScaleVector3(inputDirection, freeCamRuntime.acceleration.value * deltaSeconds))
 		);
 	}
 	else cameraState.velocity.scale(Math.pow(freeCamRuntime.dampingFactor, deltaSeconds * 60));
@@ -304,10 +296,8 @@ function initializeDefaultCamConfig(cameraConfig) {
 
 function HandleDefaultCamInput(eventLike) {
 	switch (eventLike.type) {
-		case "pointerdown":
-			if (RequestPointerLock()) Log("ENGINE", "DefaultCam pointer lock requested.", "log", "Level");
-			return true;
-		case "keydown":
+		case "pointerdown": if (RequestPointerLock()) Log("ENGINE", "DefaultCam pointer lock requested.", "log", "Level"); return true;
+		case "keydown"    :
 			if (eventLike.code === "Escape") {
 				releasePointerLock();
 				return true;
@@ -338,7 +328,7 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	};
 
 	// Broadphase is AABB-only; obstruction only counts after detailed-bounds narrowphase.
-	for (const mesh of sceneGraph.terrain) testCandidate(mesh.worldAabb, mesh.detailedBounds);
+	for (const mesh of sceneGraph.terrain)  testCandidate(mesh.worldAabb, mesh.detailedBounds);
 	for (const obs of sceneGraph.obstacles) testCandidate(obs.bounds, obs.detailedBounds);
 
 	if (obstructed) {
@@ -416,12 +406,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	};
 
 	// Smooth camera position (responsiveness > cinematic float).
-	const posT = Math.min(1, 15 * deltaSeconds);
-	const smoothedPos = {
-		x: Lerp(cameraState.position.x, finalPos.x, posT),
-		y: Lerp(cameraState.position.y, finalPos.y, posT),
-		z: Lerp(cameraState.position.z, finalPos.z, posT),
-	};
+	const smoothedPos = LerpVector3(cameraState.position, finalPos, Math.min(1, 15 * deltaSeconds));
 
 	// Compute forward/right/up from camera position looking at target.
 	const forward = ResolveVector3Axis(SubtractVector3(targetPoint, smoothedPos));
@@ -437,7 +422,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	return cameraState;
 }
 
-const GetCameraVectors = () => { return { forward: latestCameraForward.right, right: latestCameraRight } };
+const GetCameraVectors = () => { return { forward: latestCameraForward, right: latestCameraRight } };
 
 let latestCameraForward = null;
 let latestCameraRight = null;

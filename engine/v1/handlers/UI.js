@@ -18,11 +18,7 @@ import { ValidateMenuPayload } from "../core/validate.js";
 /* === MENU UI === */
 // Applies game menu payloads and handles music switching.
 
-function CreateUI(payload) { 
-	// Build UI elements from payload and render them.
-	const elements = BuildElements(payload.elements, payload.screenId);
-	RenderPayload({ rootId: payload.rootId, ...payload, elements });
-}
+const CreateUI = (payload) => RenderPayload({ rootId: payload.rootId, ...payload, elements: BuildElements(payload.elements, payload.screenId) });
 
 function createUiRuntimeMaps() {
 	return {
@@ -38,10 +34,7 @@ function createUiRuntimeMaps() {
 function getActionFromDefinition(definition, eventType) {
 	if (definition.events[eventType]) return definition.events[eventType];
 	if (definition.on[eventType]) return definition.on[eventType];
-
-	const capitalized = eventType.charAt(0).toUpperCase() + eventType.slice(1);
-	const direct = definition[`on${capitalized}`];
-	return direct || null;
+	return definition[`on${eventType.charAt(0).toUpperCase() + eventType.slice(1)}`] || null;
 }
 
 function analyzeUiDefinitions(definitions, analysis = null) {
@@ -52,8 +45,7 @@ function analyzeUiDefinitions(definitions, analysis = null) {
 	};
 
 	definitions.forEach((definition) => {
-		const elementId = definition.id;
-		if (elementId) {
+		if (definition.id) {
 			result.elementIndex[definition.id] = definition;
 			result.uiRuntime.hoverOverMap[definition.id] = getActionFromDefinition(definition, "pointerover");
 			result.uiRuntime.hoverOutMap[definition.id] = getActionFromDefinition(definition, "pointerout");
@@ -78,23 +70,21 @@ function analyzeUiDefinitions(definitions, analysis = null) {
 function ResolvePrecomputedAction(type, targetId) {
 	const runtime = Cache.UI.uiRuntime;
 	switch (type) {
-		case "pointerover": return runtime.hoverOverMap[targetId];
-		case "pointerout": return runtime.hoverOutMap[targetId];
-		case "click": return runtime.clickMap[targetId];
-		case "input": return runtime.inputMap[targetId];
-		case "change": return runtime.changeMap[targetId];
-		case "keydown":
-		case "keyup":
-			return runtime.keyMap[targetId];
+		case "pointerover": return Cache.UI.uiRuntime.hoverOverMap[targetId];
+		case "pointerout" : return Cache.UI.uiRuntime.hoverOutMap[targetId];
+		case "click"      : return Cache.UI.uiRuntime.clickMap[targetId];
+		case "input"      : return Cache.UI.uiRuntime.inputMap[targetId];
+		case "change"     : return Cache.UI.uiRuntime.changeMap[targetId];
+		case "keydown"    :
+		case "keyup"      :
+			return Cache.UI.uiRuntime.keyMap[targetId];
 		default: return null;
 	}
 }
 
 function countInlineStyleKeys(styles) {
 	let count = 0;
-	for (const key in styles) {
-		if (key !== "classList") count++;
-	}
+	for (const key in styles) if (key !== "classList") count++;
 	return count;
 }
 
@@ -121,17 +111,15 @@ function HandleUiAction(action) {
 		case "style"  :
 			const element = document.getElementById(action.targetId);
 			if (element) {
-				const styles = action.styles;
-				const classListConfig = styles.classList;
-
+				const classListConfig = action.styles.classList;
 				if (classListConfig) {
 					if (classListConfig.add)    classListConfig.add.forEach(addClass => element.classList.add(addClass));
 					if (classListConfig.remove) classListConfig.remove.forEach(removeClass => element.classList.remove(removeClass));
 				}
 
 				const inlineStyles = {};
-				for (const key in styles) {
-					if (key !== "classList") inlineStyles[key] = styles[key];
+				for (const key in action.styles) {
+					if (key !== "classList") inlineStyles[key] = action.styles[key];
 				}
 				Object.assign(element.style, inlineStyles);
 
@@ -168,15 +156,13 @@ async function ApplyMenuUI(payload) {
 	Cache.UI.uiRuntime = uiAnalysis.uiRuntime;
 	PushToSession(SESSION_KEYS.Cache, Cache);
 
-	const screenLabel = payload.screenId;
-	Log("ENGINE", `UI Render: ${screenLabel}`, "log", "UI");
+	Log("ENGINE", `UI Render: ${payload.screenId}`, "log", "UI");
 
 	CreateUI(payload);
 	Cursor.changeState("enabled");
 
 	// Start UI music after render.
-	const music = payload.music;
-	if (music) PlayMusic(music.name, music.src, music);
+	if (payload.music) PlayMusic(payload.music.name, payload.music.src, payload.music);
 
 	// Notify engine consumers that the UI has been rendered and music (if any) started.
 	SendEvent("UI_RENDERED", { screenId: payload.screenId, rootId: payload.rootId });

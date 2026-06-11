@@ -42,22 +42,19 @@ function drawShape(ctx, shape, x, y, width, height) {
 			ctx.fill();
 			break;
 		}
-		default: {
-			ctx.fillRect(x, y, width, height);
-		}
+		default: { ctx.fillRect(x, y, width, height) }
 	}
 }
 
 function drawPattern(ctx, size, textureDefinition, textureScale) {
 	const primary = parseHexColor(textureDefinition.primary);
 	const secondary = parseHexColor(textureDefinition.secondary);
-	const pattern = textureDefinition.pattern;
     const draw = (x, y, width, height) => drawShape(ctx, textureDefinition.shape, x, y, width, height);
 
     ctx.fillStyle = primary;
     ctx.fillRect(0, 0, size, size);
 
-	switch (pattern) {
+	switch (textureDefinition.pattern) {
 		case "checker": {
 			const cell = Math.max(4, Math.floor((size / 8) * textureScale));
 			for (let x = 0; x < size; x += cell) {
@@ -124,11 +121,8 @@ function toPowerOfTwoSize(value) {
 }
 
 function resolveTextureSize(textureDefinition, usageEntry) {
-	const baseSize = textureDefinition.size;
-	if (usageEntry.isTerrain !== true) return toPowerOfTwoSize(baseSize);
-
-	const scaleMultiplier = Math.max(1, Math.min(8, usageEntry.maxSpan / 24));
-	return toPowerOfTwoSize(baseSize * scaleMultiplier);
+	if (usageEntry.isTerrain !== true) return toPowerOfTwoSize(textureDefinition.size);
+	return toPowerOfTwoSize(textureDefinition.size * Math.max(1, Math.min(8, usageEntry.maxSpan / 24)));
 }
 
 function BuildTextureSurface(textureDefinition, resolvedSize, textureScale) {
@@ -138,21 +132,14 @@ function BuildTextureSurface(textureDefinition, resolvedSize, textureScale) {
 	canvas.height = size;
 	const context = canvas.getContext("2d");
 
-	drawPattern(context, size, textureDefinition, textureScale);
+	drawPattern(canvas.getContext("2d"), size, textureDefinition, textureScale);
 	return canvas;
 }
 
 function createUsageEntry(baseTextureID) {
 	return {
-		isTerrain        : false,
-		maxSpan          : 1,
-		density          : null,
-		speckSize        : null,
-		animatedRequested: false,
-		holdTimeSpeed    : 1,
-		blendTimeSpeed   : 1,
-		baseTextureID    : baseTextureID,
-		shape            : null,
+		isTerrain: false, maxSpan: 1, density: null, speckSize: null, animatedRequested: false, 
+		holdTimeSpeed: 1, blendTimeSpeed: 1, baseTextureID, shape: null,
 	};
 }
 
@@ -221,9 +208,7 @@ function collectCustomTextures(mesh, customTextureUsage) {
 		} 
 		else {
 			customTextureUsage[id] = {
-				decalType: "shape",
-				ct,
-				mesh,
+				decalType: "shape", ct, mesh,
 				placement: { side: ct.side, localTransform: ct.localTransform },
 			};
 		}
@@ -366,21 +351,18 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 	ctx.globalCompositeOperation = "source-over";
 
 	if (ct.detail !== null && ct.detail.baseTextureID !== null) {
-		const sc    = ct.localTransform.scale;
-		const dim   = mesh.dimensions;
 		const faceSizes = {
-			front: [dim.x, dim.y], back:   [dim.x, dim.y],
-			top:   [dim.x, dim.z], bottom: [dim.x, dim.z],
-			right: [dim.z, dim.y], left:   [dim.z, dim.y],
+			front: [mesh.dimensions.x, mesh.dimensions.y], back:   [mesh.dimensions.x, mesh.dimensions.y],
+			top:   [mesh.dimensions.x, mesh.dimensions.z], bottom: [mesh.dimensions.x, mesh.dimensions.z],
+			right: [mesh.dimensions.z, mesh.dimensions.y], left:   [mesh.dimensions.z, mesh.dimensions.y],
 		};
 		const [faceW, faceH] = faceSizes[ct.side];
 		const partFaceSize  = Math.max(faceW, faceH);
-		const autoRatio     = partFaceSize > 0 ? Math.max(sc.x, sc.y) / partFaceSize : 1;
+		const autoRatio     = partFaceSize > 0 ? Math.max(ct.localTransform.scale.x, ct.localTransform.scale.y) / partFaceSize : 1;
 
-		const partDetail        = mesh.detail.texture;
-		const partBlueprint     = visualTemplates.textures[partDetail.baseTextureID];
-		const partEffDensity    = partDetail.density    !== null ? partDetail.density    : partBlueprint.density;
-		const partEffSpeckSize  = partDetail.speckSize  !== null ? partDetail.speckSize  : partBlueprint.speckSize;
+		const partBlueprint     = visualTemplates.textures[mesh.detail.texture.baseTextureID];
+		const partEffDensity    = mesh.detail.texture.density    !== null ? mesh.detail.texture.density    : partBlueprint.density;
+		const partEffSpeckSize  = mesh.detail.texture.speckSize  !== null ? mesh.detail.texture.speckSize  : partBlueprint.speckSize;
 
 		const decalBlueprint    = visualTemplates.textures[ct.detail.baseTextureID];
 		const resolvedBlueprint = {
@@ -388,12 +370,10 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 			density:   partEffDensity   * ct.detail.density,
 			speckSize: partEffSpeckSize * ct.detail.speckSize,
 		};
-		const resolvedSize       = toPowerOfTwoSize(decalBlueprint.size);
-		const effectiveScale     = autoRatio > 0 ? textureScale / autoRatio : textureScale;
-		const texCanvas          = BuildTextureSurface(resolvedBlueprint, resolvedSize, effectiveScale);
+		const effectiveScale = autoRatio > 0 ? textureScale / autoRatio : textureScale;
 
 		ctx.globalCompositeOperation = "source-atop";
-		ctx.drawImage(texCanvas, 0, 0, size, size);
+		ctx.drawImage(BuildTextureSurface(resolvedBlueprint, toPowerOfTwoSize(decalBlueprint.size), effectiveScale), 0, 0, size, size);
 		ctx.globalCompositeOperation = "source-over";
 	}
 
@@ -415,12 +395,7 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 				speckSize: usageEntry.speckSize,
 			};
 		}
-		if (usageEntry.shape) {
-			resolvedTextureBlueprint = {
-				...resolvedTextureBlueprint,
-				shape: usageEntry.shape,
-			};
-		}
+		if (usageEntry.shape) resolvedTextureBlueprint = { ...resolvedTextureBlueprint, shape: usageEntry.shape };
 
 		const animatedRequested = usageEntry.animatedRequested === true;
 		const templateSupportsAnimation = textureBlueprint.animation.able === true;
@@ -453,15 +428,8 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 
 	for (const id in customTextureUsage) {
 		const cu = customTextureUsage[id];
-		const source = cu.decalType === "image"
-			? cu.bitmap
-			: compositeShapeDecal(cu.ct, cu.mesh, options.textureScale);
-		registry[id] = {
-			id,
-			source,
-			placement: cu.placement,
-			dirty    : false,
-		};
+		const source = cu.decalType === "image" ? cu.bitmap : compositeShapeDecal(cu.ct, cu.mesh, options.textureScale);
+		registry[id] = { id, source, placement: cu.placement, dirty: false };
 	}
 
 	Log(
@@ -484,11 +452,9 @@ async function PrepareLevelVisualResources(sceneGraph) {
 		primitiveGeometry: sceneGraph.scatterPrimitiveGeometry,
 	};
 
-	const textureCount = Object.keys(textureRegistry).length;
-	const scatterTypeCount = Object.keys(visualTemplates.scatterTypes).length;
 	Log(
 		"ENGINE",
-		`Visual resources ready: textures=${textureCount}, scatterTypes=${scatterTypeCount}`,
+		`Visual resources ready: textures=${Object.keys(textureRegistry).length}, scatterTypes=${Object.keys(visualTemplates.scatterTypes).length}`,
 		"log",
 		"Level"
 	);

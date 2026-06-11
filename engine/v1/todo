@@ -1,11 +1,15 @@
 This file contains current priorities.
 
+Add new standard level controls: Arrow keys control camera (includes Simulator).
+- Add mouse & keyboard sensitivity settings in config, influencing camera controls.
 Update test characters to test multiple types of characters with intuitive physics
 Add Terrain Blueprint Support (start using Claude Code):
 - Add Sonic-Style Loop Blueprint
 - Add Half-Pipe Blueprint
 - Add Full-Pipe Blueprint
 Add new primitive type: nullSpace (for "gaps" and "holes" in terrain)
+Breakable Obstacles
+Particles
 Entity AI:
 - Default behaviours (not mutually exclusive):
   - Chase
@@ -16,6 +20,9 @@ Entity AI:
   - Attack
   - Defend
 - Custom behaviours: Game attaches handlers OR events.
+Player Abilities:
+- Pretty much have to be custom handlers. Optional use, game can choose to apply effects manually.
+- Maybe some standards? Like double jump? Boosting?
 Rework Collectible system into collections with built-in handling support.
 Build new test level (prompt in notepad).
 Build Load Screen functionality.
@@ -61,3 +68,6 @@ Additions to Level API:
 - Do:
   - 
 - Snapshot
+
+
+Add full documentation API so devs can understand how to work the engine.

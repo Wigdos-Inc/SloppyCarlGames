@@ -118,19 +118,17 @@ function remapFacesAfterRotation(rotation) {
 /* === TRANSFORM UTILITIES === */
 
 function cloneRootTransform(transform) {
-	const source = transform;
-	const position = source.position.clone();
-	const rotation = source.rotation.clone();
-	const scale = source.scale;
-	const pivot = source.pivot.clone();
+	const position = transform.position.clone();
+	const rotation = transform.rotation.clone();
+	const scale = transform.scale;
+	const pivot = transform.pivot.clone();
 	return { position, rotation, scale, pivot };
 }
 
 function cloneLocalTransform(transform) {
-	const source = transform;
-	const position = source.position.clone();
-	const rotation = source.rotation.clone();
-	const scale = source.scale;
+	const position = transform.position.clone();
+	const rotation = transform.rotation.clone();
+	const scale = transform.scale;
 	return { position, rotation, scale };
 }
 
@@ -144,9 +142,7 @@ function ComposeTransform(parentTransform, localTransform) {
 	};
 }
 
-function getSurfaceOrigin(surface) {
-	return { x: surface.position.x, y: surface.topY, z: surface.position.z };
-}
+const getSurfaceOrigin = (surface) => { return { x: surface.position.x, y: surface.topY, z: surface.position.z } };
 
 function resolveInitialMovementProgress(movement, currentPosition) {
 	const d = SubtractVector3(movement.end, movement.start);
@@ -224,7 +220,7 @@ function buildPart(source) {
 
 function buildModel(entityDefinition, surfaceMap) {
 	// --- Step 1: Resolve rootTransform from data ---
-	const rtScale    = entityDefinition.model.rootTransform.scale;
+	const rtScale = entityDefinition.model.rootTransform.scale;
 
 	// Build all parts (each part wraps its own values in Unit/UnitVector3).
 	const parts = entityDefinition.model.parts.map((part) => buildPart(part));
@@ -400,12 +396,10 @@ function computeCapsuleFromAabb(aabb) {
 }
 
 function computeSphereFromAabb(aabb) {
-	const half = aabb.max.clone().subtract(aabb.min).scale(0.5);
-	const radius = Math.sqrt(Vector3Sq(half));
 	return {
 		type: "sphere",
 		center: aabb.min.clone().add(aabb.max).scale(0.5),
-		radius: new Unit(Math.max(0.0001, radius), "cnu"),
+		radius: new Unit(Math.max(0.0001, Math.sqrt(Vector3Sq(aabb.max.clone().subtract(aabb.min).scale(0.5)))), "cnu"),
 	};
 }
 
@@ -665,11 +659,7 @@ function ResetEntityToDefaultPose(entity) {
 	refreshEntityDerivedState(entity);
 }
 
-function SampleMovementPoint(entity, normalizedTime) {
-	const start = entity.movement.start;
-	const end = entity.movement.end;
-	return LerpVector3(start, end, normalizedTime);
-}
+const SampleMovementPoint = (entity, normalizedTime) => LerpVector3(entity.movement.start, entity.movement.end, normalizedTime);
 
 export {
 	BuildEntity,

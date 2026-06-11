@@ -6,15 +6,7 @@
 // Used by Master.js to pass on model data
 
 import { BuildObject, UpdateObjectWorldAabb } from "../builder/NewObject.js";
-import { 
-	AddVector3, 
-	SubtractVector3, 
-	RotateByEuler, 
-	MultiplyVector3, 
-	ScaleVector3, 
-	ToVector3, 
-	CloneVector3 
-} from "../math/Vector3.js";
+import { AddVector3, SubtractVector3, RotateByEuler, MultiplyVector3, ScaleVector3, ToVector3, CloneVector3 } from "../math/Vector3.js";
 import { UnitVector3 } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
 
@@ -23,11 +15,12 @@ import { Log } from "../core/meta.js";
  * @param {object} transform — source transform.
  */
 function cloneTransform(transform) {
-	const position = transform.position.clone();
-	const rotation = transform.rotation.clone();
-	const pivot    = transform.pivot.clone();
-	const scale    = CloneVector3(transform.scale);
-	return { position, rotation, scale, pivot };
+	return {
+		position: transform.position.clone(),
+		rotation: transform.rotation.clone(),
+		scale   : CloneVector3(transform.scale),
+		pivot   : transform.pivot.clone()
+	};
 }
 
 /**
@@ -36,23 +29,22 @@ function cloneTransform(transform) {
 function getFaceCenterOffset(dimensions, faceType) {
 	const h = ScaleVector3(dimensions, 0.5);
 	switch (faceType) {
-		case "top": return { x: 0, y: h.y, z: 0 };
-		case "bottom": return { x: 0, y: -h.y, z: 0 };
-		case "front": return { x: 0, y: 0, z: h.z };
-		case "back": return { x: 0, y: 0, z: -h.z };
-		case "left": return { x: -h.x, y: 0, z: 0 };
-		case "right": return { x: h.x, y: 0, z: 0 };
+		case "top"   : return { x: 0,    y: h.y,  z: 0     };
+		case "bottom": return { x: 0,    y: -h.y, z: 0     };
+		case "front" : return { x: 0,    y: 0,    z: h.z   };
+		case "back"  : return { x: 0,    y: 0,    z: -h.z  };
+		case "left"  : return { x: -h.x, y: 0,    z: 0     };
+		case "right" : return { x: h.x,  y: 0,    z: 0     };
 	}
 }
 
 function composeTransform(parentTransform, localTransform) {
 	const local = cloneTransform(localTransform);
-	const rotatedChildPos = RotateByEuler(local.position, parentTransform.rotation);
 	return {
-		position: local.position.set(AddVector3(parentTransform.position, rotatedChildPos)),
+		position: local.position.set(AddVector3(parentTransform.position, RotateByEuler(local.position, parentTransform.rotation))),
 		rotation: local.rotation.add(parentTransform.rotation),
-		scale: MultiplyVector3(parentTransform.scale, local.scale),
-		pivot: local.pivot,
+		scale   : MultiplyVector3(parentTransform.scale, local.scale),
+		pivot   : local.pivot,
 	};
 }
 
@@ -67,36 +59,35 @@ function buildPart(source) {
 
 	const mesh = BuildObject(
 		{
-			id: source.id,
-			shape: source.shape,
-			complexity: source.complexity,
-			dimensions: dimensions,
-			position: new UnitVector3(0, 0, 0, "cnu"),
-			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: ToVector3(1),
-			pivot: localTransform.pivot.clone(),
+			id              : source.id,
+			shape           : source.shape,
+			complexity      : source.complexity,
+			dimensions,
+			position        : new UnitVector3(0, 0, 0, "cnu"),
+			rotation        : new UnitVector3(0, 0, 0, "radians"),
+			scale           : ToVector3(1),
+			pivot           : localTransform.pivot.clone(),
 			primitiveOptions: source.primitiveOptions,
-			texture: source.texture,
-			detail: source.detail,
-			role: "entity-part",
-			collisionShape: "none",
-			parentId: source.parentId,
-			customTextures: source.customTextures,
+			texture         : source.texture,
+			detail          : source.detail,
+			role            : "entity-part",
+			collisionShape  : "none",
+			parentId        : source.parentId,
+			customTextures  : source.customTextures,
 		},
 		{ role: "entity-part" }
 	);
 
 	return {
-		id: mesh.id,
-		label: source.label,
-		parentId: source.parentId,
-		anchorPoint: source.anchorPoint,
+		id             : mesh.id,
+		label          : source.label,
+		parentId       : source.parentId,
+		anchorPoint    : source.anchorPoint,
 		attachmentPoint: source.attachmentPoint,
-		children: [],
-		dimensions: dimensions,
-		localTransform: localTransform,
+		children       : [],
+		dimensions, localTransform,
 		defaultLocalTransform: cloneTransform(localTransform),
-		mesh: mesh,
+		mesh                 : mesh,
 	};
 }
 
@@ -110,7 +101,6 @@ function computeExpandedAabb(aabb, padding) {
 function applyModelPose(model) {
 	const applyPart = (partId, parentTransform) => {
 		const part = model.index[partId];
-
 		const worldTransform = composeTransform(parentTransform, part.localTransform);
 		part.mesh.transform.position.set(worldTransform.position);
 		part.mesh.transform.rotation.set(worldTransform.rotation);
@@ -147,18 +137,13 @@ function computePlayerCapsuleFromAabb(aabb) {
 	const radius = Math.max(0.0001, Math.max(dim.x, dim.z) * 0.5);
 	const halfHeight = Math.max(0, (dim.y * 0.5) - radius);
 
-	const start = ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5);
-	const end = CloneVector3(start);
-	start.y -= halfHeight;
-	end.y += halfHeight;
+	const segmentStart = ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5);
+	const segmentEnd = CloneVector3(segmentStart);
+	segmentStart.y -= halfHeight;
+	segmentEnd.y += halfHeight;
 
 	// Unit Instancing happens later.
-	return {
-		radius: radius,
-		halfHeight: halfHeight,
-		segmentStart: start,
-		segmentEnd: end,
-	};
+	return { radius, halfHeight, segmentStart, segmentEnd };
 }
 
 function applyProfileAabb(target, bounds) {
@@ -167,25 +152,19 @@ function applyProfileAabb(target, bounds) {
 }
 
 function InitializePlayerCollisionProfile(playerState) {
-	const model = playerState.model;
-	applyModelPose(model);
+	applyModelPose(playerState.model);
 
-	const fullAabb = computePlayerAabb(model);
+	const fullAabb = computePlayerAabb(playerState.model);
 	const totalDim = SubtractVector3(fullAabb.max, fullAabb.min);
 	const footprint = Math.max(totalDim.x, totalDim.z);
 	const bodyRadius = Math.max(0.0001, footprint * 0.5);
-	const profileShape = totalDim.y > footprint ? "capsule" : "sphere";
 	const rootPosition = playerState.transform.position;
 	const bodyCenter = ScaleVector3(AddVector3(fullAabb.min, fullAabb.max), 0.5);
-	const sphereCenter = {
-		x: bodyCenter.x,
-		y: fullAabb.min.y + bodyRadius,
-		z: bodyCenter.z,
-	};
+	const sphereCenter = { x: bodyCenter.x, y: fullAabb.min.y + bodyRadius, z: bodyCenter.z };
 	const capsule = computePlayerCapsuleFromAabb(fullAabb);
 
 	const profile = playerState.collision.profile;
-	profile.shape = profileShape;
+	profile.shape = totalDim.y > footprint ? "capsule" : "sphere";
 	applyProfileAabb(profile.modelAabb, fullAabb);
 	profile.bodyCenterOffset.set(SubtractVector3(bodyCenter, rootPosition));
 	profile.bodyRadius.value = bodyRadius;
@@ -201,24 +180,17 @@ function InitializePlayerCollisionProfile(playerState) {
 function SyncPlayerCollisionFromState(playerState) {
 	const collision = playerState.collision;
 	const profile = collision.profile;
-	const rootPosition = playerState.transform.position;
-	const sphereCenter = AddVector3(rootPosition, profile.sphereCenterOffset);
-	const sphereRadius = profile.sphereRadius.value;
 	const modelAabb = computePlayerAabb(playerState.model);
-	const bodyCenter = AddVector3(rootPosition, profile.bodyCenterOffset);
-	const bodyRadius = profile.bodyRadius.value;
+	const bodyCenter = AddVector3(playerState.transform.position, profile.bodyCenterOffset);
 
 	applyProfileAabb(profile.modelAabb, modelAabb);
-	collision.sphere.center.set(sphereCenter);
-	collision.sphere.radius.value = sphereRadius;
+	collision.sphere.center.set(AddVector3(playerState.transform.position, profile.sphereCenterOffset));
+	collision.sphere.radius.value = profile.sphereRadius.value;
 	if (profile.shape === "capsule") {
-		const segmentStart = AddVector3(rootPosition, profile.capsuleStartOffset);
-		const segmentEnd = AddVector3(rootPosition, profile.capsuleEndOffset);
-		const capsuleRadius = profile.capsuleRadius.value;
-		collision.capsule.radius.value = capsuleRadius;
+		collision.capsule.radius.value = profile.capsuleRadius.value;
 		collision.capsule.halfHeight.value = profile.capsuleHalfHeight.value;
-		collision.capsule.segmentStart.set(segmentStart);
-		collision.capsule.segmentEnd.set(segmentEnd);
+		collision.capsule.segmentStart.set(AddVector3(playerState.transform.position, profile.capsuleStartOffset));
+		collision.capsule.segmentEnd.set(AddVector3(playerState.transform.position, profile.capsuleEndOffset));
 		collision.physics.shape = "capsule";
 		collision.physics.bounds = collision.capsule;
 	}
@@ -228,11 +200,11 @@ function SyncPlayerCollisionFromState(playerState) {
 	}
 	collision.shape = collision.physics.shape;
 
-	collision.radius.value = bodyRadius;
+	collision.radius.value = profile.bodyRadius.value;
 	collision.hurtbox.bounds.center.set(bodyCenter);
-	collision.hurtbox.bounds.radius.value = bodyRadius * 0.9;
+	collision.hurtbox.bounds.radius.value = profile.bodyRadius.value * 0.9;
 	collision.hitbox.bounds.center.set(bodyCenter);
-	collision.hitbox.bounds.radius.value = bodyRadius * 1.1;
+	collision.hitbox.bounds.radius.value = profile.bodyRadius.value * 1.1;
 
 	collision.aabb.min.set(modelAabb.min);
 	collision.aabb.max.set(modelAabb.max);
@@ -248,16 +220,14 @@ function SyncPlayerCollisionFromState(playerState) {
  * @returns {object} — model object with rootTransform, parts[], index{}, roots[], defaultPose.
  */
 function BuildPlayerModel(characterDefinition, spawnPosition) {
-	const entityId = characterDefinition.id;
-
 	const model = {
 		rootTransform: {
 			position: spawnPosition.clone(),
 			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: ToVector3(1),
-			pivot: new UnitVector3(0, 0, 0, "cnu"),
+			scale   : ToVector3(1),
+			pivot   : new UnitVector3(0, 0, 0, "cnu"),
 		},
-		parts: characterDefinition.model.parts.map((part, index) => buildPart(part, entityId, index)),
+		parts: characterDefinition.model.parts.map((part, index) => buildPart(part, characterDefinition.id, index)),
 	};
 
 	// Build index and parent→child links.
@@ -271,8 +241,7 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 	model.parts.forEach((part) => {
 		if (part.parentId === "root") part.localTransform.position.y += part.dimensions.y * 0.5;
 		else {
-			const parent = index[part.parentId];
-			const attachOffset = getFaceCenterOffset(parent.dimensions, part.attachmentPoint);
+			const attachOffset = getFaceCenterOffset(index[part.parentId].dimensions, part.attachmentPoint);
 			const anchorOffset = getFaceCenterOffset(part.dimensions, part.anchorPoint);
 			part.localTransform.position.add(SubtractVector3(attachOffset, anchorOffset));
 		}
@@ -288,7 +257,7 @@ function BuildPlayerModel(characterDefinition, spawnPosition) {
 	model.roots = model.parts.filter((part) => part.parentId === "root").map((part) => part.id);
 
 	applyModelPose(model);
-	Log("ENGINE", `Player model built: ${entityId} with ${model.parts.length} parts.`, "log", "Level");
+	Log("ENGINE", `Player model built: ${characterDefinition.id} with ${model.parts.length} parts.`, "log", "Level");
 
 	return model;
 }

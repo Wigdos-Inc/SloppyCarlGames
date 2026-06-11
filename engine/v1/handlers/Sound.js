@@ -38,7 +38,6 @@ const oneShotChannels = {
 // Pull channel-specific volume from config.
 function resolveVolume(channel, options) {
 	const applyMaster = (value) => Clamp01(CONFIG.VOLUME.Master * value);
-
 	switch (channel) {
 		case "Music"   : return applyMaster(CONFIG.VOLUME.Music);
 		case "Sfx"     : return applyMaster(options.category === "Menu" ? CONFIG.VOLUME.MenuSfx : CONFIG.VOLUME.GameSfx);
@@ -50,8 +49,7 @@ function resolveVolume(channel, options) {
 
 function configureAudio(audio, options, channel) {
 	// Apply volume, rate, and looping options.
-	const volume = resolveVolume(channel, options);
-	audio.volume = Clamp01(volume);
+	audio.volume = Clamp01(resolveVolume(channel, options));
 	audio.playbackRate = options.rate;
 	audio.loop = options.loop;
 }
@@ -78,19 +76,18 @@ function PlayAudio(src, options, channel = "Sfx") {
 	if (audioPayload === null) return Promise.resolve();
 
 	const state = oneShotChannels[channel];
-	const oneShotId = state.nextId;
 	state.nextId++;
 	const label = audioPayload.id || audioPayload.name || audioPayload.src;
 
-	Log("ENGINE", `Audio play (${state.logLabel}): ${oneShotId} ${label}`, "log", "Audio");
+	Log("ENGINE", `Audio play (${state.logLabel}): ${state.nextId} ${label}`, "log", "Audio");
 
 	const audio = playAudio(audioPayload.src, audioPayload, channel);
-	state.active.push({ id: oneShotId, src: audioPayload.src, label, audio, options: audioPayload });
+	state.active.push({ id: state.nextId, src: audioPayload.src, label, audio, options: audioPayload });
 
 	return new Promise((resolve) => {
 		// Clean up audio tracking on completion.
 		const finalize = () => {
-			const index = state.active.findIndex((item) => item.id === oneShotId);
+			const index = state.active.findIndex((item) => item.id === state.nextId);
 			if (index >= 0) state.active.splice(index, 1);
 			resolve();
 		};
@@ -106,7 +103,6 @@ function PlayAudio(src, options, channel = "Sfx") {
 function PlayMusic(trackName, src, options) {
 	const audioPayload = ValidateAudioPayload({ name: trackName, src, options });
 	if (audioPayload === null) return;
-
 	if (activeMusic.name === audioPayload.name && activeMusic.audio) return;
 
 	if (activeMusic.audio) {
@@ -168,24 +164,20 @@ function StopSfx(idOrSrc) {
 	targets.forEach((item) => stopTrackedAudio(item, "sfx"));
 
 	for (let index = activeSfx.length - 1; index >= 0; index--) {
-		const item = activeSfx[index];
-		if (item.id === idOrSrc || item.src === idOrSrc) activeSfx.splice(index, 1);
+		if (activeSfx[index].id === idOrSrc || activeSfx[index].src === idOrSrc) activeSfx.splice(index, 1);
 	}
 }
 
 function StopAllAudio() {
-	const activeSfx = oneShotChannels.Sfx.active;
-	const activeVoice = oneShotChannels.Voice.active;
-
 	// Stop music first, then clear active one-shots.
 	StopMusic();
-	if (activeSfx.length === 0 && activeVoice.length === 0) return;
+	if (oneShotChannels.Sfx.active.length === 0 && oneShotChannels.Voice.active.length === 0) return;
 
-	activeSfx.forEach((item) => stopTrackedAudio(item, "sfx"));
-	activeVoice.forEach((item) => stopTrackedAudio(item, "voice"));
+	oneShotChannels.Sfx.active.forEach((item) => stopTrackedAudio(item, "sfx"));
+	oneShotChannels.Voice.active.forEach((item) => stopTrackedAudio(item, "voice"));
 
-	activeSfx.length = 0;
-	activeVoice.length = 0;
+	oneShotChannels.Sfx.active.length = 0;
+	oneShotChannels.Voice.active.length = 0;
 }
 
 function UpdateActiveAudioVolumes() {

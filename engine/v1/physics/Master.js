@@ -7,18 +7,8 @@ import { CONFIG } from "../core/config.js";
 import { Log, SendEvent, EPSILON } from "../core/meta.js";
 import { AbsoluteVector3, CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence } from "./Forces.js";
-import {
-	DetectPhysicsCollisions,
-	DetectCurrentPhysicsOverlaps,
-	ResolveCollisions,
-	ResetCollisionPools,
-	ProbeGroundContact,
-} from "./Collision.js";
-import {
-	ApplySurfaceCorrection,
-	ApplyGroundSnap,
-	ApplyPlayerSurfaceOrientation,
-} from "./Correction.js";
+import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, ResetCollisionPools, ProbeGroundContact } from "./Collision.js";
+import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation } from "./Correction.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";
 import { UpdatePlayerModelFromState, SyncPlayerCollisionFromState } from "../player/Model.js";
 import { UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
@@ -49,7 +39,7 @@ const noResult = Object.freeze({
 
 function storePlayerTriggers(playerState, triggers) {
 	playerState.activeTriggers.length = 0;
-	for (let index = 0; index < triggers.count; index++) playerState.activeTriggers.push(triggers.items[index]);
+	for (let i = 0; i < triggers.count; i++) playerState.activeTriggers.push(triggers.items[i]);
 }
 
 function hasZeroDisplacement(displacement) {
@@ -82,17 +72,15 @@ function shouldSkipCollisionPipeline(entity, displacement) {
 }
 
 function updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration) {
-	const cache = entity.physicsRuntime;
-	cache.previousPosition.set(entity.transform.position);
-	cache.previousRotation.set(entity.transform.rotation);
-	cache.hasUnresolvedPenetration = hasUnresolvedPenetration;
-	cache.cachePrimed = true;
+	entity.physicsRuntime.previousPosition.set(entity.transform.position);
+	entity.physicsRuntime.previousRotation.set(entity.transform.rotation);
+	entity.physicsRuntime.hasUnresolvedPenetration = hasUnresolvedPenetration;
+	entity.physicsRuntime.cachePrimed = true;
 }
 
 function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	const isPlayer = entity.type === "player";
-	const entityPhysics = isPlayer ? entity.character.physics : entity.movement.physics;
-	const applyCorrection = entityPhysics.correction;
+	const applyCorrection = (isPlayer ? entity.character.physics : entity.movement.physics).correction;
 	let latestTriggers;
 	let groundContact = { hit: false, normal: CloneVector3(WORLD_NORMALS.Up) };
 	let iterations;
@@ -112,8 +100,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 
 	const gc = sweptResolution.groundContact;
 	const wc = sweptResolution.wallContact;
-	const collisionKey = swept.solids.count > 0
-		? (gc.hit && wc.hit ? "ground+wall" : gc.hit ? "ground" : wc.hit ? "wall" : "solid") : "";
+	const collisionKey = swept.solids.count > 0 ? (gc.hit && wc.hit ? "ground+wall" : gc.hit ? "ground" : wc.hit ? "wall" : "solid") : "";
 	const isNewContact = collisionKey !== "" && collisionKey !== entity.physicsRuntime.lastPhysicsCollisionKey;
 	if (collisionKey !== "") entity.physicsRuntime.lastPhysicsCollisionKey = collisionKey;
 	else if (!isPlayer || !entity.grounded) entity.physicsRuntime.lastPhysicsCollisionKey = "";
@@ -178,8 +165,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 		);
 	}
 
-	const hasUnresolvedPenetration = finalOverlaps.solids.count > 0;
-	return { groundContact, triggers: latestTriggers, hasUnresolvedPenetration };
+	return { groundContact, triggers: latestTriggers, hasUnresolvedPenetration: finalOverlaps.solids.count > 0 };
 }
 
 /**
@@ -211,18 +197,18 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 			strength:              CONFIG.PHYSICS.Gravity.Strength.value,
 			airTerminalVelocity:   CONFIG.PHYSICS.Gravity.TerminalVelocity.Air.value,
 			waterTerminalVelocity: CONFIG.PHYSICS.Gravity.TerminalVelocity.Water.value,
-			result: null,
+			result:                null,
 		},
 		buoyancy: {
 			enabled:       CONFIG.PHYSICS.Buoyancy.Enabled   && entityPhysics.buoyancy,
 			gradientDepth: CONFIG.PHYSICS.Buoyancy.GradientDepth.value,
 			forceMin:      CONFIG.PHYSICS.Buoyancy.Force.Min.value,
 			forceMax:      CONFIG.PHYSICS.Buoyancy.Force.Max.value,
-			result: null,
+			result:        null,
 		},
 		resistance: {
 			enabled: CONFIG.PHYSICS.Resistance.Enabled && entityPhysics.resistance,
-			result: null,
+			result:  null,
 		},
 	};
 
@@ -243,9 +229,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 		entity.velocity.y     += physicsState.buoyancy.result.velocityChange;
 	}
 
-	if (physicsState.resistance.enabled) {
-		physicsState.resistance.result = entity.velocity.set(GetResistance(entity, physicsState));
-	}
+	if (physicsState.resistance.enabled) physicsState.resistance.result = entity.velocity.set(GetResistance(entity, physicsState));
 
 	if (isPlayer) {
 		const activeFloatiness = entity.underwater ? entity.character.meta.waterFloatiness : entity.character.meta.airFloatiness;

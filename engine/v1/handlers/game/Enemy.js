@@ -8,6 +8,7 @@ import { CONFIG } from "../../core/config.js";
 import {
 	SubtractVector3,
 	ResolveVector3Axis,
+	CloneVector3,
 } from "../../math/Vector3.js";
 import { GetSimDistanceValue, DetectCombatOverlaps } from "../../physics/Collision.js";
 import { TriggerPlayerRespawnSequence } from "../../player/Master.js";
@@ -28,12 +29,10 @@ const INVULNERABILITY_DURATION = 2.0;
 function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 	if (playerState.state === "Dead") return;
 
-	const entities = sceneGraph.entities;
-
 	// Use three-layer combat detection.
 	const combatResults = DetectCombatOverlaps(
 		playerState, 
-		entities, 
+		sceneGraph.entities, 
 		GetSimDistanceValue(), 
 		sceneGraph.cameraConfig.state.position
 	);
@@ -42,14 +41,13 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 		const result = combatResults.items[i];
 
 		if (CONFIG.CUSTOM_EVENTS.Entities.collision && playerState.customEvents.collision) {
-			const combatEntity = result.type === "player-attacks" ? result.target : result.attacker;
 			SendEvent("PLAYER_COLLISION", {
 				id         : playerState.id,
 				type       : playerState.type,
 				position   : { x: playerState.transform.position.x, y: playerState.transform.position.y, z: playerState.transform.position.z },
 				velocity   : { x: playerState.velocity.x, y: playerState.velocity.y, z: playerState.velocity.z },
 				contactType: "combat",
-				otherId    : combatEntity.id,
+				otherId    : (result.type === "player-attacks" ? result.target : result.attacker).id,
 			});
 		}
 
@@ -65,8 +63,8 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 				SendEvent("ENTITY_DAMAGE_RECEIVED", {
 					id      : entity.id,
 					type    : entity.type,
-					position: { x: entity.transform.position.x, y: entity.transform.position.y, z: entity.transform.position.z },
-					velocity: { x: entity.velocity.x, y: entity.velocity.y, z: entity.velocity.z },
+					position: CloneVector3(entity.transform.position),
+					velocity: CloneVector3(entity.velocity),
 					amount  : 1,
 					sourceId: playerState.id,
 				});
@@ -75,25 +73,25 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 				SendEvent("PLAYER_DAMAGE_INFLICTED", {
 					id      : playerState.id,
 					type    : playerState.type,
-					position: { x: playerState.transform.position.x, y: playerState.transform.position.y, z: playerState.transform.position.z },
-					velocity: { x: playerState.velocity.x, y: playerState.velocity.y, z: playerState.velocity.z },
+					position: CloneVector3(playerState.transform.position),
+					velocity: CloneVector3(playerState.velocity),
 					amount  : 1,
 					targetId: entity.id,
 				});
 			}
 
 			if (entity.hp <= 0) {
-				const idx = entities.indexOf(entity);
+				const idx = sceneGraph.entities.indexOf(entity);
 				if (idx !== -1) {
 					if (entity.customEvents.despawn && CONFIG.CUSTOM_EVENTS.Entities.despawn) {
 						SendEvent("ENTITY_DESPAWN", {
 							id      : entity.id,
 							type    : entity.type,
-							position: { x: entity.transform.position.x, y: entity.transform.position.y, z: entity.transform.position.z },
-							velocity: { x: entity.velocity.x, y: entity.velocity.y, z: entity.velocity.z },
+							position: CloneVector3(entity.transform.position),
+							velocity: CloneVector3(entity.velocity),
 						});
 					}
-					entities.splice(idx, 1);
+					sceneGraph.entities.splice(idx, 1);
 				}
 				Log("ENGINE", `Enemy "${entity.id}" destroyed.`, "log", "Level");
 				SendEvent("ENEMY_DESTROYED", { id: entity.id });
@@ -108,8 +106,8 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 				SendEvent("ENTITY_DAMAGE_INFLICTED", {
 					id      : entity.id,
 					type    : entity.type,
-					position: { x: entity.transform.position.x, y: entity.transform.position.y, z: entity.transform.position.z },
-					velocity: { x: entity.velocity.x, y: entity.velocity.y, z: entity.velocity.z },
+					position: CloneVector3(entity.transform.position),
+					velocity: CloneVector3(entity.velocity),
 					amount  : 1,
 					targetId: playerState.id,
 				});
@@ -122,8 +120,6 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 }
 
 function applyPlayerDamage(playerState, damageSourcePosition) {
-	const playerPos = playerState.transform.position;
-
 	// Drop ALL primary collectibles on damage.
 	const dropCount = Math.max(0, playerState.collectibles);
 	playerState.collectibles = 0;
@@ -140,7 +136,7 @@ function applyPlayerDamage(playerState, damageSourcePosition) {
 	}
 
 	// Apply knockback impulse (direction away from damage source).
-	const knockDir = ResolveVector3Axis(SubtractVector3(playerPos, damageSourcePosition));
+	const knockDir = ResolveVector3Axis(SubtractVector3(playerState.transform.position, damageSourcePosition));
 	playerState.velocity.set({
 		x: knockDir.x * KNOCKBACK_FORCE,
 		y: Math.max(knockDir.y * KNOCKBACK_FORCE, KNOCKBACK_FORCE * 0.5),
@@ -161,8 +157,8 @@ function applyPlayerDamage(playerState, damageSourcePosition) {
 		SendEvent("PLAYER_DAMAGE_RECEIVED", {
 			id          : playerState.id,
 			type        : playerState.type,
-			position    : { x: playerState.transform.position.x, y: playerState.transform.position.y, z: playerState.transform.position.z },
-			velocity    : { x: playerState.velocity.x, y: playerState.velocity.y, z: playerState.velocity.z },
+			position    : CloneVector3(playerState.transform.position),
+			velocity    : CloneVector3(playerState.velocity),
 			collectibles: playerState.collectibles,
 			dropped     : dropCount,
 			amount      : 1,

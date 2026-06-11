@@ -2,13 +2,8 @@ import canonSchemas from "./canonSchemas.json" with { type: "json" };
 import Normalize from "./normalize.js";
 import { Log, ENTITY_TYPES } from "./meta.js";
 
-function isPlainObject(value) {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function normalizeSchemaKey(key) {
-	return key.toLowerCase().replace(/[-_]/g, "");
-}
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+const normalizeSchemaKey = (key) => key.toLowerCase().replace(/[-_]/g, "");
 
 function validatePayloadSchema(payload, rootKey, rootPath = rootKey) {
 	const errors = [];
@@ -39,9 +34,7 @@ function validatePayloadSchema(payload, rootKey, rootPath = rootKey) {
 		}
 
 		if (!valid) return `${path}: expected ${meta.dataType}, got ${describeType(value)}.`;
-		if (meta.allowedValues && meta.dataType === "string" && !meta.allowedValues.includes(value)) {
-			return `${path}: '${value}' not allowed.`;
-		}
+		if (meta.allowedValues && meta.dataType === "string" && !meta.allowedValues.includes(value)) return `${path}: '${value}' not allowed.`;
 		if (meta.range && meta.dataType === "number" && (value < meta.range.min || value > meta.range.max)) {
 			return `${path}: ${value} outside range ${meta.range.min}-${meta.range.max}.`;
 		}
@@ -56,13 +49,10 @@ function validatePayloadSchema(payload, rootKey, rootPath = rootKey) {
 			if (key === "__meta" || key === "__entry") continue;
 
 			const fieldSchema = canonFieldLayer[key];
-			const meta = fieldSchema.__meta;
-
-			const aliases = [key, ...meta.aliases];
 			let matchedKey = null;
 
 			for (const payloadKey in sourceLayer) {
-				for (const alias of aliases) {
+				for (const alias of [key, ...fieldSchema.__meta.aliases]) {
 					if (normalizeSchemaKey(payloadKey) === normalizeSchemaKey(alias)) {
 						matchedKey = payloadKey;
 						break;
@@ -73,14 +63,14 @@ function validatePayloadSchema(payload, rootKey, rootPath = rootKey) {
 			}
 
 			if (matchedKey === null) {
-				if (meta.isRequired === true) errors.push(`${path}.${key}: missing required ${meta.dataType}.`);
+				if (fieldSchema.__meta.isRequired === true) errors.push(`${path}.${key}: missing required ${fieldSchema.__meta.dataType}.`);
 				continue;
 			}
 
 			const value = sourceLayer[matchedKey];
-			const fieldError = validateFieldValue(value, meta, `${path}.${key}`);
+			const fieldError = validateFieldValue(value, fieldSchema.__meta, `${path}.${key}`);
 			if (fieldError !== null) {
-				if (meta.isRequired === true) errors.push(fieldError);
+				if (fieldSchema.__meta.isRequired === true) errors.push(fieldError);
 				continue;
 			}
 
@@ -112,20 +102,14 @@ function validateMenuElementTree(rawElements, path, errors) {
 	if (!Array.isArray(rawElements)) return;
 
 	rawElements.forEach((rawElement, index) => {
-		const elementPath = `${path}[${index}]`;
-		errors.push(...validatePayloadSchema(rawElement, "menuElement", elementPath));
-
-		const elementSource = isPlainObject(rawElement) ? rawElement : {};
-		validateMenuElementTree(elementSource.children, `${elementPath}.children`, errors);
+		errors.push(...validatePayloadSchema(rawElement, "menuElement", `${path}[${index}]`));
+		validateMenuElementTree((isPlainObject(rawElement) ? rawElement : {}).children, `${`${path}[${index}]`}.children`, errors);
 	});
 }
 
 function validateSplashTextEntries(rawTextEntries, path, errors) {
 	if (!Array.isArray(rawTextEntries)) return;
-
-	rawTextEntries.forEach((rawText, index) => {
-		errors.push(...validatePayloadSchema(rawText, "splashText", `${path}[${index}]`));
-	});
+	rawTextEntries.forEach((rawText, index) => errors.push(...validatePayloadSchema(rawText, "splashText", `${path}[${index}]`)));
 }
 
 function ValidateAudioPayload(payload) {
@@ -171,13 +155,11 @@ function ValidateSplashPayload(payload) {
 
 function ValidateCutscenePayload(payload, type) {
 	if (type !== "rendered" && type !== "engine") {
-		const errors = [`cutscene: unknown type '${type}'.`];
-		logValidationErrors(errors);
+		logValidationErrors([`cutscene: unknown type '${type}'.`]);
 		return null;
 	}
 
-	const rootKey = type === "rendered" ? "cutsceneRendered" : "cutsceneEngine";
-	const errors = validatePayloadSchema(payload, rootKey);
+	const errors = validatePayloadSchema(payload, type === "rendered" ? "cutsceneRendered" : "cutsceneEngine");
 	logValidationErrors(errors);
 	if (errors.length > 0) return null;
 	return Normalize.CutscenePayload(payload, type);
@@ -336,11 +318,11 @@ async function ValidateSimulatorBulkPayload(bulkPayload) {
 	for (const entry of entries) {
 		const validated = await ValidateSimulatorPayload(entry);
 		if (validated === null) {
-			Log("ENGINE", "ValidateSimulatorBulkPayload: skipping invalid entry.", "warn", "Validation");
+			Log("ENGINE", `Simulator Caching: skipping invalid entry '${entry.definition?.id ?? entry.id ?? "(unknown)"}'.`, "warn", "Validation");
 			continue;
 		}
 		if (validated.payloadType !== "definition") {
-			Log("ENGINE", `ValidateSimulatorBulkPayload: payloadType must be 'definition', got '${validated.payloadType}', skipping.`, "warn", "Validation");
+			Log("ENGINE", `Simulator Caching: entry '${validated.definition?.id ?? validated.id ?? "(unknown)"}' payloadType must be 'definition', got '${validated.payloadType}', skipping.`, "warn", "Validation");
 			continue;
 		}
 		results.push(validated);

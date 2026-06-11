@@ -5,9 +5,7 @@ import { Log, ENTITY_TYPES } from "./meta.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { CloneVector3 } from "../math/Vector3.js";
 
-function warnLog(text) {
-	Log("ENGINE", text, "warn", "Validation");
-}
+const warnLog = (text) => Log("ENGINE", text, "warn", "Validation");
 
 /* Data Type Normalization */
 
@@ -37,22 +35,14 @@ function normalizeObject(value, fallback = {}) {
 	return { bool, value: bool ? value : fallback };
 }
 
-function toUnitVector3(vector, type) {
-	return new UnitVector3(vector.x, vector.y, vector.z, type);
-}
+const toUnitVector3 = (v, t) => new UnitVector3(v.x, v.y, v.z, t);
 
 /* Generic Normalization */
 
-function normalizeSchemaKey(key) {
-	return key.toLowerCase().replace(/[-_]/g, "");
-}
+const normalizeSchemaKey = (key) => key.toLowerCase().replace(/[-_]/g, "");
 
 function normalizePayloadSchema(payload, rootKey) {
-	const canonLayer = canonSchemas[rootKey];
-
-	function cloneFallback(meta) {
-		return normalizeObject(structuredClone(meta.fallback), meta.fallback).value
-	}
+	const cloneFallback = (meta) => normalizeObject(structuredClone(meta.fallback), meta.fallback).value;
 
 	function resolveFieldLayer(payloadLayer, canonFieldLayer) {
 		const sourceLayer = normalizeObject(payloadLayer).value;
@@ -79,17 +69,11 @@ function normalizePayloadSchema(payload, rootKey) {
 			let resolvedValue;
 			if (matchedKey === null) {
 				resolvedValue = cloneFallback(meta);
-
-				if (meta.isExpected === true) {
-					warnLog(`${rootKey}.${key}: missing, using fallback ${JSON.stringify(meta.fallback)}.`);
-				}
+				if (meta.isExpected === true) warnLog(`${rootKey}.${key}: missing, using fallback ${JSON.stringify(meta.fallback)}.`);
 			}
 			else {
 				resolvedValue = sourceLayer[matchedKey];
-
-				if (meta.deprecated === true) {
-					warnLog(`${rootKey}.${key}: '${matchedKey}' is deprecated.`);
-				}
+				if (meta.deprecated === true) warnLog(`${rootKey}.${key}: '${matchedKey}' is deprecated.`);
 
 				let valid = meta.isExpected === false && resolvedValue === null;
 				if (!valid) {
@@ -112,9 +96,7 @@ function normalizePayloadSchema(payload, rootKey) {
 				}
 
 				if (!valid) {
-					warnLog(
-						`${rootKey}.${key}: invalid ${meta.dataType}, using fallback ${JSON.stringify(meta.fallback)}.`
-					);
+					warnLog(`${rootKey}.${key}: invalid ${meta.dataType}, using fallback ${JSON.stringify(meta.fallback)}.`);
 					resolvedValue = cloneFallback(meta);
 				}
 
@@ -127,9 +109,7 @@ function normalizePayloadSchema(payload, rootKey) {
 				}
 
 				if (meta.allowedValues && meta.dataType === "string" && resolvedValue !== null && !meta.allowedValues.includes(resolvedValue)) {
-					warnLog(
-						`${rootKey}.${key}: '${resolvedValue}' not allowed, using fallback ${JSON.stringify(meta.fallback)}.`
-					);
+					warnLog(`${rootKey}.${key}: '${resolvedValue}' not allowed, using fallback ${JSON.stringify(meta.fallback)}.`);
 					resolvedValue = cloneFallback(meta);
 				}
 
@@ -167,7 +147,7 @@ function normalizePayloadSchema(payload, rootKey) {
 		return resolvedLayer;
 	}
 
-	return resolveFieldLayer(normalizeObject(payload).value, canonLayer);
+	return resolveFieldLayer(normalizeObject(payload).value, canonSchemas[rootKey]);
 }
 
 function AudioPayload(payload) {
@@ -296,17 +276,14 @@ function SplashPayload(payload) {
 
 		return resolved;
 	};
-
 	const normalizeText = (rawTextEntries) => {
 		const resolved = [];
-
 		normalizeArray(rawTextEntries).value.forEach((rawEntry) => {
 			const textEntry = normalizePayloadSchema(normalizeObject(rawEntry).value, "splashText");
 			if (textEntry.id === null) delete textEntry.id;
 			if (textEntry.className === null) delete textEntry.className;
 			resolved.push(textEntry);
 		});
-
 		return resolved;
 	};
 
@@ -334,12 +311,12 @@ function SplashPayload(payload) {
 	});
 
 	if (normalized.outputType === "preset" && normalized.presetId === null) {
-		warnLog("splash.presetId: expected a non-empty array of preset IDs, using default.");
+		warnLog("Splash Presets: expected a non-empty array of preset IDs, using default.");
 		normalized.outputType = "default";
 	}
 
 	if (normalized.outputType === "custom" && normalized.sequence.length === 0) {
-		warnLog("splash.sequence: custom payload had no steps, using default.");
+		warnLog("Splash Custom: custom payload had no steps, using default.");
 		normalized.outputType = "default";
 	}
 
@@ -356,7 +333,7 @@ function CutscenePayload(payload, type) {
 	const normalized = normalizePayloadSchema(payload, rootKey);
 
 	if (type === "engine" && normalized.fadeLeadSeconds > normalized.durationSeconds) {
-		warnLog(`cutscene.fadeLeadSeconds: clamped ${normalized.fadeLeadSeconds} to duration ${normalized.durationSeconds}.`);
+		warnLog(`Cutscene fadeLeadSeconds: clamped ${normalized.fadeLeadSeconds} to duration ${normalized.durationSeconds}.`);
 		normalized.fadeLeadSeconds = normalized.durationSeconds;
 	}
 
@@ -367,12 +344,10 @@ export async function NormalizeImage(path, sourceType, renderType) {
 	try {
 		const response = await fetch(path);
 		if (!response.ok) throw new Error(`HTTP ${response.status}`);
-		const blob = await response.blob();
-		const bitmap = await createImageBitmap(blob);
-		if (renderType === "html") return { bool: true, value: { image: bitmap, url: path } };
-		return { bool: true, value: bitmap };
+		const bitmap = await createImageBitmap(await response.blob());
+		return renderType === "html" ? { bool: true, value: { image: bitmap, url: path } } : { bool: true, value: bitmap };
 	} catch (e) {
-		warnLog(`NormalizeImage: failed to load '${path}' (${sourceType}): ${e.message}`);
+		warnLog(`Image: failed to load '${path}' (${sourceType}):\n${e.message}`);
 		return { bool: false, value: null };
 	}
 }

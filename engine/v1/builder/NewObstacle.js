@@ -18,11 +18,10 @@ function createEnvelopeObb(bounds) {
 }
 
 function createEnvelopeSphere(bounds) {
-	const half = bounds.max.clone().subtract(bounds.min).scale(0.5);
 	return {
 		type: "sphere",
 		center: bounds.min.clone().add(bounds.max).scale(0.5),
-		radius: new Unit(Math.max(0.0001, Math.sqrt(Vector3Sq(half))), "cnu"),
+		radius: new Unit(Math.max(0.0001, Math.sqrt(Vector3Sq(bounds.max.clone().subtract(bounds.min).scale(0.5)))), "cnu"),
 	};
 }
 
@@ -38,8 +37,7 @@ function createEnvelopeCapsule(bounds) {
 		type: "capsule",
 		radius: new Unit(radius, "cnu"),
 		halfHeight: new Unit(halfHeight, "cnu"),
-		segmentStart: segmentStart,
-		segmentEnd: segmentEnd,
+		segmentStart, segmentEnd,
 	};
 }
 
@@ -51,16 +49,8 @@ function mergeAabb(accumulator, bounds) {
 		};
 	}
 
-	accumulator.min.set({
-		x: Math.min(accumulator.min.x, bounds.min.x),
-		y: Math.min(accumulator.min.y, bounds.min.y),
-		z: Math.min(accumulator.min.z, bounds.min.z),
-	});
-	accumulator.max.set({
-		x: Math.max(accumulator.max.x, bounds.max.x),
-		y: Math.max(accumulator.max.y, bounds.max.y),
-		z: Math.max(accumulator.max.z, bounds.max.z),
-	});
+	accumulator.min.min(bounds.min);
+	accumulator.max.max(bounds.max);
 
 	return accumulator;
 }
@@ -69,8 +59,7 @@ function createDetailedBoundsFromParts(source, parts, bounds) {
 	if (source.collisionShape === "triangle-soup") {
 		const triangles = [];
 		for (let index = 0; index < parts.length; index++) {
-			const detailed = parts[index].detailedBounds;
-			if (detailed.type === "triangle-soup") triangles.push(...detailed.triangles);
+			if (parts[index].detailedBounds.type === "triangle-soup") triangles.push(...parts[index].detailedBounds.triangles);
 		}
 		return { type: "triangle-soup", triangles };
 	}
@@ -118,10 +107,6 @@ function buildObstacleParts(source, index, options) {
 	const rootScale = source.scale; // Vector3
 
 	return source.parts.map((part, partIndex) => {
-		const scatterList = part.detail.scatter.length > 0 
-			? part.detail.scatter 
-			: (partIndex === 0 ? source.detail.scatter: []);
-
 		const combinedScale = MultiplyVector3(rootScale, part.localScale);
 
 		// Compute world-space position
@@ -142,7 +127,7 @@ function buildObstacleParts(source, index, options) {
 				pivot: source.pivot,
 				primitiveOptions: part.primitiveOptions,
 				texture: part.texture || source.texture,
-				detail: { scatter: scatterList },
+				detail: { scatter: part.detail.scatter.length > 0 ? part.detail.scatter : (partIndex === 0 ? source.detail.scatter: []) },
 				role: "obstacle",
 				collisionShape: source.collisionShape,
 				scatterContext: options.scatterContext
@@ -162,11 +147,8 @@ function BuildObstacle(source, index, options) {
 	const detailedBounds = createDetailedBoundsFromParts(source, parts, bounds);
 
 	return {
-		id            : source.id,
-		mesh          : mesh,
-		parts         : parts,
-		bounds        : bounds,
-		detailedBounds: detailedBounds,
+		id: source.id,
+		mesh, parts, bounds, detailedBounds,
 		collisionShape: source.collisionShape,
 		destructible  : source.destructible,
 		hp            : source.hp,

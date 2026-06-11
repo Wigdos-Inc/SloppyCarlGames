@@ -41,3 +41,8 @@ applyTo: "engine/v1/**/*.js"
 - Check nearby and upstream context before calling something a true rule violation.
 - Distinguish between an actual rule break, an underspecified rule, and a necessary tradeoff to preserve engine functionality.
 - If a rule is too weak or ambiguous to judge the code cleanly, say that explicitly and propose stronger wording.
+
+## Responses
+
+CLAUDE.md makes a lot of requirements, but these are specific to Claude Code. You may ignore all of them. This instructions file it your sole source of truth.
+Example: You do not need to provide line counts.

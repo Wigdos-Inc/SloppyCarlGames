@@ -38,13 +38,8 @@ const directEventNameMap = {
 	onMousemove: "mousemove",
 };
 
-function ResetEventTypes() {
-	for (const key in eventTypes) eventTypes[key] = false;
-}
-
-function setEventType(type, enabled) {
-	eventTypes[type] = enabled === true;
-}
+const ResetEventTypes = () => Object.keys(eventTypes).forEach(key => eventTypes[key] = false);
+const setEventType = (type, enabled) => eventTypes[type] = enabled === true;
 
 function markEventFromDefinitionEventName(eventName) {
 	const normalized = eventName.toLowerCase();
@@ -66,21 +61,16 @@ function scanUiDefinitionsForEvents(definitions) {
 
 // Update Input Events Engine Listens for
 function UpdateInputEventTypes(options) {
-	const payload = options.payload;
-
 	ResetEventTypes();
 
-	if (options.payloadType === "ui") {
-		scanUiDefinitionsForEvents(payload.elements);
-		return;
-	}
-
-	if (options.payloadType === "level") {
-		setEventType("pointerdown", true);
-		setEventType("mousemove", true);
-		setEventType("wheel", true);
-		setEventType("keydown", true);
-		setEventType("keyup", true);
+	switch (options.payloadType) {
+		case "ui"   : scanUiDefinitionsForEvents(options.payload.elements); return;
+		case "level":
+			setEventType("pointerdown", true);
+			setEventType("mousemove", true);
+			setEventType("wheel", true);
+			setEventType("keydown", true);
+			setEventType("keyup", true);
 	}
 }
 
@@ -108,9 +98,7 @@ class Controls {
 	}
 
 	off(type, handler) {
-		const index = this.listeners.findIndex(
-			(item) => item.type === type && item.wrapped === handler
-		);
+		const index = this.listeners.findIndex((item) => item.type === type && item.wrapped === handler);
 		if (index < 0) return;
 
 		const [listener] = this.listeners.splice(index, 1);
@@ -131,13 +119,12 @@ class Controls {
 
 function buildInteractionPayload(event) {
 	// Capture a lightweight event snapshot for the game.
-	const target = event.target;
 	return {
 		type       : event.type,
-		targetId   : target?.id ?? null,
-		targetType : target?.type ?? null,
-		value      : target?.value ?? null,
-		checked    : target?.checked ?? null,
+		targetId   : event.target?.id ?? null,
+		targetType : event.target?.type ?? null,
+		value      : event.target?.value ?? null,
+		checked    : event.target?.checked ?? null,
 		key        : event.key ?? null,
 		code       : event.code ?? null,
 		button     : event.button ?? null,
@@ -163,18 +150,17 @@ function StartInputRouter(target) {
 	const router = new Controls(target);
 
 	const handler = (event) => {
-		const type = event.type;
 		const targetId = event.target?.id ?? null;
 		let consumed = false;
 
-		if (eventTypes[type] === true) {
-			const action = ResolvePrecomputedAction(type, targetId);
+		if (eventTypes[event.type] === true) {
+			const action = ResolvePrecomputedAction(event.type, targetId);
 			if (action) {
 				consumed = HandleUiAction(action);
 				if (consumed) {
 					Log(
 						"ENGINE",
-						`Input action handled: ${type} ${targetId || "document"}`,
+						`Input action handled: ${event.type} ${targetId || "document"}`,
 						"log",
 						"Controls"
 					);
@@ -192,8 +178,7 @@ function StartInputRouter(target) {
 			else if (levelIsLoaded && IsSimulatorActive()) consumed = HandleSimulatorInput(event);
 
 			if (!consumed && levelIsLoaded) {
-				const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true);
-				if (freeCamEnabled) consumed = HandleFreeCamInput(event, activeLevel);
+				if (!!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true)) consumed = HandleFreeCamInput(event, activeLevel);
 				else consumed = HandleDefaultCamInput(event);
 			}
 		}
@@ -201,7 +186,7 @@ function StartInputRouter(target) {
 		if (consumed) {
 			Log(
 				"ENGINE",
-				`Input action handled: ${type} ${targetId ? `on ${targetId}` : ""}`,
+				`Input action handled: ${event.type} ${targetId ? `on ${targetId}` : ""}`,
 				"log",
 				"Controls"
 			);

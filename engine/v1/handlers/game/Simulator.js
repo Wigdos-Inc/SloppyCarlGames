@@ -99,9 +99,8 @@ function initSimulatorTarget(entity, objectType, definition) {
 		simulatorRuntime.savedEntityState = entity.state;
 		simulatorRuntime.animSetKeys      = Object.keys(entity.animations);
 		entity.state                      = simulatorRuntime.animSetKeys.length > 0 ? simulatorRuntime.animSetKeys[0] : "idle";
-	} else {
-		simulatorRuntime.animSetKeys = [];
-	}
+	} 
+	else simulatorRuntime.animSetKeys = [];
 	simulatorRuntime.entity        = entity;
 	simulatorRuntime.currentSetIdx = 0;
 	simulatorRuntime.isHolding     = false;
@@ -199,19 +198,19 @@ async function Load(payload) {
 	clearTargetState();
 
 	const built = SpawnIntoScene(definition, objectType, sceneGraph);
-	const entity = ENTITY_TYPES.includes(objectType) ? built : null;
-
 	simulatorRuntime.builtObject = built;
 	simulatorRuntime.objectType  = objectType;
-	initSimulatorTarget(entity, objectType, definition);
+	initSimulatorTarget(ENTITY_TYPES.includes(objectType) ? built : null, objectType, definition);
 	Log("ENGINE", `Simulator loaded: id=${definition.id}, type=${objectType}`, "log", "Simulator");
 }
 
 async function CacheEntries(bulkPayload) {
+	Log("ENGINE", "Simulator cache request received.", "log", "Simulator");
 	const validated = await ValidateSimulatorBulkPayload(bulkPayload);
 	for (const entry of validated) {
 		simulatorCache.set(entry.definition.id, { definition: entry.definition, objectType: entry.objectType });
 	}
+	Log("ENGINE", `Simulator caching complete: ${validated.length} entries.\n${validated.map(e => `- ${e.definition.id} (${e.objectType})`).join("\n")}`, "log", "Simulator");
 }
 
 function Clear() {
@@ -219,9 +218,7 @@ function Clear() {
 		Log("ENGINE", "Simulator.Clear: simulator not active.", "error", "Simulator");
 		return;
 	}
-	if (simulatorRuntime.builtObject !== null) {
-		DespawnFromScene(simulatorRuntime.builtObject, simulatorRuntime.objectType, GetActiveLevel());
-	}
+	if (simulatorRuntime.builtObject !== null) DespawnFromScene(simulatorRuntime.builtObject, simulatorRuntime.objectType, GetActiveLevel());
 	clearTargetState();
 	updateSimulatorHudNoTarget();
 	Log("ENGINE", "simulator target cleared", "log", "Simulator");
@@ -232,10 +229,9 @@ async function Exit() {
 		Log("ENGINE", "Simulator.Exit: simulator not active.", "error", "Simulator");
 		return;
 	}
-	const hadLevel = simulatorRuntime.hadLevel;
 	clearEnvironmentState();
 	ClearLevel(false);
-	if (hadLevel) await CreateLevel(Cache.Level.lastPayload, { renderOptions: { rootId: "engine-level-root" } }, true);
+	if (simulatorRuntime.hadLevel) await CreateLevel(Cache.Level.lastPayload, { renderOptions: { rootId: "engine-level-root" } }, true);
 	if (Cache.UI.lastPayload) await ApplyMenuUI(Cache.UI.lastPayload);
 	SendEvent("SIMULATOR_EXITED", {});
 	Log("ENGINE", "simulator exited", "log", "Simulator");
@@ -245,7 +241,6 @@ const IsSimulatorActive = () => simulatorRuntime.active;
 
 function HandleSimulatorInput(event) {
 	if (event.type !== "keydown") return false;
-
 	if (event.code === "Escape") {
 		Exit();
 		return true;

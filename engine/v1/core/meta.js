@@ -38,9 +38,8 @@ function PushToSession(key, value) {
 }
 
 function clearSessionStorage() {
-  try {
-    sessionStorage.clear();
-  } catch (error) {
+  try { sessionStorage.clear(); } 
+  catch (error) {
     Log("ENGINE", `Couldn't clear sessionStorage.\n\nError:\n${error}`, "error", "Meta");
     void error;
   }
@@ -50,11 +49,11 @@ function clearSessionStorage() {
 // Stored log history.
 
 const logs = ReadFromSession(SESSION_KEYS.Logs) ?? {
-  all: [],
-  engine: [],
-  game: [],
+  all     : [],
+  engine  : [],
+  game    : [],
   controls: [],
-  other: [],
+  other   : [],
 }
 
 // Cache last known payloads for quick lookups.
@@ -65,14 +64,14 @@ const Cache = ReadFromSession(SESSION_KEYS.Cache) ?? {
     elementIndex: {},
     uiRuntime: {
       hoverOverMap: {},
-      hoverOutMap: {},
-      clickMap: {},
-      inputMap: {},
-      changeMap: {},
-      keyMap: {},
+      hoverOutMap : {},
+      clickMap    : {},
+      inputMap    : {},
+      changeMap   : {},
+      keyMap      : {},
     },
   },
-  Level: { lastPayload: null },
+  Level   : { lastPayload: null },
   Cutscene: { lastPayload: null },
 }
 

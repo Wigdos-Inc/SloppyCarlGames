@@ -21,13 +21,7 @@ function Vector3ChainMath(a, b = [], chainDefinition = "") {
 	return a;
 }
 
-function ToVector3(value) {
-	return {
-		x: value,
-		y: value,
-		z: value,
-	};
-}
+const ToVector3 = (value) => { return { x: value, y: value, z: value } };
 
 function AddVector3(a, b) {
 	return {
@@ -61,9 +55,7 @@ function MultiplyVector3(a, b) {
 	};
 }
 
-function ScaleVector3(vector, scalar) {
-	return MultiplyVector3(vector, ToVector3(scalar));
-}
+const ScaleVector3 = (vector, scalar) => MultiplyVector3(vector, ToVector3(scalar));
 
 function AbsoluteVector3(vector) {
 	return {
@@ -81,9 +73,7 @@ function ClampVector3(valV, minV, maxV) {
 	};
 }
 
-function DotVector3(a, b) {
-	return a.x * b.x + a.y * b.y + a.z * b.z;
-}
+const DotVector3 = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
 
 function CrossVector3(a, b) {
 	return {
@@ -93,31 +83,17 @@ function CrossVector3(a, b) {
 	};
 }
 
-function LerpVector3(start, end, t) {
-	return AddVector3(start, ScaleVector3(SubtractVector3(end, start), Clamp01(t)));
-}
-
-function Vector3Sq(vector) {
-	return (vector.x * vector.x) + (vector.y * vector.y) + (vector.z * vector.z);
-}
-
-function Vector3Length(vector) {
-	return Math.hypot(vector.x, vector.y, vector.z);
-}
-
-function Vector3Distance(a, b) {
-	return Vector3Length(SubtractVector3(a, b));
-}
+const LerpVector3 = (start, end, t) => AddVector3(start, ScaleVector3(SubtractVector3(end, start), Clamp01(t)));
+const Vector3Sq = (vector) => (vector.x * vector.x) + (vector.y * vector.y) + (vector.z * vector.z);
+const Vector3Length = (vector) => Math.hypot(vector.x, vector.y, vector.z);
+const Vector3Distance = (a, b) => Vector3Length(SubtractVector3(a, b));
 
 function ResolveVector3Axis(vector) {
 	const length = Vector3Length(vector);
-	if (length <= EPSILON) return ToVector3(0);
-	return DivideVector3(vector, ToVector3(length));
+	return length <= EPSILON ? ToVector3(0) : DivideVector3(vector, ToVector3(length));
 }
 
-function CloneVector3(vector) {
-	return { x: vector.x, y: vector.y, z: vector.z };
-}
+const CloneVector3 = (vector) => { return { x: vector.x, y: vector.y, z: vector.z } };
 
 /**
  * Rotate a point by Euler angles in Y → X → Z order (matches CreateModelMatrix).

@@ -16,13 +16,9 @@ const defaultCutsceneConfig = {
 };
 
 async function playRenderedCutsceneInternal(payload, options) {
-	const videoId = options.videoId;
-	const fadeOutSeconds = payload.fadeOutSeconds;
-	const fadeLeadSeconds = payload.fadeLeadSeconds;
-
 	// Build the video element and container styling.
 	const video = document.createElement("video");
-	video.id = videoId;
+	video.id = options.videoId;
 	video.src = payload.source;
 	video.autoplay = true;
 	video.playsInline = true;
@@ -69,11 +65,10 @@ async function playRenderedCutsceneInternal(payload, options) {
 	// Schedule a fade before the video ends.
 	let fadePromise = null;
 	if (!video.loop && Number.isFinite(video.duration)) {
-		const fadeStartSeconds = Math.max(0, video.duration - fadeLeadSeconds);
-		const waitMs = Math.max(0, (fadeStartSeconds - video.currentTime) * 1000);
+		const fadeStartSeconds = Math.max(0, video.duration - payload.fadeLeadSeconds);
 		fadePromise = (async () => {
-			await Wait(waitMs);
-			await UIElement.get(videoId).fadeTo(0, fadeOutSeconds);
+			await Wait(Math.max(0, (fadeStartSeconds - video.currentTime) * 1000));
+			await UIElement.get(options.videoId).fadeTo(0, payload.fadeOutSeconds);
 		})();
 	}
 
@@ -87,9 +82,8 @@ async function playRenderedCutsceneInternal(payload, options) {
 	if (!video.loop) {
 		// Wait until the video ends or errors.
 		await new Promise((resolve) => {
-			const finish = () => resolve();
-			video.addEventListener("ended", finish, { once: true });
-			video.addEventListener("error", finish, { once: true });
+			video.addEventListener("ended", resolve(), { once: true });
+			video.addEventListener("error", resolve(), { once: true });
 		});
 	}
 
@@ -98,13 +92,10 @@ async function playRenderedCutsceneInternal(payload, options) {
 		await fadePromise;
 		await Wait(1000);
 	}
-	UIElement.get(videoId).remove();
+	UIElement.get(options.videoId).remove();
 }
 
 function ensureCutsceneCurtain(rootId) {
-	// Reuse a persistent curtain overlay for fades.
-	const root = document.getElementById(rootId);
-
 	let curtain = document.getElementById("engine-cutscene-curtain");
 	if (!curtain) {
 		curtain = document.createElement("div");
@@ -114,28 +105,21 @@ function ensureCutsceneCurtain(rootId) {
 		curtain.style.background = "black";
 		curtain.style.opacity = "0";
 		curtain.style.pointerEvents = "none";
-		root.appendChild(curtain);
+		document.getElementById(rootId).appendChild(curtain);
 	}
 
 	return curtain;
 }
 
 // Fade the curtain overlay to black.
-async function fadeCutsceneToBlack(options) {
-	const curtain = ensureCutsceneCurtain(options.rootId);
-	const curtainElement = UIElement.get(curtain.id);
-	await curtainElement.fadeTo(1, options.fadeOutSeconds);
-}
+const fadeCutsceneToBlack = async () => await UIElement.get(ensureCutsceneCurtain(options.rootId).id).fadeTo(1, options.fadeOutSeconds);
 
 async function playEngineCutsceneInternal(payload, options) {
-	const durationSeconds = payload.durationSeconds;
-	const fadeLeadSeconds = payload.fadeLeadSeconds;
-
 	// Fade to black before the end of the cutscene.
-	const waitMs = Math.max(0, (durationSeconds - fadeLeadSeconds) * 1000);
+	const waitMs = Math.max(0, (payload.durationSeconds - payload.fadeLeadSeconds) * 1000);
 	await Wait(waitMs);
 	await fadeCutsceneToBlack(options);
-	await Wait(fadeLeadSeconds * 1000);
+	await Wait(payload.fadeLeadSeconds * 1000);
 	await Wait(1000);
 	return;
 }

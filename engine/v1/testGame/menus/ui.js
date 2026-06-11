@@ -11,18 +11,9 @@ function loadUiData() {
 }
 
 function resolvePayload(uiData, payloadId) {
-	if (!uiData || !payloadId) {
-		return null;
-	}
-
-	if (uiData.menuUI && uiData.menuUI[payloadId]) {
-		return uiData.menuUI[payloadId];
-	}
-
-	if (uiData.gameUI && uiData.gameUI[payloadId]) {
-		return uiData.gameUI[payloadId];
-	}
-
+	if (!uiData || !payloadId) return null;
+	if (uiData.menuUI && uiData.menuUI[payloadId]) return uiData.menuUI[payloadId];
+	if (uiData.gameUI && uiData.gameUI[payloadId]) return uiData.gameUI[payloadId];
 	return null;
 }
 

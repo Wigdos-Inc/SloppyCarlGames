@@ -15,9 +15,7 @@ import {
 } from "../math/Vector3.js";
 import { Clamp } from "../math/Utilities.js";
 
-function hasMeaningfulDelta(currentValue, nextValue) {
-	return Math.abs(nextValue - currentValue) > EPSILON;
-}
+const hasMeaningfulDelta = (currentValue, nextValue) => Math.abs(nextValue - currentValue) > EPSILON;
 
 function hasMeaningfulVectorDelta(currentVector, nextVector) {
 	return (
@@ -53,9 +51,7 @@ const correctionDisabled = Object.freeze({
 	anyChanged: false,
 });
 
-function shouldSkipJumpGrounding(playerState) {
-	return playerState.state === "Jumping" && playerState.velocity.y > EPSILON;
-}
+const shouldSkipJumpGrounding = (playerState) => playerState.state === "Jumping" && playerState.velocity.y > EPSILON;
 
 function applySurfaceNormal(playerState, normal) {
 	playerState.grounded = true;
@@ -72,8 +68,7 @@ function applySurfaceNormal(playerState, normal) {
  * @param {{ hit: boolean, normal: { x, y, z } }} groundContact — from collision resolution.
  */
 function ApplySurfaceCorrection(playerState, groundContact) {
-	const config = CONFIG.PHYSICS.Correction;
-	if (config.Enabled === false) return correctionDisabled;
+	if (CONFIG.PHYSICS.Correction.Enabled === false) return correctionDisabled;
 	if (shouldSkipJumpGrounding(playerState)) return resetSurfaceState(playerState);
 
 	if (!groundContact.hit) return resetSurfaceState(playerState);
@@ -81,8 +76,7 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 
 	const normal = ResolveVector3Axis(groundContact.normal);
 	const previousNormal = ResolveVector3Axis(playerState.surfaceNormal);
-	const deltaAngleDegrees = (Math.acos(Clamp(DotVector3(previousNormal, normal), -1, 1)) * 180) / Math.PI;
-	if (deltaAngleDegrees > config.MaxDeltaDegrees) return resetSurfaceState(playerState);
+	if ((Math.acos(Clamp(DotVector3(previousNormal, normal), -1, 1)) * 180) / Math.PI > CONFIG.PHYSICS.Correction.MaxDeltaDegrees) return resetSurfaceState(playerState);
 
 	const changedGrounded = !playerState.grounded;
 	let changedOrientation = false;
@@ -93,14 +87,15 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 		changedVelocity = true;
 	}
 
-	if (((Math.acos(Clamp(normal.y, -1, 1)) * 180) / Math.PI) < config.MinDeltaDegrees) {
+	if (((Math.acos(Clamp(normal.y, -1, 1)) * 180) / Math.PI) < CONFIG.PHYSICS.Correction.MinDeltaDegrees) {
 		// Near-flat surface: commit grounded state and real normal for angle tracking,
 		// but force alignedUp to worldUp so edge-contact noise never tilts the player.
 		changedOrientation = hasMeaningfulVectorDelta(playerState.alignedUp, WORLD_NORMALS.Up);
 		playerState.grounded = true;
 		playerState.surfaceNormal = CloneVector3(normal);
 		playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
-	} else {
+	} 
+	else {
 		// Real slope: align to surface and project velocity onto slope plane.
 		changedOrientation = hasMeaningfulVectorDelta(playerState.alignedUp, normal);
 		applySurfaceNormal(playerState, normal);
@@ -137,18 +132,16 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 }
 
 function ApplyGroundSnap(playerState, groundContact, groundSnapTolerance) {
-	const config = CONFIG.PHYSICS.Correction;
-	if (config.Enabled === false || !playerState.grounded) return correctionDisabled;
+	if (CONFIG.PHYSICS.Correction.Enabled === false || !playerState.grounded)  return correctionDisabled;
 	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return correctionDisabled;
 	if (ResolveVector3Axis(groundContact.normal).y <= 0.5) return correctionDisabled;
 
 	const desiredPosY = groundContact.supportPoint.y - playerState.collision.profile.bottomOffset.value;
 	const deltaY = desiredPosY - playerState.transform.position.y;
 
-	const absDeltaY = Math.abs(deltaY);
-	if (absDeltaY > groundSnapTolerance) return correctionDisabled;
+	if (Math.abs(deltaY) > groundSnapTolerance) return correctionDisabled;
 
-	const changedPosition = absDeltaY > EPSILON;
+	const changedPosition = Math.abs(deltaY) > EPSILON;
 	if (changedPosition) {
 		playerState.transform.position.y = desiredPosY;
 		Log("ENGINE", `Ground snap: deltaY=${deltaY.toFixed(4)}`, "log", "Level");

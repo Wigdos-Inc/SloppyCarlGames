@@ -77,10 +77,8 @@ const detailedBoundsTypeColors = {
 };
 
 function createPerspectiveMatrix(fovDegrees, aspect, near, far) {
-	const fov = (fovDegrees * Math.PI) / 180;
-	const f = 1 / Math.tan(fov / 2);
+	const f = 1 / Math.tan(((fovDegrees * Math.PI) / 180) / 2);
 	const nf = 1 / (near - far);
-
 	return [
 		f / aspect, 0, 0, 0,
 		0, f, 0, 0,
@@ -93,7 +91,6 @@ function createLookAtMatrix(eye, target, up) {
 	const zAxis = ResolveVector3Axis(SubtractVector3(eye, target));
 	const xAxis = ResolveVector3Axis(CrossVector3(up, zAxis));
 	const yAxis = CrossVector3(zAxis, xAxis);
-
 	return [
 		xAxis.x, yAxis.x, zAxis.x, 0,
 		xAxis.y, yAxis.y, zAxis.y, 0,
@@ -364,8 +361,7 @@ function ensureSharedGeometry(renderer, sceneGraph, primitiveKey) {
 // Builds per-batch VAOs and instance buffers from scatterBatches on the sceneGraph.
 
 function buildScatterInstanceBuffers(renderer, sceneGraph) {
-	const batches = sceneGraph.scatterBatches;
-	if (batches.size === 0) {
+	if (sceneGraph.scatterBatches.size === 0) {
 		renderer.scatterInstances = [];
 		renderer.scatterInstancesBuilt = true;
 		return;
@@ -375,7 +371,7 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 	const results = [];
 	let totalInstances = 0;
 
-	batches.forEach((batch, batchKey) => {
+	sceneGraph.scatterBatches.forEach((batch, batchKey) => {
 		if (batch.instanceCount === 0) return;
 
 		const geo = ensureSharedGeometry(renderer, sceneGraph, batch.primitiveKey);
@@ -456,26 +452,18 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 	);
 }
 
-function isBoundingBoxDebugEnabled(type) {
-	return !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox[type]);
-}
-function isGridDebugEnabled() {
-	return !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible);
-}
-
-function isDetailedBoundsDebugEnabled(type) {
-	return !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.DetailedBounds[type]);
-}
+const isBoundingBoxDebugEnabled = (type) => !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox[type]);
+const isGridDebugEnabled = () => !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible);
+const isDetailedBoundsDebugEnabled = (type) => !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.DetailedBounds[type]);
 
 function bindDebugLinePass(renderer, gl, projection, view) {
-	const shader = renderer.debugLineShader;
-	gl.useProgram(shader.program);
-	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(projection));
-	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(view));
-	gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
+	gl.useProgram(renderer.debugLineShader.program);
+	gl.uniformMatrix4fv(renderer.debugLineShader.uniforms.projection, false, new Float32Array(projection));
+	gl.uniformMatrix4fv(renderer.debugLineShader.uniforms.view, false, new Float32Array(view));
+	gl.uniformMatrix4fv(renderer.debugLineShader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
 	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
-	gl.enableVertexAttribArray(shader.attributes.position);
-	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(renderer.debugLineShader.attributes.position);
+	gl.vertexAttribPointer(renderer.debugLineShader.attributes.position, 3, gl.FLOAT, false, 0, 0);
 }
 
 function buildBoxWireframe(p000, p001, p010, p011, p100, p101, p110, p111) {
@@ -533,8 +521,7 @@ function createGridLineVertices(bounds, spacing) {
 }
 
 function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
-	const records = sceneGraph.debugBoundingBoxes;
-	if (records.length === 0) return;
+	if (sceneGraph.debugBoundingBoxes.length === 0) return;
 
 	const gl = renderer.gl;
 	if (!renderer.debugLineShader) renderer.debugLineShader = createLineProgram(gl);
@@ -544,7 +531,7 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 
 	bindDebugLinePass(renderer, gl, projection, view);
 
-	records.forEach((record) => {
+	sceneGraph.debugBoundingBoxes.forEach((record) => {
 		if (!isBoundingBoxDebugEnabled(record.type)) return;
 
 		const vertices = createMinMaxBoxLineVertices(record);
@@ -559,9 +546,7 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 
 function drawGridOverlay(renderer, sceneGraph, projection, view) {
 	if (!isGridDebugEnabled()) return;
-
-	const records = sceneGraph.debugBoundingBoxes;
-	if (records.length === 0) return;
+	if (sceneGraph.debugBoundingBoxes.length === 0) return;
 
 	const gl = renderer.gl;
 	if (!renderer.debugLineShader || !renderer.debugLineBuffer) return;
@@ -573,7 +558,7 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 	const shader = renderer.debugLineShader;
 	gl.uniform4f(shader.uniforms.color, 0.5, 0.5, 0.5, 0.6);
 
-	records.forEach((record) => {
+	sceneGraph.debugBoundingBoxes.forEach((record) => {
 		if (!isBoundingBoxDebugEnabled(record.type)) return;
 
 		const vertices = createGridLineVertices(record, spacing);
@@ -633,8 +618,6 @@ function createCapsuleLineVertices(bounds, longitudinalSegments = 8) {
 		const topBase = [end.x + c0 * radius, end.y, end.z + s0 * radius];
 		const bottomMid = [start.x + c0 * ringRadius, start.y - ringOffset, start.z + s0 * ringRadius];
 		const topMid = [end.x + c0 * ringRadius, end.y + ringOffset, end.z + s0 * ringRadius];
-		const bottomMidNext = [start.x + c1 * ringRadius, start.y - ringOffset, start.z + s1 * ringRadius];
-		const topMidNext = [end.x + c1 * ringRadius, end.y + ringOffset, end.z + s1 * ringRadius];
 
 		lines.push(...bottomBase, ...topBase);
 		lines.push(...bottomBase, start.x + c1 * radius, start.y, start.z + s1 * radius);
@@ -643,8 +626,8 @@ function createCapsuleLineVertices(bounds, longitudinalSegments = 8) {
 		lines.push(...bottomMid, ...bottomPole);
 		lines.push(...topBase, ...topMid);
 		lines.push(...topMid, ...topPole);
-		lines.push(...bottomMid, ...bottomMidNext);
-		lines.push(...topMid, ...topMidNext);
+		lines.push(...bottomMid, ...[start.x + c1 * ringRadius, start.y - ringOffset, start.z + s1 * ringRadius]);
+		lines.push(...topMid, ...[end.x + c1 * ringRadius, end.y + ringOffset, end.z + s1 * ringRadius]);
 	}
 
 	return new Float32Array(lines);
@@ -694,7 +677,7 @@ function drawDetailedBoundsShape(gl, shader, bounds) {
 		case "capsule"      : vertices = createCapsuleLineVertices(bounds);      break;
 		case "obb"          : vertices = createObbLineVertices(bounds);          break;
 		case "sphere"       : vertices = createSphereLineVertices(bounds);       break;
-		case "aabb"         : vertices = createMinMaxBoxLineVertices(bounds);     break;
+		case "aabb"         : vertices = createMinMaxBoxLineVertices(bounds);    break;
 		case "triangle-soup": vertices = createTriangleSoupLineVertices(bounds); break;
 		case "compound"     :
 			bounds.parts.forEach((part) => drawDetailedBoundsShape(gl, shader, part));
@@ -739,65 +722,48 @@ const trailTypeColors = {
 	Projectile: { r: 1, g: 1, b: 0.2, a: 1 },
 };
 
-function isTrailDebugEnabled(type) {
-	return !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.Trails[type]);
-}
+const isTrailDebugEnabled = (type) => !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.Trails[type]);
 
 function classifyEntityTrailType(entity) {
-	const type = entity.type;
-	if (type.includes("player")) { return "Player"; }
-	if (type.includes("boss")) { return "Boss"; }
-	if (type.includes("collectible")) { return "Collectible"; }
-	if (type.includes("projectile")) { return "Projectile"; }
+	if (entity.type.includes("player"))      return "Player";
+	if (entity.type.includes("boss"))        return "Boss";
+	if (entity.type.includes("collectible")) return "Collectible";
+	if (entity.type.includes("projectile"))  return "Projectile";
 	return "Enemies";
 }
 
 function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 	if (!CONFIG.DEBUG.ALL) return;
-	const trailMap = CONFIG.DEBUG.LEVELS.Trails;
-	
-	// Quick check: any trail flag enabled?
-	const anyEnabled = Object.values(trailMap).some(Boolean);
-	if (!anyEnabled) return;
-
-	const entities = sceneGraph.entities;
-	if (entities.length === 0) return;
+	if (!Object.values(CONFIG.DEBUG.LEVELS.Trails).some(Boolean)) return;
+	if (sceneGraph.entities.length === 0) return;
 
 	const gl = renderer.gl;
 	if (!renderer.debugLineShader || !renderer.debugLineBuffer) return;
 
 	bindDebugLinePass(renderer, gl, projection, view);
-	const shader = renderer.debugLineShader;
 	const trailScale = 0.15;
 
-	for (let i = 0; i < entities.length; i++) {
-		const entity = entities[i];
-
+	sceneGraph.entities.forEach(entity => {
 		const trailType = classifyEntityTrailType(entity);
-		if (!isTrailDebugEnabled(trailType)) continue;
+		if (!isTrailDebugEnabled(trailType)) return;
 
 		const vel = entity.velocity;
-		if (Vector3Sq(vel) < 0.01) continue;
+		if (Vector3Sq(vel) < 0.01) return;
 
-		const pos = entity.transform.position;
+		const pos = entity.transform.position.toWorldUnit();
 		const end = AddVector3(pos, ScaleVector3(vel, trailScale));
 
 		// Convert CNU positions to world units for rendering.
-		const vertices = new Float32Array([
-			CNUtoWorldUnit(pos.x), CNUtoWorldUnit(pos.y), CNUtoWorldUnit(pos.z),
-			CNUtoWorldUnit(end.x), CNUtoWorldUnit(end.y), CNUtoWorldUnit(end.z),
-		]);
+		const vertices = new Float32Array([pos.x, pos.y, pos.z, end.x, end.y, end.z]);
 		const color = trailTypeColors[trailType];
 
-		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
+		gl.uniform4f(renderer.debugLineShader.uniforms.color, color.r, color.g, color.b, color.a);
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 		gl.drawArrays(gl.LINES, 0, 2);
-	}
+	});
 }
 
 function createMeshBuffers(gl, mesh, shader) {
-	const geometry = mesh.geometry;
-
 	const positionBuffer = gl.createBuffer();
 	const uvBuffer = gl.createBuffer();
 	const indexBuffer = gl.createBuffer();
@@ -810,17 +776,17 @@ function createMeshBuffers(gl, mesh, shader) {
 	gl.bindVertexArray(vao);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.positions), gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.geometry.positions), gl.STATIC_DRAW);
 	gl.enableVertexAttribArray(shader.attributes.position);
 	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.uvs), gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.geometry.uvs), gl.STATIC_DRAW);
 	gl.enableVertexAttribArray(shader.attributes.uv);
 	gl.vertexAttribPointer(shader.attributes.uv, 2, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geometry.indices), gl.STATIC_DRAW);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.geometry.indices), gl.STATIC_DRAW);
 
 	gl.bindVertexArray(null);
 
@@ -828,15 +794,12 @@ function createMeshBuffers(gl, mesh, shader) {
 		position: positionBuffer,
 		uv: uvBuffer,
 		index: indexBuffer,
-		indexCount: geometry.indices.length,
-		vao: vao,
+		indexCount: mesh.geometry.indices.length,
+		vao,
 	};
 }
 
-function getMeshBufferKey(mesh) {
-	const dim = mesh.dimensions;
-	return `${mesh.id}|${mesh.primitive}|${dim.x}|${dim.y}|${dim.z}|${mesh.complexity}`;
-}
+const getMeshBufferKey = (mesh) => `${mesh.id}|${mesh.primitive}|${mesh.dimensions.x}|${mesh.dimensions.y}|${mesh.dimensions.z}|${mesh.complexity}`;
 
 function createFallbackTexture(gl) {
 	const texture = gl.createTexture();
@@ -915,12 +878,8 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	}
 
 	const renderer = {
-		rootId: rootId,
-		root: root,
-		canvas: canvas,
-		gl: gl,
-		shader: shader,
-		scatterShader: scatterShader,
+		rootId, root, canvas, gl, shader,
+		scatterShader,
 		meshBuffers: new Map(),
 		textures: new Map(),
 		geometryRegistry: new Map(),
@@ -938,25 +897,18 @@ function ensureLevelRenderer(rootId, rootStyles) {
 }
 
 function syncCanvasSize(renderer) {
-	const canvas = renderer.canvas;
-	const width = canvas.clientWidth;
-	const height = canvas.clientHeight;
-	if (canvas.width !== width || canvas.height !== height) {
-		canvas.width = width;
-		canvas.height = height;
+	if (renderer.canvas.width !== renderer.canvas.clientWidth || renderer.canvas.height !== renderer.canvas.clientHeight) {
+		renderer.canvas.width = renderer.canvas.clientWidth;
+		renderer.canvas.height = renderer.canvas.clientHeight;
 	}
 }
 
 function collectRenderableMeshes(sceneGraph) {
-	const terrain = sceneGraph.terrain;
-	const obstacleRecords = sceneGraph.obstacles;
 	const obstacleMeshes = [];
-	const entities = sceneGraph.entities;
 	const entityMeshes = [];
 
-	obstacleRecords.forEach((record) => record.parts.forEach((part) => obstacleMeshes.push(part)));
-
-	entities.forEach((entity) => {
+	sceneGraph.obstacles.forEach((record) => record.parts.forEach((part) => obstacleMeshes.push(part)));
+	sceneGraph.entities.forEach((entity) => {
 		if (entity.model) {
 			entity.model.parts.forEach((part) => entityMeshes.push(part.mesh));
 			return;
@@ -965,15 +917,10 @@ function collectRenderableMeshes(sceneGraph) {
 	});
 
 	// Scatter and triggers are excluded — scatter via instanced path, triggers via post-scatter pass.
-	return terrain.concat(obstacleMeshes, entityMeshes);
+	return sceneGraph.terrain.concat(obstacleMeshes, entityMeshes);
 }
 
-function resolveWaterVisualMeshes(sceneGraph) {
-	const waterVisual = sceneGraph.waterVisual;
-	if (!waterVisual) return [];
-
-	return [waterVisual.body, waterVisual.top];
-}
+const resolveWaterVisualMeshes = (sceneGraph) => !sceneGraph.waterVisual ? [] : [sceneGraph.waterVisual.body, sceneGraph.waterVisual.top];
 
 function configureTexturedMeshPass(gl, shader, passState) {
 	gl.useProgram(shader.program);
@@ -987,7 +934,6 @@ function configureTexturedMeshPass(gl, shader, passState) {
 
 function ensureMeshBuffer(renderer, mesh, shader) {
 	const meshBufferKey = getMeshBufferKey(mesh);
-
 	let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
 	if (!meshBuffer) {
 		meshBuffer = createMeshBuffers(renderer.gl, mesh, shader);
@@ -1002,15 +948,14 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 	if (meshes.length === 0) return;
 
 	const gl = renderer.gl;
-	const shader = renderer.shader;
 	const disableDepthWriteForPass = options.depthMask === false;
 	const skipDepthWrite = options.skipDepthWrite || (() => false);
 
-	configureTexturedMeshPass(gl, shader, passState);
+	configureTexturedMeshPass(gl, renderer.shader, passState);
 	if (disableDepthWriteForPass) gl.depthMask(false);
 
 	for (const mesh of meshes) {
-		const meshBuffer = ensureMeshBuffer(renderer, mesh, shader);
+		const meshBuffer = ensureMeshBuffer(renderer, mesh, renderer.shader);
 		if (!meshBuffer) continue;
 
 		const dc = mesh.displayColor;
@@ -1020,9 +965,9 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		gl.bindVertexArray(meshBuffer.vao);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.uniform1i(shader.uniforms.texture, 0);
-		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
-		gl.uniform4f(shader.uniforms.tint,
+		gl.uniform1i(renderer.shader.uniforms.texture, 0);
+		gl.uniformMatrix4fv(renderer.shader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
+		gl.uniform4f(renderer.shader.uniforms.tint,
 			dc !== null ? dc.r : mesh.material.color.r,
 			dc !== null ? dc.g : mesh.material.color.g,
 			dc !== null ? dc.b : mesh.material.color.b,
@@ -1037,11 +982,10 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 }
 
 function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue) {
-	const waterMeshes = resolveWaterVisualMeshes(sceneGraph);
 	drawMeshList(
 		renderer,
 		sceneGraph,
-		waterMeshes,
+		resolveWaterVisualMeshes(sceneGraph),
 		{ projection, view, fogDensity, farValue, colorShift, underwaterValue },
 		{ depthMask: false }
 	);
@@ -1051,7 +995,6 @@ function ensureDecalQuadBuffer(renderer) {
 	if (renderer.decalQuadBuffer) return renderer.decalQuadBuffer;
 
 	const gl = renderer.gl;
-	const shader = renderer.shader;
 
 	const positionBuffer = gl.createBuffer();
 	const uvBuffer = gl.createBuffer();
@@ -1066,13 +1009,13 @@ function ensureDecalQuadBuffer(renderer) {
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-0.5, -0.5, 0,  0.5, -0.5, 0,  0.5, 0.5, 0,  -0.5, 0.5, 0]), gl.STATIC_DRAW);
-	gl.enableVertexAttribArray(shader.attributes.position);
-	gl.vertexAttribPointer(shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(renderer.shader.attributes.position);
+	gl.vertexAttribPointer(renderer.shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 1,  1, 1,  1, 0,  0, 0]), gl.STATIC_DRAW);
-	gl.enableVertexAttribArray(shader.attributes.uv);
-	gl.vertexAttribPointer(shader.attributes.uv, 2, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(renderer.shader.attributes.uv);
+	gl.vertexAttribPointer(renderer.shader.attributes.uv, 2, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2,  0, 2, 3]), gl.STATIC_DRAW);
@@ -1142,9 +1085,8 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	if (!quadBuffer) return;
 
 	const gl = renderer.gl;
-	const shader = renderer.shader;
 
-	configureTexturedMeshPass(gl, shader, passState);
+	configureTexturedMeshPass(gl, renderer.shader, passState);
 	gl.enable(gl.POLYGON_OFFSET_FILL);
 	gl.polygonOffset(-1, -1);
 	gl.depthMask(false);
@@ -1156,31 +1098,25 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 		const texture = ensureSceneTexture(renderer, sceneGraph, textureKey);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.uniform1i(shader.uniforms.texture, 0);
-		gl.uniformMatrix4fv(shader.uniforms.model, false, buildDecalModelMatrix(mesh, decalEntry));
+		gl.uniform1i(renderer.shader.uniforms.texture, 0);
+		gl.uniformMatrix4fv(renderer.shader.uniforms.model, false, buildDecalModelMatrix(mesh, decalEntry));
 		if (decalEntry.mutable === true && decalEntry.activeSourceKey === null) {
 			const tint = decalEntry.displayColor !== null ? decalEntry.displayColor : decalEntry.color;
-			gl.uniform4f(shader.uniforms.tint, tint.r, tint.g, tint.b, tint.a);
+			gl.uniform4f(renderer.shader.uniforms.tint, tint.r, tint.g, tint.b, tint.a);
 		} 
-		else gl.uniform4f(shader.uniforms.tint, 1, 1, 1, 1);
+		else gl.uniform4f(renderer.shader.uniforms.tint, 1, 1, 1, 1);
 		gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 	};
 
 	gl.bindVertexArray(quadBuffer.vao);
 	sceneGraph.entities.forEach((entity) => {
 		if (!entity.model) return;
-		entity.model.parts.forEach((part) => {
-			part.mesh.customTextures.forEach((_, index) => drawDecalsForMesh(part.mesh, index));
-		});
+		entity.model.parts.forEach((part) => part.mesh.customTextures.forEach((_, index) => drawDecalsForMesh(part.mesh, index)));
 	});
 	sceneGraph.obstacles.forEach((obstacle) => {
-		obstacle.parts.forEach((part) => {
-			part.customTextures.forEach((_, index) => drawDecalsForMesh(part, index));
-		});
+		obstacle.parts.forEach((part) => part.customTextures.forEach((_, index) => drawDecalsForMesh(part, index)));
 	});
-	sceneGraph.terrain.forEach((mesh) => {
-		mesh.customTextures.forEach((_, index) => drawDecalsForMesh(mesh, index));
-	});
+	sceneGraph.terrain.forEach((mesh) => mesh.customTextures.forEach((_, index) => drawDecalsForMesh(mesh, index)));
 
 	gl.bindVertexArray(null);
 	gl.depthMask(true);
@@ -1225,8 +1161,7 @@ function drawScene(renderer, sceneGraph) {
 	}
 
 	// === PASS A: Non-scatter meshes (terrain, obstacles, triggers, entities) ===
-	const meshes = collectRenderableMeshes(sceneGraph);
-	drawMeshList(renderer, sceneGraph, meshes, passState);
+	drawMeshList(renderer, sceneGraph, collectRenderableMeshes(sceneGraph), passState);
 
 	// === PASS E: Decal quads (custom textures, alpha-blended on top of geometry) ===
 	drawDecalPass(renderer, sceneGraph, passState);
@@ -1235,32 +1170,26 @@ function drawScene(renderer, sceneGraph) {
 	if (!renderer.scatterInstancesBuilt) buildScatterInstanceBuffers(renderer, sceneGraph);
 
 	if (renderer.scatterInstances.length > 0) {
-		const scatterShader = renderer.scatterShader;
-		gl.useProgram(scatterShader.program);
-		gl.uniformMatrix4fv(scatterShader.uniforms.projection, false, new Float32Array(projection));
-		gl.uniformMatrix4fv(scatterShader.uniforms.view, false, new Float32Array(view));
-		gl.uniform1f(scatterShader.uniforms.fogDensity, fogDensity);
-		gl.uniform1f(scatterShader.uniforms.far, farValue);
-		gl.uniform3f(scatterShader.uniforms.colorShift, colorShift.r, colorShift.g, colorShift.b);
-		gl.uniform1f(scatterShader.uniforms.underwater, underwaterValue);
+		gl.useProgram(renderer.scatterShader.program);
+		gl.uniformMatrix4fv(renderer.scatterShader.uniforms.projection, false, new Float32Array(projection));
+		gl.uniformMatrix4fv(renderer.scatterShader.uniforms.view, false, new Float32Array(view));
+		gl.uniform1f(renderer.scatterShader.uniforms.fogDensity, fogDensity);
+		gl.uniform1f(renderer.scatterShader.uniforms.far, farValue);
+		gl.uniform3f(renderer.scatterShader.uniforms.colorShift, colorShift.r, colorShift.g, colorShift.b);
+		gl.uniform1f(renderer.scatterShader.uniforms.underwater, underwaterValue);
 
-		for (let batchIndex = 0; batchIndex < renderer.scatterInstances.length; batchIndex++) {
-			const batch = renderer.scatterInstances[batchIndex];
-			const texture = ensureSceneTexture(renderer, sceneGraph, batch.textureID);
-
+		renderer.scatterInstances.forEach(batch => {
 			gl.bindVertexArray(batch.vao);
 			gl.activeTexture(gl.TEXTURE0);
-			gl.bindTexture(gl.TEXTURE_2D, texture);
-			gl.uniform1i(scatterShader.uniforms.texture, 0);
+			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, batch.textureID));
+			gl.uniform1i(renderer.scatterShader.uniforms.texture, 0);
 			gl.drawElementsInstanced(gl.TRIANGLES, batch.indexCount, gl.UNSIGNED_SHORT, 0, batch.instanceCount);
 			gl.bindVertexArray(null);
-		}
+		});
 	}
 
 	// === PASS C: Trigger overlay (no depth write — color filter over all solid geometry) ===
-	if (sceneGraph.debug.showTriggerVolumes) {
-		drawMeshList(renderer, sceneGraph, sceneGraph.triggers, passState, { depthMask: false });
-	}
+	if (sceneGraph.debug.showTriggerVolumes) drawMeshList(renderer, sceneGraph, sceneGraph.triggers, passState, { depthMask: false });
 
 	// === PASS D: Water overlay (translucent; top brighter than body) ===
 	drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue);
@@ -1274,7 +1203,6 @@ function drawScene(renderer, sceneGraph) {
 function RenderLevel(sceneGraph, options) {
 	const renderer = ensureLevelRenderer(options.rootId, options.rootStyles);
 	if (!renderer) return;
-
 	drawScene(renderer, sceneGraph);
 }
 
@@ -1282,30 +1210,12 @@ function RenderLevel(sceneGraph, options) {
 // Utility helpers for updating rendered elements.
 
 const GetElement = (elementId) => UIElement.get(elementId).element;
-
-function SetElementText(elementId, text) {
-	UIElement.get(elementId).setText(text, true);
-}
-
-function SetElementSource(elementId, src) {
-	UIElement.get(elementId).setSource(src, true);
-}
-
-function SetElementStyle(elementId, styles) {
-	UIElement.get(elementId).setStyle(styles, true);
-}
-
-function FadeElement(elementId, targetOpacity, durationSeconds) {
-	return UIElement.get(elementId).fadeTo(targetOpacity, durationSeconds);
-}
-
-function RemoveRoot(rootId) {
-	UIElement.removeRoot(rootId);
-}
-
-function ClearLevelRenderer(rootId) {
-	levelRendererCache.delete(rootId);
-}
+const SetElementText = (elementId, text) => UIElement.get(elementId).setText(text, true);
+const SetElementSource = (elementId, src) => UIElement.get(elementId).setSource(src, true);
+const SetElementStyle = (elementId, styles) => UIElement.get(elementId).setStyle(styles, true);
+const FadeElement = (elementId, targetOpacity, durationSeconds) => UIElement.get(elementId).fadeTo(targetOpacity, durationSeconds);
+const RemoveRoot = (rootId) => UIElement.removeRoot(rootId);
+const ClearLevelRenderer = (rootId) => levelRendererCache.delete(rootId);
 
 /* === EXPORTS === */
 // Public render helpers for engine modules.

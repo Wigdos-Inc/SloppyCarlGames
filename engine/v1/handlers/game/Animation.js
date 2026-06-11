@@ -29,9 +29,7 @@ function buildRestLocals(model) {
 
 function buildDecalIndex(model) {
 	const decalIndex = new Map();
-	model.parts.forEach((part) => {
-		part.mesh.customTextures.forEach((decal) => { if (decal.id) decalIndex.set(decal.id, decal); });
-	});
+	model.parts.forEach((part) => part.mesh.customTextures.forEach((decal) => { if (decal.id) decalIndex.set(decal.id, decal); }));
 	return decalIndex;
 }
 
@@ -74,13 +72,12 @@ function resolveCorrectionFrames(entityType) {
 // Extract a keyframe's offset; missing channels default to identity (position/rotation additive 0,
 // scale multiplicative 1). Decal rotation is a scalar (Unit), part rotation a vector3 (UnitVector3).
 function keyframeOffset(keyframe, isDecal) {
-	const value = keyframe.value;
 	return {
-		position: value.position !== undefined ? value.position : ToVector3(0),
+		position: keyframe.value.position !== undefined ? keyframe.value.position : ToVector3(0),
 		rotation: isDecal
-			? (value.rotation !== undefined ? value.rotation.value : 0)
-			: (value.rotation !== undefined ? value.rotation : ToVector3(0)),
-		scale: value.scale !== undefined ? value.scale : ToVector3(1),
+			? (keyframe.value.rotation !== undefined ? keyframe.value.rotation.value : 0)
+			: (keyframe.value.rotation !== undefined ? keyframe.value.rotation : ToVector3(0)),
+		scale: keyframe.value.scale !== undefined ? keyframe.value.scale : ToVector3(1),
 	};
 }
 
@@ -115,12 +112,11 @@ function lerpColor(from, to, factor) {
 function sampleTrack(track, t, isDecal) {
 	if (track === undefined || track.keyframes.length === 0) return isDecal ? identityOffsetDecal : identityOffsetPart;
 
-	const keyframes = track.keyframes;
-	const upperIndex = keyframes.findIndex((keyframe) => keyframe.time >= t);
-	if (upperIndex <= 0) return keyframeOffset(upperIndex === 0 ? keyframes[0] : keyframes[keyframes.length - 1], isDecal);
+	const upperIndex = track.keyframes.findIndex((keyframe) => keyframe.time >= t);
+	if (upperIndex <= 0) return keyframeOffset(upperIndex === 0 ? track.keyframes[0] : track.keyframes[track.keyframes.length - 1], isDecal);
 
-	const from = keyframes[upperIndex - 1];
-	const to = keyframes[upperIndex];
+	const from = track.keyframes[upperIndex - 1];
+	const to = track.keyframes[upperIndex];
 	const span = to.time - from.time;
 	const eased = ApplyEasing(to.easing, span > 0 ? (t - from.time) / span : 0);
 	return lerpOffset(keyframeOffset(from, isDecal), keyframeOffset(to, isDecal), eased, isDecal);
@@ -273,9 +269,7 @@ function resolveAnimationStep(model, runtime, set, deltaSeconds) {
 
 // Case-insensitive naming-convention match of a state to an animation set key.
 function resolveSetName(animations, currentState) {
-	for (const setName in animations) {
-		if (setName.toLowerCase() === currentState.toLowerCase()) return setName;
-	}
+	for (const setName in animations) if (setName.toLowerCase() === currentState.toLowerCase()) return setName;
 	return null;
 }
 
@@ -283,19 +277,17 @@ function ResolveEntityAnimation(entity, deltaSeconds) {
 	if (CONFIG.PERFORMANCE.Animations.Active !== true) return;
 
 	const runtime = ensureAnimationRuntime(entity);
-	const currentState = entity.state;  // current-state string (the player's FSM state)
-
-	if (currentState !== runtime.lastState) {
-		const setName = resolveSetName(entity.animations, currentState);
+	if (entity.state !== runtime.lastState) {
+		const setName = resolveSetName(entity.animations, entity.state);
 		runtime.snapshots = new Map(runtime.displayedOffsets);
 		runtime.colorSnapshots = new Map(runtime.colorDisplayed);
 		runtime.decalIndex.forEach((decalEntry) => decalEntry.activeSourceKey = null);
-		runtime.lastState = currentState;
+		runtime.lastState = entity.state;
 		runtime.currentSetName = setName;
 		runtime.elapsed = 0;
 		runtime.correctionN = resolveCorrectionFrames(entity.type);
 		runtime.correctionCounter = runtime.correctionN;
-		if (setName === null) Log("ENGINE", `no set matches state '${currentState}' on '${entity.id}', holding rest`, "warn", "Animation");
+		if (setName === null) Log("ENGINE", `no set matches state '${entity.state}' on '${entity.id}', holding rest`, "warn", "Animation");
 	}
 
 	if (runtime.currentSetName === null) {

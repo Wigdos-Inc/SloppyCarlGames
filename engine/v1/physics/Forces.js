@@ -26,9 +26,7 @@ function GetSubmergence(entity, waterLevel) {
 		const height = 2 * (profile.capsuleRadius.value + profile.capsuleHalfHeight.value);
 		return ComputeSubmergence(bottom, height, waterLevel);
 	}
-	const aabb = entity.collision.aabb;
-	const bottom = aabb.min.y;
-	return ComputeSubmergence(bottom, aabb.max.y - bottom, waterLevel);
+	return ComputeSubmergence( entity.collision.aabb.min.y, entity.collision.aabb.max.y -  entity.collision.aabb.min.y, waterLevel);
 }
 
 /* === EXPORTS === */

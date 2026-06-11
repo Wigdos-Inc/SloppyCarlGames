@@ -68,92 +68,92 @@ function createDefaultPlayerState(playerData) {
 		radius: new Unit(playerData.collisionRadius, "cnu"),
 		shape: "sphere",
 		profile: {
-			shape: "sphere",
-			modelAabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
-			bodyCenterOffset: new UnitVector3(0, 0, 0, "cnu"),
-			bodyRadius: new Unit(0, "cnu"),
-			bottomOffset: new Unit(0, "cnu"),
+			shape             : "sphere",
+			modelAabb         : { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
+			bodyCenterOffset  : new UnitVector3(0, 0, 0, "cnu"),
+			bodyRadius        : new Unit(0, "cnu"),
+			bottomOffset      : new Unit(0, "cnu"),
 			sphereCenterOffset: new UnitVector3(0, 0, 0, "cnu"),
-			sphereRadius: new Unit(0, "cnu"),
+			sphereRadius      : new Unit(0, "cnu"),
 			capsuleStartOffset: new UnitVector3(0, 0, 0, "cnu"),
-			capsuleEndOffset: new UnitVector3(0, 0, 0, "cnu"),
-			capsuleRadius: new Unit(0, "cnu"),
-			capsuleHalfHeight: new Unit(0, "cnu"),
+			capsuleEndOffset  : new UnitVector3(0, 0, 0, "cnu"),
+			capsuleRadius     : new Unit(0, "cnu"),
+			capsuleHalfHeight : new Unit(0, "cnu"),
 		},
-		sphere: sphereBounds,
-		capsule: capsuleBounds,
+		sphere          : sphereBounds,
+		capsule         : capsuleBounds,
 		simRadiusPadding: 24,
-		simRadiusAabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
-		physics: {
-			shape: "sphere",
+		simRadiusAabb   : { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
+		physics         : {
+			shape : "sphere",
 			bounds: sphereBounds,
 		},
 		hurtbox: {
-			shape: "sphere",
+			shape : "sphere",
 			bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
 		},
 		hitbox: {
-			shape: "sphere",
+			shape : "sphere",
 			bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
 		},
 	};
 
 	return {
-		active: true,
-		character: playerData.character,
+		active    : true,
+		character : playerData.character,
 		animations: playerData.animations,
-		model: BuildPlayerModel(playerData.character, playerData.spawnPosition),
-		transform: {
+		model     : BuildPlayerModel(playerData.character, playerData.spawnPosition),
+		transform : {
 			position: playerData.spawnPosition,
 			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale: playerData.scale,
+			scale   : playerData.scale,
 		},
-		velocity: new UnitVector3(0, 0, 0, "cnu"),
-		grounded: false,
-		underwater: false,
-		submergence: 0,
-		buoyancyForce: 0,
-		surfaceNormal: CloneVector3(WORLD_NORMALS.Up),
-		alignedUp: CloneVector3(WORLD_NORMALS.Up),
-		jumpStartY: new Unit(playerData.spawnPosition.y, "cnu"),
-		jumpApexY: new Unit(playerData.spawnPosition.y, "cnu"),
-		stoppingActive: false,
+		velocity           : new UnitVector3(0, 0, 0, "cnu"),
+		grounded           : false,
+		underwater         : false,
+		submergence        : 0,
+		buoyancyForce      : 0,
+		surfaceNormal      : CloneVector3(WORLD_NORMALS.Up),
+		alignedUp          : CloneVector3(WORLD_NORMALS.Up),
+		jumpStartY         : new Unit(playerData.spawnPosition.y, "cnu"),
+		jumpApexY          : new Unit(playerData.spawnPosition.y, "cnu"),
+		stoppingActive     : false,
 		primaryOppositeHeld: false,
-		state: "Idle",
-		previousState: "Idle",
-		hp: 3,
-		collectibles: playerData.collectibles,
-		maxCollectibles: 100,
-		attackFlag: false,
-		hitboxActive: false,
-		modelOpacity: 1.0,
-		abilities: null,
-		boost: {
-			active: false,
-			timer: 0,
+		state              : "Idle",
+		previousState      : "Idle",
+		hp                 : 3,
+		collectibles       : playerData.collectibles,
+		maxCollectibles    : 100,
+		attackFlag         : false,
+		hitboxActive       : false,
+		modelOpacity       : 1.0,
+		abilities          : null,
+		boost              : {
+			active            : false,
+			timer             : 0,
 			maxSpeedMultiplier: 1,
-			accelMultiplier: 1,
+			accelMultiplier   : 1,
 		},
 		invulnerable: {
-			active: false,
-			timer: 0,
+			active    : false,
+			timer     : 0,
 			flashTimer: 0,
 		},
 		activeTriggers: [],
-		checkpoint: null,
-		spawnPosition: playerData.spawnPosition.clone(),
+		checkpoint    : null,
+		spawnPosition : playerData.spawnPosition.clone(),
 		physicsRuntime: {
-			previousPosition: playerData.spawnPosition.clone(),
-			previousRotation: new UnitVector3(0, 0, 0, "radians"),
+			previousPosition        : playerData.spawnPosition.clone(),
+			previousRotation        : new UnitVector3(0, 0, 0, "radians"),
 			hasUnresolvedPenetration: false,
-			cachePrimed: false,
-			lastPhysicsCollisionKey: "",
+			cachePrimed             : false,
+			lastPhysicsCollisionKey : "",
 		},
 		collision,
 		customEvents: playerData.customEvents,
-		mesh: null,
-		type: "player",
-		id: "player",
+		mesh        : null,
+		type        : "player",
+		id          : "player",
 	};
 }
 
@@ -272,13 +272,10 @@ function UpdatePlayerModel() {
  * Called from Level.js after the full pipeline.
  */
 function ResolvePlayerState() {
-	if (!playerState.active) return;
+	if (!playerState.active)          return;
 	if (playerState.state === "Dead") return;
 
-	const speed = Math.sqrt(
-		playerState.velocity.x * playerState.velocity.x +
-		playerState.velocity.z * playerState.velocity.z
-	);
+	const speed = Math.sqrt(playerState.velocity.x * playerState.velocity.x + playerState.velocity.z * playerState.velocity.z);
 	const oldState = playerState.state;
 
 	// State transitions (priority order).
@@ -290,11 +287,10 @@ function ResolvePlayerState() {
 	}
 	else if (!playerState.grounded && playerState.state !== "Flying") {
 		if (playerState.state === "Jumping") {
-			const currentY = playerState.transform.position.y;
-			playerState.jumpApexY.value = Math.max(playerState.jumpApexY.value, currentY);
+			playerState.jumpApexY.value = Math.max(playerState.jumpApexY.value, playerState.transform.position.y);
 
 			// Switch to Falling after descending below jump start height by 1 unit.
-			if (currentY <= playerState.jumpStartY.value - 1) playerState.state = "Falling";
+			if (playerState.transform.position.y <= playerState.jumpStartY.value - 1) playerState.state = "Falling";
 		}
 		else playerState.state = "Falling";
 	}
@@ -348,9 +344,7 @@ function TriggerPlayerRespawnSequence() {
  * Respawn the player at checkpoint or spawn position.
  */
 function RespawnPlayer() {
-	const respawnPos = playerState.checkpoint
-		? playerState.checkpoint.position
-		: playerState.spawnPosition;
+	const respawnPos = playerState.checkpoint ? playerState.checkpoint.position : playerState.spawnPosition;
 
 	playerState.transform.position.set(respawnPos);
 	playerState.velocity.set(ToVector3(0));
@@ -371,20 +365,15 @@ function RespawnPlayer() {
 	Log("ENGINE", `Player respawned at (${respawnPos.x.toFixed(1)}, ${respawnPos.y.toFixed(1)}, ${respawnPos.z.toFixed(1)})`, "log", "Player");
 }
 
-function GetPlayerState() {
-	return playerState;
-}
-
-function GetPlayerInput() {
-	return playerInputFlags;
-}
+const GetPlayerState = () => playerState;
+const GetPlayerInput = () => playerInputFlags;
 
 /* === ENGINE API === */
 // Attached to ENGINE.Level.Player by ini.js.
 
 const PlayerAPI = {
-	Input   : playerInputFlags,
-	GetState: GetPlayerState,
+	Input      : playerInputFlags,
+	GetState   : GetPlayerState,
 	SetPosition: (x, y, z) => {
 		playerState.transform.position.set(ToVector3({ x, y, z }));
 		playerState.velocity.set(ToVector3(0));

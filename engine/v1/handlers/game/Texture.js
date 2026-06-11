@@ -8,32 +8,29 @@ import { BuildTextureSurface } from "../../builder/NewTexture.js";
 import { Clamp01 } from "../../math/Utilities.js";
 
 function createAnimationStateEntry(textureEntry) {
-	const definition = textureEntry.definition;
 	// Template animation times are expressed in seconds; convert to milliseconds here
-	const holdDurationMs = (definition.animation.holdTime * 1000) / definition.holdTimeSpeed;
-	const blendDurationMs = (definition.animation.blendTime * 1000) / definition.blendTimeSpeed;
 	const activeCanvas = document.createElement("canvas");
 	activeCanvas.width = textureEntry.source.width;
 	activeCanvas.height = textureEntry.source.height;
+
 	const activeContext = activeCanvas.getContext("2d");
 	activeContext.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
 	activeContext.drawImage(textureEntry.source, 0, 0);
 
 	return {
-		phase: "hold",
-		elapsedMs: 0,
-		holdDurationMs,
-		blendDurationMs,
-		fromSurface: textureEntry.source,
-		toSurface: null,
-		activeSurface: activeCanvas,
+		phase          : "hold",
+		elapsedMs      : 0,
+		holdDurationMs : (textureEntry.definition.animation.holdTime * 1000) / textureEntry.definition.holdTimeSpeed,
+		blendDurationMs: (textureEntry.definition.animation.blendTime * 1000) / textureEntry.definition.blendTimeSpeed,
+		fromSurface    : textureEntry.source,
+		toSurface      : null,
+		activeSurface  : activeCanvas,
 	};
 }
 
 function blendTextureSurfaces(stateEntry, ratio) {
-	const activeSurface = stateEntry.activeSurface;
-	const context = activeSurface.getContext("2d");
-	context.clearRect(0, 0, activeSurface.width, activeSurface.height);
+	const context = stateEntry.activeSurface.getContext("2d");
+	context.clearRect(0, 0, stateEntry.activeSurface.width, stateEntry.activeSurface.height);
 
 	context.globalAlpha = 1 - ratio;
 	context.drawImage(stateEntry.fromSurface, 0, 0);
@@ -42,18 +39,17 @@ function blendTextureSurfaces(stateEntry, ratio) {
 	context.drawImage(stateEntry.toSurface, 0, 0);
 
 	context.globalAlpha = 1;
-	return activeSurface;
+	return stateEntry.activeSurface;
 }
 
 function InitializeTextureAnimation(sceneGraph) {
-	const textureRegistry = sceneGraph.visualResources.textureRegistry;
 	const animationState = {
 		byTextureID: {},
 		textureScale: sceneGraph.world.textureScale,
 	};
 
-	for (const textureID in textureRegistry) {
-		const textureEntry = textureRegistry[textureID];
+	for (const textureID in sceneGraph.visualResources.textureRegistry) {
+		const textureEntry = sceneGraph.visualResources.textureRegistry[textureID];
 		if (!textureEntry.definition) continue;
 		if (textureEntry.definition.animation.able !== true) continue;
 		animationState.byTextureID[textureID] = createAnimationStateEntry(textureEntry);
@@ -90,26 +86,22 @@ function updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds
 }
 
 function AddTextureAnimationEntries(sceneGraph) {
-	const textureRegistry = sceneGraph.visualResources.textureRegistry;
-	const byTextureID = sceneGraph.visualResources.textureAnimation.byTextureID;
-	for (const textureID in textureRegistry) {
-		if (byTextureID[textureID]) continue;
-		const textureEntry = textureRegistry[textureID];
+	for (const textureID in sceneGraph.visualResources.textureRegistry) {
+		if (sceneGraph.visualResources.textureAnimation.byTextureID[textureID]) continue;
+		const textureEntry = sceneGraph.visualResources.textureRegistry[textureID];
 		if (!textureEntry.definition) continue;
 		if (textureEntry.definition.animation.able !== true) continue;
-		byTextureID[textureID] = createAnimationStateEntry(textureEntry);
+		sceneGraph.visualResources.textureAnimation.byTextureID[textureID] = createAnimationStateEntry(textureEntry);
 	}
 }
 
 function UpdateTextureAnimation(sceneGraph, deltaMilliseconds) {
-	const animationState = sceneGraph.visualResources.textureAnimation;
-
-	for (const textureID in animationState.byTextureID) {
+	for (const textureID in sceneGraph.visualResources.textureAnimation.byTextureID) {
 		updateTextureAnimationEntry(
 			sceneGraph.visualResources.textureRegistry[textureID],
-			animationState.byTextureID[textureID],
+			sceneGraph.visualResources.textureAnimation.byTextureID[textureID],
 			deltaMilliseconds,
-			animationState.textureScale
+			sceneGraph.visualResources.textureAnimation.textureScale
 		)
 	}
 }

@@ -200,10 +200,7 @@ function ResumeLevelLoop() {
 	SendEvent("LEVEL_RESUMED", {});
 }
 
-function ToggleLevelLoopPause() {
-	if (levelLoop.paused) ResumeLevelLoop();
-	else PauseLevelLoop();
-}
+const ToggleLevelLoopPause = () => levelLoop.paused ? ResumeLevelLoop() : PauseLevelLoop();
 
 async function CreateLevel(payload, options, simulatorOverride = false) {
 
@@ -348,9 +345,7 @@ function Update(deltaMilliseconds) {
 	runFrameTail(sceneGraph, deltaMilliseconds);
 }
 
-function GetActiveLevel() {
-	return levelRuntimeState.sceneGraph;
-}
+const GetActiveLevel = () => levelRuntimeState.sceneGraph;
 
 /* === SCENE MUTATION === */
 
@@ -365,12 +360,11 @@ function buildSceneSurfaceMap(terrain, obstacles) {
 		};
 	});
 	obstacles.forEach((obstacle) => {
-		const mesh = obstacle.parts[0];
 		map[obstacle.id] = {
-			position  : mesh.transform.position,
-			dimensions: mesh.dimensions,
-			scale     : mesh.transform.scale,
-			topY      : mesh.transform.position.y,
+			position  : obstacle.parts[0].transform.position,
+			dimensions: obstacle.parts[0].dimensions,
+			scale     : obstacle.parts[0].transform.scale,
+			topY      : obstacle.parts[0].transform.position.y,
 		};
 	});
 	return map;
@@ -378,8 +372,7 @@ function buildSceneSurfaceMap(terrain, obstacles) {
 
 function SpawnIntoScene(definition, objectType, sceneGraph) {
 	if (ENTITY_TYPES.includes(objectType)) {
-		const surfaceMap = buildSceneSurfaceMap(sceneGraph.terrain, sceneGraph.obstacles);
-		const built = BuildEntity(definition, surfaceMap);
+		const built = BuildEntity(definition, buildSceneSurfaceMap(sceneGraph.terrain, sceneGraph.obstacles));
 		sceneGraph.entities.push(built);
 		AddToVisualResources(built, objectType, sceneGraph);
 		AddTextureAnimationEntries(sceneGraph);

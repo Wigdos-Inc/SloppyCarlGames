@@ -9,8 +9,6 @@ const easings = {
 	easeInOut: (t) => (t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2),
 };
 
-function ApplyEasing(name, t) {
-	return easings[name](t);
-}
+const ApplyEasing = (name, t) => easings[name](t);
 
 export { ApplyEasing };

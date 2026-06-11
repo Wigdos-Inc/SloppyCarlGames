@@ -24,14 +24,15 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
 		jumpVelocityCache.jumpHeight === jumpHeight &&
 		jumpVelocityCache.medium === medium &&
 		jumpVelocityCache.floatiness === floatiness
-	) return jumpVelocityCache.v0;
+	) {
+		return jumpVelocityCache.v0;
+	}
 
 	const buoyancyEnabled = medium === "water" && CONFIG.PHYSICS.Buoyancy.Enabled !== false;
 	const simDt = 1 / 240;
-	const simSubmergence = medium === "water" ? 1 : 0;
 	const simForces = {
 		gravity: true,
-		resistance: { submergence: simSubmergence },
+		resistance: { submergence: medium === "water" ? 1 : 0 },
 		...(buoyancyEnabled ? { buoyancy: { position: { y: 0 }, waterLevel: { value: 0 }, submergence: 1 } } : {}),
 	};
 
@@ -70,23 +71,20 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
  * @returns {{ direction: { x, y, z }, hasInput: boolean }}
  */
 function getMovementDirection(input, cameraVectors) {
-	if (Math.abs(input.forward) < 0.001 && Math.abs(input.right) < 0.001) {
-		return { direction: ToVector3(0), hasInput: false };
-	}
+	if (Math.abs(input.forward) < 0.001 && Math.abs(input.right) < 0.001) return { direction: ToVector3(0), hasInput: false };
 
 	// Project camera vectors onto XZ plane so movement is always horizontal-relative.
-	const camFwd = { x: cameraVectors.forward.x, y: 0, z: cameraVectors.forward.z };
-	const camRight = { x: cameraVectors.right.x, y: 0, z: cameraVectors.right.z };
+	const camFwd   = { x: cameraVectors.forward.x, y: 0, z: cameraVectors.forward.z };
+	const camRight = { x: cameraVectors.right.x,   y: 0, z: cameraVectors.right.z   };
 
 	let dir = AddVector3(ScaleVector3(camFwd, input.forward), ScaleVector3(camRight, input.right));
 
-	const len = Vector3Length(dir);
-	if (len < 0.001) {
+	if (Vector3Length(dir) < 0.001) {
 		return {
-			direction: ToVector3(0),
-			hasInput: false,
+			direction    : ToVector3(0),
+			hasInput     : false,
 			cameraForward: camFwd,
-			cameraRight: camRight,
+			cameraRight  : camRight,
 		};
 	}
 
@@ -95,26 +93,20 @@ function getMovementDirection(input, cameraVectors) {
 }
 
 function getPrimaryOppositeHeld(input, horizontalVelocity, cameraForward, cameraRight) {
-	const speed = Vector3Length(horizontalVelocity);
-	if (speed < 0.001) return false;
+	if (Vector3Length(horizontalVelocity) < 0.001) return false;
 
 	const velocityDirection = ResolveVector3Axis(horizontalVelocity);
 	const forwardComponent = DotVector3(velocityDirection, cameraForward);
 	const rightComponent = DotVector3(velocityDirection, cameraRight);
 	
-	if (Math.abs(forwardComponent) >= Math.abs(rightComponent)) {
-		if (forwardComponent >= 0) return input.forward < -0.25;
-		else return input.forward > 0.25;
-	}
-
-	if (rightComponent >= 0) return input.right < -0.25;
-	else return input.right > 0.25;
+	return Math.abs(forwardComponent) >= Math.abs(rightComponent)
+		? forwardComponent >= 0 ? input.forward < -0.25 : input.forward > 0.25
+		: rightComponent   => 0 ? input.right   < -0.2  : input.right   > 0.25;
 }
 
 function moveAngleToward(currentAngle, targetAngle, maxStep) {
 	const delta = Math.atan2(Math.sin(targetAngle - currentAngle), Math.cos(targetAngle - currentAngle));
-	if (Math.abs(delta) <= maxStep) return targetAngle;
-	else return currentAngle + Math.sign(delta) * maxStep;
+	return Math.abs(delta) <= maxStep ? targetAngle : currentAngle + Math.sign(delta) * maxStep;
 }
 
 /**
@@ -139,10 +131,9 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 
 	const { direction, hasInput, cameraForward, cameraRight } = getMovementDirection(input, cameraVectors);
 
-	// Resolve effective stats (may be modified by boost).
-	const maxSpeed = meta.maxSpeed * (playerState.boost.active ? playerState.boost.maxSpeedMultiplier : 1);
-	const accel = meta.acceleration * (playerState.boost.active ? playerState.boost.accelMultiplier : 1);
-	const decel = meta.deceleration;
+	// Resolve effective stats.
+	const maxSpeed = meta.maxSpeed     * (playerState.boost.active ? playerState.boost.maxSpeedMultiplier : 1);
+	const accel    = meta.acceleration * (playerState.boost.active ? playerState.boost.accelMultiplier    : 1);
 	const stoppingThreshold = maxSpeed * meta.stoppingThresholdRatio;
 
 	// Separate horizontal and vertical velocity for movement calculations.
@@ -167,10 +158,8 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	if (hasInput) {
 		const effectiveAcceleration = accel * controlMultiplier;
 		if (playerState.grounded && reverseIntent) {
-			hVel = ApplyDeceleration(hVel, decel + (effectiveAcceleration * 0.75), deltaSeconds);
-
-			const postBrakeSpeed = Vector3Length(hVel);
-			if (postBrakeSpeed <= stoppingThreshold || !playerState.stoppingActive) {
+			hVel = ApplyDeceleration(hVel, meta.deceleration + (effectiveAcceleration * 0.75), deltaSeconds);
+			if (Vector3Length(hVel) <= stoppingThreshold || !playerState.stoppingActive) {
 				hVel = ApplyAcceleration(hVel, direction, effectiveAcceleration, deltaSeconds);
 			}
 		} 
@@ -178,7 +167,7 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	} 
 	else {
 		// No input: apply deceleration.
-		hVel = ApplyDeceleration(hVel, decel, deltaSeconds);
+		hVel = ApplyDeceleration(hVel, meta.deceleration, deltaSeconds);
 		playerState.stoppingActive = false;
 		playerState.primaryOppositeHeld = false;
 	}
@@ -210,6 +199,7 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 		playerState.previousState = playerState.state;
 		playerState.state = "Jumping";
 		Log("ENGINE", `Player state: ${playerState.previousState} → Jumping`, "log", "Player");
+		
 		if (playerState.customEvents.stateChange && CONFIG.CUSTOM_EVENTS.Entities.stateChange) {
 			SendEvent("PLAYER_STATE_CHANGE", {
 				id      : playerState.id,

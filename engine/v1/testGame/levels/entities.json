@@ -31,10 +31,10 @@
 				"scoreValue": 125
 			},
 			"animations": {
-				"idle": { "loop": true },
-				"moving": { "loop": true },
+				"idle"    : { "loop": true },
+				"moving"  : { "loop": true },
 				"charging": { "loop": false },
-				"damage": { "loop": false }
+				"damage"  : { "loop": false }
 			},
 			"model": {
 				"spawnSurfaceId": null,

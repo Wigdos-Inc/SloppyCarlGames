@@ -73,14 +73,12 @@ function computeCapsuleFromMesh(mesh) {
 }
 
 function computeTriangleSoupFromMesh(mesh) {
-	const matrix = CreateModelMatrix(mesh.transform);
-	const positions = mesh.geometry.positions;
 	const readVertex = (vertexIndex) => {
 		const vertex = transformPointByMatrix({
-			x: positions[vertexIndex * 3],
-			y: positions[(vertexIndex * 3) + 1],
-			z: positions[(vertexIndex * 3) + 2],
-		}, matrix);
+			x: mesh.geometry.positions[vertexIndex * 3],
+			y: mesh.geometry.positions[(vertexIndex * 3) + 1],
+			z: mesh.geometry.positions[(vertexIndex * 3) + 2],
+		}, CreateModelMatrix(mesh.transform));
 		return new UnitVector3(vertex.x, vertex.y, vertex.z, "cnu");
 	};
 
@@ -150,7 +148,6 @@ function resolveRampCurveSegments(complexity) {
 function appendRadialVertices(positions, radiusX, y, radiusZ, segments) {
 	const start = positions.length / 3;
 	const vertexIndices = [];
-
 	for (let index = 0; index <= segments; index++) {
 		const angle = (index / segments) * Math.PI * 2;
 		positions.push(Math.cos(angle) * radiusX, y, Math.sin(angle) * radiusZ);
@@ -175,9 +172,7 @@ function generateSphereUvs(positions) {
 	const max = ToVector3(-Infinity);
 
 	for (let index = 0; index < positions.length; index += 3) {
-		const x = positions[index + 0];
-		const y = positions[index + 1];
-		const z = positions[index + 2];
+		const { x, y, z } = { x: positions[index + 0], y: positions[index + 1], z: positions[index + 2] };
 		if (x < min.x) min.x = x;
 		if (y < min.y) min.y = y;
 		if (z < min.z) min.z = z;
@@ -216,9 +211,7 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 		return { x: positions[offset + 0], y: positions[offset + 1], z: positions[offset + 2] };
 	}
 	
-	const vertexCount = positions.length / 3;
-	const uvs = new Array(vertexCount * 2).fill(0);
-
+	const uvs = new Array(positions.length / 3 * 2).fill(0);
 	for (const group of faceGroups) {
 		const [uAxis, vAxis] = getProjectedAxesFromNormal(group.normal);
 
@@ -286,10 +279,7 @@ function transformPointByMatrix(localPoint, matrix) {
 	};
 }
 
-function transformPoint(localPoint, transform) {
-	const modelMatrix = CreateModelMatrix(transform);
-	return transformPointByMatrix(localPoint, modelMatrix);
-}
+const transformPoint = (localPoint, transform) => transformPointByMatrix(localPoint, CreateModelMatrix(transform));
 
 function computeWorldAabbFromGeometry(positions, transform) {
 	const firstWorld = transformPoint({ x: positions[0], y: positions[1], z: positions[2] }, transform);
@@ -362,9 +352,8 @@ function buildPyramid(size) {
 	const faceGroups = [];
 
 	const pushVertex = (vertex) => {
-		const vertexIndex = positions.length / 3;
 		positions.push(vertex.x, vertex.y, vertex.z);
-		return vertexIndex;
+		return (positions.length / 3) - 1;
 	};
 
 	const addQuadFace = (a, b, c, d, normal) => {
@@ -383,7 +372,7 @@ function buildPyramid(size) {
 		pushVertex(c);
 		indices.push(start, start + 1, start + 2);
 		const normal = ResolveVector3Axis(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a)));
-		faceGroups.push({ normal: normal, vertexIndices: [start, start + 1, start + 2] });
+		faceGroups.push({ normal, vertexIndices: [start, start + 1, start + 2] });
 	};
 
 	addQuadFace(baseFrontLeft, baseFrontRight, baseBackRight, baseBackLeft, WORLD_NORMALS.Up);
@@ -420,9 +409,8 @@ function buildCylinder(size, complexity) {
 	const faceGroups = [];
 
 	const pushVertex = (x, y, z) => {
-		const vertexIndex = positions.length / 3;
 		positions.push(x, y, z);
-		return vertexIndex;
+		return (positions.length / 3) - 1;
 	};
 
 	for (let index = 0; index < segments; index++) {
@@ -447,17 +435,15 @@ function buildCylinder(size, complexity) {
 
 	const topCenter = pushVertex(0, radius.y, 0);
 	const topRing = appendRadialVertices(positions, radius.x, radius.y, radius.z, segments);
-	const topVertices = [topCenter, ...topRing.vertexIndices];
 	appendTriangleFanIndices(indices, topCenter, topRing.start, segments);
 
-	faceGroups.push({ normal: WORLD_NORMALS.Up, vertexIndices: topVertices });
+	faceGroups.push({ normal: WORLD_NORMALS.Up, vertexIndices: [topCenter, ...topRing.vertexIndices] });
 
 	const bottomCenter = pushVertex(0, -radius.y, 0);
 	const bottomRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
-	const bottomVertices = [bottomCenter, ...bottomRing.vertexIndices];
 	appendTriangleFanIndices(indices, bottomCenter, bottomRing.start, segments, true);
 
-	faceGroups.push({ normal: WORLD_NORMALS.Down, vertexIndices: bottomVertices });
+	faceGroups.push({ normal: WORLD_NORMALS.Down, vertexIndices: [bottomCenter, ...bottomRing.vertexIndices] });
 
 	return { positions, indices, faceGroups };
 }
@@ -465,18 +451,16 @@ function buildCylinder(size, complexity) {
 function buildSphere(size, complexity) {
 	const radius = DivideVector3(size, ToVector3(2));
 	const resolution = resolveSphereResolution(complexity);
-	const stacks = resolution.stacks;
-	const slices = resolution.slices;
 
 	const positions = [];
 	const indices = [];
 	const uvs = [];
 
-	for (let stack = 0; stack <= stacks; stack++) {
-		const v = stack / stacks;
+	for (let stack = 0; stack <= resolution.stacks; stack++) {
+		const v = stack / resolution.stacks;
 		const phi = v * Math.PI;
-		for (let slice = 0; slice <= slices; slice++) {
-			const u = slice / slices;
+		for (let slice = 0; slice <= resolution.slices; slice++) {
+			const u = slice / resolution.slices;
 			const theta = u * Math.PI * 2;
 			const x = Math.cos(theta) * Math.sin(phi) * radius.x;
 			const y = Math.cos(phi) * radius.y;
@@ -486,10 +470,10 @@ function buildSphere(size, complexity) {
 		}
 	}
 
-	for (let stack = 0; stack < stacks; stack++) {
-		for (let slice = 0; slice < slices; slice++) {
-			const first = stack * (slices + 1) + slice;
-			const second = first + slices + 1;
+	for (let stack = 0; stack < resolution.stacks; stack++) {
+		for (let slice = 0; slice < resolution.slices; slice++) {
+			const first = stack * (resolution.slices + 1) + slice;
+			const second = first + resolution.slices + 1;
 			indices.push(first, second, first + 1);
 			indices.push(second, second + 1, first + 1);
 		}
@@ -545,15 +529,13 @@ function buildCapsule(size, complexity) {
 	const rings = [];
 
 	const pushRing = (y, ringScaleX, ringScaleZ, groupName) => {
-		const ring = appendRadialVertices(positions, ringScaleX, y, ringScaleZ, segments);
-		rings.push({ start: ring.start, group: groupName });
+		rings.push({ start: appendRadialVertices(positions, ringScaleX, y, ringScaleZ, segments).start, group: groupName });
 	};
 
 	for (let stack = 0; stack <= capStacks; stack++) {
 		const angle = (stack / capStacks) * Math.PI * 0.5;
 		const ringScale = Math.sin(angle);
-		const y = cylinderHalf + Math.cos(angle) * capRadius;
-		pushRing(y, radius.x * ringScale, radius.z * ringScale, "top");
+		pushRing(cylinderHalf + Math.cos(angle) * capRadius, radius.x * ringScale, radius.z * ringScale, "top");
 	}
 
 	pushRing(-cylinderHalf, radius.x, radius.z, "body");
@@ -561,8 +543,7 @@ function buildCapsule(size, complexity) {
 	for (let stack = 1; stack <= capStacks; stack++) {
 		const angle = (stack / capStacks) * Math.PI * 0.5;
 		const ringScale = Math.cos(angle);
-		const y = -cylinderHalf - Math.sin(angle) * capRadius;
-		pushRing(y, radius.x * ringScale, radius.z * ringScale, "bottom");
+		pushRing(-cylinderHalf - Math.sin(angle) * capRadius, radius.x * ringScale, radius.z * ringScale, "bottom");
 	}
 
 	const topVertices = [];
@@ -667,15 +648,12 @@ function buildTorus(size, complexity, options) {
 
 	for (let major = 0; major <= majorSegments; major++) {
 		const u = (major / majorSegments) * Math.PI * 2;
-		const cosU = Math.cos(u);
-		const sinU = Math.sin(u);
-
 		for (let minor = 0; minor <= minorSegments; minor++) {
 			const v = (minor / minorSegments) * Math.PI * 2;
 			const cosV = Math.cos(v);
 			const sinV = Math.sin(v);
 			const ringRadius = majorRadius + (minorRadius * cosV);
-			positions.push(ringRadius * cosU, minorRadius * sinV, ringRadius * sinU);
+			positions.push(ringRadius * Math.cos(u), minorRadius * sinV, ringRadius * Math.sin(u));
 		}
 	}
 
@@ -699,9 +677,7 @@ function buildTorus(size, complexity, options) {
 		const vertexIndices = [];
 		for (let major = startMajor; major <= endMajor + 1; major++) {
 			const wrappedMajor = Math.min(major, majorSegments);
-			for (let minor = 0; minor <= minorSegments; minor++) {
-				vertexIndices.push((wrappedMajor * stride) + minor);
-			}
+			for (let minor = 0; minor <= minorSegments; minor++) vertexIndices.push((wrappedMajor * stride) + minor);
 		}
 
 		const sectorMid = ((startMajor + endMajor) * 0.5 / majorSegments) * Math.PI * 2;

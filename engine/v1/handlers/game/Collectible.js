@@ -18,17 +18,12 @@ import { GetSimDistanceValue, CheckEntityAabbOverlap } from "../../physics/Colli
 function HandleCollectiblePickups(playerState, sceneGraph) {
 	if (playerState.state === "Dead") return;
 
-	const entities = sceneGraph.entities;
-	const cameraPos = sceneGraph.cameraConfig.state.position;
-	const activityRadius = GetSimDistanceValue();
-
-	for (let i = entities.length - 1; i >= 0; i--) {
-		const entity = entities[i];
+	for (let i = sceneGraph.entities.length - 1; i >= 0; i--) {
+		const entity = sceneGraph.entities[i];
 		if (entity.type !== "collectible") continue;
 
 		// SimDistance gate is camera-relative; only qualified entities enter this collision pass.
-		const entityPos = entity.transform.position;
-		if (Vector3Distance(cameraPos, entityPos) > activityRadius) continue;
+		if (Vector3Distance(sceneGraph.cameraConfig.state.position, entity.transform.position) > GetSimDistanceValue()) continue;
 
 		if (!CheckEntityAabbOverlap(playerState, entity)) continue;
 
@@ -49,12 +44,9 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 				velocity: { x: entity.velocity.x, y: entity.velocity.y, z: entity.velocity.z },
 			});
 		}
-		entities.splice(i, 1);
+		sceneGraph.entities.splice(i, 1);
 
-		SendEvent("COLLECTIBLE_PICKED_UP", {
-			id: entity.id,
-			total: playerState.collectibles,
-		});
+		SendEvent("COLLECTIBLE_PICKED_UP", { id: entity.id, total: playerState.collectibles });
 	}
 }
 

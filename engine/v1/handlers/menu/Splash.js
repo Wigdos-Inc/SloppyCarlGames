@@ -131,7 +131,6 @@ function removeSplashSupplementalElements(context) {
 		const element = document.getElementById(id);
 		element.parentNode.removeChild(element);
 	});
-
 	context.supplementalElementIds = [];
 }
 
@@ -149,15 +148,15 @@ function buildSplashStepElements(step) {
 
 	step.text.forEach((text) => {
 		elements.push({
-			type: text.type,
-			id: text.id,
-			className: text.className,
-			text: text.content,
+			type      : text.type,
+			id        : text.id,
+			className : text.className,
+			text      : text.content,
 			attributes: text.attributes,
-			styles: text.styles,
-			events: {},
-			on: {},
-			children: [],
+			styles    : text.styles,
+			events    : {},
+			on        : {},
+			children  : [],
 		});
 		ids.push(text.id);
 	});
@@ -222,16 +221,13 @@ async function runSplashSequence(requestedSplashPayload) {
 
 	const names = splashData.order.map((k, i) => `${i + 1}:${k}`).join("\n- ");
 	switch (requestedSplashPayload.outputType) {
-		case "custom": {
+		case "custom":
 			Log("ENGINE", `Using custom splash payload with ${splashData.order.length} step(s):\n- ${names}`, "log", "Startup");
 			break;
-		}
-		case "preset": {
+		case "preset":
 			Log("ENGINE", `Using preset splashId='${requestedSplashPayload.presetId.join(", ")}'. Preset order:\n- ${names}`, "log", "Startup");
 			break;
-		}
-		default:
-			Log("ENGINE", "Using default splash sequence.", "log", "Startup");
+		default: Log("ENGINE", "Using default splash sequence.", "log", "Startup");
 	}
 
 	const stepTotal = splashData.order.reduce((sum, k) => sum + splashData.steps[k].estimatedLength, 0);
@@ -250,14 +246,8 @@ async function runSplashSequence(requestedSplashPayload) {
 	return context;
 }
 
-function AcceptSplashPayload() {
-	splashRequested = true;
-	bufferedSplashPayload = null;
-}
-
-function declineSplashPayload() {
-	splashRequested = false;
-}
+const AcceptSplashPayload = () => { splashRequested = true; bufferedSplashPayload = null };
+const declineSplashPayload = () => splashRequested = false;
 
 function ProvideSplashScreenPayload(payload) {
 	if (!splashRequested) {
