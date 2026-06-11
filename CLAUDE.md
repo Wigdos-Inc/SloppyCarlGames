@@ -28,32 +28,41 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 - Avoid logging inside hot loops unless temporarily needed to isolate a bug.
 - Remove debug-only logs after the issue is resolved unless they provide ongoing diagnostic value.
 
-## Available Commands
+## Custom Agents and Skills
 
-- `/project:era` — Engine Rules Auditor. Use for rule compliance reviews and violation detection or cleanup.
-- `/project:dryad` — DRY Agent for Deduplication. Use for deduplication reviews and simplification.
-- `/project:ed` — Engine Developer. Use for scoped engine feature work and bug fixes.
-- `/project:argus` — Automated Runtime Game-testing & User Simulation. Use for browser-based game testing, feature verification, and runtime error detection via MCP tools.
-- `/project:sage` — System Analysis for Game Engines. Use to answer questions about the engine: how systems work, where to find things, and what specific modules do (UNDER DEVELOPMENT).
+**Custom agents** run in an isolated context window, invoked via the `Agent` tool with `subagent_type`. They have no access to the current conversation — pass all necessary context in the `prompt` parameter. ERA and DRYAD can run in parallel.
 
-## Autonomous Subagent Use
+**Skills** load inline into the current conversation, invoked via the `Skill` tool. They share the current conversation's context and tool calls appear in the main thread.
 
-These commands can be invoked as subagents (via the Agent tool) without explicit user request. Use judgment — small fixes, debugging, and code migrations do not warrant subagents. Feature additions, refactors and research can warrant subagents.
+### Custom Agents — `Agent` tool, `subagent_type: "<name>"`
 
-**When to spawn autonomously:**
+- **`era`** — Engine Rules Auditor. Audits engine/v1/ for rule violations. Add "fixes authorized" to the prompt to allow edits; "rule updates authorized" to allow rule doc edits.
+- **`dryad`** — DRY Agent for Deduplication. Identifies duplication, unnecessary complexity, and performance issues. Add "implementation authorized" to allow edits.
+- **`ed`** — Engine Developer. Full implementation authority. Pass a concrete task description as the prompt.
 
-- **ED** — When new functionality is being implemented (new features, non-trivial extensions to existing systems or notable refactors). Spawn ED as the implementing agent for that work.
-- **DRYAD** — When any task involves performance, deduplication, line count reduction, or efficiency concerns. Spawn DRYAD to ensure concise and efficient code. Large additions or refactors should always be reviewed.
-- **ERA** — When the task involves rule adherence, compliance review, or you are uncertain whether a change satisfies engine rules. Large additions or refactors should always be reviewed.
-- **ARGUS** — When browser-based verification of a feature or fix is needed (changes that may cause runtime errors, behavioral changes, or visual changes). Spawned by main Claude after ED's turn ends — never by ED itself. See post-ED rules below.
+### Skills — `Skill` tool, `skill: "<name>"`
+
+- **`argus`** — Automated Runtime Game-testing & User Simulation. Browser-based testing via MCP chrome-devtools. Invoked by main Claude after ED completes — never by ED itself.
+- **`sage`** — System Analysis for Game Engines. Answers questions about the engine (UNDER DEVELOPMENT).
+
+## Autonomous Agent and Skill Use
+
+Use judgment — small fixes, debugging, and code migrations do not warrant agents. Feature additions, refactors, and research can warrant agents.
+
+**When to invoke autonomously:**
+
+- **ED** — When new functionality is being implemented (new features, non-trivial extensions to existing systems or notable refactors). Invoke via `Agent` tool with `subagent_type: "ed"`.
+- **DRYAD** — When any task involves performance, deduplication, line count reduction, or efficiency concerns. Invoke via `Agent` tool with `subagent_type: "dryad"`. Large additions or refactors should always be reviewed.
+- **ERA** — When the task involves rule adherence, compliance review, or you are uncertain whether a change satisfies engine rules. Invoke via `Agent` tool with `subagent_type: "era"`. Large additions or refactors should always be reviewed.
+- **ARGUS** — When browser-based verification is needed (changes that may cause runtime errors, behavioral changes, or visual changes). Invoke via `Skill` tool with `skill: "argus"`. Invoked by main Claude after ED's turn ends — never by ED itself. See post-ED rules below.
 
 **Post-ED audit requirement:**
 
-After any ED pass that results in a significant amount of new or edited code — judged by scope (new functions, structural changes, multi-file edits) rather than a fixed line count — spawn both the ERA and DRYAD skills through subagents on the changed code.
+After any ED pass that results in a significant amount of new or edited code — judged by scope (new functions, structural changes, multi-file edits) rather than a fixed line count — invoke both ERA and DRYAD as custom agents on the changed code. ERA and DRYAD can run in parallel.
 
 After ERA and DRYAD return, apply the following ARGUS rules:
-- If ERA and DRYAD both returned clean (no genuine violations): spawn ARGUS immediately to verify the change in the browser.
-- If ERA and/or DRYAD flagged genuine issues: report the findings to the user and note that ARGUS will run once those findings have been reviewed. Do not spawn ARGUS until the issues are resolved.
+- If ERA and DRYAD both returned clean (no genuine violations): invoke ARGUS via the `Skill` tool to verify the change in the browser.
+- If ERA and/or DRYAD flagged genuine issues: report the findings to the user and note that ARGUS will run once those findings have been reviewed. Do not invoke ARGUS until the issues are resolved.
 - If browser verification is not warranted for the change (no risk of runtime errors, behavioral changes, or visual changes), skip ARGUS regardless of audit results.
 
 **When ARGUS returns bugs:**
@@ -63,7 +72,7 @@ After ERA and DRYAD return, apply the following ARGUS rules:
 - After resolving issues, report to the user: what ARGUS tested, what was found, what was resolved and how, and any bigger architectural issues that were not fixed.
 - If no unresolved architectural issues remain but ARGUS did not complete its full test scope (it was blocked), suggest letting ARGUS continue testing now that the blocker is resolved.
 
-**What does not require subagents:**
+**What does not require agents:**
 
 Small isolated fixes (may still call ARGUS), debugging sessions, logging changes, code migrations (e.g. moving a declaration between files), and one-off lookups. These are handled directly.
 
