@@ -43,7 +43,7 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 ### Skills — `Skill` tool, `skill: "<name>"`
 
 - **`argus`** — Automated Runtime Game-testing & User Simulation. Browser-based testing via MCP chrome-devtools. Invoked by main Claude after ED completes — never by ED itself.
-- **`sage`** — System Analysis for Game Engines. Answers questions about the engine (UNDER DEVELOPMENT).
+- **`sage`** — System Analysis for Game Engines. Designated as 'engine librarian'. Writes and maintains engine documentation (`system_map/`, `structure.txt`, rule doc descriptive content). Also answers Q&A questions about the engine. Invoke with a question, `init map`, or `update map for <system>`.
 
 ## Autonomous Agent and Skill Use
 

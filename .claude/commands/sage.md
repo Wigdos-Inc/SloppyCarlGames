@@ -68,7 +68,6 @@ Read the named system's current source. Compare against the existing system_map/
 - `engine/v1/docs/rules/` — rule documents governing engine modules (SAGE owns descriptive content; prescriptive changes require confirmation)
 - `engine/v1/docs/rules/MODULE_GROUPS.md` — module group index (SAGE keeps descriptive sections in sync)
 - `engine/v1/docs/system_map/` — SAGE-maintained per-system reference docs
-- `engine/v1/core/` — foundational engine systems
 - `engine/v1/testGame/` — a game consumer; not engine code
 
 ---

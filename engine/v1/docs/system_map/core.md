@@ -1,0 +1,27 @@
+# core/ — Engine Foundation
+
+## Responsibility
+The foundation layer. Provides logging, event dispatch, session persistence, global configuration, payload validation/normalization, and the public ENGINE API surface. Everything else in the engine depends on core/; core/ itself has minimal reverse dependencies. Two files participate in the startup chain outside the core/ directory: `Bootup.js` at the engine root (entry point) and `canonSchemas.json` embedded inside core/.
+
+## Files
+- `config.js` — Runtime configuration singleton. Physics constants (gravity, buoyancy, resistance), debug flags, volume levels, performance settings, camera FOV, custom event toggles. Imports `Unit` from `math/Utilities.js` to instance typed physical constants at load time.
+- `ini.js` — Builds and returns the public `ENGINE` API object. Imports from handlers, player, and math, assembling them into a single flat namespace. Called once by `Bootup.js`; the result is assigned to `globalThis.ENGINE`.
+- `meta.js` — Engine-wide utilities: `Log` (channel-aware, source-aware logging with session persistence and duplicate suppression), `SendEvent` (CustomEvent dispatch to `window`), session storage helpers (`PushToSession`/`ReadFromSession`), `Cache` (runtime state cache for UI, Level, Cutscene payloads), `Cursor`, `Wait`, `ExitGame`, `IsPointerLocked`, `RequestPointerLock`. Also exports constants `EPSILON`, `ENTITY_TYPES`, and the `SetEngineInitialized` lifecycle flag setter.
+- `validate.js` — Validates incoming game payloads against `canonSchemas.json`. Returns structured error arrays without throwing.
+- `normalize.js` — Normalizes validated payload values: resolves aliases, applies fallbacks, instances `Unit`/`UnitVector3` from raw numbers. Imports character templates from `player/` and texture templates from `builder/templates/` for canonicalization lookups (approved exception in MODULE_GROUPS.md).
+- `canonSchemas.json` — Schema registry. Defines field types, allowed values, ranges, fallbacks, and aliases for all payload structures that pass through validate/normalize.
+- `engine/v1/Bootup.js` — Engine entry point. Exports `StartEngine()`. Runs browser context validation, calls `Initialize()` from `ini.js`, attaches `PlayIntroCinematic` to the ENGINE object, assigns ENGINE to `globalThis`, runs the startup overlay, splash sequence, and fires `UI_REQUEST` to signal the game.
+
+## Boundaries
+**Called by:** `Bootup.js` calls `ini.js`. Any engine module may import `meta.js` and `config.js`. Handlers call `validate.js` and `normalize.js` at payload entry points.  
+**Calls into:** `math/Utilities.js` (`config.js`, `normalize.js` import `Unit`/`UnitVector3`); `math/Vector3.js` (`normalize.js` imports `CloneVector3`). `ini.js` imports from handlers, player, and math to assemble the API surface — this is a one-time assembly import, not an ongoing dependency.  
+**Does not:** Contain game-specific logic, rendering code, or physics calculations.
+
+## Invariants
+- `Log` is callable from any engine module at any time, including before full initialization.
+- `Cache` is initialized from `sessionStorage` at module load and holds last-known UI, Level, and Cutscene payloads across same-tab navigation.
+- `CONFIG` is a singleton. No module replaces or re-imports it with different values.
+- `validate.js` never throws — it returns error arrays. Callers check results before proceeding.
+- `normalize.js` produces `Unit`/`UnitVector3` instances. Downstream modules receive pre-instanced values and must not re-instance them (see UNIT_INSTANCING.md).
+- `canonSchemas.json` is the single source of truth for allowed payload field names, types, and defaults.
+- `globalThis.ENGINE` is set once by `Bootup.js` at startup and is the exclusive game-facing API surface.

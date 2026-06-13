@@ -19,7 +19,7 @@ All scripts pertaining to the player character.
 
 All logic belonging to the physics pipeline.
 
-- **Called by**: Physics handler (`handlers/game/Physics.js`).
+- **Called by**: `handlers/game/Level.js` — the level orchestrator calls `physics/Master.js` directly each frame.
 - **Contains**: Gravity, collision detection, alignment correction, buoyancy, resistance, water currents.
 - **Does not**: Read input, manage state, or drive its own update loop. It receives state and returns results.
 
@@ -47,7 +47,7 @@ State managers. These orchestrate the behaviours of other module groups.
 
 ### Sub-structure
 
-- `handlers/game/` — Handlers specific to in-game (level) state: `Level.js`, `Camera.js`, `Physics.js`, `Enemy.js`, `Collectible.js`, `Animation.js`, `Boss.js`, `Texture.js`.
+- `handlers/game/` — Handlers specific to in-game (level) state: `Level.js`, `Camera.js`, `Enemy.js`, `Collectible.js`, `Animation.js`, `Boss.js`, `Texture.js`, `Simulator.js`.
 - `handlers/menu/` — Handlers for menu state: `Credits.js`, `LoadScreen.js`, `Splash.js`.
 - `handlers/` (root) — Cross-cutting handlers: `Render.js`, `Sound.js`, `UI.js`, `Controls.js`, `Cutscene.js`.
 

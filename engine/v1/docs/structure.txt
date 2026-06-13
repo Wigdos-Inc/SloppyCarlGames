@@ -22,6 +22,7 @@ engine/
       NewScatter.js // Procedurally generated multi-part static object scatter models placed on top of meshes.
       NewTexture.js // Procedurally generated texture mapping onto meshes.
       NewUI.js // Builder of UI components (mainly HTML elements)
+      NewVoid.js // Classifies null-space mesh faces and builds void wall renderable meshes (used by NewLevel.js)
       templates/
         characters.json // Character template definitions for builder
         enemies.json // Enemy template definitions
@@ -82,6 +83,7 @@ engine/
       characters.json // Player character presets
 
     rules/ // Engine rule documents governing module structure and implementation constraints
+    system_map/ // SAGE-maintained per-system reference documentation (one entry per module group)
     testGame/ // Example/integration game used to exercise the engine API
     todo // Engine task notes
 
