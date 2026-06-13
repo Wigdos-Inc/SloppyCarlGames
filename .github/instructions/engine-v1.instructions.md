@@ -5,7 +5,7 @@ applyTo: "engine/v1/**/*.js"
 ---
 # Engine V1 Development Rules
 
-- Treat `engine/v1/rules/` as the source of truth whenever you edit engine code.
+- Treat `engine/v1/docs/rules/` as the source of truth whenever you edit engine code.
 - Before changing engine behavior, read the rule files that govern the module you are touching.
 - Give highest priority to `FORBIDDEN_DEFENSIVE_CHECKS.md`, `UNIT_INSTANCING.md`, and `CASING.md`.
 - Follow the rules during both feature development and debugging. Debugging is not an exception path for adding forbidden patterns.

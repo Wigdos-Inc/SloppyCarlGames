@@ -1,6 +1,6 @@
 # Engine V1 — Development Instructions
 
-This project's active codebase is `engine/v1/`. All rule documents live in `engine/v1/rules/`. Read the rules that govern any module you touch before making changes. Read only the rules relevant to the module being edited — not all rules at once — unless doing a broad review.
+This project's active codebase is `engine/v1/`. All rule documents live in `engine/v1/docs/rules/`. Read the rules that govern any module you touch before making changes. Read only the rules relevant to the module being edited — not all rules at once — unless doing a broad review.
 
 ## Rule Priority
 

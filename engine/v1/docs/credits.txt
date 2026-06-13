@@ -7,9 +7,16 @@ Engine:
 - Cleanup           : ChatGPT 5-mini & DRYAD Agent
 - WebGL GPU Deferral: Claude Opus 4.6
 - Rule Enforcement  : ERA Agent
-- Performance Agent : DRYAD Agent
-- ERA Agent         : ChatGPT 5.4-mini & ChatGPT 5.4 & Claude Code
+- Performance       : DRYAD Agent
+- Feature Planning  : ChatGPT 5.2 Codex & Claude Code & Claude Sonnet 4.6
+- Feature Additions : ED Agent & Claude Code & ChatGPT 5.4
+- Feature Testing   : ARGUS Agent
+- Documentation     : SAGE Agent
+- ERA   Agent       : ChatGPT 5.4-mini & ChatGPT 5.4 & Claude Code
 - DRYAD Agent       : ChatGPT 5.4 & Claude Code
+- ED    Agent       : Claude Code
+- ARGUS Agent       : Claude Code
+- SAGE  Agent       : Claude Code
 
 testGame:
 - carlStudios Assets : Sloppy Carl Games

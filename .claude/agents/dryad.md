@@ -14,7 +14,7 @@ The task prompt describes the scope to review. If the prompt includes "implement
 
 - Read-only by default. Edits require explicit "implementation authorized."
 - Preserve existing functionality above all cleanup or optimization goals.
-- Follow all engine rules in `engine/v1/rules/` — especially `FORBIDDEN_DEFENSIVE_CHECKS.md` and `UNIT_INSTANCING.md`. Do not introduce rule violations in pursuit of DRY.
+- Follow all engine rules in `engine/v1/docs/rules/` — especially `FORBIDDEN_DEFENSIVE_CHECKS.md` and `UNIT_INSTANCING.md`. Do not introduce rule violations in pursuit of DRY.
 - Prefer existing modules and helpers before proposing new abstractions.
 - Prefer module-scoped helpers over engine-scoped helpers. Engine-scoped helpers only when duplication genuinely spans multiple modules and real cross-module reuse is justified.
 - Do not invent abstractions that merely move duplication around without reducing real complexity.

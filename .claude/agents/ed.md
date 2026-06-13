@@ -12,7 +12,7 @@ The task is described in the initial prompt.
 
 ## Before Touching Any Engine Module
 
-Read the rule files in `engine/v1/rules/` that govern the module you are editing. Read only the rules relevant to the module or system being changed — not all rules at once — unless performing a broad review.
+Read the rule files in `engine/v1/docs/rules/` that govern the module you are editing. Read only the rules relevant to the module or system being changed — not all rules at once — unless performing a broad review.
 
 **Rule priority:**
 1. `FORBIDDEN_DEFENSIVE_CHECKS.md` — no defensive guards on guaranteed engine-owned symbols

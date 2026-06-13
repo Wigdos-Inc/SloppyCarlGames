@@ -1,6 +1,8 @@
 engine/
   v1/
+    assets/ // Engine, studio, and character assets used by the runtime and test game
     Bootup.js // Initializes engine boot sequence and startup tasks
+    credits.txt // Engine credits text
 
     core/
       config.js // Global engine configuration values (and settings application)
@@ -16,15 +18,18 @@ engine/
       NewLevel.js // Builder for creating levels from incoming data (uses most other builders)
       NewObject.js // Builder of 3D meshes (mainly to be used by other builders)
       NewObstacle.js // Builder of obstacles
+      NewTerrain.js // Terrain builder entry point; currently an empty placeholder module
+      NewScatter.js // Procedurally generated multi-part static object scatter models placed on top of meshes.
       NewTexture.js // Procedurally generated texture mapping onto meshes.
       NewUI.js // Builder of UI components (mainly HTML elements)
-      NewScatter.js // Procedurally generated multi-part static object scatter models placed on top of meshes.
       templates/
         characters.json // Character template definitions for builder
         enemies.json // Enemy template definitions
-        obstacles.json // Obstacle template definitions
+        levels.json // Level and simulator template definitions
+        obstacleBlueprints.json // Obstacle blueprint definitions
         projectiles.json // Projectile template definitions
-        terrain.json // Blueprints for complex terrain patterns
+        terrainBlueprints.json // Blueprints for complex terrain patterns
+        textures.json // Texture preset definitions
 
     handlers/
       Controls.js // Handles inputs from ui/level cache or sends inputs to game if unconsumed (input manager)
@@ -39,7 +44,7 @@ engine/
         Collectible.js // Collectible item behavior
         Enemy.js // Enemy behavior handler
         Level.js // Level lifecycle and orchestration (entire level state manager)
-        Physics.js // Game physics glue for handlers (physics pipeline manager)
+        Simulator.js // Simulator mode lifecycle and live scene preview orchestration
         Texture.js // Custom texture and sprite loading onto meshes. Includes animated texture handling.
       menu/
         Splash.js // Manages splash screens on game startup
@@ -54,18 +59,19 @@ engine/
       Master.js // Cutscene state manager.
 
     math/
+      Collision.js // Physics math helpers: overlap, sweep, ray, and projection calculations
       Curves.js // Curve utilities (e.g., bezier helpers)
-      Physics.js // Physics calculation helpers
+      Forces.js // Pure gravity, buoyancy, resistance, and submergence math helpers
+      Matrix.js // 4x4 matrix creation and transform composition helpers
       Vector3.js // 3D vector math utilities
       Utilities.js // Utility math functions (includes Unit/UnitVector3 classes).
 
     physics/
-      Buoyancy.js // Buoyancy force calculations
       Collision.js // Collision detection utilities
       Correction.js // Collision correction/response helpers (e.g. adjusting player angle on slopes)
       Current.js // Movement adjustments while in underwater currents
-      Gravity.js // Gravity helpers
-      Resistance.js // Air/Water Resistance/drag computations
+      Forces.js // Engine-shaped force assembly for gravity, buoyancy, resistance, and submergence
+      Master.js // Physics pipeline manager and orchestrator for moving entities
 
     player/
       Abilities.js // Player ability definitions and applications (accepts handlers from games).
@@ -74,6 +80,10 @@ engine/
       Model.js // Player model/data representation
       Movement.js // Movement handler for player
       characters.json // Player character presets
+
+    rules/ // Engine rule documents governing module structure and implementation constraints
+    testGame/ // Example/integration game used to exercise the engine API
+    todo // Engine task notes
 
 Notes:
 - Builders create 2D HTML elements and 3D WebGL2 meshes and are called by state managers.
