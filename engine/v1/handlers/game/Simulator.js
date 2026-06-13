@@ -229,9 +229,10 @@ async function Exit() {
 		Log("ENGINE", "Simulator.Exit: simulator not active.", "error", "Simulator");
 		return;
 	}
+	const hadLevel = simulatorRuntime.hadLevel;
 	clearEnvironmentState();
 	ClearLevel(false);
-	if (simulatorRuntime.hadLevel) await CreateLevel(Cache.Level.lastPayload, { renderOptions: { rootId: "engine-level-root" } }, true);
+	if (hadLevel) await CreateLevel(Cache.Level.lastPayload, { renderOptions: { rootId: "engine-level-root" } }, true);
 	if (Cache.UI.lastPayload) await ApplyMenuUI(Cache.UI.lastPayload);
 	SendEvent("SIMULATOR_EXITED", {});
 	Log("ENGINE", "simulator exited", "log", "Simulator");
