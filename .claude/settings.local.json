@@ -71,7 +71,20 @@
       "mcp__chrome-devtools__take_snapshot",
       "Bash(node --check \"engine/v1/builder/NewObject.js\")",
       "Bash(node --check \"engine/v1/builder/NewVoid.js\")",
-      "Bash(node --check \"engine/v1/builder/NewLevel.js\")"
+      "Bash(node --check \"engine/v1/builder/NewLevel.js\")",
+      "Bash(node --check \"C:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\physics\\\\Collision.js\")",
+      "Bash(node --check \"C:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\builder\\\\NewObject.js\")",
+      "Bash(node --check \"C:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\builder\\\\NewObstacle.js\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('C:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/testGame/levels/levels.json','utf8'\\)\\); console.log\\('levels.json valid'\\)\")",
+      "Bash(node --check \"engine/v1/builder/NewObstacle.js\")",
+      "Bash(node --check \"engine/v1/physics/Collision.js\")",
+      "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/math/Collision.js\")",
+      "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/physics/Collision.js\")",
+      "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/builder/NewVoid.js\")",
+      "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/handlers/Render.js\")",
+      "Bash(node --check \"C:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\builder\\\\NewVoid.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\physics\\\\Collision.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\physics\\\\Master.js\")"
     ]
   }
 }

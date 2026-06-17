@@ -33,11 +33,10 @@ World Units are what the **renderer** uses to draw sizes and positions on screen
 1 CNU = CNU_SCALE World Units
 ```
 
-- Declared in `math/Utilities.js`. It is a hardcoded definition, not a runtime configuration value — it is set once during development and never changed post-release.
-- Conversion functions are in `math/Utilities.js`:
-  - `CNUtoWorldUnit(cnu)` → returns `cnu * CNU_SCALE`
-  - `WorldUnitToCNU(worldUnit)` → returns `worldUnit / CNU_SCALE`
-- The `Unit` and `UnitVector3` classes handle conversions through `.toWorldUnit()` and `.toCNU()` methods (see `rules/UNIT_INSTANCING.md`).
+- Declared in `math/Utilities.js`.
+- Conversion is done through the `Unit` and `UnitVector3` classes in `math/Utilities.js`:
+  - `cnu.toWorldUnit()` → returns `cnu * CNU_SCALE`
+  - `worldUnit.toCNU()` → returns `worldUnit / CNU_SCALE`
 
 ### What CNU_SCALE controls
 

@@ -4,7 +4,7 @@
 Pure, stateless math utilities available to any engine module without restriction. Provides typed unit conversion primitives, 3D vector operations, matrix composition, physics force math, collision geometry helpers, and curve utilities. Together with `core/`, this is the engine's global helper layer — anything may import from it.
 
 ## Files
-- `Utilities.js` — `Unit` and `UnitVector3` classes: typed value containers with conversion methods (`toRadians`, `toDegrees`, `toCNU`, `toWorldUnit`, `clone`). `CNU_SCALE` constant (fixed at development time). Conversion functions: `DegreesToRadians`, `RadiansToDegrees`, `CNUtoWorldUnit`, `WorldUnitToCNU`. Utility functions: `Clamp`, `Clamp01`, `Lerp`, `SmoothStep`, `ToNumber`.
+- `Utilities.js` — `Unit` and `UnitVector3` classes: typed value containers with conversion methods (`toRadians`, `toDegrees`, `toCNU`, `toWorldUnit`, `clone`). `CNU_SCALE` constant (fixed at development time). Conversion functions: `DegreesToRadians`, `RadiansToDegrees`. Utility functions: `Clamp`, `Clamp01`, `Lerp`, `SmoothStep`, `ToNumber`.
 - `Vector3.js` — 3D vector operations: `AddVector3`, `SubtractVector3`, `MultiplyVector3`, `DivideVector3`, `ScaleVector3`, `DotVector3`, `CrossVector3`, `LerpVector3`, `AbsoluteVector3`, `CloneVector3`, `ToVector3`, `Vector3Distance`, `Vector3Sq`, `ResolveVector3Axis`, `Vector3ChainMath`. Exports `WORLD_NORMALS` constant (canonical axis directions).
 - `Matrix.js` — 4×4 matrix creation (`CreateIdentityMatrix`, `CreateModelMatrix`, `CreateRenderMatrix`) and transform composition helpers.
 - `Collision.js` — Geometry math helpers: AABB overlap (`AabbOverlap`), sweep tests, ray-AABB intersection, projection calculations. No state, no engine dependencies.

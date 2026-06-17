@@ -101,7 +101,7 @@ export const CnuScale = 1;       // UpperCamelCase is for non-constant exports
 
 ## Edge Cases
 
-- **Acronyms in UpperCamelCase**: Treat acronyms as words. `CNU` stays `CNU` as a standalone term, but in compound names follow natural reading: `CNUtoWorldUnit`, `ValidateUIPayload`.
+- **Acronyms in UpperCamelCase**: Treat acronyms as words. `CNU` stays `CNU` as a standalone term, but in compound names follow natural reading: `ValidateUIPayload`.
 - **Non-exported constants**: Use `lowerCamelCase`, not `FULL_CAPS`. The `FULL_CAPS` convention only applies to exported constants.
 - **Object properties**: Follow the convention of their containing scope. Properties on exported objects follow `UpperCamelCase` if they represent public API surface (e.g. `ENGINE.Level.CreateLevel`), `lowerCamelCase` for internal data.
 - **Properties on exported FULL_CAPS objects**: Properties on exported constant objects (e.g. `SESSION_KEYS.Logs`, `CONFIG.DEBUG.ALL`) intentionally use `UpperCamelCase` for readability. This is a known inconsistency relative to class instance methods and is kept deliberately. Do not conflate the two conventions.

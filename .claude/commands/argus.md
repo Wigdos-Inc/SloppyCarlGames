@@ -27,7 +27,7 @@ Games do not start automatically on page load. The sequence is:
 
 1. **Any input** (keypress, click, etc.) is required to start the game.
 2. A **splash screen sequence** plays. Its total duration is posted to the browser console — check console output to know when it ends. If the browser console is (mostly) empty (contains nothing with the "ENGINE" prefix), that means debug mode is turned off. Debug mode can be turned on in testGame's settings menu, and is stored in localStorage, so it only has to be done once per browser on the same machine.
-3. After the splash, a **title screen** appears. What is possible from the title screen onward is game-defined — read the console output and observe the UI to determine available actions.
+3. After the splash, a **title screen** appears. What is possible from the title screen onward is game-defined — read the console output and observe the UI to determine available actions. In most cases, the menus are navigable through clicking on buttons or text, which you have a tool for.
 
 ---
 
