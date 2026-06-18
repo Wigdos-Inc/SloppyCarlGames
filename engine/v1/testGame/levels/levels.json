@@ -561,7 +561,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "textureID": "stone-block",
+                                    "textureID": "default-grid",
                                     "color": { "r": 0.98, "g": 0.72, "b": 0.34, "a": 1 },
                                     "opacity": 1
                                 },

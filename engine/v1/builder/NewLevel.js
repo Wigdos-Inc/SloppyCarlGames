@@ -107,7 +107,7 @@ function buildWaterVisualMeshes(world) {
 	const waterBottom = Clamp(world.waterLevel.value - 0.1, 0, world.deathBarrierY.value);
 	const waterHeight = Math.max(0.1, world.waterLevel.value - waterBottom);
 
-	const { mesh: body } = BuildObject(
+	const { mesh: body, faceTextures: bodyFaceTextures } = BuildObject(
 		{
 			id              : `water-body-${world.length.value}-${world.width.value}-${waterBottom}-${world.waterLevel.value}`,
 			shape           : "cube",
@@ -135,10 +135,11 @@ function buildWaterVisualMeshes(world) {
 			role           : "water",
 			collisionShape : "none",
 			customTextures : [],
+			textureScale   : world.textureScale,
 		}
 	);
 
-	const { mesh: top } = BuildObject(
+	const { mesh: top, faceTextures: topFaceTextures } = BuildObject(
 		{
 			id: `water-top-${world.length.value}-${world.width.value}-${world.waterLevel.value}`,
 			shape: "plane", complexity: "medium",
@@ -154,10 +155,11 @@ function buildWaterVisualMeshes(world) {
 				opacity: 0.35, density: 1, speckSize: 2, animated: true, holdTimeSpeed: 1, blendTimeSpeed: 1,
 			},
 			detail: { scatter: [] }, role: "water", collisionShape: "none", customTextures: [],
+			textureScale   : world.textureScale,
 		}
 	);
 
-	return { body, top };
+	return { body, top, faceTextures: [...bodyFaceTextures, ...topFaceTextures] };
 }
 
 function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
@@ -360,12 +362,15 @@ async function BuildLevel(payload) {
 	});
 	if (entities.length > 0) Log("ENGINE", `Entity group created: count=${entities.length}`, "log", "Level");
 
+	const waterVisual = buildWaterVisualMeshes(payload.world);
+	if (waterVisual) allFaceTextures.push(...waterVisual.faceTextures);
+
 	const sceneGraph = {
 		world: payload.world,
 		terrain, entities, triggers, scatter: [], scatterBatches,
 		obstacles               : obstacleRecords,
 		voids,
-		waterVisual             : buildWaterVisualMeshes(payload.world),
+		waterVisual,
 		scatterPrimitiveGeometry: BuildScatterVisualResources(scatterBatches),
 		debug                   : {
 			showTriggerVolumes: !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.Triggers === true),

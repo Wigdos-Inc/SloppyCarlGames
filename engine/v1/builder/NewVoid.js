@@ -8,7 +8,7 @@ import { CreateModelMatrix } from "../math/Matrix.js";
 import { AabbOverlap, StrictAabbOverlap } from "../math/Collision.js";
 import { NarrowphaseTest } from "../physics/Collision.js";
 import { GenerateUVs, GenerateFaceProjectedUvs, TransformPointByMatrix } from "./NewObject.js";
-import { BuildFaceTextureData, VISUAL_TEMPLATES } from "./NewTexture.js";
+import { BuildFaceTextureData, BuildNoiseAnimationOptions, VISUAL_TEMPLATES } from "./NewTexture.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { AddVector3, CrossVector3, DivideVector3, DotVector3, ScaleVector3, SubtractVector3, ToVector3, Vector3Sq, WORLD_NORMALS } from "../math/Vector3.js";
 
@@ -178,7 +178,7 @@ function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textu
 
 	const textureBlueprint = VISUAL_TEMPLATES.textures[defaultMesh.detail.texture.baseTextureID];
 
-	if (textureBlueprint.pattern === "noise" && !textureBlueprint.animation.able) {
+	if (textureBlueprint.pattern === "noise") {
 		const normalGroups = groupCoplanarFaceTriples(srcPositions, faceTriples);
 
 		const newPositions  = [];
@@ -212,8 +212,10 @@ function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textu
 			shape    : defaultMesh.detail.texture.shape,
 		};
 
+		const animationOptions = BuildNoiseAnimationOptions(textureBlueprint, defaultMesh.detail.texture);
+
 		const { faceTextures, faceTextureGroups } = BuildFaceTextureData(
-			material.textureID, defaultMesh.id, "voidwall", resolvedBlueprint, faceGroupData, faceSpans, textureScale
+			material.textureID, defaultMesh.id, "voidwall", resolvedBlueprint, faceGroupData, faceSpans, textureScale, animationOptions
 		);
 
 		const mesh = {

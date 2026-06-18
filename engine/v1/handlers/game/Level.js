@@ -371,8 +371,8 @@ function buildSceneSurfaceMap(terrain, obstacles) {
 }
 
 function registerSpawnFaceTextures(faceTextures, sceneGraph) {
-	for (const { id, source } of faceTextures) {
-		sceneGraph.visualResources.textureRegistry[id] = { id, definition: null, source, dirty: false };
+	for (const { id, source, definition } of faceTextures) {
+		sceneGraph.visualResources.textureRegistry[id] = { id, definition, source, dirty: false };
 	}
 }
 

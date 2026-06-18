@@ -136,8 +136,6 @@ function BuildTextureSurface(textureDefinition, resolvedSize, textureScale) {
 	const canvas = document.createElement("canvas");
 	canvas.width = size;
 	canvas.height = size;
-	const context = canvas.getContext("2d");
-
 	drawPattern(canvas.getContext("2d"), size, textureDefinition, textureScale);
 	return canvas;
 }
@@ -450,8 +448,8 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	const { usage, customTextureUsage } = collectTextureUsage(sceneGraph);
 	const textureRegistry = createTextureRegistry(usage, customTextureUsage, { textureScale: sceneGraph.world.textureScale });
 
-	for (const { id, source } of sceneGraph.pendingFaceTextures) {
-		textureRegistry[id] = { id, definition: null, source, dirty: false };
+	for (const { id, source, definition } of sceneGraph.pendingFaceTextures) {
+		textureRegistry[id] = { id, definition, source, dirty: false };
 	}
 	sceneGraph.pendingFaceTextures = [];
 
@@ -506,7 +504,17 @@ function BuildNoiseFaceCanvas(blueprint, pixelW, pixelH, textureScale) {
 	return canvas;
 }
 
-function BuildFaceTextureData(textureID, ownerId, ownerKind, resolvedBlueprint, faceGroupData, faceSpans, textureScale) {
+function BuildNoiseAnimationOptions(blueprint, textureDetail) {
+	if (!blueprint.animation.able || textureDetail.animated !== true) return null;
+	return {
+		holdTime      : blueprint.animation.holdTime,
+		blendTime     : blueprint.animation.blendTime,
+		holdTimeSpeed : textureDetail.holdTimeSpeed,
+		blendTimeSpeed: textureDetail.blendTimeSpeed,
+	};
+}
+
+function BuildFaceTextureData(textureID, ownerId, ownerKind, resolvedBlueprint, faceGroupData, faceSpans, textureScale, animationOptions = null) {
 	const faceTextures      = [];
 	const faceTextureGroups = [];
 	for (let i = 0; i < faceGroupData.length; i++) {
@@ -515,10 +523,19 @@ function BuildFaceTextureData(textureID, ownerId, ownerKind, resolvedBlueprint, 
 		const pixelH = Math.max(1, Math.round(faceSpans[i].vSpan * textureScale));
 		const faceID = `${textureID}::face=${i}::${ownerKind}=${ownerId}`;
 		const canvas = BuildNoiseFaceCanvas(resolvedBlueprint, pixelW, pixelH, textureScale);
-		faceTextures.push({ id: faceID, source: canvas });
+		const definition = animationOptions ? {
+			...resolvedBlueprint,
+			holdTimeSpeed : animationOptions.holdTimeSpeed,
+			blendTimeSpeed: animationOptions.blendTimeSpeed,
+			animation     : { able: true, holdTime: animationOptions.holdTime, blendTime: animationOptions.blendTime },
+			isFaceTexture : true,
+			pixelW,
+			pixelH,
+		} : null;
+		faceTextures.push({ id: faceID, source: canvas, definition });
 		faceTextureGroups.push({ indexStart: group.indexStart, indexCount: group.indexCount, textureID: faceID });
 	}
 	return { faceTextures, faceTextureGroups };
 }
 
-export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources, BuildNoiseFaceCanvas, BuildFaceTextureData, visualTemplates as VISUAL_TEMPLATES };
+export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources, BuildNoiseFaceCanvas, BuildFaceTextureData, BuildNoiseAnimationOptions, visualTemplates as VISUAL_TEMPLATES };

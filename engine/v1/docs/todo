@@ -1,6 +1,6 @@
 This file contains current priorities.
 
-Add new primitive type: void (for "gaps" and "holes" in terrain)
+Refactor stripes and grid texture types to adhere to density and speckSize
 Add new standard level controls: Arrow keys control camera (includes Simulator).
 - Add mouse & keyboard sensitivity settings in config, influencing camera controls.
 Fix any remaining texture issues

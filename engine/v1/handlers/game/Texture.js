@@ -4,7 +4,7 @@
 // Uses builder/NewTexture.js to build custom textures and sprites
 // Uses Animation.js to animate textures
 
-import { BuildTextureSurface } from "../../builder/NewTexture.js";
+import { BuildTextureSurface, BuildNoiseFaceCanvas } from "../../builder/NewTexture.js";
 import { Clamp01 } from "../../math/Utilities.js";
 
 function createAnimationStateEntry(textureEntry) {
@@ -66,7 +66,9 @@ function updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds
 		stateEntry.phase = "blend";
 		stateEntry.elapsedMs = 0;
 		stateEntry.fromSurface = textureEntry.source;
-		stateEntry.toSurface = BuildTextureSurface(textureEntry.definition, textureEntry.definition.size, textureScale);
+		stateEntry.toSurface = textureEntry.definition.isFaceTexture
+			? BuildNoiseFaceCanvas(textureEntry.definition, textureEntry.definition.pixelW, textureEntry.definition.pixelH, textureScale)
+			: BuildTextureSurface(textureEntry.definition, textureEntry.definition.size, textureScale);
 	}
 
 	if (stateEntry.phase === "blend") {

@@ -3,7 +3,7 @@
 // Called by anything that wants any 3D object or wants to build models.
 
 import { BuildScatter } from "./NewScatter.js";
-import { BuildFaceTextureData, VISUAL_TEMPLATES } from "./NewTexture.js";
+import { BuildFaceTextureData, BuildNoiseAnimationOptions, VISUAL_TEMPLATES } from "./NewTexture.js";
 import { CreateModelMatrix } from "../math/Matrix.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import {
@@ -1015,11 +1015,11 @@ function BuildObject(source) {
 		}
 	}
 
-	// Per-face noise texture path: non-animated noise textures get a unique canvas per face
+	// Per-face noise texture path: noise textures get a unique canvas per face
 	// with normalized [0,1] UVs so specks are distributed once across the face without tiling.
 	const textureBlueprint = VISUAL_TEMPLATES.textures[texture.baseTextureID];
-	const roleSupportsPerFace = source.role === "terrain" || source.role === "obstacle";
-	if (roleSupportsPerFace && textureBlueprint.pattern === "noise" && !textureBlueprint.animation.able && !geometry.uvs && geometry.faceGroups.every(g => g.indexStart !== undefined)) {
+	const roleSupportsPerFace = source.role === "terrain" || source.role === "obstacle" || source.role === "water";
+	if (roleSupportsPerFace && textureBlueprint.pattern === "noise" && !geometry.uvs && geometry.faceGroups.every(g => g.indexStart !== undefined)) {
 		const textureScale = source.textureScale;
 		const { uvs: normalizedUvs, faceSpans } = GenerateFaceProjectedUvs(geometry.positions, geometry.faceGroups, true);
 		mesh.geometry.uvs = normalizedUvs;
@@ -1031,8 +1031,10 @@ function BuildObject(source) {
 			shape    : texture.shape,
 		};
 
+		const animationOptions = BuildNoiseAnimationOptions(textureBlueprint, texture);
+
 		const { faceTextures, faceTextureGroups } = BuildFaceTextureData(
-			mesh.material.textureID, mesh.id, "mesh", resolvedBlueprint, geometry.faceGroups, faceSpans, textureScale
+			mesh.material.textureID, mesh.id, "mesh", resolvedBlueprint, geometry.faceGroups, faceSpans, textureScale, animationOptions
 		);
 
 		mesh.geometry.faceTextureGroups = faceTextureGroups;
