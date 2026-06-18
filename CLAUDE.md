@@ -24,7 +24,7 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 
 - Keep messages short and descriptive: `Log("ENGINE", "converting player position to world units", "debug", "Camera")`.
 - Source is either "ENGINE" or "GAME"
-- Use a channel that matches the subsystem being worked on.
+- Use a channel that matches the subsystem being worked on. Check config.js to ensure the channel is supported. A non-supported channel is silently ignored.
 - Avoid logging inside hot loops unless temporarily needed to isolate a bug.
 - Remove debug-only logs after the issue is resolved unless they provide ongoing diagnostic value.
 
