@@ -68,7 +68,7 @@
             "pattern": "noise",
             "animation": { "able": true, "holdTime": 0, "blendTime": 2 },
             "density": 1,
-            "speckSize": 2,
+            "speckSize": 1,
             "primary": "#1e90ff",
             "secondary": "#0b3d91"
         }
@@ -154,7 +154,7 @@
             "slopeMax": 0.95,
             "parts": [
                 {
-                    "level": 1,
+                    "level": 0,
                     "primitive": "sphere",
                     "complexity": "low",
                     "dimensions": { "x": 0.4, "y": 0.25, "z": 0.35 },

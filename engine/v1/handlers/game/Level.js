@@ -265,7 +265,7 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 	if (CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible) {
 		Log(
 			"ENGINE",
-			`Debug Grid Enabled — scale: ${CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Scale} units`,
+			`Debug Grid Enabled — scale: ${CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Scale.value} units`,
 			"log",
 			"Level"
 		);
@@ -370,6 +370,12 @@ function buildSceneSurfaceMap(terrain, obstacles) {
 	return map;
 }
 
+function registerSpawnFaceTextures(faceTextures, sceneGraph) {
+	for (const { id, source } of faceTextures) {
+		sceneGraph.visualResources.textureRegistry[id] = { id, definition: null, source, dirty: false };
+	}
+}
+
 function SpawnIntoScene(definition, objectType, sceneGraph) {
 	if (ENTITY_TYPES.includes(objectType)) {
 		const built = BuildEntity(definition, buildSceneSurfaceMap(sceneGraph.terrain, sceneGraph.obstacles));
@@ -381,16 +387,19 @@ function SpawnIntoScene(definition, objectType, sceneGraph) {
 	}
 
 	if (objectType === "obstacle") {
-		const built = BuildObstacles([definition], {})[0];
+		const { built: builtArray, faceTextures } = BuildObstacles([definition], { textureScale: sceneGraph.world.textureScale });
+		const built = builtArray[0];
 		sceneGraph.obstacles.push(built);
+		registerSpawnFaceTextures(faceTextures, sceneGraph);
 		AddToVisualResources(built, objectType, sceneGraph);
 		AddTextureAnimationEntries(sceneGraph);
 		if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
 		return built;
 	}
 
-	const built = BuildObject(definition);
+	const { mesh: built, faceTextures } = BuildObject({ ...definition, textureScale: sceneGraph.world.textureScale });
 	sceneGraph.terrain.push(built);
+	registerSpawnFaceTextures(faceTextures, sceneGraph);
 	AddToVisualResources(built, objectType, sceneGraph);
 	AddTextureAnimationEntries(sceneGraph);
 	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);

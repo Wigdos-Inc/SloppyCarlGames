@@ -3,21 +3,22 @@
 // Called by anything that wants any 3D object or wants to build models.
 
 import { BuildScatter } from "./NewScatter.js";
+import { BuildFaceTextureData, VISUAL_TEMPLATES } from "./NewTexture.js";
 import { CreateModelMatrix } from "../math/Matrix.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
-import { 
-	AbsoluteVector3, 
-	AddVector3, 
-	CloneVector3, 
-	CrossVector3, 
-	DivideVector3, 
-	ResolveVector3Axis, 
-	ScaleVector3, 
-	SubtractVector3, 
-	ToVector3, 
-	Vector3Length, 
-	Vector3Sq, 
-	WORLD_NORMALS 
+import {
+	AbsoluteVector3,
+	AddVector3,
+	CloneVector3,
+	CrossVector3,
+	DivideVector3,
+	ResolveVector3Axis,
+	ScaleVector3,
+	SubtractVector3,
+	ToVector3,
+	Vector3Length,
+	Vector3Sq,
+	WORLD_NORMALS
 } from "../math/Vector3.js";
 
 function computeObbFromMesh(mesh) {
@@ -74,7 +75,7 @@ function computeCapsuleFromMesh(mesh) {
 
 function computeTriangleSoupFromMesh(mesh) {
 	const readVertex = (vertexIndex) => {
-		const vertex = transformPointByMatrix({
+		const vertex = TransformPointByMatrix({
 			x: mesh.geometry.positions[vertexIndex * 3],
 			y: mesh.geometry.positions[(vertexIndex * 3) + 1],
 			z: mesh.geometry.positions[(vertexIndex * 3) + 2],
@@ -198,7 +199,7 @@ function generateSphereUvs(positions) {
 	return uvs;
 }
 
-function generateFaceProjectedUvs(positions, faceGroups) {
+function GenerateFaceProjectedUvs(positions, faceGroups, normalize = false) {
 	const getProjectedAxesFromNormal = (normal) => {
 		const n = AbsoluteVector3(normal);
 		if (n.x >= n.y && n.x >= n.z) return ["z", "y"];
@@ -210,15 +211,27 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 		const offset = vertexIndex * 3;
 		return { x: positions[offset + 0], y: positions[offset + 1], z: positions[offset + 2] };
 	}
-	
+
 	const uvs = new Array(positions.length / 3 * 2).fill(0);
+
+	if (!normalize) {
+		for (const group of faceGroups) {
+			const [uAxis, vAxis] = getProjectedAxesFromNormal(group.normal);
+			for (const vertexIndex of group.vertexIndices) {
+				const vertex = getVertexVector(positions, vertexIndex);
+				const uvOffset = vertexIndex * 2;
+				uvs[uvOffset + 0] = vertex[uAxis];
+				uvs[uvOffset + 1] = vertex[vAxis];
+			}
+		}
+		return uvs;
+	}
+
+	// normalize = true: per-face [0,1] UVs; also collect uSpan/vSpan per group.
+	const faceSpans = [];
 	for (const group of faceGroups) {
 		const [uAxis, vAxis] = getProjectedAxesFromNormal(group.normal);
-
-		let minU = Infinity;
-		let maxU = -Infinity;
-		let minV = Infinity;
-		let maxV = -Infinity;
+		let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
 
 		for (const vertexIndex of group.vertexIndices) {
 			const vertex = getVertexVector(positions, vertexIndex);
@@ -230,24 +243,25 @@ function generateFaceProjectedUvs(positions, faceGroups) {
 			if (v > maxV) maxV = v;
 		}
 
-		const rawSpanU = maxU - minU;
-		const rawSpanV = maxV - minV;
+		const uSpan = Math.max(0.0001, maxU - minU);
+		const vSpan = Math.max(0.0001, maxV - minV);
+		faceSpans.push({ uSpan, vSpan });
 
 		for (const vertexIndex of group.vertexIndices) {
 			const vertex = getVertexVector(positions, vertexIndex);
 			const uvOffset = vertexIndex * 2;
-			uvs[uvOffset + 0] = (vertex[uAxis] - minU) / (rawSpanU === 0 ? 1 : rawSpanU);
-			uvs[uvOffset + 1] = (vertex[vAxis] - minV) / (rawSpanV === 0 ? 1 : rawSpanV);
+			uvs[uvOffset + 0] = (vertex[uAxis] - minU) / uSpan;
+			uvs[uvOffset + 1] = (vertex[vAxis] - minV) / vSpan;
 		}
 	}
 
-	return uvs;
+	return { uvs, faceSpans };
 }
 
 function GenerateUVs(positions, geometry) {
 	if (geometry.uvs) return geometry.uvs;
 	if (geometry.uvMode === "sphere") return generateSphereUvs(positions);
-	return generateFaceProjectedUvs(positions, geometry.faceGroups);
+	return GenerateFaceProjectedUvs(positions, geometry.faceGroups);
 }
 
 function computeBounds(positions) {
@@ -271,7 +285,7 @@ function computeBounds(positions) {
 	return bounds;
 }
 
-function transformPointByMatrix(localPoint, matrix) {
+function TransformPointByMatrix(localPoint, matrix) {
 	return {
 		x: matrix[0] * localPoint.x + matrix[4] * localPoint.y + matrix[8] * localPoint.z + matrix[12],
 		y: matrix[1] * localPoint.x + matrix[5] * localPoint.y + matrix[9] * localPoint.z + matrix[13],
@@ -279,7 +293,7 @@ function transformPointByMatrix(localPoint, matrix) {
 	};
 }
 
-const transformPoint = (localPoint, transform) => transformPointByMatrix(localPoint, CreateModelMatrix(transform));
+const transformPoint = (localPoint, transform) => TransformPointByMatrix(localPoint, CreateModelMatrix(transform));
 
 function computeWorldAabbFromGeometry(positions, transform) {
 	const firstWorld = transformPoint({ x: positions[0], y: positions[1], z: positions[2] }, transform);
@@ -296,6 +310,30 @@ function computeWorldAabbFromGeometry(positions, transform) {
 		if (world.z > max.z) max.z = world.z;
 	}
 
+	return {
+		min: new UnitVector3(min.x, min.y, min.z, "cnu"),
+		max: new UnitVector3(max.x, max.y, max.z, "cnu"),
+	};
+}
+
+function computeWorldAabbFromBounds(localBounds, transform) {
+	const mn = localBounds.min, mx = localBounds.max;
+	const corners = [
+		{ x: mn.x, y: mn.y, z: mn.z }, { x: mx.x, y: mn.y, z: mn.z },
+		{ x: mn.x, y: mx.y, z: mn.z }, { x: mx.x, y: mx.y, z: mn.z },
+		{ x: mn.x, y: mn.y, z: mx.z }, { x: mx.x, y: mn.y, z: mx.z },
+		{ x: mn.x, y: mx.y, z: mx.z }, { x: mx.x, y: mx.y, z: mx.z },
+	];
+	const matrix = CreateModelMatrix(transform);
+	const first = TransformPointByMatrix(corners[0], matrix);
+	const min = CloneVector3(first);
+	const max = CloneVector3(first);
+	for (let i = 1; i < 8; i++) {
+		const w = TransformPointByMatrix(corners[i], matrix);
+		if (w.x < min.x) min.x = w.x; if (w.x > max.x) max.x = w.x;
+		if (w.y < min.y) min.y = w.y; if (w.y > max.y) max.y = w.y;
+		if (w.z < min.z) min.z = w.z; if (w.z > max.z) max.z = w.z;
+	}
 	return {
 		min: new UnitVector3(min.x, min.y, min.z, "cnu"),
 		max: new UnitVector3(max.x, max.y, max.z, "cnu"),
@@ -326,12 +364,12 @@ function buildCube(size) {
 	];
 
 	const faceGroups = [
-		{ normal: WORLD_NORMALS.Forward, vertexIndices: [0, 1, 2, 3] },
-		{ normal: WORLD_NORMALS.Backward, vertexIndices: [4, 5, 6, 7] },
-		{ normal: WORLD_NORMALS.Left, vertexIndices: [8, 9, 10, 11] },
-		{ normal: WORLD_NORMALS.Right, vertexIndices: [12, 13, 14, 15] },
-		{ normal: WORLD_NORMALS.Up, vertexIndices: [16, 17, 18, 19] },
-		{ normal: WORLD_NORMALS.Down, vertexIndices: [20, 21, 22, 23] },
+		{ normal: WORLD_NORMALS.Forward,  vertexIndices: [0,  1,  2,  3],  indexStart: 0,  indexCount: 6 },
+		{ normal: WORLD_NORMALS.Backward, vertexIndices: [4,  5,  6,  7],  indexStart: 6,  indexCount: 6 },
+		{ normal: WORLD_NORMALS.Left,     vertexIndices: [8,  9,  10, 11], indexStart: 12, indexCount: 6 },
+		{ normal: WORLD_NORMALS.Right,    vertexIndices: [12, 13, 14, 15], indexStart: 18, indexCount: 6 },
+		{ normal: WORLD_NORMALS.Up,       vertexIndices: [16, 17, 18, 19], indexStart: 24, indexCount: 6 },
+		{ normal: WORLD_NORMALS.Down,     vertexIndices: [20, 21, 22, 23], indexStart: 30, indexCount: 6 },
 	];
 
 	return { positions, indices, faceGroups };
@@ -357,22 +395,24 @@ function buildPyramid(size) {
 	};
 
 	const addQuadFace = (a, b, c, d, normal) => {
+		const indexStart = indices.length;
 		const start = pushVertex(a);
 		pushVertex(b);
 		pushVertex(c);
 		pushVertex(d);
 		indices.push(start, start + 1, start + 2);
 		indices.push(start, start + 2, start + 3);
-		faceGroups.push({ normal: normal, vertexIndices: [start, start + 1, start + 2, start + 3] });
+		faceGroups.push({ normal, vertexIndices: [start, start + 1, start + 2, start + 3], indexStart, indexCount: 6 });
 	};
 
 	const addTriangleFace = (a, b, c) => {
+		const indexStart = indices.length;
 		const start = pushVertex(a);
 		pushVertex(b);
 		pushVertex(c);
 		indices.push(start, start + 1, start + 2);
 		const normal = ResolveVector3Axis(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a)));
-		faceGroups.push({ normal, vertexIndices: [start, start + 1, start + 2] });
+		faceGroups.push({ normal, vertexIndices: [start, start + 1, start + 2], indexStart, indexCount: 3 });
 	};
 
 	addQuadFace(baseFrontLeft, baseFrontRight, baseBackRight, baseBackLeft, WORLD_NORMALS.Up);
@@ -396,7 +436,7 @@ function buildPlane(size) {
 			-sx, 0, -sz,
 		],
 		indices: [0, 1, 2, 0, 2, 3],
-		faceGroups: [{ normal: WORLD_NORMALS.Up, vertexIndices: [0, 1, 2, 3] }],
+		faceGroups: [{ normal: WORLD_NORMALS.Up, vertexIndices: [0, 1, 2, 3], indexStart: 0, indexCount: 6 }],
 	};
 }
 
@@ -430,20 +470,22 @@ function buildCylinder(size, complexity) {
 		faceGroups.push({
 			normal: { x: Math.cos(midAngle), y: 0, z: Math.sin(midAngle) },
 			vertexIndices: [start, start + 1, start + 2, start + 3],
+			indexStart: indices.length,
+			indexCount: 6,
 		});
 	}
 
 	const topCenter = pushVertex(0, radius.y, 0);
 	const topRing = appendRadialVertices(positions, radius.x, radius.y, radius.z, segments);
+	const topIndexStart = indices.length;
 	appendTriangleFanIndices(indices, topCenter, topRing.start, segments);
-
-	faceGroups.push({ normal: WORLD_NORMALS.Up, vertexIndices: [topCenter, ...topRing.vertexIndices] });
+	faceGroups.push({ normal: WORLD_NORMALS.Up, vertexIndices: [topCenter, ...topRing.vertexIndices], indexStart: topIndexStart, indexCount: indices.length - topIndexStart });
 
 	const bottomCenter = pushVertex(0, -radius.y, 0);
 	const bottomRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
+	const bottomIndexStart = indices.length;
 	appendTriangleFanIndices(indices, bottomCenter, bottomRing.start, segments, true);
-
-	faceGroups.push({ normal: WORLD_NORMALS.Down, vertexIndices: [bottomCenter, ...bottomRing.vertexIndices] });
+	faceGroups.push({ normal: WORLD_NORMALS.Down, vertexIndices: [bottomCenter, ...bottomRing.vertexIndices], indexStart: bottomIndexStart, indexCount: indices.length - bottomIndexStart });
 
 	return { positions, indices, faceGroups };
 }
@@ -498,7 +540,9 @@ function buildCone(size, complexity) {
 	const sideRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
 	sideVertexIndices.push(...sideRing.vertexIndices);
 
+	const sideIndexStart = indices.length;
 	for (let index = 0; index < segments; index++) indices.push(apexIndex, sideRing.start + index, sideRing.start + index + 1);
+	const sideIndexCount = indices.length - sideIndexStart;
 
 	const baseCenter = positions.length / 3;
 	positions.push(0, -radius.y, 0);
@@ -506,13 +550,14 @@ function buildCone(size, complexity) {
 
 	const baseRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
 	baseVertexIndices.push(...baseRing.vertexIndices);
+	const baseIndexStart = indices.length;
 	appendTriangleFanIndices(indices, baseCenter, baseRing.start, segments, true);
 
 	return {
 		positions, indices,
 		faceGroups: [
-			{ normal: WORLD_NORMALS.Up, vertexIndices: sideVertexIndices },
-			{ normal: WORLD_NORMALS.Down, vertexIndices: baseVertexIndices },
+			{ normal: WORLD_NORMALS.Up,   vertexIndices: sideVertexIndices, indexStart: sideIndexStart, indexCount: sideIndexCount },
+			{ normal: WORLD_NORMALS.Down, vertexIndices: baseVertexIndices, indexStart: baseIndexStart, indexCount: indices.length - baseIndexStart },
 		],
 	};
 }
@@ -721,11 +766,11 @@ function buildRampSimple(size, options) {
 	return {
 		positions, indices,
 		faceGroups: [
-			{ normal: WORLD_NORMALS.Down, vertexIndices: [0, 1, 2, 3] },
-			{ normal: WORLD_NORMALS.Forward, vertexIndices: [2, 3, 4, 5] },
-			{ normal: { x: 0, y: Math.cos(slopeAngle), z: -Math.sin(slopeAngle) }, vertexIndices: [0, 1, 4, 5] },
-			{ normal: WORLD_NORMALS.Left, vertexIndices: [0, 3, 5] },
-			{ normal: WORLD_NORMALS.Right, vertexIndices: [1, 2, 4] },
+			{ normal: WORLD_NORMALS.Down,    vertexIndices: [0, 1, 2, 3], indexStart: 0,  indexCount: 6 },
+			{ normal: WORLD_NORMALS.Forward, vertexIndices: [2, 3, 4, 5], indexStart: 6,  indexCount: 6 },
+			{ normal: { x: 0, y: Math.cos(slopeAngle), z: -Math.sin(slopeAngle) }, vertexIndices: [0, 1, 4, 5], indexStart: 12, indexCount: 6 },
+			{ normal: WORLD_NORMALS.Left,    vertexIndices: [0, 3, 5],    indexStart: 18, indexCount: 3 },
+			{ normal: WORLD_NORMALS.Right,   vertexIndices: [1, 2, 4],    indexStart: 21, indexCount: 3 },
 		],
 	};
 }
@@ -838,15 +883,68 @@ function BuildObject(source) {
 	// Upstream must provide normalized texture, scatter and primitive option objects.
 	// Expect world-space values to be provided as UnitVector3 instances already.
 	const primitiveOptions = source.primitiveOptions;
-	const geometry = BuildGeometry(shape, source.dimensions, complexity, primitiveOptions);
-	const bounds = computeBounds(geometry.positions);
 	const transform = {
 		position: source.position,         // UnitVector3
 		rotation: source.rotation,         // UnitVector3
 		scale   : source.scale,            // Vector3
 		pivot   : source.pivot,            // UnitVector3
 	};
-	const texture = source.texture;
+
+	if (source.mode === "invisible") {
+		let localBounds, worldAabb, tempGeometry = null;
+		if (source.collisionShape === "triangle-soup") {
+			const geom   = BuildGeometry(shape, source.dimensions, complexity, primitiveOptions);
+			localBounds  = computeBounds(geom.positions);
+			worldAabb    = computeWorldAabbFromGeometry(geom.positions, transform);
+			tempGeometry = geom;
+		}
+		else {
+			localBounds = {
+				min: new UnitVector3(-source.dimensions.x / 2, -source.dimensions.y / 2, -source.dimensions.z / 2, "cnu"),
+				max: new UnitVector3( source.dimensions.x / 2,  source.dimensions.y / 2,  source.dimensions.z / 2, "cnu"),
+			};
+			worldAabb = computeWorldAabbFromBounds(localBounds, transform);
+		}
+		return {
+			mesh: {
+				id            : source.id,
+				type          : "mesh3d",
+				meta          : { trigger: source.trigger, platform: source.platform, parentId: source.parentId, sticky: source.sticky, mode: source.mode, nullable: source.nullable },
+				transform,
+				dimensions    : source.dimensions,
+				collisionShape: source.collisionShape,
+				localBounds, worldAabb,
+				detailedBounds: computeDetailedBounds({ collisionShape: source.collisionShape, geometry: tempGeometry, localBounds, worldAabb, transform }),
+				customTextures: [],
+			},
+			faceTextures: [],
+		};
+	}
+
+	if (source.mode === "nullSpace") {
+		const geometry    = BuildGeometry(shape, source.dimensions, complexity, primitiveOptions);
+		const localBounds = computeBounds(geometry.positions);
+		const worldAabb   = computeWorldAabbFromGeometry(geometry.positions, transform);
+		return {
+			mesh: {
+				id            : source.id,
+				type          : "mesh3d",
+				meta          : { trigger: source.trigger, platform: source.platform, parentId: source.parentId, sticky: source.sticky, mode: source.mode, nullable: source.nullable },
+				transform,
+				dimensions    : source.dimensions,
+				collisionShape: source.collisionShape,
+				localBounds, worldAabb,
+				detailedBounds: computeDetailedBounds({ collisionShape: source.collisionShape, geometry, localBounds, worldAabb, transform }),
+				geometry      : { positions: geometry.positions, indices: geometry.indices, indexCount: geometry.indices.length },
+				customTextures: [],
+			},
+			faceTextures: [],
+		};
+	}
+
+	const geometry = BuildGeometry(shape, source.dimensions, complexity, primitiveOptions);
+	const bounds   = computeBounds(geometry.positions);
+	const texture  = source.texture;
 
 	const mesh = {
 		id        : source.id,
@@ -874,8 +972,9 @@ function BuildObject(source) {
 			trigger  : source.trigger,
 			platform : source.platform,
 			parentId : source.parentId,
-			nullSpace: source.nullSpace,
 			sticky   : source.sticky,
+			mode     : source.mode,
+			nullable : source.nullable,
 		},
 		detail: {
 			scatter: source.detail.scatter,
@@ -906,6 +1005,7 @@ function BuildObject(source) {
 			world            : scatterContext.world,
 			indexSeed        : scatterContext.indexSeed,
 			explicitScatter  : mesh.detail.scatter,
+			openFaces        : [],
 		});
 
 		if (generatedScatter.length > 0) {
@@ -915,7 +1015,31 @@ function BuildObject(source) {
 		}
 	}
 
-	return mesh;
+	// Per-face noise texture path: non-animated noise textures get a unique canvas per face
+	// with normalized [0,1] UVs so specks are distributed once across the face without tiling.
+	const textureBlueprint = VISUAL_TEMPLATES.textures[texture.baseTextureID];
+	const roleSupportsPerFace = source.role === "terrain" || source.role === "obstacle";
+	if (roleSupportsPerFace && textureBlueprint.pattern === "noise" && !textureBlueprint.animation.able && !geometry.uvs && geometry.faceGroups.every(g => g.indexStart !== undefined)) {
+		const textureScale = source.textureScale;
+		const { uvs: normalizedUvs, faceSpans } = GenerateFaceProjectedUvs(geometry.positions, geometry.faceGroups, true);
+		mesh.geometry.uvs = normalizedUvs;
+
+		const resolvedBlueprint = {
+			...textureBlueprint,
+			density  : textureBlueprint.density   * texture.density,
+			speckSize: textureBlueprint.speckSize  * texture.speckSize,
+			shape    : texture.shape,
+		};
+
+		const { faceTextures, faceTextureGroups } = BuildFaceTextureData(
+			mesh.material.textureID, mesh.id, "mesh", resolvedBlueprint, geometry.faceGroups, faceSpans, textureScale
+		);
+
+		mesh.geometry.faceTextureGroups = faceTextureGroups;
+		return { mesh, faceTextures };
+	}
+
+	return { mesh, faceTextures: [] };
 }
 
 function UpdateObjectWorldAabb(mesh) {
@@ -924,4 +1048,4 @@ function UpdateObjectWorldAabb(mesh) {
 	return mesh.worldAabb;
 }
 
-export { BuildObject, UpdateObjectWorldAabb, BuildGeometry, GenerateUVs };
+export { BuildObject, UpdateObjectWorldAabb, BuildGeometry, GenerateUVs, GenerateFaceProjectedUvs, TransformPointByMatrix };

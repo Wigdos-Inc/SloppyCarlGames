@@ -375,7 +375,7 @@ const PlayerAPI = {
 	Input      : playerInputFlags,
 	GetState   : GetPlayerState,
 	SetPosition: (x, y, z) => {
-		playerState.transform.position.set(ToVector3({ x, y, z }));
+		playerState.transform.position.set({ x, y, z });
 		playerState.velocity.set(ToVector3(0));
 		playerState.jumpStartY.value = y;
 		playerState.jumpApexY.value = y;

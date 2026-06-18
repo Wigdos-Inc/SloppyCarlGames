@@ -529,7 +529,8 @@ function markMutableDecals(animations, parts) {
 							return false;
 						});
 						if (track.swap.length === 0) delete track.swap;
-					} else {
+					} 
+					else {
 						warnLog(`animations.${animName}: decal '${decalId}' has swap track but no sources declared, dropping swap.`);
 						delete track.swap;
 					}

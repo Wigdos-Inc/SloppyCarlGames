@@ -17,7 +17,7 @@ import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.j
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
 import { PlayerAPI as Player } from "../player/Master.js";
 import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3, CNU_SCALE } from "../math/Utilities.js"
-import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3, Vector3ChainMath } from "../math/Vector3.js";
+import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3 } from "../math/Vector3.js";
 import { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence } from "../math/Forces.js";
 
 /* === INITIALIZATION === */
@@ -56,10 +56,10 @@ function Initialize() {
     Audio: { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes },
     Level: { CreateLevel, ClearLevel, UpdateLevel, GetActiveLevel, PauseLevel, ResumeLevel, Player },
     Math: {
-      Convert: { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU },
-      Vector3: { AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3, Vector3ChainMath },
+      Convert   : { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU },
+      Vector3   : { AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3 },
       Instancing: { Unit, UnitVector3 },
-      Physics: { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence },
+      Physics   : { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence },
     },
     Simulator: { Start, Load, Cache: SimulatorCache, Clear, Exit }
   };

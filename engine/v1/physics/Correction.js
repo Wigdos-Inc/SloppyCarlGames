@@ -4,15 +4,7 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";
-import {
-	DotVector3,
-	SubtractVector3,
-	ScaleVector3,
-	ResolveVector3Axis,
-	CloneVector3,
-	Vector3Sq,
-	WORLD_NORMALS,
-} from "../math/Vector3.js";
+import { DotVector3, SubtractVector3, ScaleVector3, ResolveVector3Axis, CloneVector3, Vector3Sq, WORLD_NORMALS } from "../math/Vector3.js";
 import { Clamp } from "../math/Utilities.js";
 
 const hasMeaningfulDelta = (currentValue, nextValue) => Math.abs(nextValue - currentValue) > EPSILON;

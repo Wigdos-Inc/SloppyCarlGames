@@ -6,21 +6,6 @@ import { Clamp, Clamp01 } from "./Utilities.js";
 /* === MATH === */
 // Perform math operations on canonized vectors.
 
-function Vector3ChainMath(a, b = [], chainDefinition = "") {
-	const math = (vector, target) => {
-		switch (target) {
-			case "+": return AddVector3(a, vector);
-			case "-": return SubtractVector3(a, vector);
-			case "*": return MultiplyVector3(a, vector);
-			case "/": return DivideVector3(a, vector);
-			case ".": return DotVector3(a, vector);
-		}
-	}
-
-	for (let i=0; i < chainDefinition.length; i++) a = math(b[i], chainDefinition[i]);
-	return a;
-}
-
 const ToVector3 = (value) => { return { x: value, y: value, z: value } };
 
 function AddVector3(a, b) {
@@ -147,6 +132,5 @@ export {
 	LerpVector3,
 	RotateByEuler,
 	ToVector3,
-	Vector3ChainMath,
 	WORLD_NORMALS,
 };

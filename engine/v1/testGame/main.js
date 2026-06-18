@@ -562,10 +562,7 @@ window.addEventListener("UI_RENDERED", (event) => {
 });
 
 const initialSettings = loadSettings();
-if (initialSettings) {
-	applySettings(initialSettings);
-} else {
-	syncSettingsUi(getSettingsSnapshot());
-}
+if (initialSettings) applySettings(initialSettings);
+else syncSettingsUi(getSettingsSnapshot());
 
 void ENGINE;

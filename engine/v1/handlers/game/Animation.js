@@ -187,7 +187,8 @@ function applyDisplayColor(runtime, target, color) {
 		d = { r: color.r, g: color.g, b: color.b, a: color.a };
 		runtime.colorDisplays.set(target, d);
 		target.displayColor = d;
-	} else { d.r = color.r; d.g = color.g; d.b = color.b; d.a = color.a; }
+	} 
+	else { d.r = color.r; d.g = color.g; d.b = color.b; d.a = color.a; }
 }
 
 // Restore every animated target's render source to its true transform/color (no active animation).

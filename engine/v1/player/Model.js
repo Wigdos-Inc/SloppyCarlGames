@@ -57,7 +57,7 @@ function buildPart(source) {
 		pivot: source.pivot.clone(),
 	};
 
-	const mesh = BuildObject(
+	const { mesh } = BuildObject(
 		{
 			id              : source.id,
 			shape           : source.shape,
@@ -74,8 +74,7 @@ function buildPart(source) {
 			collisionShape  : "none",
 			parentId        : source.parentId,
 			customTextures  : source.customTextures,
-		},
-		{ role: "entity-part" }
+		}
 	);
 
 	return {

@@ -19,7 +19,7 @@ import visualTemplates from "./templates/textures.json" with { type: "json" };
 	const toUnitVector3 = (v, t) => new UnitVector3(v.x, v.y, v.z, t)
   	for (const key in visualTemplates.scatterTypes) {
   	  	visualTemplates.scatterTypes[key].parts.forEach((part) => {
-  	  	  	part.dimensions = toUnitVector3(part.dimensions, "cnu");
+  	  	  	part.dimensions    = toUnitVector3(part.dimensions, "cnu");
   	  	  	part.localPosition = toUnitVector3(part.localPosition, "cnu");
   	  	  	part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
   	  	});
@@ -54,11 +54,7 @@ function hashNoise(x, z, seed) {
 	return value - Math.floor(value);
 }
 
-function primitiveGeometryKey(primitive, dimensions, complexity, primitiveOptions) {
-	const prm = primitive;
-	const dim = dimensions;
-	return `${primitive}_${dim.x}_${dim.y}_${dim.z}_${complexity}_${primitiveOptions}`;
-}
+const primitiveGeometryKey = (prim, dim, comp, primOptions) => `${prim}_${dim.x}_${dim.y}_${dim.z}_${comp}_${primOptions}`;
 
 function logScatterBounds(message, objectMesh) {
 	Log(
@@ -77,9 +73,9 @@ function logScatterBounds(message, objectMesh) {
 }
 
 function processScatterModels(params, handlers) {
-	const { objectMesh, scatterMultiplier, world, indexSeed, explicitRequests } = params;
+	const { objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces } = params;
 	return iterateScatterInstances(
-		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests },
+		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces },
 		(ctx) => {
 			const modelState = handlers.beginModel ? handlers.beginModel(ctx) : null;
 			let modelAabb = null;
@@ -170,6 +166,25 @@ function applyHierarchicalOffsets(parts, uniformScale) {
 	return levels.flatMap((level) => adjustedByLevel.get(level));
 }
 
+// Rotated XZ footprint AABB for a single root part (half-width/half-depth swept around the
+// sample center). Shared between the parent-bounds check and the opening-rejection check.
+function rootPartFootprintAabbXZ(part, worldX, worldZ, uniformScale, yaw) {
+	const cosYaw = Math.abs(Math.cos(yaw));
+	const sinYaw = Math.abs(Math.sin(yaw));
+
+	const scaledWidth = part.dimensions.x * part.localScale.x * uniformScale;
+	const scaledDepth = part.dimensions.z * part.localScale.z * uniformScale;
+	const halfWidth   = (scaledWidth * cosYaw + scaledDepth * sinYaw) * 0.5;
+	const halfDepth   = (scaledWidth * sinYaw + scaledDepth * cosYaw) * 0.5;
+
+	const centerX = worldX + part.localPosition.x;
+	const centerZ = worldZ + part.localPosition.z;
+	return {
+		minX: centerX - halfWidth, maxX: centerX + halfWidth,
+		minZ: centerZ - halfDepth, maxZ: centerZ + halfDepth,
+	};
+}
+
 function areRootPartsWithinParentBounds(parts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ) {
 	if (parts.length === 0) return true;
 
@@ -177,31 +192,40 @@ function areRootPartsWithinParentBounds(parts, worldX, worldZ, uniformScale, see
 		const part = parts[partIndex];
 		if (part.level !== 0) continue;
 
-		const scaledWidth = part.dimensions.x * part.localScale.x * uniformScale;
-		const scaledDepth = part.dimensions.z * part.localScale.z * uniformScale;
 		const yaw = part.localRotation.y + hashNoise(worldX, worldZ, seed + partIndex) * Math.PI * 2;
-		const cosYaw = Math.abs(Math.cos(yaw));
-		const sinYaw = Math.abs(Math.sin(yaw));
+		const fp = rootPartFootprintAabbXZ(part, worldX, worldZ, uniformScale, yaw);
 
-		const halfWidth = (scaledWidth * cosYaw + scaledDepth * sinYaw) * 0.5;
-		const halfDepth = (scaledWidth * sinYaw + scaledDepth * cosYaw) * 0.5;
-		const centerX = worldX + part.localPosition.x;
-		const centerZ = worldZ + part.localPosition.z;
-
-		const partMinX = centerX - halfWidth;
-		const partMaxX = centerX + halfWidth;
-		const partMinZ = centerZ - halfDepth;
-		const partMaxZ = centerZ + halfDepth;
-		if (partMinX < minX || partMaxX > maxX || partMinZ < minZ || partMaxZ > maxZ) return false;
+		if (fp.minX < minX || fp.maxX > maxX || fp.minZ < minZ || fp.maxZ > maxZ) return false;
 	}
 
 	return true;
 }
 
+// Rejects a scatter sample whose root-part XZ footprint overlaps any opening's XZ footprint.
+// openingAabbsXZ: pre-filtered top-relevant open faces, each projected to an XZ AABB.
+// Conservative AABB-vs-AABB (over-exclusion at a rim is barely visible; under-exclusion shows).
+function isFootprintOverOpening(parts, worldX, worldZ, uniformScale, seed, openingAabbsXZ) {
+	if (openingAabbsXZ.length === 0) return false;
+
+	for (let partIndex = 0; partIndex < parts.length; partIndex++) {
+		const part = parts[partIndex];
+		if (part.level !== 0) continue;
+
+		const yaw = part.localRotation.y + hashNoise(worldX, worldZ, seed + partIndex) * Math.PI * 2;
+		const fp = rootPartFootprintAabbXZ(part, worldX, worldZ, uniformScale, yaw);
+
+		for (const o of openingAabbsXZ) {
+			if (fp.minX <= o.maxX && fp.maxX >= o.minX && fp.minZ <= o.maxZ && fp.maxZ >= o.minZ) return true;
+		}
+	}
+
+	return false;
+}
+
 // Iterate scatter instances and invoke a handler with pre-computed per-part contexts.
 // Handler receives an object: { scatterType, request, scatterTypeIndex, instanceIndex, partContexts, samplePosition, sampleDimensions }
 function iterateScatterInstances(params, handler) {
-	const { objectMesh, scatterMultiplier, world, indexSeed, explicitRequests } = params;
+	const { objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces } = params;
 	if (scatterMultiplier <= 0) return { totalParts: 0, typeCounts: 0, modelCounts: 0 };
 
 	// Choose explicit requests if provided, otherwise use the canonicalized scatter list
@@ -219,6 +243,21 @@ function iterateScatterInstances(params, handler) {
 	const depth = Math.max(1, maxZ - minZ);
 	const approxArea = width * depth;
 	const scatterScale = Math.max(0.05, world.scatterScale);
+
+	// Pre-filter open faces to those reaching the placement surface (topY), then project each
+	// to an XZ AABB. Projecting to XZ makes the overlap test slope-agnostic (crater rim faces
+	// are angled, so a vertical ray would under-detect them).
+	const openingEpsilon = 0.5;
+	const openingAabbsXZ = [];
+	for (const face of openFaces) {
+		const faceMinY = Math.min(face.a.y, face.b.y, face.c.y);
+		const faceMaxY = Math.max(face.a.y, face.b.y, face.c.y);
+		if (faceMaxY < topY - openingEpsilon || faceMinY > topY + openingEpsilon) continue;
+		openingAabbsXZ.push({
+			minX: Math.min(face.a.x, face.b.x, face.c.x), maxX: Math.max(face.a.x, face.b.x, face.c.x),
+			minZ: Math.min(face.a.z, face.b.z, face.c.z), maxZ: Math.max(face.a.z, face.b.z, face.c.z),
+		});
+	}
 
 	let totalParts = 0;
 	let globalTypeCount = 0;
@@ -265,6 +304,7 @@ function iterateScatterInstances(params, handler) {
 			// Compute per-part offsets for stacking / levels and validate spatial fit
 			const offsetParts = applyHierarchicalOffsets(canonicalParts, uniformScale);
 			if (!areRootPartsWithinParentBounds(offsetParts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ)) continue;
+			if (isFootprintOverOpening(offsetParts, worldX, worldZ, uniformScale, seed, openingAabbsXZ)) continue;
 
 			const rootPart = resolveRootPart(offsetParts, uniformScale);
 			const modelRootY = rootPart ? worldY + getPartHalfHeight(rootPart, uniformScale) - rootPart.stackY : worldY;
@@ -310,7 +350,7 @@ function iterateScatterInstances(params, handler) {
 	return { totalParts, typeCounts: globalTypeCount, modelCounts: globalModelCount };
 }
 
-function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests) {
+function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces) {
 	if (scatterMultiplier <= 0) return [];
 
 	const scatterRequests = explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter;
@@ -321,13 +361,13 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 	const meshes = [];
 
 	const stats = processScatterModels(
-		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests },
+		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces },
 		{
 			beginModel: () => meshes.length,
 			processPart: (ctx, partContext, partIndex) => {
 				const { scatterType, instanceIndex } = ctx;
 				const { part, position, rotation, scale } = partContext;
-				const scatterMesh = BuildObject(
+				const { mesh: scatterMesh } = BuildObject(
 					{
 						id: `${objectMesh.id}-scatter-${scatterType.id}-${instanceIndex}-${partIndex}`,
 						shape: part.primitive,
@@ -340,8 +380,7 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 						detail        : { scatter: [] },
 						role          : "scatter",
 						customTextures: [],
-					},
-					{ role: "scatter" }
+					}
 				);
 
 				meshes.push(scatterMesh);
@@ -366,13 +405,13 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 	return meshes;
 }
 
-function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, batchMap, debugBboxAccumulator) {
+function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, batchMap, debugBboxAccumulator, openFaces) {
 	logScatterBounds("Scatter batch bounds", objectMesh);
 
 	let totalParts = 0;
 
 	const stats = processScatterModels(
-		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests },
+		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces },
 		{
 			processPart: (ctx, partContext) => {
 				const { part, position, rotation, scale } = partContext;
@@ -480,7 +519,7 @@ function BuildScatterVisualResources(scatterBatches) {
 	return primitiveGeometry;
 }
 
-const BuildScatter = (p) => generateObjectScatter(p.objectMesh, p.scatterMultiplier, p.world, p.indexSeed, p.explicitScatter);
-const BuildScatterBatches = (p) => generateObjectScatterBatches(p.objectMesh, p.scatterMultiplier, p.world, p.indexSeed, p.explicitScatter, p.batchMap, p.debugBboxAccumulator);
+const BuildScatter = (p) => generateObjectScatter(p.objectMesh, p.scatterMultiplier, p.world, p.indexSeed, p.explicitScatter, p.openFaces);
+const BuildScatterBatches = (p) => generateObjectScatterBatches(p.objectMesh, p.scatterMultiplier, p.world, p.indexSeed, p.explicitScatter, p.batchMap, p.debugBboxAccumulator, p.openFaces);
 
 export { BuildScatter, BuildScatterBatches, BuildScatterVisualResources, GetPerformanceScatterMultiplier };

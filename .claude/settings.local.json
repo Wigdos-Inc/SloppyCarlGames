@@ -84,7 +84,16 @@
       "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/handlers/Render.js\")",
       "Bash(node --check \"C:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\builder\\\\NewVoid.js\")",
       "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\physics\\\\Collision.js\")",
-      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\physics\\\\Master.js\")"
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\physics\\\\Master.js\")",
+      "Bash(node --check engine/v1/math/Collision.js)",
+      "Bash(node --check engine/v1/builder/NewVoid.js)",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\math\\\\Collision.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\core\\\\config.js\")",
+      "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/builder/NewTexture.js\")",
+      "Bash(node --check engine/v1/builder/NewTexture.js)",
+      "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/builder/NewObject.js\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('engine/v1/builder/templates/textures.json','utf8'\\)\\); console.log\\('JSON OK'\\)\")",
+      "Bash(node --check \"engine/v1/builder/NewScatter.js\")"
     ]
   }
 }

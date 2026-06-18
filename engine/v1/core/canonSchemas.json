@@ -1447,7 +1447,19 @@
     "hp": { "__meta": { "description": "Obstacle hp", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
     "static": { "__meta": { "description": "Static flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } },
     "parts": { "__meta": { "description": "Obstacle part list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
-    "customTextures": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
+    "customTextures": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
+    "mode": { "__meta": { "description": "Object render/collision mode", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "default", "allowedValues": ["default", "invisible", "nullSpace"], "deprecated": false } },
+    "nullable": {
+      "__meta": {
+        "description": "If false, this object is never suppressed by overlapping nullSpace volumes.",
+        "aliases": [],
+        "dataType": "boolean",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": true,
+        "deprecated": false
+      }
+    }
   },
   "levelMovement": {
     "start": {

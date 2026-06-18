@@ -59,9 +59,7 @@
                                     "textureID": "grass-soft",
                                     "shape": "circle",
                                     "color": { "r": 1, "g": 1, "b": 1, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 8,
-                                    "speckSize": 3
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": [
@@ -91,9 +89,7 @@
                                 "texture": {
                                     "textureID": "stone-block",
                                     "color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": [
@@ -134,8 +130,6 @@
                                     "shape": "circle",
                                     "color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
                                     "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1,
                                     "animated": true,
                                     "holdTimeSpeed": 1.25,
                                     "blendTimeSpeed": 1.25
@@ -164,13 +158,57 @@
                                 "texture": {
                                     "textureID": "metal-panel",
                                     "color": { "r": 0.95, "g": 0.9, "b": 1, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
                                 }
+                            },
+                            {
+                                "id": "null-shaft-a",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 4, "y": 1.5, "z": 4 },
+                                "position": { "x": 30, "y": 0.5, "z": 50 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {},
+                                "texture": {
+                                    "textureID": "default-grid",
+                                    "color": { "r": 0.15, "g": 0.15, "b": 0.15, "a": 0.6 },
+                                    "opacity": 0.6,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "detail": { "scatter": [] },
+                                "collisionShape": "aabb",
+                                "customTextures": [],
+                                "mode": "nullSpace"
+                            },
+                            {
+                                "id": "catch-platform-a",
+                                "shape": "cube",
+                                "complexity": "medium",
+                                "dimensions": { "x": 8, "y": 1.5, "z": 8 },
+                                "position": { "x": 30, "y": -10, "z": 50 },
+                                "rotation": { "x": 0, "y": 0, "z": 0 },
+                                "scale": { "x": 1, "y": 1, "z": 1 },
+                                "pivot": { "x": 0, "y": 0, "z": 0 },
+                                "primitiveOptions": {},
+                                "texture": {
+                                    "textureID": "default-grid",
+                                    "color": { "r": 0.3, "g": 0.7, "b": 1.0, "a": 1 },
+                                    "opacity": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "detail": { "scatter": [] },
+                                "collisionShape": "aabb",
+                                "customTextures": [],
+                                "nullable": true
                             }
                         ],
                         "triggers": [
@@ -215,9 +253,7 @@
                             "texture": {
                                 "textureID": "wood-plank",
                                 "color": { "r": 0.96, "g": 0.93, "b": 0.87, "a": 1 },
-                                "opacity": 1,
-                                "density": 1,
-                                "speckSize": 1
+                                "opacity": 1
                             },
                             "detail": {
                                 "scatter": []
@@ -431,9 +467,7 @@
                                 "texture": {
                                     "textureID": "default-grid",
                                     "color": { "r": 0.88, "g": 0.95, "b": 1, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -457,9 +491,7 @@
                                 "texture": {
                                     "textureID": "default-grid",
                                     "color": { "r": 0.32, "g": 0.38, "b": 0.46, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -483,9 +515,7 @@
                                 "texture": {
                                     "textureID": "default-grid",
                                     "color": { "r": 0.32, "g": 0.38, "b": 0.46, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -509,9 +539,7 @@
                                 "texture": {
                                     "textureID": "default-grid",
                                     "color": { "r": 0.32, "g": 0.38, "b": 0.46, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -535,9 +563,7 @@
                                 "texture": {
                                     "textureID": "stone-block",
                                     "color": { "r": 0.98, "g": 0.72, "b": 0.34, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -561,9 +587,7 @@
                                 "texture": {
                                     "textureID": "metal-panel",
                                     "color": { "r": 0.43, "g": 0.78, "b": 1, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -587,9 +611,7 @@
                                 "texture": {
                                     "textureID": "metal-panel",
                                     "color": { "r": 0.92, "g": 0.87, "b": 0.78, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -613,9 +635,7 @@
                                 "texture": {
                                     "textureID": "metal-panel",
                                     "color": { "r": 0.97, "g": 0.95, "b": 0.62, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -639,9 +659,7 @@
                                 "texture": {
                                     "textureID": "metal-panel",
                                     "color": { "r": 0.97, "g": 0.95, "b": 0.62, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -665,9 +683,7 @@
                                 "texture": {
                                     "textureID": "metal-panel",
                                     "color": { "r": 0.97, "g": 0.95, "b": 0.62, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -691,9 +707,7 @@
                                 "texture": {
                                     "textureID": "stone-block",
                                     "color": { "r": 0.84, "g": 0.84, "b": 0.88, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -717,9 +731,7 @@
                                 "texture": {
                                     "textureID": "stone-block",
                                     "color": { "r": 0.84, "g": 0.84, "b": 0.88, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []
@@ -743,9 +755,7 @@
                                 "texture": {
                                     "textureID": "stone-block",
                                     "color": { "r": 0.84, "g": 0.84, "b": 0.88, "a": 1 },
-                                    "opacity": 1,
-                                    "density": 1,
-                                    "speckSize": 1
+                                    "opacity": 1
                                 },
                                 "detail": {
                                     "scatter": []

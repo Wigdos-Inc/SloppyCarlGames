@@ -6,6 +6,7 @@
 
 import { CONFIG } from "../core/config.js";
 import { EPSILON } from "../core/meta.js";
+import { Unit } from "../math/Utilities.js";
 import {
 	AddVector3,
 	SubtractVector3,
@@ -20,6 +21,7 @@ import {
 import {
 	SweptAABB,
 	AabbOverlap,
+	StrictAabbOverlap,
 	SphereSphereContact,
 	SphereAABBContact,
 	SphereOBBContact,
@@ -30,7 +32,10 @@ import {
 	CapsuleOBBContact,
 	SphereTriangleSoupContact,
 	CapsuleTriangleSoupContact,
+	SphereVoidWallContact,
+	CapsuleVoidWallContact,
 	RayOBBIntersect,
+	RayTriangleIntersect,
 	SweptSphereAABB,
 	SweptSphereOBB,
 	NoContact,
@@ -42,6 +47,15 @@ import {
 // module, so lowerCamelCase per CASING.md — the ground-snap tolerance, by
 // contrast, is shared and is supplied by the orchestrator (physics/Master.js).
 const wallFacingMinApproachDot = 0.5;
+
+// Tiny sphere radius used for ground-support point nullSpace narrowphase tests.
+// Instanced once at module scope per UNIT_INSTANCING.md.
+const groundProbeRadius = new Unit(0.001, "cnu");
+
+// Vertical-only tolerance (CNU) for nullSpace boundary overlap tests. Absorbs the
+// float-precision error from OBB ray-casts landing on a coincident boundary plane
+// (support point at y == nullSpace.min.y). Applied to the y axis only — x/z stay exact.
+const nullSpaceBoundaryEpsilon = new Unit(0.001, "cnu");
 
 /* ========================================================================
  * RESULT POOLS — grow-once, zero GC per frame.
@@ -169,7 +183,7 @@ function resolveBoundsSupportPoint(bounds, normal) {
 const resolveContactSupportPoint = (bounds, contact) => contact.point ? CloneVector3(contact.point) : resolveBoundsSupportPoint(bounds, contact.normal);
 
 function resolvePushSupportPoint(bounds, contact) {
-	if (bounds.type === "triangle-soup" && contact.point) return CloneVector3(contact.point);
+	if ((bounds.type === "triangle-soup" || bounds.type === "voidWall") && contact.point) return CloneVector3(contact.point);
 	const supportPoint = resolveBoundsSupportPoint(bounds, contact.normal);
 	if (supportPoint) return supportPoint;
 	if (contact.point) return CloneVector3(contact.point);
@@ -320,6 +334,10 @@ function narrowphaseContact(boundsA, boundsB) {
 		case "trsp": return invertContact(SphereTriangleSoupContact(boundsB.center, boundsB.radius, boundsA));
 		case "catr": return CapsuleTriangleSoupContact(boundsA, boundsB);
 		case "trca": return invertContact(CapsuleTriangleSoupContact(boundsB, boundsA));
+		case "spvo": return SphereVoidWallContact(boundsA.center, boundsA.radius, boundsB);
+		case "vosp": return invertContact(SphereVoidWallContact(boundsB.center, boundsB.radius, boundsA));
+		case "cavo": return CapsuleVoidWallContact(boundsA, boundsB);
+		case "voca": return invertContact(CapsuleVoidWallContact(boundsB, boundsA));
 		case "aaaa": return aabbAabbContact(boundsA, boundsB);
 		case "aaob": return AabbObbContact(boundsA, boundsB);
 		case "obaa": return invertContact(AabbObbContact(boundsB, boundsA));
@@ -398,17 +416,51 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 
 	// Obstacles.
 	sceneGraph.obstacles.forEach(obs => {
-		if (!withinSimRadius(obs.bounds)) return;
+		if (!withinSimRadius(obs.worldAabb)) return;
 		candidates.push({
 			id            : obs.id,
 			pairId        : obs.id,
-			aabb          : obs.bounds,
+			aabb          : obs.worldAabb,
 			detailedBounds: obs.detailedBounds,
 			isTrigger     : false,
 			type          : "obstacle",
 			ref           : obs,
 		});
 	});
+
+	// Void walls (one-sided cavity surfaces — never nullSpace-suppressed). Floor and
+	// wall faces are emitted as separate candidates so a deeper wall contact cannot
+	// mask the floor's ground contact in the single-deepest narrowphase reduction.
+	// Sourced from each nullSpace entry's per-relation voidWallMeshes array.
+	const collectVoidWalls = (entries) => {
+		for (const entry of entries) for (const id in entry.relations) {
+			for (const voidWall of entry.relations[id].voidWallMeshes) {
+				if (!withinSimRadius(voidWall.worldAabb)) continue;
+				candidates.push({
+					id            : voidWall.id,
+					pairId        : voidWall.id,
+					aabb          : voidWall.worldAabb,
+					detailedBounds: voidWall.wallBounds,
+					isTrigger     : false,
+					type          : "voidWall",
+					ref           : voidWall,
+				});
+				if (voidWall.floorBounds.triangles.length > 0) {
+					candidates.push({
+						id            : `${voidWall.id}-floor`,
+						pairId        : `${voidWall.id}-floor`,
+						aabb          : voidWall.worldAabb,
+						detailedBounds: voidWall.floorBounds,
+						isTrigger     : false,
+						type          : "voidWall",
+						ref           : voidWall,
+					});
+				}
+			}
+		}
+	};
+	collectVoidWalls(sceneGraph.nullSpaces.terrain);
+	collectVoidWalls(sceneGraph.nullSpaces.obstacles);
 
 	// Triggers.
 	sceneGraph.triggers.forEach(trig => {
@@ -440,6 +492,55 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 	});
 
 	return candidates;
+}
+
+// Returns a copy of an AABB expanded by epsilon on the y axis only (x/z untouched).
+function expandAabbY(aabb, epsilon) {
+	return {
+		min: { x: aabb.min.x, y: aabb.min.y - epsilon, z: aabb.min.z },
+		max: { x: aabb.max.x, y: aabb.max.y + epsilon, z: aabb.max.z },
+	};
+}
+
+// Returns a copy of an AABB translated by an offset vector on all axes.
+function offsetAabb(aabb, offset) {
+	return {
+		min: AddVector3(aabb.min, offset),
+		max: AddVector3(aabb.max, offset),
+	};
+}
+
+// motionOffset (optional): when supplied by the swept path, suppression is evaluated at the
+// swept contact position (entity bounds shifted by vel*tEntry) rather than the static current
+// position. Without it the swept detection — which looks ahead — would resolve a surface
+// collision one frame before the body enters the nullSpace, stopping the entity for a frame.
+function isNullSpaceCancelled(entity, candidate, sceneGraph, motionOffset) {
+	if (candidate.type !== "terrain" && candidate.type !== "obstacle") return false;
+
+	const isTerrain  = candidate.type === "terrain";
+	if ((isTerrain ? candidate.ref.meta.mode : candidate.ref.mode) === "invisible") return false;
+	if ((isTerrain ? candidate.ref.meta.nullable : candidate.ref.nullable) === false) return false;
+
+	for (const ns of (isTerrain ? sceneGraph.nullSpaces.terrain : sceneGraph.nullSpaces.obstacles)) {
+		if (ns.relations[candidate.ref.id]?.suppressed !== true) continue;
+		const nsAabb = ns.worldAabb;
+		const entityAabb = motionOffset ? offsetAabb(entity.collision.aabb, motionOffset) : entity.collision.aabb;
+		if (!StrictAabbOverlap(entityAabb, expandAabbY(nsAabb, nullSpaceBoundaryEpsilon.value))) continue;
+		const entityBounds = motionOffset ? offsetDetailedBounds(entity.collision.physics.bounds, motionOffset) : entity.collision.physics.bounds;
+		if (ns.detailedBounds && NarrowphaseTest(entityBounds, ns.detailedBounds)) return true;
+	}
+
+	return false;
+}
+
+function isGroundSupportInNullSpace(supportPt, candidateId, nullSpaces) {
+	for (const ns of nullSpaces) {
+		if (ns.relations[candidateId]?.suppressed !== true) continue;
+		const nsAabb = ns.worldAabb;
+		if (!AabbOverlap({ min: supportPt, max: supportPt }, expandAabbY(nsAabb, nullSpaceBoundaryEpsilon.value))) continue;
+		if (NarrowphaseTest({ type: "sphere", center: supportPt, radius: groundProbeRadius }, ns.detailedBounds)) return true;
+	}
+	return false;
 }
 
 /* ========================================================================
@@ -606,6 +707,11 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 					}
 				}
 
+				if (isNullSpaceCancelled(entity, candidate, sceneGraph, ScaleVector3(vel, swept.tEntry))) {
+					removeActiveCollisionPair(entity, candidate);
+					continue;
+				}
+
 				fillSolidResult(candidate, swept, contact, candidate.detailedBounds).shape = entity.collision.physics.bounds.type;
 				continue;
 			}
@@ -620,6 +726,11 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 					continue;
 				}
 				cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
+			}
+
+			if (isNullSpaceCancelled(entity, candidate, sceneGraph, ScaleVector3(vel, swept.tEntry))) {
+				removeActiveCollisionPair(entity, candidate);
+				continue;
 			}
 
 			fillSolidResult(candidate, swept, contact, candidate.detailedBounds);
@@ -673,6 +784,10 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 			: narrowphaseContact(entity.collision.physics.bounds, candidate.detailedBounds);
 		
 		if (!contact.hit) {
+			removeActiveCollisionPair(entity, candidate);
+			continue;
+		}
+		if (isNullSpaceCancelled(entity, candidate, sceneGraph)) {
 			removeActiveCollisionPair(entity, candidate);
 			continue;
 		}
@@ -882,38 +997,75 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance) {
 	let bestNormal = null;
 	let type = null;
 
-	// Downward ray vs axis-aligned box: entry t = vertical distance from probe to top face.
-	const tryAABB = (bounds, meshType) => {
-		if (probe.x < bounds.min.x || probe.x > bounds.max.x) return;
-		if (probe.z < bounds.min.z || probe.z > bounds.max.z) return;
+	// Downward ray vs axis-aligned box: returns entry t or Infinity if no hit.
+	const tryAABB = (bounds) => {
+		if (probe.x < bounds.min.x || probe.x > bounds.max.x) return Infinity;
+		if (probe.z < bounds.min.z || probe.z > bounds.max.z) return Infinity;
 		const t = probe.y - bounds.max.y;
-		if (t < 0 || t > maxDist) return;
-		if (t < bestT) { bestT = t; bestNormal = WORLD_NORMALS.Up; type = meshType; }
+		return (t < 0 || t > maxDist) ? Infinity : t;
 	};
 
 	// Downward ray (0,-1,0) vs oriented box via slab test in OBB local space.
-	// Returns the entry face normal, which must be upward-facing to count as ground.
-	const tryOBB = (obb, meshType) => {
+	// Returns { t, normal } if hit with upward-facing normal, null otherwise.
+	const tryOBB = (obb) => {
 		const hit = RayOBBIntersect(probe, WORLD_NORMALS.Down, obb, maxDist);
-		if (!hit.hit || hit.normal.y <= 0) return;
-		if (hit.t < bestT) {
-			bestT = hit.t;
-			bestNormal = hit.normal;
-			type = meshType;
-		}
+		if (!hit.hit || hit.normal.y <= 0) return null;
+		return hit;
 	};
 
 	for (const mesh of sceneGraph.terrain) {
-		if      (!AabbOverlap(entity.collision.simRadiusAabb, mesh.worldAabb)) continue;
-		if      (mesh.detailedBounds.type === "aabb")                          tryAABB(mesh.detailedBounds, "terrain");
-		else if (mesh.detailedBounds.type === "obb")                           tryOBB(mesh.detailedBounds, "terrain");
+		if (!AabbOverlap(entity.collision.simRadiusAabb, mesh.worldAabb)) continue;
+		let t, normal;
+		if      (mesh.detailedBounds.type === "aabb") { 
+			t = tryAABB(mesh.detailedBounds); 
+			if (t === Infinity) continue; normal = WORLD_NORMALS.Up; 
+		}
+		else if (mesh.detailedBounds.type === "obb") { 
+			const hit = tryOBB(mesh.detailedBounds); 
+			if (!hit) continue; t = hit.t; normal = hit.normal; 
+		}
+		else continue;
+		if (t >= bestT) continue;
+		if (mesh.meta.nullable !== false && isGroundSupportInNullSpace({ x: probe.x, y: probe.y - t, z: probe.z }, mesh.id, sceneGraph.nullSpaces.terrain)) continue;
+		bestT = t; bestNormal = normal; type = "terrain";
 	}
 
 	for (const obs of sceneGraph.obstacles) {
-		if      (!AabbOverlap(entity.collision.simRadiusAabb, obs.bounds))  continue;
-		if      (obs.detailedBounds.type === "aabb")                        tryAABB(obs.detailedBounds, "obstacle");
-		else if (obs.detailedBounds.type === "obb")                         tryOBB(obs.detailedBounds , "obstacle");
+		if (!AabbOverlap(entity.collision.simRadiusAabb, obs.worldAabb)) continue;
+		let t, normal;
+		if      (obs.detailedBounds.type === "aabb") { 
+			t = tryAABB(obs.detailedBounds); 
+			if (t === Infinity) continue; normal = WORLD_NORMALS.Up; 
+		}
+		else if (obs.detailedBounds.type === "obb")  { 
+			const hit = tryOBB(obs.detailedBounds); 
+			if (!hit) continue; t = hit.t; normal = hit.normal; 
+		}
+		else continue;
+		if (t >= bestT) continue;
+		if (obs.nullable !== false && isGroundSupportInNullSpace({ x: probe.x, y: probe.y - t, z: probe.z }, obs.id, sceneGraph.nullSpaces.obstacles)) continue;
+		bestT = t; bestNormal = normal; type = "obstacle";
 	}
+
+	// Void-wall floors: cavity surfaces with an upward authored normal act as standable
+	// ground. Reported under their source category so ApplyGroundSnap is unchanged.
+	// Sourced from each nullSpace entry's per-relation voidWallMeshes array.
+	const probeVoidWalls = (entries, sourceType) => {
+		for (const entry of entries) {
+			for (const id in entry.relations) {
+				for (const voidWall of entry.relations[id].voidWallMeshes) {
+					if (!AabbOverlap(entity.collision.simRadiusAabb, voidWall.worldAabb)) continue;
+					for (const triangle of voidWall.floorBounds.triangles) {
+						const hit = RayTriangleIntersect(probe, WORLD_NORMALS.Down, triangle, maxDist);
+						if (!hit.hit || hit.t >= bestT) continue;
+						bestT = hit.t; bestNormal = triangle.normal; type = sourceType;
+					}
+				}
+			}
+		}
+	};
+	probeVoidWalls(sceneGraph.nullSpaces.terrain, "terrain");
+	probeVoidWalls(sceneGraph.nullSpaces.obstacles, "obstacle");
 
 	if (type === null) return { hit: false };
 

@@ -77,7 +77,7 @@ function buildObstacleParts(source, index, options) {
 		const elevatedPosition = source.position.clone();
 		elevatedPosition.y += source.dimensions.y * source.scale.y * 0.5;
 
-		const single = BuildObject(
+		const { mesh: partMesh, faceTextures } = BuildObject(
 			{
 				id: source.id,
 				shape: source.shape,
@@ -93,20 +93,24 @@ function buildObstacleParts(source, index, options) {
 				role          : "obstacle",
 				collisionShape: source.collisionShape,
 				customTextures: [],
+				mode          : source.mode,
+				nullable      : source.nullable,
+				textureScale  : options.textureScale,
 				scatterContext: options.scatterContext
 					? { ...options.scatterContext, indexSeed: 500 + index }
 					: null
 			}
 		);
-		return [single];
+		return { parts: [partMesh], faceTextures };
 	}
 
 	// At this point `source` and `source.parts` are expected to be normalized by core/normalize.js
 	// Assume `source.position`, `source.rotation`, `source.pivot`, and part.localPosition/localRotation
 	// are `UnitVector3` instances. Compose world-space transforms by cloning and mutating UnitVector3 instances.
 	const rootScale = source.scale; // Vector3
+	const allFaceTextures = [];
 
-	return source.parts.map((part, partIndex) => {
+	const parts = source.parts.map((part, partIndex) => {
 		const combinedScale = MultiplyVector3(rootScale, part.localScale);
 
 		// Compute world-space position
@@ -114,7 +118,7 @@ function buildObstacleParts(source, index, options) {
 		worldPos.add(part.localPosition);
 		worldPos.y += part.dimensions.y * combinedScale.y * 0.5;
 
-		return BuildObject(
+		const { mesh: partMesh, faceTextures } = BuildObject(
 			{
 				...part,
 				id: part.id,
@@ -128,38 +132,53 @@ function buildObstacleParts(source, index, options) {
 				primitiveOptions: part.primitiveOptions,
 				texture: part.texture || source.texture,
 				detail: { scatter: part.detail.scatter.length > 0 ? part.detail.scatter : (partIndex === 0 ? source.detail.scatter: []) },
-				role: "obstacle",
+				role          : "obstacle",
 				collisionShape: source.collisionShape,
+				mode          : source.mode,
+				nullable      : source.nullable,
+				textureScale  : options.textureScale,
 				scatterContext: options.scatterContext
 					? { ...options.scatterContext, indexSeed: 700 + (index * 100) + partIndex }
 					: null
 			}
 		);
+		allFaceTextures.push(...faceTextures);
+		return partMesh;
 	});
+
+	return { parts, faceTextures: allFaceTextures };
 }
 
 function BuildObstacle(source, index, options) {
-	const parts = buildObstacleParts(source, index, options);
-	let bounds = null;
-	parts.forEach((part) => bounds = mergeAabb(bounds, part.worldAabb));
+	const { parts, faceTextures } = buildObstacleParts(source, index, options);
+	let worldAabb = null;
+	parts.forEach((part) => worldAabb = mergeAabb(worldAabb, part.worldAabb));
 
 	const mesh = parts[0];
-	const detailedBounds = createDetailedBoundsFromParts(source, parts, bounds);
+	const detailedBounds = createDetailedBoundsFromParts(source, parts, worldAabb);
 
 	return {
 		id: source.id,
-		mesh, parts, bounds, detailedBounds,
+		mesh, parts, worldAabb, detailedBounds,
 		collisionShape: source.collisionShape,
 		destructible  : source.destructible,
 		hp            : source.hp,
 		static        : source.static,
 		scatter       : source.scatter,
 		state         : { destroyed: false },
+		mode          : source.mode,
+		nullable      : source.nullable,
+		faceTextures,
 	};
 }
 
 function BuildObstacles(source, options) {
-	const built = source.map((definition, index) => BuildObstacle(definition, index, options));
+	const allFaceTextures = [];
+	const built = source.map((definition, index) => {
+		const obstacle = BuildObstacle(definition, index, options);
+		allFaceTextures.push(...obstacle.faceTextures);
+		return obstacle;
+	});
 	if (built.length > 0) {
 		const destructibleCount = built.filter((entry) => entry.destructible === true).length;
 		Log(
@@ -169,7 +188,7 @@ function BuildObstacles(source, options) {
 			"Level"
 		);
 	}
-	return built;
+	return { built, faceTextures: allFaceTextures };
 }
 
 export { BuildObstacle, BuildObstacles };

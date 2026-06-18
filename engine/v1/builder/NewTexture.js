@@ -4,6 +4,7 @@
 // Uses NewObject.js to build simple 3D textures (like grass, pebbles, etc)
 
 import visualTemplates from "./templates/textures.json" with { type: "json" };
+import { CONFIG } from "../core/config.js";
 import { Log, ENTITY_TYPES } from "../core/meta.js";
 
 function parseHexColor(hex) {
@@ -82,15 +83,20 @@ function drawPattern(ctx, size, textureDefinition, textureScale) {
 			return;
 		}
 		case "noise": {
-			const speck = Math.max(1, Math.floor(textureDefinition.speckSize * textureScale));
-			const densityScale = Math.max(0.05, textureScale * textureScale);
-			const speckCount = Math.min(16000, Math.max(size * 2, Math.floor((size * size * 0.02 * textureDefinition.density) / densityScale)));
-			ctx.fillStyle = secondary;
-			for (let index = 0; index < speckCount; index++) {
-				const x = Math.floor(Math.random() * (size - speck));
-				const y = Math.floor(Math.random() * (size - speck));
+			const effSpeckSize = textureDefinition.speckSize * CONFIG.RENDERING.Texture.SpeckSize;
+			const effDensity   = textureDefinition.density   * CONFIG.RENDERING.Texture.Density;
+			const speck = Math.max(1, Math.floor(effSpeckSize * textureScale));
+			const speckCount = Math.min(16000, Math.floor((size * size * effDensity) / (speck * speck)));
+			const drawWrapped = (x, y) => {
 				draw(x, y, speck, speck);
-			}
+				const wrapX = x + speck > size;
+				const wrapY = y + speck > size;
+				if (wrapX)          draw(x - size, y,        speck, speck);
+				if (wrapY)          draw(x,        y - size, speck, speck);
+				if (wrapX && wrapY) draw(x - size, y - size, speck, speck);
+			};
+			ctx.fillStyle = secondary;
+			for (let index = 0; index < speckCount; index++) drawWrapped(Math.random() * size, Math.random() * size);
 			return;
 		}
 		default: {
@@ -138,7 +144,7 @@ function BuildTextureSurface(textureDefinition, resolvedSize, textureScale) {
 
 function createUsageEntry(baseTextureID) {
 	return {
-		isTerrain: false, maxSpan: 1, density: null, speckSize: null, animatedRequested: false, 
+		isTerrain: false, maxSpan: 1, density: 1, speckSize: 1, animatedRequested: false,
 		holdTimeSpeed: 1, blendTimeSpeed: 1, baseTextureID, shape: null,
 	};
 }
@@ -222,6 +228,7 @@ function collectTextureUsage(sceneGraph) {
 	const nonTerrainOptions = { isTerrain: false, maxSpan: 1 };
 
 	sceneGraph.terrain.forEach((mesh) => {
+		if (mesh.meta.mode !== "default") return;
 		const span = Math.max(mesh.dimensions.x * mesh.transform.scale.x, mesh.dimensions.z * mesh.transform.scale.z);
 		collectMesh(mesh, { isTerrain: true, maxSpan: span }, mesh.id, usage, customTextureUsage);
 		collectCustomTextures(mesh, customTextureUsage);
@@ -230,6 +237,7 @@ function collectTextureUsage(sceneGraph) {
 	sceneGraph.triggers.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id, usage, customTextureUsage));
 	sceneGraph.scatter.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id, usage, customTextureUsage));
 	sceneGraph.obstacles.forEach((obstacle) => {
+		if (obstacle.mode !== "default") return;
 		collectMesh(obstacle.mesh, nonTerrainOptions, obstacle.mesh.id, usage, customTextureUsage);
 		obstacle.parts.forEach((part) => {
 			collectMesh(part, nonTerrainOptions, part.id, usage, customTextureUsage);
@@ -386,15 +394,11 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 		const usageEntry = usage[textureID];
 		const textureBlueprint = visualTemplates.textures[usageEntry.baseTextureID];
 		const resolvedSize = resolveTextureSize(textureBlueprint, usageEntry);
-		let resolvedTextureBlueprint = (usageEntry.density || usageEntry.density === 0)
-			? { ...textureBlueprint, density: usageEntry.density }
-			: { ...textureBlueprint };
-		if (usageEntry.speckSize || usageEntry.speckSize === 0) {
-			resolvedTextureBlueprint = {
-				...resolvedTextureBlueprint,
-				speckSize: usageEntry.speckSize,
-			};
-		}
+		// Payload scalars modify rather than override: compose blueprint (internal) × payload.
+		// The global scalar is applied later in drawPattern. Only noise blueprints carry these.
+		let resolvedTextureBlueprint = { ...textureBlueprint };
+		if (textureBlueprint.density !== undefined)   resolvedTextureBlueprint.density   = textureBlueprint.density   * usageEntry.density;
+		if (textureBlueprint.speckSize !== undefined) resolvedTextureBlueprint.speckSize = textureBlueprint.speckSize * usageEntry.speckSize;
 		if (usageEntry.shape) resolvedTextureBlueprint = { ...resolvedTextureBlueprint, shape: usageEntry.shape };
 
 		const animatedRequested = usageEntry.animatedRequested === true;
@@ -446,6 +450,11 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	const { usage, customTextureUsage } = collectTextureUsage(sceneGraph);
 	const textureRegistry = createTextureRegistry(usage, customTextureUsage, { textureScale: sceneGraph.world.textureScale });
 
+	for (const { id, source } of sceneGraph.pendingFaceTextures) {
+		textureRegistry[id] = { id, definition: null, source, dirty: false };
+	}
+	sceneGraph.pendingFaceTextures = [];
+
 	sceneGraph.visualResources = {
 		textureRegistry,
 		scatterRegistry: visualTemplates.scatterTypes,
@@ -462,4 +471,54 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	return sceneGraph;
 }
 
-export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources };
+function BuildNoiseFaceCanvas(blueprint, pixelW, pixelH, textureScale) {
+	const canvas = document.createElement("canvas");
+	canvas.width  = pixelW;
+	canvas.height = pixelH;
+	const ctx = canvas.getContext("2d");
+
+	const primary   = parseHexColor(blueprint.primary);
+	const secondary = parseHexColor(blueprint.secondary);
+	const draw = (x, y, width, height) => drawShape(ctx, blueprint.shape, x, y, width, height);
+
+	ctx.fillStyle = primary;
+	ctx.fillRect(0, 0, pixelW, pixelH);
+
+	const effSpeckSize = blueprint.speckSize * CONFIG.RENDERING.Texture.SpeckSize;
+	const effDensity   = blueprint.density   * CONFIG.RENDERING.Texture.Density;
+	const speck = Math.max(1, Math.floor(effSpeckSize * textureScale));
+	const speckCount = Math.min(16000, Math.floor((pixelW * pixelH * effDensity) / (speck * speck)));
+
+	const drawWrapped = (x, y) => {
+		draw(x, y, speck, speck);
+		const wrapX = x + speck > pixelW;
+		const wrapY = y + speck > pixelH;
+		if (wrapX)          draw(x - pixelW, y,         speck, speck);
+		if (wrapY)          draw(x,          y - pixelH, speck, speck);
+		if (wrapX && wrapY) draw(x - pixelW, y - pixelH, speck, speck);
+	};
+
+	ctx.fillStyle = secondary;
+	for (let index = 0; index < speckCount; index++) {
+		drawWrapped(Math.random() * pixelW, Math.random() * pixelH);
+	}
+
+	return canvas;
+}
+
+function BuildFaceTextureData(textureID, ownerId, ownerKind, resolvedBlueprint, faceGroupData, faceSpans, textureScale) {
+	const faceTextures      = [];
+	const faceTextureGroups = [];
+	for (let i = 0; i < faceGroupData.length; i++) {
+		const group  = faceGroupData[i];
+		const pixelW = Math.max(1, Math.round(faceSpans[i].uSpan * textureScale));
+		const pixelH = Math.max(1, Math.round(faceSpans[i].vSpan * textureScale));
+		const faceID = `${textureID}::face=${i}::${ownerKind}=${ownerId}`;
+		const canvas = BuildNoiseFaceCanvas(resolvedBlueprint, pixelW, pixelH, textureScale);
+		faceTextures.push({ id: faceID, source: canvas });
+		faceTextureGroups.push({ indexStart: group.indexStart, indexCount: group.indexCount, textureID: faceID });
+	}
+	return { faceTextures, faceTextureGroups };
+}
+
+export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources, BuildNoiseFaceCanvas, BuildFaceTextureData, visualTemplates as VISUAL_TEMPLATES };

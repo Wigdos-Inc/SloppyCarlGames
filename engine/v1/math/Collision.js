@@ -464,6 +464,52 @@ function CapsuleTriangleSoupContact(capsule, triangleSoup) {
 	return best;
 }
 
+// One-sided sphere-vs-triangle: blocks only when approached from the authored
+// (cavity-facing) normal side. Unlike sphereTriangleContact it never flips the
+// normal by side — the authored normal is used directly and the solid-side
+// approach is rejected instead.
+function sphereVoidWallTriangleContact(center, radius, triangle) {
+	const closest = closestPointOnTriangle(center, triangle.a, triangle.b, triangle.c);
+	const delta = SubtractVector3(center, closest);
+	const distSq = Vector3Sq(delta);
+	if (distSq > radius.value * radius.value) return NoContact();
+	if (distSq <= EPSILON) return makeContact(triangle.normal, radius.value, closest);
+	if (DotVector3(triangle.normal, delta) < 0) return NoContact();
+
+	const distance = Math.sqrt(distSq);
+	return makeContact(triangle.normal, radius.value - distance, closest);
+}
+
+function SphereVoidWallContact(center, radius, voidWall) {
+	let best = NoContact();
+	voidWall.triangles.forEach(triangle => best = chooseDeepestContact(best, sphereVoidWallTriangleContact(center, radius, triangle)));
+	return best;
+}
+
+// One-sided capsule-vs-triangle: same one-sided gate as the sphere variant.
+function capsuleVoidWallTriangleContact(capsule, triangle) {
+	const closest = closestPointsSegmentTriangle(
+		capsule.segmentStart,
+		capsule.segmentEnd,
+		triangle.a,
+		triangle.b,
+		triangle.c,
+		triangle.normal
+	);
+	if (closest.distanceSq > capsule.radius.value * capsule.radius.value) return NoContact();
+	if (closest.distanceSq <= EPSILON) return makeContact(triangle.normal, capsule.radius.value, closest.trianglePoint);
+	if (DotVector3(triangle.normal, SubtractVector3(closest.segmentPoint, closest.trianglePoint)) < 0) return NoContact();
+
+	const distance = Math.sqrt(closest.distanceSq);
+	return makeContact(triangle.normal, capsule.radius.value - distance, closest.trianglePoint);
+}
+
+function CapsuleVoidWallContact(capsule, voidWall) {
+	let best = NoContact();
+	voidWall.triangles.forEach(triangle => best = chooseDeepestContact(best, capsuleVoidWallTriangleContact(capsule, triangle)));
+	return best;
+}
+
 /* === ACCELERATION & VELOCITY === */
 
 const ApplyAcceleration = (vel, dir, acc, dt) => AddVector3(vel, ScaleVector3(dir, acc * dt));
@@ -493,6 +539,14 @@ function AabbOverlap(aabbA, aabbB) {
 		aabbA.min.x <= aabbB.max.x && aabbA.max.x >= aabbB.min.x &&
 		aabbA.min.y <= aabbB.max.y && aabbA.max.y >= aabbB.min.y &&
 		aabbA.min.z <= aabbB.max.z && aabbA.max.z >= aabbB.min.z
+	);
+}
+
+function StrictAabbOverlap(aabbA, aabbB) {
+	return (
+		aabbA.min.x < aabbB.max.x && aabbA.max.x > aabbB.min.x &&
+		aabbA.min.y < aabbB.max.y && aabbA.max.y > aabbB.min.y &&
+		aabbA.min.z < aabbB.max.z && aabbA.max.z > aabbB.min.z
 	);
 }
 
@@ -702,7 +756,7 @@ function RayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity)
 	return best;
 }
 
-function rayTriangleIntersect(origin, direction, triangle, maxDistance = Infinity) {
+function RayTriangleIntersect(origin, direction, triangle, maxDistance = Infinity) {
 	const edgeAB = SubtractVector3(triangle.b, triangle.a);
 	const edgeAC = SubtractVector3(triangle.c, triangle.a);
 	const p = CrossVector3(direction, edgeAC);
@@ -730,7 +784,7 @@ function rayTriangleIntersect(origin, direction, triangle, maxDistance = Infinit
 function RayTriangleSoupIntersect(origin, direction, triangleSoup, maxDistance = Infinity) {
 	let best = noRayHit();
 	triangleSoup.triangles.forEach(triangle => best = chooseClosestRayHit(
-		bset, rayTriangleIntersect(origin, direction, triangle, Math.min(best.t, maxDistance))
+		best, RayTriangleIntersect(origin, direction, triangle, Math.min(best.t, maxDistance))
 	));
 	return best;
 }
@@ -738,7 +792,7 @@ function RayTriangleSoupIntersect(origin, direction, triangleSoup, maxDistance =
 function rayCompoundSphereIntersect(origin, direction, compound, maxDistance = Infinity) {
 	let best = noRayHit();
 	compound.spheres.forEach(sphere => best = chooseClosestRayHit(
-		bset, rayTriangleIntersect(origin, direction, sphere, Math.min(best.t, maxDistance))
+		best, RayTriangleIntersect(origin, direction, sphere, Math.min(best.t, maxDistance))
 	));
 	return best;
 }
@@ -757,6 +811,7 @@ const rayDetailedBoundsIntersectors = {
 	sphere: (bounds, origin, direction, maxDistance) => RaySphereIntersect(origin, direction, bounds, maxDistance),
 	capsule: (bounds, origin, direction, maxDistance) => RayCapsuleIntersect(origin, direction, bounds, maxDistance),
 	"triangle-soup": (bounds, origin, direction, maxDistance) => RayTriangleSoupIntersect(origin, direction, bounds, maxDistance),
+	"voidWall"      : (bounds, origin, direction, maxDistance) => RayTriangleSoupIntersect(origin, direction, bounds, maxDistance),
 	"compound-sphere": (bounds, origin, direction, maxDistance) => rayCompoundSphereIntersect(origin, direction, bounds, maxDistance),
 };
 
@@ -793,12 +848,14 @@ export {
 	ProjectOntoPlane,
 	ReflectVector3,
 	AabbOverlap,
+	StrictAabbOverlap,
 	SweptAABB,
 	RayAABBIntersect,
 	RayAABBDetailedBoundsIntersect,
 	RaySphereIntersect,
 	RayOBBIntersect,
 	RayCapsuleIntersect,
+	RayTriangleIntersect,
 	RayTriangleSoupIntersect,
 	RayDetailedBoundsIntersect,
 	SweptSphereAABB,
@@ -813,5 +870,7 @@ export {
 	CapsuleOBBContact,
 	SphereTriangleSoupContact,
 	CapsuleTriangleSoupContact,
+	SphereVoidWallContact,
+	CapsuleVoidWallContact,
 	NoContact,
 };

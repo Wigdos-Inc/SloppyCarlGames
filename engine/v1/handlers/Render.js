@@ -9,18 +9,7 @@ import { UIElement } from "../builder/NewUI.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateRenderMatrix } from "../math/Matrix.js";
-import {
-	AddVector3,
-	CrossVector3,
-	DotVector3,
-	ResolveVector3Axis,
-	ScaleVector3,
-	SubtractVector3,
-	Vector3Sq,
-} from "../math/Vector3.js";
-import { CNUtoWorldUnit } from "../math/Utilities.js";
-
-// Ik haat dit kanker programma
+import { AddVector3, CrossVector3, DotVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, Vector3Sq } from "../math/Vector3.js";
 
 /* === INTERNALS === */
 // DOM helpers for rendering payloads.
@@ -269,6 +258,31 @@ function createLineProgram(gl) {
 	});
 }
 
+function createStencilProgram(gl) {
+	const vertexShaderSource = `#version 300 es
+		in vec3 a_position;
+		uniform mat4 u_projection;
+		uniform mat4 u_view;
+		uniform mat4 u_model;
+		void main() {
+			gl_Position = u_projection * u_view * u_model * vec4(a_position, 1.0);
+		}
+	`;
+
+	const fragmentShaderSource = `#version 300 es
+		void main() { }
+	`;
+
+	return createLinkedProgram(gl, {
+		vertexShaderSource  : vertexShaderSource,
+		fragmentShaderSource: fragmentShaderSource,
+		attributeNames      : { position: "a_position" },
+		uniformNames        : { projection: "u_projection", view: "u_view", model: "u_model" },
+		createError         : "stencil shader program creation failed",
+		linkErrorPrefix     : "stencil shader link error",
+	});
+}
+
 function createScatterProgram(gl) {
 	// Instanced scatter shader: per-instance model matrix + tint via vertex attributes.
 	// Attribute layout:
@@ -485,10 +499,9 @@ function createMinMaxBoxLineVertices(bounds) {
 	);
 }
 
-function createGridLineVertices(bounds, spacing) {
+function createGridLineVertices(bounds, step) {
 	const wMin = bounds.min.toWorldUnit();
 	const wMax = bounds.max.toWorldUnit();
-	const step = CNUtoWorldUnit(spacing);
 
 	const lines = [];
 
@@ -551,17 +564,13 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 	const gl = renderer.gl;
 	if (!renderer.debugLineShader || !renderer.debugLineBuffer) return;
 
-	const gridConfig = CONFIG.DEBUG.LEVELS.BoundingBox.Grid;
-	const spacing = gridConfig.Scale;
-
 	bindDebugLinePass(renderer, gl, projection, view);
-	const shader = renderer.debugLineShader;
-	gl.uniform4f(shader.uniforms.color, 0.5, 0.5, 0.5, 0.6);
+	gl.uniform4f(renderer.debugLineShader.uniforms.color, 0.5, 0.5, 0.5, 0.6);
 
 	sceneGraph.debugBoundingBoxes.forEach((record) => {
 		if (!isBoundingBoxDebugEnabled(record.type)) return;
 
-		const vertices = createGridLineVertices(record, spacing);
+		const vertices = createGridLineVertices(record, CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Scale.toWorldUnit());
 		if (!vertices) return;
 
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
@@ -799,6 +808,85 @@ function createMeshBuffers(gl, mesh, shader) {
 	};
 }
 
+function createStencilMeshBuffer(gl, mesh, stencilShader) {
+	const vao = gl.createVertexArray();
+	gl.bindVertexArray(vao);
+	const posBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.geometry.positions), gl.STATIC_DRAW);
+	gl.enableVertexAttribArray(stencilShader.attributes.position);
+	gl.vertexAttribPointer(stencilShader.attributes.position, 3, gl.FLOAT, false, 0, 0);
+	const indexBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.geometry.indices), gl.STATIC_DRAW);
+	gl.bindVertexArray(null);
+	return { vao, indexCount: mesh.geometry.indices.length };
+}
+
+function ensureStencilMeshBuffer(renderer, mesh) {
+	if (renderer.stencilBufferCache.has(mesh.id)) return renderer.stencilBufferCache.get(mesh.id);
+	const buf = createStencilMeshBuffer(renderer.gl, mesh, renderer.stencilShader);
+	renderer.stencilBufferCache.set(mesh.id, buf);
+	return buf;
+}
+
+// Stencil buffer for a relation's world-space open faces. Positions are converted to world
+// render units once and drawn with an identity model matrix (the stencil shader only reads
+// positions). Cached by a derived key off the relation owner id.
+function createOpenFaceStencilBuffer(gl, openFaces, stencilShader) {
+	const positions = new Float32Array(openFaces.length * 9);
+	const indices   = new Uint16Array(openFaces.length * 3);
+	openFaces.forEach((face, i) => {
+		const a = face.a.toWorldUnit(), b = face.b.toWorldUnit(), c = face.c.toWorldUnit();
+		const p = i * 9;
+		positions[p + 0] = a.x; positions[p + 1] = a.y; positions[p + 2] = a.z;
+		positions[p + 3] = b.x; positions[p + 4] = b.y; positions[p + 5] = b.z;
+		positions[p + 6] = c.x; positions[p + 7] = c.y; positions[p + 8] = c.z;
+		indices[i * 3 + 0] = i * 3 + 0;
+		indices[i * 3 + 1] = i * 3 + 1;
+		indices[i * 3 + 2] = i * 3 + 2;
+	});
+
+	const vao = gl.createVertexArray();
+	gl.bindVertexArray(vao);
+	const posBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+	gl.enableVertexAttribArray(stencilShader.attributes.position);
+	gl.vertexAttribPointer(stencilShader.attributes.position, 3, gl.FLOAT, false, 0, 0);
+	const indexBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+	gl.bindVertexArray(null);
+	return { vao, indexCount: indices.length };
+}
+
+function ensureOpenFaceStencilBuffer(renderer, key, openFaces) {
+	if (renderer.stencilBufferCache.has(key)) return renderer.stencilBufferCache.get(key);
+	const buf = createOpenFaceStencilBuffer(renderer.gl, openFaces, renderer.stencilShader);
+	renderer.stencilBufferCache.set(key, buf);
+	return buf;
+}
+
+function drawDepthPrePass(renderer, terrain, obstacles, passState) {
+	if (terrain.length === 0 && obstacles.length === 0) return;
+	const gl = renderer.gl;
+	gl.useProgram(renderer.stencilShader.program);
+	gl.uniformMatrix4fv(renderer.stencilShader.uniforms.projection, false, new Float32Array(passState.projection));
+	gl.uniformMatrix4fv(renderer.stencilShader.uniforms.view,       false, new Float32Array(passState.view));
+	gl.colorMask(false, false, false, false);
+	gl.depthMask(true);
+	gl.enable(gl.DEPTH_TEST);
+	for (const mesh of [...terrain, ...obstacles]) {
+		const buf = ensureStencilMeshBuffer(renderer, mesh);
+		gl.uniformMatrix4fv(renderer.stencilShader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
+		gl.bindVertexArray(buf.vao);
+		gl.drawElements(gl.TRIANGLES, buf.indexCount, gl.UNSIGNED_SHORT, 0);
+		gl.bindVertexArray(null);
+	}
+	gl.colorMask(true, true, true, true);
+}
+
 const getMeshBufferKey = (mesh) => `${mesh.id}|${mesh.primitive}|${mesh.dimensions.x}|${mesh.dimensions.y}|${mesh.dimensions.z}|${mesh.complexity}`;
 
 function createFallbackTexture(gl) {
@@ -831,10 +919,11 @@ function ensureSceneTexture(renderer, sceneGraph, textureID) {
 	const texture = gl.createTexture();
 	if (!texture) return renderer.fallbackTexture;
 
+	const wrapMode = textureID.includes("::face=") ? gl.CLAMP_TO_EDGE : gl.REPEAT;
 	gl.bindTexture(gl.TEXTURE_2D, texture);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.source);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	entry.dirty = false;
@@ -862,7 +951,7 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	root.innerHTML = "";
 	root.appendChild(canvas);
 
-	const gl = canvas.getContext("webgl2");
+	const gl = canvas.getContext("webgl2", { stencil: true });
 	if (!gl) {
 		Log("ENGINE", "WebGL2 is not supported by this browser.", "error", "Render");
 		return null;
@@ -877,12 +966,20 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		return null;
 	}
 
+	const stencilShader = createStencilProgram(gl);
+	if (!stencilShader) {
+		Log("ENGINE", "Failed to create stencil shader.", "error", "Render");
+		return null;
+	}
+
 	const renderer = {
 		rootId, root, canvas, gl, shader,
 		scatterShader,
+		stencilShader,
 		meshBuffers: new Map(),
 		textures: new Map(),
 		geometryRegistry: new Map(),
+		stencilBufferCache: new Map(),
 		scatterInstances: null,
 		scatterInstancesBuilt: false,
 		fallbackTexture: createFallbackTexture(gl),
@@ -904,20 +1001,24 @@ function syncCanvasSize(renderer) {
 }
 
 function collectRenderableMeshes(sceneGraph) {
-	const obstacleMeshes = [];
-	const entityMeshes = [];
+	const obstacles = [];
+	const entities = [];
 
-	sceneGraph.obstacles.forEach((record) => record.parts.forEach((part) => obstacleMeshes.push(part)));
+	sceneGraph.obstacles.forEach((record) => {
+		if (record.mode !== "default") return;
+		record.parts.forEach((part) => obstacles.push(part));
+	});
 	sceneGraph.entities.forEach((entity) => {
 		if (entity.model) {
-			entity.model.parts.forEach((part) => entityMeshes.push(part.mesh));
+			entity.model.parts.forEach((part) => entities.push(part.mesh));
 			return;
 		}
-		entityMeshes.push(entity.mesh);
+		entities.push(entity.mesh);
 	});
 
 	// Scatter and triggers are excluded — scatter via instanced path, triggers via post-scatter pass.
-	return sceneGraph.terrain.concat(obstacleMeshes, entityMeshes);
+	const terrain = sceneGraph.terrain.filter((mesh) => mesh.meta.mode === "default");
+	return { terrain, obstacles, entities };
 }
 
 const resolveWaterVisualMeshes = (sceneGraph) => !sceneGraph.waterVisual ? [] : [sceneGraph.waterVisual.body, sceneGraph.waterVisual.top];
@@ -951,6 +1052,14 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 	const disableDepthWriteForPass = options.depthMask === false;
 	const skipDepthWrite = options.skipDepthWrite || (() => false);
 
+	const stencilBit = options.stencilExcludeBit || options.stencilIncludeBit;
+	if (stencilBit) {
+		gl.enable(gl.STENCIL_TEST);
+		gl.stencilFunc(options.stencilExcludeBit ? gl.NOTEQUAL : gl.EQUAL, stencilBit, stencilBit);
+		gl.stencilMask(0x00);
+		gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+	}
+
 	configureTexturedMeshPass(gl, renderer.shader, passState);
 	if (disableDepthWriteForPass) gl.depthMask(false);
 
@@ -959,12 +1068,9 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		if (!meshBuffer) continue;
 
 		const dc = mesh.displayColor;
-		const texture = ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID);
 		const disableDepthWriteForMesh = disableDepthWriteForPass === false && skipDepthWrite(mesh) === true;
 
 		gl.bindVertexArray(meshBuffer.vao);
-		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.uniform1i(renderer.shader.uniforms.texture, 0);
 		gl.uniformMatrix4fv(renderer.shader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
 		gl.uniform4f(renderer.shader.uniforms.tint,
@@ -972,6 +1078,23 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 			dc !== null ? dc.g : mesh.material.color.g,
 			dc !== null ? dc.b : mesh.material.color.b,
 			dc !== null ? dc.a : mesh.material.opacity);
+
+		if (mesh.geometry.faceTextureGroups) {
+			if (disableDepthWriteForMesh) gl.depthMask(false);
+			for (const group of mesh.geometry.faceTextureGroups) {
+				const faceTex = ensureSceneTexture(renderer, sceneGraph, group.textureID);
+				gl.activeTexture(gl.TEXTURE0);
+				gl.bindTexture(gl.TEXTURE_2D, faceTex);
+				gl.drawElements(gl.TRIANGLES, group.indexCount, gl.UNSIGNED_SHORT, group.indexStart * 2);
+			}
+			if (disableDepthWriteForMesh) gl.depthMask(true);
+			gl.bindVertexArray(null);
+			continue;
+		}
+
+		const texture = ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, texture);
 		if (disableDepthWriteForMesh) gl.depthMask(false);
 		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
 		if (disableDepthWriteForMesh) gl.depthMask(true);
@@ -979,6 +1102,7 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 	}
 
 	if (disableDepthWriteForPass) gl.depthMask(true);
+	if (stencilBit) gl.disable(gl.STENCIL_TEST);
 }
 
 function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue) {
@@ -1123,6 +1247,102 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	gl.disable(gl.POLYGON_OFFSET_FILL);
 }
 
+// Flatten every nullSpace entry's relation voidWallMeshes into one list (used for textured draws).
+function gatherVoidWallMeshes(entries) {
+	const meshes = [];
+	for (const entry of entries) {
+		for (const id in entry.relations) meshes.push(...entry.relations[id].voidWallMeshes);
+	}
+	return meshes;
+}
+
+// True if any relation across the given entries holds renderable void meshes or open faces.
+function hasNullSpaceRenderables(entries) {
+	for (const entry of entries) {
+		for (const id in entry.relations) {
+			const relation = entry.relations[id];
+			if (relation.voidWallMeshes.length > 0 || relation.openFaces.length > 0) return true;
+		}
+	}
+	return false;
+}
+
+function drawNullSpaceStencil(renderer, sceneGraph, passState) {
+	const { terrain: nsTerrain, obstacles: nsObstacles } = sceneGraph.nullSpaces;
+	const terrainRenderable  = hasNullSpaceRenderables(nsTerrain);
+	const obstacleRenderable = hasNullSpaceRenderables(nsObstacles);
+	if (!terrainRenderable && !obstacleRenderable) return;
+
+	const gl = renderer.gl;
+	gl.useProgram(renderer.stencilShader.program);
+	gl.uniformMatrix4fv(renderer.stencilShader.uniforms.projection, false, new Float32Array(passState.projection));
+	gl.uniformMatrix4fv(renderer.stencilShader.uniforms.view,       false, new Float32Array(passState.view));
+
+	gl.colorMask(false, false, false, false);
+	gl.depthMask(false);
+	gl.enable(gl.DEPTH_TEST);
+	gl.depthFunc(gl.LEQUAL);
+	gl.enable(gl.STENCIL_TEST);
+	gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+
+	// Open faces (and flush void walls) are coplanar with the terrain top recorded in the depth
+	// pre-pass; a negative polygon offset biases their compared depth toward the viewer so they
+	// reliably pass LEQUAL instead of z-fighting (which left the hole intermittently un-stenciled).
+	gl.enable(gl.POLYGON_OFFSET_FILL);
+	gl.polygonOffset(-1, -1);
+
+	const identityMatrix = new Float32Array(CreateIdentityMatrix());
+
+	const drawStencilBuffer = (buf, modelMatrix) => {
+		gl.uniformMatrix4fv(renderer.stencilShader.uniforms.model, false, modelMatrix);
+		gl.bindVertexArray(buf.vao);
+		gl.drawElements(gl.TRIANGLES, buf.indexCount, gl.UNSIGNED_SHORT, 0);
+		gl.bindVertexArray(null);
+	};
+
+	// Stencil every void mesh (its own model matrix) and every open face (world-space, identity).
+	const stencilEntries = (entries) => {
+		for (const entry of entries) {
+			for (const id in entry.relations) {
+				const relation = entry.relations[id];
+				for (const mesh of relation.voidWallMeshes) {
+					drawStencilBuffer(ensureStencilMeshBuffer(renderer, mesh), new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
+				}
+				if (relation.openFaces.length > 0) {
+					drawStencilBuffer(ensureOpenFaceStencilBuffer(renderer, `${entry.id}|${id}|openFaces`, relation.openFaces), identityMatrix);
+				}
+			}
+		}
+	};
+
+	if (terrainRenderable) {
+		gl.stencilMask(0x01);
+		gl.stencilFunc(gl.ALWAYS, 0x01, 0x01);
+		stencilEntries(nsTerrain);
+	}
+
+	if (obstacleRenderable) {
+		gl.stencilMask(0x02);
+		gl.stencilFunc(gl.ALWAYS, 0x02, 0x02);
+		stencilEntries(nsObstacles);
+	}
+
+	gl.stencilMask(0x00);
+	gl.colorMask(true, true, true, true);
+	gl.depthMask(true);
+	gl.depthFunc(gl.LESS);
+	gl.disable(gl.STENCIL_TEST);
+	gl.polygonOffset(0, 0);
+	gl.disable(gl.POLYGON_OFFSET_FILL);
+}
+
+function drawVoidWalls(renderer, sceneGraph, passState) {
+	const { terrain: nsTerrain, obstacles: nsObstacles } = sceneGraph.nullSpaces;
+	if (!hasNullSpaceRenderables(nsTerrain) && !hasNullSpaceRenderables(nsObstacles)) return;
+	drawMeshList(renderer, sceneGraph, gatherVoidWallMeshes(nsTerrain),   passState, { stencilIncludeBit: 0x01 });
+	drawMeshList(renderer, sceneGraph, gatherVoidWallMeshes(nsObstacles), passState, { stencilIncludeBit: 0x02 });
+}
+
 function drawScene(renderer, sceneGraph) {
 	const gl = renderer.gl;
 
@@ -1132,7 +1352,7 @@ function drawScene(renderer, sceneGraph) {
 	gl.enable(gl.BLEND);
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 	gl.clearColor(0.04, 0.05, 0.08, 1);
-	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
 	const cameraState = sceneGraph.cameraConfig.state;
 
@@ -1160,8 +1380,22 @@ function drawScene(renderer, sceneGraph) {
 		sceneGraph.effects.underwater.particleHook(cameraState, sceneGraph);
 	}
 
-	// === PASS A: Non-scatter meshes (terrain, obstacles, triggers, entities) ===
-	drawMeshList(renderer, sceneGraph, collectRenderableMeshes(sceneGraph), passState);
+	// === Stencil write (before Pass A) ===
+	const { terrain, obstacles, entities } = collectRenderableMeshes(sceneGraph);
+	if (hasNullSpaceRenderables(sceneGraph.nullSpaces.terrain) || hasNullSpaceRenderables(sceneGraph.nullSpaces.obstacles)) {
+		drawDepthPrePass(renderer, terrain, obstacles, passState);
+		drawNullSpaceStencil(renderer, sceneGraph, passState);
+		gl.clear(gl.DEPTH_BUFFER_BIT);
+	} 
+	else drawNullSpaceStencil(renderer, sceneGraph, passState);
+
+	// === PASS 2.5: Void walls (textured interior surfaces inside nullSpace holes) ===
+	drawVoidWalls(renderer, sceneGraph, passState);
+
+	// === PASS A: terrain/obstacles filtered by type-specific stencil; entities unaffected ===
+	drawMeshList(renderer, sceneGraph, terrain,   passState, { stencilExcludeBit: 0x01 });
+	drawMeshList(renderer, sceneGraph, obstacles, passState, { stencilExcludeBit: 0x02 });
+	drawMeshList(renderer, sceneGraph, entities,  passState);
 
 	// === PASS E: Decal quads (custom textures, alpha-blended on top of geometry) ===
 	drawDecalPass(renderer, sceneGraph, passState);

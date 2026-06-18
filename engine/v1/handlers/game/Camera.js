@@ -16,7 +16,7 @@ import {
 	WORLD_NORMALS,
 	LerpVector3,
 } from "../../math/Vector3.js";
-import { ClampVelocity, RayAABBDetailedBoundsIntersect } from "../../math/Collision.js";
+import { ClampVelocity, RayAABBIntersect, RayAABBDetailedBoundsIntersect, RayDetailedBoundsIntersect } from "../../math/Collision.js";
 import { Lerp, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
 const pitchClampDegrees = 89;
 // FreeCam must be explicitly enabled in levels and global debug mode must be on.
@@ -329,7 +329,29 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 
 	// Broadphase is AABB-only; obstruction only counts after detailed-bounds narrowphase.
 	for (const mesh of sceneGraph.terrain)  testCandidate(mesh.worldAabb, mesh.detailedBounds);
-	for (const obs of sceneGraph.obstacles) testCandidate(obs.bounds, obs.detailedBounds);
+	for (const obs of sceneGraph.obstacles) testCandidate(obs.worldAabb, obs.detailedBounds);
+	// Void walls: origin may be inside the AABB, so we bypass RayAABBDetailedBoundsIntersect
+	// (which caps the narrowphase at the AABB exit t, causing triangles exactly at the AABB
+	// boundary to be rejected by floating-point). Use RayAABBIntersect as broadphase only,
+	// then call RayDetailedBoundsIntersect directly with closestT as the limit.
+	const voidDir = ResolveVector3Axis(ray);
+	const testVoidBounds = (worldAabb, bounds) => {
+		if (!RayAABBIntersect(playerHeadPos, voidDir, worldAabb).hit) return;
+		const hit = RayDetailedBoundsIntersect(bounds, playerHeadPos, voidDir, closestT);
+		if (!hit.hit || hit.t <= 0 || hit.t >= closestT) return;
+		closestT = hit.t;
+		obstructed = true;
+	};
+	const testVoidWalls = (entries) => {
+		for (const entry of entries) for (const id in entry.relations) {
+			for (const voidWall of entry.relations[id].voidWallMeshes) {
+				testVoidBounds(voidWall.worldAabb, voidWall.wallBounds);
+				if (voidWall.floorBounds.triangles.length > 0) testVoidBounds(voidWall.worldAabb, voidWall.floorBounds);
+			}
+		}
+	};
+	testVoidWalls(sceneGraph.nullSpaces.terrain);
+	testVoidWalls(sceneGraph.nullSpaces.obstacles);
 
 	if (obstructed) {
 		closestT = Math.max(

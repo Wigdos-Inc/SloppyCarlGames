@@ -34,9 +34,7 @@
                     "texture": {
                         "textureID": "stone-block",
                         "color": { "r": 0.68, "g": 0.72, "b": 0.78, "a": 1 },
-                        "opacity": 1,
-                        "density": 1,
-                        "speckSize": 1
+                        "opacity": 1
                     },
                     "detail": { "scatter": [] },
                     "collisionShape": "none",

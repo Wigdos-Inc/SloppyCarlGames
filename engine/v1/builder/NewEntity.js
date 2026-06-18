@@ -168,7 +168,7 @@ function normalizeMovement(movement, surface) {
 /* === PART BUILDING === */
 
 function buildPart(source) {
-	const mesh = BuildObject(
+	const { mesh } = BuildObject(
 		{
 			id              : source.id,
 			shape           : source.shape,

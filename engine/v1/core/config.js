@@ -29,7 +29,7 @@ const CONFIG = {
         BossPart  : false,
         Grid      : {                        // Render Debug Grid
           Visible: true,
-          Scale  : 1,
+          Scale  : new Unit(1, "cnu"),
         }
       },
       DetailedBounds: {                      // Render Detailed Bounds
@@ -74,6 +74,7 @@ const CONFIG = {
         Meta: true,
         Player: true,
         Events: true,
+        Debug: true,
       },
     },
   },
@@ -121,7 +122,13 @@ const CONFIG = {
       damageInflicted: false,
     }
   },
-  CAMERA: { Fov: 60 }
+  CAMERA: { Fov: 60 },
+  RENDERING: {
+    Texture: {
+      Density  : 1,
+      SpeckSize: 2,
+    },
+  }
 };
 
 /* === EXPORTS === */
