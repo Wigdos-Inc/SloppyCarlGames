@@ -55,6 +55,7 @@ Use judgment — small fixes, debugging, and code migrations do not warrant agen
 - **DRYAD** — When any task involves performance, deduplication, line count reduction, or efficiency concerns. Invoke via `Agent` tool with `subagent_type: "dryad"`. Large additions or refactors should always be reviewed.
 - **ERA** — When the task involves rule adherence, compliance review, or you are uncertain whether a change satisfies engine rules. Invoke via `Agent` tool with `subagent_type: "era"`. Large additions or refactors should always be reviewed.
 - **ARGUS** — When browser-based verification is needed (changes that may cause runtime errors, behavioral changes, or visual changes). Invoke via `Skill` tool with `skill: "argus"`. Invoked by main Claude after ED's turn ends — never by ED itself. See post-ED rules below.
+- **SAGE** — When researching systems in the codebase. Invoke via `Skill` tool with `skill: "sage"`. Invoked by main Claude during codebase exploration.
 
 **Post-ED audit requirement:**
 
