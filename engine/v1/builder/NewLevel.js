@@ -201,8 +201,8 @@ function buildSceneBoundingBoxes(sceneGraph) {
 		obstacle.parts.forEach((part) => push("Obstacle", part.id, part.worldAabb));
 	});
 
-	sceneGraph.nullSpaces.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.worldAabb));
-	sceneGraph.nullSpaces.obstacles.forEach((obstacle) => {
+	sceneGraph.voids.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.worldAabb));
+	sceneGraph.voids.obstacles.forEach((obstacle) => {
 		push("Obstacle", obstacle.id, obstacle.worldAabb);
 		obstacle.parts.forEach((part) => push("Obstacle", part.id, part.worldAabb));
 	});
@@ -233,8 +233,8 @@ function buildSceneDetailedBounds(sceneGraph) {
 
 	sceneGraph.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.detailedBounds));
 	sceneGraph.obstacles.forEach((obstacle) => push("Obstacle", obstacle.id, obstacle.detailedBounds));
-	sceneGraph.nullSpaces.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.detailedBounds));
-	sceneGraph.nullSpaces.obstacles.forEach((obstacle) => push("Obstacle", obstacle.id, obstacle.detailedBounds));
+	sceneGraph.voids.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.detailedBounds));
+	sceneGraph.voids.obstacles.forEach((obstacle) => push("Obstacle", obstacle.id, obstacle.detailedBounds));
 
 	sceneGraph.entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
@@ -297,26 +297,26 @@ async function BuildLevel(payload) {
 		allFaceTextures.push(...faceTextures);
 		return terrainMesh;
 	});
-	const terrain          = allTerrain.filter((mesh) => mesh.meta.mode !== "nullSpace");
-	const nullSpaceTerrain = allTerrain.filter((mesh) => mesh.meta.mode === "nullSpace");
+	const terrain          = allTerrain.filter((mesh) => mesh.meta.mode !== "void");
+	const voidTerrain = allTerrain.filter((mesh) => mesh.meta.mode === "void");
 	if (terrain.length > 0) Log("ENGINE", `Terrain object group created: count=${terrain.length}`, "log", "Level");
 
 	const { built: allObstacleRecords, faceTextures: obstacleFaceTextures } = BuildObstacles(payload.obstacles, { textureScale: payload.world.textureScale });
 	allFaceTextures.push(...obstacleFaceTextures);
-	const obstacleRecords          = allObstacleRecords.filter((r) => r.mode !== "nullSpace");
-	const nullSpaceObstacleRecords = allObstacleRecords.filter((r) => r.mode === "nullSpace");
+	const obstacleRecords          = allObstacleRecords.filter((r) => r.mode !== "void");
+	const voidObstacleRecords = allObstacleRecords.filter((r) => r.mode === "void");
 
 	// Void walls run before scatter: classification attaches a `relations` map (with openFaces)
-	// onto each nullSpace entry, which scatter then reads to reject samples over openings.
-	const nullSpaces = { terrain: nullSpaceTerrain, obstacles: nullSpaceObstacleRecords };
+	// onto each void entry, which scatter then reads to reject samples over openings.
+	const voids = { terrain: voidTerrain, obstacles: voidObstacleRecords };
 	const { faceTextures: voidFaceTextures } = BuildVoidWalls(
-		{ terrain, obstacles: obstacleRecords, nullSpaces },
+		{ terrain, obstacles: obstacleRecords, voids },
 		payload.world.textureScale
 	);
 	allFaceTextures.push(...voidFaceTextures);
 
 	// Open faces lookup: per default object id, the concatenated world-space open boundary faces
-	// across every nullSpace relation that references it.
+	// across every void relation that references it.
 	const openFacesByObjectId = new Map();
 	const collectOpenFaces = (entries) => {
 		for (const entry of entries) {
@@ -326,8 +326,8 @@ async function BuildLevel(payload) {
 			}
 		}
 	};
-	collectOpenFaces(nullSpaceTerrain);
-	collectOpenFaces(nullSpaceObstacleRecords);
+	collectOpenFaces(voidTerrain);
+	collectOpenFaces(voidObstacleRecords);
 
 	// Generate scatter batches for default terrain and default obstacles, now that openings exist.
 	allTerrain.forEach((terrainMesh, index) => {
@@ -364,7 +364,7 @@ async function BuildLevel(payload) {
 		world: payload.world,
 		terrain, entities, triggers, scatter: [], scatterBatches,
 		obstacles               : obstacleRecords,
-		nullSpaces,
+		voids,
 		waterVisual             : buildWaterVisualMeshes(payload.world),
 		scatterPrimitiveGeometry: BuildScatterVisualResources(scatterBatches),
 		debug                   : {
@@ -387,7 +387,7 @@ async function BuildLevel(payload) {
 	RefreshSceneBoundingBoxes(sceneGraph);
 	Log(
 		"ENGINE",
-		`Level generation complete: terrain=${terrain.length}, obstacles=${obstacleRecords.length}, nullSpaceTerrain=${nullSpaceTerrain.length}, nullSpaceObstacles=${nullSpaceObstacleRecords.length}, entities=${entities.length}, triggers=${triggers.length}, scatterBatches=${scatterBatches.size}, scatterInstances=${totalBatchInstances}`,
+		`Level generation complete: terrain=${terrain.length}, obstacles=${obstacleRecords.length}, voidTerrain=${voidTerrain.length}, voidObstacles=${voidObstacleRecords.length}, entities=${entities.length}, triggers=${triggers.length}, scatterBatches=${scatterBatches.size}, scatterInstances=${totalBatchInstances}`,
 		"log",
 		"Level"
 	);

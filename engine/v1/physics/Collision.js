@@ -48,14 +48,14 @@ import {
 // contrast, is shared and is supplied by the orchestrator (physics/Master.js).
 const wallFacingMinApproachDot = 0.5;
 
-// Tiny sphere radius used for ground-support point nullSpace narrowphase tests.
+// Tiny sphere radius used for ground-support point void narrowphase tests.
 // Instanced once at module scope per UNIT_INSTANCING.md.
 const groundProbeRadius = new Unit(0.001, "cnu");
 
-// Vertical-only tolerance (CNU) for nullSpace boundary overlap tests. Absorbs the
+// Vertical-only tolerance (CNU) for void boundary overlap tests. Absorbs the
 // float-precision error from OBB ray-casts landing on a coincident boundary plane
-// (support point at y == nullSpace.min.y). Applied to the y axis only — x/z stay exact.
-const nullSpaceBoundaryEpsilon = new Unit(0.001, "cnu");
+// (support point at y == void.min.y). Applied to the y axis only — x/z stay exact.
+const voidBoundaryEpsilon = new Unit(0.001, "cnu");
 
 /* ========================================================================
  * RESULT POOLS — grow-once, zero GC per frame.
@@ -428,10 +428,10 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 		});
 	});
 
-	// Void walls (one-sided cavity surfaces — never nullSpace-suppressed). Floor and
+	// Void walls (one-sided cavity surfaces — never void-suppressed). Floor and
 	// wall faces are emitted as separate candidates so a deeper wall contact cannot
 	// mask the floor's ground contact in the single-deepest narrowphase reduction.
-	// Sourced from each nullSpace entry's per-relation voidWallMeshes array.
+	// Sourced from each void entry's per-relation voidWallMeshes array.
 	const collectVoidWalls = (entries) => {
 		for (const entry of entries) for (const id in entry.relations) {
 			for (const voidWall of entry.relations[id].voidWallMeshes) {
@@ -459,8 +459,8 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 			}
 		}
 	};
-	collectVoidWalls(sceneGraph.nullSpaces.terrain);
-	collectVoidWalls(sceneGraph.nullSpaces.obstacles);
+	collectVoidWalls(sceneGraph.voids.terrain);
+	collectVoidWalls(sceneGraph.voids.obstacles);
 
 	// Triggers.
 	sceneGraph.triggers.forEach(trig => {
@@ -513,19 +513,19 @@ function offsetAabb(aabb, offset) {
 // motionOffset (optional): when supplied by the swept path, suppression is evaluated at the
 // swept contact position (entity bounds shifted by vel*tEntry) rather than the static current
 // position. Without it the swept detection — which looks ahead — would resolve a surface
-// collision one frame before the body enters the nullSpace, stopping the entity for a frame.
-function isNullSpaceCancelled(entity, candidate, sceneGraph, motionOffset) {
+// collision one frame before the body enters the void, stopping the entity for a frame.
+function isVoidCancelled(entity, candidate, sceneGraph, motionOffset) {
 	if (candidate.type !== "terrain" && candidate.type !== "obstacle") return false;
 
 	const isTerrain  = candidate.type === "terrain";
 	if ((isTerrain ? candidate.ref.meta.mode : candidate.ref.mode) === "invisible") return false;
 	if ((isTerrain ? candidate.ref.meta.nullable : candidate.ref.nullable) === false) return false;
 
-	for (const ns of (isTerrain ? sceneGraph.nullSpaces.terrain : sceneGraph.nullSpaces.obstacles)) {
+	for (const ns of (isTerrain ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles)) {
 		if (ns.relations[candidate.ref.id]?.suppressed !== true) continue;
 		const nsAabb = ns.worldAabb;
 		const entityAabb = motionOffset ? offsetAabb(entity.collision.aabb, motionOffset) : entity.collision.aabb;
-		if (!StrictAabbOverlap(entityAabb, expandAabbY(nsAabb, nullSpaceBoundaryEpsilon.value))) continue;
+		if (!StrictAabbOverlap(entityAabb, expandAabbY(nsAabb, voidBoundaryEpsilon.value))) continue;
 		const entityBounds = motionOffset ? offsetDetailedBounds(entity.collision.physics.bounds, motionOffset) : entity.collision.physics.bounds;
 		if (ns.detailedBounds && NarrowphaseTest(entityBounds, ns.detailedBounds)) return true;
 	}
@@ -533,11 +533,11 @@ function isNullSpaceCancelled(entity, candidate, sceneGraph, motionOffset) {
 	return false;
 }
 
-function isGroundSupportInNullSpace(supportPt, candidateId, nullSpaces) {
-	for (const ns of nullSpaces) {
+function isGroundSupportInVoid(supportPt, candidateId, voids) {
+	for (const ns of voids) {
 		if (ns.relations[candidateId]?.suppressed !== true) continue;
 		const nsAabb = ns.worldAabb;
-		if (!AabbOverlap({ min: supportPt, max: supportPt }, expandAabbY(nsAabb, nullSpaceBoundaryEpsilon.value))) continue;
+		if (!AabbOverlap({ min: supportPt, max: supportPt }, expandAabbY(nsAabb, voidBoundaryEpsilon.value))) continue;
 		if (NarrowphaseTest({ type: "sphere", center: supportPt, radius: groundProbeRadius }, ns.detailedBounds)) return true;
 	}
 	return false;
@@ -707,7 +707,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 					}
 				}
 
-				if (isNullSpaceCancelled(entity, candidate, sceneGraph, ScaleVector3(vel, swept.tEntry))) {
+				if (isVoidCancelled(entity, candidate, sceneGraph, ScaleVector3(vel, swept.tEntry))) {
 					removeActiveCollisionPair(entity, candidate);
 					continue;
 				}
@@ -728,7 +728,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 				cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
 			}
 
-			if (isNullSpaceCancelled(entity, candidate, sceneGraph, ScaleVector3(vel, swept.tEntry))) {
+			if (isVoidCancelled(entity, candidate, sceneGraph, ScaleVector3(vel, swept.tEntry))) {
 				removeActiveCollisionPair(entity, candidate);
 				continue;
 			}
@@ -787,7 +787,7 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 			removeActiveCollisionPair(entity, candidate);
 			continue;
 		}
-		if (isNullSpaceCancelled(entity, candidate, sceneGraph)) {
+		if (isVoidCancelled(entity, candidate, sceneGraph)) {
 			removeActiveCollisionPair(entity, candidate);
 			continue;
 		}
@@ -1026,7 +1026,7 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance) {
 		}
 		else continue;
 		if (t >= bestT) continue;
-		if (mesh.meta.nullable !== false && isGroundSupportInNullSpace({ x: probe.x, y: probe.y - t, z: probe.z }, mesh.id, sceneGraph.nullSpaces.terrain)) continue;
+		if (mesh.meta.nullable !== false && isGroundSupportInVoid({ x: probe.x, y: probe.y - t, z: probe.z }, mesh.id, sceneGraph.voids.terrain)) continue;
 		bestT = t; bestNormal = normal; type = "terrain";
 	}
 
@@ -1043,13 +1043,13 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance) {
 		}
 		else continue;
 		if (t >= bestT) continue;
-		if (obs.nullable !== false && isGroundSupportInNullSpace({ x: probe.x, y: probe.y - t, z: probe.z }, obs.id, sceneGraph.nullSpaces.obstacles)) continue;
+		if (obs.nullable !== false && isGroundSupportInVoid({ x: probe.x, y: probe.y - t, z: probe.z }, obs.id, sceneGraph.voids.obstacles)) continue;
 		bestT = t; bestNormal = normal; type = "obstacle";
 	}
 
 	// Void-wall floors: cavity surfaces with an upward authored normal act as standable
 	// ground. Reported under their source category so ApplyGroundSnap is unchanged.
-	// Sourced from each nullSpace entry's per-relation voidWallMeshes array.
+	// Sourced from each void entry's per-relation voidWallMeshes array.
 	const probeVoidWalls = (entries, sourceType) => {
 		for (const entry of entries) {
 			for (const id in entry.relations) {
@@ -1064,8 +1064,8 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance) {
 			}
 		}
 	};
-	probeVoidWalls(sceneGraph.nullSpaces.terrain, "terrain");
-	probeVoidWalls(sceneGraph.nullSpaces.obstacles, "obstacle");
+	probeVoidWalls(sceneGraph.voids.terrain, "terrain");
+	probeVoidWalls(sceneGraph.voids.obstacles, "obstacle");
 
 	if (type === null) return { hit: false };
 

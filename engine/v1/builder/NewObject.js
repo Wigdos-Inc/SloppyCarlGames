@@ -921,7 +921,7 @@ function BuildObject(source) {
 		};
 	}
 
-	if (source.mode === "nullSpace") {
+	if (source.mode === "void") {
 		const geometry    = BuildGeometry(shape, source.dimensions, complexity, primitiveOptions);
 		const localBounds = computeBounds(geometry.positions);
 		const worldAabb   = computeWorldAabbFromGeometry(geometry.positions, transform);

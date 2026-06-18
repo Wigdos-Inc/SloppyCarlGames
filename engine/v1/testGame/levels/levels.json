@@ -185,7 +185,7 @@
                                 "detail": { "scatter": [] },
                                 "collisionShape": "aabb",
                                 "customTextures": [],
-                                "mode": "nullSpace"
+                                "mode": "void"
                             },
                             {
                                 "id": "catch-platform-a",

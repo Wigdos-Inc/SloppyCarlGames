@@ -1448,10 +1448,10 @@
     "static": { "__meta": { "description": "Static flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } },
     "parts": { "__meta": { "description": "Obstacle part list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
     "customTextures": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
-    "mode": { "__meta": { "description": "Object render/collision mode", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "default", "allowedValues": ["default", "invisible", "nullSpace"], "deprecated": false } },
+    "mode": { "__meta": { "description": "Object render/collision mode", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "default", "allowedValues": ["default", "invisible", "void"], "deprecated": false } },
     "nullable": {
       "__meta": {
-        "description": "If false, this object is never suppressed by overlapping nullSpace volumes.",
+        "description": "If false, this object is never suppressed by overlapping void volumes.",
         "aliases": [],
         "dataType": "boolean",
         "isRequired": false,

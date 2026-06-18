@@ -1,5 +1,5 @@
-// Classifies nullSpace mesh faces as embedded vs open and builds void wall renderable meshes.
-// Called post-build by NewLevel.js to attach a per-pair `relations` map onto each nullSpace entry.
+// Classifies void mesh faces as embedded vs open and builds void wall renderable meshes.
+// Called post-build by NewLevel.js to attach a per-pair `relations` map onto each void entry.
 
 // Used by builder/NewLevel.js
 // Uses math/Matrix.js, math/Collision.js, physics/Collision.js, builder/NewObject.js
@@ -50,10 +50,10 @@ function groupCoplanarFaceTriples(srcPositions, faceTriples) {
 	return normalGroups;
 }
 
-function classifyFaces(nullSpaceMesh, defaultMeshes) {
-	const modelMatrix = CreateModelMatrix(nullSpaceMesh.transform);
-	const positions   = nullSpaceMesh.geometry.positions;
-	const indices     = nullSpaceMesh.geometry.indices;
+function classifyFaces(voidMesh, defaultMeshes) {
+	const modelMatrix = CreateModelMatrix(voidMesh.transform);
+	const positions   = voidMesh.geometry.positions;
+	const indices     = voidMesh.geometry.indices;
 	const groups      = new Map();
 
 	// Compute mesh center in CNU by averaging all transformed vertex positions.
@@ -171,9 +171,9 @@ function buildVoidCollision(worldTriangles) {
 	};
 }
 
-function buildVoidMesh(nullSpaceMesh, faceTriples, worldTriangles, defaultMesh, textureScale) {
+function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textureScale) {
 	const material         = defaultMesh.material;
-	const srcPositions     = nullSpaceMesh.geometry.positions;
+	const srcPositions     = voidMesh.geometry.positions;
 	const collision        = buildVoidCollision(worldTriangles);
 
 	const textureBlueprint = VISUAL_TEMPLATES.textures[defaultMesh.detail.texture.baseTextureID];
@@ -217,12 +217,12 @@ function buildVoidMesh(nullSpaceMesh, faceTriples, worldTriangles, defaultMesh, 
 		);
 
 		const mesh = {
-			id              : `${nullSpaceMesh.id}-void-${defaultMesh.id}`,
+			id              : `${voidMesh.id}-void-${defaultMesh.id}`,
 			primitive       : "void",
-			dimensions      : nullSpaceMesh.dimensions,
+			dimensions      : voidMesh.dimensions,
 			complexity      : "void",
 			displayColor    : null,
-			displayTransform: nullSpaceMesh.transform,
+			displayTransform: voidMesh.transform,
 			material        : {
 				textureID  : material.textureID,
 				color      : material.color,
@@ -261,12 +261,12 @@ function buildVoidMesh(nullSpaceMesh, faceTriples, worldTriangles, defaultMesh, 
 	const uvs           = GenerateUVs(positionArray, { faceGroups });
 
 	const mesh = {
-		id              : `${nullSpaceMesh.id}-void-${defaultMesh.id}`,
+		id              : `${voidMesh.id}-void-${defaultMesh.id}`,
 		primitive       : "void",
-		dimensions      : nullSpaceMesh.dimensions,
+		dimensions      : voidMesh.dimensions,
 		complexity      : "void",
 		displayColor    : null,
-		displayTransform: nullSpaceMesh.transform,
+		displayTransform: voidMesh.transform,
 		material        : {
 			textureID  : material.textureID,
 			color      : material.color,
@@ -294,7 +294,7 @@ function getOrCreateRelation(relations, id) {
 function buildTerrainVoidWalls(sceneGraph, textureScale) {
 	const faceTextures = [];
 
-	for (const mesh of sceneGraph.nullSpaces.terrain) {
+	for (const mesh of sceneGraph.voids.terrain) {
 		const { groups, openFacesByMesh } = classifyFaces(mesh, sceneGraph.terrain.filter((m) => m.meta.mode === "default"));
 		const relations = {};
 
@@ -325,7 +325,7 @@ function buildObstacleVoidWalls(sceneGraph, textureScale) {
 
 	const faceTextures = [];
 
-	for (const record of sceneGraph.nullSpaces.obstacles) {
+	for (const record of sceneGraph.voids.obstacles) {
 		const relations = {};
 		for (const part of record.parts) {
 			const { groups, openFacesByMesh } = classifyFaces(part, defaultParts);

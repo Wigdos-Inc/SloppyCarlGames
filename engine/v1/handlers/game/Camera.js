@@ -350,8 +350,8 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 			}
 		}
 	};
-	testVoidWalls(sceneGraph.nullSpaces.terrain);
-	testVoidWalls(sceneGraph.nullSpaces.obstacles);
+	testVoidWalls(sceneGraph.voids.terrain);
+	testVoidWalls(sceneGraph.voids.obstacles);
 
 	if (obstructed) {
 		closestT = Math.max(

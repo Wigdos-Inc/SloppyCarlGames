@@ -1247,7 +1247,7 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	gl.disable(gl.POLYGON_OFFSET_FILL);
 }
 
-// Flatten every nullSpace entry's relation voidWallMeshes into one list (used for textured draws).
+// Flatten every void entry's relation voidWallMeshes into one list (used for textured draws).
 function gatherVoidWallMeshes(entries) {
 	const meshes = [];
 	for (const entry of entries) {
@@ -1257,7 +1257,7 @@ function gatherVoidWallMeshes(entries) {
 }
 
 // True if any relation across the given entries holds renderable void meshes or open faces.
-function hasNullSpaceRenderables(entries) {
+function hasVoidRenderables(entries) {
 	for (const entry of entries) {
 		for (const id in entry.relations) {
 			const relation = entry.relations[id];
@@ -1267,10 +1267,10 @@ function hasNullSpaceRenderables(entries) {
 	return false;
 }
 
-function drawNullSpaceStencil(renderer, sceneGraph, passState) {
-	const { terrain: nsTerrain, obstacles: nsObstacles } = sceneGraph.nullSpaces;
-	const terrainRenderable  = hasNullSpaceRenderables(nsTerrain);
-	const obstacleRenderable = hasNullSpaceRenderables(nsObstacles);
+function drawVoidStencil(renderer, sceneGraph, passState) {
+	const { terrain: nsTerrain, obstacles: nsObstacles } = sceneGraph.voids;
+	const terrainRenderable  = hasVoidRenderables(nsTerrain);
+	const obstacleRenderable = hasVoidRenderables(nsObstacles);
 	if (!terrainRenderable && !obstacleRenderable) return;
 
 	const gl = renderer.gl;
@@ -1337,8 +1337,8 @@ function drawNullSpaceStencil(renderer, sceneGraph, passState) {
 }
 
 function drawVoidWalls(renderer, sceneGraph, passState) {
-	const { terrain: nsTerrain, obstacles: nsObstacles } = sceneGraph.nullSpaces;
-	if (!hasNullSpaceRenderables(nsTerrain) && !hasNullSpaceRenderables(nsObstacles)) return;
+	const { terrain: nsTerrain, obstacles: nsObstacles } = sceneGraph.voids;
+	if (!hasVoidRenderables(nsTerrain) && !hasVoidRenderables(nsObstacles)) return;
 	drawMeshList(renderer, sceneGraph, gatherVoidWallMeshes(nsTerrain),   passState, { stencilIncludeBit: 0x01 });
 	drawMeshList(renderer, sceneGraph, gatherVoidWallMeshes(nsObstacles), passState, { stencilIncludeBit: 0x02 });
 }
@@ -1382,14 +1382,14 @@ function drawScene(renderer, sceneGraph) {
 
 	// === Stencil write (before Pass A) ===
 	const { terrain, obstacles, entities } = collectRenderableMeshes(sceneGraph);
-	if (hasNullSpaceRenderables(sceneGraph.nullSpaces.terrain) || hasNullSpaceRenderables(sceneGraph.nullSpaces.obstacles)) {
+	if (hasVoidRenderables(sceneGraph.voids.terrain) || hasVoidRenderables(sceneGraph.voids.obstacles)) {
 		drawDepthPrePass(renderer, terrain, obstacles, passState);
-		drawNullSpaceStencil(renderer, sceneGraph, passState);
+		drawVoidStencil(renderer, sceneGraph, passState);
 		gl.clear(gl.DEPTH_BUFFER_BIT);
 	} 
-	else drawNullSpaceStencil(renderer, sceneGraph, passState);
+	else drawVoidStencil(renderer, sceneGraph, passState);
 
-	// === PASS 2.5: Void walls (textured interior surfaces inside nullSpace holes) ===
+	// === PASS 2.5: Void walls (textured interior surfaces inside void holes) ===
 	drawVoidWalls(renderer, sceneGraph, passState);
 
 	// === PASS A: terrain/obstacles filtered by type-specific stencil; entities unaffected ===
