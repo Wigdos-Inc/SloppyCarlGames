@@ -17,6 +17,15 @@ function parseHexColor(hex) {
 }
 
 
+// Frequency patterns decouple spatial frequency (UVs on meshes, periods on decals) from the
+// canvas appearance. Maps each pattern to its CONFIG.RENDERING.Texture block. Non-frequency
+// patterns (noise, radial) are absent — a lookup miss means "not a frequency pattern".
+const frequencyPatternConfig = {
+	tiles  : "Tiles",
+	stripes: "Stripes",
+	grid   : "Grid",
+};
+
 function drawShape(ctx, shape, x, y, width, height) {
 	switch (shape) {
 		case "circle": {
@@ -47,7 +56,7 @@ function drawShape(ctx, shape, x, y, width, height) {
 	}
 }
 
-function drawPattern(ctx, size, textureDefinition, textureScale) {
+function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 	const primary = parseHexColor(textureDefinition.primary);
 	const secondary = parseHexColor(textureDefinition.secondary);
     const draw = (x, y, width, height) => drawShape(ctx, textureDefinition.shape, x, y, width, height);
@@ -56,22 +65,27 @@ function drawPattern(ctx, size, textureDefinition, textureScale) {
     ctx.fillRect(0, 0, size, size);
 
 	switch (textureDefinition.pattern) {
-		case "checker": {
-			const cell = Math.max(4, Math.floor((size / 8) * textureScale));
-			for (let x = 0; x < size; x += cell) {
-				for (let y = 0; y < size; y += cell) {
-					if ((x / cell + y / cell) % 2 === 0) {
-						ctx.fillStyle = secondary;
-						draw(x, y, cell, cell);
-					}
-				}
+		case "tiles": {
+			const cfg       = CONFIG.RENDERING.Texture.Tiles;
+			const cellCount = periods;
+			if (cellCount === 0) return;
+			const cellSize  = size / cellCount;
+			const blockSize = Math.max(1, Math.floor(cellSize * textureDefinition.speckSize * cfg.SpeckSize));
+			ctx.fillStyle = secondary;
+			for (let xi = 0; xi < cellCount; xi++) for (let yi = 0; yi < cellCount; yi++) {
+				ctx.fillRect(Math.round(xi * cellSize), Math.round(yi * cellSize), blockSize, blockSize);
 			}
 			return;
 		}
 		case "stripes": {
-			const stripe = Math.max(3, Math.floor((size / 10) * textureScale));
+			const cfg            = CONFIG.RENDERING.Texture.Stripes;
+			const stripeCount    = periods;
+			if (stripeCount === 0) return;
+			const pitch          = size / stripeCount;
+			const effSpeckSize   = textureDefinition.speckSize * cfg.SpeckSize;
+			const offStripeWidth = Math.max(1, Math.floor(pitch * effSpeckSize / (1 + effSpeckSize)));
 			ctx.fillStyle = secondary;
-			for (let y = 0; y < size; y += stripe * 2) ctx.fillRect(0, y, size, stripe);
+			for (let yi = 0; yi < stripeCount; yi++) ctx.fillRect(0, Math.round(yi * pitch), size, offStripeWidth);
 			return;
 		}
 		case "radial": {
@@ -83,8 +97,8 @@ function drawPattern(ctx, size, textureDefinition, textureScale) {
 			return;
 		}
 		case "noise": {
-			const effSpeckSize = textureDefinition.speckSize * CONFIG.RENDERING.Texture.SpeckSize;
-			const effDensity   = textureDefinition.density   * CONFIG.RENDERING.Texture.Density;
+			const effSpeckSize = textureDefinition.speckSize * CONFIG.RENDERING.Texture.Noise.SpeckSize;
+			const effDensity   = textureDefinition.density   * CONFIG.RENDERING.Texture.Noise.Density;
 			const speck = Math.max(1, Math.floor(effSpeckSize * textureScale));
 			const speckCount = Math.min(16000, Math.floor((size * size * effDensity) / (speck * speck)));
 			const drawWrapped = (x, y) => {
@@ -99,23 +113,29 @@ function drawPattern(ctx, size, textureDefinition, textureScale) {
 			for (let index = 0; index < speckCount; index++) drawWrapped(Math.random() * size, Math.random() * size);
 			return;
 		}
-		default: {
-			const line = Math.max(2, Math.floor((size / 8) * textureScale));
-			ctx.strokeStyle = secondary;
-			ctx.lineWidth = 1;
-			for (let x = 0; x <= size; x += line) {
-				ctx.beginPath();
-				ctx.moveTo(x, 0);
-				ctx.lineTo(x, size);
-				ctx.stroke();
+		case "grid": {
+			const cfg           = CONFIG.RENDERING.Texture.Grid;
+			const pairsPerRow   = periods;
+			if (pairsPerRow === 0) return;
+			const pairSize      = size / pairsPerRow;
+			const effSpeckSize  = textureDefinition.speckSize * cfg.SpeckSize;
+			const offBlockSize  = Math.max(1, Math.floor(pairSize * effSpeckSize / (1 + effSpeckSize)));
+			const baseBlockSize = Math.max(1, Math.floor(pairSize - offBlockSize));
+			ctx.fillStyle = secondary;
+			let y = 0;
+			for (let row = 0; y < size; row++) {
+				const rowH = row % 2 === 0 ? baseBlockSize : offBlockSize;
+				let x = 0;
+				for (let col = 0; x < size; col++) {
+					const colW = col % 2 === 0 ? baseBlockSize : offBlockSize;
+					if ((row + col) % 2 === 0) ctx.fillRect(x, Math.round(y), colW, rowH);
+					x += colW;
+				}
+				y += rowH;
 			}
-			for (let y = 0; y <= size; y += line) {
-				ctx.beginPath();
-				ctx.moveTo(0, y);
-				ctx.lineTo(size, y);
-				ctx.stroke();
-			}
+			return;
 		}
+		default: return;
 	}
 }
 
@@ -131,12 +151,12 @@ function resolveTextureSize(textureDefinition, usageEntry) {
 	return toPowerOfTwoSize(textureDefinition.size * Math.max(1, Math.min(8, usageEntry.maxSpan / 24)));
 }
 
-function BuildTextureSurface(textureDefinition, resolvedSize, textureScale) {
+function BuildTextureSurface(textureDefinition, resolvedSize, textureScale, periods = 1) {
 	const size = resolvedSize || textureDefinition.size;
 	const canvas = document.createElement("canvas");
 	canvas.width = size;
 	canvas.height = size;
-	drawPattern(canvas.getContext("2d"), size, textureDefinition, textureScale);
+	drawPattern(canvas.getContext("2d"), size, textureDefinition, textureScale, periods);
 	return canvas;
 }
 
@@ -151,33 +171,38 @@ function registerTextureUsage(id, options, usage) {
 	if (!usage[id]) usage[id] = createUsageEntry(id);
 	const entry = usage[id];
 	if (options.isTerrain) { entry.isTerrain = true; entry.maxSpan = options.maxSpan; }
-	if (options.density || options.density === 0) entry.density = options.density;
-	if (options.speckSize || options.speckSize === 0) entry.speckSize = options.speckSize;
-	if (options.baseTextureID) entry.baseTextureID = options.baseTextureID;
-	if (options.shape) entry.shape = options.shape;
-	if (options.animatedRequested === true) entry.animatedRequested = true;
-	if (options.holdTimeSpeed || options.holdTimeSpeed === 0) entry.holdTimeSpeed = options.holdTimeSpeed;
-	if (options.blendTimeSpeed || options.blendTimeSpeed === 0) entry.blendTimeSpeed = options.blendTimeSpeed;
+	entry.density = options.density;
+	entry.speckSize = options.speckSize;
+	entry.baseTextureID = options.baseTextureID;
+	entry.shape = options.shape;
+	entry.animatedRequested = options.animatedRequested;
+	entry.holdTimeSpeed = options.holdTimeSpeed;
+	entry.blendTimeSpeed = options.blendTimeSpeed;
+}
+
+// Map a full texture definition to registerTextureUsage options. Shared by mesh and scatter-batch
+// collection so the field mapping (and the animated coercion) lives in one place.
+function textureRegistrationOptions(texture, isTerrain, maxSpan) {
+	return {
+		isTerrain, maxSpan,
+		density          : texture.density,
+		speckSize        : texture.speckSize,
+		baseTextureID    : texture.id,
+		shape            : texture.shape,
+		animatedRequested: texture.animated === true,
+		holdTimeSpeed    : texture.holdTimeSpeed,
+		blendTimeSpeed   : texture.blendTimeSpeed,
+	};
 }
 
 function collectMesh(mesh, options, ownerKey, usage, customTextureUsage) {
+	const texture = mesh.detail.texture;
 	let materialTextureID = mesh.material.textureID;
-	const animatedRequested = mesh.detail.texture.animated === true;
-	if (animatedRequested) {
+	if (texture.animated === true) {
 		materialTextureID = `${mesh.material.textureID}::animated=${ownerKey}`;
 		mesh.material.textureID = materialTextureID;
 	}
-	registerTextureUsage(materialTextureID, {
-		isTerrain     : options.isTerrain,
-		maxSpan       : options.maxSpan,
-		density       : mesh.detail.texture.density,
-		speckSize     : mesh.detail.texture.speckSize,
-		baseTextureID : mesh.detail.texture.baseTextureID,
-		shape         : mesh.detail.texture.shape,
-		animatedRequested,
-		holdTimeSpeed : mesh.detail.texture.holdTimeSpeed,
-		blendTimeSpeed: mesh.detail.texture.blendTimeSpeed,
-	}, usage);
+	registerTextureUsage(materialTextureID, textureRegistrationOptions(texture, options.isTerrain, options.maxSpan), usage);
 }
 
 function collectDecalAlternateSources(baseId, ct, mesh, customTextureUsage) {
@@ -221,7 +246,7 @@ function collectCustomTextures(mesh, customTextureUsage) {
 }
 
 function collectTextureUsage(sceneGraph) {
-	const usage = { "default-grid": createUsageEntry("default-grid") };
+	const usage = { "default-tiles": createUsageEntry("default-tiles") };
 	const customTextureUsage = {};
 	const nonTerrainOptions = { isTerrain: false, maxSpan: 1 };
 
@@ -253,17 +278,7 @@ function collectTextureUsage(sceneGraph) {
 
 	// Collect texture IDs from instanced scatter batches.
 	sceneGraph.scatterBatches.forEach((batch) => {
-		registerTextureUsage(batch.textureID, {
-			isTerrain      : false,
-			maxSpan        : 1,
-			density        : null,
-			speckSize      : null,
-			baseTextureID  : batch.textureID,
-			shape          : null,
-			animatedRequested: false,
-			holdTimeSpeed  : 1,
-			blendTimeSpeed : 1,
-		}, usage);
+		registerTextureUsage(batch.textureID, textureRegistrationOptions(batch.texture, false, 1), usage);
 	});
 
 	sceneGraph.entities.forEach((entity) => {
@@ -366,9 +381,9 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 		const partFaceSize  = Math.max(faceW, faceH);
 		const autoRatio     = partFaceSize > 0 ? Math.max(ct.localTransform.scale.x, ct.localTransform.scale.y) / partFaceSize : 1;
 
-		const partBlueprint     = visualTemplates.textures[mesh.detail.texture.baseTextureID];
-		const partEffDensity    = mesh.detail.texture.density    !== null ? mesh.detail.texture.density    : partBlueprint.density;
-		const partEffSpeckSize  = mesh.detail.texture.speckSize  !== null ? mesh.detail.texture.speckSize  : partBlueprint.speckSize;
+		const partBlueprint     = visualTemplates.textures[mesh.detail.texture.id];
+		const partEffDensity   = mesh.detail.texture.density;
+		const partEffSpeckSize = mesh.detail.texture.speckSize;
 
 		const decalBlueprint    = visualTemplates.textures[ct.detail.baseTextureID];
 		const resolvedBlueprint = {
@@ -378,8 +393,14 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 		};
 		const effectiveScale = autoRatio > 0 ? textureScale / autoRatio : textureScale;
 
+		// Frequency patterns stamp a fixed element count onto the decal (no tiling), so the
+		// canvas must draw round(density × cfg.Density) periods directly. Non-frequency decals
+		// (noise/radial) ignore periods, so the default of 1 is harmless.
+		const decalConfigKey = frequencyPatternConfig[resolvedBlueprint.pattern];
+		const periods = decalConfigKey ? Math.round(resolvedBlueprint.density * CONFIG.RENDERING.Texture[decalConfigKey].Density) : 1;
+
 		ctx.globalCompositeOperation = "source-atop";
-		ctx.drawImage(BuildTextureSurface(resolvedBlueprint, toPowerOfTwoSize(decalBlueprint.size), effectiveScale), 0, 0, size, size);
+		ctx.drawImage(BuildTextureSurface(resolvedBlueprint, toPowerOfTwoSize(decalBlueprint.size), effectiveScale, periods), 0, 0, size, size);
 		ctx.globalCompositeOperation = "source-over";
 	}
 
@@ -393,10 +414,16 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 		const textureBlueprint = visualTemplates.textures[usageEntry.baseTextureID];
 		const resolvedSize = resolveTextureSize(textureBlueprint, usageEntry);
 		// Payload scalars modify rather than override: compose blueprint (internal) × payload.
-		// The global scalar is applied later in drawPattern. Only noise blueprints carry these.
-		let resolvedTextureBlueprint = { ...textureBlueprint };
-		if (textureBlueprint.density !== undefined)   resolvedTextureBlueprint.density   = textureBlueprint.density   * usageEntry.density;
-		if (textureBlueprint.speckSize !== undefined) resolvedTextureBlueprint.speckSize = textureBlueprint.speckSize * usageEntry.speckSize;
+		// The global scalar is applied later in drawPattern.
+		// Frequency patterns (tiles/stripes/grid) carry spatial frequency in their per-mesh UVs,
+		// so density is NOT baked into the shared registry canvas — only the speckSize ratio is.
+		// Noise still bakes density into its canvas.
+		const isFrequencyPattern = frequencyPatternConfig[textureBlueprint.pattern] !== undefined;
+		let resolvedTextureBlueprint = {
+			...textureBlueprint,
+			density:   isFrequencyPattern ? textureBlueprint.density : textureBlueprint.density * usageEntry.density,
+			speckSize: textureBlueprint.speckSize * usageEntry.speckSize,
+		};
 		if (usageEntry.shape) resolvedTextureBlueprint = { ...resolvedTextureBlueprint, shape: usageEntry.shape };
 
 		const animatedRequested = usageEntry.animatedRequested === true;
@@ -482,8 +509,8 @@ function BuildNoiseFaceCanvas(blueprint, pixelW, pixelH, textureScale) {
 	ctx.fillStyle = primary;
 	ctx.fillRect(0, 0, pixelW, pixelH);
 
-	const effSpeckSize = blueprint.speckSize * CONFIG.RENDERING.Texture.SpeckSize;
-	const effDensity   = blueprint.density   * CONFIG.RENDERING.Texture.Density;
+	const effSpeckSize = blueprint.speckSize * CONFIG.RENDERING.Texture.Noise.SpeckSize;
+	const effDensity   = blueprint.density   * CONFIG.RENDERING.Texture.Noise.Density;
 	const speck = Math.max(1, Math.floor(effSpeckSize * textureScale));
 	const speckCount = Math.min(16000, Math.floor((pixelW * pixelH * effDensity) / (speck * speck)));
 
@@ -538,4 +565,4 @@ function BuildFaceTextureData(textureID, ownerId, ownerKind, resolvedBlueprint, 
 	return { faceTextures, faceTextureGroups };
 }
 
-export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources, BuildNoiseFaceCanvas, BuildFaceTextureData, BuildNoiseAnimationOptions, visualTemplates as VISUAL_TEMPLATES };
+export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources, BuildNoiseFaceCanvas, BuildFaceTextureData, BuildNoiseAnimationOptions, frequencyPatternConfig, visualTemplates as VISUAL_TEMPLATES };

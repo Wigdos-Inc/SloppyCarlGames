@@ -1159,37 +1159,15 @@
       }
     }
   },
-  "levelTexture": {
-    "textureID": {
+  "generatedTexture": {
+    "id": {
       "__meta": {
-        "description": "Texture id",
+        "description": "Generated texture id",
         "aliases": [],
         "dataType": "string",
         "isRequired": false,
         "isExpected": true,
-        "fallback": "default-grid",
-        "deprecated": false
-      }
-    },
-    "baseTextureID": {
-      "__meta": {
-        "description": "Base texture id",
-        "aliases": [],
-        "dataType": "string",
-        "isRequired": false,
-        "isExpected": false,
-        "fallback": null,
-        "deprecated": false
-      }
-    },
-    "materialTextureID": {
-      "__meta": {
-        "description": "Material texture id",
-        "aliases": [],
-        "dataType": "string",
-        "isRequired": false,
-        "isExpected": false,
-        "fallback": null,
+        "fallback": "default-tiles",
         "deprecated": false
       }
     },
@@ -1330,9 +1308,12 @@
       "z": { "__meta": { "description": "Pivot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
     },
     "primitiveOptions": { "__meta": { "description": "Primitive option bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
-    "texture": { "__meta": { "description": "Part texture object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
-    "detail": { "__meta": { "description": "Part detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
-    "customTextures": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
+    "texture": {
+      "__meta": { "description": "Part texture object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
+      "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+      "custom": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
+    },
+    "detail": { "__meta": { "description": "Part detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
   },
   "levelCustomTexture": {
     "id":         { "__meta": { "description": "Decal id (animation targeting)", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "deprecated": false } },
@@ -1440,14 +1421,17 @@
       "z": { "__meta": { "description": "Pivot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
     },
     "primitiveOptions": { "__meta": { "description": "Primitive option bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
-    "texture": { "__meta": { "description": "Object texture object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "texture": {
+      "__meta": { "description": "Object texture object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
+      "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+      "custom": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
+    },
     "detail": { "__meta": { "description": "Object detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "collisionShape": { "__meta": { "description": "Object collision shape", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "aabb", "obb", "sphere", "capsule", "triangle-soup"], "deprecated": false } },
     "destructible": { "__meta": { "description": "Destructible flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "hp": { "__meta": { "description": "Obstacle hp", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
     "static": { "__meta": { "description": "Static flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } },
     "parts": { "__meta": { "description": "Obstacle part list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
-    "customTextures": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
     "mode": { "__meta": { "description": "Object render/collision mode", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "default", "allowedValues": ["default", "invisible", "void"], "deprecated": false } },
     "nullable": {
       "__meta": {

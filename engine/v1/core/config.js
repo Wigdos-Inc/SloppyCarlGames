@@ -125,8 +125,10 @@ const CONFIG = {
   CAMERA: { Fov: 60 },
   RENDERING: {
     Texture: {
-      Density  : 1,
-      SpeckSize: 2,
+      Noise  : { Density: 1, SpeckSize: 2 },
+      Tiles  : { Density: 1, SpeckSize: 1 },
+      Stripes: { Density: 1, SpeckSize: 1 },
+      Grid   : { Density: 1, SpeckSize: 1 },
     },
   }
 };

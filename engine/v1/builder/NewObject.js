@@ -3,7 +3,8 @@
 // Called by anything that wants any 3D object or wants to build models.
 
 import { BuildScatter } from "./NewScatter.js";
-import { BuildFaceTextureData, BuildNoiseAnimationOptions, VISUAL_TEMPLATES } from "./NewTexture.js";
+import { BuildFaceTextureData, BuildNoiseAnimationOptions, frequencyPatternConfig, VISUAL_TEMPLATES } from "./NewTexture.js";
+import { CONFIG } from "../core/config.js";
 import { CreateModelMatrix } from "../math/Matrix.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import {
@@ -944,7 +945,9 @@ function BuildObject(source) {
 
 	const geometry = BuildGeometry(shape, source.dimensions, complexity, primitiveOptions);
 	const bounds   = computeBounds(geometry.positions);
-	const texture  = source.texture;
+	// Authored shape is { generated, custom }. The runtime mesh keeps the historical fields:
+	// material/detail read from the generated base texture; mesh.customTextures holds the decals.
+	const texture  = source.texture.generated;
 
 	const mesh = {
 		id        : source.id,
@@ -963,7 +966,7 @@ function BuildObject(source) {
 			bounds,
 		},
 		material: {
-			textureID  : texture.materialTextureID,
+			textureID  : texture.id,
 			color      : texture.color,
 			opacity    : texture.opacity,
 			transparent: texture.opacity < 1,
@@ -984,7 +987,7 @@ function BuildObject(source) {
 		worldAabb     : computeWorldAabbFromGeometry(geometry.positions, transform),
 		dimensions     : source.dimensions,
 		collisionShape : source.collisionShape,
-		customTextures : source.customTextures,
+		customTextures : source.texture.custom,
 		detailedBounds : null,
 	};
 	mesh.detailedBounds = computeDetailedBounds(mesh);
@@ -1017,7 +1020,7 @@ function BuildObject(source) {
 
 	// Per-face noise texture path: noise textures get a unique canvas per face
 	// with normalized [0,1] UVs so specks are distributed once across the face without tiling.
-	const textureBlueprint = VISUAL_TEMPLATES.textures[texture.baseTextureID];
+	const textureBlueprint = VISUAL_TEMPLATES.textures[texture.id];
 	const roleSupportsPerFace = source.role === "terrain" || source.role === "obstacle" || source.role === "water";
 	if (roleSupportsPerFace && textureBlueprint.pattern === "noise" && !geometry.uvs && geometry.faceGroups.every(g => g.indexStart !== undefined)) {
 		const textureScale = source.textureScale;
@@ -1039,6 +1042,17 @@ function BuildObject(source) {
 
 		mesh.geometry.faceTextureGroups = faceTextureGroups;
 		return { mesh, faceTextures };
+	}
+
+	// Frequency patterns (tiles/stripes/grid) carry spatial frequency in their UVs: the canvas
+	// draws exactly one period, and the per-mesh UVs are scaled so the pattern repeats at a
+	// continuous, fractional-capable frequency (visible periods per CNU = density × cfg.Density).
+	// Not every mesh resolves to a procedural blueprint — scatter parts (and any texture that only
+	// names a material) reach here without one — so textureBlueprint may be absent. Only
+	// blueprint-backed meshes carry a frequency pattern and get UV-scaled.
+	const frequencyConfigKey = textureBlueprint === undefined ? undefined : frequencyPatternConfig[textureBlueprint.pattern];
+	if (frequencyConfigKey !== undefined) {
+		mesh.geometry.uvs.forEach(uv => uv *= texture.density * CONFIG.RENDERING.Texture[frequencyConfigKey].Density);
 	}
 
 	return { mesh, faceTextures: [] };

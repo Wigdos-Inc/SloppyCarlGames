@@ -354,7 +354,7 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 	if (scatterMultiplier <= 0) return [];
 
 	const scatterRequests = explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter;
-	if ((explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter).length === 0) return [];
+	if (scatterRequests.length === 0) return [];
 
 	logScatterBounds("Scatter bounds", objectMesh);
 
@@ -379,7 +379,6 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 						texture       : part.texture,
 						detail        : { scatter: [] },
 						role          : "scatter",
-						customTextures: [],
 					}
 				);
 
@@ -416,8 +415,9 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 			processPart: (ctx, partContext) => {
 				const { part, position, rotation, scale } = partContext;
 				const modelMatrix = CreateRenderMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot });
-				const color = part.textureColor;
-				const textureID = part.textureID;
+				const generatedTexture = part.texture.generated;
+				const color = generatedTexture.color;
+				const textureID = generatedTexture.id;
 				const complexity = part.complexity;
 				const primitiveOptions = part.primitiveOptions;
 				const primitiveKey = primitiveGeometryKey(part.primitive, part.dimensions, complexity, primitiveOptions);
@@ -429,13 +429,14 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 						primitive: part.primitive.toLowerCase(),
 						dimensions: part.dimensions.clone(),
 						complexity, primitiveOptions, primitiveKey, textureID,
+						texture: generatedTexture,
 						instances: [],
 						instanceCount: 0,
 						instanceData: null,
 					});
 				}
 
-				batchMap.get(batchKey).instances.push({ modelMatrix, tint: [color.r, color.g, color.b, part.textureOpacity] });
+				batchMap.get(batchKey).instances.push({ modelMatrix, tint: [color.r, color.g, color.b, generatedTexture.opacity] });
 				totalParts++;
 
 				const half = part.dimensions.clone().multiply(scale).scale(0.5);

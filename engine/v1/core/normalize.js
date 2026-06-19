@@ -361,7 +361,7 @@ function buildAnimationContext(parts) {
 	const context = {};
 	parts.forEach((part) => {
 		const decalIds = new Set();
-		part.customTextures.forEach((decal) => { if (decal.id) decalIds.add(decal.id); });
+		part.texture.custom.forEach((decal) => { if (decal.id) decalIds.add(decal.id); });
 		context[part.id] = decalIds;
 	});
 	return context;
@@ -508,7 +508,7 @@ function instanceAnimationTracks(animations) {
 
 function markMutableDecals(animations, parts) {
 	const decalMap = new Map();
-	parts.forEach((part) => part.customTextures.forEach((ct) => { if (ct.id) decalMap.set(ct.id, ct); }));
+	parts.forEach((part) => part.texture.custom.forEach((ct) => { if (ct.id) decalMap.set(ct.id, ct); }));
 	for (const animName in animations) {
 		const animParts = animations[animName].parts;
 		for (const partId in animParts) {
@@ -556,20 +556,20 @@ const defaultsByShape = {
 
 function resolveTextureId(textureId, fallbackTextureId, fieldPath = "") {
 	if (objectDetail.textures[textureId] !== undefined) return textureId;
-	if (fieldPath !== "") warnLog(`${fieldPath}: '${textureId}' invalid, using 'levelTexture.${fallbackTextureId}'.`);
+	if (fieldPath !== "") warnLog(`${fieldPath}: '${textureId}' invalid, using '${fallbackTextureId}'.`);
 	return fallbackTextureId;
 }
 
-function normalizeTexture(rawTexture) {
-	const texture = normalizePayloadSchema(normalizeObject(rawTexture).value, "levelTexture");
+function normalizeTexture(rawTexture, part, ctx) {
+	const source = normalizeObject(rawTexture).value;
 
-	const fallback = canonSchemas.levelTexture.textureID.__meta.fallback;
-	texture.textureID = resolveTextureId(texture.textureID, fallback, "textureID");
-	if (texture.baseTextureID === null) texture.baseTextureID = texture.textureID;
-	else texture.baseTextureID = resolveTextureId(texture.baseTextureID, texture.textureID);
-	if (texture.materialTextureID === null) texture.materialTextureID = texture.textureID;
-	else texture.materialTextureID = resolveTextureId(texture.materialTextureID, texture.textureID);
-	return texture;
+	const generated = normalizePayloadSchema(normalizeObject(source.generated).value, "generatedTexture");
+	const fallback = canonSchemas.generatedTexture.id.__meta.fallback;
+	generated.id = resolveTextureId(generated.id, fallback, "texture.generated.id");
+
+	const custom = normalizeCustomTextures(source.custom, part, ctx);
+
+	return { generated, custom };
 }
 
 function normalizeScatter(rawScatter) {
@@ -703,13 +703,8 @@ function normalizePart(rawPart, ctx) {
 	part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
 	part.localScale = CloneVector3(part.localScale);
 	part.pivot = toUnitVector3(part.pivot, "cnu");
-	part.texture = normalizeTexture(partSource.texture !== undefined ? partSource.texture : part.texture);
+	part.texture = normalizeTexture(partSource.texture !== undefined ? partSource.texture : part.texture, part, ctx);
 	part.detail = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail);
-	part.customTextures = normalizeCustomTextures(
-		partSource.customTextures !== undefined ? partSource.customTextures : part.customTextures,
-		part,
-		ctx
-	);
 	if (part.label === null) delete part.label;
 	return part;
 }
@@ -722,14 +717,9 @@ function normalizeLevelObject(rawObject, ctx, multipartFallbackShape = null) {
 	object.rotation = toUnitVector3(object.rotation, "degrees").toRadians(true);
 	object.scale = CloneVector3(object.scale);
 	object.pivot = toUnitVector3(object.pivot, "cnu");
-	object.texture = normalizeTexture(objectSource.texture !== undefined ? objectSource.texture : object.texture);
+	object.texture = normalizeTexture(objectSource.texture !== undefined ? objectSource.texture : object.texture, object, ctx);
 	object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
 	object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part, ctx));
-	object.customTextures = normalizeCustomTextures(
-		objectSource.customTextures !== undefined ? objectSource.customTextures : object.customTextures,
-		object,
-		ctx
-	);
 	object.collisionShape = object.collisionShape !== null ? object.collisionShape
 		: multipartFallbackShape !== null && object.parts.length > 1 ? multipartFallbackShape
 			: defaultsByShape[object.shape];
@@ -884,7 +874,7 @@ function mergeSimulatorEntity(blueprint, ctx) {
 
 function applyImageLoadResults(affectedParts, affectedDecalSources) {
 	affectedParts.forEach((part) => {
-		part.customTextures = part.customTextures.filter((e) => e.decalType !== "image" || e.bitmap !== null);
+		part.texture.custom = part.texture.custom.filter((e) => e.decalType !== "image" || e.bitmap !== null);
 	});
 	affectedDecalSources.forEach((decalEntry) => {
 		for (const key in decalEntry.sources) {

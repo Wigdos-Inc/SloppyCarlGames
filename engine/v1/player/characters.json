@@ -34,12 +34,20 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.95, "g": 0.85, "b": 0.7, "a": 1 },
-						"opacity": 1
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.95, "g": 0.85, "b": 0.7, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": []
 					},
-					"detail": { "scatter": [] },
-					"customTextures": []
+					"detail": { "scatter": [] }
 				},
 				{
 					"id": "leftArm",
@@ -56,12 +64,20 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
-						"opacity": 1
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": []
 					},
-					"detail": { "scatter": [] },
-					"customTextures": []
+					"detail": { "scatter": [] }
 				},
 				{
 					"id": "rightArm",
@@ -78,12 +94,20 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
-						"opacity": 1
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": []
 					},
-					"detail": { "scatter": [] },
-					"customTextures": []
+					"detail": { "scatter": [] }
 				},
 				{
 					"id": "torso",
@@ -99,24 +123,32 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
-						"opacity": 1
-					},
-					"detail": { "scatter": [] },
-					"customTextures": [
-						{
-							"decalType": "image",
-							"imagePath": "../assets/carlStudios/sloppyCarl.png",
-							"sourceType": "local",
-							"side": "front",
-							"localTransform": {
-								"position": { "x": 0, "y": 0, "z": 0 },
-								"rotation": 0,
-								"scale": { "x": 0.4, "y": 0.4, "z": 1 }
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": [
+							{
+								"decalType": "image",
+								"imagePath": "../assets/carlStudios/sloppyCarl.png",
+								"sourceType": "local",
+								"side": "front",
+								"localTransform": {
+									"position": { "x": 0, "y": 0, "z": 0 },
+									"rotation": 0,
+									"scale": { "x": 0.4, "y": 0.4, "z": 1 }
+								}
 							}
-						}
-					]
+						]
+					},
+					"detail": { "scatter": [] }
 				},
 				{
 					"id": "leftLeg",
@@ -133,12 +165,20 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
-						"opacity": 1
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": []
 					},
-					"detail": { "scatter": [] },
-					"customTextures": []
+					"detail": { "scatter": [] }
 				},
 				{
 					"id": "rightLeg",
@@ -155,12 +195,20 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
-						"opacity": 1
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": []
 					},
-					"detail": { "scatter": [] },
-					"customTextures": []
+					"detail": { "scatter": [] }
 				}
 			]
 		}
@@ -201,12 +249,20 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.95, "g": 0.85, "b": 0.7, "a": 1 },
-						"opacity": 1
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.95, "g": 0.85, "b": 0.7, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": []
 					},
-					"detail": { "scatter": [] },
-					"customTextures": []
+					"detail": { "scatter": [] }
 				},
 				{
 					"id": "leftArm",
@@ -223,12 +279,20 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
-						"opacity": 1
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": []
 					},
-					"detail": { "scatter": [] },
-					"customTextures": []
+					"detail": { "scatter": [] }
 				},
 				{
 					"id": "rightArm",
@@ -245,12 +309,20 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
-						"opacity": 1
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": []
 					},
-					"detail": { "scatter": [] },
-					"customTextures": []
+					"detail": { "scatter": [] }
 				},
 				{
 					"id": "torso",
@@ -266,46 +338,54 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
-						"opacity": 1
-					},
-					"detail": { "scatter": [] },
-					"customTextures": [
-						{
-							"id": "torso-logo",
-							"decalType": "image",
-							"imagePath": "../assets/carlStudios/sloppyCarl.png",
-							"sourceType": "local",
-							"sources": {
-								"triangle": {
-									"decalType": "shape",
-									"shape": "triangle",
-									"color": { "r": 1, "g": 0.4, "b": 0.1, "a": 1 },
-									"detail": null
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": [
+							{
+								"id": "torso-logo",
+								"decalType": "image",
+								"imagePath": "../assets/carlStudios/sloppyCarl.png",
+								"sourceType": "local",
+								"sources": {
+									"triangle": {
+										"decalType": "shape",
+										"shape": "triangle",
+										"color": { "r": 1, "g": 0.4, "b": 0.1, "a": 1 },
+										"detail": null
+									}
+								},
+								"side": "front",
+								"localTransform": {
+									"position": { "x": 0, "y": 0, "z": 0 },
+									"rotation": 0,
+									"scale": { "x": 0.4, "y": 0.4, "z": 1 }
 								}
 							},
-							"side": "front",
-							"localTransform": {
-								"position": { "x": 0, "y": 0, "z": 0 },
-								"rotation": 0,
-								"scale": { "x": 0.4, "y": 0.4, "z": 1 }
+							{
+								"id": "torso-badge",
+								"decalType": "shape",
+								"shape": "square",
+								"color": { "r": 0.2, "g": 0.8, "b": 1, "a": 1 },
+								"detail": null,
+								"side": "top",
+								"localTransform": {
+									"position": { "x": 0, "y": 0, "z": 0 },
+									"rotation": 0,
+									"scale": { "x": 0.2, "y": 0.2, "z": 1 }
+								}
 							}
-						},
-						{
-							"id": "torso-badge",
-							"decalType": "shape",
-							"shape": "square",
-							"color": { "r": 0.2, "g": 0.8, "b": 1, "a": 1 },
-							"detail": null,
-							"side": "top",
-							"localTransform": {
-								"position": { "x": 0, "y": 0, "z": 0 },
-								"rotation": 0,
-								"scale": { "x": 0.2, "y": 0.2, "z": 1 }
-							}
-						}
-					]
+						]
+					},
+					"detail": { "scatter": [] }
 				},
 				{
 					"id": "leftLeg",
@@ -322,12 +402,20 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
-						"opacity": 1
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": []
 					},
-					"detail": { "scatter": [] },
-					"customTextures": []
+					"detail": { "scatter": [] }
 				},
 				{
 					"id": "rightLeg",
@@ -344,12 +432,20 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"materialTextureID": "metal-panel",
-						"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
-						"opacity": 1
+						"generated": {
+							"id": "metal-panel",
+							"shape": null,
+							"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
+							"opacity": 1,
+							"density": 1,
+							"speckSize": 1,
+							"animated": false,
+							"holdTimeSpeed": 1,
+							"blendTimeSpeed": 1
+						},
+						"custom": []
 					},
-					"detail": { "scatter": [] },
-					"customTextures": []
+					"detail": { "scatter": [] }
 				}
 			]
 		}

@@ -169,7 +169,8 @@ function ValidateLevelPayload(payload) {
 	const errors = validatePayloadSchema(payload, "level");
 
 	function validateTexture(rawTexture, path) {
-		if (isPlainObject(rawTexture)) errors.push(...validatePayloadSchema(rawTexture, "levelTexture", path));
+		if (!isPlainObject(rawTexture)) return;
+		if (isPlainObject(rawTexture.generated)) errors.push(...validatePayloadSchema(rawTexture.generated, "generatedTexture", `${path}.generated`));
 	}
 
 	function validateDetail(rawDetail, path) {

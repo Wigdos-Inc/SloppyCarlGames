@@ -176,7 +176,7 @@ function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textu
 	const srcPositions     = voidMesh.geometry.positions;
 	const collision        = buildVoidCollision(worldTriangles);
 
-	const textureBlueprint = VISUAL_TEMPLATES.textures[defaultMesh.detail.texture.baseTextureID];
+	const textureBlueprint = VISUAL_TEMPLATES.textures[defaultMesh.detail.texture.id];
 
 	if (textureBlueprint.pattern === "noise") {
 		const normalGroups = groupCoplanarFaceTriples(srcPositions, faceTriples);

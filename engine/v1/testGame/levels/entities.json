@@ -64,11 +64,14 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"textureID": "metal-panel",
-							"color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
-							"opacity": 1,
-							"density": 1,
-							"speckSize": 1
+							"generated": {
+								"id": "metal-panel",
+								"color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
+								"opacity": 1,
+								"density": 1,
+								"speckSize": 1
+							},
+							"custom": []
 						},
 						"detail": {
 							"scatter": []
@@ -93,11 +96,14 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"textureID": "metal-panel",
-							"color": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
-							"opacity": 1,
-							"density": 1,
-							"speckSize": 1
+							"generated": {
+								"id": "metal-panel",
+								"color": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
+								"opacity": 1,
+								"density": 1,
+								"speckSize": 1
+							},
+							"custom": []
 						},
 						"detail": {
 							"scatter": []
@@ -122,11 +128,14 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"textureID": "metal-panel",
-							"color": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
-							"opacity": 1,
-							"density": 1,
-							"speckSize": 1
+							"generated": {
+								"id": "metal-panel",
+								"color": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
+								"opacity": 1,
+								"density": 1,
+								"speckSize": 1
+							},
+							"custom": []
 						},
 						"detail": {
 							"scatter": []
@@ -151,14 +160,17 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"textureID": "energy-core",
-							"color": { "r": 0.65, "g": 0.95, "b": 1, "a": 1 },
-							"opacity": 1,
-							"density": 1,
-							"speckSize": 1,
-							"animated": true,
-							"holdTimeSpeed": 1,
-							"blendTimeSpeed": 1
+							"generated": {
+								"id": "energy-core",
+								"color": { "r": 0.65, "g": 0.95, "b": 1, "a": 1 },
+								"opacity": 1,
+								"density": 1,
+								"speckSize": 1,
+								"animated": true,
+								"holdTimeSpeed": 1,
+								"blendTimeSpeed": 1
+							},
+							"custom": []
 						},
 						"detail": {
 							"scatter": []
@@ -225,11 +237,14 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"textureID": "wood-plank",
-							"color": { "r": 0.95, "g": 0.88, "b": 0.78, "a": 1 },
-							"opacity": 1,
-							"density": 1,
-							"speckSize": 1
+							"generated": {
+								"id": "wood-stump",
+								"color": { "r": 0.95, "g": 0.88, "b": 0.78, "a": 1 },
+								"opacity": 1,
+								"density": 1,
+								"speckSize": 1
+							},
+							"custom": []
 						},
 						"detail": {
 							"scatter": []
@@ -254,11 +269,14 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"textureID": "wood-plank",
-							"color": { "r": 1, "g": 0.9, "b": 0.8, "a": 1 },
-							"opacity": 1,
-							"density": 1,
-							"speckSize": 1
+							"generated": {
+								"id": "wood-stump",
+								"color": { "r": 1, "g": 0.9, "b": 0.8, "a": 1 },
+								"opacity": 1,
+								"density": 1,
+								"speckSize": 1
+							},
+							"custom": []
 						},
 						"detail": {
 							"scatter": []
@@ -324,11 +342,14 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"textureID": "energy-core",
-							"color": { "r": 0.75, "g": 1, "b": 1, "a": 1 },
-							"opacity": 1,
-							"density": 1,
-							"speckSize": 1
+							"generated": {
+								"id": "energy-core",
+								"color": { "r": 0.75, "g": 1, "b": 1, "a": 1 },
+								"opacity": 1,
+								"density": 1,
+								"speckSize": 1
+							},
+							"custom": []
 						},
 						"detail": {
 							"scatter": []
@@ -394,11 +415,14 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"textureID": "energy-core",
-							"color": { "r": 0.7, "g": 0.95, "b": 1, "a": 1 },
-							"opacity": 0.95,
-							"density": 1,
-							"speckSize": 1
+							"generated": {
+								"id": "energy-core",
+								"color": { "r": 0.7, "g": 0.95, "b": 1, "a": 1 },
+								"opacity": 0.95,
+								"density": 1,
+								"speckSize": 1
+							},
+							"custom": []
 						},
 						"detail": {
 							"scatter": []
@@ -464,11 +488,14 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"textureID": "metal-panel",
-							"color": { "r": 0.6, "g": 0.9, "b": 1, "a": 1 },
-							"opacity": 1,
-							"density": 1,
-							"speckSize": 1
+							"generated": {
+								"id": "metal-panel",
+								"color": { "r": 0.6, "g": 0.9, "b": 1, "a": 1 },
+								"opacity": 1,
+								"density": 1,
+								"speckSize": 1
+							},
+							"custom": []
 						},
 						"detail": {
 							"scatter": []

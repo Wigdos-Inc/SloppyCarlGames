@@ -27,7 +27,7 @@ import characterData from "./characters.json" with { type: "json" };
 			part.localPosition = toUnitVector3(part.localPosition, "cnu");
 			part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
 			part.pivot = toUnitVector3(part.pivot, "cnu");
-			part.customTextures.forEach((ct) => {
+			part.texture.custom.forEach((ct) => {
 				ct.localTransform.position = toUnitVector3(ct.localTransform.position, "cnu");
 				ct.localTransform.rotation = new Unit(ct.localTransform.rotation, "degrees").toRadians(true);
 			});
@@ -176,7 +176,7 @@ async function InitializePlayer(payload, sceneGraph) {
 	if (!hasCustomParts) {
 		const imageLoads = [];
 		effectiveCharacter.model.parts.forEach((part) => {
-			part.customTextures.forEach((ct) => {
+			part.texture.custom.forEach((ct) => {
 				if (ct.decalType !== "image") return;
 				imageLoads.push(
 					NormalizeImage(new URL(ct.imagePath, import.meta.url).href, ct.sourceType, "webgl").then((result) => {
@@ -187,7 +187,7 @@ async function InitializePlayer(payload, sceneGraph) {
 		});
 		await Promise.all(imageLoads);
 		effectiveCharacter.model.parts.forEach((part) => {
-			part.customTextures = part.customTextures.filter((ct) => ct.decalType !== "image" || ct.bitmap !== null);
+			part.texture.custom = part.texture.custom.filter((ct) => ct.decalType !== "image" || ct.bitmap !== null);
 		});
 	}
 

@@ -32,9 +32,12 @@
                     "pivot": { "x": 0, "y": 0, "z": 0 },
                     "primitiveOptions": {},
                     "texture": {
-                        "textureID": "stone-block",
-                        "color": { "r": 0.68, "g": 0.72, "b": 0.78, "a": 1 },
-                        "opacity": 1
+                        "generated": {
+                            "id": "stone-block",
+                            "color": { "r": 0.68, "g": 0.72, "b": 0.78, "a": 1 },
+                            "opacity": 1
+                        },
+                        "custom": []
                     },
                     "detail": { "scatter": [] },
                     "collisionShape": "none",

@@ -184,7 +184,6 @@ function buildPart(source) {
 			role            : "entity-part",
 			collisionShape  : "none",
 			parentId        : source.parentId,
-			customTextures  : source.customTextures,
 		}
 	);
 
