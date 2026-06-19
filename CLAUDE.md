@@ -38,7 +38,7 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 
 - **`era`** — Engine Rules Auditor. Audits engine/v1/ for rule violations. Add "fixes authorized" to the prompt to allow edits; "rule updates authorized" to allow rule doc edits.
 - **`dryad`** — DRY Agent for Deduplication. Identifies duplication, unnecessary complexity, and performance issues. Add "implementation authorized" to allow edits.
-- **`ed`** — Engine Developer. Full implementation authority. Pass a concrete task description as the prompt.
+- **`ed`** — Engine Developer. Full implementation authority. Pass a concrete task description as the prompt. ED is hard-blocked from destructive or risky shell commands (git mutations like `checkout`/`reset`/`restore`, and bulk/in-place data rewrites or file deletes) — it returns any such operation to you with an explanation instead of running it. Prefer to perform risky data/JSON operations (reverts, wholesale transforms, deletions) yourself rather than delegating them to ED, and never ask ED to undo work via git.
 
 ### Skills — `Skill` tool, `skill: "<name>"`
 

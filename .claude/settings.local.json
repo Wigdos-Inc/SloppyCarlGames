@@ -94,7 +94,14 @@
       "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/builder/NewObject.js\")",
       "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('engine/v1/builder/templates/textures.json','utf8'\\)\\); console.log\\('JSON OK'\\)\")",
       "Bash(node --check \"engine/v1/builder/NewScatter.js\")",
-      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\builder\\\\NewVoid.js\")"
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\builder\\\\NewVoid.js\")",
+      "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/core/normalize.js\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('engine/v1/player/characters.json','utf8'\\)\\); console.log\\('JSON valid'\\)\")",
+      "Bash(node --check engine/v1/builder/NewScatter.js)",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('engine/v1/core/canonSchemas.json','utf8'\\)\\); console.log\\('canonSchemas OK'\\)\")",
+      "Bash(node --check engine/v1/builder/NewEntity.js)",
+      "Bash(node --check engine/v1/player/Model.js)",
+      "Bash(node --check engine/v1/core/validate.js)"
     ]
   }
 }
