@@ -1,0 +1,136 @@
+@keyframes simFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+#sim-overlay {
+    position: fixed;
+    inset: 0;
+    background: #0d0d0d;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    font-family: monospace;
+}
+
+#sim-overlay.sim-overlay--fade {
+    animation: simFadeIn 200ms ease forwards;
+}
+
+.sim-panel {
+    background: #1a1a1a;
+    color: #e8eaf0;
+    padding: 24px;
+    border-radius: 8px;
+    min-width: 360px;
+    max-width: 520px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-sizing: border-box;
+}
+
+.sim-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sim-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #a0a8b8;
+    cursor: pointer;
+    user-select: none;
+}
+
+.sim-toggle-label input[type="checkbox"] {
+    accent-color: #5b8dee;
+    cursor: pointer;
+}
+
+.sim-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #c8cfe0;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+label.sim-label {
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #7a8498;
+    display: block;
+    margin-bottom: -8px;
+}
+
+select,
+textarea {
+    background: #111318;
+    color: #e8eaf0;
+    font-family: monospace;
+    font-size: 13px;
+    border: 1px solid #2e3342;
+    border-radius: 4px;
+    padding: 8px 10px;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+select {
+    cursor: pointer;
+    appearance: auto;
+}
+
+select:focus,
+textarea:focus {
+    border-color: #5b8dee;
+}
+
+textarea {
+    min-height: 160px;
+    resize: vertical;
+}
+
+.sim-btn-row {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+}
+
+.sim-btn {
+    background: #222633;
+    color: #e8eaf0;
+    font-family: monospace;
+    font-size: 13px;
+    border: 1px solid #2e3342;
+    border-radius: 4px;
+    padding: 7px 16px;
+    cursor: pointer;
+    transition: background 120ms ease;
+}
+
+.sim-btn:hover {
+    background: #2c3347;
+}
+
+.sim-btn:active {
+    background: #333d55;
+}
+
+.sim-error {
+    color: #ff6b6b;
+    font-size: 12px;
+    white-space: pre-wrap;
+    display: none;
+    margin-top: -8px;
+}
