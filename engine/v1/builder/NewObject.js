@@ -465,13 +465,14 @@ function buildCylinder(size, complexity) {
 		pushVertex(startX, radius.y, startZ);
 		pushVertex(endX, radius.y, endZ);
 		pushVertex(endX, -radius.y, endZ);
+		const indexStart = indices.length;
 		indices.push(start, start + 1, start + 2);
 		indices.push(start, start + 2, start + 3);
 		const midAngle = startAngle + ((endAngle - startAngle) * 0.5);
 		faceGroups.push({
 			normal: { x: Math.cos(midAngle), y: 0, z: Math.sin(midAngle) },
 			vertexIndices: [start, start + 1, start + 2, start + 3],
-			indexStart: indices.length,
+			indexStart,
 			indexCount: 6,
 		});
 	}
