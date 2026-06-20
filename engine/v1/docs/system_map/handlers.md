@@ -14,13 +14,13 @@ Top-level state managers. Handlers orchestrate the lifecycle and update flow of 
 
 ### handlers/game/ (in-game state handlers)
 - `Level.js` — Level lifecycle and orchestration. The main game loop. Receives validated/normalized level payloads, builds the scene via `builder/NewLevel.js`, runs the per-frame update loop: player update, physics pipeline, enemy behavior, collectible pickups, camera update, entity animation, and rendering.
-- `Camera.js` — Camera state for levels and cutscenes. Manages position, target, FOV, and transition states. Exports `InitializeCameraState`, `UpdateCameraState`, `GetCameraVectors`.
+- `Camera.js` — Camera state for in-game levels. Two modes: **FreeCam** (debug only; requires both `CONFIG.DEBUG.ALL` and `CONFIG.DEBUG.LEVELS.FreeCam`; WASD/arrow-key flight, mouse look via pointer lock, scroll-wheel speed tuning via `applyTuningStep`, position persisted per level/stage key across same-session level visits) and **DefaultCam** (third-person orbit follow; yaw/pitch via mouse drag or arrow keys, obstruction detection against terrain/obstacles/void walls with smooth pull-in distance interpolation). `GetCameraVectors` returns the latest cached `{ forward, right }` for player movement orientation. Exports `InitializeCameraState`, `UpdateCameraState`, `HandleFreeCamInput`, `HandleDefaultCamInput`, `GetCameraVectors`.
 - `Animation.js` — Entity animation handler. Drives animation state transitions for non-player entities based on their current state each frame.
 - `Enemy.js` — Enemy behavior handler. Per-frame enemy AI and collision response.
 - `Collectible.js` — Collectible item behavior. Pickup detection and item state management.
 - `Boss.js` — Boss behavior handler.
 - `Simulator.js` — Simulator mode lifecycle and live scene preview orchestration. Integrated with Level.js via `IsSimulatorActive` and `UpdateSimulator`.
-- `Texture.js` — Custom texture loading onto scene meshes and per-frame animated texture frame updates.
+- `Texture.js` — Animated texture state manager. Per animated texture entry, tracks a hold/blend phase cycle: hold waits for `holdDurationMs`, then generates a new target surface (`BuildNoiseFaceCanvas` for face textures, `BuildTextureSurface` for all others) and blends alpha from the previous surface to the new one over `blendDurationMs`. Blend progress is written back to `textureEntry.source` each frame; `dirty` is set so the renderer re-uploads the canvas. `AddTextureAnimationEntries` registers newly spawned textures mid-session without reinitializing the whole map. Exports `InitializeTextureAnimation`, `UpdateTextureAnimation`, `AddTextureAnimationEntries`.
 
 ### handlers/menu/ (menu state handlers)
 - `Splash.js` — Splash screen sequence management. Coordinates with `Bootup.js` for the startup splash flow via `AcceptSplashPayload` and `ApplySplashScreenSequence`.
