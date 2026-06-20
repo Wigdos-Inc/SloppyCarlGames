@@ -265,11 +265,15 @@ async function ApplySplashScreenSequence(options) {
 	declineSplashPayload();
 
 	// Validate (and normalize) buffered splash payload.
-	let payload = ValidateSplashPayload(bufferedSplashPayload);
-	if (payload === null) {
-		Log("ENGINE", "Splash.ApplySplashScreenSequence falling back to default sequence after validation failure.", "error", "Startup");
-		payload = { outputType: "default", presetId: null, sequence: [] };
+	let payload;
+	if (!CONFIG.DEBUG.SKIP.Splash) {
+		payload = ValidateSplashPayload(bufferedSplashPayload);
+		if (payload === null) {
+			Log("ENGINE", "Splash.ApplySplashScreenSequence falling back to default sequence after validation failure.", "error", "Startup");
+			payload = { outputType: "default", presetId: null, sequence: [] };
+		}
 	}
+	else payload = { outputType: "default", presetId: null, sequence: [] };
 
 	// Start Sequence
 	options.onSequenceStart();

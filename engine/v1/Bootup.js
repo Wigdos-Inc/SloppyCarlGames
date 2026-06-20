@@ -170,7 +170,7 @@ async function runStartupSequence() {
       if (Cache.UI.startupUiAppliedResolve) Cache.UI.startupUiAppliedResolve(false);
       Cache.UI.startupUiAppliedResolve = null;
       resolve(false);
-    }, 2000);
+    }, 500);
   });
 
   await uiAppliedPromise;
