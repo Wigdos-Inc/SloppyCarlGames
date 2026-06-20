@@ -8,7 +8,7 @@
 
 import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js";
 import { RenderLevel, RemoveRoot, ClearLevelRenderer } from "../Render.js";
-import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS, ENTITY_TYPES } from "../../core/meta.js";
+import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS, ENTITY_TYPES, ReleasePointerLock } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
 import { Vector3Distance, LerpVector3, CloneVector3 } from "../../math/Vector3.js";
@@ -190,12 +190,14 @@ function ClearLevel(clearCache = true) {
 
 function PauseLevelLoop() {
 	if (levelLoop.paused) return;
+	ReleasePointerLock()
 	levelLoop.paused = true;
 	SendEvent("LEVEL_PAUSED", {});
 }
 
 function ResumeLevelLoop() {
 	if (!levelLoop.paused) return;
+	RequestPointerLock();
 	levelLoop.paused = false;
 	SendEvent("LEVEL_RESUMED", {});
 }

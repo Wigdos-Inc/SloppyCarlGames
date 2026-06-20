@@ -4,7 +4,7 @@
 // Returns ready to use Camera State
 
 import { CONFIG } from "../../core/config.js";
-import { EPSILON, IsPointerLocked, Log, RequestPointerLock } from "../../core/meta.js";
+import { EPSILON, IsPointerLocked, Log, ReleasePointerLock, RequestPointerLock } from "../../core/meta.js";
 import {
 	AddVector3,
 	SubtractVector3,
@@ -76,6 +76,13 @@ const defaultCamRuntime = {
 	targetDistance: distanceDefaults.defaultCamTargetDistance.clone(),
 	lookDeltaX: 0,
 	lookDeltaY: 0,
+	arrowKeyState: {
+		ArrowLeft: false,
+		ArrowRight: false,
+		ArrowUp: false,
+		ArrowDown: false,
+	},
+	arrowKeySpeed: 90,
 	obstructionLogged: false,
 	config: {
 		distance: distanceDefaults.defaultCamDistance.clone(),
@@ -175,13 +182,6 @@ function applyTuningStep(step) {
 	);
 }
 
-function releasePointerLock() {
-	if (!IsPointerLocked()) return true;
-	document.exitPointerLock();
-	Log("ENGINE", "FreeCam pointer lock released.", "log", "Level");
-	return true;
-}
-
 function applyLookInput(cameraState, movementX, movementY) {
 	cameraState.yaw += movementX * freeCamRuntime.moveSensitivity;
 	cameraState.pitch = Clamp(
@@ -200,7 +200,7 @@ function HandleFreeCamInput(eventLike) {
 		case "wheel"      : freeCamRuntime.wheelDelta += eventLike.deltaY; return true;
 		case "keydown"    :
 			if (eventLike.code === "Escape") {
-				releasePointerLock();
+				ReleasePointerLock();
 				return true;
 			}
 			if (eventLike.code in freeCamRuntime.keyState) {
@@ -226,10 +226,10 @@ function HandleFreeCamInput(eventLike) {
 function getMoveDirectionFromKeys(cameraState) {
 	let direction = ToVector3(0);
 	const keyState = freeCamRuntime.keyState;
-	if (keyState.KeyW || keyState.ArrowUp) direction = AddVector3(direction, cameraState.forward);
-	if (keyState.KeyS || keyState.ArrowDown) direction = AddVector3(direction, ScaleVector3(cameraState.forward, -1));
-	if (keyState.KeyD || keyState.ArrowRight) direction = AddVector3(direction, cameraState.right);
-	if (keyState.KeyA || keyState.ArrowLeft) direction = AddVector3(direction, ScaleVector3(cameraState.right, -1));
+	if (keyState.KeyW) direction = AddVector3(direction, cameraState.forward);
+	if (keyState.KeyS) direction = AddVector3(direction, ScaleVector3(cameraState.forward, -1));
+	if (keyState.KeyD) direction = AddVector3(direction, cameraState.right);
+	if (keyState.KeyA) direction = AddVector3(direction, ScaleVector3(cameraState.right, -1));
 	if (keyState.Space) direction = AddVector3(direction, WORLD_NORMALS.Up);
 	if (keyState.ShiftLeft || keyState.ShiftRight) direction = AddVector3(direction, ScaleVector3(WORLD_NORMALS.Up, -1));
 
@@ -241,6 +241,14 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 	if (freeCamRuntime.lookDeltaX !== 0 || freeCamRuntime.lookDeltaY !== 0) {
 		applyLookInput(cameraState, freeCamRuntime.lookDeltaX, freeCamRuntime.lookDeltaY);
 	}
+
+	// Apply arrow key rotation.
+	const ks = freeCamRuntime.keyState;
+	const arrowSpeed = 90 * deltaSeconds;
+	if (ks.ArrowLeft)  cameraState.yaw -= arrowSpeed;
+	if (ks.ArrowRight) cameraState.yaw += arrowSpeed;
+	if (ks.ArrowUp)    cameraState.pitch = Clamp(cameraState.pitch + arrowSpeed, -pitchClampDegrees, pitchClampDegrees);
+	if (ks.ArrowDown)  cameraState.pitch = Clamp(cameraState.pitch - arrowSpeed, -pitchClampDegrees, pitchClampDegrees);
 
 	if (freeCamRuntime.wheelDelta !== 0) {
 		applyTuningStep(freeCamRuntime.tuningStep + (freeCamRuntime.wheelDelta < 0 ? 1 : -1));
@@ -284,6 +292,7 @@ function initializeDefaultCamConfig(cameraConfig) {
 	defaultCamRuntime.pitch = -15;
 	defaultCamRuntime.lookDeltaX = 0;
 	defaultCamRuntime.lookDeltaY = 0;
+	Object.keys(defaultCamRuntime.arrowKeyState).forEach(key => { defaultCamRuntime.arrowKeyState[key] = false; });
 	defaultCamRuntime.active = true;
 
 	Log(
@@ -297,9 +306,16 @@ function initializeDefaultCamConfig(cameraConfig) {
 function HandleDefaultCamInput(eventLike) {
 	switch (eventLike.type) {
 		case "pointerdown": if (RequestPointerLock()) Log("ENGINE", "DefaultCam pointer lock requested.", "log", "Level"); return true;
-		case "keydown"    :
-			if (eventLike.code === "Escape") {
-				releasePointerLock();
+		case "keydown":
+			if (eventLike.code === "Escape") { ReleasePointerLock(); return true; }
+			if (eventLike.code in defaultCamRuntime.arrowKeyState) {
+				defaultCamRuntime.arrowKeyState[eventLike.code] = true;
+				return true;
+			}
+			return false;
+		case "keyup":
+			if (eventLike.code in defaultCamRuntime.arrowKeyState) {
+				defaultCamRuntime.arrowKeyState[eventLike.code] = false;
 				return true;
 			}
 			return false;
@@ -377,6 +393,14 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 		defaultCamRuntime.lookDeltaX = 0;
 		defaultCamRuntime.lookDeltaY = 0;
 	}
+
+	// Apply arrow key rotation.
+	const arrowKeys = defaultCamRuntime.arrowKeyState;
+	const arrowSpeed = defaultCamRuntime.arrowKeySpeed * deltaSeconds;
+	if (arrowKeys.ArrowLeft)  defaultCamRuntime.yaw -= arrowSpeed;
+	if (arrowKeys.ArrowRight) defaultCamRuntime.yaw += arrowSpeed;
+	if (arrowKeys.ArrowUp)    defaultCamRuntime.pitch = Clamp(defaultCamRuntime.pitch + arrowSpeed, cfg.minPitch, cfg.maxPitch);
+	if (arrowKeys.ArrowDown)  defaultCamRuntime.pitch = Clamp(defaultCamRuntime.pitch - arrowSpeed, cfg.minPitch, cfg.maxPitch);
 
 	// Player position is a CNU UnitVector3 — access components directly.
 	const playerPos = playerState.transform.position;

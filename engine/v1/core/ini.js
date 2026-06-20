@@ -6,7 +6,7 @@
 /* === IMPORTS === */
 // Core diagnostics and logging support.
 
-import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey } from "./meta.js";
+import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey, ReleasePointerLock } from "./meta.js";
 import { CONFIG as Config } from "./config.js";
 import { ApplyMenuUI, LoadScreen, ClearUI } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
@@ -33,7 +33,7 @@ function Initialize() {
   Log("ENGINE", "Initializing ENGINE API.", "log", "Startup");
   
   // Start global input routing.
-  const inputRouter = StartInputRouter();
+  const Router = StartInputRouter();
 
   // Expose the engine public API surface.
   return {
@@ -41,15 +41,12 @@ function Initialize() {
     Config,
     Cache,
     Meta: {
-      LogAll, LogCache, Cursor, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
+      LogAll, LogCache, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
       SessionKey,
       CNU_SCALE
     },
     Controls,
-    Input: {
-      Router: inputRouter,
-      StartInputRouter,
-    },
+    Input: { Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, },
     Cutscene: { PlayEngineCutscene, PlayRenderedCutscene },
     Startup: { ProvideSplashScreenPayload },
     UI: { ApplyMenuUI, LoadScreen, ClearUI },

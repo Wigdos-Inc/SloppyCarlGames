@@ -84,6 +84,13 @@ function RequestPointerLock(targetElement) {
   return true;
 }
 
+function ReleasePointerLock() {
+	if (!IsPointerLocked()) return true;
+	document.exitPointerLock();
+	Log("ENGINE", "FreeCam pointer lock released.", "log", "Level");
+	return true;
+}
+
 /* === DEBUG CHECKS === */
 // Gate logging based on debug flags.
 function resolveControlsSubtypeFromMessage(message) {
@@ -338,6 +345,7 @@ export {
   Wait,
   IsPointerLocked,
   RequestPointerLock,
+  ReleasePointerLock,
   Cache,
   Cursor,
   ExitGame,

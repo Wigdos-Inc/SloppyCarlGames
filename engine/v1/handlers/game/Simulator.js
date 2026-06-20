@@ -64,7 +64,7 @@ function buildSimulatorHud() {
 			{
 				type: "div", id: "sim-hud-controls",
 				attributes: {}, styles: controlBarStyles, events: {}, on: {},
-				text: "[W] Next Anim   [S] Prev Anim   [Mouse] Orbit   [Esc] Exit",
+				text: "[W] Next Anim   [S] Prev Anim   [Mouse/Arrows] Camera Orbit   [Esc x2] Exit",
 				children: [],
 			},
 		],

@@ -101,7 +101,8 @@
       "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('engine/v1/core/canonSchemas.json','utf8'\\)\\); console.log\\('canonSchemas OK'\\)\")",
       "Bash(node --check engine/v1/builder/NewEntity.js)",
       "Bash(node --check engine/v1/player/Model.js)",
-      "Bash(node --check engine/v1/core/validate.js)"
+      "Bash(node --check engine/v1/core/validate.js)",
+      "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/handlers/game/Camera.js\")"
     ]
   }
 }
