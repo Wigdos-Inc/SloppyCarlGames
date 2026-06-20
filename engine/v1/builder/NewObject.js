@@ -1052,7 +1052,10 @@ function BuildObject(source) {
 	// blueprint-backed meshes carry a frequency pattern and get UV-scaled.
 	const frequencyConfigKey = textureBlueprint === undefined ? undefined : frequencyPatternConfig[textureBlueprint.pattern];
 	if (frequencyConfigKey !== undefined) {
-		mesh.geometry.uvs.forEach(uv => uv *= texture.density * CONFIG.RENDERING.Texture[frequencyConfigKey].Density);
+		// Compose the basis (blueprint) with the global config and the per-part scalar, matching the
+		// noise path: visible periods per CNU = blueprint.density × cfg.Density × part.density.
+		const uvScale = textureBlueprint.density * CONFIG.RENDERING.Texture[frequencyConfigKey].Density * texture.density;
+		for (let i = 0; i < mesh.geometry.uvs.length; i++) mesh.geometry.uvs[i] *= uvScale;
 	}
 
 	return { mesh, faceTextures: [] };

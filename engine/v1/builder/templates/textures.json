@@ -45,7 +45,7 @@
             "size": 64,
             "pattern": "stripes",
             "animation": { "able": false, "holdTime": 2, "blendTime": 1 },
-            "density": 4,
+            "density": 1,
             "speckSize": 1,
             "primary": "#8a9ba9",
             "secondary": "#5f6d7d"

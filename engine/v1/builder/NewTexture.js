@@ -71,9 +71,10 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			if (cellCount === 0) return;
 			const cellSize  = size / cellCount;
 			const blockSize = Math.max(1, Math.floor(cellSize * textureDefinition.speckSize * cfg.SpeckSize));
+			const inset     = (cellSize - blockSize) / 2;
 			ctx.fillStyle = secondary;
 			for (let xi = 0; xi < cellCount; xi++) for (let yi = 0; yi < cellCount; yi++) {
-				ctx.fillRect(Math.round(xi * cellSize), Math.round(yi * cellSize), blockSize, blockSize);
+				ctx.fillRect(Math.round(xi * cellSize + inset), Math.round(yi * cellSize + inset), blockSize, blockSize);
 			}
 			return;
 		}
@@ -114,24 +115,31 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			return;
 		}
 		case "grid": {
-			const cfg           = CONFIG.RENDERING.Texture.Grid;
-			const pairsPerRow   = periods;
-			if (pairsPerRow === 0) return;
-			const pairSize      = size / pairsPerRow;
-			const effSpeckSize  = textureDefinition.speckSize * cfg.SpeckSize;
-			const offBlockSize  = Math.max(1, Math.floor(pairSize * effSpeckSize / (1 + effSpeckSize)));
-			const baseBlockSize = Math.max(1, Math.floor(pairSize - offBlockSize));
-			ctx.fillStyle = secondary;
-			let y = 0;
-			for (let row = 0; y < size; row++) {
-				const rowH = row % 2 === 0 ? baseBlockSize : offBlockSize;
-				let x = 0;
-				for (let col = 0; x < size; col++) {
-					const colW = col % 2 === 0 ? baseBlockSize : offBlockSize;
-					if ((row + col) % 2 === 0) ctx.fillRect(x, Math.round(y), colW, rowH);
-					x += colW;
+			// Checkerboard of off-colored squares (the star) on a fixed checker lattice (cell = pitch/2).
+			// The square side scales LINEARLY with the speckSize ratio: speckSize 1 fills the cell
+			// exactly (clean 50/50 checker), speckSize 2 doubles the side so squares overlap their
+			// neighbours and base shrinks to the diamond gaps. Overlap is what lets the checker structure
+			// and real speckSize scaling coexist. Squares are centered on off cells and wrap for tiling.
+			const cfg         = CONFIG.RENDERING.Texture.Grid;
+			const cellsPerRow = periods;
+			if (cellsPerRow === 0) return;
+			const cell      = size / (cellsPerRow * 2);
+			const ratio     = textureDefinition.speckSize * cfg.SpeckSize;
+			const blockSize = Math.max(1, Math.round(cell * ratio));
+			const drawWrapped = (cx, cy) => {
+				const x0 = cx - blockSize / 2;
+				const y0 = cy - blockSize / 2;
+				for (const dx of [-size, 0, size]) for (const dy of [-size, 0, size]) {
+					const x = x0 + dx, y = y0 + dy;
+					if (x + blockSize <= 0 || x >= size || y + blockSize <= 0 || y >= size) continue;
+					ctx.fillRect(Math.round(x), Math.round(y), blockSize, blockSize);
 				}
-				y += rowH;
+			};
+			ctx.fillStyle = secondary;
+			const cellsTotal = cellsPerRow * 2;
+			for (let j = 0; j < cellsTotal; j++) for (let i = 0; i < cellsTotal; i++) {
+				if ((i + j) % 2 !== 0) continue;
+				drawWrapped((i + 0.5) * cell, (j + 0.5) * cell);
 			}
 			return;
 		}
