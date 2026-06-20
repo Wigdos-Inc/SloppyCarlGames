@@ -95,6 +95,16 @@ function updateSliderVisual(targetId, value) {
 	}
 }
 
+function updateSensitivitySliderVisual(targetId, value) {
+	const input = document.getElementById(targetId);
+	if (!input) return;
+	const stepped = Math.round(clamp(value, 0, 100) / 5) * 5;
+	input.value = String(stepped);
+	input.style.background = buildSliderGradient(stepped);
+	const percentElement = document.getElementById(`${targetId}-percent`);
+	if (percentElement) percentElement.textContent = `${stepped}%`;
+}
+
 function updateToggleVisual(toggleId, isOn) {
 	const toggle = document.getElementById(toggleId);
 	if (!toggle) {
@@ -143,12 +153,14 @@ function getSettingsSnapshot() {
 	let volume = null;
 	let debug = null;
 	let skip = null;
+	let camera = null;
 	try {
 		const cfg = window.engineOptional('Config');
 		if (cfg) {
 			volume = cfg.VOLUME;
 			debug = cfg.DEBUG;
 			skip = debug && debug.SKIP ? debug.SKIP : null;
+			camera = cfg.CAMERA;
 		}
 	} catch (e) {
 		// leave defaults if config isn't present
@@ -163,6 +175,8 @@ function getSettingsSnapshot() {
 		cutscene: volume ? volume.Cutscene : 1,
 		skipIntro: skip ? skip.Intro : false,
 		debugMode: debug ? debug.ALL : false,
+		mouseSensitivity: camera && camera.Sensitivity ? camera.Sensitivity.Mouse : 50,
+		keyboardSensitivity: camera && camera.Sensitivity ? camera.Sensitivity.Keyboard : 50,
 	};
 }
 
@@ -180,6 +194,9 @@ function syncSettingsUi(settings) {
 
 	updateToggleVisual("setting-skip-intro", Boolean(settings.skipIntro));
 	updateToggleVisual("setting-debug-mode", Boolean(settings.debugMode));
+
+	updateSensitivitySliderVisual("setting-sensitivity-mouse", settings.mouseSensitivity ?? 50);
+	updateSensitivitySliderVisual("setting-sensitivity-keyboard", settings.keyboardSensitivity ?? 50);
 }
 
 function applySettings(settings) {
@@ -199,6 +216,12 @@ function applySettings(settings) {
 	const debug = cfg.DEBUG;
 	if (debug && debug.SKIP && typeof settings.skipIntro === "boolean") debug.SKIP.Intro = settings.skipIntro;
 	if (debug && typeof settings.debugMode === "boolean") debug.ALL = settings.debugMode;
+
+	const camera = cfg.CAMERA;
+	if (camera && camera.Sensitivity) {
+		if (typeof settings.mouseSensitivity === "number") camera.Sensitivity.Mouse = settings.mouseSensitivity;
+		if (typeof settings.keyboardSensitivity === "number") camera.Sensitivity.Keyboard = settings.keyboardSensitivity;
+	}
 
 	try {
 		window.engineCall('Audio.UpdateActiveAudioVolumes');
@@ -287,6 +310,8 @@ function handleSettingsInput(payload) {
 		cutscene: 1,
 		skipIntro: true,
 		debugMode: true,
+		mouseSensitivity: 50,
+		keyboardSensitivity: 50,
 	};
 
 	const value = typeof payload.value === "string" ? Number(payload.value) : payload.value;
@@ -359,6 +384,20 @@ function handleSettingsInput(payload) {
 		changedKey = "debugMode";
 		changedValue = settings.debugMode;
 		updateToggleVisual("setting-debug-mode", settings.debugMode);
+	}
+	if (resolvedTargetId === "setting-sensitivity-mouse" && typeof value === "number") {
+		const stepped = Math.round(clamp(value, 0, 100) / 5) * 5;
+		settings.mouseSensitivity = stepped;
+		changedKey = "mouseSensitivity";
+		changedValue = stepped;
+		updateSensitivitySliderVisual("setting-sensitivity-mouse", stepped);
+	}
+	if (resolvedTargetId === "setting-sensitivity-keyboard" && typeof value === "number") {
+		const stepped = Math.round(clamp(value, 0, 100) / 5) * 5;
+		settings.keyboardSensitivity = stepped;
+		changedKey = "keyboardSensitivity";
+		changedValue = stepped;
+		updateSensitivitySliderVisual("setting-sensitivity-keyboard", stepped);
 	}
 
 	if (!changedKey) {

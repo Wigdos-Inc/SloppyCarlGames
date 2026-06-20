@@ -47,14 +47,10 @@ function loadSettings() {
 }
 
 function applySettingsToPayload(payload) {
-	if (!payload || payload.screenId !== "Settings") {
-		return;
-	}
+	if (!payload || payload.screenId !== "Settings") return;
 
 	const settings = loadSettings();
-	if (!settings || !Array.isArray(payload.elements)) {
-		return;
-	}
+	if (!settings || !Array.isArray(payload.elements)) return;
 
 	const applyValue = (definitions) => {
 		definitions.forEach((definition) => {
@@ -77,6 +73,12 @@ function applySettingsToPayload(payload) {
 						break;
 					case "setting-cutscenes-volume":
 						definition.value = String(settings.cutscene ?? definition.value ?? 0.5);
+						break;
+					case "setting-sensitivity-mouse":
+						definition.value = String(settings.mouseSensitivity ?? definition.value ?? 50);
+						break;
+					case "setting-sensitivity-keyboard":
+						definition.value = String(settings.keyboardSensitivity ?? definition.value ?? 50);
 						break;
 					default:
 						break;

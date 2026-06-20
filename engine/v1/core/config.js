@@ -122,7 +122,10 @@ const CONFIG = {
       damageInflicted: false,
     }
   },
-  CAMERA: { Fov: 60 },
+  CAMERA: { 
+    Fov: 60,
+    Sensitivity: { Mouse: 40, Keyboard: 50 },
+  },
   RENDERING: {
     Texture: {
       Noise  : { Density: 1, SpeckSize: 2 },

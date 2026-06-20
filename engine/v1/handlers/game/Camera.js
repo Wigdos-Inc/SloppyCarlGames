@@ -59,7 +59,6 @@ const freeCamRuntime = {
 		ShiftLeft: false,
 		ShiftRight: false,
 	},
-	moveSensitivity: 0.12,
 	tuningStep: 0,
 	acceleration: distanceDefaults.freeCamAcceleration.clone(),
 	dampingFactor: 0.12,
@@ -82,11 +81,10 @@ const defaultCamRuntime = {
 		ArrowUp: false,
 		ArrowDown: false,
 	},
-	arrowKeySpeed: 90,
 	obstructionLogged: false,
 	config: {
 		distance: distanceDefaults.defaultCamDistance.clone(),
-		sensitivity: 0.12,
+		sensitivity: CONFIG.CAMERA.Sensitivity.Mouse * 0.0024,
 		heightOffset: distanceDefaults.defaultCamHeightOffset.clone(),
 		minPitch: -60,
 		maxPitch: 60,
@@ -183,9 +181,9 @@ function applyTuningStep(step) {
 }
 
 function applyLookInput(cameraState, movementX, movementY) {
-	cameraState.yaw += movementX * freeCamRuntime.moveSensitivity;
+	cameraState.yaw += movementX * CONFIG.CAMERA.Sensitivity.Mouse * 0.0024;
 	cameraState.pitch = Clamp(
-		cameraState.pitch - movementY * freeCamRuntime.moveSensitivity,
+		cameraState.pitch - movementY * CONFIG.CAMERA.Sensitivity.Mouse * 0.0024,
 		-pitchClampDegrees,
 		pitchClampDegrees
 	);
@@ -244,9 +242,9 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 
 	// Apply arrow key rotation.
 	const ks = freeCamRuntime.keyState;
-	const arrowSpeed = 90 * deltaSeconds;
-	if (ks.ArrowLeft)  cameraState.yaw -= arrowSpeed;
-	if (ks.ArrowRight) cameraState.yaw += arrowSpeed;
+	const arrowSpeed = CONFIG.CAMERA.Sensitivity.Keyboard * 1.8 * deltaSeconds;
+	if (ks.ArrowLeft)  cameraState.yaw += arrowSpeed;
+	if (ks.ArrowRight) cameraState.yaw -= arrowSpeed;
 	if (ks.ArrowUp)    cameraState.pitch = Clamp(cameraState.pitch + arrowSpeed, -pitchClampDegrees, pitchClampDegrees);
 	if (ks.ArrowDown)  cameraState.pitch = Clamp(cameraState.pitch - arrowSpeed, -pitchClampDegrees, pitchClampDegrees);
 
@@ -257,10 +255,9 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 	updateOrientationVectors(cameraState);
 
 	const inputDirection = getMoveDirectionFromKeys(cameraState);
+	const accel = freeCamRuntime.acceleration.value * deltaSeconds;
 	if (Vector3Length(inputDirection) > EPSILON) {
-		cameraState.velocity.set(
-			AddVector3(cameraState.velocity, ScaleVector3(inputDirection, freeCamRuntime.acceleration.value * deltaSeconds))
-		);
+		cameraState.velocity.set(AddVector3(cameraState.velocity, ScaleVector3(inputDirection, accel)));
 	}
 	else cameraState.velocity.scale(Math.pow(freeCamRuntime.dampingFactor, deltaSeconds * 60));
 
@@ -284,7 +281,7 @@ function updateFreeCamState(cameraState, deltaSeconds) {
 
 function initializeDefaultCamConfig(cameraConfig) {
 	defaultCamRuntime.config.distance.value = cameraConfig.distance.value;
-	defaultCamRuntime.config.sensitivity = cameraConfig.sensitivity;
+	defaultCamRuntime.config.sensitivity = CONFIG.CAMERA.Sensitivity.Mouse * 0.0024;
 	defaultCamRuntime.config.heightOffset.value = cameraConfig.heightOffset.value;
 	defaultCamRuntime.currentDistance.value = defaultCamRuntime.config.distance.value;
 	defaultCamRuntime.targetDistance.value = defaultCamRuntime.config.distance.value;
@@ -396,11 +393,11 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 
 	// Apply arrow key rotation.
 	const arrowKeys = defaultCamRuntime.arrowKeyState;
-	const arrowSpeed = defaultCamRuntime.arrowKeySpeed * deltaSeconds;
-	if (arrowKeys.ArrowLeft)  defaultCamRuntime.yaw -= arrowSpeed;
-	if (arrowKeys.ArrowRight) defaultCamRuntime.yaw += arrowSpeed;
-	if (arrowKeys.ArrowUp)    defaultCamRuntime.pitch = Clamp(defaultCamRuntime.pitch + arrowSpeed, cfg.minPitch, cfg.maxPitch);
-	if (arrowKeys.ArrowDown)  defaultCamRuntime.pitch = Clamp(defaultCamRuntime.pitch - arrowSpeed, cfg.minPitch, cfg.maxPitch);
+	const arrowSpeed = CONFIG.CAMERA.Sensitivity.Keyboard * 1.8 * deltaSeconds;
+	if (arrowKeys.ArrowLeft)  defaultCamRuntime.yaw += arrowSpeed;
+	if (arrowKeys.ArrowRight) defaultCamRuntime.yaw -= arrowSpeed;
+	if (arrowKeys.ArrowUp)    defaultCamRuntime.pitch = Clamp(defaultCamRuntime.pitch - arrowSpeed, cfg.minPitch, cfg.maxPitch);
+	if (arrowKeys.ArrowDown)  defaultCamRuntime.pitch = Clamp(defaultCamRuntime.pitch + arrowSpeed, cfg.minPitch, cfg.maxPitch);
 
 	// Player position is a CNU UnitVector3 — access components directly.
 	const playerPos = playerState.transform.position;
