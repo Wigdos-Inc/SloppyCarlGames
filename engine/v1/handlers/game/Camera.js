@@ -196,7 +196,7 @@ function HandleFreeCamInput(eventLike) {
 	if (!freeCamEnabled) return false;
 
 	switch (eventLike.type) {
-		case "pointerdown": if (RequestPointerLock()) Log("ENGINE", "FreeCam pointer lock requested.", "log", "Level"); return true;
+		case "pointerdown": if (RequestPointerLock()) return true;
 		case "wheel"      : freeCamRuntime.wheelDelta += eventLike.deltaY; return true;
 		case "keydown"    :
 			if (eventLike.code === "Escape") {
@@ -306,7 +306,7 @@ function initializeDefaultCamConfig(cameraConfig) {
 
 function HandleDefaultCamInput(eventLike) {
 	switch (eventLike.type) {
-		case "pointerdown": if (RequestPointerLock()) Log("ENGINE", "DefaultCam pointer lock requested.", "log", "Level"); return true;
+		case "pointerdown": if (RequestPointerLock()) return true;
 		case "keydown":
 			if (eventLike.code === "Escape") { ReleasePointerLock(); return true; }
 			if (eventLike.code in defaultCamRuntime.arrowKeyState) {

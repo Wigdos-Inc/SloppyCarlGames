@@ -193,6 +193,7 @@ function buildPart(source) {
 		parentId       : source.parentId,
 		anchorPoint    : source.anchorPoint,
 		attachmentPoint: source.attachmentPoint,
+		addsToBounds   : source.addsToBounds,
 		children: [],
 		localTransform: {
 			position: source.localPosition,
@@ -351,6 +352,7 @@ function computeEntityAabb(model) {
 	const max = ToVector3(-Infinity);
 
 	model.parts.forEach((part) => {
+		if (part.addsToBounds === false) return;
 		const mesh = part.mesh;
 		const bounds = mesh.worldAabb;
 
@@ -405,6 +407,7 @@ function computeSphereFromAabb(aabb) {
 function computeCompoundSpheresFromModel(model) {
 	const spheres = [];
 	model.parts.forEach((part) => {
+		if (part.addsToBounds === false) return;
 		const sphere = computeSphereFromAabb(part.mesh.worldAabb);
 		spheres.push({
 			center: sphere.center,

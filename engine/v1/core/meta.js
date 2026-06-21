@@ -81,13 +81,14 @@ const IsPointerLocked = () => Boolean(document.pointerLockElement);
 function RequestPointerLock(targetElement) {
   const element = targetElement || document.getElementById("engine-level-root-canvas") || document.body;
   element.requestPointerLock()?.catch(() => {});
+  Log("ENGINE", "Pointer lock requested.", "log", "Meta")
   return true;
 }
 
 function ReleasePointerLock() {
 	if (!IsPointerLocked()) return true;
 	document.exitPointerLock();
-	Log("ENGINE", "FreeCam pointer lock released.", "log", "Level");
+	Log("ENGINE", "Pointer lock released.", "log", "Meta");
 	return true;
 }
 

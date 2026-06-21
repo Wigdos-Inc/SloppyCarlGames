@@ -1313,7 +1313,8 @@
       "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
       "custom": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
     },
-    "detail": { "__meta": { "description": "Part detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
+    "detail": { "__meta": { "description": "Part detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+    "addsToBounds": { "__meta": { "description": "Whether this part contributes to the entity AABB", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } }
   },
   "levelCustomTexture": {
     "id":         { "__meta": { "description": "Decal id (animation targeting)", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "deprecated": false } },
