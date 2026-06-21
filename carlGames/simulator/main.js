@@ -7,7 +7,7 @@ StartEngine();
 ENGINE.Config.DEBUG.SKIP.Splash = true;
 ENGINE.Config.DEBUG.SKIP.Intro  = true;
 
-const { Start, Load, Clear, Exit, Cache } = ENGINE.Simulator;
+const { Start, Load, Clear, Exit, Cache, GetModelState, GetFullState } = ENGINE.Simulator;
 window.load = Load;
 
 // ── Entity registry ──────────────────────────────────────────────────────────
@@ -17,9 +17,12 @@ try   { userEntities = JSON.parse(localStorage.getItem("entities") ?? "[]") ?? [
 catch { userEntities = []; }
 
 const entityRegistry = [...new Map(
-    [...jsonEntities, ...userEntities].map(e => [e.definition.id, e])
+    [...jsonEntities, ...userEntities].map(e => [e.id, { objectType: e.type, definition: e }])
 ).values()];
 Cache(entityRegistry);
+
+// Debug
+window.entity = entityRegistry[0].definition;
 
 // ── Session ──────────────────────────────────────────────────────────────────
 
@@ -80,12 +83,8 @@ function validateEntry(v) {
         errors.push("Root must be a JSON object.");
         return errors;
     }
-    if (typeof v.objectType !== "string") errors.push("objectType: must be a string.");
-    if (typeof v.definition !== "object" || v.definition === null || Array.isArray(v.definition)) {
-        errors.push("definition: must be an object.");
-    } else if (typeof v.definition.id !== "string" || v.definition.id.trim() === "") {
-        errors.push("definition.id: must be a non-empty string.");
-    }
+    if (typeof v.type !== "string") errors.push("type: must be a string.");
+    if (typeof v.id !== "string" || v.id.trim() === "") errors.push("id: must be a non-empty string.");
     return errors;
 }
 
@@ -105,7 +104,7 @@ function handleEdit() {
     if (!id) return;
     const entry = entityRegistry.find(e => e.definition.id === id);
     if (!entry) return;
-    textareaEl.value = JSON.stringify(entry, null, 2);
+    textareaEl.value = JSON.stringify(entry.definition, null, 2);
     setError("");
 }
 
@@ -121,15 +120,13 @@ async function handleLoadJson() {
         return;
     }
 
-    const { definition, objectType } = parsed;
-
     const cacheErrors = [];
     const originalConsoleError = console.error;
     console.error = (...args) => {
         if (typeof args[0] === "string" && args[0].includes("[Validation]")) cacheErrors.push(args[1] ?? args[0]);
         originalConsoleError.apply(console, args);
     };
-    await Cache([{ definition, objectType }]);
+    await Cache([{ objectType: parsed.type, definition: parsed }]);
     console.error = originalConsoleError;
 
     if (cacheErrors.length > 0) {
@@ -137,18 +134,20 @@ async function handleLoadJson() {
         return;
     }
 
-    await Load({ id: definition.id });
+    await Load({ id: parsed.id });
 
-    const existingIndex = entityRegistry.findIndex(e => e.definition.id === definition.id);
-    if (existingIndex !== -1) entityRegistry[existingIndex] = { definition, objectType };
-    else entityRegistry.push({ definition, objectType });
+    const existingIndex = entityRegistry.findIndex(e => e.definition.id === parsed.id);
+    if (existingIndex !== -1) entityRegistry[existingIndex] = { objectType: parsed.type, definition: parsed };
+    else entityRegistry.push({ objectType: parsed.type, definition: parsed });
 
-    userEntities = entityRegistry.filter(e => !jsonEntities.includes(e));
+    userEntities = entityRegistry
+        .filter(e => !jsonEntities.some(j => j.id === e.definition.id))
+        .map(e => e.definition);
     localStorage.setItem("entities", JSON.stringify(userEntities));
     refreshDropdown();
-    selectEl.value = definition.id;
+    selectEl.value = parsed.id;
 
-    ENGINE.Meta.PushToSession(sessionKey, { lastEntityId: definition.id });
+    ENGINE.Meta.PushToSession(sessionKey, { lastEntityId: parsed.id });
     somethingLoaded = true;
     hideOverlay();
 }
