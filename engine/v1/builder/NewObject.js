@@ -600,7 +600,7 @@ function buildCapsule(size, complexity) {
 	for (let ring = 0; ring < rings.length - 1; ring++) {
 		for (let index = 0; index < segments; index++) {
 			const a = rings[ring].start + index;
-			const b = rings[ring].start + index++;
+			const b = rings[ring].start + index + 1;
 			const c = rings[ring + 1].start + index;
 			const d = rings[ring + 1].start + index + 1;
 
