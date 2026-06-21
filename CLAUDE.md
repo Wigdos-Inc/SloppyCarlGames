@@ -44,6 +44,7 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 
 - **`argus`** — Automated Runtime Game-testing & User Simulation. Browser-based testing via MCP chrome-devtools. Invoked by main Claude after ED completes — never by ED itself.
 - **`sage`** — System Analysis for Game Engines. Designated as 'engine librarian'. Writes and maintains engine documentation (`system_map/`, `structure.txt`, rule doc descriptive content). Also answers Q&A questions about the engine. Invoke with a question, `init map`, or `update map for <system>`.
+- **`rigor`** — Rig Iteration & Geometric Output Review. Authors and edits entity/character model JSON, then visually verifies the result in the Simulator App. Runs inline, retaining full context across iteration passes. Invoke when entity model JSON needs to be authored, adjusted, or visually inspected.
 
 ## Autonomous Agent and Skill Use
 
@@ -56,6 +57,7 @@ Use judgment — small fixes, debugging, and code migrations do not warrant agen
 - **ERA** — When the task involves rule adherence, compliance review, or you are uncertain whether a change satisfies engine rules. Invoke via `Agent` tool with `subagent_type: "era"`. Large additions or refactors should always be reviewed.
 - **ARGUS** — When browser-based verification is needed (changes that may cause runtime errors, behavioral changes, or visual changes). Invoke via `Skill` tool with `skill: "argus"`. Invoked by main Claude after ED's turn ends — never by ED itself. See post-ED rules below.
 - **SAGE** — When researching systems in the codebase. Invoke via `Skill` tool with `skill: "sage"`. Invoked by main Claude during codebase exploration.
+- **RIGOR** — When entity/character model JSON needs to be authored, iterated on, or visually verified in the Simulator App. Invoke via `Skill` tool with `skill: "rigor"`.
 
 **Post-ED audit requirement:**
 
