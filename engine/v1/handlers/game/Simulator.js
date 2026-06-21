@@ -72,10 +72,11 @@ function buildSimulatorHud() {
 }
 
 function updateSimulatorHudTarget(definition, objectType, entity) {
+	const parts = entity !== null ? entity.model.parts.length > 10 ? entity.model.parts.length : entity.model.parts.map(p => p.id).join(", ") : "—";
 	SetElementText("sim-hud-id",          `ID: ${definition.id}`);
 	SetElementText("sim-hud-type",        `Type: ${objectType}`);
 	SetElementText("sim-hud-entity-type", `Entity Type: ${entity !== null ? entity.type : "—"}`);
-	SetElementText("sim-hud-parts",       `Parts: ${entity !== null ? entity.model.parts.map(p => p.id).join(", ") : "—"}`);
+	SetElementText("sim-hud-parts",       `Parts: ${parts}`);
 }
 
 function updateSimulatorHudNoTarget() {

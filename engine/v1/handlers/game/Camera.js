@@ -82,6 +82,8 @@ const defaultCamRuntime = {
 		ArrowDown: false,
 	},
 	obstructionLogged: false,
+	wheelDelta: 0,
+	zoomMultiplier: 1,
 	config: {
 		distance: distanceDefaults.defaultCamDistance.clone(),
 		sensitivity: CONFIG.CAMERA.Sensitivity.Mouse * 0.0024,
@@ -289,6 +291,8 @@ function initializeDefaultCamConfig(cameraConfig) {
 	defaultCamRuntime.pitch = -15;
 	defaultCamRuntime.lookDeltaX = 0;
 	defaultCamRuntime.lookDeltaY = 0;
+	defaultCamRuntime.zoomMultiplier = 1;
+	defaultCamRuntime.wheelDelta = 0;
 	Object.keys(defaultCamRuntime.arrowKeyState).forEach(key => { defaultCamRuntime.arrowKeyState[key] = false; });
 	defaultCamRuntime.active = true;
 
@@ -321,6 +325,7 @@ function HandleDefaultCamInput(eventLike) {
 			defaultCamRuntime.lookDeltaX += eventLike.movementX;
 			defaultCamRuntime.lookDeltaY += eventLike.movementY;
 			return true;
+		case "wheel": defaultCamRuntime.wheelDelta += eventLike.deltaY; return true;
 		default: return false;
 	}
 }
@@ -379,6 +384,13 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSeconds) {
 	const cfg = defaultCamRuntime.config;
 
+	if (defaultCamRuntime.wheelDelta !== 0) {
+		const direction = defaultCamRuntime.wheelDelta > 0 ? 1 : -1;
+		const logZoom = Clamp(Math.log2(defaultCamRuntime.zoomMultiplier) + direction * 0.1, -1, 1);
+		defaultCamRuntime.zoomMultiplier = Math.pow(2, logZoom);
+		defaultCamRuntime.wheelDelta = 0;
+	}
+
 	// Apply mouse look.
 	if (defaultCamRuntime.lookDeltaX !== 0 || defaultCamRuntime.lookDeltaY !== 0) {
 		defaultCamRuntime.yaw -= defaultCamRuntime.lookDeltaX * cfg.sensitivity;
@@ -413,10 +425,11 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	const yawRad = (defaultCamRuntime.yaw * Math.PI) / 180;
 	const pitchRad = (defaultCamRuntime.pitch * Math.PI) / 180;
 
+	const scaledDistance = cfg.distance.value * defaultCamRuntime.zoomMultiplier;
 	const desiredPos = {
-		x: playerPos.x + cfg.distance.value * Math.cos(pitchRad) * Math.sin(yawRad),
-		y: playerPos.y + cfg.heightOffset.value + cfg.distance.value * Math.sin(pitchRad),
-		z: playerPos.z + cfg.distance.value * Math.cos(pitchRad) * Math.cos(yawRad),
+		x: playerPos.x + scaledDistance * Math.cos(pitchRad) * Math.sin(yawRad),
+		y: playerPos.y + cfg.heightOffset.value + scaledDistance * Math.sin(pitchRad),
+		z: playerPos.z + scaledDistance * Math.cos(pitchRad) * Math.cos(yawRad),
 	};
 
 	// Camera obstruction detection.
@@ -430,7 +443,7 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 		}
 	}
 	else {
-		defaultCamRuntime.targetDistance.value = cfg.distance.value;
+		defaultCamRuntime.targetDistance.value = scaledDistance;
 		if (defaultCamRuntime.obstructionLogged) defaultCamRuntime.obstructionLogged = false;
 	}
 
