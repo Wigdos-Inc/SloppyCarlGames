@@ -819,7 +819,14 @@ function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 		scale   : rt.scale,
 		pivot   : toUnitVector3(rt.pivot, "cnu"),
 	};
-	merged.model.parts = merged.model.parts.map((part) => normalizePart(part, ctx));
+	merged.model.parts = merged.model.parts.map((part) => {
+		part.dimensions    = toUnitVector3(part.dimensions,    "cnu");
+		part.localPosition = toUnitVector3(part.localPosition, "cnu");
+		part.localRotation = toUnitVector3(part.localRotation, "radians");
+		part.localScale    = CloneVector3(part.localScale);
+		part.pivot         = toUnitVector3(part.pivot,         "cnu");
+		return part;
+	});
 	const mv = merged.movement;
 	merged.movement = {
 		...mv,
