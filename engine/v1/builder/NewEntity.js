@@ -280,11 +280,11 @@ function buildModel(entityDefinition, surfaceMap) {
 		const attachOffset = getFaceCenterOffset(index[part.parentId].builtDimensions, part.attachmentPoint);
 
 		// Part's anchor point offset (in part's unscaled dimensions), then scaled.
-		const anchorOffset = getFaceCenterOffset(part.dimensions, part.anchorPoint);
-		const scaledAnchorOffset = MultiplyVector3(anchorOffset, combinedScale);
+		const scaledAnchorOffset = MultiplyVector3(getFaceCenterOffset(part.dimensions, part.anchorPoint), combinedScale);
+		const rotatedAnchorOffset = RotateByEuler(scaledAnchorOffset, part.localTransform.rotation);
 
-		// Position: attachment offset on parent - scaled anchor offset on part + localPosition.
-		part.localTransform.position.add(SubtractVector3(attachOffset, scaledAnchorOffset));
+		// Position: attachment offset on parent - rotated anchor offset on part + localPosition.
+		part.localTransform.position.add(SubtractVector3(attachOffset, rotatedAnchorOffset));
 
 		// Store builtDimensions (scaled) for child attachment offset computation.
 		part.builtDimensions.set(MultiplyVector3(part.dimensions, combinedScale));
