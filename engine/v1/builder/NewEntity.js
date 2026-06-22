@@ -6,15 +6,16 @@
 // Uses NewObject.js for Model Parts
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
-import { 
-	AddVector3, 
-	DotVector3, 
-	LerpVector3, 
-	MultiplyVector3, 
-	RotateByEuler, 
-	ScaleVector3, 
-	SubtractVector3, 
-	ToVector3, 
+import {
+	AddVector3,
+	CloneVector3,
+	DotVector3,
+	LerpVector3,
+	MultiplyVector3,
+	RotateByEuler,
+	ScaleVector3,
+	SubtractVector3,
+	ToVector3,
 	Vector3Sq,
 	WORLD_NORMALS,
 } from "../math/Vector3.js";
@@ -159,10 +160,13 @@ function resolveInitialMovementProgress(movement, currentPosition) {
 function normalizeMovement(movement, surface) {
 	// Movement start/end are local to the spawn surface — resolve to world space.
 	// Y uses surfaceTopY (top of the surface) instead of surfacePos.y (center of the surface).
+	// Clone start/end so the cached entity definition is never mutated (reloads stay idempotent).
 	const surfaceOrigin = getSurfaceOrigin(surface);
-	movement.start.add(surfaceOrigin);
-	movement.end.add(surfaceOrigin);
-	return movement;
+	return {
+		...movement,
+		start: movement.start.clone().add(surfaceOrigin),
+		end  : movement.end.clone().add(surfaceOrigin),
+	};
 }
 
 /* === PART BUILDING === */
@@ -196,14 +200,9 @@ function buildPart(source) {
 		addsToBounds   : source.addsToBounds,
 		children: [],
 		localTransform: {
-			position: source.localPosition,
-			rotation: source.localRotation,
-			scale   : source.localScale,
-		},
-		defaultLocalTransform: {
-			position: source.localPosition,
-			rotation: source.localRotation,
-			scale   : source.localScale,
+			position: source.localPosition.clone(),
+			rotation: source.localRotation.clone(),
+			scale   : CloneVector3(source.localScale),
 		},
 		dimensions: source.dimensions,
 		// World-space built position/rotation/scale — computed by the pipeline, used for mesh output.

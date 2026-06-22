@@ -239,7 +239,9 @@ async function Exit() {
 	Log("ENGINE", "simulator exited", "log", "Simulator");
 }
 
-const IsSimulatorActive = () => simulatorRuntime.active;
+const IsSimulatorActive  = () => simulatorRuntime.active;
+const GetModelState      = () => simulatorRuntime.builtObject;
+const GetFullState       = () => simulatorRuntime;
 
 function HandleSimulatorInput(event) {
 	if (event.type !== "keydown") return false;
@@ -290,4 +292,4 @@ function UpdateSimulator(deltaMilliseconds, sceneGraph) {
 	}
 }
 
-export { Start, Load, CacheEntries as Cache, Clear, Exit, IsSimulatorActive, HandleSimulatorInput, UpdateSimulator };
+export { Start, Load, CacheEntries as Cache, Clear, Exit, IsSimulatorActive, HandleSimulatorInput, UpdateSimulator, GetModelState, GetFullState };

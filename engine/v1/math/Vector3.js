@@ -81,24 +81,26 @@ function ResolveVector3Axis(vector) {
 const CloneVector3 = (vector) => { return { x: vector.x, y: vector.y, z: vector.z } };
 
 /**
- * Rotate a point by Euler angles in Y → X → Z order (matches CreateModelMatrix).
+ * Rotate a point by Euler angles, matching CreateModelMatrix's composition (Ry·Rx·Rz).
+ * The point is rotated Z first, then X, then Y, so results agree with buildModelMatrix
+ * (and the AABB/collision path) for compound rotations — single-axis rotations are unaffected.
  * All rotation values must be in radians.
  */
 function RotateByEuler(point, rotation) {
-	// Y rotation
-	const cy = Math.cos(rotation.y);
-	const sy = Math.sin(rotation.y);
-	const p1 = { x: point.x * cy + point.z * sy, y: point.y, z: -point.x * sy + point.z * cy };
+	// Z rotation
+	const cz = Math.cos(rotation.z);
+	const sz = Math.sin(rotation.z);
+	const p1 = { x: point.x * cz - point.y * sz, y: point.x * sz + point.y * cz, z: point.z };
 
 	// X rotation
 	const cx = Math.cos(rotation.x);
 	const sx = Math.sin(rotation.x);
 	const p2 = { x: p1.x, y: p1.y * cx - p1.z * sx, z: p1.y * sx + p1.z * cx };
 
-	// Z rotation
-	const cz = Math.cos(rotation.z);
-	const sz = Math.sin(rotation.z);
-	return { x: p2.x * cz - p2.y * sz, y: p2.x * sz + p2.y * cz, z: p2.z };
+	// Y rotation
+	const cy = Math.cos(rotation.y);
+	const sy = Math.sin(rotation.y);
+	return { x: p2.x * cy + p2.z * sy, y: p2.y, z: -p2.x * sy + p2.z * cy };
 }
 
 /* === ENGINE VARIABLES === */
