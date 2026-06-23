@@ -3,7 +3,7 @@
 // Called by anything that wants any 3D object or wants to build models.
 
 import { BuildScatter } from "./NewScatter.js";
-import { BuildFaceTextureData, BuildNoiseAnimationOptions, frequencyPatternConfig, VISUAL_TEMPLATES } from "./NewTexture.js";
+import { BuildFaceTextureData, BuildNoiseAnimationOptions, frequencyPatternConfig, VISUAL_TEMPLATES, ComputeGeneratedTextureID, RgbaToHex } from "./NewTexture.js";
 import { CONFIG } from "../core/config.js";
 import { CreateModelMatrix } from "../math/Matrix.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
@@ -967,8 +967,8 @@ function BuildObject(source) {
 			bounds,
 		},
 		material: {
-			textureID  : texture.id,
-			color      : texture.color,
+			textureID  : ComputeGeneratedTextureID(texture),
+			color      : { r: 1, g: 1, b: 1, a: 1 },
 			opacity    : texture.opacity,
 			transparent: texture.opacity < 1,
 		},
@@ -1033,6 +1033,8 @@ function BuildObject(source) {
 			density  : textureBlueprint.density   * texture.density,
 			speckSize: textureBlueprint.speckSize  * texture.speckSize,
 			shape    : texture.shape,
+			...(texture.primary   !== null && { primary:   RgbaToHex(texture.primary)   }),
+			...(texture.secondary !== null && { secondary: RgbaToHex(texture.secondary) }),
 		};
 
 		const animationOptions = BuildNoiseAnimationOptions(textureBlueprint, texture);

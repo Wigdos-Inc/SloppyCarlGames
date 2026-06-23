@@ -16,6 +16,21 @@ function parseHexColor(hex) {
 	return `rgb(${r}, ${g}, ${b})`;
 }
 
+function RgbaToHex(rgba) {
+	const r = Math.round(rgba.r * 255).toString(16).padStart(2, "0");
+	const g = Math.round(rgba.g * 255).toString(16).padStart(2, "0");
+	const b = Math.round(rgba.b * 255).toString(16).padStart(2, "0");
+	return `#${r}${g}${b}`;
+}
+
+function ComputeGeneratedTextureID(generatedTexture) {
+	if (generatedTexture.primary === null && generatedTexture.secondary === null) return generatedTexture.id;
+	const fmt = (c) => `${c.r.toFixed(4)},${c.g.toFixed(4)},${c.b.toFixed(4)},${c.a.toFixed(4)}`;
+	const parts = [generatedTexture.id];
+	if (generatedTexture.primary   !== null) parts.push(`p=${fmt(generatedTexture.primary)}`);
+	if (generatedTexture.secondary !== null) parts.push(`s=${fmt(generatedTexture.secondary)}`);
+	return parts.join("::");
+}
 
 // Frequency patterns decouple spatial frequency (UVs on meshes, periods on decals) from the
 // canvas appearance. Maps each pattern to its CONFIG.RENDERING.Texture block. Non-frequency
@@ -172,6 +187,7 @@ function createUsageEntry(baseTextureID) {
 	return {
 		isTerrain: false, maxSpan: 1, density: 1, speckSize: 1, animatedRequested: false,
 		holdTimeSpeed: 1, blendTimeSpeed: 1, baseTextureID, shape: null,
+		primaryOverride: null, secondaryOverride: null,
 	};
 }
 
@@ -186,6 +202,8 @@ function registerTextureUsage(id, options, usage) {
 	entry.animatedRequested = options.animatedRequested;
 	entry.holdTimeSpeed = options.holdTimeSpeed;
 	entry.blendTimeSpeed = options.blendTimeSpeed;
+	entry.primaryOverride   = options.primaryOverride;
+	entry.secondaryOverride = options.secondaryOverride;
 }
 
 // Map a full texture definition to registerTextureUsage options. Shared by mesh and scatter-batch
@@ -200,6 +218,8 @@ function textureRegistrationOptions(texture, isTerrain, maxSpan) {
 		animatedRequested: texture.animated === true,
 		holdTimeSpeed    : texture.holdTimeSpeed,
 		blendTimeSpeed   : texture.blendTimeSpeed,
+		primaryOverride  : texture.primary,
+		secondaryOverride: texture.secondary,
 	};
 }
 
@@ -427,12 +447,14 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 		// so density is NOT baked into the shared registry canvas — only the speckSize ratio is.
 		// Noise still bakes density into its canvas.
 		const isFrequencyPattern = frequencyPatternConfig[textureBlueprint.pattern] !== undefined;
-		let resolvedTextureBlueprint = {
+		const resolvedTextureBlueprint = {
 			...textureBlueprint,
 			density:   isFrequencyPattern ? textureBlueprint.density : textureBlueprint.density * usageEntry.density,
 			speckSize: textureBlueprint.speckSize * usageEntry.speckSize,
+			...(usageEntry.shape              && { shape:     usageEntry.shape                              }),
+			...(usageEntry.primaryOverride   !== null && { primary:   RgbaToHex(usageEntry.primaryOverride)   }),
+			...(usageEntry.secondaryOverride !== null && { secondary: RgbaToHex(usageEntry.secondaryOverride) }),
 		};
-		if (usageEntry.shape) resolvedTextureBlueprint = { ...resolvedTextureBlueprint, shape: usageEntry.shape };
 
 		const animatedRequested = usageEntry.animatedRequested === true;
 		const templateSupportsAnimation = textureBlueprint.animation.able === true;
@@ -573,4 +595,4 @@ function BuildFaceTextureData(textureID, ownerId, ownerKind, resolvedBlueprint, 
 	return { faceTextures, faceTextureGroups };
 }
 
-export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources, BuildNoiseFaceCanvas, BuildFaceTextureData, BuildNoiseAnimationOptions, frequencyPatternConfig, visualTemplates as VISUAL_TEMPLATES };
+export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources, BuildNoiseFaceCanvas, BuildFaceTextureData, BuildNoiseAnimationOptions, frequencyPatternConfig, visualTemplates as VISUAL_TEMPLATES, ComputeGeneratedTextureID, RgbaToHex };

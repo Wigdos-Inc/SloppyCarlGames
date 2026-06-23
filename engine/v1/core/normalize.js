@@ -879,6 +879,20 @@ function mergeSimulatorEntity(blueprint, ctx) {
 	);
 }
 
+function hoistObjectColor(node) {
+	if ("color" in node) {
+		node.texture = node.texture || {};
+		node.texture.generated = node.texture.generated || {};
+		if (!("primary" in node.texture.generated)) {
+			node.texture.generated.primary = node.color;
+		}
+		delete node.color;
+	}
+	if (Array.isArray(node.parts)) {
+		node.parts.forEach((part) => hoistObjectColor(part));
+	}
+}
+
 function applyImageLoadResults(affectedParts, affectedDecalSources) {
 	affectedParts.forEach((part) => {
 		part.texture.custom = part.texture.custom.filter((e) => e.decalType !== "image" || e.bitmap !== null);
@@ -902,6 +916,19 @@ async function LevelPayload(payload) {
 	};
 
 	const rawPayload = normalizeObject(payload).value;
+
+	const blueprintBuckets = ["enemies", "npcs", "collectibles", "projectiles", "entities"];
+	rawPayload.terrain?.objects?.forEach((item) => hoistObjectColor(item));
+	rawPayload.obstacles?.forEach((item) => hoistObjectColor(item));
+	rawPayload.entities?.forEach((item) => hoistObjectColor(item));
+	if (rawPayload.entityBlueprints) {
+		blueprintBuckets.forEach((bucket) => {
+			rawPayload.entityBlueprints[bucket]?.forEach((blueprint) => {
+				blueprint.model?.parts?.forEach((part) => hoistObjectColor(part));
+			});
+		});
+	}
+
 	const normalized = normalizePayloadSchema(rawPayload, "level");
 
 	// Global shared animation definitions — kept raw; baked into each target during resolution.
@@ -933,7 +960,6 @@ async function LevelPayload(payload) {
 		return trigger;
 	});
 
-	const blueprintBuckets = ["enemies", "npcs", "collectibles", "projectiles", "entities"];
 	blueprintBuckets.forEach((bucket) => {
 		normalized.entityBlueprints[bucket] = normalizeArray(
 			normalizeObject(rawPayload.entityBlueprints).value[bucket]
@@ -1011,10 +1037,12 @@ async function SimulatorPayload(payload) {
 	const isEntityType = ENTITY_TYPES.includes(normalized.objectType);
 
 	if (isEntityType) {
+		payload.definition?.model?.parts?.forEach((part) => hoistObjectColor(part));
 		const blueprint = normalizeBlueprint(payload.definition, ctx, {});
 		normalized.definition = mergeSimulatorEntity(blueprint, ctx);
-	} 
+	}
 	else {
+		hoistObjectColor(payload.definition);
 		const multipartFallbackShape = normalized.objectType === "obstacle" ? "triangle-soup" : null;
 		normalized.definition = normalizeLevelObject(payload.definition, ctx, multipartFallbackShape);
 	}

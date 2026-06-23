@@ -59,7 +59,6 @@
                                     "generated": {
                                         "id": "grass-soft",
                                         "shape": "circle",
-                                        "color": { "r": 1, "g": 1, "b": 1, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -76,6 +75,7 @@
                             },
                             {
                                 "id": "platform-a",
+                                "color": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 18, "y": 2, "z": 18 },
@@ -92,7 +92,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "stone-block",
-                                        "color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": [
@@ -117,6 +116,7 @@
                             },
                             {
                                 "id": "platform-b",
+                                "color": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 10, "y": 2, "z": 5 },
@@ -134,7 +134,6 @@
                                     "generated": {
                                         "id": "stone-block",
                                         "shape": "circle",
-                                        "color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
                                         "opacity": 1,
                                         "animated": true,
                                         "holdTimeSpeed": 1.25,
@@ -150,6 +149,7 @@
                             },
                             {
                                 "id": "beacon",
+                                "color": { "r": 0.51, "g": 0.55, "b": 0.66, "a": 1 },
                                 "shape": "pyramid",
                                 "complexity": "medium",
                                 "dimensions": { "x": 10, "y": 14, "z": 10 },
@@ -166,7 +166,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "metal-panel",
-                                        "color": { "r": 0.95, "g": 0.9, "b": 1, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -177,6 +176,7 @@
                             },
                             {
                                 "id": "null-shaft-a",
+                                "color": { "r": 0.10, "g": 0.11, "b": 0.12, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 4, "y": 1.5, "z": 4 },
@@ -188,7 +188,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "default-tiles",
-                                        "color": { "r": 0.15, "g": 0.15, "b": 0.15, "a": 0.6 },
                                         "opacity": 0.6,
                                         "animated": false,
                                         "holdTimeSpeed": 1,
@@ -202,6 +201,7 @@
                             },
                             {
                                 "id": "catch-platform-a",
+                                "color": { "r": 0.20, "g": 0.51, "b": 0.80, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 8, "y": 1.5, "z": 8 },
@@ -213,7 +213,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "default-tiles",
-                                        "color": { "r": 0.3, "g": 0.7, "b": 1.0, "a": 1 },
                                         "opacity": 1,
                                         "animated": false,
                                         "holdTimeSpeed": 1,
@@ -252,6 +251,7 @@
                     "obstacles": [
                         {
                             "id": "crate-stack",
+                            "color": { "r": 0.57, "g": 0.39, "b": 0.23, "a": 1 },
                             "shape": "cube",
                             "complexity": "medium",
                             "dimensions": { "x": 4, "y": 4, "z": 4 },
@@ -268,7 +268,6 @@
                             "texture": {
                                 "generated": {
                                     "id": "wood-stump",
-                                    "color": { "r": 0.96, "g": 0.93, "b": 0.87, "a": 1 },
                                     "opacity": 1
                                 },
                                 "custom": []
@@ -469,6 +468,7 @@
                         "objects": [
                             {
                                 "id": "scale-floor",
+                                "color": { "r": 0.57, "g": 0.69, "b": 0.80, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 24, "y": 1, "z": 20 },
@@ -485,7 +485,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "default-tiles",
-                                        "color": { "r": 0.88, "g": 0.95, "b": 1, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -496,6 +495,7 @@
                             },
                             {
                                 "id": "scale-wall-back",
+                                "color": { "r": 0.21, "g": 0.28, "b": 0.37, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 24, "y": 4, "z": 0.5 },
@@ -512,7 +512,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "default-tiles",
-                                        "color": { "r": 0.32, "g": 0.38, "b": 0.46, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -523,6 +522,7 @@
                             },
                             {
                                 "id": "scale-wall-left",
+                                "color": { "r": 0.21, "g": 0.28, "b": 0.37, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 0.5, "y": 4, "z": 20 },
@@ -539,7 +539,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "default-tiles",
-                                        "color": { "r": 0.32, "g": 0.38, "b": 0.46, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -550,6 +549,7 @@
                             },
                             {
                                 "id": "scale-wall-right",
+                                "color": { "r": 0.21, "g": 0.28, "b": 0.37, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 0.5, "y": 4, "z": 20 },
@@ -566,7 +566,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "default-tiles",
-                                        "color": { "r": 0.32, "g": 0.38, "b": 0.46, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -577,6 +576,7 @@
                             },
                             {
                                 "id": "meter-cube",
+                                "color": { "r": 0.64, "g": 0.52, "b": 0.27, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 1, "y": 1, "z": 1 },
@@ -593,7 +593,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "default-grid",
-                                        "color": { "r": 0.98, "g": 0.72, "b": 0.34, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -604,6 +603,7 @@
                             },
                             {
                                 "id": "two-meter-post",
+                                "color": { "r": 0.23, "g": 0.47, "b": 0.66, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 0.5, "y": 2, "z": 0.5 },
@@ -620,7 +620,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "metal-panel",
-                                        "color": { "r": 0.43, "g": 0.78, "b": 1, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -631,6 +630,7 @@
                             },
                             {
                                 "id": "human-reference",
+                                "color": { "r": 0.50, "g": 0.53, "b": 0.51, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 0.55, "y": 2, "z": 0.35 },
@@ -647,7 +647,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "metal-panel",
-                                        "color": { "r": 0.92, "g": 0.87, "b": 0.78, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -658,6 +657,7 @@
                             },
                             {
                                 "id": "door-left-post",
+                                "color": { "r": 0.52, "g": 0.58, "b": 0.41, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 0.15, "y": 2, "z": 0.15 },
@@ -674,7 +674,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "metal-panel",
-                                        "color": { "r": 0.97, "g": 0.95, "b": 0.62, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -685,6 +684,7 @@
                             },
                             {
                                 "id": "door-right-post",
+                                "color": { "r": 0.52, "g": 0.58, "b": 0.41, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 0.15, "y": 2, "z": 0.15 },
@@ -701,7 +701,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "metal-panel",
-                                        "color": { "r": 0.97, "g": 0.95, "b": 0.62, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -712,6 +711,7 @@
                             },
                             {
                                 "id": "door-lintel",
+                                "color": { "r": 0.52, "g": 0.58, "b": 0.41, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 1.2, "y": 0.2, "z": 0.15 },
@@ -728,7 +728,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "metal-panel",
-                                        "color": { "r": 0.97, "g": 0.95, "b": 0.62, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -739,6 +738,7 @@
                             },
                             {
                                 "id": "step-1",
+                                "color": { "r": 0.51, "g": 0.53, "b": 0.60, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 1, "y": 0.18, "z": 0.28 },
@@ -755,7 +755,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "stone-block",
-                                        "color": { "r": 0.84, "g": 0.84, "b": 0.88, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -766,6 +765,7 @@
                             },
                             {
                                 "id": "step-2",
+                                "color": { "r": 0.51, "g": 0.53, "b": 0.60, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 1, "y": 0.36, "z": 0.28 },
@@ -782,7 +782,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "stone-block",
-                                        "color": { "r": 0.84, "g": 0.84, "b": 0.88, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []
@@ -793,6 +792,7 @@
                             },
                             {
                                 "id": "step-3",
+                                "color": { "r": 0.51, "g": 0.53, "b": 0.60, "a": 1 },
                                 "shape": "cube",
                                 "complexity": "medium",
                                 "dimensions": { "x": 1, "y": 0.54, "z": 0.28 },
@@ -809,7 +809,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "stone-block",
-                                        "color": { "r": 0.84, "g": 0.84, "b": 0.88, "a": 1 },
                                         "opacity": 1
                                     },
                                     "custom": []

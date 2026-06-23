@@ -35,9 +35,10 @@
 					"primitiveOptions": {},
 					"texture": {
 						"generated": {
-							"id": "metal-panel",
+							"id": "none",
 							"shape": null,
-							"color": { "r": 0.95, "g": 0.85, "b": 0.7, "a": 1 },
+							"primary": { "r": 0.51, "g": 0.52, "b": 0.46, "a": 1 },
+							"secondary": null,
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
@@ -67,7 +68,8 @@
 						"generated": {
 							"id": "metal-panel",
 							"shape": null,
-							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"primary": { "r": 0.16, "g": 0.30, "b": 0.59, "a": 1 },
+							"secondary": { "r": 0.11, "g": 0.21, "b": 0.44, "a": 1 },
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
@@ -97,7 +99,8 @@
 						"generated": {
 							"id": "metal-panel",
 							"shape": null,
-							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"primary": { "r": 0.16, "g": 0.30, "b": 0.59, "a": 1 },
+							"secondary": { "r": 0.11, "g": 0.21, "b": 0.44, "a": 1 },
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
@@ -126,7 +129,8 @@
 						"generated": {
 							"id": "metal-panel",
 							"shape": null,
-							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"primary": { "r": 0.16, "g": 0.30, "b": 0.59, "a": 1 },
+							"secondary": { "r": 0.11, "g": 0.21, "b": 0.44, "a": 1 },
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
@@ -168,7 +172,8 @@
 						"generated": {
 							"id": "metal-panel",
 							"shape": null,
-							"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
+							"primary": { "r": 0.14, "g": 0.15, "b": 0.23, "a": 1 },
+							"secondary": { "r": 0.09, "g": 0.11, "b": 0.17, "a": 1 },
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
@@ -198,7 +203,8 @@
 						"generated": {
 							"id": "metal-panel",
 							"shape": null,
-							"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
+							"primary": { "r": 0.14, "g": 0.15, "b": 0.23, "a": 1 },
+							"secondary": { "r": 0.09, "g": 0.11, "b": 0.17, "a": 1 },
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
@@ -250,9 +256,10 @@
 					"primitiveOptions": {},
 					"texture": {
 						"generated": {
-							"id": "metal-panel",
+							"id": "none",
 							"shape": null,
-							"color": { "r": 0.95, "g": 0.85, "b": 0.7, "a": 1 },
+							"primary": { "r": 0.51, "g": 0.52, "b": 0.46, "a": 1 },
+							"secondary": null,
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
@@ -282,7 +289,8 @@
 						"generated": {
 							"id": "metal-panel",
 							"shape": null,
-							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"primary": { "r": 0.16, "g": 0.30, "b": 0.59, "a": 1 },
+							"secondary": { "r": 0.11, "g": 0.21, "b": 0.44, "a": 1 },
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
@@ -312,7 +320,8 @@
 						"generated": {
 							"id": "metal-panel",
 							"shape": null,
-							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"primary": { "r": 0.16, "g": 0.30, "b": 0.59, "a": 1 },
+							"secondary": { "r": 0.11, "g": 0.21, "b": 0.44, "a": 1 },
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
@@ -341,7 +350,8 @@
 						"generated": {
 							"id": "metal-panel",
 							"shape": null,
-							"color": { "r": 0.3, "g": 0.5, "b": 0.9, "a": 1 },
+							"primary": { "r": 0.16, "g": 0.30, "b": 0.59, "a": 1 },
+							"secondary": { "r": 0.11, "g": 0.21, "b": 0.44, "a": 1 },
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
@@ -405,7 +415,8 @@
 						"generated": {
 							"id": "metal-panel",
 							"shape": null,
-							"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
+							"primary": { "r": 0.14, "g": 0.15, "b": 0.23, "a": 1 },
+							"secondary": { "r": 0.09, "g": 0.11, "b": 0.17, "a": 1 },
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
@@ -435,7 +446,8 @@
 						"generated": {
 							"id": "metal-panel",
 							"shape": null,
-							"color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 },
+							"primary": { "r": 0.14, "g": 0.15, "b": 0.23, "a": 1 },
+							"secondary": { "r": 0.09, "g": 0.11, "b": 0.17, "a": 1 },
 							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,

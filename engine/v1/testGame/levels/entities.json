@@ -47,6 +47,7 @@
 				"parts": [
 					{
 						"id": "core",
+						"color": { "r": 0.51, "g": 0.58, "b": 0.66, "a": 1 },
 						"parentId": "root",
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
@@ -66,7 +67,6 @@
 						"texture": {
 							"generated": {
 								"id": "metal-panel",
-								"color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 },
 								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
@@ -79,6 +79,7 @@
 					},
 					{
 						"id": "left-arm",
+						"color": { "r": 0.49, "g": 0.56, "b": 0.65, "a": 1 },
 						"parentId": "core",
 						"anchorPoint": "top",
 						"attachmentPoint": "left",
@@ -98,7 +99,6 @@
 						"texture": {
 							"generated": {
 								"id": "metal-panel",
-								"color": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
 								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
@@ -111,6 +111,7 @@
 					},
 					{
 						"id": "right-arm",
+						"color": { "r": 0.49, "g": 0.56, "b": 0.65, "a": 1 },
 						"parentId": "core",
 						"anchorPoint": "top",
 						"attachmentPoint": "right",
@@ -130,7 +131,6 @@
 						"texture": {
 							"generated": {
 								"id": "metal-panel",
-								"color": { "r": 0.9, "g": 0.92, "b": 0.98, "a": 1 },
 								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
@@ -143,6 +143,7 @@
 					},
 					{
 						"id": "eye",
+						"color": { "r": 0.32, "g": 0.92, "b": 1.0, "a": 1 },
 						"parentId": "core",
 						"anchorPoint": "center",
 						"attachmentPoint": "front",
@@ -162,7 +163,6 @@
 						"texture": {
 							"generated": {
 								"id": "energy-core",
-								"color": { "r": 0.65, "g": 0.95, "b": 1, "a": 1 },
 								"opacity": 1,
 								"density": 1,
 								"speckSize": 1,
@@ -220,6 +220,7 @@
 				"parts": [
 					{
 						"id": "body",
+						"color": { "r": 0.57, "g": 0.37, "b": 0.21, "a": 1 },
 						"parentId": "root",
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
@@ -239,7 +240,6 @@
 						"texture": {
 							"generated": {
 								"id": "wood-stump",
-								"color": { "r": 0.95, "g": 0.88, "b": 0.78, "a": 1 },
 								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
@@ -252,6 +252,7 @@
 					},
 					{
 						"id": "head",
+						"color": { "r": 0.60, "g": 0.38, "b": 0.21, "a": 1 },
 						"parentId": "body",
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
@@ -271,7 +272,6 @@
 						"texture": {
 							"generated": {
 								"id": "wood-stump",
-								"color": { "r": 1, "g": 0.9, "b": 0.8, "a": 1 },
 								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
@@ -325,6 +325,7 @@
 				"parts": [
 					{
 						"id": "orb",
+						"color": { "r": 0.37, "g": 0.97, "b": 1.0, "a": 1 },
 						"parentId": "root",
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
@@ -344,7 +345,6 @@
 						"texture": {
 							"generated": {
 								"id": "energy-core",
-								"color": { "r": 0.75, "g": 1, "b": 1, "a": 1 },
 								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
@@ -398,6 +398,7 @@
 				"parts": [
 					{
 						"id": "bolt",
+						"color": { "r": 0.35, "g": 0.92, "b": 1.0, "a": 1 },
 						"parentId": "root",
 						"anchorPoint": "center",
 						"attachmentPoint": "top",
@@ -417,7 +418,6 @@
 						"texture": {
 							"generated": {
 								"id": "energy-core",
-								"color": { "r": 0.7, "g": 0.95, "b": 1, "a": 1 },
 								"opacity": 0.95,
 								"density": 1,
 								"speckSize": 1
@@ -471,6 +471,7 @@
 				"parts": [
 					{
 						"id": "body",
+						"color": { "r": 0.32, "g": 0.55, "b": 0.66, "a": 1 },
 						"parentId": "root",
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
@@ -490,7 +491,6 @@
 						"texture": {
 							"generated": {
 								"id": "metal-panel",
-								"color": { "r": 0.6, "g": 0.9, "b": 1, "a": 1 },
 								"opacity": 1,
 								"density": 1,
 								"speckSize": 1

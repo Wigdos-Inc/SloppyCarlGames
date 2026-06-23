@@ -76,7 +76,8 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 				generated: {
 					id            : "default-tiles",
 					shape         : null,
-					color         : color,
+					primary       : color,
+					secondary     : null,
 					opacity       : color.a,
 					density       : 1,
 					speckSize     : 1,
@@ -122,10 +123,11 @@ function buildWaterVisualMeshes(world) {
 				generated: {
 					id            : "default-tiles",
 					shape         : null,
-					color         : { r: 0.1, g: 0.28, b: 0.44, a: 1 },
-					opacity       : 0.2,
-					density       : 1,
-					speckSize     : 1,
+					primary       : { r: 0.1, g: 0.28, b: 0.44, a: 1 },
+					secondary     : null,
+					opacity       : 0.1,
+					density       : 2,
+					speckSize     : 0.5,
 					animated      : false,
 					holdTimeSpeed : 1,
 					blendTimeSpeed: 1,
@@ -152,7 +154,7 @@ function buildWaterVisualMeshes(world) {
 			texture         : {
 				generated: {
 					id: "sea-surface", shape: "square",
-					color: { r: 0.38, g: 0.62, b: 0.85, a: 1 },
+					primary: { r: 0.38, g: 0.62, b: 0.85, a: 1 }, secondary: null,
 					opacity: 0.35, density: 1, speckSize: 2, animated: true, holdTimeSpeed: 1, blendTimeSpeed: 1,
 				},
 				custom: [],

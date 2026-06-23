@@ -1182,19 +1182,34 @@
         "deprecated": false
       }
     },
-    "color": {
+    "primary": {
       "__meta": {
-        "description": "Texture tint color",
+        "description": "Primary texture color override",
         "aliases": ["textureColor"],
         "dataType": "object",
         "isRequired": false,
         "isExpected": false,
-        "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 },
+        "fallback": null,
+        "deprecated": true
+      },
+      "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+    },
+    "secondary": {
+      "__meta": {
+        "description": "Secondary texture color override",
+        "aliases": ["color"],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
         "deprecated": false
       },
-      "r": { "__meta": { "description": "Red", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
       "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-      "b": { "__meta": { "description": "Blue", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
       "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
     },
     "opacity": {

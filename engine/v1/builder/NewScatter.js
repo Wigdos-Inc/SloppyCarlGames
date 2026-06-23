@@ -9,6 +9,7 @@ import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateRenderMatrix } from "../math/Matrix.js";
 import { BuildObject, BuildGeometry, GenerateUVs } from "./NewObject.js";
+import { ComputeGeneratedTextureID } from "./NewTexture.js";
 import { UnitVector3 } from "../math/Utilities.js";
 import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import visualTemplates from "./templates/textures.json" with { type: "json" };
@@ -415,28 +416,22 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 			processPart: (ctx, partContext) => {
 				const { part, position, rotation, scale } = partContext;
 				const modelMatrix = CreateRenderMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot });
-				const generatedTexture = part.texture.generated;
-				const color = generatedTexture.color;
-				const textureID = generatedTexture.id;
-				const complexity = part.complexity;
-				const primitiveOptions = part.primitiveOptions;
-				const primitiveKey = primitiveGeometryKey(part.primitive, part.dimensions, complexity, primitiveOptions);
-
-				const scatterBatchKey = (prim, dim, tId, comp, pOptions) => `${prim}_${dim.x}_${dim.y}_${dim.z}_${tId}_${comp}_${pOptions}`;
-				const batchKey = scatterBatchKey(part.primitive, part.dimensions, textureID, complexity, primitiveOptions);
+				const textureID = ComputeGeneratedTextureID(part.texture.generated);
+				const primitiveKey = primitiveGeometryKey(part.primitive, part.dimensions, part.complexity, part.primitiveOptions);
+				const batchKey = `${part.primitive}_${part.dimensions.x}_${part.dimensions.y}_${part.dimensions.z}_${textureID}_${part.complexity}_${part.primitiveOptions}`;
 				if (!batchMap.has(batchKey)) {
 					batchMap.set(batchKey, {
 						primitive: part.primitive.toLowerCase(),
 						dimensions: part.dimensions.clone(),
-						complexity, primitiveOptions, primitiveKey, textureID,
-						texture: generatedTexture,
+						complexity: part.complexity, primitiveOptions: part.primitiveOptions, primitiveKey, textureID,
+						texture: part.texture.generated,
 						instances: [],
 						instanceCount: 0,
 						instanceData: null,
 					});
 				}
 
-				batchMap.get(batchKey).instances.push({ modelMatrix, tint: [color.r, color.g, color.b, generatedTexture.opacity] });
+				batchMap.get(batchKey).instances.push({ modelMatrix, tint: [1, 1, 1, part.texture.generated.opacity] });
 				totalParts++;
 
 				const half = part.dimensions.clone().multiply(scale).scale(0.5);
