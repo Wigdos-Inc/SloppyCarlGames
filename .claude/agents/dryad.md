@@ -49,10 +49,10 @@ Flag as **simplification / low** when a very short helper function (that is only
 
 This covers both short functions with relatively simple logic and functions that exist simply to return an object.
 
-## Obnoxious Comments
+### Obnoxious Comments
 
 Flag as **simplification / low** when a line (or short section of code) has more than 2 lines of comments above it.
-This is a waste of lines. If the explanation is really that long, suggest a shorter variant that does fit on 2 lines max.
+This is a waste of lines. A comment line is just to say what the code below does in a very concise manner. It is not the place to write a novel about decision making.
 
 ---
 
