@@ -1,19 +1,1 @@
 
----
-What: Added a semantic rename so game payloads use a top-level `object.color` field for the primary texture color, and `texture.generated.color` for the secondary color. The normalizer hoists root-level `color` into `texture.generated.primary` before schema processing, preserving the internal primary/secondary contract.
-Why: Improves payload authoring ergonomics — object color is no longer buried inside texture config, and the secondary pattern color has an obvious authored name.
-Where:
-  - engine/v1/core/canonSchemas.json — `generatedTexture.primary.__meta.aliases` removed `"color"`, `deprecated` set to `true`; `generatedTexture.secondary.__meta.aliases` added `"color"` (~lines 1185–1215)
-  - engine/v1/core/normalize.js — added `hoistObjectColor` function before `applyImageLoadResults`; wired pre-hoist walks in `LevelPayload` (terrain.objects, obstacles, entities, entityBlueprints model parts) and `SimulatorPayload` (definition and definition.model.parts) before `normalizePayloadSchema` calls
-  - engine/v1/testGame/levels/levels.json — migrated all terrain/obstacle objects: moved `texture.generated.color` to root-level `color`, removed it from inside `generated`
-  - engine/v1/testGame/levels/entities.json — migrated all blueprint model parts: moved `texture.generated.color` to root-level `color` on each part, removed it from inside `generated`
-
----
-What: Moved generated texture color control from shader-level multiplicative tint to canvas-level color override. `textures.json` primary/secondary hex values remain the defaults; payloads supply optional `primary`/`secondary` rgba overrides that replace those colors at canvas-generation time, and the shader tint is now a neutral `{1,1,1,1}` for all generated textures.
-Why: Shader tinting produced imprecise color results (multiplicative blend over the texture's own colors); canvas-level overrides replace the colors directly, giving accurate, predictable output.
-Where:
-  - engine/v1/core/canonSchemas.json — replaced `color` field with `primary` (aliases: color, textureColor, fallback: null) and added `secondary` field (fallback: null) in the generated texture schema block (~lines 1185–1215 after edit)
-  - engine/v1/builder/NewTexture.js — added `rgbaToHex` and `computeGeneratedTextureID` helpers (~lines 19–36); extended `createUsageEntry`, `registerTextureUsage`, and `textureRegistrationOptions` with `primaryOverride`/`secondaryOverride` fields; applied overrides in `createTextureRegistry` after shape override; added both helpers to exports
-  - engine/v1/builder/NewObject.js — imported `computeGeneratedTextureID` and `rgbaToHex` from NewTexture; changed `material.textureID` to use `computeGeneratedTextureID(texture)` and `material.color` to neutral `{r:1,g:1,b:1,a:1}`; added primary/secondary spread into per-face noise `resolvedBlueprint`
-  - engine/v1/builder/NewScatter.js — imported `computeGeneratedTextureID` from NewTexture; replaced `color`/`textureID` local vars with `computeGeneratedTextureID(generatedTexture)`; neutralized scatter batch tint to `[1,1,1,opacity]`
-  - engine/v1/builder/templates/textures.json — renamed all 12 `"color"` keys to `"primary"` in the scatterTypes section

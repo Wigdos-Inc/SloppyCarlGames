@@ -6,7 +6,7 @@ Owns all player state, movement logic, model representation, abilities, and anim
 ## Files
 - `Master.js` — Player state manager. Creates and holds the single player state object. Exports `InitializePlayer`, `UpdatePlayer`, `ResolvePlayerState`, `GetPlayerState`, `TriggerPlayerRespawnSequence`, and `PlayerAPI` (the `ENGINE.Level.Player` public surface). Instances character templates from `characters.json` at module load via a top-level IIFE.
 - `Movement.js` — Per-frame movement handler. Translates input flags into velocity and displacement deltas.
-- `Model.js` — Player mesh representation. Builds and maintains the player WebGL model. Exports `BuildPlayerModel`, `InitializePlayerCollisionProfile`, `SyncPlayerCollisionFromState`, `UpdatePlayerModelFromState`.
+- `Model.js` — Player mesh representation. Builds and maintains the player WebGL model. Passes `textureScale: null` explicitly to `BuildObject` in `buildPart` so the field is always present — null signals the inline build path in `NewObject.js`, bypassing the entity-part geometry template cache. Exports `BuildPlayerModel`, `InitializePlayerCollisionProfile`, `SyncPlayerCollisionFromState`, `UpdatePlayerModelFromState`.
 - `Abilities.js` — Player ability definitions (jump, boost, etc.) and application logic. Accepts ability handler callbacks from game code.
 - `Animation.js` — Player-specific animation handler. Drives visual state transitions based on player movement and action state.
 - `characters.json` — Character preset definitions. Raw numeric values are instanced into `Unit`/`UnitVector3` by `Master.js` at module load; downstream code receives pre-instanced values.
