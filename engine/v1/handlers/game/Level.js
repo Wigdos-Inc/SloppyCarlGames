@@ -372,15 +372,19 @@ function buildSceneSurfaceMap(terrain, obstacles) {
 	return map;
 }
 
-function registerSpawnFaceTextures(faceTextures, sceneGraph) {
-	for (const { id, source, definition } of faceTextures) {
-		sceneGraph.visualResources.textureRegistry[id] = { id, definition, source, dirty: false };
-	}
-}
-
 function SpawnIntoScene(definition, objectType, sceneGraph) {
+	// Reuse texture registry when applicable
+	const faceTextureStore = sceneGraph.visualResources.textureRegistry;
+
 	if (ENTITY_TYPES.includes(objectType)) {
-		const built = BuildEntity(definition, buildSceneSurfaceMap(sceneGraph.terrain, sceneGraph.obstacles));
+		// Reuse the level-scoped geometry cache
+		const { entity: built } = BuildEntity(
+			definition,
+			buildSceneSurfaceMap(sceneGraph.terrain, sceneGraph.obstacles),
+			sceneGraph.world.textureScale,
+			faceTextureStore,
+			sceneGraph.partGeometryCache
+		);
 		sceneGraph.entities.push(built);
 		AddToVisualResources(built, objectType, sceneGraph);
 		AddTextureAnimationEntries(sceneGraph);
@@ -389,19 +393,17 @@ function SpawnIntoScene(definition, objectType, sceneGraph) {
 	}
 
 	if (objectType === "obstacle") {
-		const { built: builtArray, faceTextures } = BuildObstacles([definition], { textureScale: sceneGraph.world.textureScale });
+		const { built: builtArray } = BuildObstacles([definition], { textureScale: sceneGraph.world.textureScale, faceTextureStore });
 		const built = builtArray[0];
 		sceneGraph.obstacles.push(built);
-		registerSpawnFaceTextures(faceTextures, sceneGraph);
 		AddToVisualResources(built, objectType, sceneGraph);
 		AddTextureAnimationEntries(sceneGraph);
 		if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
 		return built;
 	}
 
-	const { mesh: built, faceTextures } = BuildObject({ ...definition, textureScale: sceneGraph.world.textureScale });
+	const { mesh: built } = BuildObject({ ...definition, textureScale: sceneGraph.world.textureScale, faceTextureStore });
 	sceneGraph.terrain.push(built);
-	registerSpawnFaceTextures(faceTextures, sceneGraph);
 	AddToVisualResources(built, objectType, sceneGraph);
 	AddTextureAnimationEntries(sceneGraph);
 	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);

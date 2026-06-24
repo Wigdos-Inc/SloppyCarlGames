@@ -77,7 +77,7 @@ function buildObstacleParts(source, index, options) {
 		const elevatedPosition = source.position.clone();
 		elevatedPosition.y += source.dimensions.y * source.scale.y * 0.5;
 
-		const { mesh: partMesh, faceTextures } = BuildObject(
+		const { mesh: partMesh } = BuildObject(
 			{
 				id: source.id,
 				shape: source.shape,
@@ -96,19 +96,17 @@ function buildObstacleParts(source, index, options) {
 				mode          : source.mode,
 				nullable      : source.nullable,
 				textureScale  : options.textureScale,
+				faceTextureStore: options.faceTextureStore,
 				scatterContext: options.scatterContext
 					? { ...options.scatterContext, indexSeed: 500 + index }
 					: null
 			}
 		);
-		return { parts: [partMesh], faceTextures };
+		return { parts: [partMesh] };
 	}
 
-	// At this point `source` and `source.parts` are expected to be normalized by core/normalize.js
-	// Assume `source.position`, `source.rotation`, `source.pivot`, and part.localPosition/localRotation
-	// are `UnitVector3` instances. Compose world-space transforms by cloning and mutating UnitVector3 instances.
+	// Compose world-space transforms by cloning and mutating UnitVector3 instances.
 	const rootScale = source.scale; // Vector3
-	const allFaceTextures = [];
 
 	const parts = source.parts.map((part, partIndex) => {
 		const combinedScale = MultiplyVector3(rootScale, part.localScale);
@@ -118,7 +116,7 @@ function buildObstacleParts(source, index, options) {
 		worldPos.add(part.localPosition);
 		worldPos.y += part.dimensions.y * combinedScale.y * 0.5;
 
-		const { mesh: partMesh, faceTextures } = BuildObject(
+		const { mesh: partMesh } = BuildObject(
 			{
 				...part,
 				id: part.id,
@@ -137,20 +135,20 @@ function buildObstacleParts(source, index, options) {
 				mode          : source.mode,
 				nullable      : source.nullable,
 				textureScale  : options.textureScale,
+				faceTextureStore: options.faceTextureStore,
 				scatterContext: options.scatterContext
 					? { ...options.scatterContext, indexSeed: 700 + (index * 100) + partIndex }
 					: null
 			}
 		);
-		allFaceTextures.push(...faceTextures);
 		return partMesh;
 	});
 
-	return { parts, faceTextures: allFaceTextures };
+	return { parts };
 }
 
 function BuildObstacle(source, index, options) {
-	const { parts, faceTextures } = buildObstacleParts(source, index, options);
+	const { parts } = buildObstacleParts(source, index, options);
 	let worldAabb = null;
 	parts.forEach((part) => worldAabb = mergeAabb(worldAabb, part.worldAabb));
 
@@ -168,17 +166,11 @@ function BuildObstacle(source, index, options) {
 		state         : { destroyed: false },
 		mode          : source.mode,
 		nullable      : source.nullable,
-		faceTextures,
 	};
 }
 
 function BuildObstacles(source, options) {
-	const allFaceTextures = [];
-	const built = source.map((definition, index) => {
-		const obstacle = BuildObstacle(definition, index, options);
-		allFaceTextures.push(...obstacle.faceTextures);
-		return obstacle;
-	});
+	const built = source.map((definition, index) => BuildObstacle(definition, index, options));
 	if (built.length > 0) {
 		const destructibleCount = built.filter((entry) => entry.destructible === true).length;
 		Log(
@@ -188,7 +180,7 @@ function BuildObstacles(source, options) {
 			"Level"
 		);
 	}
-	return { built, faceTextures: allFaceTextures };
+	return { built };
 }
 
 export { BuildObstacle, BuildObstacles };

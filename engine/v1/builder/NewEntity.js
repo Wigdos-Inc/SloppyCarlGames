@@ -171,7 +171,7 @@ function normalizeMovement(movement, surface) {
 
 /* === PART BUILDING === */
 
-function buildPart(source) {
+function buildPart(source, textureScale, faceTextureStore, geometryCache, geometryCacheKeyPrefix) {
 	const { mesh } = BuildObject(
 		{
 			id              : source.id,
@@ -188,6 +188,8 @@ function buildPart(source) {
 			role            : "entity-part",
 			collisionShape  : "none",
 			parentId        : source.parentId,
+			textureScale, faceTextureStore, geometryCache,
+			geometryCacheKey: `${geometryCacheKeyPrefix}::${source.id}`,
 		}
 	);
 
@@ -217,12 +219,13 @@ function buildPart(source) {
 
 /* === MODEL BUILDING === */
 
-function buildModel(entityDefinition, surfaceMap) {
+function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore, geometryCache) {
 	// --- Step 1: Resolve rootTransform from data ---
 	const rtScale = entityDefinition.model.rootTransform.scale;
+	const geometryCacheKeyPrefix = entityDefinition.blueprintId !== null ? entityDefinition.blueprintId : entityDefinition.id;
 
 	// Build all parts (each part wraps its own values in Unit/UnitVector3).
-	const parts = entityDefinition.model.parts.map((part) => buildPart(part));
+	const parts = entityDefinition.model.parts.map((part) => buildPart(part, textureScale, faceTextureStore, geometryCache, geometryCacheKeyPrefix));
 
 	// Build index and parent-child links.
 	const index = {};
@@ -322,7 +325,7 @@ function buildModel(entityDefinition, surfaceMap) {
 		})),
 	};
 
-	return model;
+	return { model };
 }
 
 /* === RUNTIME POSE APPLICATION === */
@@ -544,13 +547,18 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverri
 /**
  * Build an entity from a merged definition.
  * @param {object} definition — merged blueprint + level overrides.
- * @param {object} [surfaceMap] — { [surfaceId]: { position, dimensions, scale, topY } }
+ * @param {object} surfaceMap — { [surfaceId]: { position, dimensions, scale, topY } }
+ * @param {number} textureScale — world texture scale (px per CNU) for per-face generated textures.
+ * @param {object} faceTextureStore — content-signature-keyed store the per-face bake dedups against
+ *   (a build-scoped accumulator at level build, the live textureRegistry at runtime spawn).
+ * @param {Map} geometryCache — (blueprintId::partId)-keyed store of frozen part geometry templates,
+ *   shared by reference across all same-blueprint instances (level-scoped, persists for runtime spawns).
  */
-function BuildEntity(definition, surfaceMap) {
+function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geometryCache) {
 
 	// Resolve spawn surface for movement localization.
 	const movement = normalizeMovement(definition.movement, surfaceMap[definition.model.spawnSurfaceId]);
-	const model = buildModel(definition, surfaceMap);
+	const { model } = buildModel(definition, surfaceMap, textureScale, faceTextureStore, geometryCache);
 	const rootTrans = model.rootTransform;
 	const initialMovementProgress = resolveInitialMovementProgress(movement, rootTrans.position);
 
@@ -563,7 +571,7 @@ function BuildEntity(definition, surfaceMap) {
 	const detailed = computeDetailedBoundsForEntity(definition.type, aabb, model, definition.collisionOverride);
 	const simRadiusPadding = new Unit(8, "cnu");
 
-	return {
+	const entity = {
 		id: definition.id,
 		type: definition.type,
 		hp: definition.hp,
@@ -586,12 +594,12 @@ function BuildEntity(definition, surfaceMap) {
 		mesh: model.parts[0].mesh,
 		collision: {
 			aabb, simRadiusPadding,
-			simRadiusAabb: computeExpandedAabb(aabb, simRadiusPadding),
-			shape: detailed.collisionShape,
+			simRadiusAabb : computeExpandedAabb(aabb, simRadiusPadding),
+			shape         : detailed.collisionShape,
 			detailedBounds: detailed.detailedBounds,
-			physics: detailed.physics,
-			hurtbox: detailed.hurtbox,
-			hitbox: detailed.hitbox,
+			physics       : detailed.physics,
+			hurtbox       : detailed.hurtbox,
+			hitbox        : detailed.hitbox,
 		},
 		hitboxActive: detailed.hitbox !== null,
 		animations: definition.animations,
@@ -609,6 +617,8 @@ function BuildEntity(definition, surfaceMap) {
 			lastPhysicsCollisionKey: "",
 		},
 	};
+
+	return { entity };
 }
 
 function refreshEntityDerivedState(entity) {

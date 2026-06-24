@@ -105,7 +105,8 @@
       "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/handlers/game/Camera.js\")",
       "Bash(node --check \"engine/v1/builder/NewEntity.js\")",
       "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('carlGames/simulator/entities.json','utf8'\\)\\); console.log\\('JSON valid'\\)\")",
-      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\builder\\\\NewScatter.js\")"
+      "Bash(node --check \"c:\\\\Users\\\\Tayri\\\\Desktop\\\\Coding Projects\\\\SloppyCarlGames\\\\engine\\\\v1\\\\builder\\\\NewScatter.js\")",
+      "Bash(node --check engine/v1/handlers/game/Level.js)"
     ]
   }
 }

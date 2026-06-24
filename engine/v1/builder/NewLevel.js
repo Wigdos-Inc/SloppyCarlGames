@@ -100,7 +100,7 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 	return mesh;
 }
 
-function buildWaterVisualMeshes(world) {
+function buildWaterVisualMeshes(world, faceTextureStore) {
 	if (!world.waterLevel) return null;
 
 	const centerX     = world.length.value * 0.5;
@@ -108,7 +108,7 @@ function buildWaterVisualMeshes(world) {
 	const waterBottom = Clamp(world.waterLevel.value - 0.1, 0, world.deathBarrierY.value);
 	const waterHeight = Math.max(0.1, world.waterLevel.value - waterBottom);
 
-	const { mesh: body, faceTextures: bodyFaceTextures } = BuildObject(
+	const { mesh: body } = BuildObject(
 		{
 			id              : `water-body-${world.length.value}-${world.width.value}-${waterBottom}-${world.waterLevel.value}`,
 			shape           : "cube",
@@ -138,10 +138,11 @@ function buildWaterVisualMeshes(world) {
 			role           : "water",
 			collisionShape : "none",
 			textureScale   : world.textureScale,
+			faceTextureStore,
 		}
 	);
 
-	const { mesh: top, faceTextures: topFaceTextures } = BuildObject(
+	const { mesh: top } = BuildObject(
 		{
 			id: `water-top-${world.length.value}-${world.width.value}-${world.waterLevel.value}`,
 			shape: "plane", complexity: "medium",
@@ -161,10 +162,11 @@ function buildWaterVisualMeshes(world) {
 			},
 			detail: { scatter: [] }, role: "water", collisionShape: "none",
 			textureScale   : world.textureScale,
+			faceTextureStore,
 		}
 	);
 
-	return { body, top, faceTextures: [...bodyFaceTextures, ...topFaceTextures] };
+	return { body, top };
 }
 
 function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
@@ -284,12 +286,16 @@ async function BuildLevel(payload) {
 		});
 	};
 
-	const allFaceTextures = [];
+	// A central storage for easy reuse.
+	const faceTextureStore = {};
+
+	// A cache to prevent geometry regeneration
+	const partGeometryCache = new Map();
 
 	const allTerrain = payload.terrain.objects.map((terrainObject) => {
 		terrainObject.position.y += terrainObject.dimensions.y * terrainObject.scale.y * 0.5;
 
-		const { mesh: terrainMesh, faceTextures } = BuildObject(
+		const { mesh: terrainMesh } = BuildObject(
 			{
 				...terrainObject,
 				id            : terrainObject.id,
@@ -297,29 +303,28 @@ async function BuildLevel(payload) {
 				collisionShape: terrainObject.collisionShape,
 				mode          : terrainObject.mode,
 				textureScale  : payload.world.textureScale,
+				faceTextureStore,
 			}
 		);
 
-		allFaceTextures.push(...faceTextures);
 		return terrainMesh;
 	});
 	const terrain          = allTerrain.filter((mesh) => mesh.meta.mode !== "void");
 	const voidTerrain = allTerrain.filter((mesh) => mesh.meta.mode === "void");
 	if (terrain.length > 0) Log("ENGINE", `Terrain object group created: count=${terrain.length}`, "log", "Level");
 
-	const { built: allObstacleRecords, faceTextures: obstacleFaceTextures } = BuildObstacles(payload.obstacles, { textureScale: payload.world.textureScale });
-	allFaceTextures.push(...obstacleFaceTextures);
+	const { built: allObstacleRecords } = BuildObstacles(payload.obstacles, { textureScale: payload.world.textureScale, faceTextureStore });
 	const obstacleRecords          = allObstacleRecords.filter((r) => r.mode !== "void");
 	const voidObstacleRecords = allObstacleRecords.filter((r) => r.mode === "void");
 
 	// Void walls run before scatter: classification attaches a `relations` map (with openFaces)
 	// onto each void entry, which scatter then reads to reject samples over openings.
 	const voids = { terrain: voidTerrain, obstacles: voidObstacleRecords };
-	const { faceTextures: voidFaceTextures } = BuildVoidWalls(
+	BuildVoidWalls(
 		{ terrain, obstacles: obstacleRecords, voids },
-		payload.world.textureScale
+		payload.world.textureScale,
+		faceTextureStore
 	);
-	allFaceTextures.push(...voidFaceTextures);
 
 	// Open faces lookup: per default object id, the concatenated world-space open boundary faces
 	// across every void relation that references it.
@@ -362,19 +367,24 @@ async function BuildLevel(payload) {
 	const surfaceMap = buildSurfaceMap(payload.terrain.objects, payload.obstacles);
 
 	const entities = payload.entities.map((entity) => {
-		return BuildEntity(buildEntityInput(entity, resolveEntityBlueprintMap(payload)), surfaceMap);
+		const { entity: built } = BuildEntity(
+			buildEntityInput(entity, resolveEntityBlueprintMap(payload)),
+			surfaceMap,
+			payload.world.textureScale,
+			faceTextureStore,
+			partGeometryCache
+		);
+		return built;
 	});
 	if (entities.length > 0) Log("ENGINE", `Entity group created: count=${entities.length}`, "log", "Level");
 
-	const waterVisual = buildWaterVisualMeshes(payload.world);
-	if (waterVisual) allFaceTextures.push(...waterVisual.faceTextures);
+	const waterVisual = buildWaterVisualMeshes(payload.world, faceTextureStore);
 
 	const sceneGraph = {
 		world: payload.world,
 		terrain, entities, triggers, scatter: [], scatterBatches,
 		obstacles               : obstacleRecords,
-		voids,
-		waterVisual,
+		voids, waterVisual,
 		scatterPrimitiveGeometry: BuildScatterVisualResources(scatterBatches),
 		debug                   : {
 			showTriggerVolumes: !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.Triggers === true),
@@ -390,7 +400,8 @@ async function BuildLevel(payload) {
 		cameraConfig       : payload.camera,
 		playerConfig       : payload.player,
 		meta               : payload.meta,
-		pendingFaceTextures: allFaceTextures,
+		pendingFaceTextures: faceTextureStore,
+		partGeometryCache,
 	};
 
 	RefreshSceneBoundingBoxes(sceneGraph);

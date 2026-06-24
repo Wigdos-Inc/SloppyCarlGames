@@ -198,6 +198,9 @@ async function Load(payload) {
 	}
 	clearTargetState();
 
+	// Reset the part-geometry cache each load
+	sceneGraph.partGeometryCache = new Map();
+
 	const built = SpawnIntoScene(definition, objectType, sceneGraph);
 	simulatorRuntime.builtObject = built;
 	simulatorRuntime.objectType  = objectType;

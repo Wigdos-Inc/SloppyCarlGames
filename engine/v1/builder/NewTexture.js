@@ -32,10 +32,8 @@ function ComputeGeneratedTextureID(generatedTexture) {
 	return parts.join("::");
 }
 
-// Frequency patterns decouple spatial frequency (UVs on meshes, periods on decals) from the
-// canvas appearance. Maps each pattern to its CONFIG.RENDERING.Texture block. Non-frequency
-// patterns (noise, radial) are absent — a lookup miss means "not a frequency pattern".
-const frequencyPatternConfig = {
+// Map frequency patterns to CONFIG.RENDERING.Texture blocks. Absent = not a frequency pattern.
+const FREQUENCY_PATTERN_CONFIG = {
 	tiles  : "Tiles",
 	stripes: "Stripes",
 	grid   : "Grid",
@@ -421,10 +419,8 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 		};
 		const effectiveScale = autoRatio > 0 ? textureScale / autoRatio : textureScale;
 
-		// Frequency patterns stamp a fixed element count onto the decal (no tiling), so the
-		// canvas must draw round(density × cfg.Density) periods directly. Non-frequency decals
-		// (noise/radial) ignore periods, so the default of 1 is harmless.
-		const decalConfigKey = frequencyPatternConfig[resolvedBlueprint.pattern];
+		// Frequency patterns: bake period count directly (no tiling). Non-frequency patterns ignore periods, default 1 is harmless.
+		const decalConfigKey = FREQUENCY_PATTERN_CONFIG[resolvedBlueprint.pattern];
 		const periods = decalConfigKey ? Math.round(resolvedBlueprint.density * CONFIG.RENDERING.Texture[decalConfigKey].Density) : 1;
 
 		ctx.globalCompositeOperation = "source-atop";
@@ -441,12 +437,9 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 		const usageEntry = usage[textureID];
 		const textureBlueprint = visualTemplates.textures[usageEntry.baseTextureID];
 		const resolvedSize = resolveTextureSize(textureBlueprint, usageEntry);
-		// Payload scalars modify rather than override: compose blueprint (internal) × payload.
-		// The global scalar is applied later in drawPattern.
-		// Frequency patterns (tiles/stripes/grid) carry spatial frequency in their per-mesh UVs,
-		// so density is NOT baked into the shared registry canvas — only the speckSize ratio is.
-		// Noise still bakes density into its canvas.
-		const isFrequencyPattern = frequencyPatternConfig[textureBlueprint.pattern] !== undefined;
+		
+		// Frequency patterns: density NOT baked into canvas (lives in per-mesh UVs); only speckSize is. Noise bakes density.
+		const isFrequencyPattern = FREQUENCY_PATTERN_CONFIG[textureBlueprint.pattern] !== undefined;
 		const resolvedTextureBlueprint = {
 			...textureBlueprint,
 			density:   isFrequencyPattern ? textureBlueprint.density : textureBlueprint.density * usageEntry.density,
@@ -505,10 +498,10 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	const { usage, customTextureUsage } = collectTextureUsage(sceneGraph);
 	const textureRegistry = createTextureRegistry(usage, customTextureUsage, { textureScale: sceneGraph.world.textureScale });
 
-	for (const { id, source, definition } of sceneGraph.pendingFaceTextures) {
-		textureRegistry[id] = { id, definition, source, dirty: false };
-	}
-	sceneGraph.pendingFaceTextures = [];
+	// pendingFaceTextures is a content-signature-keyed store: identical faces across terrain, obstacles,
+	// voids, water, and entities already collapsed to one entry during build, so this merge is idempotent.
+	for (const id in sceneGraph.pendingFaceTextures) textureRegistry[id] = sceneGraph.pendingFaceTextures[id];
+	sceneGraph.pendingFaceTextures = {};
 
 	sceneGraph.visualResources = {
 		textureRegistry,
@@ -524,6 +517,19 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	);
 
 	return sceneGraph;
+}
+
+// Composes blueprint density/speckSize/shape with per-mesh detail scalars and optional color overrides.
+// null is the "no override" sentinel. Shared by NewObject and NewVoid for color override parity.
+function ResolveNoiseFaceBlueprint(textureBlueprint, textureDetail) {
+	return {
+		...textureBlueprint,
+		density  : textureBlueprint.density   * textureDetail.density,
+		speckSize: textureBlueprint.speckSize  * textureDetail.speckSize,
+		shape    : textureDetail.shape,
+		...(textureDetail.primary   !== null && { primary:   RgbaToHex(textureDetail.primary)   }),
+		...(textureDetail.secondary !== null && { secondary: RgbaToHex(textureDetail.secondary) }),
+	};
 }
 
 function BuildNoiseFaceCanvas(blueprint, pixelW, pixelH, textureScale) {
@@ -571,28 +577,50 @@ function BuildNoiseAnimationOptions(blueprint, textureDetail) {
 	};
 }
 
-function BuildFaceTextureData(textureID, ownerId, ownerKind, resolvedBlueprint, faceGroupData, faceSpans, textureScale, animationOptions = null) {
-	const faceTextures      = [];
+// Memoization gate: returns stored entry if id exists, otherwise builds via buildFn, stores, and returns it.
+function getOrBuildFaceTexture(store, id, buildFn) {
+	const existing = store[id];
+	if (existing !== undefined) return existing;
+	const entry = buildFn();
+	store[id] = entry;
+	return entry;
+}
+
+// Content signature for a face texture — identical content collapses to one canvas/GL texture. ::face= preserved for Render.js CLAMP_TO_EDGE.
+function buildFaceTextureSignature(baseTextureID, resolvedBlueprint, pixelW, pixelH, textureScale, animationOptions) {
+	const colorKey = `${resolvedBlueprint.primary}|${resolvedBlueprint.secondary}|${resolvedBlueprint.shape}`;
+	const shapeKey = `d=${resolvedBlueprint.density}|s=${resolvedBlueprint.speckSize}`;
+	const sizeKey  = `${pixelW}x${pixelH}`;
+	const scaleKey = `ts=${textureScale}`;
+	const animKey  = animationOptions
+		? `anim=1:${animationOptions.holdTime}:${animationOptions.blendTime}:${animationOptions.holdTimeSpeed}:${animationOptions.blendTimeSpeed}`
+		: "anim=0";
+	return `${baseTextureID}::face=noise::${colorKey}::${shapeKey}::${sizeKey}::${scaleKey}::${animKey}`;
+}
+
+function BuildFaceTextureData(store, textureID, resolvedBlueprint, faceGroupData, faceSpans, textureScale, animationOptions = null) {
 	const faceTextureGroups = [];
 	for (let i = 0; i < faceGroupData.length; i++) {
 		const group  = faceGroupData[i];
 		const pixelW = Math.max(1, Math.round(faceSpans[i].uSpan * textureScale));
 		const pixelH = Math.max(1, Math.round(faceSpans[i].vSpan * textureScale));
-		const faceID = `${textureID}::face=${i}::${ownerKind}=${ownerId}`;
-		const canvas = BuildNoiseFaceCanvas(resolvedBlueprint, pixelW, pixelH, textureScale);
-		const definition = animationOptions ? {
-			...resolvedBlueprint,
-			holdTimeSpeed : animationOptions.holdTimeSpeed,
-			blendTimeSpeed: animationOptions.blendTimeSpeed,
-			animation     : { able: true, holdTime: animationOptions.holdTime, blendTime: animationOptions.blendTime },
-			isFaceTexture : true,
-			pixelW,
-			pixelH,
-		} : null;
-		faceTextures.push({ id: faceID, source: canvas, definition });
+		const faceID = buildFaceTextureSignature(textureID, resolvedBlueprint, pixelW, pixelH, textureScale, animationOptions);
+		getOrBuildFaceTexture(store, faceID, () => {
+			const canvas = BuildNoiseFaceCanvas(resolvedBlueprint, pixelW, pixelH, textureScale);
+			const definition = animationOptions ? {
+				...resolvedBlueprint,
+				holdTimeSpeed : animationOptions.holdTimeSpeed,
+				blendTimeSpeed: animationOptions.blendTimeSpeed,
+				animation     : { able: true, holdTime: animationOptions.holdTime, blendTime: animationOptions.blendTime },
+				isFaceTexture : true,
+				pixelW,
+				pixelH,
+			} : null;
+			return { id: faceID, source: canvas, definition, dirty: false };
+		});
 		faceTextureGroups.push({ indexStart: group.indexStart, indexCount: group.indexCount, textureID: faceID });
 	}
-	return { faceTextures, faceTextureGroups };
+	return { faceTextureGroups };
 }
 
-export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources, BuildNoiseFaceCanvas, BuildFaceTextureData, BuildNoiseAnimationOptions, frequencyPatternConfig, visualTemplates as VISUAL_TEMPLATES, ComputeGeneratedTextureID, RgbaToHex };
+export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources, BuildNoiseFaceCanvas, BuildFaceTextureData, ResolveNoiseFaceBlueprint, BuildNoiseAnimationOptions, FREQUENCY_PATTERN_CONFIG, visualTemplates as VISUAL_TEMPLATES, ComputeGeneratedTextureID, RgbaToHex };

@@ -3,7 +3,7 @@
 // Called by anything that wants any 3D object or wants to build models.
 
 import { BuildScatter } from "./NewScatter.js";
-import { BuildFaceTextureData, BuildNoiseAnimationOptions, frequencyPatternConfig, VISUAL_TEMPLATES, ComputeGeneratedTextureID, RgbaToHex } from "./NewTexture.js";
+import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveNoiseFaceBlueprint, FREQUENCY_PATTERN_CONFIG, VISUAL_TEMPLATES, ComputeGeneratedTextureID } from "./NewTexture.js";
 import { CONFIG } from "../core/config.js";
 import { CreateModelMatrix } from "../math/Matrix.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
@@ -876,6 +876,70 @@ function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 	}
 }
 
+// Builds+Freezes the geometry template for (blueprintId::partId), shared by ref across same-blueprint instances.
+// User-authorized freeze, not a violation.
+function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiveOptions, texture, materialTextureID, textureScale, faceTextureStore) {
+	const geometry = BuildGeometry(shape, dimensions, complexity, primitiveOptions);
+	const bounds   = computeBounds(geometry.positions);
+
+	let uvs = GenerateUVs(geometry.positions, geometry);
+	let faceTextureGroups;
+
+	const textureBlueprint = VISUAL_TEMPLATES.textures[texture.id];
+
+	// Path A — per-face noise: one baked canvas per face, normalized [0,1] UVs.
+	if (textureBlueprint.pattern === "noise" && !geometry.uvs && geometry.faceGroups.every(g => g.indexStart !== undefined)) {
+		const { uvs: normalizedUvs, faceSpans } = GenerateFaceProjectedUvs(geometry.positions, geometry.faceGroups, true);
+		uvs = normalizedUvs;
+
+		const resolvedBlueprint = ResolveNoiseFaceBlueprint(textureBlueprint, texture);
+		const animationOptions  = BuildNoiseAnimationOptions(textureBlueprint, texture);
+
+		faceTextureGroups = BuildFaceTextureData(
+			faceTextureStore, materialTextureID, resolvedBlueprint, geometry.faceGroups, faceSpans, textureScale, animationOptions
+		).faceTextureGroups;
+	}
+	else {
+		// Sphere pre-scale: de-tile-lock curved parts by scaling normalized UVs to physical span.
+		if (geometry.uvMode === "sphere") {
+			const uSpan = Math.PI * dimensions.x;
+			const vSpan = Math.PI * dimensions.y * 0.5;
+			for (let i = 0; i < uvs.length; i += 2) {
+				uvs[i + 0] *= uSpan;
+				uvs[i + 1] *= vSpan;
+			}
+		}
+
+		// Frequency patterns: scale UVs by composed frequency. textureBlueprint absent for material-only parts.
+		const frequencyConfigKey = textureBlueprint === undefined ? undefined : FREQUENCY_PATTERN_CONFIG[textureBlueprint.pattern];
+		if (frequencyConfigKey !== undefined) {
+			const uvScale = textureBlueprint.density * CONFIG.RENDERING.Texture[frequencyConfigKey].Density * texture.density;
+			for (let i = 0; i < uvs.length; i++) uvs[i] *= uvScale;
+		}
+	}
+
+	const template = {
+		positions: new Float32Array(geometry.positions),
+		indices  : new Uint16Array(geometry.indices),
+		uvs      : new Float32Array(uvs),
+		bounds,
+	};
+	// Omit the key entirely when Path A did not run so `if (mesh.geometry.faceTextureGroups)` is unchanged.
+	if (faceTextureGroups !== undefined) template.faceTextureGroups = faceTextureGroups;
+
+	// Typed arrays NOT frozen — Object.freeze throws on non-empty Float32Array/Uint16Array.
+	Object.freeze(template.bounds);
+	Object.freeze(template.bounds.min);
+	Object.freeze(template.bounds.max);
+	if (template.faceTextureGroups !== undefined) {
+		for (const group of template.faceTextureGroups) Object.freeze(group);
+		Object.freeze(template.faceTextureGroups);
+	}
+	Object.freeze(template);
+
+	return template;
+}
+
 function BuildObject(source) {
 	// Upstream must supply normalized/canonical objects (UnitVector3 for world-space values).
 	// Mandatory fields are used directly; optional fields are assumed normalized.
@@ -919,7 +983,6 @@ function BuildObject(source) {
 				detailedBounds: computeDetailedBounds({ collisionShape: source.collisionShape, geometry: tempGeometry, localBounds, worldAabb, transform }),
 				customTextures: [],
 			},
-			faceTextures: [],
 		};
 	}
 
@@ -940,15 +1003,90 @@ function BuildObject(source) {
 				geometry      : { positions: geometry.positions, indices: geometry.indices, indexCount: geometry.indices.length },
 				customTextures: [],
 			},
-			faceTextures: [],
 		};
+	}
+
+	// Authored shape is { generated, custom }. The runtime mesh keeps the historical fields:
+	// material/detail read from the generated base texture; mesh.customTextures holds the decals.
+	const texture  = source.texture.generated;
+
+	// Entity-part geometry cache: (blueprintId::partId) builds once, frozen template shared by ref. textureScale: null opts out (player model).
+	if (source.role === "entity-part" && source.textureScale !== null) {
+		const materialTextureID = ComputeGeneratedTextureID(texture);
+
+		// Memoization gate (mirrors the face-texture dedup gate): undefined === genuine cache miss.
+		let geometryTemplate = source.geometryCache.get(source.geometryCacheKey);
+		if (geometryTemplate === undefined) {
+			geometryTemplate = buildEntityPartGeometryTemplate(
+				shape, source.dimensions, complexity, primitiveOptions, texture, materialTextureID, source.textureScale, source.faceTextureStore
+			);
+			source.geometryCache.set(source.geometryCacheKey, geometryTemplate);
+		}
+
+		const partMesh = {
+			id        : source.id,
+			type      : "mesh3d",
+			shape, complexity, transform,
+			displayTransform: transform,
+			displayColor    : null,
+			primitive       : shape,
+			role            : source.role,
+			geometry        : geometryTemplate,
+			material        : {
+				textureID  : materialTextureID,
+				color      : { r: 1, g: 1, b: 1, a: 1 },
+				opacity    : texture.opacity,
+				transparent: texture.opacity < 1,
+			},
+			meta: {
+				trigger  : source.trigger,
+				platform : source.platform,
+				parentId : source.parentId,
+				sticky   : source.sticky,
+				mode     : source.mode,
+				nullable : source.nullable,
+			},
+			detail: {
+				scatter: source.detail.scatter,
+				texture, complexity, primitiveOptions,
+			},
+			worldAabb      : computeWorldAabbFromGeometry(geometryTemplate.positions, transform),
+			dimensions     : source.dimensions,
+			collisionShape : source.collisionShape,
+			customTextures : source.texture.custom,
+			detailedBounds : null,
+		};
+		partMesh.detailedBounds = computeDetailedBounds(partMesh);
+
+		partMesh.customTextures.forEach((decal) => {
+			decal.displayTransform = decal.localTransform;
+			decal.displayColor = null;
+			decal.activeSourceKey = null;
+		});
+
+		const scatterContext = source.scatterContext;
+		if (scatterContext && partMesh.detail.scatter.length > 0) {
+			const generatedScatter = BuildScatter({
+				objectMesh       : partMesh,
+				scatterMultiplier: scatterContext.scatterMultiplier,
+				world            : scatterContext.world,
+				indexSeed        : scatterContext.indexSeed,
+				explicitScatter  : partMesh.detail.scatter,
+				openFaces        : [],
+			});
+
+			if (generatedScatter.length > 0) {
+				partMesh.meta.scatter = { count: generatedScatter.length };
+				scatterContext.scatterAccumulator?.push(...generatedScatter);
+				scatterContext.onScatterGenerated?.(partMesh, generatedScatter);
+			}
+		}
+
+		return { mesh: partMesh };
 	}
 
 	const geometry = BuildGeometry(shape, source.dimensions, complexity, primitiveOptions);
 	const bounds   = computeBounds(geometry.positions);
-	// Authored shape is { generated, custom }. The runtime mesh keeps the historical fields:
-	// material/detail read from the generated base texture; mesh.customTextures holds the decals.
-	const texture  = source.texture.generated;
 
 	const mesh = {
 		id        : source.id,
@@ -1019,8 +1157,7 @@ function BuildObject(source) {
 		}
 	}
 
-	// Per-face noise texture path: noise textures get a unique canvas per face
-	// with normalized [0,1] UVs so specks are distributed once across the face without tiling.
+	// Per-face noise (terrain/obstacle/water). Entity parts use buildEntityPartGeometryTemplate.
 	const textureBlueprint = VISUAL_TEMPLATES.textures[texture.id];
 	const roleSupportsPerFace = source.role === "terrain" || source.role === "obstacle" || source.role === "water";
 	if (roleSupportsPerFace && textureBlueprint.pattern === "noise" && !geometry.uvs && geometry.faceGroups.every(g => g.indexStart !== undefined)) {
@@ -1028,40 +1165,27 @@ function BuildObject(source) {
 		const { uvs: normalizedUvs, faceSpans } = GenerateFaceProjectedUvs(geometry.positions, geometry.faceGroups, true);
 		mesh.geometry.uvs = normalizedUvs;
 
-		const resolvedBlueprint = {
-			...textureBlueprint,
-			density  : textureBlueprint.density   * texture.density,
-			speckSize: textureBlueprint.speckSize  * texture.speckSize,
-			shape    : texture.shape,
-			...(texture.primary   !== null && { primary:   RgbaToHex(texture.primary)   }),
-			...(texture.secondary !== null && { secondary: RgbaToHex(texture.secondary) }),
-		};
+		const resolvedBlueprint = ResolveNoiseFaceBlueprint(textureBlueprint, texture);
 
 		const animationOptions = BuildNoiseAnimationOptions(textureBlueprint, texture);
 
-		const { faceTextures, faceTextureGroups } = BuildFaceTextureData(
-			mesh.material.textureID, mesh.id, "mesh", resolvedBlueprint, geometry.faceGroups, faceSpans, textureScale, animationOptions
+		const { faceTextureGroups } = BuildFaceTextureData(
+			source.faceTextureStore, mesh.material.textureID, resolvedBlueprint, geometry.faceGroups, faceSpans, textureScale, animationOptions
 		);
 
 		mesh.geometry.faceTextureGroups = faceTextureGroups;
-		return { mesh, faceTextures };
+		return { mesh };
 	}
 
-	// Frequency patterns (tiles/stripes/grid) carry spatial frequency in their UVs: the canvas
-	// draws exactly one period, and the per-mesh UVs are scaled so the pattern repeats at a
-	// continuous, fractional-capable frequency (visible periods per CNU = density × cfg.Density).
-	// Not every mesh resolves to a procedural blueprint — scatter parts (and any texture that only
-	// names a material) reach here without one — so textureBlueprint may be absent. Only
-	// blueprint-backed meshes carry a frequency pattern and get UV-scaled.
-	const frequencyConfigKey = textureBlueprint === undefined ? undefined : frequencyPatternConfig[textureBlueprint.pattern];
+	// Frequency patterns: scale UVs by composed frequency. textureBlueprint absent for scatter/material-only parts.
+	const frequencyConfigKey = textureBlueprint === undefined ? undefined : FREQUENCY_PATTERN_CONFIG[textureBlueprint.pattern];
 	if (frequencyConfigKey !== undefined) {
-		// Compose the basis (blueprint) with the global config and the per-part scalar, matching the
-		// noise path: visible periods per CNU = blueprint.density × cfg.Density × part.density.
+		// visible periods per CNU = blueprint.density × cfg.Density × part.density
 		const uvScale = textureBlueprint.density * CONFIG.RENDERING.Texture[frequencyConfigKey].Density * texture.density;
 		for (let i = 0; i < mesh.geometry.uvs.length; i++) mesh.geometry.uvs[i] *= uvScale;
 	}
 
-	return { mesh, faceTextures: [] };
+	return { mesh };
 }
 
 function UpdateObjectWorldAabb(mesh) {

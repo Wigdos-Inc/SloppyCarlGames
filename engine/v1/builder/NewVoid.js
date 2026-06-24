@@ -8,7 +8,7 @@ import { CreateModelMatrix } from "../math/Matrix.js";
 import { AabbOverlap, StrictAabbOverlap } from "../math/Collision.js";
 import { NarrowphaseTest } from "../physics/Collision.js";
 import { GenerateUVs, GenerateFaceProjectedUvs, TransformPointByMatrix } from "./NewObject.js";
-import { BuildFaceTextureData, BuildNoiseAnimationOptions, VISUAL_TEMPLATES } from "./NewTexture.js";
+import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveNoiseFaceBlueprint, VISUAL_TEMPLATES } from "./NewTexture.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { AddVector3, CrossVector3, DivideVector3, DotVector3, ScaleVector3, SubtractVector3, ToVector3, Vector3Sq, WORLD_NORMALS } from "../math/Vector3.js";
 
@@ -171,10 +171,10 @@ function buildVoidCollision(worldTriangles) {
 	};
 }
 
-function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textureScale) {
-	const material         = defaultMesh.material;
-	const srcPositions     = voidMesh.geometry.positions;
-	const collision        = buildVoidCollision(worldTriangles);
+function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textureScale, faceTextureStore) {
+	const material     = defaultMesh.material;
+	const srcPositions = voidMesh.geometry.positions;
+	const collision    = buildVoidCollision(worldTriangles);
 
 	const textureBlueprint = VISUAL_TEMPLATES.textures[defaultMesh.detail.texture.id];
 
@@ -205,17 +205,12 @@ function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textu
 		const positionArray            = new Float32Array(newPositions);
 		const { uvs, faceSpans }       = GenerateFaceProjectedUvs(positionArray, faceGroupData, true);
 
-		const resolvedBlueprint = {
-			...textureBlueprint,
-			density  : textureBlueprint.density   * defaultMesh.detail.texture.density,
-			speckSize: textureBlueprint.speckSize  * defaultMesh.detail.texture.speckSize,
-			shape    : defaultMesh.detail.texture.shape,
-		};
+		const resolvedBlueprint = ResolveNoiseFaceBlueprint(textureBlueprint, defaultMesh.detail.texture);
 
 		const animationOptions = BuildNoiseAnimationOptions(textureBlueprint, defaultMesh.detail.texture);
 
-		const { faceTextures, faceTextureGroups } = BuildFaceTextureData(
-			material.textureID, defaultMesh.id, "voidwall", resolvedBlueprint, faceGroupData, faceSpans, textureScale, animationOptions
+		const { faceTextureGroups } = BuildFaceTextureData(
+			faceTextureStore, material.textureID, resolvedBlueprint, faceGroupData, faceSpans, textureScale, animationOptions
 		);
 
 		const mesh = {
@@ -242,7 +237,7 @@ function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textu
 			wallBounds : collision.wallBounds,
 		};
 
-		return { mesh, faceTextures };
+		return { mesh };
 	}
 
 	// Non-noise / tiling branch: flat remapping, per-triangle face groups, tiling UVs.
@@ -285,7 +280,7 @@ function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textu
 		wallBounds : collision.wallBounds,
 	};
 
-	return { mesh, faceTextures: [] };
+	return { mesh };
 }
 
 function getOrCreateRelation(relations, id) {
@@ -293,29 +288,24 @@ function getOrCreateRelation(relations, id) {
 	return relations[id];
 }
 
-function buildTerrainVoidWalls(sceneGraph, textureScale) {
-	const faceTextures = [];
-
+function buildTerrainVoidWalls(sceneGraph, textureScale, faceTextureStore) {
 	for (const mesh of sceneGraph.voids.terrain) {
 		const { groups, openFacesByMesh } = classifyFaces(mesh, sceneGraph.terrain.filter((m) => m.meta.mode === "default"));
 		const relations = {};
 
 		for (const { defaultMesh, faceTriples, worldTriangles } of groups.values()) {
-			const built = buildVoidMesh(mesh, faceTriples, worldTriangles, defaultMesh, textureScale);
+			const built = buildVoidMesh(mesh, faceTriples, worldTriangles, defaultMesh, textureScale, faceTextureStore);
 			const relation = getOrCreateRelation(relations, defaultMesh.id);
 			relation.voidWallMeshes.push(built.mesh);
-			faceTextures.push(...built.faceTextures);
 		}
 
 		for (const [id, openFaces] of openFacesByMesh) getOrCreateRelation(relations, id).openFaces.push(...openFaces);
 
 		mesh.relations = relations;
 	}
-
-	return { faceTextures };
 }
 
-function buildObstacleVoidWalls(sceneGraph, textureScale) {
+function buildObstacleVoidWalls(sceneGraph, textureScale, faceTextureStore) {
 	const defaultParts = [], partToRecordId = new Map();
 	for (const record of sceneGraph.obstacles) {
 		if (record.mode !== "default") continue;
@@ -325,17 +315,14 @@ function buildObstacleVoidWalls(sceneGraph, textureScale) {
 		}
 	}
 
-	const faceTextures = [];
-
 	for (const record of sceneGraph.voids.obstacles) {
 		const relations = {};
 		for (const part of record.parts) {
 			const { groups, openFacesByMesh } = classifyFaces(part, defaultParts);
 
 			for (const { defaultMesh, faceTriples, worldTriangles } of groups.values()) {
-				const built = buildVoidMesh(part, faceTriples, worldTriangles, defaultMesh, textureScale);
+				const built = buildVoidMesh(part, faceTriples, worldTriangles, defaultMesh, textureScale, faceTextureStore);
 				getOrCreateRelation(relations, partToRecordId.get(defaultMesh.id)).voidWallMeshes.push(built.mesh);
-				faceTextures.push(...built.faceTextures);
 			}
 
 			for (const [partId, openFaces] of openFacesByMesh) {
@@ -344,16 +331,11 @@ function buildObstacleVoidWalls(sceneGraph, textureScale) {
 		}
 		record.relations = relations;
 	}
-
-	return { faceTextures };
 }
 
-function BuildVoidWalls(sceneGraph, textureScale) {
-	const terrainResult   = buildTerrainVoidWalls(sceneGraph, textureScale);
-	const obstacleResult  = buildObstacleVoidWalls(sceneGraph, textureScale);
-	return {
-		faceTextures: [...terrainResult.faceTextures, ...obstacleResult.faceTextures],
-	};
+function BuildVoidWalls(sceneGraph, textureScale, faceTextureStore) {
+	buildTerrainVoidWalls(sceneGraph, textureScale, faceTextureStore);
+	buildObstacleVoidWalls(sceneGraph, textureScale, faceTextureStore);
 }
 
 export { BuildVoidWalls };
