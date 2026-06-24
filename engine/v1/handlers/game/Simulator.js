@@ -144,7 +144,7 @@ async function Start() {
 	if (simulatorRuntime.hadLevel) ClearLevel(false);
 	else StopLevelLoop();
 
-	if (!simulatorRuntime.uiCleared && Cache.UI.lastPayload) {
+	if (!simulatorRuntime.uiCleared && Cache.UI.lastPayload && document.getElementById(Cache.UI.lastPayload.rootId)) {
 		ClearUI(Cache.UI.lastPayload.rootId, false);
 		simulatorRuntime.uiCleared = true;
 	}
