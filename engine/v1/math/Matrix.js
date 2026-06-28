@@ -10,7 +10,7 @@ function CreateIdentityMatrix() {
 	];
 }
 
-function multiplyMatrix4(a, b) {
+function MultiplyMatrix4(a, b) {
 	const out = new Array(16);
 	for (let col = 0; col < 4; col++) {
 		for (let row = 0; row < 4; row++) {
@@ -77,13 +77,13 @@ function createRotationZ(radians) {
 
 function buildModelMatrix(position, pivotPost, rotation, scale, pivotPre) {
 	let matrix = CreateIdentityMatrix();
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(position));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(pivotPost));
-	matrix = multiplyMatrix4(matrix, createRotationY(rotation.y));
-	matrix = multiplyMatrix4(matrix, createRotationX(rotation.x));
-	matrix = multiplyMatrix4(matrix, createRotationZ(rotation.z));
-	matrix = multiplyMatrix4(matrix, createScaleMatrix(scale));
-	matrix = multiplyMatrix4(matrix, createTranslationMatrix(ScaleVector3(pivotPre, -1)));
+	matrix = MultiplyMatrix4(matrix, createTranslationMatrix(position));
+	matrix = MultiplyMatrix4(matrix, createTranslationMatrix(pivotPost));
+	matrix = MultiplyMatrix4(matrix, createRotationY(rotation.y));
+	matrix = MultiplyMatrix4(matrix, createRotationX(rotation.x));
+	matrix = MultiplyMatrix4(matrix, createRotationZ(rotation.z));
+	matrix = MultiplyMatrix4(matrix, createScaleMatrix(scale));
+	matrix = MultiplyMatrix4(matrix, createTranslationMatrix(ScaleVector3(pivotPre, -1)));
 	return matrix;
 }
 
@@ -111,4 +111,5 @@ export {
 	CreateIdentityMatrix,
 	CreateModelMatrix,
 	CreateRenderMatrix,
+	MultiplyMatrix4,
 };

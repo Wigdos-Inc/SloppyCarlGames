@@ -416,6 +416,8 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 			...decalBlueprint,
 			density:   partEffDensity   * ct.detail.density,
 			speckSize: partEffSpeckSize * ct.detail.speckSize,
+			...(ct.detail.primary   !== null && { primary:   RgbaToHex(ct.detail.primary)   }),
+			...(ct.detail.secondary !== null && { secondary: RgbaToHex(ct.detail.secondary) }),
 		};
 		const effectiveScale = autoRatio > 0 ? textureScale / autoRatio : textureScale;
 

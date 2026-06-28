@@ -99,6 +99,16 @@
             "speckSize": 1,
             "primary": "#1e90ff",
             "secondary": "#0b3d91"
+        },
+        "rubber-skin": {
+            "id": "rubber-skin",
+            "size": 64,
+            "pattern": "noise",
+            "animation": { "able": false, "holdTime": 2, "blendTime": 1 },
+            "density": 0.25,
+            "speckSize": 0.05,
+            "primary": "#4d5a60",
+            "secondary": "#3e4a50"
         }
     },
     "scatterTypes": {

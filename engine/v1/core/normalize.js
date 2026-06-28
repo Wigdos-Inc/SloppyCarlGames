@@ -785,6 +785,7 @@ function normalizeBlueprint(rawBlueprint, ctx, globalShared) {
 		pivot   : toUnitVector3(blueprint.model.rootTransform.pivot, "cnu"),
 	};
 	blueprint.model.parts = normalizeArray(blueprintSource.model?.parts).value.map((part) => normalizePart(part, ctx));
+	
 	// Resolved but left raw (un-instanced) — instanced once per entity at the merge below.
 	blueprint.animations = resolveAnimations(blueprintSource.animations, buildAnimationContext(blueprint.model.parts), globalShared);
 	return blueprint;
@@ -883,25 +884,17 @@ function hoistObjectColor(node) {
 	if ("color" in node) {
 		node.texture = node.texture || {};
 		node.texture.generated = node.texture.generated || {};
-		if (!("primary" in node.texture.generated)) {
-			node.texture.generated.primary = node.color;
-		}
+		if (!("primary" in node.texture.generated)) node.texture.generated.primary = node.color;
 		delete node.color;
 	}
-	if (Array.isArray(node.parts)) {
-		node.parts.forEach((part) => hoistObjectColor(part));
-	}
+	if (Array.isArray(node.parts)) node.parts.forEach((part) => hoistObjectColor(part));
 }
 
 function applyImageLoadResults(affectedParts, affectedDecalSources) {
-	affectedParts.forEach((part) => {
-		part.texture.custom = part.texture.custom.filter((e) => e.decalType !== "image" || e.bitmap !== null);
-	});
+	affectedParts.forEach((part) => part.texture.custom = part.texture.custom.filter((e) => e.decalType !== "image" || e.bitmap !== null));
 	affectedDecalSources.forEach((decalEntry) => {
 		for (const key in decalEntry.sources) {
-			if (decalEntry.sources[key].decalType === "image" && decalEntry.sources[key].bitmap === null) {
-				delete decalEntry.sources[key];
-			}
+			if (decalEntry.sources[key].decalType === "image" && decalEntry.sources[key].bitmap === null) delete decalEntry.sources[key];
 		}
 		if (Object.keys(decalEntry.sources).length === 0) decalEntry.sources = null;
 	});
@@ -920,7 +913,7 @@ async function LevelPayload(payload) {
 	const blueprintBuckets = ["enemies", "npcs", "collectibles", "projectiles", "entities"];
 	rawPayload.terrain?.objects?.forEach((item) => hoistObjectColor(item));
 	rawPayload.obstacles?.forEach((item) => hoistObjectColor(item));
-	rawPayload.entities?.forEach((item) => hoistObjectColor(item));
+	rawPayload.entities?.forEach((item)  => hoistObjectColor(item));
 	if (rawPayload.entityBlueprints) {
 		blueprintBuckets.forEach((bucket) => {
 			rawPayload.entityBlueprints[bucket]?.forEach((blueprint) => {
@@ -934,9 +927,9 @@ async function LevelPayload(payload) {
 	// Global shared animation definitions — kept raw; baked into each target during resolution.
 	const globalShared = normalized.animations.shared;
 
-	normalized.world.length = new Unit(normalized.world.length, "cnu");
-	normalized.world.width = new Unit(normalized.world.width, "cnu");
-	normalized.world.height = new Unit(normalized.world.height, "cnu");
+	normalized.world.length        = new Unit(normalized.world.length, "cnu");
+	normalized.world.width         = new Unit(normalized.world.width, "cnu");
+	normalized.world.height        = new Unit(normalized.world.height, "cnu");
 	normalized.world.deathBarrierY = new Unit(normalized.world.deathBarrierY, "cnu");
 	if (normalized.world.waterLevel !== null) {
 		const clampedWaterLevel = Clamp(normalized.world.waterLevel, normalized.world.deathBarrierY.value, normalized.world.height.value);
@@ -967,9 +960,7 @@ async function LevelPayload(payload) {
 	});
 
 	const blueprintMap = {};
-	blueprintBuckets.forEach((bucketName) => {
-		normalized.entityBlueprints[bucketName].forEach((entry) => blueprintMap[entry.id] = entry);
-	});
+	blueprintBuckets.forEach((bucketName) => normalized.entityBlueprints[bucketName].forEach((entry) => blueprintMap[entry.id] = entry));
 
 	normalized.entities = normalizeArray(rawPayload.entities).value.map((entry) => {
 		const entrySource = normalizeObject(entry).value;
@@ -1010,7 +1001,7 @@ async function LevelPayload(payload) {
 	const musicSource = normalizeObject(rawPayload.music);
 	normalized.music = musicSource.bool ? AudioPayload(musicSource.value) : null;
 
-	await Promise.all(ctx.pendingImageLoads.map(({ entry, promise }) =>
+	await Promise.all(ctx.pendingImageLoads.map(({ entry, promise }) => 
 		promise.then((result) => { entry.bitmap = result.bool ? result.value : null; })
 	));
 	applyImageLoadResults(ctx.affectedParts, ctx.affectedDecalSources);
@@ -1034,12 +1025,11 @@ async function SimulatorPayload(payload) {
 		affectedDecalSources: new Set(),
 		surfaceIds          : new Set(),
 	};
-	const isEntityType = ENTITY_TYPES.includes(normalized.objectType);
 
-	if (isEntityType) {
+	let pendingEntityBlueprint = null;
+	if (ENTITY_TYPES.includes(normalized.objectType)) {
 		payload.definition?.model?.parts?.forEach((part) => hoistObjectColor(part));
-		const blueprint = normalizeBlueprint(payload.definition, ctx, {});
-		normalized.definition = mergeSimulatorEntity(blueprint, ctx);
+		pendingEntityBlueprint = normalizeBlueprint(payload.definition, ctx, {});
 	}
 	else {
 		hoistObjectColor(payload.definition);
@@ -1047,10 +1037,12 @@ async function SimulatorPayload(payload) {
 		normalized.definition = normalizeLevelObject(payload.definition, ctx, multipartFallbackShape);
 	}
 
-	await Promise.all(ctx.pendingImageLoads.map(({ entry, promise }) =>
-		promise.then((result) => { entry.bitmap = result.bool ? result.value : null; })
-	));
+	await Promise.all(ctx.pendingImageLoads.map(({ entry, promise }) => promise.then((result) => {
+		entry.bitmap = result.bool ? result.value : null;
+	})));
 	applyImageLoadResults(ctx.affectedParts, ctx.affectedDecalSources);
+
+	if (pendingEntityBlueprint !== null) normalized.definition = mergeSimulatorEntity(pendingEntityBlueprint, ctx);
 
 	return normalized;
 }
