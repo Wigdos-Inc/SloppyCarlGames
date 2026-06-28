@@ -150,7 +150,10 @@ function createLinkedProgram(gl, options) {
 	};
 }
 
-function createFoggedTextureFragmentShader(sharedDeclarations, shadedExpression) {
+function createFoggedTextureFragmentShader(sharedDeclarations, shadedExpression, premultiplied = false) {
+	// premultiplied path: scale colorShift and fog by alpha to stay in premultiplied space.
+	const shiftExpr    = premultiplied ? "shaded.rgb + u_colorShift * shaded.a" : "shaded.rgb + u_colorShift";
+	const fogColorExpr = premultiplied ? "fogColor * shaded.a"                  : "fogColor";
 	return `#version 300 es
 		precision highp float;
 		uniform sampler2D u_texture;
@@ -171,9 +174,9 @@ function createFoggedTextureFragmentShader(sharedDeclarations, shadedExpression)
 
 			float normalizedDepth = v_depth / max(1.0, u_far);
 			float fog = clamp(normalizedDepth * u_fogDensity, 0.0, 1.0);
-			vec3 shifted = shaded.rgb + u_colorShift;
+			vec3 shifted = ${shiftExpr};
 			vec3 fogColor = mix(vec3(0.04, 0.05, 0.08), vec3(0.03, 0.13, 0.2), clamp(u_underwater, 0.0, 1.0));
-			vec3 finalColor = mix(shifted, fogColor, fog);
+			vec3 finalColor = mix(shifted, ${fogColorExpr}, fog);
 			fragColor = vec4(finalColor, shaded.a);
 		}
 	`;
@@ -424,7 +427,8 @@ function createDecalProgram(gl) {
 		vertexShaderSource: vertexShaderSource,
 		fragmentShaderSource: createFoggedTextureFragmentShader(
 			"uniform vec4 u_tint;",
-			"vec4(texel.rgb * u_tint.rgb, texel.a * u_tint.a)"
+			"vec4(texel.rgb * u_tint.rgb * u_tint.a, texel.a * u_tint.a)",
+			true
 		),
 		attributeNames: {
 			position: "a_position",
@@ -1018,11 +1022,19 @@ function ensureSceneTexture(renderer, sceneGraph, textureID) {
 	const gl = renderer.gl;
 	const entry = sceneGraph.visualResources.textureRegistry[textureID];
 
+	// decal textures upload premultiplied (see drawDecalPass) and clamp; meshes/faces do not.
+	const isDecal = textureID.includes("::customTexture::");
+	const uploadSource = () => {
+		if (isDecal) gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.source);
+		if (isDecal) gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+	};
+
 	if (renderer.textures.has(textureID)) {
 		const cachedTexture = renderer.textures.get(textureID);
 		if (entry.dirty === true) {
 			gl.bindTexture(gl.TEXTURE_2D, cachedTexture);
-			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.source);
+			uploadSource();
 			entry.dirty = false;
 		}
 		return cachedTexture;
@@ -1031,9 +1043,9 @@ function ensureSceneTexture(renderer, sceneGraph, textureID) {
 	const texture = gl.createTexture();
 	if (!texture) return renderer.fallbackTexture;
 
-	const wrapMode = textureID.includes("::face=") ? gl.CLAMP_TO_EDGE : gl.REPEAT;
+	const wrapMode = (textureID.includes("::face=") || isDecal) ? gl.CLAMP_TO_EDGE : gl.REPEAT;
 	gl.bindTexture(gl.TEXTURE_2D, texture);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.source);
+	uploadSource();
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -1343,6 +1355,7 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	const decalShader = renderer.decalShader;
 
 	configureTexturedMeshPass(gl, renderer.decalShader, passState);
+	gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 	gl.enable(gl.POLYGON_OFFSET_FILL);
 	gl.polygonOffset(-1, -1);
 	gl.depthMask(false);
@@ -1387,6 +1400,7 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	gl.bindVertexArray(null);
 	gl.depthMask(true);
 	gl.disable(gl.POLYGON_OFFSET_FILL);
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); // restore frame-init straight-alpha blend
 }
 
 // Flatten every void entry's relation voidWallMeshes into one list (used for textured draws).

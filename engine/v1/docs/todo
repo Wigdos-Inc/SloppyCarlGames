@@ -1,6 +1,10 @@
 This file contains current priorities.
 
 Update test characters to test multiple types of characters with intuitive physics
+- Carl
+- Jeff
+- Latina
+Unify textures so generated textures are pre-calculated, then merged, for a whole part rather than per-face and per-decal
 Add Terrain Blueprint Support (start using Claude Code):
 - Add Sonic-Style Loop Blueprint
 - Add Half-Pipe Blueprint

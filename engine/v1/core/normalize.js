@@ -344,7 +344,9 @@ export async function NormalizeImage(path, sourceType, renderType) {
 	try {
 		const response = await fetch(path);
 		if (!response.ok) throw new Error(`HTTP ${response.status}`);
-		const bitmap = await createImageBitmap(await response.blob());
+		// webgl decals blend premultiplied; premultiply the bitmap at creation. UNPACK_PREMULTIPLY_ALPHA_WEBGL
+		// is ignored for ImageBitmap sources, so the upload-time flag cannot do this for us.
+		const bitmap = await createImageBitmap(await response.blob(), renderType === "html" ? {} : { premultiplyAlpha: "premultiply" });
 		return renderType === "html" ? { bool: true, value: { image: bitmap, url: path } } : { bool: true, value: bitmap };
 	} catch (e) {
 		warnLog(`Image: failed to load '${path}' (${sourceType}):\n${e.message}`);
