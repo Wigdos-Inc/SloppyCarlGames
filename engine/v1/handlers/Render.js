@@ -150,7 +150,11 @@ function createLinkedProgram(gl, options) {
 	};
 }
 
-function createFoggedTextureFragmentShader(sharedDeclarations, shadedExpression, premultiplied = false) {
+function createFoggedTextureFragmentShader(
+	sharedDeclarations, shadedExpression, premultiplied = false,
+	varyings = "in vec2 v_uv;",
+	texelComputation = "vec4 texel = texture(u_texture, v_uv);"
+) {
 	// premultiplied path: scale colorShift and fog by alpha to stay in premultiplied space.
 	const shiftExpr    = premultiplied ? "shaded.rgb + u_colorShift * shaded.a" : "shaded.rgb + u_colorShift";
 	const fogColorExpr = premultiplied ? "fogColor * shaded.a"                  : "fogColor";
@@ -162,11 +166,11 @@ function createFoggedTextureFragmentShader(sharedDeclarations, shadedExpression,
 		uniform vec3 u_colorShift;
 		uniform float u_underwater;
 		${sharedDeclarations}
-		in vec2 v_uv;
+		${varyings}
 		in float v_depth;
 		out vec4 fragColor;
 		void main() {
-			vec4 texel = texture(u_texture, v_uv);
+			${texelComputation}
 			vec4 shaded = ${shadedExpression};
 			if (shaded.a <= 0.01) {
 				discard;
@@ -223,6 +227,64 @@ function createProgram(gl) {
 		},
 		createError    : "WebGL program creation failed",
 		linkErrorPrefix: "Program link error",
+	});
+}
+
+function createEntityTriplanarProgram(gl) {
+	// Object-space triplanar for noise entity parts. Vertex mirrors the main program (keeps a_uv active so the
+	// shared VAO layout is unchanged) plus an object-space position varying for derivative-based normals.
+	const vertexShaderSource = `#version 300 es
+		in vec3 a_position;
+		in vec2 a_uv;
+		uniform mat4 u_projection;
+		uniform mat4 u_view;
+		uniform mat4 u_model;
+		out vec2 v_uv;
+		out float v_depth;
+		out vec3 v_objPos;
+		void main() {
+			vec4 world = u_model * vec4(a_position, 1.0);
+			vec4 viewPos = u_view * world;
+			gl_Position = u_projection * viewPos;
+			v_uv = a_uv;
+			v_depth = abs(viewPos.z);
+			v_objPos = a_position;
+		}
+	`;
+
+	return createLinkedProgram(gl, {
+		vertexShaderSource: vertexShaderSource,
+		fragmentShaderSource: createFoggedTextureFragmentShader(
+			"uniform vec4 u_tint; uniform float u_texScale;",
+			"vec4(texel.rgb * u_tint.rgb, texel.a * u_tint.a)",
+			false,
+			"in vec3 v_objPos;",
+			`vec3 n = normalize(cross(dFdx(v_objPos), dFdy(v_objPos)));
+			vec3 w = abs(n); w = w / (w.x + w.y + w.z);
+			w = pow(w, vec3(4.0)); w = w / (w.x + w.y + w.z);
+			vec4 tx = texture(u_texture, v_objPos.zy * u_texScale);
+			vec4 ty = texture(u_texture, v_objPos.xz * u_texScale);
+			vec4 tz = texture(u_texture, v_objPos.xy * u_texScale);
+			vec4 texel = tx * w.x + ty * w.y + tz * w.z;`
+		),
+		attributeNames: {
+			position: "a_position",
+			uv      : "a_uv",
+		},
+		uniformNames: {
+			projection: "u_projection",
+			view      : "u_view",
+			model     : "u_model",
+			texture   : "u_texture",
+			tint      : "u_tint",
+			fogDensity: "u_fogDensity",
+			far       : "u_far",
+			colorShift: "u_colorShift",
+			underwater: "u_underwater",
+			texScale  : "u_texScale",
+		},
+		createError    : "WebGL triplanar program creation failed",
+		linkErrorPrefix: "Triplanar program link error",
 	});
 }
 
@@ -1102,11 +1164,18 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		return null;
 	}
 
+	const entityTriplanarShader = createEntityTriplanarProgram(gl);
+	if (!entityTriplanarShader) {
+		Log("ENGINE", "Failed to create entity triplanar shader.", "error", "Render");
+		return null;
+	}
+
 	const renderer = {
 		rootId, root, canvas, gl, shader,
 		scatterShader,
 		stencilShader,
 		decalShader,
+		entityTriplanarShader,
 		meshBuffers: new Map(),
 		textures: new Map(),
 		geometryRegistry: new Map(),
@@ -1133,7 +1202,10 @@ function syncCanvasSize(renderer) {
 
 function collectRenderableMeshes(sceneGraph) {
 	const obstacles = [];
-	const entities = [];
+	const entitiesUv = [];
+	const entitiesTriplanar = [];
+
+	const collectEntityPart = (mesh) => (mesh.geometry.triplanar ? entitiesTriplanar : entitiesUv).push(mesh);
 
 	sceneGraph.obstacles.forEach((record) => {
 		if (record.mode !== "default") return;
@@ -1141,15 +1213,15 @@ function collectRenderableMeshes(sceneGraph) {
 	});
 	sceneGraph.entities.forEach((entity) => {
 		if (entity.model) {
-			entity.model.parts.forEach((part) => entities.push(part.mesh));
+			entity.model.parts.forEach((part) => collectEntityPart(part.mesh));
 			return;
 		}
-		entities.push(entity.mesh);
+		collectEntityPart(entity.mesh);
 	});
 
 	// Scatter and triggers are excluded — scatter via instanced path, triggers via post-scatter pass.
 	const terrain = sceneGraph.terrain.filter((mesh) => mesh.meta.mode === "default");
-	return { terrain, obstacles, entities };
+	return { terrain, obstacles, entitiesUv, entitiesTriplanar };
 }
 
 const resolveWaterVisualMeshes = (sceneGraph) => !sceneGraph.waterVisual ? [] : [sceneGraph.waterVisual.body, sceneGraph.waterVisual.top];
@@ -1191,24 +1263,27 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 	}
 
-	configureTexturedMeshPass(gl, renderer.shader, passState);
+	const shader = options.triplanar ? renderer.entityTriplanarShader : renderer.shader;
+
+	configureTexturedMeshPass(gl, shader, passState);
 	if (disableDepthWriteForPass) gl.depthMask(false);
 
 	for (const mesh of meshes) {
-		const meshBuffer = ensureMeshBuffer(renderer, mesh, renderer.shader);
+		const meshBuffer = ensureMeshBuffer(renderer, mesh, shader);
 		if (!meshBuffer) continue;
 
 		const dc = mesh.displayColor;
 		const disableDepthWriteForMesh = disableDepthWriteForPass === false && skipDepthWrite(mesh) === true;
 
 		gl.bindVertexArray(meshBuffer.vao);
-		gl.uniform1i(renderer.shader.uniforms.texture, 0);
-		gl.uniformMatrix4fv(renderer.shader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
-		gl.uniform4f(renderer.shader.uniforms.tint,
+		gl.uniform1i(shader.uniforms.texture, 0);
+		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
+		gl.uniform4f(shader.uniforms.tint,
 			dc !== null ? dc.r : mesh.material.color.r,
 			dc !== null ? dc.g : mesh.material.color.g,
 			dc !== null ? dc.b : mesh.material.color.b,
 			dc !== null ? dc.a : mesh.material.opacity);
+		if (options.triplanar) gl.uniform1f(shader.uniforms.texScale, mesh.material.textureScale);
 
 		if (mesh.geometry.faceTextureGroups) {
 			if (disableDepthWriteForMesh) gl.depthMask(false);
@@ -1537,7 +1612,7 @@ function drawScene(renderer, sceneGraph) {
 	}
 
 	// === Stencil write (before Pass A) ===
-	const { terrain, obstacles, entities } = collectRenderableMeshes(sceneGraph);
+	const { terrain, obstacles, entitiesUv, entitiesTriplanar } = collectRenderableMeshes(sceneGraph);
 	if (hasVoidRenderables(sceneGraph.voids.terrain) || hasVoidRenderables(sceneGraph.voids.obstacles)) {
 		drawDepthPrePass(renderer, terrain, obstacles, passState);
 		drawVoidStencil(renderer, sceneGraph, passState);
@@ -1551,7 +1626,8 @@ function drawScene(renderer, sceneGraph) {
 	// === PASS A: terrain/obstacles filtered by type-specific stencil; entities unaffected ===
 	drawMeshList(renderer, sceneGraph, terrain,   passState, { stencilExcludeBit: 0x01 });
 	drawMeshList(renderer, sceneGraph, obstacles, passState, { stencilExcludeBit: 0x02 });
-	drawMeshList(renderer, sceneGraph, entities,  passState);
+	drawMeshList(renderer, sceneGraph, entitiesUv,        passState);
+	drawMeshList(renderer, sceneGraph, entitiesTriplanar, passState, { triplanar: true });
 
 	// === PASS E: Decal quads (custom textures, alpha-blended on top of geometry) ===
 	drawDecalPass(renderer, sceneGraph, passState);

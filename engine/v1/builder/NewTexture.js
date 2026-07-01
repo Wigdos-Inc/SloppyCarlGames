@@ -258,6 +258,7 @@ function collectCustomTextures(mesh, customTextureUsage) {
 			customTextureUsage[id] = {
 				decalType: "image",
 				bitmap   : ct.bitmap,
+				opacity  : ct.opacity,
 				placement: { side: ct.side, localTransform: ct.localTransform },
 			};
 		} 
@@ -383,6 +384,15 @@ const shapeMaskBuilders = {
 	},
 };
 
+function bakeImageDecalOpacity(bitmap, opacity) {
+	const canvas = document.createElement("canvas");
+	canvas.width = bitmap.width; canvas.height = bitmap.height;
+	const ctx = canvas.getContext("2d");
+	ctx.globalAlpha = opacity;
+	ctx.drawImage(bitmap, 0, 0);
+	return canvas;
+}
+
 function compositeShapeDecal(ct, mesh, textureScale) {
 	const size = 256;
 	const canvas = document.createElement("canvas");
@@ -482,7 +492,9 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 
 	for (const id in customTextureUsage) {
 		const cu = customTextureUsage[id];
-		const source = cu.decalType === "image" ? cu.bitmap : compositeShapeDecal(cu.ct, cu.mesh, options.textureScale);
+		let source;
+		if (cu.decalType === "image") source = cu.opacity < 1 ? bakeImageDecalOpacity(cu.bitmap, cu.opacity) : cu.bitmap;
+		else source = compositeShapeDecal(cu.ct, cu.mesh, options.textureScale);
 		registry[id] = { id, source, placement: cu.placement, dirty: false };
 	}
 

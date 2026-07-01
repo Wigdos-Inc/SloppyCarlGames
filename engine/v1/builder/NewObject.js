@@ -878,28 +878,19 @@ function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 
 // Builds+Freezes the geometry template for (blueprintId::partId), shared by ref across same-blueprint instances.
 // User-authorized freeze, not a violation.
-function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiveOptions, texture, materialTextureID, textureScale, faceTextureStore) {
+function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiveOptions, texture) {
 	const geometry = BuildGeometry(shape, dimensions, complexity, primitiveOptions);
 	const bounds   = computeBounds(geometry.positions);
 
 	let uvs = GenerateUVs(geometry.positions, geometry);
-	let faceTextureGroups;
 
 	const textureBlueprint = VISUAL_TEMPLATES.textures[texture.id];
 
-	// Path A — per-face noise: one baked canvas per face, normalized [0,1] UVs.
-	if (textureBlueprint.pattern === "noise" && !geometry.uvs && geometry.faceGroups.every(g => g.indexStart !== undefined)) {
-		const { uvs: normalizedUvs, faceSpans } = GenerateFaceProjectedUvs(geometry.positions, geometry.faceGroups, true);
-		uvs = normalizedUvs;
+	// Noise entity parts: object-space triplanar of the shared baked canvas. Keep default UVs (unused by
+	// triplanar but must remain a valid array so the VAO uv-buffer layout is unchanged).
+	const triplanar = textureBlueprint !== undefined && textureBlueprint.pattern === "noise";
 
-		const resolvedBlueprint = ResolveNoiseFaceBlueprint(textureBlueprint, texture);
-		const animationOptions  = BuildNoiseAnimationOptions(textureBlueprint, texture);
-
-		faceTextureGroups = BuildFaceTextureData(
-			faceTextureStore, materialTextureID, resolvedBlueprint, geometry.faceGroups, faceSpans, textureScale, animationOptions
-		).faceTextureGroups;
-	}
-	else {
+	if (!triplanar) {
 		// Sphere pre-scale: de-tile-lock curved parts by scaling normalized UVs to physical span.
 		if (geometry.uvMode === "sphere") {
 			const uSpan = Math.PI * dimensions.x;
@@ -924,17 +915,13 @@ function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiv
 		uvs      : new Float32Array(uvs),
 		bounds,
 	};
-	// Omit the key entirely when Path A did not run so `if (mesh.geometry.faceTextureGroups)` is unchanged.
-	if (faceTextureGroups !== undefined) template.faceTextureGroups = faceTextureGroups;
+	// Omit the key when false so `if (mesh.geometry.triplanar)` matches the faceTextureGroups convention.
+	if (triplanar) template.triplanar = true;
 
 	// Typed arrays NOT frozen — Object.freeze throws on non-empty Float32Array/Uint16Array.
 	Object.freeze(template.bounds);
 	Object.freeze(template.bounds.min);
 	Object.freeze(template.bounds.max);
-	if (template.faceTextureGroups !== undefined) {
-		for (const group of template.faceTextureGroups) Object.freeze(group);
-		Object.freeze(template.faceTextureGroups);
-	}
 	Object.freeze(template);
 
 	return template;
@@ -1018,7 +1005,7 @@ function BuildObject(source) {
 		let geometryTemplate = source.geometryCache.get(source.geometryCacheKey);
 		if (geometryTemplate === undefined) {
 			geometryTemplate = buildEntityPartGeometryTemplate(
-				shape, source.dimensions, complexity, primitiveOptions, texture, materialTextureID, source.textureScale, source.faceTextureStore
+				shape, source.dimensions, complexity, primitiveOptions, texture
 			);
 			source.geometryCache.set(source.geometryCacheKey, geometryTemplate);
 		}
@@ -1056,6 +1043,11 @@ function BuildObject(source) {
 			customTextures : source.texture.custom,
 			detailedBounds : null,
 		};
+		// Triplanar sampling scale, computed per-mesh so per-instance texture.density is honored across shared
+		// geometryCacheKeys. Mirrors the frequency-pattern UV-scale formula in buildEntityPartGeometryTemplate.
+		if (geometryTemplate.triplanar) {
+			partMesh.material.textureScale = VISUAL_TEMPLATES.textures[texture.id].density * CONFIG.RENDERING.Texture.Noise.Density * texture.density;
+		}
 		partMesh.detailedBounds = computeDetailedBounds(partMesh);
 
 		partMesh.customTextures.forEach((decal) => {

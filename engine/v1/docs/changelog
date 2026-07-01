@@ -1,3 +1,15 @@
+## Entity triplanar noise texturing
+
+- What: Noise-textured entity parts now render via object-space triplanar sampling of the shared baked noise canvas, blended by a screen-derivative face normal, instead of the per-face baked-canvas path (Path A) that collapsed to flat color at entity scale. Noise entity parts no longer build `faceTextureGroups` and are drawn with a dedicated triplanar shader; the terrain/obstacle/water per-face path and frequency-pattern entity parts are unchanged.
+- Why: At entity scale, per-face noise canvases sized by physical face span collapsed to ~1x1px, producing flat color on cylinders/pyramids/cubes.
+- Where: `engine/v1/builder/NewObject.js` — `buildEntityPartGeometryTemplate` sets `template.triplanar` for noise parts and skips face-texture/UV-scaling; `BuildObject` entity-part material sets per-mesh `material.textureScale` when triplanar. `engine/v1/handlers/Render.js` — `createFoggedTextureFragmentShader` gains defaulted `varyings`/`texelComputation` params; new `createEntityTriplanarProgram` + `renderer.entityTriplanarShader`; `collectRenderableMeshes` partitions into `entitiesUv`/`entitiesTriplanar`; `drawMeshList` takes an `options.triplanar` flag and the `drawScene` entity pass draws both lists.
+
+## Image decal opacity (build-time bake)
+
+- What: Image-type texture decals now support an optional authored `opacity` field (0..1, default 1), baked into the decal texture at build time. Values below 1 are composited onto a straight-alpha 2D canvas via `globalAlpha`; opacity >= 1 keeps the raw bitmap fast path. Shape decals and the render/tint path are untouched.
+- Why: Image decals previously had no opacity control (raw bitmap used directly, render tint forced to opaque), while shape decals already supported it via `color.a`.
+- Where: `engine/v1/core/normalize.js` — `normalizeCustomTextures` image branch reads/clamps `opacity` off the raw pre-schema entry and assigns `entry.opacity`. `engine/v1/builder/NewTexture.js` — `collectCustomTextures` carries `opacity` into the image usage entry; new `bakeImageDecalOpacity` helper; `createTextureRegistry` custom-texture loop bakes opacity for image decals.
+
 ## Curved-surface decal conforming
 
 - What: Decals (custom textures) now conform to the underlying primitive surface (sphere/cylinder/capsule, flat fallback otherwise) instead of floating on a single flat quad tangent to the bounding-box face. The flat decal quad is now a tessellated grid, projected onto the surface in a dedicated decal vertex shader after dynamic per-frame placement.

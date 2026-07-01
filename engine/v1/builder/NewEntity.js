@@ -264,9 +264,7 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 	}
 
 	const processQueue = [];
-	for (const rootPartId of rootPartIds) {
-		for (const childId of index[rootPartId].children) processQueue.push(childId);
-	}
+	for (const rootPartId of rootPartIds) for (const childId of index[rootPartId].children) processQueue.push(childId);
 
 	const processed = new Set(rootPartIds);
 	while (processQueue.length > 0) {

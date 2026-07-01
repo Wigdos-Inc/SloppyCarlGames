@@ -7,7 +7,7 @@
 // Core diagnostics and logging support.
 
 import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey, ReleasePointerLock } from "./meta.js";
-import { CONFIG as Config } from "./config.js";
+import { CONFIG } from "./config.js";
 import { ApplyMenuUI, LoadScreen, ClearUI } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
 import { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes } from "../handlers/Sound.js";
@@ -38,7 +38,7 @@ function Initialize() {
   // Expose the engine public API surface.
   return {
     Log,
-    Config,
+    CONFIG,
     Cache,
     Meta: {
       LogAll, LogCache, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,

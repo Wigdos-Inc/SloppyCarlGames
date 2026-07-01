@@ -664,6 +664,8 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 					warnLog(`normalizeCustomTextures: image decal missing required fields (imagePath=${entry.imagePath}, sourceType=${entry.sourceType}), dropping entry.`);
 					return;
 				}
+				// opacity is optional and off-schema; normalizeNumber's default absorbs the missing/invalid case.
+				entry.opacity = Math.min(1, Math.max(0, normalizeNumber(entrySource.value.opacity, 1).value));
 				normalizeSources(entry);
 				entries.push(entry);
 				ctx.pendingImageLoads.push({ entry, promise: NormalizeImage(entry.imagePath, entry.sourceType, "webgl") });
@@ -918,9 +920,7 @@ async function LevelPayload(payload) {
 	rawPayload.entities?.forEach((item)  => hoistObjectColor(item));
 	if (rawPayload.entityBlueprints) {
 		blueprintBuckets.forEach((bucket) => {
-			rawPayload.entityBlueprints[bucket]?.forEach((blueprint) => {
-				blueprint.model?.parts?.forEach((part) => hoistObjectColor(part));
-			});
+			rawPayload.entityBlueprints[bucket]?.forEach((blueprint) => blueprint.model?.parts?.forEach((part) => hoistObjectColor(part)));
 		});
 	}
 
@@ -991,9 +991,7 @@ async function LevelPayload(payload) {
 			normalized.player.character = characterIds[0];
 		}
 		// Animation targets resolve against custom modelParts, or the character profile's parts when absent.
-		const playerParts = normalized.player.modelParts.length > 0
-			? normalized.player.modelParts
-			: characterData[normalized.player.character].model.parts;
+		const playerParts = normalized.player.modelParts.length > 0 ? normalized.player.modelParts : characterData[normalized.player.character].model.parts;
 		normalized.player.animations = resolveAnimations(playerSource.value.animations, buildAnimationContext(playerParts), globalShared);
 		instanceAnimationTracks(normalized.player.animations);
 		markMutableDecals(normalized.player.animations, playerParts);
