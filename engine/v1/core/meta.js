@@ -48,6 +48,8 @@ function clearSessionStorage() {
 /* === STATE === */
 // Stored log history.
 
+const VERSION = "0.21.4";
+
 const logs = ReadFromSession(SESSION_KEYS.Logs) ?? {
   all     : [],
   engine  : [],
@@ -353,5 +355,6 @@ export {
   PushToSession,
   ReadFromSession,
   SESSION_KEYS,
-  SetEngineInitialized
+  SetEngineInitialized,
+  VERSION,
 };

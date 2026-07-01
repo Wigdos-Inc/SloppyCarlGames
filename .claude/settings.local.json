@@ -112,7 +112,8 @@
       "Bash(ls -d engine/v1/docs/changelog)",
       "Bash(cd \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames\" && find engine/v1/docs/changelog -maxdepth 2 | head -30; echo \"---\"; stat -c '%F' engine/v1/docs/changelog)",
       "Read(//c/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/**)",
-      "Bash(node --check \"engine/v1/core/normalize.js\")"
+      "Bash(node --check \"engine/v1/core/normalize.js\")",
+      "Bash(node --check engine/v1/testGame/main.js)"
     ]
   }
 }

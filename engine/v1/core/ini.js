@@ -6,7 +6,7 @@
 /* === IMPORTS === */
 // Core diagnostics and logging support.
 
-import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey, ReleasePointerLock } from "./meta.js";
+import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey, ReleasePointerLock, VERSION } from "./meta.js";
 import { CONFIG } from "./config.js";
 import { ApplyMenuUI, LoadScreen, ClearUI } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
@@ -16,7 +16,7 @@ import { Start, Load, Cache as SimulatorCache, Clear, Exit, GetModelState, GetFu
 import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
 import { PlayerAPI as Player } from "../player/Master.js";
-import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3, CNU_SCALE } from "../math/Utilities.js"
+import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3, CNU_SCALE, Clamp, Clamp01 } from "../math/Utilities.js"
 import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3 } from "../math/Vector3.js";
 import { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence } from "../math/Forces.js";
 
@@ -42,8 +42,7 @@ function Initialize() {
     Cache,
     Meta: {
       LogAll, LogCache, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
-      SessionKey,
-      CNU_SCALE
+      SessionKey, CNU_SCALE, VERSION,
     },
     Controls,
     Input: { Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, },
@@ -57,6 +56,7 @@ function Initialize() {
       Vector3   : { AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3 },
       Instancing: { Unit, UnitVector3 },
       Physics   : { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence },
+      Other     : { Clamp, Clamp01 }
     },
     Simulator: { Start, Load, Cache: SimulatorCache, Clear, Exit, GetModelState, GetFullState }
   };

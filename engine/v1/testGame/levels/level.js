@@ -4,8 +4,7 @@ let entitiesDataPromise = null;
 function loadLevelsData() {
 	if (!levelsDataPromise) {
 		levelsDataPromise = fetch(new URL("./levels.json", import.meta.url))
-			.then((response) => response.json())
-			.catch(() => null);
+			.then((response) => response.json());
 	}
 
 	return levelsDataPromise;
@@ -14,33 +13,17 @@ function loadLevelsData() {
 function loadEntitiesData() {
 	if (!entitiesDataPromise) {
 		entitiesDataPromise = fetch(new URL("./entities.json", import.meta.url))
-			.then((response) => response.json())
-			.catch(() => null);
+			.then((response) => response.json());
 	}
 
 	return entitiesDataPromise;
 }
 
-function resolveLevelCollection(levelsData) {
-	if (!levelsData || typeof levelsData !== "object") {
-		return [];
-	}
-
-	if (Array.isArray(levelsData.levels)) {
-		return levelsData.levels;
-	}
-
-	return Object.values(levelsData).filter((entry) => entry && typeof entry === "object");
-}
-
 function resolveRequestedLevel(levelsData, request) {
-	const levels = resolveLevelCollection(levelsData);
-	if (!levels.length) {
-		return null;
-	}
+	const levels = levelsData.levels;
 
 	if (request && request.levelId) {
-		const byId = levels.find((level) => level && level.id === request.levelId);
+		const byId = levels.find((level) => level.id === request.levelId);
 		if (byId) {
 			return byId;
 		}
@@ -54,12 +37,8 @@ function resolveRequestedLevel(levelsData, request) {
 }
 
 function resolveStage(level, request) {
-	if (!level || !Array.isArray(level.stages) || level.stages.length === 0) {
-		return null;
-	}
-
 	if (request && request.stageId) {
-		const byId = level.stages.find((stage) => stage && stage.id === request.stageId);
+		const byId = level.stages.find((stage) => stage.id === request.stageId);
 		if (byId) {
 			return byId;
 		}
@@ -73,107 +52,77 @@ function resolveStage(level, request) {
 }
 
 function buildCreateLevelPayload(level, stage, entitiesData) {
-	if (!level || !stage) {
-		return null;
-	}
-
-	const mergedBlueprints = entitiesData && typeof entitiesData === "object"
-		? entitiesData
-		: {
-			enemies: [],
-			npcs: [],
-			collectibles: [],
-			projectiles: [],
-		};
-
 	return {
-		id: stage.id || `${level.id || "level"}-stage0`,
-		title: stage.title || level.title || "Untitled Stage",
-		world: stage.world || {},
-		terrain: stage.terrain || { objects: [] },
-		obstacles: Array.isArray(stage.obstacles) ? stage.obstacles : [],
-		entities: Array.isArray(stage.entities) ? stage.entities : [],
-		entityBlueprints: mergedBlueprints,
-		camera: stage.camera || {},
-		player: stage.player || null,
+		id: stage.id,
+		title: stage.title || level.title,
+		world: stage.world,
+		terrain: stage.terrain,
+		obstacles: stage.obstacles,
+		entities: stage.entities,
+		entityBlueprints: entitiesData,
+		camera: stage.camera,
+		player: stage.player,
 		music: stage.music || level.music || null,
 		meta: {
-			levelId: level.id || null,
-			stageId: stage.id || null,
+			levelId: level.id,
+			stageId: stage.id,
 		},
 	};
 }
 
 function buildBlueprintCounts(blueprints) {
-	const source = blueprints && typeof blueprints === "object" ? blueprints : {};
-	const count = (key) => (Array.isArray(source[key]) ? source[key].length : 0);
 	return {
-		enemies: count("enemies"),
-		npcs: count("npcs"),
-		collectibles: count("collectibles"),
-		projectiles: count("projectiles"),
+		enemies: blueprints.enemies.length,
+		npcs: blueprints.npcs.length,
+		collectibles: blueprints.collectibles.length,
+		projectiles: blueprints.projectiles.length,
 	};
 }
 
 async function RequestLevelCreate(request, options) {
 	const [levelsData, entitiesData] = await Promise.all([loadLevelsData(), loadEntitiesData()]);
-	if (!levelsData) {
-		const Log = window.engineOptional('Log');
-		if (Log) Log("GAME", "Failed to load levels.json.", "warn", "Level");
-		return null;
-	}
 
 	const level = resolveRequestedLevel(levelsData, request || null);
 	if (!level) {
-		const Log = window.engineOptional('Log');
-		if (Log) Log("GAME", "Requested level not found in levels.json.", "warn", "Level");
+		ENGINE.Log("GAME", "Requested level not found in levels.json.", "warn", "Level");
 		return null;
 	}
 
 	const stage = resolveStage(level, request || null);
 	if (!stage) {
-		const Log = window.engineOptional('Log');
-		if (Log) Log("GAME", "Requested stage not found in levels.json.", "warn", "Level");
+		ENGINE.Log("GAME", "Requested stage not found in levels.json.", "warn", "Level");
 		return null;
 	}
 
 	const payload = buildCreateLevelPayload(level, stage, entitiesData);
-	if (!payload) {
-		return null;
-	}
 
-	{
-		const Log = window.engineOptional('Log');
-		if (Log) {
-			const blueprintCounts = buildBlueprintCounts(payload.entityBlueprints);
-			Log(
-				"GAME",
-				[
-					"Sending level payload to engine:",
-					`- levelId: ${payload.meta.levelId || "unknown"}`,
-					`- stageId: ${payload.meta.stageId || "unknown"}`,
-					`- terrainObjects: ${Array.isArray(payload.terrain && payload.terrain.objects) ? payload.terrain.objects.length : 0}`,
-					`- obstacles: ${Array.isArray(payload.obstacles) ? payload.obstacles.length : 0}`,
-					`- entities(overrides): ${Array.isArray(payload.entities) ? payload.entities.length : 0}`,
-				].join("\n"),
-				"log",
-				"Level"
-			);
+	const blueprintCounts = buildBlueprintCounts(payload.entityBlueprints);
+	ENGINE.Log(
+		"GAME",
+		[
+			"Sending level payload to engine:",
+			`- levelId: ${payload.meta.levelId}`,
+			`- stageId: ${payload.meta.stageId}`,
+			`- terrainObjects: ${payload.terrain.objects.length}`,
+			`- obstacles: ${payload.obstacles.length}`,
+			`- entities(overrides): ${payload.entities.length}`,
+		].join("\n"),
+		"log",
+		"Level"
+	);
 
-			Log(
-				"GAME",
-				[
-					"Sending separate entity blueprint payload:",
-					`- enemies: ${blueprintCounts.enemies}`,
-					`- npcs: ${blueprintCounts.npcs}`,
-					`- collectibles: ${blueprintCounts.collectibles}`,
-					`- projectiles: ${blueprintCounts.projectiles}`,
-				].join("\n"),
-				"log",
-				"Level"
-			);
-		}
-	}
+	ENGINE.Log(
+		"GAME",
+		[
+			"Sending separate entity blueprint payload:",
+			`- enemies: ${blueprintCounts.enemies}`,
+			`- npcs: ${blueprintCounts.npcs}`,
+			`- collectibles: ${blueprintCounts.collectibles}`,
+			`- projectiles: ${blueprintCounts.projectiles}`,
+		].join("\n"),
+		"log",
+		"Level"
+	);
 
 	if (payload.music && payload.music.src) {
 		payload.music = {
@@ -182,34 +131,20 @@ async function RequestLevelCreate(request, options) {
 		};
 	}
 
-	const UI = window.engineOptional('UI');
-	if (UI && typeof UI.ClearUI === 'function') UI.ClearUI("engine-ui-root");
+	ENGINE.UI.ClearUI("engine-ui-root");
+	ENGINE.Audio.StopMusic();
 
-	const Audio = window.engineOptional('Audio');
-	if (Audio && typeof Audio.StopMusic === 'function') Audio.StopMusic();
+	const sceneGraph = await ENGINE.Level.CreateLevel(payload, {
+		source: "testGame",
+		renderOptions: {
+			rootId: "engine-level-root",
+		},
+		...options,
+	});
 
-	const LevelCreate = window.engineOptional('Level.CreateLevel');
-	if (typeof LevelCreate === 'function') {
-		const sceneGraph = await LevelCreate(payload, {
-			source: "testGame",
-			renderOptions: {
-				rootId: "engine-level-root",
-			},
-			...(options && typeof options === "object" ? options : {}),
-		});
-
-		if (
-			sceneGraph &&
-			payload.music &&
-			typeof payload.music === "object" &&
-			payload.music.src
-		) {
-			const PlayMusic = window.engineOptional('Audio.PlayMusic');
-			if (typeof PlayMusic === 'function') {
-				const trackName = payload.music.name || `LEVEL_${payload.id || "TRACK"}`;
-				PlayMusic(trackName, payload.music.src, payload.music);
-			}
-		}
+	if (sceneGraph && payload.music && payload.music.src) {
+		const trackName = payload.music.name || `LEVEL_${payload.id}`;
+		ENGINE.Audio.PlayMusic(trackName, payload.music.src, payload.music);
 	}
 
 	return payload;

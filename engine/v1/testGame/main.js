@@ -17,99 +17,89 @@ await import("./cutscene/cutscene.js");
 const { RequestLevelCreate } = await import("./levels/level.js");
 const { RequestLvl1Stage2Create } = await import("./levels/lvl1_stage2.js");
 
-function resolveStartupSplashPayload() {
-	// Use engine default built-in splash sequence.
-	return { outputType: "default" };
-}
+// Use the engine default built-in splash sequence.
+const resolveStartupSplashPayload = () => ({ outputType: "default" });
 
-function handleSplashRequest() {
-	ENGINE.Startup.ProvideSplashScreenPayload(resolveStartupSplashPayload());
-}
+const handleSplashRequest = () => ENGINE.Startup.ProvideSplashScreenPayload(resolveStartupSplashPayload());
 
-// Proactively provide a splash payload immediately after creation so the game
-// doesn't need to rely on the event delivery timing. This is safe because
-// `Bootup` opens the acceptance window during initialization.
-window.engineCall('Startup.ProvideSplashScreenPayload', resolveStartupSplashPayload());
+// Proactively provide a splash payload; Bootup opens the acceptance window during init.
+ENGINE.Startup.ProvideSplashScreenPayload(resolveStartupSplashPayload());
 
 
 const SETTINGS_KEY = "settings";
 const SAVE_KEY = "saveData";
 
-function safeParse(json) {
-	try { return JSON.parse(json); } 
-	catch (error) { return null; }
-}
+const DEFAULT_SETTINGS = {
+	master: 0.5,
+	music: 1,
+	voice: 1,
+	menuSfx: 1,
+	gameSfx: 1,
+	cutscene: 1,
+	skipIntro: true,
+	debugMode: true,
+	mouseSensitivity: 50,
+	keyboardSensitivity: 50,
+};
+
+const saveSettings = (settings) => localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 
 function loadSettings() {
 	const raw = localStorage.getItem(SETTINGS_KEY);
-	return raw ? safeParse(raw) : null;
-}
+	if (!raw) return null;
 
-function saveSettings(settings) {
-	localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-}
-
-
-function clamp(value, min, max) {
-	return Math.min(max, Math.max(min, value));
+	// Fill any keys missing from stale saved data and persist once, so downstream reads are complete.
+	const settings = JSON.parse(raw);
+	let added = false;
+	for (const key in DEFAULT_SETTINGS) {
+		if (!(key in settings)) {
+			settings[key] = DEFAULT_SETTINGS[key];
+			added = true;
+		}
+	}
+	if (added) saveSettings(settings);
+	return settings;
 }
 
 function normalizeStep(value, step) {
-	if (typeof value !== "number" || Number.isNaN(value)) {
-		return null;
-	}
+	if (typeof value !== "number" || Number.isNaN(value)) return null;
 	const normalized = Math.round(value / step) * step;
-	return clamp(Number(normalized.toFixed(2)), 0, 1);
+	return ENGINE.Math.Other.Clamp(Number(normalized.toFixed(2)), 0, 1);
 }
 
-function toPercent(value) {
-	if (typeof value !== "number") {
-		return 0;
-	}
-	return Math.round(value * 100);
-}
+const toPercent = (value) => Math.round(value * 100);
 
-function buildSliderGradient(percent) {
-	const fill = `linear-gradient(90deg, rgba(123,85,255,0.5) 0%, rgba(74,220,255,0.35) ${percent}%, rgba(255,255,255,0.15) ${percent}%)`;
-	return fill;
-}
+const buildSliderGradient = (percent) => `linear-gradient(90deg, rgba(123,85,255,0.5) 0%, rgba(74,220,255,0.35) ${percent}%, rgba(255,255,255,0.15) ${percent}%)`;
 
 function updateSliderVisual(targetId, value) {
 	const input = document.getElementById(targetId);
-	if (!input) {
-		return;
-	}
+	if (!input) return;
 
 	const stepped = normalizeStep(value, 0.1);
-	if (stepped === null) {
-		return;
-	}
+	if (stepped === null) return;
 
 	const percent = toPercent(stepped);
 	input.value = String(stepped);
 	input.style.background = buildSliderGradient(percent);
 
 	const percentElement = document.getElementById(`${targetId}-percent`);
-	if (percentElement) {
-		percentElement.textContent = `${percent}%`;
-	}
+	if (percentElement) percentElement.textContent = `${percent}%`;
 }
 
 function updateSensitivitySliderVisual(targetId, value) {
 	const input = document.getElementById(targetId);
 	if (!input) return;
-	const stepped = Math.round(clamp(value, 0, 100) / 5) * 5;
+	const stepped = Math.round(ENGINE.Math.Other.Clamp(value, 0, 100) / 5) * 5;
 	input.value = String(stepped);
 	input.style.background = buildSliderGradient(stepped);
+
 	const percentElement = document.getElementById(`${targetId}-percent`);
 	if (percentElement) percentElement.textContent = `${stepped}%`;
 }
 
 function updateToggleVisual(toggleId, isOn) {
 	const toggle = document.getElementById(toggleId);
-	if (!toggle) {
-		return;
-	}
+	if (!toggle) return;
 
 	const label = document.getElementById(`${toggleId}-label`);
 	const knob = document.getElementById(`${toggleId}-knob`);
@@ -129,62 +119,32 @@ function updateToggleVisual(toggleId, isOn) {
 }
 
 function resolveSettingsTargetId(targetId) {
-	if (!targetId) {
-		return null;
-	}
-
-	if (targetId === "setting-skip-intro-label" || targetId === "setting-skip-intro-knob") {
-		return "setting-skip-intro";
-	}
-
-	if (targetId === "setting-debug-mode-label" || targetId === "setting-debug-mode-knob") {
-		return "setting-debug-mode";
-	}
-
+	if (!targetId) return null;
+	if (targetId === "setting-skip-intro-label" || targetId === "setting-skip-intro-knob") return "setting-skip-intro";
+	if (targetId === "setting-debug-mode-label" || targetId === "setting-debug-mode-knob") return "setting-debug-mode";
 	return targetId;
 }
 
 function getSettingsSnapshot() {
 	const stored = loadSettings();
-	if (stored) {
-		return stored;
-	}
+	if (stored) return stored;
 
-	let volume = null;
-	let debug = null;
-	let skip = null;
-	let camera = null;
-	try {
-		const cfg = window.engineOptional('Config');
-		if (cfg) {
-			volume = cfg.VOLUME;
-			debug = cfg.DEBUG;
-			skip = debug && debug.SKIP ? debug.SKIP : null;
-			camera = cfg.CAMERA;
-		}
-	} catch (e) {
-		// leave defaults if config isn't present
-	}
-
+	const cfg = ENGINE.CONFIG;
 	return {
-		master: volume ? volume.Master : 0.5,
-		music: volume ? volume.Music : 1,
-		voice: volume ? volume.Voice : 1,
-		menuSfx: volume ? volume.MenuSfx : 1,
-		gameSfx: volume ? volume.GameSfx : 1,
-		cutscene: volume ? volume.Cutscene : 1,
-		skipIntro: skip ? skip.Intro : false,
-		debugMode: debug ? debug.ALL : false,
-		mouseSensitivity: camera && camera.Sensitivity ? camera.Sensitivity.Mouse : 50,
-		keyboardSensitivity: camera && camera.Sensitivity ? camera.Sensitivity.Keyboard : 50,
+		master: cfg.VOLUME.Master,
+		music: cfg.VOLUME.Music,
+		voice: cfg.VOLUME.Voice,
+		menuSfx: cfg.VOLUME.MenuSfx,
+		gameSfx: cfg.VOLUME.GameSfx,
+		cutscene: cfg.VOLUME.Cutscene,
+		skipIntro: cfg.DEBUG.SKIP.Intro,
+		debugMode: cfg.DEBUG.ALL,
+		mouseSensitivity: cfg.CAMERA.Sensitivity.Mouse,
+		keyboardSensitivity: cfg.CAMERA.Sensitivity.Keyboard,
 	};
 }
 
 function syncSettingsUi(settings) {
-	if (!settings) {
-		return;
-	}
-
 	updateSliderVisual("setting-master", settings.master);
 	updateSliderVisual("setting-music", settings.music);
 	updateSliderVisual("setting-voice", settings.voice);
@@ -195,63 +155,44 @@ function syncSettingsUi(settings) {
 	updateToggleVisual("setting-skip-intro", Boolean(settings.skipIntro));
 	updateToggleVisual("setting-debug-mode", Boolean(settings.debugMode));
 
-	updateSensitivitySliderVisual("setting-sensitivity-mouse", settings.mouseSensitivity ?? 50);
-	updateSensitivitySliderVisual("setting-sensitivity-keyboard", settings.keyboardSensitivity ?? 50);
+	updateSensitivitySliderVisual("setting-sensitivity-mouse", settings.mouseSensitivity);
+	updateSensitivitySliderVisual("setting-sensitivity-keyboard", settings.keyboardSensitivity);
 }
 
 function applySettings(settings) {
-	if (!settings) return;
+	const cfg = ENGINE.CONFIG;
+	cfg.VOLUME.Master = settings.master;
+	cfg.VOLUME.Music = settings.music;
+	cfg.VOLUME.Voice = settings.voice;
+	cfg.VOLUME.MenuSfx = settings.menuSfx;
+	cfg.VOLUME.GameSfx = settings.gameSfx;
+	cfg.VOLUME.Cutscene = settings.cutscene;
+	cfg.DEBUG.SKIP.Intro = settings.skipIntro;
+	cfg.DEBUG.ALL = settings.debugMode;
+	cfg.CAMERA.Sensitivity.Mouse = settings.mouseSensitivity;
+	cfg.CAMERA.Sensitivity.Keyboard = settings.keyboardSensitivity;
 
-	const cfg = window.engineRequire('Config');
-	const volume = cfg.VOLUME;
-	if (volume) {
-		if (typeof settings.master === "number") volume.Master = settings.master;
-		if (typeof settings.music === "number") volume.Music = settings.music;
-		if (typeof settings.voice === "number") volume.Voice = settings.voice;
-		if (typeof settings.menuSfx === "number") volume.MenuSfx = settings.menuSfx;
-		if (typeof settings.gameSfx === "number") volume.GameSfx = settings.gameSfx;
-		if (typeof settings.cutscene === "number") volume.Cutscene = settings.cutscene;
-	}
-
-	const debug = cfg.DEBUG;
-	if (debug && debug.SKIP && typeof settings.skipIntro === "boolean") debug.SKIP.Intro = settings.skipIntro;
-	if (debug && typeof settings.debugMode === "boolean") debug.ALL = settings.debugMode;
-
-	const camera = cfg.CAMERA;
-	if (camera && camera.Sensitivity) {
-		if (typeof settings.mouseSensitivity === "number") camera.Sensitivity.Mouse = settings.mouseSensitivity;
-		if (typeof settings.keyboardSensitivity === "number") camera.Sensitivity.Keyboard = settings.keyboardSensitivity;
-	}
-
-	try {
-		window.engineCall('Audio.UpdateActiveAudioVolumes');
-	} catch (e) {
-		// Audio update is optional for some engine builds
-	}
+	ENGINE.Audio.UpdateActiveAudioVolumes();
 
 	syncSettingsUi(settings);
 }
 
 function loadSave() {
 	const raw = localStorage.getItem(SAVE_KEY);
-	return raw ? safeParse(raw) : null;
+	return raw ? JSON.parse(raw) : null;
 }
 
-function saveProgress(saveData) {
-	localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
-}
+const saveProgress = (saveData) => localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
 
 function deleteSaveData() {
 	localStorage.removeItem(SAVE_KEY);
-	const Log = window.engineOptional('Log');
-	if (Log) Log("GAME", "Save data deleted.", "log", "Game");
+	ENGINE.Log("GAME", "Save data deleted.", "log", "Game");
 }
 
 function startGame(saveData) {
 	const payload = saveData || { levelIndex: 0, stageIndex: 0 };
 	saveProgress(payload);
-	const Log = window.engineOptional('Log');
-	if (Log) Log(
+	ENGINE.Log(
 		"GAME",
 		`Start game: level=${payload.levelIndex} stage=${payload.stageIndex}`,
 		"log",
@@ -262,15 +203,10 @@ function startGame(saveData) {
 async function requestLevelLoad(payload) {
 	const loadOptions = {
 		source: "testGame",
-		renderOptions: {
-			rootId: "engine-level-root",
-		},
+		renderOptions: { rootId: "engine-level-root" },
 	};
 
-	if (payload.levelIndex === 0 && payload.stageIndex === 1) {
-		return RequestLvl1Stage2Create(payload, loadOptions);
-	}
-
+	if (payload.levelIndex === 0 && payload.stageIndex === 1) return RequestLvl1Stage2Create(payload, loadOptions);
 	return RequestLevelCreate(payload, loadOptions);
 }
 
@@ -287,128 +223,71 @@ function handleLoadGame() {
 	void requestLevelLoad(saveData);
 }
 
-function handleDeleteSave() {
-	deleteSaveData();
-}
+const VOLUME_SLIDER_MAP = [
+	{ id: "setting-master",           key: "master" },
+	{ id: "setting-music",            key: "music" },
+	{ id: "setting-voice",            key: "voice" },
+	{ id: "setting-menu-sfx",         key: "menuSfx" },
+	{ id: "setting-game-sfx",         key: "gameSfx" },
+	{ id: "setting-cutscenes-volume", key: "cutscene" },
+];
+
+const SENSITIVITY_SLIDER_MAP = [
+	{ id: "setting-sensitivity-mouse",    key: "mouseSensitivity" },
+	{ id: "setting-sensitivity-keyboard", key: "keyboardSensitivity" },
+];
+
+const TOGGLE_MAP = [
+	{ id: "setting-skip-intro", key: "skipIntro" },
+	{ id: "setting-debug-mode", key: "debugMode" },
+];
 
 function handleSettingsInput(payload) {
-	if (!payload || !payload.targetId) {
-		return;
-	}
+	if (!payload.targetId) return;
 
 	const resolvedTargetId = resolveSettingsTargetId(payload.targetId);
-	if (!resolvedTargetId) {
-		return;
-	}
+	if (!resolvedTargetId) return;
 
-	const settings = loadSettings() || {
-		master: 0.5,
-		music: 1,
-		voice: 1,
-		menuSfx: 1,
-		gameSfx: 1,
-		cutscene: 1,
-		skipIntro: true,
-		debugMode: true,
-		mouseSensitivity: 50,
-		keyboardSensitivity: 50,
-	};
+	const settings = loadSettings() || { ...DEFAULT_SETTINGS };
 
 	const value = typeof payload.value === "string" ? Number(payload.value) : payload.value;
 	let changedKey = null;
 	let changedValue = null;
-	let nextValue = value;
 
-	if (resolvedTargetId === "setting-master" && typeof value === "number") {
-		nextValue = normalizeStep(value, 0.1);
+	const volumeEntry = VOLUME_SLIDER_MAP.find((entry) => entry.id === resolvedTargetId);
+	if (volumeEntry && typeof value === "number") {
+		const nextValue = normalizeStep(value, 0.1);
 		if (nextValue !== null) {
-			settings.master = nextValue;
-			changedKey = "master";
+			settings[volumeEntry.key] = nextValue;
+			changedKey = volumeEntry.key;
 			changedValue = nextValue;
-			updateSliderVisual("setting-master", nextValue);
+			updateSliderVisual(volumeEntry.id, nextValue);
 		}
-	}
-	if (resolvedTargetId === "setting-music" && typeof value === "number") {
-		nextValue = normalizeStep(value, 0.1);
-		if (nextValue !== null) {
-			settings.music = nextValue;
-			changedKey = "music";
-			changedValue = nextValue;
-			updateSliderVisual("setting-music", nextValue);
-		}
-	}
-	if (resolvedTargetId === "setting-voice" && typeof value === "number") {
-		nextValue = normalizeStep(value, 0.1);
-		if (nextValue !== null) {
-			settings.voice = nextValue;
-			changedKey = "voice";
-			changedValue = nextValue;
-			updateSliderVisual("setting-voice", nextValue);
-		}
-	}
-	if (resolvedTargetId === "setting-menu-sfx" && typeof value === "number") {
-		nextValue = normalizeStep(value, 0.1);
-		if (nextValue !== null) {
-			settings.menuSfx = nextValue;
-			changedKey = "menuSfx";
-			changedValue = nextValue;
-			updateSliderVisual("setting-menu-sfx", nextValue);
-		}
-	}
-	if (resolvedTargetId === "setting-game-sfx" && typeof value === "number") {
-		nextValue = normalizeStep(value, 0.1);
-		if (nextValue !== null) {
-			settings.gameSfx = nextValue;
-			changedKey = "gameSfx";
-			changedValue = nextValue;
-			updateSliderVisual("setting-game-sfx", nextValue);
-		}
-	}
-	if (resolvedTargetId === "setting-cutscenes-volume" && typeof value === "number") {
-		nextValue = normalizeStep(value, 0.1);
-		if (nextValue !== null) {
-			settings.cutscene = nextValue;
-			changedKey = "cutscene";
-			changedValue = nextValue;
-			updateSliderVisual("setting-cutscenes-volume", nextValue);
-		}
-	}
-	if (resolvedTargetId === "setting-skip-intro" && payload.type === "click") {
-		settings.skipIntro = !settings.skipIntro;
-		changedKey = "skipIntro";
-		changedValue = settings.skipIntro;
-		updateToggleVisual("setting-skip-intro", settings.skipIntro);
-	}
-	if (resolvedTargetId === "setting-debug-mode" && payload.type === "click") {
-		settings.debugMode = !settings.debugMode;
-		changedKey = "debugMode";
-		changedValue = settings.debugMode;
-		updateToggleVisual("setting-debug-mode", settings.debugMode);
-	}
-	if (resolvedTargetId === "setting-sensitivity-mouse" && typeof value === "number") {
-		const stepped = Math.round(clamp(value, 0, 100) / 5) * 5;
-		settings.mouseSensitivity = stepped;
-		changedKey = "mouseSensitivity";
-		changedValue = stepped;
-		updateSensitivitySliderVisual("setting-sensitivity-mouse", stepped);
-	}
-	if (resolvedTargetId === "setting-sensitivity-keyboard" && typeof value === "number") {
-		const stepped = Math.round(clamp(value, 0, 100) / 5) * 5;
-		settings.keyboardSensitivity = stepped;
-		changedKey = "keyboardSensitivity";
-		changedValue = stepped;
-		updateSensitivitySliderVisual("setting-sensitivity-keyboard", stepped);
 	}
 
-	if (!changedKey) {
-		return;
+	const sensitivityEntry = SENSITIVITY_SLIDER_MAP.find((entry) => entry.id === resolvedTargetId);
+	if (sensitivityEntry && typeof value === "number") {
+		const stepped = Math.round(ENGINE.Math.Other.Clamp(value, 0, 100) / 5) * 5;
+		settings[sensitivityEntry.key] = stepped;
+		changedKey = sensitivityEntry.key;
+		changedValue = stepped;
+		updateSensitivitySliderVisual(sensitivityEntry.id, stepped);
 	}
+
+	const toggleEntry = TOGGLE_MAP.find((entry) => entry.id === resolvedTargetId);
+	if (toggleEntry && payload.type === "click") {
+		settings[toggleEntry.key] = !settings[toggleEntry.key];
+		changedKey = toggleEntry.key;
+		changedValue = settings[toggleEntry.key];
+		updateToggleVisual(toggleEntry.id, settings[toggleEntry.key]);
+	}
+
+	if (!changedKey) return;
 
 	saveSettings(settings);
 	applySettings(settings);
 
-	const Log = window.engineOptional('Log');
-	if (Log) Log(
+	ENGINE.Log(
 		"GAME",
 		`Settings change: ${changedKey}=${changedValue}`,
 		"log",
@@ -419,9 +298,7 @@ function handleSettingsInput(payload) {
 function showLevelSelectPanel(panelIndex) {
 	const panel1 = document.getElementById("level-panel-1");
 	const panel2 = document.getElementById("level-panel-2");
-	if (!panel1 || !panel2) {
-		return;
-	}
+	if (!panel1 || !panel2) return;
 
 	const showFirst = panelIndex === 1;
 	panel1.style.display = showFirst ? "flex" : "none";
@@ -434,9 +311,7 @@ function showLevelSelectPanel(panelIndex) {
 }
 
 function handleLevelSelectInput(payload) {
-	if (!payload || payload.screenId !== "LevelSelect") {
-		return;
-	}
+	if (payload.screenId !== "LevelSelect") return;
 
 	if (payload.type === "keydown") {
 		if (payload.key === "ArrowLeft") {
@@ -459,10 +334,9 @@ function handleLevelSelectInput(payload) {
 }
 
 function handlePlayerInput(payload) {
-	if (!payload) return;
 	const input = window.engineOptional('Level.Player.Input');
 	if (!input) return;
-	const code = payload.code || "";
+	const code = payload.code;
 
 	if (payload.type === "keydown") {
 		if (code === "KeyW") { input.forward = 1; }
@@ -500,14 +374,13 @@ const fallTestState = {
 
 function handleEntitySpawn(event) {
 	const detail = event.detail;
-	if (!detail || detail.id !== "cnu-fall-cube") return;
+	if (detail.id !== "cnu-fall-cube") return;
 
 	fallTestState.startTime = performance.now();
 	fallTestState.startPosition = { x: detail.position.x, y: detail.position.y, z: detail.position.z };
 	fallTestState.landed = false;
 
-	const Log = window.engineOptional('Log');
-	if (Log) Log(
+	ENGINE.Log(
 		"GAME",
 		[
 			"CNU fall test: cube spawned",
@@ -521,40 +394,36 @@ function handleEntitySpawn(event) {
 
 function handleEntityCollision(event) {
 	const detail = event.detail;
-	if (!detail || detail.id !== "cnu-fall-cube") return;
+	if (detail.id !== "cnu-fall-cube") return;
 	if (fallTestState.landed || fallTestState.startTime === null) return;
 
 	fallTestState.landed = true;
 	const endTime = performance.now();
 	const elapsedSeconds = (endTime - fallTestState.startTime) / 1000;
 	const deltaHeight = fallTestState.startPosition.y - detail.position.y;
-	const cfg = window.engineOptional('Config');
-	const gravityStrength = cfg?.PHYSICS?.Gravity?.Strength ?? null;
+	const gravityStrength = ENGINE.CONFIG.PHYSICS.Gravity.Strength;
 
-	const Log = window.engineOptional('Log');
-	if (Log) {
-		Log(
-			"GAME",
-			[
-				"CNU fall test: cube landed",
-				`- endPosition.y: ${detail.position.y.toFixed(4)} CNU`,
-				`- endVelocity.y: ${detail.velocity.y.toFixed(4)} CNU/s`,
-			].join("\n"),
-			"log",
-			"Level"
-		);
-		Log(
-			"GAME",
-			[
-				"CNU fall test: summary",
-				`- deltaHeight: ${deltaHeight.toFixed(4)} CNU`,
-				`- elapsedTime: ${elapsedSeconds.toFixed(4)} s`,
-				`- gravityStrength: ${gravityStrength} CNU/s²`,
-			].join("\n"),
-			"log",
-			"Level"
-		);
-	}
+	ENGINE.Log(
+		"GAME",
+		[
+			"CNU fall test: cube landed",
+			`- endPosition.y: ${detail.position.y.toFixed(4)} CNU`,
+			`- endVelocity.y: ${detail.velocity.y.toFixed(4)} CNU/s`,
+		].join("\n"),
+		"log",
+		"Level"
+	);
+	ENGINE.Log(
+		"GAME",
+		[
+			"CNU fall test: summary",
+			`- deltaHeight: ${deltaHeight.toFixed(4)} CNU`,
+			`- elapsedTime: ${elapsedSeconds.toFixed(4)} s`,
+			`- gravityStrength: ${gravityStrength} CNU/s²`,
+		].join("\n"),
+		"log",
+		"Level"
+	);
 }
 
 function cacheSimulatorEntries() {
@@ -562,19 +431,17 @@ function cacheSimulatorEntries() {
 	const seen = new Set();
 
 	["enemies", "npcs", "collectibles", "projectiles", "entities"].forEach((bucket) => {
-		(entitiesData[bucket] || []).forEach((definition) => {
-			entries.push({ definition, objectType: definition.type });
-		});
+		entitiesData[bucket].forEach((definition) => entries.push({ definition, objectType: definition.type }));
 	});
 
 	levelsData.levels.forEach((level) => {
 		level.stages.forEach((stage) => {
-			(stage.terrain?.objects || []).forEach((definition) => {
+			stage.terrain.objects.forEach((definition) => {
 				if (seen.has(definition.id)) return;
 				seen.add(definition.id);
 				entries.push({ definition, objectType: "terrain" });
 			});
-			(stage.obstacles || []).forEach((definition) => {
+			stage.obstacles.forEach((definition) => {
 				if (seen.has(definition.id)) return;
 				seen.add(definition.id);
 				entries.push({ definition, objectType: "obstacle" });
@@ -588,16 +455,13 @@ function cacheSimulatorEntries() {
 window.addEventListener("SPLASH_REQUEST", handleSplashRequest);
 window.addEventListener("UI_REQUEST", cacheSimulatorEntries, { once: true });
 window.addEventListener("USER_INPUT", handleUserInput);
-window.addEventListener("DELETE_SAVE_DATA", handleDeleteSave);
+window.addEventListener("DELETE_SAVE_DATA", deleteSaveData);
 window.addEventListener("LEVEL_REQUEST", handleLevelRequest);
 window.addEventListener("LOAD_GAME", handleLoadGame);
 window.addEventListener("ENTITY_SPAWN", handleEntitySpawn);
 window.addEventListener("ENTITY_COLLISION", handleEntityCollision);
 window.addEventListener("UI_RENDERED", (event) => {
-	const screenId = event && event.detail ? event.detail.screenId : null;
-	if (screenId === "Settings") {
-		syncSettingsUi(getSettingsSnapshot());
-	}
+	if (event.detail.screenId === "Settings") syncSettingsUi(getSettingsSnapshot());
 });
 
 const initialSettings = loadSettings();

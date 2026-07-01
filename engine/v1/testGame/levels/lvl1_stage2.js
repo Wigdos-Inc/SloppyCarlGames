@@ -6,8 +6,7 @@ let entitiesDataPromise = null;
 function loadLevelsData() {
 	if (!levelsDataPromise) {
 		levelsDataPromise = fetch(new URL("./levels.json", import.meta.url))
-			.then((response) => response.json())
-			.catch(() => null);
+			.then((response) => response.json());
 	}
 
 	return levelsDataPromise;
@@ -16,8 +15,7 @@ function loadLevelsData() {
 function loadEntitiesData() {
 	if (!entitiesDataPromise) {
 		entitiesDataPromise = fetch(new URL("./entities.json", import.meta.url))
-			.then((response) => response.json())
-			.catch(() => null);
+			.then((response) => response.json());
 	}
 
 	return entitiesDataPromise;
@@ -97,30 +95,22 @@ function preprocessStage(stage, cnuScale) {
 }
 
 function buildCreateLevelPayload(level, stage, entitiesData, cnuScale) {
-	const mergedBlueprints = entitiesData && typeof entitiesData === "object"
-		? entitiesData
-		: {
-			enemies: [],
-			npcs: [],
-			collectibles: [],
-			projectiles: [],
-		};
 	const processedStage = preprocessStage(stage, cnuScale);
 
 	return {
-		id: processedStage.id || `${level.id || "level"}-stage0`,
-		title: processedStage.title || level.title || "Untitled Stage",
-		world: processedStage.world || {},
-		terrain: processedStage.terrain || { objects: [] },
-		obstacles: Array.isArray(processedStage.obstacles) ? processedStage.obstacles : [],
-		entities: Array.isArray(processedStage.entities) ? processedStage.entities : [],
-		entityBlueprints: mergedBlueprints,
-		camera: processedStage.camera || {},
-		player: processedStage.player || null,
+		id: processedStage.id,
+		title: processedStage.title || level.title,
+		world: processedStage.world,
+		terrain: processedStage.terrain,
+		obstacles: processedStage.obstacles,
+		entities: processedStage.entities,
+		entityBlueprints: entitiesData,
+		camera: processedStage.camera,
+		player: processedStage.player,
 		music: processedStage.music || level.music || null,
 		meta: {
-			levelId: level.id || null,
-			stageId: processedStage.id || null,
+			levelId: level.id,
+			stageId: processedStage.id,
 		},
 	};
 }
@@ -130,11 +120,11 @@ function logPayloadSummary(payload, cnuScale) {
 		"GAME",
 		[
 			"Sending scale tester payload to engine:",
-			`- levelId: ${payload.meta.levelId || "unknown"}`,
-			`- stageId: ${payload.meta.stageId || "unknown"}`,
+			`- levelId: ${payload.meta.levelId}`,
+			`- stageId: ${payload.meta.stageId}`,
 			`- cnuScale: ${cnuScale}`,
-			`- terrainObjects: ${Array.isArray(payload.terrain && payload.terrain.objects) ? payload.terrain.objects.length : 0}`,
-			`- obstacles: ${Array.isArray(payload.obstacles) ? payload.obstacles.length : 0}`,
+			`- terrainObjects: ${payload.terrain.objects.length}`,
+			`- obstacles: ${payload.obstacles.length}`,
 		].join("\n"),
 		"log",
 		"Level"
@@ -143,20 +133,15 @@ function logPayloadSummary(payload, cnuScale) {
 
 async function RequestLvl1Stage2Create(request, options) {
 	const [levelsData, entitiesData] = await Promise.all([loadLevelsData(), loadEntitiesData()]);
-	if (!levelsData) {
-		ENGINE.Log("GAME", "Failed to load levels.json for scale tester.", "warn", "Level");
-		return null;
-	}
 
 	const resolvedRequest = request || { levelIndex: 0, stageIndex: 1 };
-	const levelCollection = Array.isArray(levelsData.levels) ? levelsData.levels : [];
-	const level = levelCollection[resolvedRequest.levelIndex] || null;
+	const level = levelsData.levels[resolvedRequest.levelIndex] || null;
 	if (!level) {
 		ENGINE.Log("GAME", "Scale tester level not found in levels.json.", "warn", "Level");
 		return null;
 	}
 
-	const stage = Array.isArray(level.stages) ? level.stages[resolvedRequest.stageIndex] || null : null;
+	const stage = level.stages[resolvedRequest.stageIndex] || null;
 	if (!stage) {
 		ENGINE.Log("GAME", "Scale tester stage not found in levels.json.", "warn", "Level");
 		return null;
@@ -185,7 +170,7 @@ async function RequestLvl1Stage2Create(request, options) {
 		renderOptions: {
 			rootId: "engine-level-root",
 		},
-		...(options && typeof options === "object" ? options : {}),
+		...options,
 	});
 
 	if (sceneGraph && payload.music && payload.music.src) {

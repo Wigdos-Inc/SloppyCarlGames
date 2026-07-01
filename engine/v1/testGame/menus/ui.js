@@ -3,91 +3,45 @@ let uiDataPromise = null;
 function loadUiData() {
 	if (!uiDataPromise) {
 		uiDataPromise = fetch(new URL("./ui.json", import.meta.url))
-			.then((response) => response.json())
-			.catch(() => null);
+			.then((response) => response.json());
 	}
 
 	return uiDataPromise;
 }
 
-function resolvePayload(uiData, payloadId) {
-	if (!uiData || !payloadId) return null;
-	if (uiData.menuUI && uiData.menuUI[payloadId]) return uiData.menuUI[payloadId];
-	if (uiData.gameUI && uiData.gameUI[payloadId]) return uiData.gameUI[payloadId];
+function resolvePayloadEntry(uiData, payloadId) {
+	if (uiData.menuUI[payloadId]) return { payload: uiData.menuUI[payloadId], type: "menu" };
+	if (uiData.levelUI[payloadId]) return { payload: uiData.levelUI[payloadId], type: "level" };
 	return null;
 }
 
-function resolvePayloadType(uiData, payloadId) {
-	if (!uiData || !payloadId) {
-		return "unknown";
-	}
-
-	if (uiData.menuUI && uiData.menuUI[payloadId]) {
-		return "menu";
-	}
-
-	if (uiData.gameUI && uiData.gameUI[payloadId]) {
-		return "game";
-	}
-
-	return "unknown";
-}
+const SETTING_KEY_BY_ID = {
+	"setting-master": "master",
+	"setting-music": "music",
+	"setting-voice": "voice",
+	"setting-menu-sfx": "menuSfx",
+	"setting-game-sfx": "gameSfx",
+	"setting-cutscenes-volume": "cutscene",
+	"setting-sensitivity-mouse": "mouseSensitivity",
+	"setting-sensitivity-keyboard": "keyboardSensitivity",
+};
 
 function loadSettings() {
 	const raw = localStorage.getItem("settings");
-	if (!raw) {
-		return null;
-	}
-
-	try {
-		return JSON.parse(raw);
-	} catch (error) {
-		return null;
-	}
+	return raw ? JSON.parse(raw) : null;
 }
 
 function applySettingsToPayload(payload) {
-	if (!payload || payload.screenId !== "Settings") return;
+	if (payload.screenId !== "Settings") return;
 
 	const settings = loadSettings();
-	if (!settings || !Array.isArray(payload.elements)) return;
+	if (!settings) return;
 
 	const applyValue = (definitions) => {
 		definitions.forEach((definition) => {
-			if (definition && typeof definition === "object") {
-				switch (definition.id) {
-					case "setting-master":
-						definition.value = String(settings.master ?? definition.value ?? 0.5);
-						break;
-					case "setting-music":
-						definition.value = String(settings.music ?? definition.value ?? 0.5);
-						break;
-					case "setting-voice":
-						definition.value = String(settings.voice ?? definition.value ?? 0.5);
-						break;
-					case "setting-menu-sfx":
-						definition.value = String(settings.menuSfx ?? definition.value ?? 0.5);
-						break;
-					case "setting-game-sfx":
-						definition.value = String(settings.gameSfx ?? definition.value ?? 0.5);
-						break;
-					case "setting-cutscenes-volume":
-						definition.value = String(settings.cutscene ?? definition.value ?? 0.5);
-						break;
-					case "setting-sensitivity-mouse":
-						definition.value = String(settings.mouseSensitivity ?? definition.value ?? 50);
-						break;
-					case "setting-sensitivity-keyboard":
-						definition.value = String(settings.keyboardSensitivity ?? definition.value ?? 50);
-						break;
-					default:
-						break;
-				}
-
-				if (Array.isArray(definition.children)) {
-					applyValue(definition.children);
-				}
-			}
+			const key = SETTING_KEY_BY_ID[definition.id];
+			if (key) definition.value = String(settings[key] ?? definition.value);
+			if (Array.isArray(definition.children)) applyValue(definition.children);
 		});
 	};
 
@@ -96,14 +50,13 @@ function applySettingsToPayload(payload) {
 
 async function processPayload(payloadId) {
 	const uiData = await loadUiData();
-	const payload = resolvePayload(uiData, payloadId);
-	if (!payload) {
-		const Log = window.engineOptional('Log');
-		if (Log) Log("GAME", `Missing UI payload: ${payloadId}`, "warn", "UI");
+	const entry = resolvePayloadEntry(uiData, payloadId);
+	if (!entry) {
+		ENGINE.Log("GAME", `Missing UI payload: ${payloadId}`, "warn", "UI");
 		return;
 	}
 
-	const payloadType = resolvePayloadType(uiData, payloadId);
+	const { payload, type: payloadType } = entry;
 
 	if (payload.music && payload.music.src) {
 		payload.music = {
@@ -112,24 +65,18 @@ async function processPayload(payloadId) {
 		};
 	}
 
-	if (!payload.screenId) {
-		payload.screenId = payloadId;
-	}
+	if (!payload.screenId) payload.screenId = payloadId;
 
 	applySettingsToPayload(payload);
 
-	const Log = window.engineOptional('Log');
-	if (Log) {
-		Log(
-			"GAME",
-			`Sending ${payloadId} ${payloadType} UI Payload.`,
-			"log",
-			"UI"
-		);
-	}
+	ENGINE.Log(
+		"GAME",
+		`Sending ${payloadId} ${payloadType} UI Payload.`,
+		"log",
+		"UI"
+	);
 
-	const UI = window.engineOptional('UI');
-	if (UI && typeof UI.ApplyMenuUI === 'function') UI.ApplyMenuUI(payload);
+	ENGINE.UI.ApplyMenuUI(payload);
 }
 
 function handleUiRequest(event) {
