@@ -4,8 +4,9 @@ import jsonEntities from "./entities.json" with { type: "json" };
 // ── Boot ────────────────────────────────────────────────────────────────────
 
 StartEngine();
-ENGINE.Config.DEBUG.SKIP.Splash = true;
-ENGINE.Config.DEBUG.SKIP.Intro  = true;
+ENGINE.CONFIG.DEBUG.SKIP.Splash = true;
+ENGINE.CONFIG.DEBUG.SKIP.Intro  = true;
+ENGINE.CONFIG.DEBUG.LOGGING.All = false;
 
 const { Start, Load, Clear, Exit, Cache, GetModelState, GetFullState } = ENGINE.Simulator;
 window.load = Load;
