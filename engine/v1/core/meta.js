@@ -163,13 +163,8 @@ function resolveLevel(level) {
 /* === LOGGING === */
 // Main log funnel and log replay.
 
-function getMostRecentLogEntry() {
-  if (logs.all.length === 0) return null;
-  return logs.all[logs.all.length - 1];
-}
-
 function isDuplicateOfLatest(entry) {
-  const latest = getMostRecentLogEntry();
+  const latest = logs.all.length === 0 ? null : logs.all[logs.all.length - 1];
   if (
     latest &&
     latest.source === entry.source &&
@@ -188,9 +183,9 @@ function isDuplicateOfLatest(entry) {
   for (let index = logs.controls.length - 1; index >= startIndex; index--) {
     const existing = logs.controls[index];
     if (
-      existing.source === entry.source &&
+      existing.source  === entry.source &&
       existing.channel === entry.channel &&
-      existing.level === entry.level &&
+      existing.level   === entry.level &&
       existing.message === entry.message
     ) {
       return true;
@@ -208,8 +203,8 @@ function Log(source, message, level, channel) {
   // Normalize invalid source names into an engine error.
   if (!/^[A-Z0-9_]+$/i.test(source)) {
     message = `Invalid log source "${source}". ${message}`;
-    source = "engine";
-    level = "error";
+    source  = "engine";
+    level   = "error";
   }
 
   const resolvedLevel = resolveLevel(level);
@@ -228,8 +223,8 @@ function Log(source, message, level, channel) {
   logs.all.push(entry);
   if (entry.channel && entry.channel.startsWith("Controls")) logs.controls.push(entry);
   else if (entry.source === "ENGINE") logs.engine.push(entry);
-  else if (entry.source === "GAME") logs.game.push(entry);
-  else logs.other.push(entry);
+  else if (entry.source === "GAME")   logs.game.push(entry);
+  else                                logs.other.push(entry);
 
   PushToSession(SESSION_KEYS.Logs, logs);
 

@@ -1331,6 +1331,29 @@
     "detail": { "__meta": { "description": "Part detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "addsToBounds": { "__meta": { "description": "Whether this part contributes to the entity AABB", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } }
   },
+  "tubeNode": {
+    "dimensions": {
+      "__meta": { "description": "Node cross-section (x/z opening radii, y ignored)", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": true, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
+      "x": { "__meta": { "description": "Opening x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "y": { "__meta": { "description": "Unused (schema uniformity)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "z": { "__meta": { "description": "Opening z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+    },
+    "thickness": { "__meta": { "description": "Node wall thickness", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0.1, "deprecated": false } },
+    "localPosition": {
+      "__meta": { "description": "Offset in the previous node's rotated frame", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": true, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Local x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Local y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Local z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "localRotation": {
+      "__meta": { "description": "Cumulative rotation degrees on top of previous node", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": true, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Local rot x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Local rot y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Local rot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "curved": { "__meta": { "description": "Round the forward connector to the next node", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+    "smoothness": { "__meta": { "description": "Forward connector fillet amount", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+  },
   "levelCustomTexture": {
     "id":         { "__meta": { "description": "Decal id (animation targeting)", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "deprecated": false } },
     "decalType":  { "__meta": { "description": "Decal kind",                 "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null,    "allowedValues": ["image","shape"], "deprecated": false } },

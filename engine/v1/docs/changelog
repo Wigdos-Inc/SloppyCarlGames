@@ -1,0 +1,11 @@
+# Changelog
+
+## Node-based curved tube shape
+
+- **What**: Rewrote the `tube` primitive from a single centered hollow extrusion into a node-based bone chain. A tube now walks a chain of nodes (root + `primitiveOptions.nodes[]`), lofting hollow ring cross-sections along each connector, with per-connector straight lofts or `smoothness`-driven rounded fillets. Added the supporting fillet-centerline and rotation-minimizing (parallel-transport) frame math.
+- **Why**: Enable curved, multi-segment, tapering tubes (cables, pipes, tails) authorable as both level objects and entity parts, replacing the old fixed straight pipe.
+- **Where**:
+  - `core/canonSchemas.json`: new `tubeNode` schema entry (after `levelPart`).
+  - `core/normalize.js`: new `normalizeTubeNode` + `normalizeTubeOptions`; shape-conditional wiring in `normalizePart` and `normalizeLevelObject` that canonicalizes `primitiveOptions.nodes` and the root `thickness`/`curved`/`smoothness` scalars.
+  - `math/Curves.js`: new exported `SampleConnectorCenterline` (fillet evaluator, degenerates to straight for collinear input) and `ParallelTransportFrames` (double-reflection RMF).
+  - `builder/NewObject.js`: full `buildTube` rewrite plus tube helpers (`resolveTubeNodes`, `appendTubeRing`, `orientConnectorFrames`, `stitchTubeRings`, `capTubeRing`, `appendTubeConnectorFaceGroups`); per-connector face groups; imports for `Curves.js`, `MultiplyMatrix4`/`CreateIdentityMatrix`, `DotVector3`.

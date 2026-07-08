@@ -699,6 +699,25 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 	return entries;
 }
 
+function normalizeTubeNode(rawNode) {
+	const node = normalizePayloadSchema(normalizeObject(rawNode).value, "tubeNode");
+	node.dimensions = toUnitVector3(node.dimensions, "cnu");
+	node.localPosition = toUnitVector3(node.localPosition, "cnu");
+	node.localRotation = toUnitVector3(node.localRotation, "degrees").toRadians(true);
+	node.thickness = new Unit(node.thickness, "cnu");
+	return node;
+}
+
+// Canonicalize the opaque tube primitiveOptions bag at this boundary so the builder needs no guards.
+function normalizeTubeOptions(rawOptions) {
+	const options = normalizeObject(rawOptions).value;
+	options.nodes = normalizeArray(options.nodes).value.map((node) => normalizeTubeNode(node));
+	options.thickness = new Unit(normalizeNumber(options.thickness, 0.1).value, "cnu");
+	options.curved = normalizeBool(options.curved, false).value;
+	options.smoothness = Clamp(normalizeNumber(options.smoothness, 0).value, 0, 1);
+	return options;
+}
+
 function normalizePart(rawPart, ctx) {
 	const partSource = normalizeObject(rawPart).value;
 	const part = normalizePayloadSchema(partSource, "levelPart");
@@ -709,6 +728,7 @@ function normalizePart(rawPart, ctx) {
 	part.pivot = toUnitVector3(part.pivot, "cnu");
 	part.texture = normalizeTexture(partSource.texture !== undefined ? partSource.texture : part.texture, part, ctx);
 	part.detail = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail);
+	if (part.shape === "tube") part.primitiveOptions = normalizeTubeOptions(part.primitiveOptions);
 	if (part.label === null) delete part.label;
 	return part;
 }
@@ -723,6 +743,7 @@ function normalizeLevelObject(rawObject, ctx, multipartFallbackShape = null) {
 	object.pivot = toUnitVector3(object.pivot, "cnu");
 	object.texture = normalizeTexture(objectSource.texture !== undefined ? objectSource.texture : object.texture, object, ctx);
 	object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
+	if (object.shape === "tube") object.primitiveOptions = normalizeTubeOptions(object.primitiveOptions);
 	object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part, ctx));
 	object.collisionShape = object.collisionShape !== null ? object.collisionShape
 		: multipartFallbackShape !== null && object.parts.length > 1 ? multipartFallbackShape
@@ -830,6 +851,15 @@ function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 		part.localRotation = toUnitVector3(part.localRotation, "radians");
 		part.localScale    = CloneVector3(part.localScale);
 		part.pivot         = toUnitVector3(part.pivot,         "cnu");
+		if (part.shape === "tube") {
+			part.primitiveOptions.thickness = new Unit(part.primitiveOptions.thickness.value, "cnu");
+			part.primitiveOptions.nodes.forEach((node) => {
+				node.dimensions    = toUnitVector3(node.dimensions,    "cnu");
+				node.localPosition = toUnitVector3(node.localPosition, "cnu");
+				node.localRotation = toUnitVector3(node.localRotation, "radians");
+				node.thickness     = new Unit(node.thickness.value,    "cnu");
+			});
+		}
 		return part;
 	});
 	const mv = merged.movement;

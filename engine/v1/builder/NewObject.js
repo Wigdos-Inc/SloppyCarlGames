@@ -5,7 +5,8 @@
 import { BuildScatter } from "./NewScatter.js";
 import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveNoiseFaceBlueprint, FREQUENCY_PATTERN_CONFIG, VISUAL_TEMPLATES, ComputeGeneratedTextureID } from "./NewTexture.js";
 import { CONFIG } from "../core/config.js";
-import { CreateModelMatrix } from "../math/Matrix.js";
+import { CreateModelMatrix, CreateIdentityMatrix, MultiplyMatrix4 } from "../math/Matrix.js";
+import { SampleConnectorCenterline, ParallelTransportFrames } from "../math/Curves.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import {
 	AbsoluteVector3,
@@ -13,6 +14,7 @@ import {
 	CloneVector3,
 	CrossVector3,
 	DivideVector3,
+	DotVector3,
 	ResolveVector3Axis,
 	ScaleVector3,
 	SubtractVector3,
@@ -145,6 +147,13 @@ function resolveRampCurveSegments(complexity) {
 		case "high": return 12;
 		default    : return 8;
 	}
+}
+
+// Divide segmentCount into angular sectors: start/end column + mid-angle (radians). Shared by torus/tube face groups.
+function resolveSectorRange(sector, sectorCount, segmentCount) {
+	const start = Math.floor((sector / sectorCount) * segmentCount);
+	const end = Math.floor(((sector + 1) / sectorCount) * segmentCount);
+	return { start, end, midAngle: ((start + end) * 0.5 / segmentCount) * Math.PI * 2 };
 }
 
 function appendRadialVertices(positions, radiusX, y, radiusZ, segments) {
@@ -623,64 +632,183 @@ function buildCapsule(size, complexity) {
 	};
 }
 
+// Extract a node's center + orientation basis (Y = forward/extrusion axis) and its ring radii
+// from an accumulated frame matrix. All node fields are canonical/pre-instanced post-normalize.
+function makeTubeNode(frame, dimensionX, dimensionZ, thickness, curved, smoothness) {
+	return {
+		frame,
+		center:  { x: frame[12], y: frame[13], z: frame[14] },
+		forward: { x: frame[4],  y: frame[5],  z: frame[6]  },
+		xAxis:   { x: frame[0],  y: frame[1],  z: frame[2]  },
+		zAxis:   { x: frame[8],  y: frame[9],  z: frame[10] },
+		radiusX: dimensionX / 2,
+		radiusZ: dimensionZ / 2,
+		thickness,
+		curved,
+		smoothness,
+	};
+}
+
+// Bone-chain walk: the root frame is identity (object-local space); each node composes its own
+// transform onto the previous node's accumulated frame.
+function resolveTubeNodes(size, options) {
+	const nodes = [makeTubeNode(CreateIdentityMatrix(), size.x, size.z, options.thickness.value, options.curved, options.smoothness)];
+	let frame = nodes[0].frame;
+	for (const node of options.nodes) {
+		frame = MultiplyMatrix4(frame, CreateModelMatrix({
+			position: node.localPosition,
+			rotation: node.localRotation,
+			scale: { x: 1, y: 1, z: 1 },
+			pivot: { x: 0, y: 0, z: 0 },
+		}));
+		nodes.push(makeTubeNode(frame, node.dimensions.x, node.dimensions.z, node.thickness.value, node.curved, node.smoothness));
+	}
+	return nodes;
+}
+
+// Build one cross-section (outer + inner ring) via appendRadialVertices in local X-Z, transformed
+// into place by the supplied frame matrix. Returns the outer/inner vertex index arrays.
+function appendTubeRing(positions, matrix, radiusX, radiusZ, thickness, segments) {
+	const innerX = Math.max(0.00005, radiusX - Math.min(thickness, radiusX * 0.95));
+	const innerZ = Math.max(0.00005, radiusZ - Math.min(thickness, radiusZ * 0.95));
+	const pushRing = (ringRadiusX, ringRadiusZ) => {
+		const local = [];
+		appendRadialVertices(local, ringRadiusX, 0, ringRadiusZ, segments);
+		const vertexIndices = [];
+		for (let i = 0; i < local.length; i += 3) {
+			const point = TransformPointByMatrix({ x: local[i], y: local[i + 1], z: local[i + 2] }, matrix);
+			positions.push(point.x, point.y, point.z);
+			vertexIndices.push((positions.length / 3) - 1);
+		}
+		return vertexIndices;
+	};
+	return { outerIndices: pushRing(radiusX, radiusZ), innerIndices: pushRing(innerX, innerZ) };
+}
+
+function frameToTubeMatrix(frame, position) {
+	const zAxis = CrossVector3(frame.normal, frame.tangent);
+	return [
+		frame.normal.x,  frame.normal.y,  frame.normal.z,  0,
+		frame.tangent.x, frame.tangent.y, frame.tangent.z, 0,
+		zAxis.x,         zAxis.y,         zAxis.z,         0,
+		position.x,      position.y,      position.z,      1,
+	];
+}
+
+function rollTubeFrame(frame, angle) {
+	const normal = AddVector3(ScaleVector3(frame.normal, Math.cos(angle)), ScaleVector3(frame.binormal, Math.sin(angle)));
+	return { tangent: frame.tangent, normal, binormal: CrossVector3(frame.tangent, normal) };
+}
+
+// Parallel-transport the cross-section along the connector, then distribute a residual roll so the
+// final frame's normal lands on the target node's authored axis — a seamless join at the shared node.
+function orientConnectorFrames(points, startAxis, targetAxis) {
+	const frames = ParallelTransportFrames(points, startAxis);
+	const last = frames.length - 1;
+	const endTangent = frames[last].tangent;
+	const target = ResolveVector3Axis(SubtractVector3(targetAxis, ScaleVector3(endTangent, DotVector3(targetAxis, endTangent))));
+	const residual = Math.atan2(
+		DotVector3(CrossVector3(frames[last].normal, target), endTangent),
+		DotVector3(frames[last].normal, target)
+	);
+	for (let i = 0; i <= last; i++) frames[i] = rollTubeFrame(frames[i], residual * (i / last));
+	return frames;
+}
+
+function stitchTubeRings(indices, ringA, ringB, segments) {
+	for (let i = 0; i < segments; i++) {
+		const oa0 = ringA.outerIndices[i], oa1 = ringA.outerIndices[i + 1];
+		const ob0 = ringB.outerIndices[i], ob1 = ringB.outerIndices[i + 1];
+		indices.push(oa0, ob0, ob1);
+		indices.push(oa0, ob1, oa1);
+		const ia0 = ringA.innerIndices[i], ia1 = ringA.innerIndices[i + 1];
+		const ib0 = ringB.innerIndices[i], ib1 = ringB.innerIndices[i + 1];
+		indices.push(ia0, ib1, ib0);
+		indices.push(ia0, ia1, ib1);
+	}
+}
+
+function capTubeRing(indices, ring, segments, forward) {
+	for (let i = 0; i < segments; i++) {
+		const o0 = ring.outerIndices[i], o1 = ring.outerIndices[i + 1];
+		const in0 = ring.innerIndices[i], in1 = ring.innerIndices[i + 1];
+		if (forward) {
+			indices.push(o0, o1, in1);
+			indices.push(o0, in1, in0);
+		} else {
+			indices.push(o0, in1, o1);
+			indices.push(o0, in0, in1);
+		}
+	}
+}
+
+// Per-connector face groups: angular sectors with radial normals (like buildTorus), replacing the
+// old single outer/inner/top/bottom split which has no meaning for a multi-node tube.
+function appendTubeConnectorFaceGroups(faceGroups, rings, node, segments) {
+	const sectorCount = Math.min(8, segments);
+	for (let sector = 0; sector < sectorCount; sector++) {
+		const { start: startColumn, end: endColumn, midAngle: angle } = resolveSectorRange(sector, sectorCount, segments);
+		const outerVertices = [];
+		const innerVertices = [];
+		for (const ring of rings) {
+			for (let column = startColumn; column <= endColumn; column++) {
+				outerVertices.push(ring.outerIndices[column]);
+				innerVertices.push(ring.innerIndices[column]);
+			}
+		}
+		const radial = AddVector3(ScaleVector3(node.xAxis, Math.cos(angle)), ScaleVector3(node.zAxis, Math.sin(angle)));
+		faceGroups.push({ normal: radial, vertexIndices: outerVertices });
+		faceGroups.push({ normal: ScaleVector3(radial, -1), vertexIndices: innerVertices });
+	}
+}
+
 function buildTube(size, complexity, options) {
-	const outerRadius = DivideVector3(size, ToVector3(2));
-	const thickness = options.thickness ?? Clamp(outerRadius.z, 0.00005, outerRadius.x) * 0.25;
-	const innerRadiusX = Math.max(0.00005, outerRadius.x - Math.min(thickness, outerRadius.x * 0.95));
-	const innerRadiusZ = Math.max(0.00005, outerRadius.z - Math.min(thickness, outerRadius.z * 0.95));
 	const segments = resolveCylinderSegments(complexity);
+	const nodes = resolveTubeNodes(size, options);
 
 	const positions = [];
 	const indices = [];
+	const faceGroups = [];
 
-	const outerBottomStart = appendRadialVertices(positions, outerRadius.x, -outerRadius.y, outerRadius.z, segments).start;
-	const outerTopStart = appendRadialVertices(positions, outerRadius.x, outerRadius.y, outerRadius.z, segments).start;
-	const innerBottomStart = appendRadialVertices(positions, innerRadiusX, -outerRadius.y, innerRadiusZ, segments).start;
-	const innerTopStart = appendRadialVertices(positions, innerRadiusX, outerRadius.y, innerRadiusZ, segments).start;
+	const nodeRings = nodes.map((node) => appendTubeRing(positions, node.frame, node.radiusX, node.radiusZ, node.thickness, segments));
+	const lerp = (a, b, t) => a + ((b - a) * t);
 
-	for (let index = 0; index < segments; index++) {
-		const ob0 = outerBottomStart + index;
-		const ob1 = outerBottomStart + index + 1;
-		const ot0 = outerTopStart + index;
-		const ot1 = outerTopStart + index + 1;
-		indices.push(ob0, ot0, ot1);
-		indices.push(ob0, ot1, ob1);
+	for (let i = 0; i < nodes.length - 1; i++) {
+		const nodeA = nodes[i];
+		const nodeB = nodes[i + 1];
+		const rings = [nodeRings[i]];
 
-		const ib0 = innerBottomStart + index;
-		const ib1 = innerBottomStart + index + 1;
-		const it0 = innerTopStart + index;
-		const it1 = innerTopStart + index + 1;
-		indices.push(ib0, it1, it0);
-		indices.push(ib0, ib1, it1);
+		if (nodeA.curved) {
+			const backward = ScaleVector3(nodeB.forward, -1);
+			const points = SampleConnectorCenterline(nodeA.center, nodeA.forward, nodeB.center, backward, nodeA.smoothness, segments);
+			const frames = orientConnectorFrames(points, nodeA.xAxis, nodeB.xAxis);
+			for (let j = 1; j < points.length - 1; j++) {
+				const t = j / (points.length - 1);
+				rings.push(appendTubeRing(
+					positions,
+					frameToTubeMatrix(frames[j], points[j]),
+					lerp(nodeA.radiusX, nodeB.radiusX, t),
+					lerp(nodeA.radiusZ, nodeB.radiusZ, t),
+					lerp(nodeA.thickness, nodeB.thickness, t),
+					segments
+				));
+			}
+		}
 
-		indices.push(ot0, ot1, it1);
-		indices.push(ot0, it1, it0);
+		rings.push(nodeRings[i + 1]);
 
-		indices.push(ob0, ib1, ob1);
-		indices.push(ob0, ib0, ib1);
+		for (let r = 0; r < rings.length - 1; r++) stitchTubeRings(indices, rings[r], rings[r + 1], segments);
+		appendTubeConnectorFaceGroups(faceGroups, rings, nodeA, segments);
 	}
 
-	const outerVertices = [];
-	const innerVertices = [];
-	const topVertices = [];
-	const bottomVertices = [];
+	const firstRing = nodeRings[0];
+	const lastRing = nodeRings[nodeRings.length - 1];
+	capTubeRing(indices, firstRing, segments, false);
+	capTubeRing(indices, lastRing, segments, true);
+	faceGroups.push({ normal: ScaleVector3(nodes[0].forward, -1), vertexIndices: [...firstRing.outerIndices, ...firstRing.innerIndices] });
+	faceGroups.push({ normal: nodes[nodes.length - 1].forward, vertexIndices: [...lastRing.outerIndices, ...lastRing.innerIndices] });
 
-	for (let index = 0; index <= segments; index++) {
-		outerVertices.push(outerBottomStart + index, outerTopStart + index);
-		innerVertices.push(innerBottomStart + index, innerTopStart + index);
-		topVertices.push(outerTopStart + index, innerTopStart + index);
-		bottomVertices.push(outerBottomStart + index, innerBottomStart + index);
-	}
-
-	return {
-		positions, indices,
-		faceGroups: [
-			{ normal: WORLD_NORMALS.Right, vertexIndices: outerVertices },
-			{ normal: WORLD_NORMALS.Left, vertexIndices: innerVertices },
-			{ normal: WORLD_NORMALS.Up, vertexIndices: topVertices },
-			{ normal: WORLD_NORMALS.Down, vertexIndices: bottomVertices },
-		],
-	};
+	return { positions, indices, faceGroups };
 }
 
 function buildTorus(size, complexity, options) {
@@ -719,15 +847,13 @@ function buildTorus(size, complexity, options) {
 	const sectorCount = Math.min(8, majorSegments);
 	const faceGroups = [];
 	for (let sector = 0; sector < sectorCount; sector++) {
-		const startMajor = Math.floor((sector / sectorCount) * majorSegments);
-		const endMajor = Math.floor(((sector + 1) / sectorCount) * majorSegments);
+		const { start: startMajor, end: endMajor, midAngle: sectorMid } = resolveSectorRange(sector, sectorCount, majorSegments);
 		const vertexIndices = [];
 		for (let major = startMajor; major <= endMajor + 1; major++) {
 			const wrappedMajor = Math.min(major, majorSegments);
 			for (let minor = 0; minor <= minorSegments; minor++) vertexIndices.push((wrappedMajor * stride) + minor);
 		}
 
-		const sectorMid = ((startMajor + endMajor) * 0.5 / majorSegments) * Math.PI * 2;
 		faceGroups.push({ normal: { x: Math.cos(sectorMid), y: 0, z: Math.sin(sectorMid) }, vertexIndices });
 	}
 
