@@ -50,7 +50,7 @@
                   "baseTextureID": "rubber-skin",
                   "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
                   "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10, "speckSize": 0.3
+                  "density": 0.3, "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": -0.32, "z": 0 },
@@ -68,7 +68,7 @@
                   "baseTextureID": "rubber-skin",
                   "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
                   "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10, "speckSize": 0.3
+                  "density": 0.3, "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": -1, "z": 0 },
@@ -86,7 +86,7 @@
                   "baseTextureID": "rubber-skin",
                   "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
                   "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10, "speckSize": 0.3
+                  "density": 0.3, "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": -0.5, "z": 2 },
@@ -104,8 +104,8 @@
                   "baseTextureID": "rubber-skin",
                   "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
                   "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0.2 },
@@ -330,14 +330,14 @@
                 "id": "innerEarLeft",
                 "decalType": "shape",
                 "shape": "triangle",
-                "color": { "r": 0.72, "g": 0.56, "b": 0.86, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "front",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.72, "g": 0.56, "b": 0.86, "a": 1 },
-                  "secondary": { "r": 0.6, "g": 0.42, "b": 0.74, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0.04, "z": 0 },
@@ -377,14 +377,14 @@
                 "id": "innerEarRight",
                 "decalType": "shape",
                 "shape": "triangle",
-                "color": { "r": 0.72, "g": 0.56, "b": 0.86, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "front",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.72, "g": 0.56, "b": 0.86, "a": 1 },
-                  "secondary": { "r": 0.6, "g": 0.42, "b": 0.74, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0.04, "z": 0 },
@@ -436,14 +436,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "right",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -495,14 +495,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "right",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -554,14 +554,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "right",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -613,14 +613,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "right",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -672,14 +672,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "right",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -731,14 +731,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "right",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -790,14 +790,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "right",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -849,14 +849,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "right",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -908,14 +908,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "right",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -967,14 +967,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "left",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1026,14 +1026,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "left",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1085,14 +1085,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "left",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1144,14 +1144,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "left",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1203,14 +1203,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "left",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1262,14 +1262,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "left",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1321,14 +1321,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "left",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1380,14 +1380,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "left",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1439,14 +1439,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "left",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1498,14 +1498,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "front",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1557,14 +1557,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "front",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1616,14 +1616,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "front",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1675,14 +1675,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "front",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1734,14 +1734,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "front",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1793,14 +1793,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "front",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1852,14 +1852,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "front",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1911,14 +1911,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "front",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -1970,14 +1970,14 @@
               {
                 "decalType": "shape",
                 "shape": "square",
-                "color": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
+                "color": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
                 "side": "front",
                 "detail": {
                   "baseTextureID": "rubber-skin",
-                  "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-                  "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 10,
-                  "speckSize": 0.3
+                  "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+                  "secondary": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
+                  "density": 0.3,
+                  "speckSize": 5
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
@@ -2006,8 +2006,8 @@
             "generated": {
               "id": "rubber-skin",
               "shape": null,
-              "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-              "color": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
+              "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+              "color": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
               "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false,
               "holdTimeSpeed": 1, "blendTimeSpeed": 1
             },
@@ -2032,8 +2032,8 @@
             "generated": {
               "id": "rubber-skin",
               "shape": null,
-              "primary": { "r": 0.64, "g": 0.46, "b": 0.8, "a": 1 },
-              "color": { "r": 0.48, "g": 0.3, "b": 0.64, "a": 1 },
+              "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+              "color": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
               "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false,
               "holdTimeSpeed": 1, "blendTimeSpeed": 1
             },
@@ -2058,8 +2058,8 @@
             "generated": {
               "id": "rubber-skin",
               "shape": null,
-              "primary": { "r": 0.64, "g": 0.46, "b": 0.8, "a": 1 },
-              "color": { "r": 0.48, "g": 0.3, "b": 0.64, "a": 1 },
+              "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+              "color": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
               "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false,
               "holdTimeSpeed": 1, "blendTimeSpeed": 1
             },
@@ -2084,8 +2084,8 @@
             "generated": {
               "id": "rubber-skin",
               "shape": null,
-              "primary": { "r": 0.64, "g": 0.46, "b": 0.8, "a": 1 },
-              "color": { "r": 0.48, "g": 0.3, "b": 0.64, "a": 1 },
+              "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+              "color": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
               "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false,
               "holdTimeSpeed": 1, "blendTimeSpeed": 1
             },
@@ -2110,8 +2110,8 @@
             "generated": {
               "id": "rubber-skin",
               "shape": null,
-              "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
-              "color": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
+              "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+              "color": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
               "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false,
               "holdTimeSpeed": 1, "blendTimeSpeed": 1
             },
@@ -2136,8 +2136,8 @@
             "generated": {
               "id": "rubber-skin",
               "shape": null,
-              "primary": { "r": 0.64, "g": 0.46, "b": 0.8, "a": 1 },
-              "color": { "r": 0.48, "g": 0.3, "b": 0.64, "a": 1 },
+              "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+              "color": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
               "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false,
               "holdTimeSpeed": 1, "blendTimeSpeed": 1
             },
@@ -2162,8 +2162,8 @@
             "generated": {
               "id": "rubber-skin",
               "shape": null,
-              "primary": { "r": 0.64, "g": 0.46, "b": 0.8, "a": 1 },
-              "color": { "r": 0.48, "g": 0.3, "b": 0.64, "a": 1 },
+              "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+              "color": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
               "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false,
               "holdTimeSpeed": 1, "blendTimeSpeed": 1
             },
@@ -2188,8 +2188,8 @@
             "generated": {
               "id": "rubber-skin",
               "shape": null,
-              "primary": { "r": 0.64, "g": 0.46, "b": 0.8, "a": 1 },
-              "color": { "r": 0.48, "g": 0.3, "b": 0.64, "a": 1 },
+              "primary": { "r": 0.62, "g": 0.44, "b": 0.78, "a": 1 },
+              "color": { "r": 0.5, "g": 0.32, "b": 0.64, "a": 1 },
               "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false,
               "holdTimeSpeed": 1, "blendTimeSpeed": 1
             },
