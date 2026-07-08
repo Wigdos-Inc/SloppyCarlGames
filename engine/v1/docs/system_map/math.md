@@ -6,7 +6,7 @@ Pure, stateless math utilities available to any engine module without restrictio
 ## Files
 - `Utilities.js` — `Unit` and `UnitVector3` classes: typed value containers with conversion methods (`toRadians`, `toDegrees`, `toCNU`, `toWorldUnit`, `clone`). `CNU_SCALE` constant (fixed at development time). Conversion functions: `DegreesToRadians`, `RadiansToDegrees`. Utility functions: `Clamp`, `Clamp01`, `Lerp`, `SmoothStep`, `ToNumber`.
 - `Vector3.js` — 3D vector operations: `AddVector3`, `SubtractVector3`, `MultiplyVector3`, `DivideVector3`, `ScaleVector3`, `DotVector3`, `CrossVector3`, `LerpVector3`, `AbsoluteVector3`, `CloneVector3`, `ToVector3`, `Vector3Distance`, `Vector3Sq`, `ResolveVector3Axis`, `Vector3ChainMath`. Exports `WORLD_NORMALS` constant (canonical axis directions).
-- `Matrix.js` — 4×4 matrix creation (`CreateIdentityMatrix`, `CreateModelMatrix`, `CreateRenderMatrix`) and transform composition helpers.
+- `Matrix.js` — 4×4 matrix creation (`CreateIdentityMatrix`, `CreateModelMatrix`, `CreateRenderMatrix`) and transform composition helpers. Exports `MultiplyMatrix4`, the shared 4×4 multiply used internally to compose translation/rotation/scale and by external callers (e.g. `handlers/Render.js`'s decal placement matrix) that need to compose matrices outside the transform-composition helpers.
 - `Collision.js` — Geometry math helpers: AABB overlap (`AabbOverlap`), sweep tests, ray-AABB intersection, projection calculations. No state, no engine dependencies.
 - `Forces.js` — Pure force math: `ComputeGravity`, `ComputeResistance`, `ComputeBuoyancy`, `ComputeStepVelocity`, `ComputeSubmergence`. Operates on numeric inputs only; no entity state or config access.
 - `Curves.js` — Bezier and curve utilities.
