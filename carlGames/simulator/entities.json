@@ -50,7 +50,7 @@
                   "baseTextureID": "rubber-skin",
                   "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
                   "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 0.3, "speckSize": 5
+                  "density": 0.28, "speckSize": 0.4
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": -0.32, "z": 0 },
@@ -68,7 +68,7 @@
                   "baseTextureID": "rubber-skin",
                   "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
                   "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 0.3, "speckSize": 5
+                  "density": 0.28, "speckSize": 0.4
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": -1, "z": 0 },
@@ -86,7 +86,7 @@
                   "baseTextureID": "rubber-skin",
                   "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
                   "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 0.3, "speckSize": 5
+                  "density": 0.28, "speckSize": 0.4
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": -0.5, "z": 2 },
@@ -104,8 +104,7 @@
                   "baseTextureID": "rubber-skin",
                   "primary": { "r": 0.66, "g": 0.5, "b": 0.82, "a": 1 },
                   "secondary": { "r": 0.54, "g": 0.36, "b": 0.68, "a": 1 },
-                  "density": 0.3,
-                  "speckSize": 5
+                  "density": 0.28, "speckSize": 0.4
                 },
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0.2 },
@@ -403,10 +402,10 @@
           "label": "tentacleLeftLower1",
           "addsToBounds": false,
           "parentId": "body",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
-          "localPosition": { "x": 0.071, "y": -0.22, "z": 0 },
+          "localPosition": { "x": 0.1259, "y": -0.1959, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 113.7 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -448,7 +447,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.44, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.44, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -462,10 +461,10 @@
           "label": "tentacleLeftLower2",
           "addsToBounds": false,
           "parentId": "tentacleLeftLower1",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -507,7 +506,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.33, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.33, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -521,10 +520,10 @@
           "label": "tentacleLeftLower3",
           "addsToBounds": false,
           "parentId": "tentacleLeftLower2",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -566,7 +565,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.22, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.22, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -579,11 +578,11 @@
           "id": "tentacleLeftMid1",
           "label": "tentacleLeftMid1",
           "parentId": "body",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "addsToBounds": false,
           "dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
-          "localPosition": { "x": 0.02, "y": 0.0, "z": 0 },
+          "localPosition": { "x": 0.08, "y": 0, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 90.0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -625,7 +624,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.44, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.44, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -638,11 +637,11 @@
           "id": "tentacleLeftMid2",
           "label": "tentacleLeftMid2",
           "parentId": "tentacleLeftMid1",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "addsToBounds": false,
           "dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -684,7 +683,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.33, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.33, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -698,10 +697,10 @@
           "label": "tentacleLeftMid3",
           "addsToBounds": false,
           "parentId": "tentacleLeftMid2",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -743,7 +742,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.22, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.22, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -757,10 +756,10 @@
           "label": "tentacleLeftUpper1",
           "addsToBounds": false,
           "parentId": "body",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
-          "localPosition": { "x": 0.071, "y": 0.22, "z": 0 },
+          "localPosition": { "x": 0.1259, "y": 0.1959, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 66.3 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -802,7 +801,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.44, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.44, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -816,10 +815,10 @@
           "label": "tentacleLeftUpper2",
           "addsToBounds": false,
           "parentId": "tentacleLeftUpper1",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -861,7 +860,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.33, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.33, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -875,10 +874,10 @@
           "label": "tentacleLeftUpper3",
           "addsToBounds": false,
           "parentId": "tentacleLeftUpper2",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -920,7 +919,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.22, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.22, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -934,10 +933,10 @@
           "label": "tentacleRightLower1",
           "addsToBounds": false,
           "parentId": "body",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
-          "localPosition": { "x": -0.071, "y": -0.22, "z": 0 },
+          "localPosition": { "x": -0.1259, "y": -0.1959, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": -113.7 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -979,7 +978,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.44, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.44, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -993,10 +992,10 @@
           "label": "tentacleRightLower2",
           "addsToBounds": false,
           "parentId": "tentacleRightLower1",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1038,7 +1037,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.33, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.33, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1052,10 +1051,10 @@
           "label": "tentacleRightLower3",
           "addsToBounds": false,
           "parentId": "tentacleRightLower2",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1097,7 +1096,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.22, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.22, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1111,10 +1110,10 @@
           "label": "tentacleRightMid1",
           "addsToBounds": false,
           "parentId": "body",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
-          "localPosition": { "x": -0.02, "y": 0.0, "z": 0 },
+          "localPosition": { "x": -0.08, "y": 0, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": -90.0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1156,7 +1155,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.44, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.44, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1170,10 +1169,10 @@
           "label": "tentacleRightMid2",
           "addsToBounds": false,
           "parentId": "tentacleRightMid1",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1215,7 +1214,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.33, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.33, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1229,10 +1228,10 @@
           "label": "tentacleRightMid3",
           "addsToBounds": false,
           "parentId": "tentacleRightMid2",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1274,7 +1273,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.22, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.22, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1288,10 +1287,10 @@
           "label": "tentacleRightUpper1",
           "addsToBounds": false,
           "parentId": "body",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
-          "localPosition": { "x": -0.071, "y": 0.22, "z": 0 },
+          "localPosition": { "x": -0.1259, "y": 0.1959, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": -66.3 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1333,7 +1332,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.44, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.44, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1347,10 +1346,10 @@
           "label": "tentacleRightUpper2",
           "addsToBounds": false,
           "parentId": "tentacleRightUpper1",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1392,7 +1391,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.33, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.33, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1406,10 +1405,10 @@
           "label": "tentacleRightUpper3",
           "addsToBounds": false,
           "parentId": "tentacleRightUpper2",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1451,7 +1450,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.22, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.22, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1465,10 +1464,10 @@
           "label": "tentacleBackLeft1",
           "addsToBounds": false,
           "parentId": "body",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
-          "localPosition": { "x": -0.277, "y": -0.146, "z": 0.15 },
+          "localPosition": { "x": -0.2416, "y": -0.1274, "z": 0.1947 },
           "localRotation": { "x": -112.6, "y": 0, "z": 36.2 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1510,7 +1509,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.44, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.44, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1524,10 +1523,10 @@
           "label": "tentacleBackLeft2",
           "addsToBounds": false,
           "parentId": "tentacleBackLeft1",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1569,7 +1568,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.33, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.33, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1583,10 +1582,10 @@
           "label": "tentacleBackLeft3",
           "addsToBounds": false,
           "parentId": "tentacleBackLeft2",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1628,7 +1627,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.22, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.22, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1642,10 +1641,10 @@
           "label": "tentacleBackCenter1",
           "addsToBounds": false,
           "parentId": "body",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
-          "localPosition": { "x": 0.0, "y": 0.237, "z": 0.094 },
+          "localPosition": { "x": 0, "y": 0.2068, "z": 0.1459 },
           "localRotation": { "x": -59.8, "y": 0, "z": 0.0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1687,7 +1686,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.44, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.44, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1701,10 +1700,10 @@
           "label": "tentacleBackCenter2",
           "addsToBounds": false,
           "parentId": "tentacleBackCenter1",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1746,7 +1745,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.33, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.33, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1760,10 +1759,10 @@
           "label": "tentacleBackCenter3",
           "addsToBounds": false,
           "parentId": "tentacleBackCenter2",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1805,7 +1804,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.22, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.22, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1819,10 +1818,10 @@
           "label": "tentacleBackRight1",
           "addsToBounds": false,
           "parentId": "body",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
-          "localPosition": { "x": 0.277, "y": -0.146, "z": 0.15 },
+          "localPosition": { "x": 0.2416, "y": -0.1274, "z": 0.1947 },
           "localRotation": { "x": -112.6, "y": 0, "z": -36.2 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1864,7 +1863,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.44, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.44, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1878,10 +1877,10 @@
           "label": "tentacleBackRight2",
           "addsToBounds": false,
           "parentId": "tentacleBackRight1",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1923,7 +1922,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.33, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.33, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -1937,10 +1936,10 @@
           "label": "tentacleBackRight3",
           "addsToBounds": false,
           "parentId": "tentacleBackRight2",
-          "shape": "cylinder",
+          "shape": "capsule",
           "complexity": "high",
           "dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
-          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
           "primitiveOptions": {},
@@ -1982,7 +1981,7 @@
                 "localTransform": {
                   "position": { "x": 0, "y": 0, "z": 0 },
                   "rotation": 0,
-                  "scale": { "x": 0.22, "y": 0.25, "z": 1 }
+                  "scale": { "x": 0.22, "y": 0.42, "z": 1 }
                 }
               }
             ]
@@ -2198,6 +2197,142 @@
           "detail": { "scatter": [] },
           "anchorPoint": "top",
           "attachmentPoint": "front"
+        }
+      ]
+    }
+  },
+  {
+    "id": "tube_test",
+    "type": "entity",
+    "name": { "s": "Tube", "l": "Node Tube Test" },
+    "meta": {
+      "maxSpeed": 8,
+      "acceleration": 20,
+      "deceleration": 10,
+      "stoppingThresholdRatio": 0.35,
+      "airControl": 0.2,
+      "underwaterAirControl": 0.5,
+      "momentumTurnRate": 14,
+      "jumpHeight": 2,
+      "airFloatiness": 1,
+      "waterFloatiness": 1
+    },
+    "physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
+    "model": {
+      "rootTransform": { "position": { "x": 0, "y": 0, "z": 0 } },
+      "parts": [
+        {
+          "id": "tubeBody",
+          "label": "tubeBody",
+          "parentId": "root",
+          "shape": "tube",
+          "complexity": "high",
+          "dimensions": { "x": 0.5, "y": 0.5, "z": 0.5 },
+          "localPosition": { "x": 0, "y": 0, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "primitiveOptions": {
+            "thickness": 0.12,
+            "curved": true,
+            "smoothness": 1,
+            "nodes": [
+              { "dimensions": { "x": 0.5, "y": 0.5, "z": 0.5 }, "thickness": 0.12, "localPosition": { "x": 0, "y": 0.9, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.42, "y": 0.42, "z": 0.42 }, "thickness": 0.1, "localPosition": { "x": 0, "y": 0.9, "z": 0 }, "localRotation": { "x": 55, "y": 0, "z": 0 }, "curved": false, "smoothness": 0 },
+              { "dimensions": { "x": 0.34, "y": 0.34, "z": 0.34 }, "thickness": 0.08, "localPosition": { "x": 0, "y": 0.9, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "curved": false, "smoothness": 0 }
+            ]
+          },
+          "texture": {
+            "generated": {
+              "id": "rubber-skin",
+              "shape": null,
+              "primary": { "r": 0.34, "g": 0.3, "b": 0.82, "a": 1 },
+              "color": { "r": 0.22, "g": 0.18, "b": 0.6, "a": 1 },
+              "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false,
+              "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        }
+      ]
+    }
+  },
+  {
+    "id": "tube_compare",
+    "type": "entity",
+    "name": { "s": "TubeCmp", "l": "Tube Connector Compare" },
+    "meta": {
+      "maxSpeed": 8, "acceleration": 20, "deceleration": 10, "stoppingThresholdRatio": 0.35,
+      "airControl": 0.2, "underwaterAirControl": 0.5, "momentumTurnRate": 14,
+      "jumpHeight": 2, "airFloatiness": 1, "waterFloatiness": 1
+    },
+    "physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
+    "model": {
+      "rootTransform": { "position": { "x": 0, "y": 0, "z": 0 } },
+      "parts": [
+        {
+          "id": "seam", "label": "seam", "parentId": "root", "shape": "tube", "complexity": "high",
+          "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 },
+          "localPosition": { "x": -2.4, "y": 0, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "primitiveOptions": {
+            "thickness": 0.06, "curved": false, "smoothness": 0,
+            "nodes": [
+              { "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 }, "thickness": 0.06, "localPosition": { "x": 0, "y": 0.8, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "curved": false, "smoothness": 0 },
+              { "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 }, "thickness": 0.06, "localPosition": { "x": 0, "y": 0.8, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 70 }, "curved": false, "smoothness": 0 }
+            ]
+          },
+          "texture": { "generated": { "id": "rubber-skin", "shape": null, "primary": { "r": 0.9, "g": 0.5, "b": 0.15, "a": 1 }, "color": { "r": 0.6, "g": 0.33, "b": 0.1, "a": 1 }, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "custom": [] },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "vee", "label": "vee", "parentId": "root", "shape": "tube", "complexity": "high",
+          "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 },
+          "localPosition": { "x": -0.8, "y": 0, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "primitiveOptions": {
+            "thickness": 0.06, "curved": false, "smoothness": 0,
+            "nodes": [
+              { "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 }, "thickness": 0.06, "localPosition": { "x": 0, "y": 0.8, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "curved": true, "smoothness": 0 },
+              { "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 }, "thickness": 0.06, "localPosition": { "x": 0, "y": 0.8, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 70 }, "curved": false, "smoothness": 0 }
+            ]
+          },
+          "texture": { "generated": { "id": "rubber-skin", "shape": null, "primary": { "r": 0.9, "g": 0.85, "b": 0.2, "a": 1 }, "color": { "r": 0.6, "g": 0.55, "b": 0.12, "a": 1 }, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "custom": [] },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "round", "label": "round", "parentId": "root", "shape": "tube", "complexity": "high",
+          "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 },
+          "localPosition": { "x": 0.8, "y": 0, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "primitiveOptions": {
+            "thickness": 0.06, "curved": false, "smoothness": 0,
+            "nodes": [
+              { "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 }, "thickness": 0.06, "localPosition": { "x": 0, "y": 0.8, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 }, "thickness": 0.06, "localPosition": { "x": 0, "y": 0.8, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 70 }, "curved": false, "smoothness": 0 }
+            ]
+          },
+          "texture": { "generated": { "id": "rubber-skin", "shape": null, "primary": { "r": 0.3, "g": 0.75, "b": 0.35, "a": 1 }, "color": { "r": 0.18, "g": 0.5, "b": 0.22, "a": 1 }, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "custom": [] },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "collinear", "label": "collinear", "parentId": "root", "shape": "tube", "complexity": "high",
+          "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 },
+          "localPosition": { "x": 2.4, "y": 0, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "primitiveOptions": {
+            "thickness": 0.06, "curved": true, "smoothness": 1,
+            "nodes": [
+              { "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 }, "thickness": 0.06, "localPosition": { "x": 0, "y": 0.8, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.22, "y": 0.22, "z": 0.22 }, "thickness": 0.06, "localPosition": { "x": 0, "y": 0.8, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "curved": false, "smoothness": 0 }
+            ]
+          },
+          "texture": { "generated": { "id": "rubber-skin", "shape": null, "primary": { "r": 0.3, "g": 0.45, "b": 0.85, "a": 1 }, "color": { "r": 0.2, "g": 0.3, "b": 0.6, "a": 1 }, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "custom": [] },
+          "detail": { "scatter": [] }
         }
       ]
     }
