@@ -43,7 +43,7 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 ### Skills — `Skill` tool, `skill: "<name>"`
 
 - **`argus`** — Automated Runtime Game-testing & User Simulation. Browser-based testing via MCP chrome-devtools. Invoked by main Claude after ED completes — never by ED itself.
-- **`sage`** — System Analysis for Game Engines. Designated as 'engine librarian'. Writes and maintains engine documentation (`system_map/`, `structure.txt`, rule doc descriptive content). Also answers Q&A questions about the engine. Invoke with a question, `init map`, or `update map for <system>`.
+- **`sage`** — System Analysis for Game Engines. Designated as 'engine librarian'. Writes and maintains engine documentation (`system_map/`, `structure.txt`, rule doc descriptive content) and is the sole writer for the status logs (`engine/v1/docs/changelog`, `engine/v1/docs/status/DEFERRED.md`, `engine/v1/docs/status/AGENT_LOG.md`). Also answers Q&A questions about the engine. Invoke with a question, `init map`, `update map for <system>`, or `log <raw facts>` to record a change/deferral/agent outcome — see "Status Logging" below.
 - **`rigor`** — Rig Iteration & Geometric Output Review. Authors and edits entity/character model JSON, then visually verifies the result in the Simulator App. Runs inline, retaining full context across iteration passes. Invoke when entity model JSON needs to be authored, adjusted, or visually inspected.
 
 ## Autonomous Agent and Skill Use
@@ -78,6 +78,16 @@ After ERA and DRYAD return, apply the following ARGUS rules:
 **What does not require agents:**
 
 Small isolated fixes (may still call ARGUS), debugging sessions, logging changes, code migrations (e.g. moving a declaration between files), and one-off lookups. These are handled directly.
+
+## Status Logging
+
+Three files track engine history outside of git: `engine/v1/docs/changelog` (completed changes, what/why/where), `engine/v1/docs/status/DEFERRED.md` (work raised or started and consciously postponed — not general backlog ideas, those go in `engine/v1/docs/todo`), and `engine/v1/docs/status/AGENT_LOG.md` (custom-agent runs that produced a real finding, fix, or outcome).
+
+SAGE is the only agent that writes to these files. The main agent never edits them directly.
+
+**When to check:** at the end of any pass that involved a code change, a custom-agent invocation, or a substantive design discussion — even if no code changed. Decide whether anything meaningful happened that belongs in one or more of the three files. Do not log routine invocations, trivial fixes, or discussions that didn't reach a decision. Do this automatically; don't wait for the user to ask.
+
+**How to log:** invoke SAGE via `Skill` tool with `skill: "sage"` and argument `log <raw facts>`. Pass the facts as they actually happened — what was done, by which agent if any, the outcome, and anything deferred and why. Let SAGE decide which file(s) apply and how to phrase/format the entry; do not pre-format entries yourself.
 
 ## Response Formatting
 
