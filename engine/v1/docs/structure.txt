@@ -61,7 +61,7 @@ engine/
 
     math/
       Collision.js // Physics math helpers: overlap, sweep, ray, and projection calculations
-      Curves.js // Curve utilities (e.g., bezier helpers)
+      Curves.js // Easings, cubic-Bezier tube connector centerlines, and rotation-minimizing frames
       Forces.js // Pure gravity, buoyancy, resistance, and submergence math helpers
       Matrix.js // 4x4 matrix creation and transform composition helpers
       Vector3.js // 3D vector math utilities
