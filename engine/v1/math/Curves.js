@@ -1,4 +1,4 @@
-import { AddVector3, SubtractVector3, ScaleVector3, DotVector3, CrossVector3, LerpVector3, ResolveVector3Axis } from "./Vector3.js";
+import { AddVector3, SubtractVector3, ScaleVector3, DotVector3, CrossVector3, LerpVector3, ResolveVector3Axis, Vector3Distance } from "./Vector3.js";
 
 const easings = {
 	linear:    (t) => t,
@@ -9,30 +9,33 @@ const easings = {
 
 const ApplyEasing = (name, t) => easings[name](t);
 
-// Rounds the corner between unit dirs forward/backward into segments+1 centerline points {x,y,z};
-// smoothness 0 -> hard V through the apex, 1 -> quadratic curve, collinear input -> straight (§3.3).
+// Arcs the connector between two tube nodes into segments+1 centerline points {x,y,z} using a cubic
+// Bezier with forward-aligned handles (leaves along forward, arrives along -backward). smoothness 1
+// -> even cubic arc; 0 -> hard corner at the arc center M; collinear input -> straight.
 function SampleConnectorCenterline(startCenter, forward, endCenter, backward, smoothness, segments) {
-	const toEnd = SubtractVector3(endCenter, startCenter);
-	const toStart = SubtractVector3(startCenter, endCenter);
-	const qa = AddVector3(startCenter, ScaleVector3(forward, DotVector3(toEnd, forward)));
-	const qb = AddVector3(endCenter, ScaleVector3(backward, DotVector3(toStart, backward)));
-	const apex = ScaleVector3(AddVector3(qa, qb), 0.5);
+	const d = Vector3Distance(endCenter, startCenter) * 0.667;
+	const p1 = AddVector3(startCenter, ScaleVector3(forward, d));
+	const p2 = AddVector3(endCenter, ScaleVector3(backward, d));
+	const cornerM = ScaleVector3(AddVector3(p1, p2), 0.5);
 
 	const points = [];
 	for (let index = 0; index <= segments; index++) {
 		const t = index / segments;
-		const polyline = t < 0.5
-			? LerpVector3(startCenter, apex, t * 2)
-			: LerpVector3(apex, endCenter, (t - 0.5) * 2);
+		const sharp = t < 0.5
+			? LerpVector3(startCenter, cornerM, t * 2)
+			: LerpVector3(cornerM, endCenter, (t - 0.5) * 2);
 		const oneMinusT = 1 - t;
-		const bezier = AddVector3(
+		const smooth = AddVector3(
 			AddVector3(
-				ScaleVector3(startCenter, oneMinusT * oneMinusT),
-				ScaleVector3(apex, 2 * oneMinusT * t)
+				AddVector3(
+					ScaleVector3(startCenter, oneMinusT * oneMinusT * oneMinusT),
+					ScaleVector3(p1, 3 * oneMinusT * oneMinusT * t)
+				),
+				ScaleVector3(p2, 3 * oneMinusT * t * t)
 			),
-			ScaleVector3(endCenter, t * t)
+			ScaleVector3(endCenter, t * t * t)
 		);
-		points.push(LerpVector3(polyline, bezier, smoothness));
+		points.push(LerpVector3(sharp, smooth, smoothness));
 	}
 	return points;
 }
