@@ -304,6 +304,76 @@
           "detail": { "scatter": [] }
         },
         {
+          "id": "browLeft",
+          "label": "browLeft",
+          "addsToBounds": false,
+          "parentId": "head",
+          "shape": "tube",
+          "complexity": "high",
+          "dimensions": { "x": 0.03, "y": 0, "z": 0.04 },
+          "localPosition": { "x": 0, "y": -0.017, "z": 0.2 },
+          "localRotation": { "x": 0, "y": 0, "z": 90 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "primitiveOptions": {
+            "thickness": 1,
+            "curved": true,
+            "smoothness": 1,
+            "nodes": [
+              { "dimensions": { "x": 0.035, "y": 1, "z": 0.04 }, "localPosition": { "x": 0.02, "y": 0.02, "z": -0.003 }, "localRotation": { "x": 0, "y": 0, "z": -80 }, "thickness": 0.5, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.04, "y": 1, "z": 0.05 }, "localPosition": { "x": 0.00, "y": 0.08, "z": -0.013 }, "localRotation": { "x": -25, "y": 0, "z": 20 }, "thickness": 0.5, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.05, "y": 1, "z": 0.04 }, "localPosition": { "x": -0.17, "y": 0.00, "z": -0.06 }, "localRotation": { "x": 25, "y": 0, "z": 160 }, "thickness": 0.5, "curved": true, "smoothness": 0.2 },
+              { "dimensions": { "x": 0.015, "y": 1, "z": 0.02 }, "localPosition": { "x": -0.05, "y": 0.08, "z": 0.02 }, "localRotation": { "x": 0, "y": 0, "z": 40 }, "thickness": 0.4 }
+            ]
+          },
+          "texture": {
+            "generated": {
+              "id": "rubber-skin",
+              "shape": null,
+              "primary": { "r": 0.46, "g": 0.26, "b": 0.66, "a": 1 },
+              "color": { "r": 0.3, "g": 0.14, "b": 0.48, "a": 1 },
+              "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false,
+              "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "browRight",
+          "label": "browRight",
+          "addsToBounds": false,
+          "parentId": "head",
+          "shape": "tube",
+          "complexity": "high",
+          "dimensions": { "x": 0.03, "y": 0, "z": 0.04 },
+          "localPosition": { "x": 0, "y": -0.017, "z": 0.2 },
+          "localRotation": { "x": 0, "y": 0, "z": -90 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "primitiveOptions": {
+            "thickness": 1,
+            "curved": true,
+            "smoothness": 1,
+            "nodes": [
+              { "dimensions": { "x": 0.035, "y": 1, "z": 0.04 }, "localPosition": { "x": -0.02, "y": 0.02, "z": -0.003 }, "localRotation": { "x": 0, "y": 0, "z": 80 }, "thickness": 1, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.04, "y": 1, "z": 0.05 }, "localPosition": { "x": 0.00, "y": 0.08, "z": -0.013 }, "localRotation": { "x": -25, "y": 0, "z": -20 }, "thickness": 1, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.05, "y": 1, "z": 0.04 }, "localPosition": { "x": 0.17, "y": 0.00, "z": -0.06 }, "localRotation": { "x": 25, "y": 0, "z": -160 }, "thickness": 1, "curved": true, "smoothness": 0.2 },
+              { "dimensions": { "x": 0.015, "y": 1, "z": 0.02 }, "localPosition": { "x": 0.05, "y": 0.08, "z": 0.02 }, "localRotation": { "x": 0, "y": 0, "z": -40 }, "thickness": 1 }
+            ]
+          },
+          "texture": {
+            "generated": {
+              "id": "rubber-skin",
+              "shape": null,
+              "primary": { "r": 0.46, "g": 0.26, "b": 0.66, "a": 1 },
+              "color": { "r": 0.3, "g": 0.14, "b": 0.48, "a": 1 },
+              "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false,
+              "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
           "id": "earLeft",
           "label": "earLeft",
           "addsToBounds": false,
