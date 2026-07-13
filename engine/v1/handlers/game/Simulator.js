@@ -11,19 +11,19 @@ import { ValidateSimulatorPayload, ValidateSimulatorBulkPayload } from "../../co
 import simulatorTemplates from "../../builder/templates/levels.json" with { type: "json" };
 
 const simulatorRuntime = {
-	active          : false,
-	hadLevel        : false,
-	entity          : null,
-	followTarget    : null,
-	builtObject     : null,
-	objectType      : null,
-	animSetKeys     : [],
-	currentSetIdx   : 0,
-	holdTimer       : 0,
-	isHolding       : false,
-	hudRootId       : "engine-simulator-hud",
-	savedEntityState: undefined,
-	uiCleared       : false,
+	active           : false,
+	hadLevel         : false,
+	entity           : null,
+	followTarget     : null,
+	builtObject      : null,
+	objectType       : null,
+	animSetKeys      : [],
+	currentSetIdx    : 0,
+	holdTimer        : 0,
+	isHolding        : false,
+	hudRootId        : "engine-simulator-hud",
+	savedEntityAction: undefined,
+	uiCleared        : false,
 };
 
 const simulatorCache = new Map();
@@ -97,10 +97,10 @@ function updateSimulatorHud() {
 
 function initSimulatorTarget(entity, objectType, definition) {
 	if (entity !== null) {
-		simulatorRuntime.savedEntityState = entity.state;
-		simulatorRuntime.animSetKeys      = Object.keys(entity.animations);
-		entity.state                      = simulatorRuntime.animSetKeys.length > 0 ? simulatorRuntime.animSetKeys[0] : "idle";
-	} 
+		simulatorRuntime.savedEntityAction = entity.action;
+		simulatorRuntime.animSetKeys       = Object.keys(entity.animations);
+		entity.action                      = simulatorRuntime.animSetKeys.length > 0 ? simulatorRuntime.animSetKeys[0] : "idle";
+	}
 	else simulatorRuntime.animSetKeys = [];
 	simulatorRuntime.entity        = entity;
 	simulatorRuntime.currentSetIdx = 0;
@@ -110,15 +110,15 @@ function initSimulatorTarget(entity, objectType, definition) {
 }
 
 function clearTargetState() {
-	if (simulatorRuntime.entity !== null) simulatorRuntime.entity.state = simulatorRuntime.savedEntityState;
-	simulatorRuntime.entity           = null;
-	simulatorRuntime.builtObject      = null;
-	simulatorRuntime.objectType       = null;
-	simulatorRuntime.animSetKeys      = [];
-	simulatorRuntime.currentSetIdx    = 0;
-	simulatorRuntime.holdTimer        = 0;
-	simulatorRuntime.isHolding        = false;
-	simulatorRuntime.savedEntityState = undefined;
+	if (simulatorRuntime.entity !== null) simulatorRuntime.entity.action = simulatorRuntime.savedEntityAction;
+	simulatorRuntime.entity            = null;
+	simulatorRuntime.builtObject       = null;
+	simulatorRuntime.objectType        = null;
+	simulatorRuntime.animSetKeys       = [];
+	simulatorRuntime.currentSetIdx     = 0;
+	simulatorRuntime.holdTimer         = 0;
+	simulatorRuntime.isHolding         = false;
+	simulatorRuntime.savedEntityAction = undefined;
 }
 
 function clearEnvironmentState() {
@@ -260,7 +260,7 @@ function HandleSimulatorInput(event) {
 		simulatorRuntime.currentSetIdx = event.code === "KeyW"
 			? (simulatorRuntime.currentSetIdx + 1) % len
 			: (simulatorRuntime.currentSetIdx - 1 + len) % len;
-		simulatorRuntime.entity.state = "__sim-hold__";
+		simulatorRuntime.entity.action = "__sim-hold__";
 		simulatorRuntime.isHolding    = true;
 		simulatorRuntime.holdTimer    = 0.2;
 		return true;
@@ -277,7 +277,7 @@ function UpdateSimulator(deltaMilliseconds, sceneGraph) {
 		if (simulatorRuntime.holdTimer <= 0) {
 			simulatorRuntime.isHolding    = false;
 			simulatorRuntime.holdTimer    = 0;
-			simulatorRuntime.entity.state = simulatorRuntime.animSetKeys[simulatorRuntime.currentSetIdx];
+			simulatorRuntime.entity.action = simulatorRuntime.animSetKeys[simulatorRuntime.currentSetIdx];
 		}
 	}
 

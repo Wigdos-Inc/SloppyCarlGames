@@ -119,8 +119,8 @@ function createDefaultPlayerState(playerData) {
 		jumpApexY          : new Unit(playerData.spawnPosition.y, "cnu"),
 		stoppingActive     : false,
 		primaryOppositeHeld: false,
-		state              : "Idle",
-		previousState      : "Idle",
+		action             : "Idle",
+		previousAction     : "Idle",
 		hp                 : 3,
 		collectibles       : playerData.collectibles,
 		maxCollectibles    : 100,
@@ -243,7 +243,7 @@ async function InitializePlayer(payload, sceneGraph) {
  */
 function UpdatePlayer(deltaSeconds, cameraVectors) {
 	if (!playerState.active) return null;
-	if (playerState.state === "Dead") return playerState;
+	if (playerState.action === "Dead") return playerState;
 
 	// Step 1–2: Movement (reads input, modifies velocity).
 	UpdateMovement(playerState, playerInputFlags, cameraVectors, deltaSeconds);
@@ -268,54 +268,62 @@ function UpdatePlayerModel() {
 }
 
 /**
+ * Central authority for player action transitions. All writes to playerState.action must go
+ * through this so the log and (optional) event are guaranteed to fire consistently.
+ * No-ops if newAction matches the current action.
+ */
+function SetPlayerAction(newAction) {
+	const oldAction = playerState.action;
+	if (newAction === oldAction) return;
+
+	playerState.previousAction = oldAction;
+	playerState.action = newAction;
+
+	Log("ENGINE", `Player action: ${oldAction} → ${newAction}`, "log", "Player");
+
+	if (playerState.customEvents.actionChange && CONFIG.CUSTOM_EVENTS.Entities.actionChange) {
+		SendEvent("PLAYER_ACTION_CHANGE", {
+			id      : playerState.id,
+			type    : playerState.type,
+			position: CloneVector3(playerState.transform.position),
+			velocity: CloneVector3(playerState.velocity),
+			from    : oldAction,
+			to      : newAction,
+		});
+	}
+}
+
+/**
  * Resolve the player state machine after all physics/collision/damage have been applied.
  * Called from Level.js after the full pipeline.
  */
 function ResolvePlayerState() {
-	if (!playerState.active)          return;
-	if (playerState.state === "Dead") return;
+	if (!playerState.active)           return;
+	if (playerState.action === "Dead") return;
 
 	const speed = Math.sqrt(playerState.velocity.x * playerState.velocity.x + playerState.velocity.z * playerState.velocity.z);
-	const oldState = playerState.state;
 
-	// State transitions (priority order).
-	if (playerState.state === "Stunned") return;
+	// Action transitions (priority order).
+	if (playerState.action === "Stunned") return;
 
-	if (playerState.underwater && playerState.state !== "Swimming") {
+	if (playerState.underwater && playerState.action !== "Swimming") {
 		// Sinking requires genuine ungrounded descent; grounded underwater = resting on floor = Floating.
-		playerState.state = !playerState.grounded && playerState.velocity.y < 0 ? "Sinking" : "Floating";
+		SetPlayerAction(!playerState.grounded && playerState.velocity.y < 0 ? "Sinking" : "Floating");
 	}
-	else if (!playerState.grounded && playerState.state !== "Flying") {
-		if (playerState.state === "Jumping") {
+	else if (!playerState.grounded && playerState.action !== "Flying") {
+		if (playerState.action === "Jumping") {
 			playerState.jumpApexY.value = Math.max(playerState.jumpApexY.value, playerState.transform.position.y);
 
 			// Switch to Falling after descending below jump start height by 1 unit.
-			if (playerState.transform.position.y <= playerState.jumpStartY.value - 1) playerState.state = "Falling";
+			if (playerState.transform.position.y <= playerState.jumpStartY.value - 1) SetPlayerAction("Falling");
 		}
-		else playerState.state = "Falling";
+		else SetPlayerAction("Falling");
 	}
 	else {
-		// Grounded states.
-		if      (playerState.boost.active)   playerState.state = "Boosting";
-		else if (playerState.stoppingActive) playerState.state = "Stopping";
-		else if (speed > 0.5)                playerState.state = "Running";
-		else                                 playerState.state = "Idle";
-	}
-
-	// Log state transitions.
-	if (oldState !== playerState.state) {
-		Log("ENGINE", `Player state: ${oldState} → ${playerState.state}`, "log", "Player");
-		playerState.previousState = oldState;
-		if (playerState.customEvents.stateChange && CONFIG.CUSTOM_EVENTS.Entities.stateChange) {
-			SendEvent("PLAYER_STATE_CHANGE", {
-				id      : playerState.id,
-				type    : playerState.type,
-				position: CloneVector3(playerState.transform.position),
-				velocity: CloneVector3(playerState.velocity),
-				from    : oldState,
-				to      : playerState.state,
-			});
-		}
+		// Grounded actions.
+		if (playerState.stoppingActive) SetPlayerAction("Stopping");
+		else if (speed > 0.5)           SetPlayerAction("Running");
+		else                            SetPlayerAction("Idle");
 	}
 }
 
@@ -324,7 +332,7 @@ function ResolvePlayerState() {
  * Called by Enemy.js when player has no collectibles and takes damage.
  */
 function TriggerPlayerDeath() {
-	playerState.state = "Dead";
+	SetPlayerAction("Dead");
 	playerState.stoppingActive = false;
 	playerState.primaryOppositeHeld = false;
 	playerState.velocity.set(ToVector3(0));
@@ -332,7 +340,7 @@ function TriggerPlayerDeath() {
 }
 
 function TriggerPlayerRespawnSequence() {
-	if (playerState.state === "Dead") return;
+	if (playerState.action === "Dead") return;
 
 	TriggerPlayerDeath();
 	SendEvent("PLAYER_DEATH", {});
@@ -349,7 +357,7 @@ function RespawnPlayer() {
 	playerState.transform.position.set(respawnPos);
 	playerState.velocity.set(ToVector3(0));
 	playerState.grounded = false;
-	playerState.state = "Idle";
+	SetPlayerAction("Idle");
 	playerState.jumpStartY.value = respawnPos.y;
 	playerState.jumpApexY.value = respawnPos.y;
 	playerState.attackFlag = false;
@@ -392,6 +400,7 @@ export {
 	UpdatePlayerCollision,
 	UpdatePlayerModel,
 	ResolvePlayerState,
+	SetPlayerAction,
 	TriggerPlayerDeath,
 	TriggerPlayerRespawnSequence,
 	RespawnPlayer,

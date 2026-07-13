@@ -16,7 +16,7 @@ import { GetSimDistanceValue, CheckEntityAabbOverlap } from "../../physics/Colli
  * @param {object} sceneGraph — active scene graph.
  */
 function HandleCollectiblePickups(playerState, sceneGraph) {
-	if (playerState.state === "Dead") return;
+	if (playerState.action === "Dead") return;
 
 	for (let i = sceneGraph.entities.length - 1; i >= 0; i--) {
 		const entity = sceneGraph.entities[i];

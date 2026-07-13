@@ -4,9 +4,7 @@
 // Returns modified velocity. Does NOT modify position directly.
 
 import { CONFIG } from "../core/config.js";
-import { Log, SendEvent } from "../core/meta.js";
 import {
-	CloneVector3,
 	ResolveVector3Axis,
 	AddVector3,
 	ScaleVector3,
@@ -16,6 +14,7 @@ import {
 } from "../math/Vector3.js";
 import { ApplyAcceleration, ApplyDeceleration, ClampVelocity } from "../math/Collision.js";
 import { ComputeStepVelocity } from "../math/Forces.js";
+import { SetPlayerAction } from "./Master.js";
 
 const jumpVelocityCache = { jumpHeight: -1, medium: "", floatiness: -1, v0: 0 };
 
@@ -101,7 +100,7 @@ function getPrimaryOppositeHeld(input, horizontalVelocity, cameraForward, camera
 	
 	return Math.abs(forwardComponent) >= Math.abs(rightComponent)
 		? forwardComponent >= 0 ? input.forward < -0.25 : input.forward > 0.25
-		: rightComponent   => 0 ? input.right   < -0.2  : input.right   > 0.25;
+		: rightComponent   >= 0 ? input.right   < -0.2  : input.right   > 0.25;
 }
 
 function moveAngleToward(currentAngle, targetAngle, maxStep) {
@@ -182,34 +181,21 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 
 	// === JUMP ===
 	if (
-		input.jump && 
-		playerState.grounded && 
-		playerState.state !== "Stunned" && 
-		playerState.state !== "Dead"
+		input.jump &&
+		playerState.grounded &&
+		playerState.action !== "Stunned" &&
+		playerState.action !== "Dead"
 	) {
 		playerState.velocity.y = solveJumpLaunchVelocity(
-			meta.jumpHeight.value, 
-			playerState.underwater ? "water" : "air", 
+			meta.jumpHeight.value,
+			playerState.underwater ? "water" : "air",
 			playerState.underwater ? meta.waterFloatiness : meta.airFloatiness
 		);
 		playerState.grounded = false;
-		
+
 		// Player jump Y values are Unit instances—mutate their `.value`.
 		playerState.jumpApexY.value = playerState.transform.position.y;
-		playerState.previousState = playerState.state;
-		playerState.state = "Jumping";
-		Log("ENGINE", `Player state: ${playerState.previousState} → Jumping`, "log", "Player");
-		
-		if (playerState.customEvents.stateChange && CONFIG.CUSTOM_EVENTS.Entities.stateChange) {
-			SendEvent("PLAYER_STATE_CHANGE", {
-				id      : playerState.id,
-				type    : playerState.type,
-				position: CloneVector3(playerState.transform.position),
-				velocity: CloneVector3(playerState.velocity),
-				from    : playerState.previousState,
-				to      : "Jumping",
-			});
-		}
+		SetPlayerAction("Jumping");
 	}
 
 	// === FACE MOMENTUM DIRECTION ===

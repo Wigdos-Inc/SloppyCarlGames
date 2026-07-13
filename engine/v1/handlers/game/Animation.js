@@ -37,7 +37,7 @@ function ensureAnimationRuntime(entity) {
 	let runtime = entity.animationRuntime;
 	if (runtime === undefined) {
 		runtime = {
-			lastState        : null,
+			lastAction       : null,
 			currentSetName   : null,
 			elapsed          : 0,
 			correctionN      : 0,
@@ -268,9 +268,9 @@ function resolveAnimationStep(model, runtime, set, deltaSeconds) {
 
 /* === ENTRY POINT === */
 
-// Case-insensitive naming-convention match of a state to an animation set key.
-function resolveSetName(animations, currentState) {
-	for (const setName in animations) if (setName.toLowerCase() === currentState.toLowerCase()) return setName;
+// Case-insensitive naming-convention match of an action to an animation set key.
+function resolveSetName(animations, currentAction) {
+	for (const setName in animations) if (setName.toLowerCase() === currentAction.toLowerCase()) return setName;
 	return null;
 }
 
@@ -278,17 +278,17 @@ function ResolveEntityAnimation(entity, deltaSeconds) {
 	if (CONFIG.PERFORMANCE.Animations.Active !== true) return;
 
 	const runtime = ensureAnimationRuntime(entity);
-	if (entity.state !== runtime.lastState) {
-		const setName = resolveSetName(entity.animations, entity.state);
+	if (entity.action !== runtime.lastAction) {
+		const setName = resolveSetName(entity.animations, entity.action);
 		runtime.snapshots = new Map(runtime.displayedOffsets);
 		runtime.colorSnapshots = new Map(runtime.colorDisplayed);
 		runtime.decalIndex.forEach((decalEntry) => decalEntry.activeSourceKey = null);
-		runtime.lastState = entity.state;
+		runtime.lastAction = entity.action;
 		runtime.currentSetName = setName;
 		runtime.elapsed = 0;
 		runtime.correctionN = resolveCorrectionFrames(entity.type);
 		runtime.correctionCounter = runtime.correctionN;
-		if (setName === null) Log("ENGINE", `no set matches state '${entity.state}' on '${entity.id}', holding rest`, "warn", "Animation");
+		if (setName === null) Log("ENGINE", `no set matches action '${entity.action}' on '${entity.id}', holding rest`, "warn", "Animation");
 	}
 
 	if (runtime.currentSetName === null) {

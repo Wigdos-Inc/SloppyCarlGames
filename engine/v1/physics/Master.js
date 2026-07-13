@@ -144,7 +144,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 		if (!overlapResolution.anyChanged && !correction.anyChanged && !orientation.anyChanged) break;
 	}
 
-	if (isPlayer && entity.state !== "Jumping") {
+	if (isPlayer && entity.action !== "Jumping") {
 		entity.grounded = groundContact.hit && entity.buoyancyForce <= CONFIG.PHYSICS.Gravity.Strength.value;
 	}
 
@@ -249,7 +249,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 		entity.transform.position.y = deathBarrierY;
 		entity.velocity.y = 0;
 		rebuildBounds(entity);
-		if (isPlayer && entity.state !== "Dead") {
+		if (isPlayer && entity.action !== "Dead") {
 			Log("ENGINE", "Player hit death barrier.", "log", "Level");
 			TriggerPlayerRespawnSequence();
 		}

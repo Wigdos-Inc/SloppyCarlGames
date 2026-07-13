@@ -1,1 +1,9 @@
 # Changelog (engine/v1/)
+
+## 2026-07-13: Player action field rename + centralized transitions
+
+**What:** Renamed the player's animation-driving field from `state`/`previousState` to `action`/`previousAction`. Applied the same rename to the entity-agnostic version of the field used by the animation system (`entity.state` → `entity.action` in the Animation handler and Simulator handler, since `ResolveEntityAnimation` is entity-agnostic and the Simulator drives it for preview entities too). Also renamed the associated game-facing surface: the `PLAYER_STATE_CHANGE` event is now `PLAYER_ACTION_CHANGE`, and the `customEvents`/`CONFIG.CUSTOM_EVENTS.Entities` key `stateChange` is now `actionChange`. Added a new exported `SetPlayerAction(newAction)` in `player/Master.js` that centralizes every player action transition — sets `action`/`previousAction`, logs the transition, and conditionally sends `PLAYER_ACTION_CHANGE` — replacing duplicated, inconsistent transition logic previously spread across `Master.js` (`ResolvePlayerState`, `TriggerPlayerDeath`, `RespawnPlayer`), `player/Movement.js` (jump trigger), and `handlers/game/Enemy.js` (stun trigger).
+
+**Why:** `playerState.state` read as confusing next to the top-level `playerState` object itself, and "action" better matches the animation system's semantics (it's the value that selects the current animation set). The scattered transition sites had inconsistent behavior — some tracked `previousState` and logged/emitted events, some didn't — so centralizing through one function guarantees consistent logging and event emission going forward.
+
+**Where:** `player/Master.js`, `player/Movement.js`, `physics/Master.js`, `physics/Correction.js`, `handlers/game/Enemy.js`, `handlers/game/Collectible.js`, `handlers/game/Animation.js`, `handlers/game/Simulator.js`, `core/config.js`, `core/canonSchemas.json`.

@@ -11,7 +11,7 @@ import {
 	CloneVector3,
 } from "../../math/Vector3.js";
 import { GetSimDistanceValue, DetectCombatOverlaps } from "../../physics/Collision.js";
-import { TriggerPlayerRespawnSequence } from "../../player/Master.js";
+import { TriggerPlayerRespawnSequence, SetPlayerAction } from "../../player/Master.js";
 
 const KNOCKBACK_FORCE = 12;
 const INVULNERABILITY_DURATION = 2.0;
@@ -27,7 +27,7 @@ const INVULNERABILITY_DURATION = 2.0;
  * @param {number} deltaSeconds
  */
 function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
-	if (playerState.state === "Dead") return;
+	if (playerState.action === "Dead") return;
 
 	// Use three-layer combat detection.
 	const combatResults = DetectCombatOverlaps(
@@ -148,9 +148,8 @@ function applyPlayerDamage(playerState, damageSourcePosition) {
 	playerState.invulnerable.timer = INVULNERABILITY_DURATION;
 	playerState.invulnerable.flashTimer = 0;
 
-	// Transition to stunned state.
-	playerState.previousState = playerState.state;
-	playerState.state = "Stunned";
+	// Transition to stunned action.
+	SetPlayerAction("Stunned");
 	playerState.grounded = false;
 
 	if (CONFIG.CUSTOM_EVENTS.Entities.damageReceived && playerState.customEvents.damageReceived) {

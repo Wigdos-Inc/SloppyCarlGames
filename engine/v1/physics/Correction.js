@@ -43,7 +43,7 @@ const correctionDisabled = Object.freeze({
 	anyChanged: false,
 });
 
-const shouldSkipJumpGrounding = (playerState) => playerState.state === "Jumping" && playerState.velocity.y > EPSILON;
+const shouldSkipJumpGrounding = (playerState) => playerState.action === "Jumping" && playerState.velocity.y > EPSILON;
 
 function applySurfaceNormal(playerState, normal) {
 	playerState.grounded = true;

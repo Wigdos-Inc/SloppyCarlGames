@@ -21,9 +21,7 @@ function SampleConnectorCenterline(startCenter, forward, endCenter, backward, sm
 	const points = [];
 	for (let index = 0; index <= segments; index++) {
 		const t = index / segments;
-		const sharp = t < 0.5
-			? LerpVector3(startCenter, cornerM, t * 2)
-			: LerpVector3(cornerM, endCenter, (t - 0.5) * 2);
+		const sharp = t < 0.5 ? LerpVector3(startCenter, cornerM, t * 2) : LerpVector3(cornerM, endCenter, (t - 0.5) * 2);
 		const oneMinusT = 1 - t;
 		const smooth = AddVector3(
 			AddVector3(

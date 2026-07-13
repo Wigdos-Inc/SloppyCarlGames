@@ -115,7 +115,7 @@ const CONFIG = {
     Entities: {
       spawn          : false,
       despawn        : false,
-      stateChange    : false,
+      actionChange   : false,
       collision      : false,
       groundedChange : false,
       damageReceived : false,
