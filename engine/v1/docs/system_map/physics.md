@@ -12,7 +12,7 @@ Computes and applies physics for moving entities each frame: gravity, buoyancy, 
 
 ## Boundaries
 **Called by:** `handlers/game/Level.js` — calls `ApplyPhysicsPipeline` directly from `Master.js` each frame. No intermediary Physics handler file exists in the current source.  
-**Calls into:** `math/` (Vector3, Utilities, Collision, Forces); `core/` (config, meta); `player/Master.js` (`TriggerPlayerRespawnSequence`) and `player/Model.js` (`UpdatePlayerModelFromState`, `SyncPlayerCollisionFromState`) for player model sync post-physics; `builder/NewEntity.js` (`UpdateEntityModelFromTransform`) for non-player entity model sync post-physics.  
+**Calls into:** `math/` (Vector3, Utilities, Collision, Forces); `core/` (config, meta); `player/Master.js` (`TriggerPlayerRespawnSequence`) for player respawn; `builder/NewEntity.js` (`UpdateEntityModelFromTransform`, `ComputeCapsuleFromAabb`) for post-physics model sync and ground-probe capsule derivation, used identically for the player and every non-player entity since the player build was unified onto the entity pipeline.  
 **Does not:** Read user input, manage its own update loop, or drive rendering.
 
 ## Invariants
@@ -20,3 +20,5 @@ Computes and applies physics for moving entities each frame: gravity, buoyancy, 
 - Entity state is mutated in place by the pipeline; results are not returned as new objects.
 - `math/Forces.js` contains pure numeric math; `physics/Forces.js` wraps it with entity and config context.
 - `math/Collision.js` contains pure geometry math; `physics/Collision.js` contains detection logic with scene state.
+- The player and non-player entities share one model-sync path (`UpdateEntityModelFromTransform`) and one collision-bounds shape (`aabb`/`physics`/`hurtbox`/`hitbox`); `Master.js` branches on `isPlayer` only for player-only stages (input-driven correction source, ground-contact probing, respawn, action-state events), not for model or collision-bounds representation.
+- `ProbeGroundContact` (`Collision.js`, player-only) derives its probe capsule from `entity.collision.aabb` via `ComputeCapsuleFromAabb`, not from a stored capsule. The player's swept-solid detection path (`DetectPhysicsCollisions`) still differs from the non-player path (`DetectCurrentPhysicsOverlaps`) in how it gates candidates before the swept test — see `DEFERRED.md`.

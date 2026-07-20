@@ -1,7 +1,6 @@
 This file contains current priorities.
 
-Update test characters to test multiple types of characters with intuitive physics
-- Carl
+Add new characters to test multiple types of characters with intuitive physics
 - Jeff
 - Latina
 Unify textures so generated textures are pre-calculated, then merged, for a whole part rather than per-face and per-decal

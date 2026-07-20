@@ -127,3 +127,5 @@ These are structural, not fixable with shims. **ARGUS (browser) is the only runt
 If you can't find evidence that supports a claim, don't make that claim. Just tell me you don't know, what you looked through, and what you think might be going on. But don't present a guess as a real finding.
 
 Prefer asking questions about intended design or actions taken instead of assuming.
+
+Any time you run, and a conclusion about something is reached (regardless on if any code is actually changed), you must call SAGE to log it into AGENT_LOG. If you called any subagents in that pass, also make SAGE log their individual actions in AGENT_LOG.

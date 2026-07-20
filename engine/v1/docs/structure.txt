@@ -78,7 +78,7 @@ engine/
       Abilities.js // Player ability definitions and applications (accepts handlers from games).
       Animation.js // Player-specific animation handler.
       Master.js // Player master controller (player state manager)
-      Model.js // Player model/data representation
+      Model.js // Assembles the player as an entity via builder/NewEntity.js from a characters.json template
       Movement.js // Movement handler for player
       characters.json // Player character presets
 
