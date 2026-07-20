@@ -7,6 +7,7 @@
 import { CONFIG } from "../core/config.js";
 import { EPSILON } from "../core/meta.js";
 import { Unit } from "../math/Utilities.js";
+import { ComputeCapsuleFromAabb } from "../builder/NewEntity.js";
 import {
 	AddVector3,
 	SubtractVector3,
@@ -983,15 +984,17 @@ function ResolveCollisions(velocity, displacement, solids) {
  * This is the sole authority on player grounding state and snap target.
  * Penetration pushout is unaffected — the capsule narrowphase handles that separately.
  *
- * @param {object} entity — player entity with collision.profile.capsuleStartOffset.
+ * @param {object} entity — player entity; the probe capsule is derived from its collision aabb.
  * @param {object} sceneGraph
  * @returns {{ hit: boolean, normal?: object, type?: string, supportPoint?: object }}
  */
 function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance) {
 	if (CONFIG.PHYSICS.Collision.Enabled === false) return { hit: false };
 
-	const probe = entity.transform.position.clone().add(entity.collision.profile.capsuleStartOffset);
-	const maxDist = entity.collision.profile.capsuleRadius.value + groundSnapTolerance;
+	// Grounding always uses an AABB-derived capsule, whatever narrowphase collider the entity declares.
+	const groundCapsule = ComputeCapsuleFromAabb(entity.collision.aabb);
+	const probe = groundCapsule.segmentStart;
+	const maxDist = groundCapsule.radius.value + groundSnapTolerance;
 
 	let bestT = Infinity;
 	let bestNormal = null;

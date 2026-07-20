@@ -17,6 +17,7 @@
 			"waterFloatiness": 1
 		},
 		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
+		"collisionOverride": { "physics": "capsule", "hurtbox": "sphere", "hitbox": "sphere" },
 		"model": {
 			"parts": [
 				{
@@ -238,6 +239,7 @@
 			"waterFloatiness": 3
 		},
 		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
+		"collisionOverride": { "physics": "capsule", "hurtbox": "sphere", "hitbox": "sphere" },
 		"model": {
 			"parts": [
 				{
@@ -458,6 +460,994 @@
 						"custom": []
 					},
 					"detail": { "scatter": [] }
+				}
+			]
+		}
+	},
+
+	"carl": {
+		"name": { "s": "Carl", "l": "Carl the Urgent Slug Urchin" },
+		"meta": { "maxSpeed": 8, "acceleration": 20, "deceleration": 10, "stoppingThresholdRatio": 0.35, "airControl": 0.2, "underwaterAirControl": 0.5, "momentumTurnRate": 14, "jumpHeight": 2, "airFloatiness": 1, "waterFloatiness": 1 },
+		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
+		"collisionOverride": { "physics": "auto", "hurtbox": "sphere", "hitbox": "sphere" },
+		"model": {
+			"parts": [
+				{
+					"id": "body",
+					"label": "body",
+					"parentId": "root",
+					"shape": "sphere",
+					"complexity": "high",
+					"dimensions": { "x": 1, "y": 1, "z": 1 },
+					"localPosition": { "x": 0, "y": 0, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "bellyOpen", "decalType": "shape", "shape": "circle", "color": {"r": 0.66, "g": 0.5, "b": 0.82, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.66, "g": 0.5, "b": 0.82, "a": 1}, "secondary": {"r": 0.54, "g": 0.36, "b": 0.68, "a": 1}, "density": 0.28, "speckSize": 0.4}, "localTransform": {"position": {"x": 0, "y": -0.32, "z": 0}, "rotation": 0, "scale": {"x": 0.85, "y": 0.8, "z": 1}} },
+							{ "id": "bellySegment1", "decalType": "shape", "shape": "circle", "color": {"r": 0.66, "g": 0.5, "b": 0.82, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.66, "g": 0.5, "b": 0.82, "a": 1}, "secondary": {"r": 0.54, "g": 0.36, "b": 0.68, "a": 1}, "density": 0.28, "speckSize": 0.4}, "localTransform": {"position": {"x": 0, "y": -1, "z": 0}, "rotation": 0, "scale": {"x": 1.2, "y": 2.1, "z": 1}} },
+							{ "id": "bellySegment2", "decalType": "shape", "shape": "circle", "color": {"r": 0.66, "g": 0.5, "b": 0.82, "a": 1}, "side": "bottom", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.66, "g": 0.5, "b": 0.82, "a": 1}, "secondary": {"r": 0.54, "g": 0.36, "b": 0.68, "a": 1}, "density": 0.28, "speckSize": 0.4}, "localTransform": {"position": {"x": 0, "y": -0.5, "z": 2}, "rotation": 0, "scale": {"x": 2.1, "y": 4.6, "z": 1}} },
+							{ "id": "bellyClose", "decalType": "shape", "shape": "circle", "color": {"r": 0.66, "g": 0.5, "b": 0.82, "a": 1}, "side": "bottom", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.66, "g": 0.5, "b": 0.82, "a": 1}, "secondary": {"r": 0.54, "g": 0.36, "b": 0.68, "a": 1}, "density": 0.28, "speckSize": 0.4}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0.2}, "rotation": 0, "scale": {"x": 0.7, "y": 0.8, "z": 1}} },
+							{ "id": "bellyPattern", "decalType": "image", "imagePath": "../assets/characters/carl/pattern.png", "sourceType": "local", "opacity": 0.7, "side": "front", "localTransform": {"position": {"x": 0, "y": -0.45, "z": 0}, "rotation": 0, "scale": {"x": 0.8, "y": 0.75, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "head",
+					"label": "head",
+					"parentId": "body",
+					"shape": "sphere",
+					"complexity": "high",
+					"dimensions": { "x": 0.6, "y": 0.5, "z": 0.4 },
+					"localPosition": { "x": 0, "y": 0.2, "z": 0.32 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "eyeWhites", "decalType": "image", "imagePath": "../assets/characters/carl/eyes.png", "sourceType": "local", "opacity": 0.95, "side": "front", "localTransform": {"position": {"x": 0, "y": -0.04, "z": 0}, "rotation": 0, "scale": {"x": 0.8, "y": 0.55, "z": 1}} },
+							{ "id": "leftIris", "decalType": "shape", "detail": null,"shape": "circle", "color": {"r": 0.2, "g": 0.85, "b": 0.35, "a": 1}, "side": "front", "localTransform": {"position": {"x": -0.092, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.06, "y": 0.1, "z": 1}} },
+							{ "id": "leftPupil", "decalType": "shape", "detail": null,"shape": "circle", "color": {"r": 0.05, "g": 0.05, "b": 0.08, "a": 1}, "side": "front", "localTransform": {"position": {"x": -0.092, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.03, "y": 0.06, "z": 1}} },
+							{ "id": "rightIris", "decalType": "shape", "detail": null,"shape": "circle", "color": {"r": 0.2, "g": 0.85, "b": 0.35, "a": 1}, "side": "front", "localTransform": {"position": {"x": 0.092, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.06, "y": 0.1, "z": 1}} },
+							{ "id": "rightPupil", "decalType": "shape", "detail": null,"shape": "circle", "color": {"r": 0.05, "g": 0.05, "b": 0.08, "a": 1}, "side": "front", "localTransform": {"position": {"x": 0.092, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.03, "y": 0.06, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "center",
+					"attachmentPoint": "center",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "snout",
+					"label": "snout",
+					"addsToBounds": false,
+					"parentId": "head",
+					"shape": "sphere",
+					"complexity": "high",
+					"dimensions": { "x": 0.5, "y": 0.25, "z": 0.22 },
+					"localPosition": { "x": 0, "y": -0.15, "z": 0.12 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [{"id": "mouth", "decalType": "image", "imagePath": "../assets/characters/carl/mouth_close.png", "sourceType": "local", "side": "front", "localTransform": {"position": {"x": -0.04, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": -0.25, "y": 0.125, "z": 1}}}]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "center",
+					"attachmentPoint": "center",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "nose",
+					"label": "nose",
+					"addsToBounds": false,
+					"parentId": "head",
+					"shape": "sphere",
+					"complexity": "high",
+					"dimensions": { "x": 0.18, "y": 0.1, "z": 0.08 },
+					"localPosition": { "x": 0, "y": -0.09, "z": 0.18 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nostrilLeft", "decalType": "shape", "detail": null,"shape": "circle", "color": {"r": 0.12, "g": 0.04, "b": 0.18, "a": 1}, "side": "front", "localTransform": {"position": {"x": -0.025, "y": 0.005, "z": 0}, "rotation": 45, "scale": {"x": 0.015, "y": 0.03, "z": 1}} },
+							{ "id": "nostrilRight", "decalType": "shape", "detail": null,"shape": "circle", "color": {"r": 0.12, "g": 0.04, "b": 0.18, "a": 1}, "side": "front", "localTransform": {"position": {"x": 0.025, "y": 0.005, "z": 0}, "rotation": -45, "scale": {"x": 0.015, "y": 0.03, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "center",
+					"attachmentPoint": "center",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "browLeft",
+					"label": "browLeft",
+					"addsToBounds": false,
+					"parentId": "head",
+					"shape": "tube",
+					"complexity": "high",
+					"dimensions": { "x": 0.03, "y": 0, "z": 0.04 },
+					"localPosition": { "x": 0, "y": -0.017, "z": 0.2 },
+					"localRotation": { "x": 0, "y": 0, "z": 90 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {
+						"thickness": 1,
+						"curved": true,
+						"smoothness": 1,
+						"nodes": [
+							{ "dimensions": {"x": 0.035, "y": 1, "z": 0.04}, "localPosition": {"x": 0.02, "y": 0.02, "z": -0.003}, "localRotation": {"x": 0, "y": 0, "z": -80}, "thickness": 0.5, "curved": true, "smoothness": 1 },
+							{ "dimensions": {"x": 0.04, "y": 1, "z": 0.05}, "localPosition": {"x": 0, "y": 0.08, "z": -0.013}, "localRotation": {"x": -25, "y": 0, "z": 20}, "thickness": 0.5, "curved": true, "smoothness": 1 },
+							{ "dimensions": {"x": 0.05, "y": 1, "z": 0.04}, "localPosition": {"x": -0.17, "y": 0, "z": -0.06}, "localRotation": {"x": 25, "y": 0, "z": 160}, "thickness": 0.5, "curved": true, "smoothness": 0.2 },
+							{ "dimensions": {"x": 0.015, "y": 1, "z": 0.02}, "localPosition": {"x": -0.05, "y": 0.08, "z": 0.02}, "localRotation": {"x": 0, "y": 0, "z": 40}, "thickness": 0.4 }
+						]
+					},
+					"texture": { "generated": {"id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"detail": { "scatter": [] },
+					"anchorPoint": "center",
+					"attachmentPoint": "center",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "browRight",
+					"label": "browRight",
+					"addsToBounds": false,
+					"parentId": "head",
+					"shape": "tube",
+					"complexity": "high",
+					"dimensions": { "x": 0.03, "y": 0, "z": 0.04 },
+					"localPosition": { "x": 0, "y": -0.017, "z": 0.2 },
+					"localRotation": { "x": 0, "y": 0, "z": -90 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {
+						"thickness": 1,
+						"curved": true,
+						"smoothness": 1,
+						"nodes": [
+							{ "dimensions": {"x": 0.035, "y": 1, "z": 0.04}, "localPosition": {"x": -0.02, "y": 0.02, "z": -0.003}, "localRotation": {"x": 0, "y": 0, "z": 80}, "thickness": 1, "curved": true, "smoothness": 1 },
+							{ "dimensions": {"x": 0.04, "y": 1, "z": 0.05}, "localPosition": {"x": 0, "y": 0.08, "z": -0.013}, "localRotation": {"x": -25, "y": 0, "z": -20}, "thickness": 1, "curved": true, "smoothness": 1 },
+							{ "dimensions": {"x": 0.05, "y": 1, "z": 0.04}, "localPosition": {"x": 0.17, "y": 0, "z": -0.06}, "localRotation": {"x": 25, "y": 0, "z": -160}, "thickness": 1, "curved": true, "smoothness": 0.2 },
+							{ "dimensions": {"x": 0.015, "y": 1, "z": 0.02}, "localPosition": {"x": 0.05, "y": 0.08, "z": 0.02}, "localRotation": {"x": 0, "y": 0, "z": -40}, "thickness": 1 }
+						]
+					},
+					"texture": { "generated": {"id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"detail": { "scatter": [] },
+					"anchorPoint": "center",
+					"attachmentPoint": "center",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "earLeft",
+					"label": "earLeft",
+					"addsToBounds": false,
+					"parentId": "head",
+					"shape": "pyramid",
+					"complexity": "",
+					"dimensions": { "x": 0.17, "y": 0.14, "z": 0.07 },
+					"localPosition": { "x": -0.12, "y": -0.12, "z": 0 },
+					"localRotation": { "x": 12, "y": -10, "z": 20 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [{"id": "innerEarLeft", "decalType": "shape", "shape": "triangle", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0.04, "z": 0}, "rotation": 0, "scale": {"x": 0.1, "y": 0.12, "z": 1}}}]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "earRight",
+					"label": "earRight",
+					"addsToBounds": false,
+					"parentId": "head",
+					"shape": "pyramid",
+					"complexity": "",
+					"dimensions": { "x": 0.17, "y": 0.14, "z": 0.07 },
+					"localPosition": { "x": 0.12, "y": -0.12, "z": 0 },
+					"localRotation": { "x": 12, "y": 10, "z": -20 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [{"id": "innerEarRight", "decalType": "shape", "shape": "triangle", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0.04, "z": 0}, "rotation": 0, "scale": {"x": 0.1, "y": 0.12, "z": 1}}}]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleLeftLower1",
+					"label": "tentacleLeftLower1",
+					"addsToBounds": false,
+					"parentId": "body",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
+					"localPosition": { "x": 0.1259, "y": -0.1959, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 113.7 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.3, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "right", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.44, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "left",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleLeftLower2",
+					"label": "tentacleLeftLower2",
+					"addsToBounds": false,
+					"parentId": "tentacleLeftLower1",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
+					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "right", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.33, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleLeftLower3",
+					"label": "tentacleLeftLower3",
+					"addsToBounds": false,
+					"parentId": "tentacleLeftLower2",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
+					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "right", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleLeftMid1",
+					"label": "tentacleLeftMid1",
+					"parentId": "body",
+					"shape": "capsule",
+					"complexity": "high",
+					"addsToBounds": false,
+					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
+					"localPosition": { "x": 0.08, "y": 0, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 90 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.3, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "right", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.44, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "left",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleLeftMid2",
+					"label": "tentacleLeftMid2",
+					"parentId": "tentacleLeftMid1",
+					"shape": "capsule",
+					"complexity": "high",
+					"addsToBounds": false,
+					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
+					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "right", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.33, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleLeftMid3",
+					"label": "tentacleLeftMid3",
+					"addsToBounds": false,
+					"parentId": "tentacleLeftMid2",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
+					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "right", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleLeftUpper1",
+					"label": "tentacleLeftUpper1",
+					"addsToBounds": false,
+					"parentId": "body",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
+					"localPosition": { "x": 0.1259, "y": 0.1959, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 66.3 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.3, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "right", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.44, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "left",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleLeftUpper2",
+					"label": "tentacleLeftUpper2",
+					"addsToBounds": false,
+					"parentId": "tentacleLeftUpper1",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
+					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "right", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.33, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleLeftUpper3",
+					"label": "tentacleLeftUpper3",
+					"addsToBounds": false,
+					"parentId": "tentacleLeftUpper2",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
+					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "right", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleRightLower1",
+					"label": "tentacleRightLower1",
+					"addsToBounds": false,
+					"parentId": "body",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
+					"localPosition": { "x": -0.1259, "y": -0.1959, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": -113.7 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.3, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "left", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.44, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "right",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleRightLower2",
+					"label": "tentacleRightLower2",
+					"addsToBounds": false,
+					"parentId": "tentacleRightLower1",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
+					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "left", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.33, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleRightLower3",
+					"label": "tentacleRightLower3",
+					"addsToBounds": false,
+					"parentId": "tentacleRightLower2",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
+					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "left", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleRightMid1",
+					"label": "tentacleRightMid1",
+					"addsToBounds": false,
+					"parentId": "body",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
+					"localPosition": { "x": -0.08, "y": 0, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": -90 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.3, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "left", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.44, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "right",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleRightMid2",
+					"label": "tentacleRightMid2",
+					"addsToBounds": false,
+					"parentId": "tentacleRightMid1",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
+					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "left", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.33, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleRightMid3",
+					"label": "tentacleRightMid3",
+					"addsToBounds": false,
+					"parentId": "tentacleRightMid2",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
+					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "left", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleRightUpper1",
+					"label": "tentacleRightUpper1",
+					"addsToBounds": false,
+					"parentId": "body",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
+					"localPosition": { "x": -0.1259, "y": 0.1959, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": -66.3 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.3, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "left", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.44, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "right",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleRightUpper2",
+					"label": "tentacleRightUpper2",
+					"addsToBounds": false,
+					"parentId": "tentacleRightUpper1",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
+					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "left", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.33, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleRightUpper3",
+					"label": "tentacleRightUpper3",
+					"addsToBounds": false,
+					"parentId": "tentacleRightUpper2",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
+					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "left", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleBackLeft1",
+					"label": "tentacleBackLeft1",
+					"addsToBounds": false,
+					"parentId": "body",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
+					"localPosition": { "x": -0.2416, "y": -0.1274, "z": 0.1947 },
+					"localRotation": { "x": -112.6, "y": 0, "z": 36.2 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.3, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.44, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "back",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleBackLeft2",
+					"label": "tentacleBackLeft2",
+					"addsToBounds": false,
+					"parentId": "tentacleBackLeft1",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
+					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.33, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleBackLeft3",
+					"label": "tentacleBackLeft3",
+					"addsToBounds": false,
+					"parentId": "tentacleBackLeft2",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
+					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleBackCenter1",
+					"label": "tentacleBackCenter1",
+					"addsToBounds": false,
+					"parentId": "body",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
+					"localPosition": { "x": 0, "y": 0.2068, "z": 0.1459 },
+					"localRotation": { "x": -59.8, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.3, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.44, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "back",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleBackCenter2",
+					"label": "tentacleBackCenter2",
+					"addsToBounds": false,
+					"parentId": "tentacleBackCenter1",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
+					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.33, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleBackCenter3",
+					"label": "tentacleBackCenter3",
+					"addsToBounds": false,
+					"parentId": "tentacleBackCenter2",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
+					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleBackRight1",
+					"label": "tentacleBackRight1",
+					"addsToBounds": false,
+					"parentId": "body",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
+					"localPosition": { "x": 0.2416, "y": -0.1274, "z": 0.1947 },
+					"localRotation": { "x": -112.6, "y": 0, "z": -36.2 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.3, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.44, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "back",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleBackRight2",
+					"label": "tentacleBackRight2",
+					"addsToBounds": false,
+					"parentId": "tentacleBackRight1",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
+					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.33, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "tentacleBackRight3",
+					"label": "tentacleBackRight3",
+					"addsToBounds": false,
+					"parentId": "tentacleBackRight2",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
+					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.25, "z": 1}} },
+							{ "decalType": "shape", "shape": "square", "color": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "side": "front", "detail": {"baseTextureID": "rubber-skin", "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 0.3, "speckSize": 5}, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.22, "y": 0.42, "z": 1}} }
+						]
+					},
+					"detail": { "scatter": [] },
+					"anchorPoint": "bottom",
+					"attachmentPoint": "top",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "legLeft",
+					"label": "legLeft",
+					"parentId": "body",
+					"shape": "cylinder",
+					"complexity": "high",
+					"dimensions": { "x": 0.14, "y": 0.18, "z": 0.14 },
+					"localPosition": { "x": -0.15, "y": 0.05, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": { "generated": {"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"detail": { "scatter": [] },
+					"anchorPoint": "top",
+					"attachmentPoint": "bottom",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "toeLeft1",
+					"label": "toeLeft1",
+					"parentId": "legLeft",
+					"shape": "capsule",
+					"complexity": "low",
+					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
+					"localPosition": { "x": -0.035, "y": -0.065, "z": 0.1 },
+					"localRotation": { "x": 90, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": { "generated": {"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"detail": { "scatter": [] },
+					"anchorPoint": "top",
+					"attachmentPoint": "front",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "toeLeft2",
+					"label": "toeLeft2",
+					"parentId": "legLeft",
+					"shape": "capsule",
+					"complexity": "low",
+					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
+					"localPosition": { "x": 0, "y": -0.065, "z": 0.1 },
+					"localRotation": { "x": 90, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": { "generated": {"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"detail": { "scatter": [] },
+					"anchorPoint": "top",
+					"attachmentPoint": "front",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "toeLeft3",
+					"label": "toeLeft3",
+					"parentId": "legLeft",
+					"shape": "capsule",
+					"complexity": "low",
+					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
+					"localPosition": { "x": 0.035, "y": -0.065, "z": 0.1 },
+					"localRotation": { "x": 90, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": { "generated": {"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"detail": { "scatter": [] },
+					"anchorPoint": "top",
+					"attachmentPoint": "front",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "legRight",
+					"label": "legRight",
+					"parentId": "body",
+					"shape": "cylinder",
+					"complexity": "low",
+					"dimensions": { "x": 0.14, "y": 0.18, "z": 0.14 },
+					"localPosition": { "x": 0.1, "y": 0.05, "z": 0 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": { "generated": {"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"detail": { "scatter": [] },
+					"anchorPoint": "top",
+					"attachmentPoint": "bottom",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "toeRight1",
+					"label": "toeRight1",
+					"parentId": "legRight",
+					"shape": "capsule",
+					"complexity": "low",
+					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
+					"localPosition": { "x": -0.035, "y": -0.065, "z": 0.1 },
+					"localRotation": { "x": 90, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": { "generated": {"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"detail": { "scatter": [] },
+					"anchorPoint": "top",
+					"attachmentPoint": "front",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "toeRight2",
+					"label": "toeRight2",
+					"parentId": "legRight",
+					"shape": "capsule",
+					"complexity": "low",
+					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
+					"localPosition": { "x": 0, "y": -0.065, "z": 0.1 },
+					"localRotation": { "x": 90, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": { "generated": {"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"detail": { "scatter": [] },
+					"anchorPoint": "top",
+					"attachmentPoint": "front",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				{
+					"id": "toeRight3",
+					"label": "toeRight3",
+					"parentId": "legRight",
+					"shape": "capsule",
+					"complexity": "high",
+					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
+					"localPosition": { "x": 0.035, "y": -0.065, "z": 0.1 },
+					"localRotation": { "x": 90, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"primitiveOptions": {},
+					"texture": { "generated": {"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "opacity": 1, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"detail": { "scatter": [] },
+					"anchorPoint": "top",
+					"attachmentPoint": "front",
+					"pivot": { "x": 0, "y": 0, "z": 0 }
 				}
 			]
 		}

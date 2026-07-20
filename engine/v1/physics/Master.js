@@ -10,18 +10,7 @@ import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence } from "./Forces
 import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, ResetCollisionPools, ProbeGroundContact } from "./Collision.js";
 import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation } from "./Correction.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";
-import { UpdatePlayerModelFromState, SyncPlayerCollisionFromState } from "../player/Model.js";
 import { UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
-
-function rebuildBounds(entity) {
-	if (entity.type === "player") {
-		UpdatePlayerModelFromState(entity);
-		SyncPlayerCollisionFromState(entity);
-		return;
-	}
-
-	UpdateEntityModelFromTransform(entity);
-}
 
 const noResult = Object.freeze({
 	orientation: Object.freeze({
@@ -87,7 +76,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	let hadMeaningfulWork = false;
 
 	if (applyCorrection) ApplyPlayerSurfaceOrientation(entity);
-	rebuildBounds(entity);
+	UpdateEntityModelFromTransform(entity);
 
 	ResetCollisionPools();
 	const swept = DetectPhysicsCollisions(entity, displacement, sceneGraph);
@@ -119,7 +108,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	}
 
 	if (applyCorrection) ApplyPlayerSurfaceOrientation(entity);
-	rebuildBounds(entity);
+	UpdateEntityModelFromTransform(entity);
 
 	for (iterations = 0; iterations < 3; iterations++) {
 		ResetCollisionPools();
@@ -131,14 +120,14 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 		latestTriggers = overlaps.triggers;
 		hadMeaningfulWork = hadMeaningfulWork || overlapResolution.anyChanged;
 
-		rebuildBounds(entity);
+		UpdateEntityModelFromTransform(entity);
 
 		if (isPlayer) groundContact = ProbeGroundContact(entity, sceneGraph, physicsState.groundSnapTolerance);
 		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact) : noResult.correction;
 		const orientation = applyCorrection ? ApplyPlayerSurfaceOrientation(entity) : noResult.orientation;
 		hadMeaningfulWork = hadMeaningfulWork || correction.anyChanged || orientation.anyChanged;
 		if (correction.changedPosition || correction.changedOrientation || orientation.changedOrientation) {
-			rebuildBounds(entity);
+			UpdateEntityModelFromTransform(entity);
 		}
 
 		if (!overlapResolution.anyChanged && !correction.anyChanged && !orientation.anyChanged) break;
@@ -151,7 +140,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	const snap = applyCorrection ? ApplyGroundSnap(entity, groundContact, physicsState.groundSnapTolerance) : noResult.correction;
 	const finalOrientation = applyCorrection ? ApplyPlayerSurfaceOrientation(entity) : noResult.orientation;
 	hadMeaningfulWork = hadMeaningfulWork || snap.anyChanged || finalOrientation.anyChanged;
-	if (snap.changedPosition || snap.changedOrientation || finalOrientation.changedOrientation) rebuildBounds(entity);
+	if (snap.changedPosition || snap.changedOrientation || finalOrientation.changedOrientation) UpdateEntityModelFromTransform(entity);
 
 	ResetCollisionPools();
 	const finalOverlaps = DetectCurrentPhysicsOverlaps(entity, sceneGraph);
@@ -248,7 +237,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 	if (entity.transform.position.y < deathBarrierY) {
 		entity.transform.position.y = deathBarrierY;
 		entity.velocity.y = 0;
-		rebuildBounds(entity);
+		UpdateEntityModelFromTransform(entity);
 		if (isPlayer && entity.action !== "Dead") {
 			Log("ENGINE", "Player hit death barrier.", "log", "Level");
 			TriggerPlayerRespawnSequence();

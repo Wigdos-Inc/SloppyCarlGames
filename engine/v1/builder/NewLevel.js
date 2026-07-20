@@ -218,8 +218,7 @@ function buildSceneBoundingBoxes(sceneGraph) {
 
 	sceneGraph.entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
-		if (entity.type === "player") push(category.whole, entity.id, entity.collision.profile.modelAabb);
-		else push(category.whole, entity.id, entity.collision.aabb);
+		push(category.whole, entity.id, entity.collision.aabb);
 		entity.model.parts.forEach((part) => push(category.part, `${entity.id}:${part.id}`, part.mesh.worldAabb));
 	});
 

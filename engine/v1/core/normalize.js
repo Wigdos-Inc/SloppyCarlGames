@@ -1,3 +1,11 @@
+// Normalizes External Data coming into the Engine
+// Engine-Owned Data should NOT be Normalized here
+/*
+Exceptions:
+- Images: images aren't just normalized here, they're also pre-loaded to prevent pop-in. Engine-owned images may use NormalizeImage
+*/
+
+
 import canonSchemas from "./canonSchemas.json" with { type: "json" };
 import characterData from "../player/characters.json" with { type: "json" };
 import objectDetail from "../builder/templates/textures.json" with { type: "json" };
@@ -763,12 +771,12 @@ function normalizeMovement(rawMovement) {
 
 function resolveCollisionOverride(rawCollisionOverride, entityType) {
 	const defaultsByType = {
-		enemy      : { physics: "capsule",         hurtbox: "sphere",          hitbox: "capsule" },
-		npc        : { physics: "capsule",         hurtbox: null,              hitbox: null },
+		enemy      : { physics: "auto",            hurtbox: "sphere",          hitbox: "capsule" },
+		npc        : { physics: "auto",            hurtbox: null,              hitbox: null },
 		collectible: { physics: "sphere",          hurtbox: "sphere",          hitbox: null },
 		projectile : { physics: "sphere",          hurtbox: "sphere",          hitbox: "sphere" },
 		boss       : { physics: "compound-sphere", hurtbox: "compound-sphere", hitbox: null },
-		entity     : { physics: "capsule",         hurtbox: null,              hitbox: null },
+		entity     : { physics: "auto",            hurtbox: null,              hitbox: null },
 	};
 	const defaults = defaultsByType[entityType] || defaultsByType.entity;
 	const source = normalizeObject(rawCollisionOverride).value;

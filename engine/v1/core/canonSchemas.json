@@ -1555,7 +1555,7 @@
         "isRequired": false,
         "isExpected": false,
         "fallback": null,
-        "allowedValues": ["sphere", "aabb", "capsule", "obb", "compound-sphere", "triangle-soup"],
+        "allowedValues": ["auto", "sphere", "aabb", "capsule", "obb", "compound-sphere", "triangle-soup"],
         "deprecated": false
       }
     },

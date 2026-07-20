@@ -1,286 +1,179 @@
-// Creates and Track Player Model
+// Assembles the player as an entity.
 
-// Received JSON payload (character id) from game, validated by core/validate.js
-// Uses characters.json for character model details
-// Uses builder/NewEntity.js to create model
-// Used by Master.js to pass on model data
+// Creates a player model from a JSON template using the entity building system.
+// Uses characters.json for character template definitions.
+// Uses builder/NewEntity.js to build the entity and to refresh it each frame.
+// Used by Master.js, which orchestrates the built entity as player state.
 
-import { BuildObject, UpdateObjectWorldAabb } from "../builder/NewObject.js";
-import { AddVector3, SubtractVector3, RotateByEuler, MultiplyVector3, ScaleVector3, ToVector3, CloneVector3 } from "../math/Vector3.js";
-import { UnitVector3 } from "../math/Utilities.js";
+import { BuildEntity, UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
+import { NormalizeImage } from "../core/normalize.js";
+import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
+import CharacterData from "./characters.json" with { type: "json" };
 
-/**
- * Clone a canonical transform object.
- * @param {object} transform — source transform.
- */
-function cloneTransform(transform) {
-	return {
-		position: transform.position.clone(),
-		rotation: transform.rotation.clone(),
-		scale   : CloneVector3(transform.scale),
-		pivot   : transform.pivot.clone()
-	};
-}
+/* === CHARACTER TEMPLATE CANONICALIZATION === */
 
-/**
- * Compute the center offset for a face on a box with the given dimensions.
- */
-function getFaceCenterOffset(dimensions, faceType) {
-	const h = ScaleVector3(dimensions, 0.5);
-	switch (faceType) {
-		case "top"   : return { x: 0,    y: h.y,  z: 0     };
-		case "bottom": return { x: 0,    y: -h.y, z: 0     };
-		case "front" : return { x: 0,    y: 0,    z: h.z   };
-		case "back"  : return { x: 0,    y: 0,    z: -h.z  };
-		case "left"  : return { x: -h.x, y: 0,    z: 0     };
-		case "right" : return { x: h.x,  y: 0,    z: 0     };
+// characters.json bypasses core/normalize.js — this IIFE is its single Unit-instancing site (runs once at import).
+
+(function instanceCharacterTemplates() {
+	const toUnitVector3 = (vector, type) => new UnitVector3(vector.x, vector.y, vector.z, type);
+
+	for (const characterId in CharacterData) {
+		const character = CharacterData[characterId];
+		character.meta.jumpHeight = new Unit(character.meta.jumpHeight, "cnu");
+
+		character.model.parts.forEach((part) => {
+			part.dimensions    = toUnitVector3(part.dimensions,    "cnu");
+			part.localPosition = toUnitVector3(part.localPosition, "cnu");
+			part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
+			part.pivot         = toUnitVector3(part.pivot,         "cnu");
+
+			part.texture.custom.forEach((decal) => {
+				decal.localTransform.position = toUnitVector3(decal.localTransform.position, "cnu");
+				decal.localTransform.rotation = new Unit(decal.localTransform.rotation, "degrees").toRadians(true);
+			});
+
+			// Tube parts carry a bone chain whose nodes hold world-space values of their own.
+			if (part.shape !== "tube") return;
+			part.primitiveOptions.thickness = new Unit(part.primitiveOptions.thickness, "cnu");
+			part.primitiveOptions.nodes.forEach((node) => {
+				node.dimensions    = toUnitVector3(node.dimensions,    "cnu");
+				node.localPosition = toUnitVector3(node.localPosition, "cnu");
+				node.localRotation = toUnitVector3(node.localRotation, "degrees").toRadians(true);
+				node.thickness     = new Unit(node.thickness,          "cnu");
+			});
+		});
 	}
+})();
+
+/* === SPAWN SURFACE === */
+
+// Player spawn is absolute, so hand the builder a zero-origin surface (world pos = rootTransform pos).
+
+const playerSurfaceId = "player-origin";
+
+const playerSurfaceMap = {
+	[playerSurfaceId]: {
+		position: new UnitVector3(0, 0, 0, "cnu"),
+		topY    : 0,
+	},
+};
+
+/* === DEFINITION SYNTHESIS === */
+
+/**
+ * Drop image decals that failed to load, without mutating the shared character template. Each part
+ * is shallow-copied only when it actually carries a dead decal, so the template's `texture.custom`
+ * stays intact and a transient load failure retries on the next level.
+ */
+function filterDeadDecals(parts) {
+	return parts.map((part) => {
+		const alive = part.texture.custom.filter((decal) => decal.decalType !== "image" || decal.bitmap !== null);
+		if (alive.length === part.texture.custom.length) return part;
+		return { ...part, texture: { ...part.texture, custom: alive } };
+	});
 }
 
-function composeTransform(parentTransform, localTransform) {
-	const local = cloneTransform(localTransform);
+/**
+ * Build the entity definition the player is assembled from. The character template supplies the
+ * model and collider shapes; the level payload supplies placement and per-level concerns.
+ * @param {object} character — a characters.json entry, already merged with any meta overrides.
+ * @param {object} playerData — { spawnPosition, scale, animations, customEvents }.
+ */
+function synthesizeDefinition(character, playerData) {
 	return {
-		position: local.position.set(AddVector3(parentTransform.position, RotateByEuler(local.position, parentTransform.rotation))),
-		rotation: local.rotation.add(parentTransform.rotation),
-		scale   : MultiplyVector3(parentTransform.scale, local.scale),
-		pivot   : local.pivot,
+		id               : "player",
+		type             : "player",
+		blueprintId      : null,
+		hp               : 3,
+		attacks          : [],
+		hardcoded        : {},
+		platform         : null,
+		collisionOverride: character.collisionOverride,
+		customEvents     : playerData.customEvents,
+		animations       : playerData.animations,
+		velocity         : new UnitVector3(0, 0, 0, "cnu"),
+
+		// The player is driven by input, not by the builder's movement track. A zero speed keeps
+		// the builder's movement lerp inert so the spawn position is left untouched.
+		movement: {
+			speed: new Unit(0, "cnu"),
+			start: playerData.spawnPosition.clone(),
+			end  : playerData.spawnPosition.clone(),
+		},
+
+		model: {
+			spawnSurfaceId: playerSurfaceId,
+			rootTransform : {
+				position: playerData.spawnPosition,
+				rotation: new UnitVector3(0, 0, 0, "radians"),
+				scale   : playerData.scale,
+				pivot   : new UnitVector3(0, 0, 0, "cnu"),
+			},
+			parts: filterDeadDecals(character.model.parts),
+		},
 	};
 }
 
-function buildPart(source) {
-	const dimensions = source.dimensions.clone();
-	const localTransform = {
-		position: source.localPosition.clone(),
-		rotation: source.localRotation.clone(),
-		scale: CloneVector3(source.localScale),
-		pivot: source.pivot.clone(),
-	};
+/* === DECALS === */
 
-	const { mesh } = BuildObject(
-		{
-			id              : source.id,
-			shape           : source.shape,
-			complexity      : source.complexity,
-			dimensions,
-			position        : new UnitVector3(0, 0, 0, "cnu"),
-			rotation        : new UnitVector3(0, 0, 0, "radians"),
-			scale           : ToVector3(1),
-			pivot           : localTransform.pivot.clone(),
-			primitiveOptions: source.primitiveOptions,
-			texture         : source.texture,
-			detail          : source.detail,
-			role            : "entity-part",
-			collisionShape  : "none",
-			parentId        : source.parentId,
-			textureScale    : null,
-		}
+// Loads image decals to bitmaps, cached on the shared template. Failed decals are dropped later in
+// the definition (filterDeadDecals), never off the template. Paths resolve relative to player/.
+async function loadDecalBitmaps(parts) {
+	const imageLoads = [];
+
+	parts.forEach((part) => {
+		part.texture.custom.forEach((decal) => {
+			if (decal.decalType !== "image") return;
+			imageLoads.push(
+				NormalizeImage(new URL(decal.imagePath, import.meta.url).href, decal.sourceType, "webgl").then((result) => {
+					decal.bitmap = result.bool ? result.value : null;
+				})
+			);
+		});
+	});
+
+	await Promise.all(imageLoads);
+}
+
+/* === PUBLIC API === */
+
+/**
+ * Assemble the player entity from a character template.
+ * @param {object} character — a characters.json entry, already merged with any meta overrides.
+ * @param {object} playerData — { spawnPosition, scale, animations, customEvents, hasCustomParts }.
+ * @returns {object} — the built entity, ready for Master.js to extend into player state.
+ */
+async function BuildPlayerModel(character, playerData) {
+	if (playerData.hasCustomParts === false) await loadDecalBitmaps(character.model.parts);
+
+	// textureScale null opts the player out of the shared entity-part geometry/face-texture cache,
+	// matching how the player model has always been built.
+	const { entity } = BuildEntity(synthesizeDefinition(character, playerData), playerSurfaceMap, null, null, null);
+
+	Log(
+		"ENGINE",
+		`Player model built: ${entity.model.parts.length} parts, collider=${entity.collision.shape}.`,
+		"log",
+		"Level"
 	);
 
-	return {
-		id             : mesh.id,
-		label          : source.label,
-		parentId       : source.parentId,
-		anchorPoint    : source.anchorPoint,
-		attachmentPoint: source.attachmentPoint,
-		children       : [],
-		dimensions, localTransform,
-		defaultLocalTransform: cloneTransform(localTransform),
-		mesh                 : mesh,
-	};
-}
-
-function computeExpandedAabb(aabb, padding) {
-	return {
-		min: SubtractVector3(aabb.min, ToVector3(padding)),
-		max: AddVector3(aabb.max, ToVector3(padding)),
-	};
-}
-
-function applyModelPose(model) {
-	const applyPart = (partId, parentTransform) => {
-		const part = model.index[partId];
-		const worldTransform = composeTransform(parentTransform, part.localTransform);
-		part.mesh.transform.position.set(worldTransform.position);
-		part.mesh.transform.rotation.set(worldTransform.rotation);
-		part.mesh.transform.scale = worldTransform.scale;
-		part.mesh.transform.pivot.set(worldTransform.pivot);
-		UpdateObjectWorldAabb(part.mesh);
-
-		part.children.forEach((childId) => applyPart(childId, worldTransform));
-	};
-
-	// rootTransform rotation comes from playerState (already in radians).
-	model.roots.forEach((rootId) => applyPart(rootId, cloneTransform(model.rootTransform)));
-}
-
-function computePlayerAabb(model) {
-	const min = ToVector3(Infinity);
-	const max = ToVector3(-Infinity);
-
-	model.parts.forEach((part) => {
-		const bounds = part.mesh.worldAabb;
-		if (bounds.min.x < min.x) { min.x = bounds.min.x; }
-		if (bounds.min.y < min.y) { min.y = bounds.min.y; }
-		if (bounds.min.z < min.z) { min.z = bounds.min.z; }
-		if (bounds.max.x > max.x) { max.x = bounds.max.x; }
-		if (bounds.max.y > max.y) { max.y = bounds.max.y; }
-		if (bounds.max.z > max.z) { max.z = bounds.max.z; }
-	});
-
-	return { min, max };
-}
-
-function computePlayerCapsuleFromAabb(aabb) {
-	const dim = SubtractVector3(aabb.max, aabb.min);
-	const radius = Math.max(0.0001, Math.max(dim.x, dim.z) * 0.5);
-	const halfHeight = Math.max(0, (dim.y * 0.5) - radius);
-
-	const segmentStart = ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5);
-	const segmentEnd = CloneVector3(segmentStart);
-	segmentStart.y -= halfHeight;
-	segmentEnd.y += halfHeight;
-
-	// Unit Instancing happens later.
-	return { radius, halfHeight, segmentStart, segmentEnd };
-}
-
-function applyProfileAabb(target, bounds) {
-	target.min.set(bounds.min);
-	target.max.set(bounds.max);
-}
-
-function InitializePlayerCollisionProfile(playerState) {
-	applyModelPose(playerState.model);
-
-	const fullAabb = computePlayerAabb(playerState.model);
-	const totalDim = SubtractVector3(fullAabb.max, fullAabb.min);
-	const footprint = Math.max(totalDim.x, totalDim.z);
-	const bodyRadius = Math.max(0.0001, footprint * 0.5);
-	const rootPosition = playerState.transform.position;
-	const bodyCenter = ScaleVector3(AddVector3(fullAabb.min, fullAabb.max), 0.5);
-	const sphereCenter = { x: bodyCenter.x, y: fullAabb.min.y + bodyRadius, z: bodyCenter.z };
-	const capsule = computePlayerCapsuleFromAabb(fullAabb);
-
-	const profile = playerState.collision.profile;
-	profile.shape = totalDim.y > footprint ? "capsule" : "sphere";
-	applyProfileAabb(profile.modelAabb, fullAabb);
-	profile.bodyCenterOffset.set(SubtractVector3(bodyCenter, rootPosition));
-	profile.bodyRadius.value = bodyRadius;
-	profile.bottomOffset.value = fullAabb.min.y - rootPosition.y;
-	profile.sphereCenterOffset.set(SubtractVector3(sphereCenter, rootPosition));
-	profile.sphereRadius.value = bodyRadius;
-	profile.capsuleRadius.value = capsule.radius;
-	profile.capsuleHalfHeight.value = capsule.halfHeight;
-	profile.capsuleStartOffset.set(SubtractVector3(capsule.segmentStart, rootPosition));
-	profile.capsuleEndOffset.set(SubtractVector3(capsule.segmentEnd, rootPosition));
-}
-
-function SyncPlayerCollisionFromState(playerState) {
-	const collision = playerState.collision;
-	const profile = collision.profile;
-	const modelAabb = computePlayerAabb(playerState.model);
-	const bodyCenter = AddVector3(playerState.transform.position, profile.bodyCenterOffset);
-
-	applyProfileAabb(profile.modelAabb, modelAabb);
-	collision.sphere.center.set(AddVector3(playerState.transform.position, profile.sphereCenterOffset));
-	collision.sphere.radius.value = profile.sphereRadius.value;
-	if (profile.shape === "capsule") {
-		collision.capsule.radius.value = profile.capsuleRadius.value;
-		collision.capsule.halfHeight.value = profile.capsuleHalfHeight.value;
-		collision.capsule.segmentStart.set(AddVector3(playerState.transform.position, profile.capsuleStartOffset));
-		collision.capsule.segmentEnd.set(AddVector3(playerState.transform.position, profile.capsuleEndOffset));
-		collision.physics.shape = "capsule";
-		collision.physics.bounds = collision.capsule;
-	}
-	else {
-		collision.physics.shape = "sphere";
-		collision.physics.bounds = collision.sphere;
-	}
-	collision.shape = collision.physics.shape;
-
-	collision.radius.value = profile.bodyRadius.value;
-	collision.hurtbox.bounds.center.set(bodyCenter);
-	collision.hurtbox.bounds.radius.value = profile.bodyRadius.value * 0.9;
-	collision.hitbox.bounds.center.set(bodyCenter);
-	collision.hitbox.bounds.radius.value = profile.bodyRadius.value * 1.1;
-
-	collision.aabb.min.set(modelAabb.min);
-	collision.aabb.max.set(modelAabb.max);
-	const expanded = computeExpandedAabb(collision.aabb, collision.simRadiusPadding);
-	collision.simRadiusAabb.min.set(expanded.min);
-	collision.simRadiusAabb.max.set(expanded.max);
+	return entity;
 }
 
 /**
- * Build a player model from a character definition.
- * @param {object} characterDefinition — from characters.json
- * @param {{ x, y, z }} spawnPosition
- * @returns {object} — model object with rootTransform, parts[], index{}, roots[], defaultPose.
+ * Re-pose the player model from its transform and recompute aabb/physics/hurtbox/hitbox.
+ * @param {object} playerState — the player entity.
  */
-function BuildPlayerModel(characterDefinition, spawnPosition) {
-	const model = {
-		rootTransform: {
-			position: spawnPosition.clone(),
-			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale   : ToVector3(1),
-			pivot   : new UnitVector3(0, 0, 0, "cnu"),
-		},
-		parts: characterDefinition.model.parts.map((part, index) => buildPart(part, characterDefinition.id, index)),
-	};
-
-	// Build index and parent→child links.
-	const index = {};
-	model.parts.forEach((part) => { index[part.id] = part; });
-	model.parts.forEach((part) => {
-		if (part.parentId !== "root") index[part.parentId].children.push(part.id);
-	});
-
-	// Ground-up positioning with anchor/attachment faces.
-	model.parts.forEach((part) => {
-		if (part.parentId === "root") part.localTransform.position.y += part.dimensions.y * 0.5;
-		else {
-			const attachOffset = getFaceCenterOffset(index[part.parentId].dimensions, part.attachmentPoint);
-			const anchorOffset = getFaceCenterOffset(part.dimensions, part.anchorPoint);
-			part.localTransform.position.add(SubtractVector3(attachOffset, anchorOffset));
-		}
-	});
-
-	// Snapshot default transforms AFTER ground-up positioning.
-	model.defaultPose = {
-		rootTransform: cloneTransform(model.rootTransform),
-		parts: model.parts.map((part) => ({ id: part.id, localTransform: cloneTransform(part.localTransform) })),
-	};
-
-	model.index = index;
-	model.roots = model.parts.filter((part) => part.parentId === "root").map((part) => part.id);
-
-	applyModelPose(model);
-	Log("ENGINE", `Player model built: ${characterDefinition.id} with ${model.parts.length} parts.`, "log", "Level");
-
-	return model;
-}
-
-/**
- * Update the player's model root transform from playerState, then re-pose.
- * @param {object} playerState — full player state with transform and model.
- */
-function UpdatePlayerModelFromState(playerState) {
-	playerState.model.rootTransform.position.set(playerState.transform.position);
-	playerState.model.rootTransform.rotation.set(playerState.transform.rotation);
-	playerState.model.rootTransform.scale = playerState.transform.scale;
-
-	applyModelPose(playerState.model);
-
-	// Update mesh reference for rendering.
+function RefreshPlayerModel(playerState) {
+	UpdateEntityModelFromTransform(playerState);
 	playerState.mesh = playerState.model.parts[0].mesh;
 }
 
 /* === EXPORTS === */
 
 export {
+	CharacterData,
 	BuildPlayerModel,
-	InitializePlayerCollisionProfile,
-	SyncPlayerCollisionFromState,
-	UpdatePlayerModelFromState,
+	RefreshPlayerModel,
 };

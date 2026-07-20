@@ -5,35 +5,10 @@
 
 import { Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
-import { NormalizeImage } from "../core/normalize.js";
-import { Unit, UnitVector3 } from "../math/Utilities.js";
-import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
-import { 
-	BuildPlayerModel, 
-	InitializePlayerCollisionProfile, 
-	SyncPlayerCollisionFromState, 
-	UpdatePlayerModelFromState 
-} from "./Model.js";
+import { Unit } from "../math/Utilities.js";
+import { CloneVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
+import { CharacterData, BuildPlayerModel, RefreshPlayerModel } from "./Model.js";
 import { UpdateMovement } from "./Movement.js";
-import characterData from "./characters.json" with { type: "json" };
-
-(function normalizeCharacterTemplates() {
-	const toUnitVector3 = (vector, type) => new UnitVector3(vector.x, vector.y, vector.z, type);
-	for (const characterId in characterData) {
-		const char = characterData[characterId];
-		char.meta.jumpHeight = new Unit(char.meta.jumpHeight, "cnu");
-		char.model.parts.forEach((part) => {
-			part.dimensions = toUnitVector3(part.dimensions, "cnu");
-			part.localPosition = toUnitVector3(part.localPosition, "cnu");
-			part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
-			part.pivot = toUnitVector3(part.pivot, "cnu");
-			part.texture.custom.forEach((ct) => {
-				ct.localTransform.position = toUnitVector3(ct.localTransform.position, "cnu");
-				ct.localTransform.rotation = new Unit(ct.localTransform.rotation, "degrees").toRadians(true);
-			});
-		});
-	}
-})();
 
 /* === PLAYER INPUT FLAGS === */
 // Mutable object exposed as ENGINE.Level.Player.Input.
@@ -49,70 +24,21 @@ const playerInputFlags = {
 /* === PLAYER STATE === */
 
 let playerState = null;
-function createDefaultPlayerState(playerData) {
-	const sphereBounds = {
-		type: "sphere",
-		center: new UnitVector3(0, 0, 0, "cnu"),
-		radius: new Unit(0, "cnu"),
-	};
-	const capsuleBounds = {
-		type: "capsule",
-		radius: new Unit(0, "cnu"),
-		halfHeight: new Unit(0, "cnu"),
-		segmentStart: new UnitVector3(0, 0, 0, "cnu"),
-		segmentEnd: new UnitVector3(0, 0, 0, "cnu"),
-	};
 
-	const collision = {
-		aabb: { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
-		radius: new Unit(playerData.collisionRadius, "cnu"),
-		shape: "sphere",
-		profile: {
-			shape             : "sphere",
-			modelAabb         : { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
-			bodyCenterOffset  : new UnitVector3(0, 0, 0, "cnu"),
-			bodyRadius        : new Unit(0, "cnu"),
-			bottomOffset      : new Unit(0, "cnu"),
-			sphereCenterOffset: new UnitVector3(0, 0, 0, "cnu"),
-			sphereRadius      : new Unit(0, "cnu"),
-			capsuleStartOffset: new UnitVector3(0, 0, 0, "cnu"),
-			capsuleEndOffset  : new UnitVector3(0, 0, 0, "cnu"),
-			capsuleRadius     : new Unit(0, "cnu"),
-			capsuleHalfHeight : new Unit(0, "cnu"),
-		},
-		sphere          : sphereBounds,
-		capsule         : capsuleBounds,
-		simRadiusPadding: 24,
-		simRadiusAabb   : { min: new UnitVector3(0, 0, 0, "cnu"), max: new UnitVector3(0, 0, 0, "cnu") },
-		physics         : {
-			shape : "sphere",
-			bounds: sphereBounds,
-		},
-		hurtbox: {
-			shape : "sphere",
-			bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
-		},
-		hitbox: {
-			shape : "sphere",
-			bounds: { type: "sphere", center: new UnitVector3(0, 0, 0, "cnu"), radius: new Unit(0, "cnu") },
-		},
-	};
+/**
+ * Prompte an entity into a player by adding player-specific flags and fields.
+ * @param {object} baseEntity — the entity assembled by Model.js.
+ * @param {object} playerData — { character, spawnPosition, collectibles }.
+ */
+function createDefaultPlayerState(baseEntity, playerData) {
+	// The player outruns every other entity, so it broadphases against a wider radius than the
+	// builder's entity default.
+	baseEntity.collision.simRadiusPadding.value = 24;
 
-	return {
-		active    : true,
-		character : playerData.character,
-		animations: playerData.animations,
-		model     : BuildPlayerModel(playerData.character, playerData.spawnPosition),
-		transform : {
-			position: playerData.spawnPosition,
-			rotation: new UnitVector3(0, 0, 0, "radians"),
-			scale   : playerData.scale,
-		},
-		velocity           : new UnitVector3(0, 0, 0, "cnu"),
+	return Object.assign(baseEntity, {
+		active             : true,
+		character          : playerData.character,
 		grounded           : false,
-		underwater         : false,
-		submergence        : 0,
-		buoyancyForce      : 0,
 		surfaceNormal      : CloneVector3(WORLD_NORMALS.Up),
 		alignedUp          : CloneVector3(WORLD_NORMALS.Up),
 		jumpStartY         : new Unit(playerData.spawnPosition.y, "cnu"),
@@ -121,7 +47,6 @@ function createDefaultPlayerState(playerData) {
 		primaryOppositeHeld: false,
 		action             : "Idle",
 		previousAction     : "Idle",
-		hp                 : 3,
 		collectibles       : playerData.collectibles,
 		maxCollectibles    : 100,
 		attackFlag         : false,
@@ -142,19 +67,7 @@ function createDefaultPlayerState(playerData) {
 		activeTriggers: [],
 		checkpoint    : null,
 		spawnPosition : playerData.spawnPosition.clone(),
-		physicsRuntime: {
-			previousPosition        : playerData.spawnPosition.clone(),
-			previousRotation        : new UnitVector3(0, 0, 0, "radians"),
-			hasUnresolvedPenetration: false,
-			cachePrimed             : false,
-			lastPhysicsCollisionKey : "",
-		},
-		collision,
-		customEvents: playerData.customEvents,
-		mesh        : null,
-		type        : "player",
-		id          : "player",
-	};
+	});
 }
 
 /**
@@ -164,7 +77,7 @@ function createDefaultPlayerState(playerData) {
  * @returns {object} — the initialized playerState.
  */
 async function InitializePlayer(payload, sceneGraph) {
-	const characterProfile = characterData[payload.character];
+	const characterProfile = CharacterData[payload.character];
 	const hasCustomParts = payload.modelParts.length > 0;
 	const { list: metaOverrideList, ...metaOverrides } = payload.metaOverrides;
 	const effectiveCharacter = {
@@ -173,44 +86,30 @@ async function InitializePlayer(payload, sceneGraph) {
 		model: hasCustomParts ? { ...characterProfile.model, parts: payload.modelParts } : characterProfile.model,
 	};
 
-	if (!hasCustomParts) {
-		const imageLoads = [];
-		effectiveCharacter.model.parts.forEach((part) => {
-			part.texture.custom.forEach((ct) => {
-				if (ct.decalType !== "image") return;
-				imageLoads.push(
-					NormalizeImage(new URL(ct.imagePath, import.meta.url).href, ct.sourceType, "webgl").then((result) => {
-						ct.bitmap = result.bool ? result.value : null;
-					})
-				);
-			});
-		});
-		await Promise.all(imageLoads);
-		effectiveCharacter.model.parts.forEach((part) => {
-			part.texture.custom = part.texture.custom.filter((ct) => ct.decalType !== "image" || ct.bitmap !== null);
-		});
-	}
-
 	// Log meta overrides using the normalized, formatted list from the payload.
 	Log("ENGINE", `Player meta overrides applied:\n- ${metaOverrideList.join('\n- ')}`, "log", "Player");
 
-	// Build Player State & Model
-	playerState = createDefaultPlayerState({
-		character      : effectiveCharacter,
-		spawnPosition  : payload.spawnPosition,
-		scale          : payload.scale,
-		collectibles   : payload.collectibles,
-		collisionRadius: effectiveCharacter.meta.collisionRadius,
-		customEvents   : payload.customEvents,
-		animations     : payload.animations,
+	// Assemble as an entity, then extend it.
+	const baseEntity = await BuildPlayerModel(effectiveCharacter, {
+		spawnPosition : payload.spawnPosition,
+		scale         : payload.scale,
+		customEvents  : payload.customEvents,
+		animations    : payload.animations,
+		hasCustomParts,
 	});
-	InitializePlayerCollisionProfile(playerState);
-	SyncPlayerCollisionFromState(playerState);
-	UpdatePlayerModelFromState(playerState);
+
+	playerState = createDefaultPlayerState(baseEntity, {
+		character    : effectiveCharacter,
+		spawnPosition: payload.spawnPosition,
+		collectibles : payload.collectibles,
+	});
+
+	// Re-derive bounds to apply widened sim-radius.
+	UpdatePlayerModel();
 
 	// Insert player as entity into sceneGraph for rendering.
 	sceneGraph.player = playerState;
-	// Also place in entities array so the renderer and bounding box system see it.
+	// Place entities in array so the renderer and bounding box system see it.
 	sceneGraph.entities.push(playerState);
 
 	const sourceType = hasCustomParts ? "custom-model" : "profile";
@@ -257,13 +156,11 @@ function UpdatePlayer(deltaSeconds, cameraVectors) {
 	return playerState;
 }
 
-function UpdatePlayerCollision() {
-	SyncPlayerCollisionFromState(playerState);
-	return playerState;
-}
-
+/**
+ * Re-pose the model from the player's transform and recompute its derived collision bounds.
+ */
 function UpdatePlayerModel() {
-	UpdatePlayerModelFromState(playerState);
+	RefreshPlayerModel(playerState);
 	return playerState;
 }
 
@@ -369,7 +266,6 @@ function RespawnPlayer() {
 	playerState.invulnerable = { active: false, timer: 0, flashTimer: 0 };
 
 	UpdatePlayerModel();
-	UpdatePlayerCollision();
 	Log("ENGINE", `Player respawned at (${respawnPos.x.toFixed(1)}, ${respawnPos.y.toFixed(1)}, ${respawnPos.z.toFixed(1)})`, "log", "Player");
 }
 
@@ -387,7 +283,7 @@ const PlayerAPI = {
 		playerState.velocity.set(ToVector3(0));
 		playerState.jumpStartY.value = y;
 		playerState.jumpApexY.value = y;
-		UpdatePlayerCollision();
+		UpdatePlayerModel();
 	},
 };
 
@@ -397,7 +293,6 @@ export {
 	PlayerAPI,
 	InitializePlayer,
 	UpdatePlayer,
-	UpdatePlayerCollision,
 	UpdatePlayerModel,
 	ResolvePlayerState,
 	SetPlayerAction,

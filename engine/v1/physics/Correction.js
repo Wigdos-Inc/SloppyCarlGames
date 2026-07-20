@@ -128,7 +128,8 @@ function ApplyGroundSnap(playerState, groundContact, groundSnapTolerance) {
 	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return correctionDisabled;
 	if (ResolveVector3Axis(groundContact.normal).y <= 0.5) return correctionDisabled;
 
-	const desiredPosY = groundContact.supportPoint.y - playerState.collision.profile.bottomOffset.value;
+	// Offset from the transform origin down to the model's lowest point.
+	const desiredPosY = groundContact.supportPoint.y - (playerState.collision.aabb.min.y - playerState.transform.position.y);
 	const deltaY = desiredPosY - playerState.transform.position.y;
 
 	if (Math.abs(deltaY) > groundSnapTolerance) return correctionDisabled;
@@ -140,10 +141,7 @@ function ApplyGroundSnap(playerState, groundContact, groundSnapTolerance) {
 	}
 
 	return {
-		changedGrounded: false,
-		changedOrientation: false,
-		changedPosition,
-		changedVelocity: false,
+		changedGrounded: false, changedOrientation: false, changedPosition, changedVelocity: false, 
 		anyChanged: changedPosition,
 	};
 }
@@ -173,8 +171,4 @@ function computeAlignmentAngles(surfaceNormal) {
 
 /* === EXPORTS === */
 
-export {
-	ApplySurfaceCorrection,
-	ApplyGroundSnap,
-	ApplyPlayerSurfaceOrientation,
-};
+export { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation };
