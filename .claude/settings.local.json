@@ -114,7 +114,9 @@
       "Read(//c/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/**)",
       "Bash(node --check \"engine/v1/core/normalize.js\")",
       "Bash(node --check engine/v1/testGame/main.js)",
-      "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/math/Curves.js\")"
+      "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/math/Curves.js\")",
+      "Bash(node --check carlGames/simulator/playerMode.js)",
+      "Bash(node --check carlGames/simulator/main.js)"
     ]
   }
 }

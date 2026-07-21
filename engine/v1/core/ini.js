@@ -25,7 +25,7 @@ import { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity
 import playerCharacterDefinitions from "../player/characters.json" with { type: "json" };
 import terrainBlueprintDefinitions from "../builder/templates/terrainBlueprints.json" with { type: "json" };
 import obstacleBlueprintDefinitions from "../builder/templates/obstacleBlueprints.json" with { type: "json" };
-import visualResources from "../builder/templates/textures.json";
+import visualResources from "../builder/templates/textures.json" with { type: "json" };
 
 /* === INITIALIZATION === */
 // Bootstraps engine subsystems and returns the public API.
