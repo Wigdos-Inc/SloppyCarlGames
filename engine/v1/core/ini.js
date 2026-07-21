@@ -6,6 +6,7 @@
 /* === IMPORTS === */
 // Core diagnostics and logging support.
 
+// Engine API function imports.
 import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey, ReleasePointerLock, VERSION } from "./meta.js";
 import { CONFIG } from "./config.js";
 import { ApplyMenuUI, LoadScreen, ClearUI } from "../handlers/UI.js";
@@ -19,6 +20,12 @@ import { PlayerAPI as Player } from "../player/Master.js";
 import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3, CNU_SCALE, Clamp, Clamp01 } from "../math/Utilities.js"
 import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3 } from "../math/Vector3.js";
 import { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence } from "../math/Forces.js";
+
+// Engine API blueprint & template imports.
+import playerCharacterDefinitions from "../player/characters.json" with { type: "json" };
+import terrainBlueprintDefinitions from "../builder/templates/terrainBlueprints.json" with { type: "json" };
+import obstacleBlueprintDefinitions from "../builder/templates/obstacleBlueprints.json" with { type: "json" };
+import visualResources from "../builder/templates/textures.json";
 
 /* === INITIALIZATION === */
 // Bootstraps engine subsystems and returns the public API.
@@ -34,6 +41,12 @@ function Initialize() {
   
   // Start global input routing.
   const Router = StartInputRouter();
+
+  // Deep clone json blueprints
+  const PlayerCharacters = structuredClone(playerCharacterDefinitions);
+  const Terrain = structuredClone(terrainBlueprintDefinitions);
+  const Obstacles = structuredClone(obstacleBlueprintDefinitions);
+  const Scatter = structuredClone(visualResources.scatterTypes);
 
   // Expose the engine public API surface.
   return {
@@ -58,7 +71,8 @@ function Initialize() {
       Physics   : { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence },
       Other     : { Clamp, Clamp01 }
     },
-    Simulator: { Start, Load, Cache: SimulatorCache, Clear, Exit, GetModelState, GetFullState }
+    Simulator: { Start, Load, Cache: SimulatorCache, Clear, Exit, GetModelState, GetFullState },
+    Blueprints: { PlayerCharacters, Terrain, Obstacles, Scatter },
   };
 }
 
