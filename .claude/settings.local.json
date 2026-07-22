@@ -116,7 +116,11 @@
       "Bash(node --check engine/v1/testGame/main.js)",
       "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/math/Curves.js\")",
       "Bash(node --check carlGames/simulator/playerMode.js)",
-      "Bash(node --check carlGames/simulator/main.js)"
+      "Bash(node --check carlGames/simulator/main.js)",
+      "Bash(node --check builder/templates/Instance.js)",
+      "Bash(node --check player/Model.js)",
+      "Bash(node --check builder/NewScatter.js)",
+      "Bash(node --check \"carlGames/simulator/main.js\")"
     ]
   }
 }

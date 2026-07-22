@@ -11,41 +11,6 @@ import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
 import CharacterData from "./characters.json" with { type: "json" };
 
-/* === CHARACTER TEMPLATE CANONICALIZATION === */
-
-// characters.json bypasses core/normalize.js — this IIFE is its single Unit-instancing site (runs once at import).
-
-(function instanceCharacterTemplates() {
-	const toUnitVector3 = (vector, type) => new UnitVector3(vector.x, vector.y, vector.z, type);
-
-	for (const characterId in CharacterData) {
-		const character = CharacterData[characterId];
-		character.meta.jumpHeight = new Unit(character.meta.jumpHeight, "cnu");
-
-		character.model.parts.forEach((part) => {
-			part.dimensions    = toUnitVector3(part.dimensions,    "cnu");
-			part.localPosition = toUnitVector3(part.localPosition, "cnu");
-			part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
-			part.pivot         = toUnitVector3(part.pivot,         "cnu");
-
-			part.texture.custom.forEach((decal) => {
-				decal.localTransform.position = toUnitVector3(decal.localTransform.position, "cnu");
-				decal.localTransform.rotation = new Unit(decal.localTransform.rotation, "degrees").toRadians(true);
-			});
-
-			// Tube parts carry a bone chain whose nodes hold world-space values of their own.
-			if (part.shape !== "tube") return;
-			part.primitiveOptions.thickness = new Unit(part.primitiveOptions.thickness, "cnu");
-			part.primitiveOptions.nodes.forEach((node) => {
-				node.dimensions    = toUnitVector3(node.dimensions,    "cnu");
-				node.localPosition = toUnitVector3(node.localPosition, "cnu");
-				node.localRotation = toUnitVector3(node.localRotation, "degrees").toRadians(true);
-				node.thickness     = new Unit(node.thickness,          "cnu");
-			});
-		});
-	}
-})();
-
 /* === SPAWN SURFACE === */
 
 // Player spawn is absolute, so hand the builder a zero-origin surface (world pos = rootTransform pos).

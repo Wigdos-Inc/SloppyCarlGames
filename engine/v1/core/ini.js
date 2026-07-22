@@ -21,11 +21,8 @@ import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Uni
 import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3 } from "../math/Vector3.js";
 import { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence } from "../math/Forces.js";
 
-// Engine API blueprint & template imports.
-import playerCharacterDefinitions from "../player/characters.json" with { type: "json" };
-import terrainBlueprintDefinitions from "../builder/templates/terrainBlueprints.json" with { type: "json" };
-import obstacleBlueprintDefinitions from "../builder/templates/obstacleBlueprints.json" with { type: "json" };
-import visualResources from "../builder/templates/textures.json" with { type: "json" };
+// Boot-time engine template instancing (owns the blueprint/template JSON imports).
+import { InstanceEngineTemplates } from "../builder/templates/Instance.js";
 
 /* === INITIALIZATION === */
 // Bootstraps engine subsystems and returns the public API.
@@ -41,12 +38,6 @@ function Initialize() {
   
   // Start global input routing.
   const Router = StartInputRouter();
-
-  // Deep clone json blueprints
-  const PlayerCharacters = structuredClone(playerCharacterDefinitions);
-  const Terrain = structuredClone(terrainBlueprintDefinitions);
-  const Obstacles = structuredClone(obstacleBlueprintDefinitions);
-  const Scatter = structuredClone(visualResources.scatterTypes);
 
   // Expose the engine public API surface.
   return {
@@ -72,7 +63,7 @@ function Initialize() {
       Other     : { Clamp, Clamp01 }
     },
     Simulator: { Start, Load, Cache: SimulatorCache, Clear, Exit, GetModelState, GetFullState },
-    Blueprints: { PlayerCharacters, Terrain, Obstacles, Scatter },
+    Blueprints: InstanceEngineTemplates().raw,
   };
 }
 

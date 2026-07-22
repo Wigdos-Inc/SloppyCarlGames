@@ -10,22 +10,8 @@ import { Log } from "../core/meta.js";
 import { CreateRenderMatrix } from "../math/Matrix.js";
 import { BuildObject, BuildGeometry, GenerateUVs } from "./NewObject.js";
 import { ComputeGeneratedTextureID } from "./NewTexture.js";
-import { UnitVector3 } from "../math/Utilities.js";
 import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import visualTemplates from "./templates/textures.json" with { type: "json" };
-
-// Normalize JSON template vectors into UnitVector3 instances
-// NO OTHER TYPE OF NORMALISATION IS ALLOWED HERE
-(function normalizeVisualTemplates() {
-	const toUnitVector3 = (v, t) => new UnitVector3(v.x, v.y, v.z, t)
-  	for (const key in visualTemplates.scatterTypes) {
-  	  	visualTemplates.scatterTypes[key].parts.forEach((part) => {
-  	  	  	part.dimensions    = toUnitVector3(part.dimensions, "cnu");
-  	  	  	part.localPosition = toUnitVector3(part.localPosition, "cnu");
-  	  	  	part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
-  	  	});
-  	}
-})();
 
 function GetPerformanceScatterMultiplier() {
 	if (CONFIG.PERFORMANCE.TerrainScatter === "High") return 1;
