@@ -17,6 +17,7 @@ These rules apply during both feature development and debugging. Debugging is no
 - Keep changes narrowly scoped to the actual issue.
 - Never create new engine modules unless explicitly requested.
 - When a rule appears to conflict with required functionality, call out the tradeoff clearly before proceeding. Do not silently violate rules.
+- Refrain from adding verbose comments. Any comment that reads as a long sentence failed it's job. A comment should be obvious at a glance, and NEVER be a paragraph.
 
 ## Logging
 
