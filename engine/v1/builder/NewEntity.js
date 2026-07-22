@@ -242,7 +242,7 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 
 	// --- Process root parts: build localTransform in model-local space ---
 	// Root part localTransform.position is relative to rootTransform (the group origin).
-	// Factor 4 (grounding): Y = scaledHalfHeight so bottom face sits at rootTransform.position.y
+	// Factor 4 (grounding): Y = scaledHalfHeight so bottom face sits at rootTransform.position.y (baseline; floor grounded after pose)
 	// Factor 3 (localPosition): added on top of grounding
 	// Factor 6 (scale offset): accounted for in scaledHalfHeight
 	for (const rootPartId of rootPartIds) {
@@ -310,6 +310,10 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 	};
 
 	// Apply initial pose to set mesh transforms (like player Model.js).
+	applyModelPose(model);
+
+	// Seat the whole model's AABB floor on the plane (per-root grounding ignores parts below the root).
+	model.rootTransform.position.y += model.rootTransform.position.y - computeEntityAabb(model).min.y;
 	applyModelPose(model);
 
 	// Snapshot default pose for ResetEntityToDefaultPose.
