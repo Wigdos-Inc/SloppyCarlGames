@@ -17,7 +17,7 @@
     },
     "physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
     "model": {
-      "rootTransform": { "position": { "x": 0, "y": 0.18, "z": 0 } },
+      "rootTransform": { "position": { "x": 0, "y": 0, "z": 0 } },
       "parts": [
         {
           "id": "body",
