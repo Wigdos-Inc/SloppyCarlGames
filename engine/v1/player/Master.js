@@ -149,9 +149,8 @@ function UpdatePlayer(deltaSeconds, cameraVectors) {
 
 	// Step 3: Ability updates (not implemented).
 
-	// Steps 4–8 (physics, collision, correction, enemy, collectible) are called
-	// from Level.js after this function returns, so the player pipeline order is:
-	// Master.UpdatePlayer → Physics.ApplyPhysicsPipeline → Enemy → Collectible → state machine → model sync
+	// Steps 4–8 run from Level.js after this returns:
+	// Physics.ApplyPhysicsPipeline → Enemy → Collectible → state machine → model sync.
 
 	return playerState;
 }

@@ -177,9 +177,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 		deltaSeconds,
 		submergence: 0,
 		waterLevel: sceneGraph.world.waterLevel,
-		// Hardcoded anti-phasing tolerance (CNU). Owned by the orchestrator and
-		// handed to the ground probe / ground-snap assemblers as input, so they
-		// consume it rather than defining or sharing it between themselves.
+		// Anti-phasing tolerance (CNU), owned here and consumed by ground probe/snap.
 		groundSnapTolerance: 0.01,
 		gravity: {
 			enabled:               CONFIG.PHYSICS.Gravity.Enabled    && entityPhysics.gravity,

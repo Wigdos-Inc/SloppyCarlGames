@@ -107,9 +107,8 @@ function classifyFaces(voidMesh, defaultMeshes) {
 			group.worldTriangles.push({ w0, w1, w2, normal: cavityNormal(w0, w1, w2, centroid) });
 		}
 		else {
-			// Touching-boundary (open) face: not embedded in any default surface, but its inward
-			// point sits inside one. Retain the world-space triangle so the opening is stenciled
-			// and the underlying default surface no longer renders through the hole.
+			// Open face: not embedded in a default surface but its inward point is inside one.
+			// Keep the world triangle so the opening is stenciled over the surface.
 			const d = SubtractVector3(meshCenter, centroid);
 			const len = Math.sqrt(Vector3Sq(d));
 			if (len === 0) continue;

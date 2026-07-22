@@ -158,9 +158,8 @@ function resolveInitialMovementProgress(movement, currentPosition) {
 /* === MOVEMENT === */
 
 function normalizeMovement(movement, surface) {
-	// Movement start/end are local to the spawn surface — resolve to world space.
-	// Y uses surfaceTopY (top of the surface) instead of surfacePos.y (center of the surface).
-	// Clone start/end so the cached entity definition is never mutated (reloads stay idempotent).
+	// Resolve surface-local start/end to world space; Y anchors to surfaceTopY.
+	// Clone so the cached entity definition is never mutated.
 	const surfaceOrigin = getSurfaceOrigin(surface);
 	return {
 		...movement,
@@ -240,11 +239,8 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 	const surface = surfaceMap[spawnSurfaceId];
 	const surfaceOrigin = getSurfaceOrigin(surface);
 
-	// --- Process root parts: build localTransform in model-local space ---
-	// Root part localTransform.position is relative to rootTransform (the group origin).
-	// Factor 4 (grounding): Y = scaledHalfHeight so bottom face sits at rootTransform.position.y (baseline; floor grounded after pose)
-	// Factor 3 (localPosition): added on top of grounding
-	// Factor 6 (scale offset): accounted for in scaledHalfHeight
+	// --- Root parts: build localTransform relative to rootTransform (model-local) ---
+	// Y = scaledHalfHeight (bottom at rootTransform.y, floor grounded after pose) + localPosition.
 	for (const rootPartId of rootPartIds) {
 		const rootPart = index[rootPartId];
 

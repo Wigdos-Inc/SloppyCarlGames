@@ -348,10 +348,8 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 	// Broadphase is AABB-only; obstruction only counts after detailed-bounds narrowphase.
 	for (const mesh of sceneGraph.terrain)  testCandidate(mesh.worldAabb, mesh.detailedBounds);
 	for (const obs of sceneGraph.obstacles) testCandidate(obs.worldAabb, obs.detailedBounds);
-	// Void walls: origin may be inside the AABB, so we bypass RayAABBDetailedBoundsIntersect
-	// (which caps the narrowphase at the AABB exit t, causing triangles exactly at the AABB
-	// boundary to be rejected by floating-point). Use RayAABBIntersect as broadphase only,
-	// then call RayDetailedBoundsIntersect directly with closestT as the limit.
+	// Void walls: origin may be inside the AABB, so broadphase with RayAABBIntersect only
+	// and run RayDetailedBoundsIntersect directly (no exit-t cap rejecting boundary tris).
 	const voidDir = ResolveVector3Axis(ray);
 	const testVoidBounds = (worldAabb, bounds) => {
 		if (!RayAABBIntersect(playerHeadPos, voidDir, worldAabb).hit) return;

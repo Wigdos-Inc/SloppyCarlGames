@@ -1123,7 +1123,8 @@ function BuildObject(source) {
 	// material/detail read from the generated base texture; mesh.customTextures holds the decals.
 	const texture  = source.texture.generated;
 
-	// Entity-part geometry cache: (blueprintId::partId) builds once, frozen template shared by ref. textureScale: null opts out (player model).
+	// Entity-part geometry cache: (blueprintId::partId) builds once, shared by ref.
+	// textureScale null opts out (player model).
 	if (source.role === "entity-part" && source.textureScale !== null) {
 		const materialTextureID = ComputeGeneratedTextureID(texture);
 

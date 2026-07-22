@@ -159,9 +159,7 @@ async function runStartupSequence() {
   SetEngineInitialized();
   SendEvent("UI_REQUEST", { screenId: "TitleScreen" });
 
-  // Provide a shared resolver on Cache so UI modules can notify Bootup
-  // that the TitleScreen has been applied. This avoids attaching event
-  // listeners inside engine modules (forbidden by engine rules).
+  // Shared resolver on Cache: UI signals TitleScreen applied without engine-side listeners.
   const uiAppliedPromise = new Promise((resolve) => {
     Cache.UI.startupUiAppliedResolve = resolve;
 

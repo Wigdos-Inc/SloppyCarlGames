@@ -42,11 +42,7 @@ import {
 	NoContact,
 } from "../math/Collision.js";
 
-// Minimum cosine of horizontal incidence for a surface contact to count as a
-// wall hit (~60° from head-on). Below this the entity is grazing the surface
-// rather than running into it, so no wall contact is reported. Local to this
-// module, so lowerCamelCase per CASING.md — the ground-snap tolerance, by
-// contrast, is shared and is supplied by the orchestrator (physics/Master.js).
+// Min approach cosine for a wall hit (~60° from head-on); below = graze, no wall contact.
 const wallFacingMinApproachDot = 0.5;
 
 // Tiny sphere radius used for ground-support point void narrowphase tests.
@@ -429,10 +425,8 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 		});
 	});
 
-	// Void walls (one-sided cavity surfaces — never void-suppressed). Floor and
-	// wall faces are emitted as separate candidates so a deeper wall contact cannot
-	// mask the floor's ground contact in the single-deepest narrowphase reduction.
-	// Sourced from each void entry's per-relation voidWallMeshes array.
+	// Void walls (one-sided, never void-suppressed): floor and wall faces are separate
+	// candidates so a deeper wall contact can't mask the floor's ground contact.
 	const collectVoidWalls = (entries) => {
 		for (const entry of entries) for (const id in entry.relations) {
 			for (const voidWall of entry.relations[id].voidWallMeshes) {
@@ -511,10 +505,8 @@ function offsetAabb(aabb, offset) {
 	};
 }
 
-// motionOffset (optional): when supplied by the swept path, suppression is evaluated at the
-// swept contact position (entity bounds shifted by vel*tEntry) rather than the static current
-// position. Without it the swept detection — which looks ahead — would resolve a surface
-// collision one frame before the body enters the void, stopping the entity for a frame.
+// motionOffset (optional): evaluate suppression at the swept contact position instead of
+// the static one, so look-ahead detection doesn't stop the entity a frame early.
 function isVoidCancelled(entity, candidate, sceneGraph, motionOffset) {
 	if (candidate.type !== "terrain" && candidate.type !== "obstacle") return false;
 
@@ -1050,9 +1042,7 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance) {
 		bestT = t; bestNormal = normal; type = "obstacle";
 	}
 
-	// Void-wall floors: cavity surfaces with an upward authored normal act as standable
-	// ground. Reported under their source category so ApplyGroundSnap is unchanged.
-	// Sourced from each void entry's per-relation voidWallMeshes array.
+	// Void-wall floors (upward normal) are standable ground; reported under their source category.
 	const probeVoidWalls = (entries, sourceType) => {
 		for (const entry of entries) {
 			for (const id in entry.relations) {

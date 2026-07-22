@@ -1516,9 +1516,8 @@ function drawVoidStencil(renderer, sceneGraph, passState) {
 	gl.enable(gl.STENCIL_TEST);
 	gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
 
-	// Open faces (and flush void walls) are coplanar with the terrain top recorded in the depth
-	// pre-pass; a negative polygon offset biases their compared depth toward the viewer so they
-	// reliably pass LEQUAL instead of z-fighting (which left the hole intermittently un-stenciled).
+	// Stencil geometry is coplanar with the depth pre-pass terrain top; negative polygon
+	// offset biases it toward the viewer so LEQUAL passes without z-fighting.
 	gl.enable(gl.POLYGON_OFFSET_FILL);
 	gl.polygonOffset(-1, -1);
 

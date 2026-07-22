@@ -231,9 +231,7 @@ function iterateScatterInstances(params, handler) {
 	const approxArea = width * depth;
 	const scatterScale = Math.max(0.05, world.scatterScale);
 
-	// Pre-filter open faces to those reaching the placement surface (topY), then project each
-	// to an XZ AABB. Projecting to XZ makes the overlap test slope-agnostic (crater rim faces
-	// are angled, so a vertical ray would under-detect them).
+	// Open faces reaching topY, projected to XZ AABBs (slope-agnostic overlap test).
 	const openingEpsilon = 0.5;
 	const openingAabbsXZ = [];
 	for (const face of openFaces) {

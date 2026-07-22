@@ -128,11 +128,8 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			return;
 		}
 		case "grid": {
-			// Checkerboard of off-colored squares (the star) on a fixed checker lattice (cell = pitch/2).
-			// The square side scales LINEARLY with the speckSize ratio: speckSize 1 fills the cell
-			// exactly (clean 50/50 checker), speckSize 2 doubles the side so squares overlap their
-			// neighbours and base shrinks to the diamond gaps. Overlap is what lets the checker structure
-			// and real speckSize scaling coexist. Squares are centered on off cells and wrap for tiling.
+			// Checker lattice (cell = pitch/2) of off-colored squares, wrapped for tiling.
+			// Square side scales linearly with speckSize: 1 = clean 50/50 checker, >1 overlaps neighbours.
 			const cfg         = CONFIG.RENDERING.Texture.Grid;
 			const cellsPerRow = periods;
 			if (cellsPerRow === 0) return;
@@ -600,7 +597,8 @@ function getOrBuildFaceTexture(store, id, buildFn) {
 	return entry;
 }
 
-// Content signature for a face texture — identical content collapses to one canvas/GL texture. ::face= preserved for Render.js CLAMP_TO_EDGE.
+// Content signature: identical face content collapses to one canvas/GL texture.
+// ::face= is preserved for Render.js CLAMP_TO_EDGE.
 function buildFaceTextureSignature(baseTextureID, resolvedBlueprint, pixelW, pixelH, textureScale, animationOptions) {
 	const colorKey = `${resolvedBlueprint.primary}|${resolvedBlueprint.secondary}|${resolvedBlueprint.shape}`;
 	const shapeKey = `d=${resolvedBlueprint.density}|s=${resolvedBlueprint.speckSize}`;
