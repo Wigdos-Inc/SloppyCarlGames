@@ -134,3 +134,7 @@ textarea {
     display: none;
     margin-top: -8px;
 }
+
+.sim-error.sim-error--ok {
+    color: #5bd67a;
+}
