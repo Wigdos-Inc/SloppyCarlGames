@@ -46,6 +46,19 @@ import { Unit, UnitVector3 } from "../../math/Utilities.js";
 })();
 ```
 
+### Exception: templates also exposed via the ENGINE API
+
+Templates that are also returned through the public `ENGINE.Blueprints.*` API must **not** be canonicalized with an import-time IIFE. Mutating the singleton at import time would corrupt the authored shape (degrees, plain `{x,y,z}`) that the public API contract is required to return.
+
+Instead, these templates are canonicalized at boot, from `core/ini.js`:
+
+1. `core/ini.js` clones the raw, authored singleton(s) first — that clone becomes the `ENGINE.Blueprints.*` value.
+2. Only after the clone is taken does a single exported instancing routine mutate the singleton(s) in place for engine-internal use.
+
+The value is still instanced exactly once, at load — under the initializer's control instead of at import time. `builder/templates/Instance.js` owns these routines.
+
+This exception applies only to templates exposed through the public API. Engine-owned JSON that is not API-exposed still follows the import-time IIFE pattern above.
+
 ---
 
 ## 2. No Re-instancing
