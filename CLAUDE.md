@@ -42,7 +42,7 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 
 ### Skills — `Skill` tool, `skill: "<name>"`
 
-- **`argus`** — Automated Runtime Game-testing & User Simulation. Browser-based testing via MCP chrome-devtools. Invoked by main Claude after ED completes — never by ED itself.
+- **`argus`** — Automated Runtime Game-testing & User Simulation. Browser-based testing via MCP chrome-devtools. Invoked conditionally by main Claude after ED completes — never by ED itself.
 - **`sage`** — System Analysis for Game Engines. Designated as 'engine librarian'. Writes and maintains engine documentation (`system_map/`, `structure.txt`, rule doc descriptive content) and is the sole writer for the status logs (`engine/v1/docs/changelog`, `engine/v1/docs/status/DEFERRED.md`, `engine/v1/docs/status/AGENT_LOG.md`). Also answers Q&A questions about the engine. Invoke with a question, `init map`, `update map for <system>`, or `log <raw facts>` to record a change/deferral/agent outcome — see "Status Logging" below.
 - **`rigor`** — Rig Iteration & Geometric Output Review. Authors and edits entity/character model JSON. Then goes back-and-forth with user. Also may verify larger visual changes.
 
@@ -55,7 +55,7 @@ Use judgment — small fixes, debugging, and code migrations do not warrant agen
 - **ED** — When new functionality is being implemented (new features, non-trivial extensions to existing systems or notable refactors). Invoke via `Agent` tool with `subagent_type: "ed"`.
 - **DRYAD** — When any task involves performance, deduplication, line count reduction, or efficiency concerns. Invoke via `Agent` tool with `subagent_type: "dryad"`. Large additions or refactors should always be reviewed.
 - **ERA** — When the task involves rule adherence, compliance review, or you are uncertain whether a change satisfies engine rules. Invoke via `Agent` tool with `subagent_type: "era"`. Large additions or refactors should always be reviewed.
-- **ARGUS** — When browser-based verification is needed (changes that may cause runtime errors or behavioral changes) in testGame. Invoke via `Skill` tool with `skill: "argus"`. Invoked by main Claude after ED's turn ends — never by ED itself. See post-ED rules below.
+- **ARGUS** — When browser-based verification is needed (changes that may cause runtime errors or behavioral changes) in testGame. Invoke via `Skill` tool with `skill: "argus"`. Invoked conditionally by main Claude after ED's turn ends — never by ED itself. See post-ED rules below.
 - **SAGE** — When researching systems in the codebase. Invoke via `Skill` tool with `skill: "sage"`. Invoked by main Claude during codebase exploration, or for initiating docs updates.
 - **RIGOR** — When entity/character model JSON needs to be authored, iterated on, or visually verified in the Simulator App. Invoke via `Skill` tool with `skill: "rigor"`.
 
@@ -64,9 +64,10 @@ Use judgment — small fixes, debugging, and code migrations do not warrant agen
 After any ED pass that results in a significant amount of new or edited code — judged by scope (new functions, structural changes, multi-file edits) rather than a fixed line count — invoke both ERA and DRYAD as custom agents on the changed code. ERA and DRYAD can run in parallel.
 
 After ERA and DRYAD return, apply the following ARGUS rules:
+- Judge whether the logical regression risk is great enough to warrant invoking ARGUS. If unsure, ask the user.
 - If ERA and DRYAD both returned clean (no genuine violations): invoke ARGUS via the `Skill` tool to verify the change in the browser. Ask the user before committing to this.
-- If ERA and/or DRYAD flagged genuine issues: report the findings to the user and note that ARGUS will run once those findings have been reviewed. Do not invoke ARGUS until the issues are resolved.
-- If browser verification is not warranted for the change (no risk of runtime errors or behavioral changes), skip ARGUS regardless of audit results.
+- If ERA and/or DRYAD flagged genuine issues: report the findings to the user and offer an ARGUS run once those findings have been reviewed. Do not invoke ARGUS until the issues are resolved.
+- If browser verification is not warranted for the change (no risk of runtime errors or behavioral changes), skip ARGUS regardless of audit results. Also skip ARGUS if regression-risk is primarily visual.
 
 **When ARGUS returns bugs:**
 - Investigate all reported issues.
@@ -86,6 +87,7 @@ Small visual changes are also handled by the user.
 Three files track engine history outside of git: `engine/v1/docs/changelog` (completed changes, what/why/where), `engine/v1/docs/status/DEFERRED.md` (work raised or started and consciously postponed — not general backlog ideas, those go in `engine/v1/docs/todo`), and `engine/v1/docs/status/AGENT_LOG.md` (Short, concise summaries of the findings and work done by agents).
 
 SAGE is the only agent that writes to these files. The main agent never edits them directly.
+The only exception is removing resolved entries from DEFERRED.md. Any agent is free to do so.
 
 **When to check:** at the end of any pass that involved a code change, a custom-agent invocation, or a substantive design discussion — even if no code changed. Decide whether anything meaningful happened that belongs in one or more of the three files. Do not log routine invocations, trivial fixes, or discussions that didn't reach a decision. Do this automatically; don't wait for the user to ask.
 
@@ -116,7 +118,7 @@ Report this at the end of any response where files were edited.
 1. **Browser APIs** — `localStorage`, `sessionStorage`, WebGL (`gl.*`), `createImageBitmap`, etc. are referenced at module scope throughout the engine.
 2. **Module load cycle** — `config.js` (and others) instantiate `Unit` at the top level while `Utilities.js` hasn't finished initializing, causing a TDZ crash on any import chain that reaches `config.js` or modules with similar dependencies.
 
-These are structural, not fixable with shims. **ARGUS (browser) is the only runtime verification path.** Do not write Node harnesses or attempt `node -e "import(...)"` on engine modules — it will always fail and wastes tokens.
+Do not write Node harnesses or attempt `node -e "import(...)"` on engine modules — it will always fail and wastes tokens.
 
 ## testGame
 
