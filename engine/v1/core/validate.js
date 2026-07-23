@@ -1,5 +1,5 @@
 import canonSchemas from "./canonSchemas.json" with { type: "json" };
-import Normalize from "./normalize.js";
+import Normalize, { isTemplateRef } from "./normalize.js";
 import { Log, ENTITY_TYPES } from "./meta.js";
 
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -194,6 +194,11 @@ function ValidateLevelPayload(payload) {
 
 		rawObjects.forEach((rawObject, index) => {
 			const objectPath = `${path}[${index}]`;
+			if (isTemplateRef(rawObject)) {
+				errors.push(...validatePayloadSchema(rawObject, "templateObjectRef", objectPath));
+				validateTexture(rawObject.texture, `${objectPath}.texture`);
+				return;
+			}
 			errors.push(...validatePayloadSchema(rawObject, "levelObject", objectPath));
 
 			const objectSource = isPlainObject(rawObject) ? rawObject : {};
@@ -261,6 +266,11 @@ function ValidateLevelPayload(payload) {
 
 		rawEntries.forEach((rawEntry, index) => {
 			const path = `level.entityBlueprints.${bucket}[${index}]`;
+			if (isTemplateRef(rawEntry)) {
+				errors.push(...validatePayloadSchema(rawEntry, "templateEntityRef", path));
+				validateCollisionOverride(rawEntry.collisionOverride, `${path}.collisionOverride`);
+				return;
+			}
 			errors.push(...validatePayloadSchema(rawEntry, "levelEntityBlueprint", `${path}.collisionOverride`));
 
 			const blueprintSource = isPlainObject(rawEntry) ? rawEntry : {};
@@ -304,13 +314,17 @@ async function ValidateSimulatorPayload(payload) {
 				break;
 			}
 		}
-		const definitionSchemaKey = ENTITY_TYPES.includes(objectType) ? "levelEntityBlueprint" : "levelObject";
+		const definitionSchemaKey = isTemplateRef(rawPayload.definition)
+			? (ENTITY_TYPES.includes(objectType) ? "templateEntityRef" : "templateObjectRef")
+			: (ENTITY_TYPES.includes(objectType) ? "levelEntityBlueprint" : "levelObject");
 		errors.push(...validatePayloadSchema(rawPayload.definition, definitionSchemaKey, "simulatorDefinition.definition"));
 	}
 
 	logValidationErrors(errors);
 	if (errors.length > 0) return null;
-	return await Normalize.SimulatorPayload({ ...payload, payloadType });
+	const normalized = await Normalize.SimulatorPayload({ ...payload, payloadType });
+	if (normalized.payloadType === "definition" && normalized.definition === null) return null;
+	return normalized;
 }
 
 async function ValidateSimulatorBulkPayload(bulkPayload) {

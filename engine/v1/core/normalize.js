@@ -9,6 +9,11 @@ Exceptions:
 import canonSchemas from "./canonSchemas.json" with { type: "json" };
 import characterData from "../player/characters.json" with { type: "json" };
 import objectDetail from "../builder/templates/textures.json" with { type: "json" };
+import terrainTemplates from "../builder/templates/terrain.json" with { type: "json" };
+import obstacleTemplates from "../builder/templates/obstacles.json" with { type: "json" };
+import characterTemplates from "../builder/templates/characters.json" with { type: "json" };
+import enemyTemplates from "../builder/templates/enemies.json" with { type: "json" };
+import projectileTemplates from "../builder/templates/projectiles.json" with { type: "json" };
 import { Log, ENTITY_TYPES } from "./meta.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { CloneVector3 } from "../math/Vector3.js";
@@ -726,6 +731,87 @@ function normalizeTubeOptions(rawOptions) {
 	return options;
 }
 
+/* Template Reference Normalization (boundary lookups only — no definition construction) */
+
+const templateCollections = {
+	terrain   : terrainTemplates,
+	obstacle  : obstacleTemplates,
+	character : characterTemplates,
+	enemy     : enemyTemplates,
+	projectile: projectileTemplates,
+};
+
+const templateIds = {};
+for (const collection in templateCollections) templateIds[collection] = new Set(Object.keys(templateCollections[collection]));
+
+// Collection selector → entity type used for collision override defaults.
+const templateEntityTypes = { character: "entity", enemy: "enemy", projectile: "projectile" };
+
+export const isTemplateRef = (value) => {
+	const shape = normalizeObject(value).value.shape;
+	return shape === "template" || shape === "blueprint";
+};
+
+const templatePartList = (collection, templateId) =>
+	collection === "terrain" || collection === "obstacle"
+		? templateCollections[collection][templateId].parts
+		: templateCollections[collection][templateId].model.parts;
+
+function normalizeOverrideTexture(texture, label) {
+	texture.generated = normalizePayloadSchema(texture.generated, "generatedTexture");
+	texture.generated.id = resolveTextureId(texture.generated.id, canonSchemas.generatedTexture.id.__meta.fallback, `${label}.texture.generated.id`);
+}
+
+function normalizeTemplatePartOverrides(overrides, collection, templateId, label) {
+	const partIds = new Set(templatePartList(collection, templateId).map((part) => part.id));
+
+	return overrides.filter((entry) => {
+		if (!partIds.has(entry.id)) {
+			warnLog(`${label}: unknown template part '${entry.id}', dropping override.`);
+			return false;
+		}
+		if (entry.scale !== null) entry.scale = CloneVector3(entry.scale);
+		if (entry.texture !== null) normalizeOverrideTexture(entry.texture, `${label}.parts.${entry.id}`);
+		return true;
+	});
+}
+
+function normalizeObjectTemplateRef(rawObject, ctx, collection, label) {
+	const ref = normalizePayloadSchema(normalizeObject(rawObject).value, "templateObjectRef");
+	ref.shape = "template";
+
+	if (!templateIds[collection].has(ref.template)) {
+		warnLog(`${label}: unknown ${collection} template '${ref.template}', dropping entry.`);
+		return null;
+	}
+
+	ref.position = toUnitVector3(ref.position, "cnu");
+	ref.rotation = toUnitVector3(ref.rotation, "degrees").toRadians(true);
+	if (ref.scale !== null) ref.scale = CloneVector3(ref.scale);
+	if (ref.texture !== null) normalizeOverrideTexture(ref.texture, label);
+	ref.parts = normalizeTemplatePartOverrides(ref.parts, collection, ref.template, label);
+	ctx.surfaceIds.add(ref.id);
+	return ref;
+}
+
+function normalizeEntityTemplateRef(rawRef, ctx, label) {
+	const refSource = normalizeObject(rawRef).value;
+	const ref = normalizePayloadSchema(refSource, "templateEntityRef");
+	ref.shape = "template";
+
+	if (!templateIds[ref.type].has(ref.template)) {
+		warnLog(`${label}: unknown ${ref.type} template '${ref.template}', dropping entry.`);
+		return null;
+	}
+
+	if (ref.collisionOverride !== null) ref.collisionOverride = resolveCollisionOverride(ref.collisionOverride, templateEntityTypes[ref.type]);
+
+	ref.model.rootTransform = normalizeRootTransform(ref.model.rootTransform, false);
+
+	ref.model.parts = normalizeTemplatePartOverrides(ref.model.parts, ref.type, ref.template, label);
+	return ref;
+}
+
 function normalizePart(rawPart, ctx) {
 	const partSource = normalizeObject(rawPart).value;
 	const part = normalizePayloadSchema(partSource, "levelPart");
@@ -803,6 +889,17 @@ function normalizeAttacks(rawAttacks) {
 	});
 }
 
+// Root-transform field instancing; requireAll=false leaves null override fields as null.
+function normalizeRootTransform(transform, requireAll) {
+	const conv = (value, fn) => (requireAll === false && value === null) ? null : fn(value);
+	return {
+		position: conv(transform.position, (v) => toUnitVector3(v, "cnu")),
+		rotation: conv(transform.rotation, (v) => toUnitVector3(v, "degrees").toRadians(true)),
+		scale   : conv(transform.scale, CloneVector3),
+		pivot   : conv(transform.pivot, (v) => toUnitVector3(v, "cnu")),
+	};
+}
+
 function normalizeBlueprint(rawBlueprint, ctx, globalShared) {
 	const blueprintSource = normalizeObject(rawBlueprint).value;
 	const blueprint = normalizePayloadSchema(blueprintSource, "levelEntityBlueprint");
@@ -811,12 +908,7 @@ function normalizeBlueprint(rawBlueprint, ctx, globalShared) {
 	blueprint.attacks = normalizeAttacks(blueprintSource.attacks);
 	blueprint.hardcoded = normalizeObject(blueprint.hardcoded).value;
 	blueprint.collisionOverride = resolveCollisionOverride(blueprintSource.collisionOverride, blueprint.type);
-	blueprint.model.rootTransform = {
-		position: toUnitVector3(blueprint.model.rootTransform.position, "cnu"),
-		rotation: toUnitVector3(blueprint.model.rootTransform.rotation, "degrees").toRadians(true),
-		scale   : CloneVector3(blueprint.model.rootTransform.scale),
-		pivot   : toUnitVector3(blueprint.model.rootTransform.pivot, "cnu"),
-	};
+	blueprint.model.rootTransform = normalizeRootTransform(blueprint.model.rootTransform, true);
 	blueprint.model.parts = normalizeArray(blueprintSource.model?.parts).value.map((part) => normalizePart(part, ctx));
 	
 	// Resolved but left raw (un-instanced) — instanced once per entity at the merge below.
@@ -830,16 +922,58 @@ function normalizeOverride(rawOverride) {
 	override.movement = normalizeMovement(overrideSource.movement);
 	override.velocity = toUnitVector3(override.velocity, "cnu");
 	override.attacks = normalizeAttacks(overrideSource.attacks);
-	override.rootTransform = {
-		position: toUnitVector3(override.rootTransform.position, "cnu"),
-		rotation: toUnitVector3(override.rootTransform.rotation, "degrees").toRadians(true),
-		scale: CloneVector3(override.rootTransform.scale),
-		pivot: toUnitVector3(override.rootTransform.pivot, "cnu"),
-	};
+	override.rootTransform = normalizeRootTransform(override.rootTransform, true);
 	return override;
 }
 
+function resolveMergedSpawnSurface(merged, ctx) {
+	if (merged.model.spawnSurfaceId === null || ctx.surfaceIds.has(merged.model.spawnSurfaceId) === false) {
+		const firstSurfaceId = ctx.surfaceIds.size > 0 ? [...ctx.surfaceIds][0] : null;
+		if (firstSurfaceId !== null) {
+			warnLog(`level.entities: invalid spawnSurfaceId for '${merged.id}', using '${firstSurfaceId}'.`);
+			merged.model.spawnSurfaceId = firstSurfaceId;
+		}
+	}
+}
+
+// Spawn entries for template-ref blueprints stay references; NewTemplate resolves them at build.
+function mergeTemplateRefEntity(ref, rawOverride, ctx) {
+	const entrySource = normalizeObject(rawOverride).value;
+	const override = normalizeOverride(entrySource);
+	const refTransform = ref.model.rootTransform;
+
+	const merged = {
+		shape      : "template",
+		template   : ref.template,
+		type       : ref.type,
+		id         : override.id,
+		blueprintId: override.blueprintId,
+		hp         : entrySource.hp !== undefined && override.hp !== null ? override.hp : ref.hp,
+		collisionOverride: entrySource.collisionOverride !== undefined
+			? resolveCollisionOverride(entrySource.collisionOverride, templateEntityTypes[ref.type])
+			: ref.collisionOverride !== null ? { ...ref.collisionOverride } : null,
+		dialogue: override.dialogue,
+		model: {
+			spawnSurfaceId: entrySource.spawnSurfaceId !== undefined && override.spawnSurfaceId !== null
+				? override.spawnSurfaceId
+				: ref.model.spawnSurfaceId,
+			rootTransform: entrySource.rootTransform !== undefined ? override.rootTransform : {
+				position: refTransform.position !== null ? refTransform.position.clone() : null,
+				rotation: refTransform.rotation !== null ? refTransform.rotation.clone() : null,
+				scale   : refTransform.scale    !== null ? CloneVector3(refTransform.scale) : null,
+				pivot   : refTransform.pivot    !== null ? refTransform.pivot.clone() : null,
+			},
+			parts: ref.model.parts,
+		},
+	};
+
+	resolveMergedSpawnSurface(merged, ctx);
+	return merged;
+}
+
 function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
+	if (blueprint.shape === "template") return mergeTemplateRefEntity(blueprint, rawOverride, ctx);
+
 	const entrySource = normalizeObject(rawOverride).value;
 	const override = normalizeOverride(entrySource);
 
@@ -901,14 +1035,7 @@ function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 	merged.dialogue = override.dialogue;
 	merged.collisionOverride = resolveCollisionOverride(merged.collisionOverride, merged.type);
 
-	if (merged.model.spawnSurfaceId === null || ctx.surfaceIds.has(merged.model.spawnSurfaceId) === false) {
-		const firstSurfaceId = ctx.surfaceIds.size > 0 ? [...ctx.surfaceIds][0] : null;
-		if (firstSurfaceId !== null) {
-			warnLog(`level.entities: invalid spawnSurfaceId for '${merged.id}', using '${firstSurfaceId}'.`);
-			merged.model.spawnSurfaceId = firstSurfaceId;
-		}
-	}
-
+	resolveMergedSpawnSurface(merged, ctx);
 	return merged;
 }
 
@@ -953,12 +1080,15 @@ async function LevelPayload(payload) {
 	const rawPayload = normalizeObject(payload).value;
 
 	const blueprintBuckets = ["enemies", "npcs", "collectibles", "projectiles", "entities"];
-	rawPayload.terrain?.objects?.forEach((item) => hoistObjectColor(item));
-	rawPayload.obstacles?.forEach((item) => hoistObjectColor(item));
+	rawPayload.terrain?.objects?.forEach((item) => { if (!isTemplateRef(item)) hoistObjectColor(item); });
+	rawPayload.obstacles?.forEach((item) => { if (!isTemplateRef(item)) hoistObjectColor(item); });
 	rawPayload.entities?.forEach((item)  => hoistObjectColor(item));
 	if (rawPayload.entityBlueprints) {
 		blueprintBuckets.forEach((bucket) => {
-			rawPayload.entityBlueprints[bucket]?.forEach((blueprint) => blueprint.model?.parts?.forEach((part) => hoistObjectColor(part)));
+			rawPayload.entityBlueprints[bucket]?.forEach((blueprint) => {
+				if (isTemplateRef(blueprint)) return;
+				blueprint.model?.parts?.forEach((part) => hoistObjectColor(part));
+			});
 		});
 	}
 
@@ -984,8 +1114,16 @@ async function LevelPayload(payload) {
 	normalized.camera.levelOpening.startPosition = toUnitVector3(normalized.camera.levelOpening.startPosition, "cnu");
 	normalized.camera.levelOpening.endPosition = toUnitVector3(normalized.camera.levelOpening.endPosition, "cnu");
 
-	normalized.terrain.objects = normalizeArray(rawPayload.terrain?.objects).value.map((entry) => normalizeLevelObject(entry, ctx));
-	normalized.obstacles = normalizeArray(rawPayload.obstacles).value.map((entry) => normalizeLevelObject(entry, ctx, "triangle-soup"));
+	normalized.terrain.objects = normalizeArray(rawPayload.terrain?.objects).value.map((entry) =>
+		isTemplateRef(entry)
+			? normalizeObjectTemplateRef(entry, ctx, "terrain", "level.terrain.objects")
+			: normalizeLevelObject(entry, ctx)
+	).filter((entry) => entry !== null);
+	normalized.obstacles = normalizeArray(rawPayload.obstacles).value.map((entry) =>
+		isTemplateRef(entry)
+			? normalizeObjectTemplateRef(entry, ctx, "obstacle", "level.obstacles")
+			: normalizeLevelObject(entry, ctx, "triangle-soup")
+	).filter((entry) => entry !== null);
 	normalized.terrain.triggers = normalizeArray(rawPayload.terrain?.triggers).value.map((entry) => {
 		const trigger = normalizePayloadSchema(normalizeObject(entry).value, "levelTrigger");
 		trigger.start = toUnitVector3(trigger.start, "cnu");
@@ -996,7 +1134,11 @@ async function LevelPayload(payload) {
 	blueprintBuckets.forEach((bucket) => {
 		normalized.entityBlueprints[bucket] = normalizeArray(
 			normalizeObject(rawPayload.entityBlueprints).value[bucket]
-		).value.map((entry) => normalizeBlueprint(entry, ctx, globalShared));
+		).value.map((entry) =>
+			isTemplateRef(entry)
+				? normalizeEntityTemplateRef(entry, ctx, `level.entityBlueprints.${bucket}`)
+				: normalizeBlueprint(entry, ctx, globalShared)
+		).filter((entry) => entry !== null);
 	});
 
 	const blueprintMap = {};
@@ -1066,8 +1208,21 @@ async function SimulatorPayload(payload) {
 
 	let pendingEntityBlueprint = null;
 	if (ENTITY_TYPES.includes(normalized.objectType)) {
-		payload.definition?.model?.parts?.forEach((part) => hoistObjectColor(part));
-		pendingEntityBlueprint = normalizeBlueprint(payload.definition, ctx, {});
+		if (isTemplateRef(payload.definition)) {
+			pendingEntityBlueprint = normalizeEntityTemplateRef(payload.definition, ctx, "simulator.definition");
+			if (pendingEntityBlueprint === null) normalized.definition = null;
+		}
+		else {
+			payload.definition?.model?.parts?.forEach((part) => hoistObjectColor(part));
+			pendingEntityBlueprint = normalizeBlueprint(payload.definition, ctx, {});
+		}
+	}
+	else if (isTemplateRef(payload.definition)) {
+		if (normalized.objectType === "terrain") {
+			warnLog("simulator.definition: terrain template references are not supported in the simulator, dropping.");
+			normalized.definition = null;
+		}
+		else normalized.definition = normalizeObjectTemplateRef(payload.definition, ctx, "obstacle", "simulator.definition");
 	}
 	else {
 		hoistObjectColor(payload.definition);

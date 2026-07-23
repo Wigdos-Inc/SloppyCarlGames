@@ -6,6 +6,7 @@
 // Uses NewObject.js for Model Parts
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
+import { ResolveEntitySource } from "./NewTemplate.js";
 import {
 	AddVector3,
 	CloneVector3,
@@ -557,6 +558,7 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverri
  *   shared by reference across all same-blueprint instances (level-scoped, persists for runtime spawns).
  */
 function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geometryCache) {
+	definition = ResolveEntitySource(definition);
 
 	// Resolve spawn surface for movement localization.
 	const movement = normalizeMovement(definition.movement, surfaceMap[definition.model.spawnSurfaceId]);

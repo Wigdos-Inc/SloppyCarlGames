@@ -9,6 +9,8 @@
 import { BuildObject } from "./NewObject.js";
 import { BuildEntity } from "./NewEntity.js";
 import { BuildObstacles } from "./NewObstacle.js";
+import { BuildTerrain } from "./NewTerrain.js";
+import { ResolveObjectSource } from "./NewTemplate.js";
 import { GetPerformanceScatterMultiplier, BuildScatterBatches, BuildScatterVisualResources } from "./NewScatter.js";
 import { BuildVoidWalls } from "./NewVoid.js";
 import { CONFIG } from "../core/config.js";
@@ -291,28 +293,13 @@ async function BuildLevel(payload) {
 	// A cache to prevent geometry regeneration
 	const partGeometryCache = new Map();
 
-	const allTerrain = payload.terrain.objects.map((terrainObject) => {
-		terrainObject.position.y += terrainObject.dimensions.y * terrainObject.scale.y * 0.5;
+	// Template refs resolve once here; resolution inside the builders is passthrough for these.
+	const terrainDefinitions  = payload.terrain.objects.map((definition) => ResolveObjectSource(definition, "terrain"));
+	const obstacleDefinitions = payload.obstacles.map((definition) => ResolveObjectSource(definition, "obstacle"));
 
-		const { mesh: terrainMesh } = BuildObject(
-			{
-				...terrainObject,
-				id            : terrainObject.id,
-				role          : "terrain",
-				collisionShape: terrainObject.collisionShape,
-				mode          : terrainObject.mode,
-				textureScale  : payload.world.textureScale,
-				faceTextureStore,
-			}
-		);
+	const { terrain, voidTerrain, meshes: allTerrain } = BuildTerrain(terrainDefinitions, payload.world, faceTextureStore);
 
-		return terrainMesh;
-	});
-	const terrain          = allTerrain.filter((mesh) => mesh.meta.mode !== "void");
-	const voidTerrain = allTerrain.filter((mesh) => mesh.meta.mode === "void");
-	if (terrain.length > 0) Log("ENGINE", `Terrain object group created: count=${terrain.length}`, "log", "Level");
-
-	const { built: allObstacleRecords } = BuildObstacles(payload.obstacles, { textureScale: payload.world.textureScale, faceTextureStore });
+	const { built: allObstacleRecords } = BuildObstacles(obstacleDefinitions, { textureScale: payload.world.textureScale, faceTextureStore });
 	const obstacleRecords          = allObstacleRecords.filter((r) => r.mode !== "void");
 	const voidObstacleRecords = allObstacleRecords.filter((r) => r.mode === "void");
 
@@ -363,12 +350,10 @@ async function BuildLevel(payload) {
 	});
 	if (triggers.length > 0) Log("ENGINE", `Trigger group created: count=${triggers.length}`, "log", "Level");
 
-	const surfaceMap = buildSurfaceMap(payload.terrain.objects, payload.obstacles);
-
 	const entities = payload.entities.map((entity) => {
 		const { entity: built } = BuildEntity(
 			buildEntityInput(entity, resolveEntityBlueprintMap(payload)),
-			surfaceMap,
+			buildSurfaceMap(terrainDefinitions, obstacleDefinitions),
 			payload.world.textureScale,
 			faceTextureStore,
 			partGeometryCache

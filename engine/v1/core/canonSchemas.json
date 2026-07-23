@@ -1735,5 +1735,126 @@
   "simulatorDefinition": {
     "definition": { "__meta": { "description": "Entity or object definition to normalize", "aliases": [], "dataType": "object", "isRequired": true, "isExpected": true, "fallback": {}, "deprecated": false } },
     "objectType": { "__meta": { "description": "Object type for normalization branching", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": null, "allowedValues": ["entity","enemy","npc","collectible","projectile","terrain","obstacle"], "deprecated": false } }
+  },
+  "templateObjectRef": {
+    "id": { "__meta": { "description": "Object id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "object", "deprecated": false } },
+    "shape": { "__meta": { "description": "Template reference marker", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "template", "allowedValues": ["template", "blueprint"], "deprecated": false } },
+    "template": { "__meta": { "description": "Engine template id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": null, "deprecated": false } },
+    "position": {
+      "__meta": { "description": "Placement position", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Position x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Position y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Position z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "rotation": {
+      "__meta": { "description": "Placement rotation degrees", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Rotation x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Rotation y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Rotation z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "scale": {
+      "__meta": { "description": "Root scale override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+      "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+    },
+    "color": {
+      "__meta": { "description": "Base color override for all parts", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+    },
+    "texture": {
+      "__meta": { "description": "Generated texture override for all parts", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
+    },
+    "collisionShape": { "__meta": { "description": "Collision shape override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "aabb", "obb", "sphere", "capsule", "triangle-soup"], "deprecated": false } },
+    "mode": { "__meta": { "description": "Render/collision mode override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["default", "invisible", "void"], "deprecated": false } },
+    "parts": {
+      "__meta": { "description": "Per-part overrides keyed on template part id", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false },
+      "__entry": {
+        "id": { "__meta": { "description": "Template part id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "part", "deprecated": false } },
+        "color": {
+          "__meta": { "description": "Part color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+        },
+        "texture": {
+          "__meta": { "description": "Part texture override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
+        },
+        "scale": {
+          "__meta": { "description": "Part local scale override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+          "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+          "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+        }
+      }
+    }
+  },
+  "templateEntityRef": {
+    "id": { "__meta": { "description": "Blueprint id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "entity.blueprint", "deprecated": false } },
+    "shape": { "__meta": { "description": "Template reference marker", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "template", "allowedValues": ["template", "blueprint"], "deprecated": false } },
+    "template": { "__meta": { "description": "Engine template id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": null, "deprecated": false } },
+    "type": { "__meta": { "description": "Template collection selector", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "character", "allowedValues": ["character", "enemy", "projectile"], "deprecated": false } },
+    "hp": { "__meta": { "description": "Hit point override", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
+    "collisionOverride": { "__meta": { "description": "Collision override bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "model": {
+      "__meta": { "description": "Model override block", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
+      "spawnSurfaceId": { "__meta": { "description": "Spawn surface id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+      "rootTransform": {
+        "__meta": { "description": "Root transform overrides", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
+        "position": {
+          "__meta": { "description": "Root position override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "x": { "__meta": { "description": "Root pos x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "y": { "__meta": { "description": "Root pos y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "z": { "__meta": { "description": "Root pos z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+        },
+        "rotation": {
+          "__meta": { "description": "Root rotation override degrees", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "x": { "__meta": { "description": "Root rot x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "y": { "__meta": { "description": "Root rot y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "z": { "__meta": { "description": "Root rot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+        },
+        "scale": {
+          "__meta": { "description": "Root scale override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "x": { "__meta": { "description": "Root scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+          "y": { "__meta": { "description": "Root scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+          "z": { "__meta": { "description": "Root scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+        },
+        "pivot": {
+          "__meta": { "description": "Root pivot override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "x": { "__meta": { "description": "Root pivot x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "y": { "__meta": { "description": "Root pivot y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "z": { "__meta": { "description": "Root pivot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+        }
+      },
+      "parts": {
+        "__meta": { "description": "Per-part overrides keyed on template part id", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false },
+        "__entry": {
+          "id": { "__meta": { "description": "Template part id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "part", "deprecated": false } },
+          "color": {
+            "__meta": { "description": "Part color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+          },
+          "texture": {
+            "__meta": { "description": "Part texture override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+            "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
+          },
+          "scale": {
+            "__meta": { "description": "Part local scale override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+            "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+            "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+            "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+          }
+        }
+      }
+    }
   }
 }

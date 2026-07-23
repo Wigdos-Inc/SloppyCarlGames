@@ -4,6 +4,7 @@
 // Uses NewObject.js for 3D objects
 
 import { BuildObject } from "./NewObject.js";
+import { ResolveObjectSource } from "./NewTemplate.js";
 import { Log } from "../core/meta.js";
 import { Unit } from "../math/Utilities.js";
 import { MultiplyVector3, Vector3Sq, WORLD_NORMALS } from "../math/Vector3.js";
@@ -148,6 +149,7 @@ function buildObstacleParts(source, index, options) {
 }
 
 function BuildObstacle(source, index, options) {
+	source = ResolveObjectSource(source, "obstacle");
 	const { parts } = buildObstacleParts(source, index, options);
 	let worldAabb = null;
 	parts.forEach((part) => worldAabb = mergeAabb(worldAabb, part.worldAabb));
