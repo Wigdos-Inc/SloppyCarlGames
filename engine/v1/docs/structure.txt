@@ -24,6 +24,7 @@ engine/
       NewUI.js // Builder of UI components (mainly HTML elements)
       NewVoid.js // Classifies null-space mesh faces and builds void wall renderable meshes (used by NewLevel.js)
       templates/
+        Instance.js // Boot-time Unit-instancing of engine-owned template JSON; exports InstanceEngineTemplates() (called from core/ini.js)
         characters.json // Character template definitions for builder
         enemies.json // Enemy template definitions
         levels.json // Level and simulator template definitions
