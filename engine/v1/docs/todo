@@ -3,10 +3,7 @@ This file contains current priorities.
 Add new characters to test multiple types of characters with intuitive physics
 - Jeff (in progress)
 - Latina
-Add Terrain Blueprint Support:
-- Add Sonic-Style Loop Blueprint
-- Add Half-Pipe Blueprint
-- Add Full-Pipe Blueprint
+Expand Simulator (+App) to support Terrain and Obstacles.
 Breakable Obstacles
 Particles
 Entity AI:
@@ -26,6 +23,12 @@ Rework Collectible system into collections with built-in handling support.
 Build new trigger types:
 - Level Clear
 - Custom
+Add new Terrain, Obstacle and Entity Templates.
+- Sonic-style Loop (Terrain)
+- Half-Pipe (Terrain)
+- City Rubble (Obstacle)
+- Basketball Hoop (Obstacle)
+- Shrine (Terrain)
 Build new test level (prompt in notepad).
 Build Load Screen functionality.
 - Background Image support

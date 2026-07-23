@@ -18,19 +18,20 @@ engine/
       NewLevel.js // Builder for creating levels from incoming data (uses most other builders)
       NewObject.js // Builder of 3D meshes (mainly to be used by other builders)
       NewObstacle.js // Builder of obstacles
-      NewTerrain.js // Terrain builder entry point; currently an empty placeholder module
+      NewTemplate.js // Resolves shape:"template" references and repeat expansion for terrain/obstacle/entity builders
+      NewTerrain.js // Terrain builder; BuildTerrains supports both single-part and (new) flattened multi-part composition
       NewScatter.js // Procedurally generated multi-part static object scatter models placed on top of meshes.
       NewTexture.js // Procedurally generated texture mapping onto meshes.
       NewUI.js // Builder of UI components (mainly HTML elements)
       NewVoid.js // Classifies null-space mesh faces and builds void wall renderable meshes (used by NewLevel.js)
       templates/
         Instance.js // Boot-time Unit-instancing of engine-owned template JSON; exports InstanceEngineTemplates() (called from core/ini.js)
-        characters.json // Character template definitions for builder
-        enemies.json // Enemy template definitions
+        characters.json // Character templates (shape:"template" refs of type "character")
+        enemies.json // Enemy templates (shape:"template" refs of type "enemy")
         levels.json // Level and simulator template definitions
-        obstacleBlueprints.json // Obstacle blueprint definitions
-        projectiles.json // Projectile template definitions
-        terrainBlueprints.json // Blueprints for complex terrain patterns
+        obstacles.json // Obstacle templates (shape:"template" refs, terrain/obstacle role "obstacle")
+        projectiles.json // Projectile templates (shape:"template" refs of type "projectile")
+        terrain.json // Terrain templates (shape:"template" refs, terrain/obstacle role "terrain")
         textures.json // Texture preset definitions
 
     handlers/
