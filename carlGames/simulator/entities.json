@@ -2406,5 +2406,494 @@
         }
       ]
     }
+  },
+  {
+    "id": "jeff",
+    "type": "player",
+    "name": { "s": "Jeff", "l": "Super Jeff" },
+    "meta": {
+      "maxSpeed": 10,
+      "acceleration": 20,
+      "deceleration": 10,
+      "stoppingThresholdRatio": 0.35,
+      "airControl": 0.2,
+      "underwaterAirControl": 0.5,
+      "momentumTurnRate": 14,
+      "jumpHeight": 2,
+      "airFloatiness": 1,
+      "waterFloatiness": 1
+    },
+    "physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
+    "collisionOverride": { "physics": "capsule", "hurtbox": "sphere", "hitbox": "sphere" },
+    "model": {
+      "parts": [
+        {
+          "id": "torso", "label": "torso", "parentId": "root",
+          "anchorPoint": "bottom",
+          "shape": "capsule", "complexity": "high",
+          "dimensions": { "x": 0.26, "y": 0.26, "z": 0.20 },
+          "localPosition": { "x": 0, "y": 0.38, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "head", "label": "head", "parentId": "torso",
+          "anchorPoint": "bottom", "attachmentPoint": "top",
+          "shape": "sphere", "complexity": "high",
+          "dimensions": { "x": 0.56, "y": 0.52, "z": 0.50 },
+          "localPosition": { "x": 0, "y": -0.02, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "earLeft", "label": "earLeft", "parentId": "head",
+          "anchorPoint": "center", "attachmentPoint": "left",
+          "shape": "sphere", "complexity": "high",
+          "dimensions": { "x": 0.10, "y": 0.14, "z": 0.06 },
+          "localPosition": { "x": 0, "y": -0.04, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "earRight", "label": "earRight", "parentId": "head",
+          "anchorPoint": "center", "attachmentPoint": "right",
+          "shape": "sphere", "complexity": "high",
+          "dimensions": { "x": 0.10, "y": 0.14, "z": 0.06 },
+          "localPosition": { "x": 0, "y": -0.04, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "nose", "label": "nose", "parentId": "head",
+          "anchorPoint": "center", "attachmentPoint": "front",
+          "shape": "sphere", "complexity": "high",
+          "dimensions": { "x": 0.075, "y": 0.06, "z": 0.075 },
+          "localPosition": { "x": 0, "y": -0.05, "z": -0.015 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.87, "g": 0.73, "b": 0.05, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "browLeft", "label": "browLeft", "parentId": "head",
+          "anchorPoint": "center", "attachmentPoint": "center",
+          "shape": "tube", "complexity": "high",
+          "dimensions": { "x": 0.035, "y": 0, "z": 0.035 },
+          "localPosition": { "x": 0.075, "y": 0.068, "z": 0.185 },
+          "localRotation": { "x": 0, "y": 0, "z": 108 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {
+            "thickness": 1, "curved": true, "smoothness": 1,
+            "nodes": [
+              { "dimensions": { "x": 0.045, "y": 1, "z": 0.038 }, "localPosition": { "x": 0, "y": 0, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "thickness": 1, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.028, "y": 1, "z": 0.024 }, "localPosition": { "x": 0, "y": 0.145, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "thickness": 1 }
+            ]
+          },
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "browRight", "label": "browRight", "parentId": "head",
+          "anchorPoint": "center", "attachmentPoint": "center",
+          "shape": "tube", "complexity": "high",
+          "dimensions": { "x": 0.035, "y": 0, "z": 0.035 },
+          "localPosition": { "x": -0.075, "y": 0.060, "z": 0.185 },
+          "localRotation": { "x": 0, "y": 0, "z": -102 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {
+            "thickness": 1, "curved": true, "smoothness": 1,
+            "nodes": [
+              { "dimensions": { "x": 0.045, "y": 1, "z": 0.038 }, "localPosition": { "x": 0, "y": 0, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "thickness": 1, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.028, "y": 1, "z": 0.024 }, "localPosition": { "x": 0, "y": 0.145, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "thickness": 1 }
+            ]
+          },
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "hairLeft", "label": "hairLeft", "parentId": "head",
+          "anchorPoint": "bottom", "attachmentPoint": "top",
+          "shape": "tube", "complexity": "high",
+          "dimensions": { "x": 0.014, "y": 0, "z": 0.014 },
+          "localPosition": { "x": 0.018, "y": -0.015, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": -10 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {
+            "thickness": 1, "curved": true, "smoothness": 1,
+            "nodes": [
+              { "dimensions": { "x": 0.015, "y": 1, "z": 0.015 }, "localPosition": { "x": 0, "y": 0, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "thickness": 1, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.010, "y": 1, "z": 0.010 }, "localPosition": { "x": 0, "y": 0.075, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": -28 }, "thickness": 1, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.004, "y": 1, "z": 0.004 }, "localPosition": { "x": 0, "y": 0.065, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": -42 }, "thickness": 1 }
+            ]
+          },
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "hairRight", "label": "hairRight", "parentId": "head",
+          "anchorPoint": "bottom", "attachmentPoint": "top",
+          "shape": "tube", "complexity": "high",
+          "dimensions": { "x": 0.014, "y": 0, "z": 0.014 },
+          "localPosition": { "x": -0.018, "y": -0.015, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 10 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {
+            "thickness": 1, "curved": true, "smoothness": 1,
+            "nodes": [
+              { "dimensions": { "x": 0.015, "y": 1, "z": 0.015 }, "localPosition": { "x": 0, "y": 0, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "thickness": 1, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.010, "y": 1, "z": 0.010 }, "localPosition": { "x": 0, "y": 0.075, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 28 }, "thickness": 1, "curved": true, "smoothness": 1 },
+              { "dimensions": { "x": 0.004, "y": 1, "z": 0.004 }, "localPosition": { "x": 0, "y": 0.065, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 42 }, "thickness": 1 }
+            ]
+          },
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "shorts", "label": "shorts", "parentId": "torso",
+          "anchorPoint": "top", "attachmentPoint": "bottom",
+          "shape": "cube", "complexity": "",
+          "dimensions": { "x": 0.30, "y": 0.15, "z": 0.24 },
+          "localPosition": { "x": 0, "y": 0.01, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "armUpperLeft", "label": "armUpperLeft", "parentId": "torso",
+          "anchorPoint": "top", "attachmentPoint": "left",
+          "shape": "capsule", "complexity": "high",
+          "dimensions": { "x": 0.07, "y": 0.13, "z": 0.07 },
+          "localPosition": { "x": 0, "y": -0.02, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 100 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "armLowerLeft", "label": "armLowerLeft", "parentId": "armUpperLeft",
+          "anchorPoint": "top", "attachmentPoint": "bottom",
+          "shape": "capsule", "complexity": "high",
+          "dimensions": { "x": 0.05, "y": 0.15, "z": 0.05 },
+          "localPosition": { "x": 0, "y": 0.01, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "fistLeft", "label": "fistLeft", "parentId": "armLowerLeft",
+          "anchorPoint": "top", "attachmentPoint": "bottom",
+          "shape": "sphere", "complexity": "high",
+          "dimensions": { "x": 0.10, "y": 0.10, "z": 0.10 },
+          "localPosition": { "x": 0, "y": 0.015, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "armUpperRight", "label": "armUpperRight", "parentId": "torso",
+          "anchorPoint": "top", "attachmentPoint": "right",
+          "shape": "capsule", "complexity": "high",
+          "dimensions": { "x": 0.07, "y": 0.13, "z": 0.07 },
+          "localPosition": { "x": 0, "y": -0.02, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": -100 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "armLowerRight", "label": "armLowerRight", "parentId": "armUpperRight",
+          "anchorPoint": "top", "attachmentPoint": "bottom",
+          "shape": "capsule", "complexity": "high",
+          "dimensions": { "x": 0.05, "y": 0.15, "z": 0.05 },
+          "localPosition": { "x": 0, "y": 0.01, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "fistRight", "label": "fistRight", "parentId": "armLowerRight",
+          "anchorPoint": "top", "attachmentPoint": "bottom",
+          "shape": "sphere", "complexity": "high",
+          "dimensions": { "x": 0.10, "y": 0.10, "z": 0.10 },
+          "localPosition": { "x": 0, "y": 0.015, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "legLeft", "label": "legLeft", "parentId": "shorts",
+          "anchorPoint": "top", "attachmentPoint": "bottom",
+          "shape": "capsule", "complexity": "high",
+          "dimensions": { "x": 0.07, "y": 0.16, "z": 0.07 },
+          "localPosition": { "x": 0.07, "y": 0.01, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "legRight", "label": "legRight", "parentId": "shorts",
+          "anchorPoint": "top", "attachmentPoint": "bottom",
+          "shape": "capsule", "complexity": "high",
+          "dimensions": { "x": 0.07, "y": 0.16, "z": 0.07 },
+          "localPosition": { "x": -0.07, "y": 0.01, "z": 0 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "shoeLeft", "label": "shoeLeft", "parentId": "legLeft",
+          "anchorPoint": "top", "attachmentPoint": "bottom",
+          "shape": "sphere", "complexity": "high",
+          "dimensions": { "x": 0.13, "y": 0.09, "z": 0.22 },
+          "localPosition": { "x": 0, "y": 0.01, "z": 0.05 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        },
+        {
+          "id": "shoeRight", "label": "shoeRight", "parentId": "legRight",
+          "anchorPoint": "top", "attachmentPoint": "bottom",
+          "shape": "sphere", "complexity": "high",
+          "dimensions": { "x": 0.13, "y": 0.09, "z": 0.22 },
+          "localPosition": { "x": 0, "y": 0.01, "z": 0.05 },
+          "localRotation": { "x": 0, "y": 0, "z": 0 },
+          "localScale": { "x": 1, "y": 1, "z": 1 },
+          "pivot": { "x": 0, "y": 0, "z": 0 },
+          "primitiveOptions": {},
+          "texture": {
+            "generated": {
+              "id": "none", "shape": null,
+              "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 },
+              "secondary": null,
+              "opacity": 1, "density": 1, "speckSize": 1,
+              "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1
+            },
+            "custom": []
+          },
+          "detail": { "scatter": [] }
+        }
+      ]
+    }
   }
 ]
