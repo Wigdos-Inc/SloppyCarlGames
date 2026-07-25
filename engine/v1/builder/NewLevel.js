@@ -16,7 +16,7 @@ import { BuildVoidWalls } from "./NewVoid.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { Clamp, UnitVector3 } from "../math/Utilities.js";
-import { ToVector3 } from "../math/Vector3.js";
+import { AbsoluteVector3, ToVector3 } from "../math/Vector3.js";
 
 function resolveEntityBlueprintMap(payload) {
 	const map = {};
@@ -52,7 +52,11 @@ function resolveTriggerColor(triggerType) {
 
 function buildTriggerMesh(triggerDefinition, world, index) {
 	const triggerHeight = world.height.value - triggerDefinition.start.y;
+	const position = triggerDefinition.start.clone().add(triggerDefinition.end).scale(0.5); 
+	position.y = (triggerDefinition.start.y + triggerHeight) / 2;
+
 	const color = resolveTriggerColor(triggerDefinition.type);
+
 	const { mesh } = BuildObject(
 		{
 			id              : triggerDefinition.id,
@@ -64,12 +68,7 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 				Math.max(1, Math.abs(triggerDefinition.end.z - triggerDefinition.start.z)),
 				"cnu"
 			),
-			position        : new UnitVector3(
-				triggerDefinition.start.x + triggerDefinition.end.x,
-				triggerDefinition.start.y + triggerHeight,
-				triggerDefinition.start.z + triggerDefinition.end.z,
-				"cnu"
-			).scale(0.5),
+			position,
 			rotation        : new UnitVector3(0, 0, 0, "radians"),
 			scale           : ToVector3(1),
 			pivot           : new UnitVector3(0, 0, 0, "cnu"),

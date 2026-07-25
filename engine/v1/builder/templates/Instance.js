@@ -8,6 +8,7 @@ import obstacleImport from "./obstacles.json" with { type: "json" };
 import characterImport from "./characters.json" with { type: "json" };
 import enemyImport from "./enemies.json" with { type: "json" };
 import projectileImport from "./projectiles.json" with { type: "json" };
+import simulatorLevelsImport from "./levels.json" with { type: "json" };
 import { Unit, UnitVector3 } from "../../math/Utilities.js";
 
 const toUnitVector3 = (vector, type) => new UnitVector3(vector.x, vector.y, vector.z, type);
@@ -108,6 +109,14 @@ function instanceEntityTemplates() {
 	});
 }
 
+function instanceSimulatorTemplates() {
+	const disc = simulatorLevelsImport.simulatorLevel.terrain.objects[0];
+	disc.dimensions = toUnitVector3(disc.dimensions, "cnu");
+	disc.position   = toUnitVector3(disc.position,   "cnu");
+	disc.rotation   = toUnitVector3(disc.rotation,   "degrees").toRadians(true);
+	disc.pivot      = toUnitVector3(disc.pivot,      "cnu");
+}
+
 // Clone authored singletons for the API, then instance them in place for engine use.
 function InstanceEngineTemplates() {
 	const raw = {
@@ -124,6 +133,7 @@ function InstanceEngineTemplates() {
 	instanceScatterTemplates();
 	instanceObjectTemplates();
 	instanceEntityTemplates();
+	instanceSimulatorTemplates();
 
 	const instanced = {
 		PlayerCharacters: playerCharactersImport,

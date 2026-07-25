@@ -1079,8 +1079,8 @@ function BuildObject(source) {
 		}
 		else {
 			localBounds = {
-				min: new UnitVector3(-source.dimensions.x / 2, -source.dimensions.y / 2, -source.dimensions.z / 2, "cnu"),
-				max: new UnitVector3( source.dimensions.x / 2,  source.dimensions.y / 2,  source.dimensions.z / 2, "cnu"),
+				min: source.dimensions.clone().scale(-0.5),
+				max: source.dimensions.clone().scale(0.5),
 			};
 			worldAabb = computeWorldAabbFromBounds(localBounds, transform);
 		}

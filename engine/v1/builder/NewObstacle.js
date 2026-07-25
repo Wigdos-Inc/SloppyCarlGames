@@ -42,7 +42,7 @@ function createEnvelopeCapsule(bounds) {
 	};
 }
 
-function mergeAabb(accumulator, bounds) {
+function MergeAabb(accumulator, bounds) {
 	if (!accumulator) {
 		return {
 			min: bounds.min.clone(),
@@ -56,7 +56,7 @@ function mergeAabb(accumulator, bounds) {
 	return accumulator;
 }
 
-function createDetailedBoundsFromParts(source, parts, bounds) {
+function CreateDetailedBoundsFromParts(source, parts, bounds) {
 	if (source.collisionShape === "triangle-soup") {
 		const triangles = [];
 		for (let index = 0; index < parts.length; index++) {
@@ -152,10 +152,10 @@ function BuildObstacle(source, index, options) {
 	source = ResolveObjectSource(source, "obstacle");
 	const { parts } = buildObstacleParts(source, index, options);
 	let worldAabb = null;
-	parts.forEach((part) => worldAabb = mergeAabb(worldAabb, part.worldAabb));
+	parts.forEach((part) => worldAabb = MergeAabb(worldAabb, part.worldAabb));
 
 	const mesh = parts[0];
-	const detailedBounds = createDetailedBoundsFromParts(source, parts, worldAabb);
+	const detailedBounds = CreateDetailedBoundsFromParts(source, parts, worldAabb);
 
 	return {
 		id: source.id,
@@ -185,4 +185,4 @@ function BuildObstacles(source, options) {
 	return { built };
 }
 
-export { BuildObstacle, BuildObstacles };
+export { BuildObstacle, BuildObstacles, MergeAabb, CreateDetailedBoundsFromParts };

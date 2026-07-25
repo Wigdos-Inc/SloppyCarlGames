@@ -18,6 +18,7 @@ import {
 } from "../../math/Vector3.js";
 import { ClampVelocity, RayAABBIntersect, RayAABBDetailedBoundsIntersect, RayDetailedBoundsIntersect } from "../../math/Collision.js";
 import { Lerp, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
+import { IsSimulatorActive } from "./Simulator.js";
 const pitchClampDegrees = 89;
 // FreeCam must be explicitly enabled in levels and global debug mode must be on.
 const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true);
@@ -304,6 +305,14 @@ function initializeDefaultCamConfig(cameraConfig) {
 	);
 }
 
+// Runtime override of DefaultCam framing (used by the simulator to fit the loaded object).
+function SetDefaultCamFraming({ distance, heightOffset }) {
+	defaultCamRuntime.config.distance.value = distance;
+	defaultCamRuntime.config.heightOffset.value = heightOffset;
+	defaultCamRuntime.currentDistance.value = distance;
+	defaultCamRuntime.targetDistance.value = distance;
+}
+
 function HandleDefaultCamInput(eventLike) {
 	switch (eventLike.type) {
 		case "pointerdown": if (RequestPointerLock()) return true;
@@ -430,8 +439,10 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 		z: playerPos.z + scaledDistance * Math.cos(pitchRad) * Math.cos(yawRad),
 	};
 
-	// Camera obstruction detection.
-	const { obstructed, clippedDistance } = checkCameraObstruction(targetPoint, desiredPos, sceneGraph);
+	// Camera obstruction detection. Skipped while simulating — the target sits inside its own bounds.
+	const { obstructed, clippedDistance } = IsSimulatorActive()
+		? { obstructed: false, clippedDistance: scaledDistance }
+		: checkCameraObstruction(targetPoint, desiredPos, sceneGraph);
 
 	if (obstructed) {
 		defaultCamRuntime.targetDistance.value = clippedDistance;
@@ -492,18 +503,12 @@ function computeInitialDefaultCamPosition(playerState, levelBase) {
 	const yawRad = (defaultCamRuntime.yaw * Math.PI) / 180;
 	const pitchRad = (defaultCamRuntime.pitch * Math.PI) / 180;
 
-	const position = new UnitVector3(
-		playerPos.x + cfg.distance.value * Math.cos(pitchRad) * Math.sin(yawRad),
-		playerPos.y + cfg.heightOffset.value + cfg.distance.value * Math.sin(pitchRad),
-		playerPos.z + cfg.distance.value * Math.cos(pitchRad) * Math.cos(yawRad),
-		"cnu"
-	);
-	const target = new UnitVector3(
-		playerPos.x,
-		playerPos.y + cfg.heightOffset.value,
-		playerPos.z,
-		"cnu"
-	);
+	const position = playerPos.clone().add({
+		x: cfg.distance.value * Math.cos(pitchRad) * Math.sin(yawRad),
+		y: cfg.heightOffset.value + cfg.distance.value * Math.sin(pitchRad),
+		z: cfg.distance.value * Math.cos(pitchRad) * Math.cos(yawRad),
+	});
+	const target = playerPos.clone(); target.y += cfg.heightOffset.value;
 	const forward = ResolveVector3Axis(SubtractVector3(target, position));
 	const right = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
 
@@ -529,9 +534,7 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta, playerStat
 		initializeDefaultCamConfig(cameraConfig);
 
 		const levelBase = resolveDefaultLevelCamera(sceneGraph, cameraConfig);
-		const state = playerState
-			? computeInitialDefaultCamPosition(playerState, levelBase)
-			: { ...levelBase, mode: "defaultcam" };
+		const state = playerState ? computeInitialDefaultCamPosition(playerState, levelBase) : { ...levelBase, mode: "defaultcam" };
 		cacheCameraPosition(state);
 		cacheCameraVectors(state);
 		Log("ENGINE", "DefaultCam mode activated.", "log", "Level");
@@ -539,9 +542,7 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta, playerStat
 	}
 
 	// Check if game uses stages at all and store key
-	const levelKey = payloadMeta.stageId
-		? `${payloadMeta.levelId}:${payloadMeta.stageId}`
-		: payloadMeta.levelId;
+	const levelKey = payloadMeta.stageId ? `${payloadMeta.levelId}:${payloadMeta.stageId}` : payloadMeta.levelId;
 
 	freeCamRuntime.levelKey = levelKey;
 
@@ -578,4 +579,4 @@ function UpdateCameraState(currentState, sceneGraph, cameraConfig, deltaSeconds,
 	return nextState;
 }
 
-export { InitializeCameraState, UpdateCameraState, HandleFreeCamInput, HandleDefaultCamInput, GetCameraVectors };
+export { InitializeCameraState, UpdateCameraState, HandleFreeCamInput, HandleDefaultCamInput, GetCameraVectors, SetDefaultCamFraming };

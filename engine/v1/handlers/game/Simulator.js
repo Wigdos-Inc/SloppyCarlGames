@@ -2,13 +2,25 @@
 // Start() builds the disc environment; Load/Clear mutate the live sceneGraph directly.
 
 import { CreateLevel, ClearLevel, GetActiveLevel, StopLevelLoop, SpawnIntoScene, DespawnFromScene } from "./Level.js";
-import { UpdateCameraState } from "./Camera.js";
+import { UpdateCameraState, SetDefaultCamFraming } from "./Camera.js";
 import { ResolveEntityAnimation } from "./Animation.js";
 import { Cache, Log, SendEvent, ENTITY_TYPES, EngineInitialized } from "../../core/meta.js";
 import { CreateUI, ClearUI, ApplyMenuUI } from "../UI.js";
 import { SetElementText, RemoveRoot } from "../Render.js";
 import { ValidateSimulatorPayload, ValidateSimulatorBulkPayload } from "../../core/validate.js";
+import { MergeAabb, CreateDetailedBoundsFromParts } from "../../builder/NewObstacle.js";
+import { UpdateObjectWorldAabb } from "../../builder/NewObject.js";
+import { UnitVector3 } from "../../math/Utilities.js";
 import simulatorTemplates from "../../builder/templates/levels.json" with { type: "json" };
+import { CloneVector3, SubtractVector3 } from "../../math/Vector3.js";
+
+// Platform padding and camera-fit factors relative to the loaded object's bounds.
+const platformPadFactor = 1.6;
+const framingFactor     = 1.8;
+const heightFraction    = 0.5;
+
+const templateDisc   = simulatorTemplates.simulatorLevel.terrain.objects[0];
+const templateCamera = simulatorTemplates.simulatorLevel.camera;
 
 const simulatorRuntime = {
 	active           : false,
@@ -16,6 +28,7 @@ const simulatorRuntime = {
 	entity           : null,
 	followTarget     : null,
 	builtObject      : null,
+	platformMesh     : null,
 	objectType       : null,
 	animSetKeys      : [],
 	currentSetIdx    : 0,
@@ -125,6 +138,7 @@ function clearEnvironmentState() {
 	if (simulatorRuntime.active) RemoveRoot(simulatorRuntime.hudRootId);
 	clearTargetState();
 	simulatorRuntime.followTarget = null;
+	simulatorRuntime.platformMesh = null;
 	simulatorRuntime.active       = false;
 	simulatorRuntime.hadLevel     = false;
 	simulatorRuntime.uiCleared    = false;
@@ -159,10 +173,42 @@ async function Start() {
 	};
 
 	await CreateLevel(baseEnvPayload, { renderOptions: { rootId: "engine-level-root" } }, true);
+	simulatorRuntime.platformMesh = [GetActiveLevel().terrain[0]];
 	simulatorRuntime.followTarget = GetActiveLevel().terrain[0];
 	buildSimulatorHud();
 	simulatorRuntime.active = true;
 	Log("ENGINE", "simulator environment ready", "log", "Simulator");
+}
+
+// Rebuilds a fresh, correctly-sized disc platform through the terrain spawn path.
+function spawnPlatform(sceneGraph, footprintXZ) {
+	const disc = {
+		...templateDisc,
+		dimensions      : templateDisc.dimensions.clone(),
+		position        : templateDisc.position.clone(),
+		rotation        : templateDisc.rotation.clone(),
+		scale           : CloneVector3(templateDisc.scale),
+		pivot           : templateDisc.pivot.clone(),
+		texture         : structuredClone(templateDisc.texture),
+		detail          : structuredClone(templateDisc.detail),
+		primitiveOptions: structuredClone(templateDisc.primitiveOptions),
+	};
+	disc.dimensions.x = footprintXZ;
+	disc.dimensions.z = footprintXZ;
+	return SpawnIntoScene(disc, "terrain", sceneGraph);
+}
+
+// Fits DefaultCam framing and follow target to the loaded object's bounds; returns its extent.
+function frameLoadedObject(aabb) {
+	const ext = SubtractVector3(aabb.max, aabb.min);
+	const distance     = Math.max(templateCamera.distance, framingFactor * Math.max(ext.x, ext.z, ext.y));
+	const heightOffset = Math.max(templateCamera.heightOffset, ext.y * heightFraction);
+	SetDefaultCamFraming({ distance, heightOffset });
+
+	// new
+	const center = aabb.max.clone().add(aabb.min).scale(0.5); center.y = aabb.min.y;
+	simulatorRuntime.followTarget = { transform: { position: center } };
+	return ext;
 }
 
 async function Load(payload) {
@@ -201,9 +247,47 @@ async function Load(payload) {
 	// Reset the part-geometry cache each load
 	sceneGraph.partGeometryCache = new Map();
 
-	const built = SpawnIntoScene(definition, objectType, sceneGraph);
+	let built, aabb;
+	if (objectType === "terrain") {
+		// Loaded terrain is the ground: drop the disc platform.
+		if (simulatorRuntime.platformMesh !== null) DespawnFromScene(simulatorRuntime.platformMesh, "terrain", sceneGraph);
+		simulatorRuntime.platformMesh = null;
+		built = SpawnIntoScene(definition, objectType, sceneGraph);
+		aabb  = built.reduce((accumulator, mesh) => MergeAabb(accumulator, mesh.worldAabb), null);
+	}
+	else {
+		// Entities ground on the surface map, so a platform must exist before the object spawns.
+		if (simulatorRuntime.platformMesh === null) simulatorRuntime.platformMesh = spawnPlatform(sceneGraph, templateDisc.dimensions.x);
+		built = SpawnIntoScene(definition, objectType, sceneGraph);
+
+		if (objectType === "obstacle") {
+			// Obstacles have no self-grounding step; snap onto the platform here.
+			const platformMesh  = simulatorRuntime.platformMesh[0];
+			const platformTopY  = platformMesh.transform.position.y + (platformMesh.dimensions.y * platformMesh.transform.scale.y * 0.5);
+			const deltaY        = platformTopY - built.worldAabb.min.y;
+			built.parts.forEach((part) => {
+				part.transform.position.y += deltaY;
+				UpdateObjectWorldAabb(part);
+			});
+			built.worldAabb      = built.parts.reduce((accumulator, part) => MergeAabb(accumulator, part.worldAabb), null);
+			built.detailedBounds = CreateDetailedBoundsFromParts(built, built.parts, built.worldAabb);
+		}
+
+		aabb  = ENTITY_TYPES.includes(objectType) ? built.collision.aabb : built.worldAabb;
+	}
+
 	simulatorRuntime.builtObject = built;
 	simulatorRuntime.objectType  = objectType;
+
+	const ext = frameLoadedObject(aabb);
+
+	if (objectType !== "terrain") {
+		// Resize the platform to the object's footprint.
+		DespawnFromScene(simulatorRuntime.platformMesh, "terrain", sceneGraph);
+		const footprint = Math.max(templateDisc.dimensions.x, Math.max(ext.x, ext.z) * platformPadFactor);
+		simulatorRuntime.platformMesh = spawnPlatform(sceneGraph, footprint);
+	}
+
 	initSimulatorTarget(ENTITY_TYPES.includes(objectType) ? built : null, objectType, definition);
 	Log("ENGINE", `Simulator loaded: id=${definition.id}, type=${objectType}`, "log", "Simulator");
 }
@@ -211,9 +295,7 @@ async function Load(payload) {
 async function CacheEntries(bulkPayload) {
 	Log("ENGINE", "Simulator cache request received.", "log", "Simulator");
 	const validated = await ValidateSimulatorBulkPayload(bulkPayload);
-	for (const entry of validated) {
-		simulatorCache.set(entry.definition.id, { definition: entry.definition, objectType: entry.objectType });
-	}
+	for (const entry of validated) simulatorCache.set(entry.definition.id, { definition: entry.definition, objectType: entry.objectType });
 	Log("ENGINE", `Simulator caching complete: ${validated.length} entries.\n${validated.map(e => `- ${e.definition.id} (${e.objectType})`).join("\n")}`, "log", "Simulator");
 }
 

@@ -1,0 +1,67 @@
+[
+  {
+    "id": "terr_stepped_platform",
+    "type": "terrain",
+    "shape": "cube",
+    "complexity": "medium",
+    "dimensions": { "x": 10, "y": 1, "z": 10 },
+    "position": { "x": 10, "y": 0, "z": 10 },
+    "rotation": { "x": 0, "y": 0, "z": 0 },
+    "scale": { "x": 1, "y": 1, "z": 1 },
+    "pivot": { "x": 0, "y": 0, "z": 0 },
+    "primitiveOptions": {},
+    "texture": {
+      "generated": { "id": "stone-block", "primary": { "r": 0.55, "g": 0.58, "b": 0.62, "a": 1 }, "opacity": 1 },
+      "custom": []
+    },
+    "detail": { "scatter": [] },
+    "collisionShape": null,
+    "parts": [
+      {
+        "id": "base-slab",
+        "shape": "cube",
+        "complexity": "medium",
+        "dimensions": { "x": 10, "y": 1, "z": 10 },
+        "localPosition": { "x": 0, "y": 0, "z": 0 },
+        "localRotation": { "x": 0, "y": 0, "z": 0 },
+        "localScale": { "x": 1, "y": 1, "z": 1 },
+        "primitiveOptions": {},
+        "texture": {
+          "generated": { "id": "stone-block", "primary": { "r": 0.55, "g": 0.58, "b": 0.62, "a": 1 }, "opacity": 1 },
+          "custom": []
+        },
+        "detail": { "scatter": [] }
+      },
+      {
+        "id": "mid-step",
+        "shape": "cube",
+        "complexity": "medium",
+        "dimensions": { "x": 6, "y": 1, "z": 6 },
+        "localPosition": { "x": 5, "y": 0.5, "z": 0 },
+        "localRotation": { "x": 0, "y": 0, "z": 0 },
+        "localScale": { "x": 1, "y": 1, "z": 1 },
+        "primitiveOptions": {},
+        "texture": {
+          "generated": { "id": "stone-block", "primary": { "r": 0.68, "g": 0.42, "b": 0.3, "a": 1 }, "opacity": 1 },
+          "custom": []
+        },
+        "detail": { "scatter": [] }
+      },
+      {
+        "id": "top-step",
+        "shape": "cube",
+        "complexity": "medium",
+        "dimensions": { "x": 3, "y": 1, "z": 3 },
+        "localPosition": { "x": 9, "y": 1, "z": 0 },
+        "localRotation": { "x": 0, "y": 0, "z": 0 },
+        "localScale": { "x": 1, "y": 1, "z": 1 },
+        "primitiveOptions": {},
+        "texture": {
+          "generated": { "id": "stone-block", "primary": { "r": 0.3, "g": 0.55, "b": 0.35, "a": 1 }, "opacity": 1 },
+          "custom": []
+        },
+        "detail": { "scatter": [] }
+      }
+    ]
+  }
+]

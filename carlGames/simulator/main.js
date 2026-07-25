@@ -1,6 +1,9 @@
 import { StartEngine } from "../../engine/v1/Bootup.js";
-import jsonEntities from "./entities.json" with { type: "json" };
-import { validatePlayerEntry, synthesizePlayerEntity, toCharactersJsonEntry, buildPlayerRegistry, PLAYER_TYPE, isPlayerDef } from "./playerMode.js";
+import jsonEntities from "./json/entities.json" with { type: "json" };
+import jsonObstacles from "./json/obstacles.json" with { type: "json" };
+import jsonPlayers from "./json/players.json" with { type: "json" };
+import jsonTerrain from "./json/terrain.json" with { type: "json" };
+import { validatePlayerEntry, synthesizePlayerEntity, toCharactersJsonEntry, buildPlayerRegistry, PLAYER_TYPE } from "./playerMode.js";
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 
@@ -13,58 +16,76 @@ const { Start, Load, Clear, Exit, Cache, GetModelState, GetFullState } = ENGINE.
 window.load = Load;
 
 // ── Registries ────────────────────────────────────────────────────────────────
-// One user store (localStorage["entities"]) holds every authored/edited definition,
-// tagged by `type`. type === "player" => Player mode; any other type => Entity mode.
-// Player mode also lists the canonical characters (ENGINE.Blueprints.PlayerCharacters)
-// for reference/editing. Entity defs are cached through the engine; player defs are
-// synth-cached on load, since the engine has no "player" objectType.
+// Four modes, one per object family: entity, player, obstacle, terrain. Each has its
+// own seed file (json/*.json) and its own user store (localStorage sim_user_*). A def
+// is routed to a mode by `type` (modeForType). Non-player defs are cached through the
+// engine; player defs synth-cache on load, since the engine has no "player" objectType.
 
-let userDefs;
-try   { userDefs = JSON.parse(localStorage.getItem("entities") ?? "[]") ?? []; }
-catch { userDefs = []; }
+const MODES = ["entity", "player", "obstacle", "terrain"];
+const USER_KEY = {
+    entity  : "sim_user_entities",
+    player  : "sim_user_players",
+    obstacle: "sim_user_obstacles",
+    terrain : "sim_user_terrain",
+};
+const seedFor = { entity: jsonEntities, player: jsonPlayers, obstacle: jsonObstacles, terrain: jsonTerrain };
+const modeForType = (type) => type === PLAYER_TYPE ? "player" : type === "obstacle" ? "obstacle" : type === "terrain" ? "terrain" : "entity";
+const mergeById = (defs) => [...new Map(defs.map(d => [d.id, d])).values()];
 
-// One-time migration: fold any legacy localStorage["characters"] player drafts into the
-// unified store (tagged as players), then drop the old key.
-let legacyCharacters;
-try   { legacyCharacters = JSON.parse(localStorage.getItem("characters") ?? "[]") ?? []; }
-catch { legacyCharacters = []; }
-if (legacyCharacters.length > 0) {
-    const byId = new Map(userDefs.map(d => [d.id, d]));
-    for (const c of legacyCharacters) byId.set(c.id, { ...c, type: PLAYER_TYPE });
-    userDefs = [...byId.values()];
-    localStorage.setItem("entities", JSON.stringify(userDefs));
+const readStore = (mode) => { try { return JSON.parse(localStorage.getItem(USER_KEY[mode]) ?? "[]") ?? []; } catch { return []; } };
+const writeStore = (mode) => localStorage.setItem(USER_KEY[mode], JSON.stringify(userStores[mode]));
+
+const userStores = { entity: readStore("entity"), player: readStore("player"), obstacle: readStore("obstacle"), terrain: readStore("terrain") };
+
+// One-time migration: split the old unified localStorage["entities"] store and legacy
+// localStorage["characters"] player drafts into the per-type stores, then drop old keys.
+(function migrateLegacyStores() {
+    const legacy = [];
+    try { const old = JSON.parse(localStorage.getItem("entities") ?? "null"); if (Array.isArray(old)) legacy.push(...old); } catch {}
+    try { const chars = JSON.parse(localStorage.getItem("characters") ?? "null"); if (Array.isArray(chars)) legacy.push(...chars.map(c => ({ ...c, type: PLAYER_TYPE }))); } catch {}
+    if (legacy.length === 0) return;
+    for (const def of legacy) {
+        const mode = modeForType(def.type);
+        userStores[mode] = mergeById([...userStores[mode], def]);
+    }
+    for (const mode of MODES) writeStore(mode);
+    localStorage.removeItem("entities");
     localStorage.removeItem("characters");
-}
+})();
 
-let entityRegistry;
-let playerRegistry;
+const registries = { entity: [], player: [], obstacle: [], terrain: [] };
+const toEntry = (d) => ({ objectType: d.type, definition: d });
 
-// Merge seed defs with user edits (user wins by id), then partition by the player tag.
+// Merge every seed + user def (user wins by id), then partition by mode. Robust to defs
+// still filed under the wrong seed during the type-split transition.
 function rebuildRegistries() {
-    const merged = [...new Map([...jsonEntities, ...userDefs].map(d => [d.id, d])).values()];
-    entityRegistry = merged.filter(d => !isPlayerDef(d)).map(d => ({ objectType: d.type, definition: d }));
-    playerRegistry = buildPlayerRegistry(merged.filter(isPlayerDef));
+    const merged = mergeById([...MODES.flatMap(m => seedFor[m]), ...MODES.flatMap(m => userStores[m])]);
+    registries.entity   = merged.filter(d => modeForType(d.type) === "entity").map(toEntry);
+    registries.obstacle = merged.filter(d => modeForType(d.type) === "obstacle").map(toEntry);
+    registries.terrain  = merged.filter(d => modeForType(d.type) === "terrain").map(toEntry);
+    registries.player   = buildPlayerRegistry(merged.filter(d => modeForType(d.type) === "player"));
 }
 
-// Upsert a saved definition into the user store and refresh both registries.
+// Upsert a saved definition into its per-type store and refresh registries.
 function persistDef(def) {
-    const i = userDefs.findIndex(d => d.id === def.id);
-    if (i !== -1) userDefs[i] = def; else userDefs.push(def);
-    localStorage.setItem("entities", JSON.stringify(userDefs));
+    const store = userStores[modeForType(def.type)];
+    const i = store.findIndex(d => d.id === def.id);
+    if (i !== -1) store[i] = def; else store.push(def);
+    writeStore(modeForType(def.type));
     rebuildRegistries();
 }
 
 rebuildRegistries();
-Cache(entityRegistry);
+Cache([...registries.entity, ...registries.obstacle, ...registries.terrain]);
 
 // Debug
-window.entity = entityRegistry[0]?.definition;
+window.entity = registries.entity[0]?.definition;
 
 // ── Mode ───────────────────────────────────────────────────────────────────────
 
-let mode = localStorage.getItem("sim_mode") === "player" ? "player" : "entity";
+let mode = MODES.includes(localStorage.getItem("sim_mode")) ? localStorage.getItem("sim_mode") : "entity";
 
-const activeRegistry = () => (mode === "player" ? playerRegistry : entityRegistry);
+const activeRegistry = () => registries[mode];
 
 // ── Session ──────────────────────────────────────────────────────────────────
 
@@ -100,7 +121,7 @@ function refreshDropdown() {
     selectEl.innerHTML = "";
     if (registry.length === 0) {
         const opt = document.createElement("option");
-        opt.textContent = mode === "player" ? "(no characters)" : "(no entities)";
+        opt.textContent = mode === "player" ? "(no characters)" : `(no ${mode}s)`;
         opt.disabled = true;
         selectEl.appendChild(opt);
         return;
@@ -113,15 +134,16 @@ function refreshDropdown() {
     });
 }
 
+const SECTION_LABEL = { entity: "Entity", player: "Character", obstacle: "Obstacle", terrain: "Terrain" };
 function applyModeUI() {
     modeSelectEl.value = mode;
-    sectionLabelEl.textContent = mode === "player" ? "Character" : "Entity";
+    sectionLabelEl.textContent = SECTION_LABEL[mode];
     copyBtnEl.style.display = mode === "player" ? "" : "none";
     refreshDropdown();
 }
 
 function setMode(newMode) {
-    mode = newMode === "player" ? "player" : "entity";
+    mode = MODES.includes(newMode) ? newMode : "entity";
     localStorage.setItem("sim_mode", mode);
     applyModeUI();
     textareaEl.value = "";
@@ -275,7 +297,7 @@ async function handleCopyPlayer() {
             return;
         }
     } else {
-        const entry = playerRegistry.find(e => e.definition.id === selectEl.value);
+        const entry = registries.player.find(e => e.definition.id === selectEl.value);
         if (!entry) { setError("Select or paste a character first."); return; }
         def = entry.definition;
     }
@@ -331,7 +353,7 @@ function buildOverlay() {
     modeLabel.textContent = "Mode";
 
     modeSelectEl = document.createElement("select");
-    [["entity", "Entity"], ["player", "Player (character)"]].forEach(([value, text]) => {
+    [["entity", "Entity"], ["player", "Player (character)"], ["obstacle", "Obstacle"], ["terrain", "Terrain"]].forEach(([value, text]) => {
         const opt = document.createElement("option");
         opt.value = value;
         opt.textContent = text;

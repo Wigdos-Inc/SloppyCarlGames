@@ -13,8 +13,8 @@ import {
 import { GetSimDistanceValue, DetectCombatOverlaps } from "../../physics/Collision.js";
 import { TriggerPlayerRespawnSequence, SetPlayerAction } from "../../player/Master.js";
 
-const KNOCKBACK_FORCE = 12;
-const INVULNERABILITY_DURATION = 2.0;
+const knockbackForce = 12;
+const invulnerabilityDuration = 2.0;
 
 /**
  * Handle collisions between the player and all enemy entities.
@@ -138,14 +138,14 @@ function applyPlayerDamage(playerState, damageSourcePosition) {
 	// Apply knockback impulse (direction away from damage source).
 	const knockDir = ResolveVector3Axis(SubtractVector3(playerState.transform.position, damageSourcePosition));
 	playerState.velocity.set({
-		x: knockDir.x * KNOCKBACK_FORCE,
-		y: Math.max(knockDir.y * KNOCKBACK_FORCE, KNOCKBACK_FORCE * 0.5),
-		z: knockDir.z * KNOCKBACK_FORCE,
+		x: knockDir.x * knockbackForce,
+		y: Math.max(knockDir.y * knockbackForce, knockbackForce * 0.5),
+		z: knockDir.z * knockbackForce,
 	});
 
 	// Start invulnerability.
 	playerState.invulnerable.active = true;
-	playerState.invulnerable.timer = INVULNERABILITY_DURATION;
+	playerState.invulnerable.timer = invulnerabilityDuration;
 	playerState.invulnerable.flashTimer = 0;
 
 	// Transition to stunned action.

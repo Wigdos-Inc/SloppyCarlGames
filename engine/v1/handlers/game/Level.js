@@ -14,6 +14,7 @@ import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Ca
 import { Vector3Distance, LerpVector3, CloneVector3 } from "../../math/Vector3.js";
 import { BuildEntity, UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { BuildObstacles } from "../../builder/NewObstacle.js";
+import { BuildTerrain } from "../../builder/NewTerrain.js";
 import { BuildObject } from "../../builder/NewObject.js";
 import { UpdateInputEventTypes } from "../Controls.js";
 import { ValidateLevelPayload } from "../../core/validate.js";
@@ -372,6 +373,13 @@ function buildSceneSurfaceMap(terrain, obstacles) {
 	return map;
 }
 
+function finalizeSpawn(result, objectType, sceneGraph) {
+	(Array.isArray(result) ? result : [result]).forEach((mesh) => AddToVisualResources(mesh, objectType, sceneGraph));
+	AddTextureAnimationEntries(sceneGraph);
+	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
+	return result;
+}
+
 function SpawnIntoScene(definition, objectType, sceneGraph) {
 	// Reuse texture registry when applicable
 	const faceTextureStore = sceneGraph.visualResources.textureRegistry;
@@ -386,28 +394,25 @@ function SpawnIntoScene(definition, objectType, sceneGraph) {
 			sceneGraph.partGeometryCache
 		);
 		sceneGraph.entities.push(built);
-		AddToVisualResources(built, objectType, sceneGraph);
-		AddTextureAnimationEntries(sceneGraph);
-		if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
-		return built;
+		return finalizeSpawn(built, objectType, sceneGraph);
 	}
 
 	if (objectType === "obstacle") {
 		const { built: builtArray } = BuildObstacles([definition], { textureScale: sceneGraph.world.textureScale, faceTextureStore });
 		const built = builtArray[0];
 		sceneGraph.obstacles.push(built);
-		AddToVisualResources(built, objectType, sceneGraph);
-		AddTextureAnimationEntries(sceneGraph);
-		if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
-		return built;
+		return finalizeSpawn(built, objectType, sceneGraph);
+	}
+
+	if (objectType === "terrain") {
+		const { terrain } = BuildTerrain([definition], sceneGraph.world, faceTextureStore);
+		terrain.forEach((mesh) => sceneGraph.terrain.push(mesh));
+		return finalizeSpawn(terrain, objectType, sceneGraph);
 	}
 
 	const { mesh: built } = BuildObject({ ...definition, textureScale: sceneGraph.world.textureScale, faceTextureStore });
 	sceneGraph.terrain.push(built);
-	AddToVisualResources(built, objectType, sceneGraph);
-	AddTextureAnimationEntries(sceneGraph);
-	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
-	return built;
+	return finalizeSpawn(built, objectType, sceneGraph);
 }
 
 function DespawnFromScene(target, objectType, sceneGraph) {
@@ -416,8 +421,10 @@ function DespawnFromScene(target, objectType, sceneGraph) {
 	else if (objectType === "obstacle") array = sceneGraph.obstacles;
 	else array = sceneGraph.terrain;
 
-	const index = array.indexOf(target);
-	if (index >= 0) array.splice(index, 1);
+	(Array.isArray(target) ? target : [target]).forEach((element) => {
+		const index = array.indexOf(element);
+		if (index >= 0) array.splice(index, 1);
+	});
 	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
 	return target;
 }

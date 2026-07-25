@@ -1218,11 +1218,8 @@ async function SimulatorPayload(payload) {
 		}
 	}
 	else if (isTemplateRef(payload.definition)) {
-		if (normalized.objectType === "terrain") {
-			warnLog("simulator.definition: terrain template references are not supported in the simulator, dropping.");
-			normalized.definition = null;
-		}
-		else normalized.definition = normalizeObjectTemplateRef(payload.definition, ctx, "obstacle", "simulator.definition");
+		const collection = normalized.objectType === "terrain" ? "terrain" : "obstacle";
+		normalized.definition = normalizeObjectTemplateRef(payload.definition, ctx, collection, "simulator.definition");
 	}
 	else {
 		hoistObjectColor(payload.definition);

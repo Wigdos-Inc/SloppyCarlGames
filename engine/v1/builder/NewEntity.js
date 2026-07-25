@@ -347,26 +347,16 @@ function applyModelPose(model) {
 /* === AABB === */
 
 function computeEntityAabb(model) {
-	const min = ToVector3(Infinity);
-	const max = ToVector3(-Infinity);
+	let min = ToVector3(Infinity);
+	let max = ToVector3(-Infinity);
 
 	model.parts.forEach((part) => {
 		if (part.addsToBounds === false) return;
-		const mesh = part.mesh;
-		const bounds = mesh.worldAabb;
-
-		if (bounds.min.x < min.x) min.x = bounds.min.x;
-		if (bounds.min.y < min.y) min.y = bounds.min.y;
-		if (bounds.min.z < min.z) min.z = bounds.min.z;
-		if (bounds.max.x > max.x) max.x = bounds.max.x;
-		if (bounds.max.y > max.y) max.y = bounds.max.y;
-		if (bounds.max.z > max.z) max.z = bounds.max.z;
+		min = part.mesh.worldAabb.min.clone().min(min);
+		max = part.mesh.worldAabb.max.clone().max(max);
 	});
 
-	return {
-		min: new UnitVector3(min.x, min.y, min.z, "cnu"),
-		max: new UnitVector3(max.x, max.y, max.z, "cnu"),
-	};
+	return { min, max };
 }
 
 function computeExpandedAabb(aabb, padding) {

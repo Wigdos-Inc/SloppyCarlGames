@@ -5,15 +5,15 @@ import { Log } from "../core/meta.js";
 import { Clamp01 } from "./Utilities.js";
 import { CloneVector3 } from "./Vector3.js";
 
-const AIR_DRAG_COEFFICIENT = CONFIG.PHYSICS.Gravity.Strength.value / CONFIG.PHYSICS.Gravity.TerminalVelocity.Air.value;
-const WATER_DRAG_COEFFICIENT = CONFIG.PHYSICS.Gravity.Strength.value / CONFIG.PHYSICS.Gravity.TerminalVelocity.Water.value;
+const airDragCoefficient = CONFIG.PHYSICS.Gravity.Strength.value / CONFIG.PHYSICS.Gravity.TerminalVelocity.Air.value;
+const waterDragCoefficient = CONFIG.PHYSICS.Gravity.Strength.value / CONFIG.PHYSICS.Gravity.TerminalVelocity.Water.value;
 
 const logFlags = { gravity: false, resistance: false, buoyancy: false };
 
 // --- Scalar helpers (axis-agnostic, pure arithmetic, no Enabled checks) ---
 
 const gravityScalar = (v, dt) => v - CONFIG.PHYSICS.Gravity.Strength.value * dt;
-const resistanceScalar = (v, sub, dt) => v * (1 - (AIR_DRAG_COEFFICIENT + (WATER_DRAG_COEFFICIENT - AIR_DRAG_COEFFICIENT) * sub) * dt);
+const resistanceScalar = (v, sub, dt) => v * (1 - (airDragCoefficient + (waterDragCoefficient - airDragCoefficient) * sub) * dt);
 
 // buoyancy legitimately takes more inputs than the others; returns per-frame ΔV (not force).
 function buoyancyScalar(position, waterLevel, submergence, dt) {
