@@ -14,6 +14,7 @@ import obstacleTemplates from "../builder/templates/obstacles.json" with { type:
 import characterTemplates from "../builder/templates/characters.json" with { type: "json" };
 import enemyTemplates from "../builder/templates/enemies.json" with { type: "json" };
 import projectileTemplates from "../builder/templates/projectiles.json" with { type: "json" };
+import particleTemplates from "../builder/templates/particles.json" with { type: "json" };
 import { Log, ENTITY_TYPES } from "./meta.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { CloneVector3 } from "../math/Vector3.js";
@@ -739,6 +740,7 @@ const templateCollections = {
 	character : characterTemplates,
 	enemy     : enemyTemplates,
 	projectile: projectileTemplates,
+	particle  : particleTemplates,
 };
 
 const templateIds = {};
@@ -757,6 +759,20 @@ const templatePartList = (collection, templateId) =>
 		? templateCollections[collection][templateId].parts
 		: templateCollections[collection][templateId].model.parts;
 
+// Generator ids resolve here so the builder lookup is guaranteed; an unknown id drops the generator.
+function normalizeParticle(particle, label) {
+	if (particle === null) return null;
+
+	if (!templateIds.particle.has(particle.id)) {
+		warnLog(`${label}: unknown particle template '${particle.id}', dropping generator.`);
+		return null;
+	}
+
+	particle.position = toUnitVector3(particle.position, "cnu");
+	if (particle.overrides !== null && particle.overrides.velocity !== null) particle.overrides.velocity = toUnitVector3(particle.overrides.velocity, "cnu");
+	return particle;
+}
+
 function normalizeOverrideTexture(texture, label) {
 	texture.generated = normalizePayloadSchema(texture.generated, "generatedTexture");
 	texture.generated.id = resolveTextureId(texture.generated.id, canonSchemas.generatedTexture.id.__meta.fallback, `${label}.texture.generated.id`);
@@ -772,6 +788,7 @@ function normalizeTemplatePartOverrides(overrides, collection, templateId, label
 		}
 		if (entry.scale !== null) entry.scale = CloneVector3(entry.scale);
 		if (entry.texture !== null) normalizeOverrideTexture(entry.texture, `${label}.parts.${entry.id}`);
+		entry.particle = normalizeParticle(entry.particle, `${label}.parts.${entry.id}.particle`);
 		return true;
 	});
 }
@@ -789,6 +806,7 @@ function normalizeObjectTemplateRef(rawObject, ctx, collection, label) {
 	ref.rotation = toUnitVector3(ref.rotation, "degrees").toRadians(true);
 	if (ref.scale !== null) ref.scale = CloneVector3(ref.scale);
 	if (ref.texture !== null) normalizeOverrideTexture(ref.texture, label);
+	ref.particle = normalizeParticle(ref.particle, `${label}.particle`);
 	ref.parts = normalizeTemplatePartOverrides(ref.parts, collection, ref.template, label);
 	ctx.surfaceIds.add(ref.id);
 	return ref;
@@ -823,6 +841,7 @@ function normalizePart(rawPart, ctx) {
 	part.texture = normalizeTexture(partSource.texture !== undefined ? partSource.texture : part.texture, part, ctx);
 	part.detail = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail);
 	if (part.shape === "tube") part.primitiveOptions = normalizeTubeOptions(part.primitiveOptions);
+	part.particle = normalizeParticle(part.particle, `levelPart.${part.id}.particle`);
 	if (part.label === null) delete part.label;
 	return part;
 }
@@ -838,6 +857,7 @@ function normalizeLevelObject(rawObject, ctx, multipartFallbackShape = null) {
 	object.texture = normalizeTexture(objectSource.texture !== undefined ? objectSource.texture : object.texture, object, ctx);
 	object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
 	if (object.shape === "tube") object.primitiveOptions = normalizeTubeOptions(object.primitiveOptions);
+	object.particle = normalizeParticle(object.particle, `levelObject.${object.id}.particle`);
 	object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part, ctx));
 	object.collisionShape = object.collisionShape !== null ? object.collisionShape
 		: multipartFallbackShape !== null && object.parts.length > 1 ? multipartFallbackShape
@@ -1001,6 +1021,10 @@ function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 				node.localRotation = toUnitVector3(node.localRotation, "radians");
 				node.thickness     = new Unit(node.thickness.value,    "cnu");
 			});
+		}
+		if (part.particle !== null) {
+			part.particle.position = toUnitVector3(part.particle.position, "cnu");
+			if (part.particle.overrides !== null && part.particle.overrides.velocity !== null) part.particle.overrides.velocity = toUnitVector3(part.particle.overrides.velocity, "cnu");
 		}
 		return part;
 	});
@@ -1237,6 +1261,29 @@ async function SimulatorPayload(payload) {
 	return normalized;
 }
 
+/* Runtime Request Normalization (small fire-and-forget requests from the running game) */
+
+const Runtime = {
+	// Template-id checking and Unit instancing both ride normalizeParticle; null = unknown template.
+	Particles: (rawRequest, generator) => {
+		const request = Runtime.helpers.cloneRequest(rawRequest, "particleRequest");
+		if (normalizeParticle(request, "particleRequest") === null) return null;
+
+		return {
+			templateId: request.id,
+			position  : request.position,
+			overrides : request.overrides,
+			mode      : generator === true ? "generator" : "burst",
+			target    : request.target,
+		};
+	},
+
+	helpers: {
+		// Walk drops unknown keys, so nothing unclonable reaches the clone; the clone severs caller refs.
+		cloneRequest(raw, rootKey) { return structuredClone(normalizePayloadSchema(raw, rootKey)); },
+	},
+};
+
 export default {
 	AudioPayload,
 	MenuPayload,
@@ -1244,4 +1291,5 @@ export default {
 	CutscenePayload,
 	LevelPayload,
 	SimulatorPayload,
+	Runtime,
 };

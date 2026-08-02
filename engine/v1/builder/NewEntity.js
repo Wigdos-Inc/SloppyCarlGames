@@ -597,6 +597,7 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		},
 		hitboxActive: detailed.hitbox !== null,
 		animations: definition.animations,
+		particle: null,		// Particle groups replace this with their lifetime instance; null on every other entity.
 		state: {
 			movementProgress: initialMovementProgress,
 			direction: 1,

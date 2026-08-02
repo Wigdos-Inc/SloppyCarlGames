@@ -5,8 +5,7 @@
 
 import { CONFIG } from "../../core/config.js";
 import { Log, SendEvent } from "../../core/meta.js";
-import { Vector3Distance } from "../../math/Vector3.js";
-import { GetSimDistanceValue, CheckEntityAabbOverlap } from "../../physics/Collision.js";
+import { IsBeyondSimDistance, CheckEntityAabbOverlap } from "../../physics/Collision.js";
 
 /**
  * Check for collectible pickups — player AABB overlapping collectible entities.
@@ -23,7 +22,7 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 		if (entity.type !== "collectible") continue;
 
 		// SimDistance gate is camera-relative; only qualified entities enter this collision pass.
-		if (Vector3Distance(sceneGraph.cameraConfig.state.position, entity.transform.position) > GetSimDistanceValue()) continue;
+		if (IsBeyondSimDistance(sceneGraph.cameraConfig.state.position, entity.transform.position)) continue;
 
 		if (!CheckEntityAabbOverlap(playerState, entity)) continue;
 

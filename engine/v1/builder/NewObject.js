@@ -1088,7 +1088,7 @@ function BuildObject(source) {
 			mesh: {
 				id            : source.id,
 				type          : "mesh3d",
-				meta          : { trigger: source.trigger, platform: source.platform, parentId: source.parentId, sticky: source.sticky, mode: source.mode, nullable: source.nullable },
+				meta          : { trigger: source.trigger, platform: source.platform, parentId: source.parentId, sticky: source.sticky, mode: source.mode, nullable: source.nullable, particle: source.particle },
 				transform,
 				dimensions    : source.dimensions,
 				collisionShape: source.collisionShape,
@@ -1107,7 +1107,7 @@ function BuildObject(source) {
 			mesh: {
 				id            : source.id,
 				type          : "mesh3d",
-				meta          : { trigger: source.trigger, platform: source.platform, parentId: source.parentId, sticky: source.sticky, mode: source.mode, nullable: source.nullable },
+				meta          : { trigger: source.trigger, platform: source.platform, parentId: source.parentId, sticky: source.sticky, mode: source.mode, nullable: source.nullable, particle: source.particle },
 				transform,
 				dimensions    : source.dimensions,
 				collisionShape: source.collisionShape,
@@ -1159,6 +1159,7 @@ function BuildObject(source) {
 				sticky   : source.sticky,
 				mode     : source.mode,
 				nullable : source.nullable,
+				particle : source.particle,
 			},
 			detail: {
 				scatter: source.detail.scatter,
@@ -1211,8 +1212,6 @@ function BuildObject(source) {
 		id        : source.id,
 		type      : "mesh3d",
 		shape, complexity, transform,
-		// Render source. Same reference as the true transform until the animation runtime swaps
-		// in a separate object for animated parts (true transform / bounds stay untouched).
 		displayTransform: transform,
 		displayColor    : null,
 		primitive : shape,
@@ -1236,6 +1235,7 @@ function BuildObject(source) {
 			sticky   : source.sticky,
 			mode     : source.mode,
 			nullable : source.nullable,
+			particle : source.particle,
 		},
 		detail: {
 			scatter: source.detail.scatter,

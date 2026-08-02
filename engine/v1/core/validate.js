@@ -345,6 +345,44 @@ async function ValidateSimulatorBulkPayload(bulkPayload) {
 	return results;
 }
 
+/* === RUNTIME REQUESTS === */
+
+// Small fire-and-forget requests from the running game: validate → normalize → build → insert.
+// Scene access is an id → { type, position } resolver; core/ cannot import handlers/.
+const ValidateRuntime = {
+	Particles: (request, generator, resolveTarget) => {
+		const errors = validatePayloadSchema(request, "particleRequest");
+		const rawRequest = isPlainObject(request) ? request : {};
+
+		if (generator === true) {
+			const targetError = ValidateRuntime.helpers.targetExists(resolveTarget, rawRequest.target);
+			if (targetError !== null) errors.push(targetError);
+		}
+
+		logValidationErrors(errors);
+		if (errors.length > 0) return null;
+
+		// Normalize warns and returns null on an unknown template id; that is a rejection here.
+		const normalized = Normalize.Runtime.Particles(request, generator);
+		if (normalized === null) {
+			logValidationErrors(["particleRequest.id: unknown particle template."]);
+			return null;
+		}
+		return normalized;
+	},
+
+	helpers: {
+		// Returns an error string or null.
+		targetExists(resolveTarget, target) {
+			if (!isPlainObject(target)) return "particleRequest.target: required when requesting a generator.";
+			const entry = resolveTarget(target.id);
+			if (entry === undefined) return `particleRequest.target: no scene object with id '${target.id}'.`;
+			if (entry.type !== target.type) return `particleRequest.target: '${target.id}' is type '${entry.type}', not '${target.type}'.`;
+			return null;
+		},
+	},
+};
+
 export {
 	ValidateAudioPayload,
 	ValidateMenuPayload,
@@ -353,4 +391,5 @@ export {
 	ValidateLevelPayload,
 	ValidateSimulatorPayload,
 	ValidateSimulatorBulkPayload,
+	ValidateRuntime,
 };

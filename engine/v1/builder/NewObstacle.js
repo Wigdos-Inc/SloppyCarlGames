@@ -96,6 +96,7 @@ function buildObstacleParts(source, index, options) {
 				collisionShape: source.collisionShape,
 				mode          : source.mode,
 				nullable      : source.nullable,
+				particle      : source.particle,
 				textureScale  : options.textureScale,
 				faceTextureStore: options.faceTextureStore,
 				scatterContext: options.scatterContext

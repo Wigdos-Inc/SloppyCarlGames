@@ -13,11 +13,12 @@ import { CONFIG } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
 import { Vector3Distance, LerpVector3, CloneVector3 } from "../../math/Vector3.js";
 import { BuildEntity, UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
+import { GenerateParticles } from "../../builder/NewParticles.js";
 import { BuildObstacles } from "../../builder/NewObstacle.js";
 import { BuildTerrain } from "../../builder/NewTerrain.js";
 import { BuildObject } from "../../builder/NewObject.js";
 import { UpdateInputEventTypes } from "../Controls.js";
-import { ValidateLevelPayload } from "../../core/validate.js";
+import { ValidateLevelPayload, ValidateRuntime } from "../../core/validate.js";
 import {
 	InitializePlayer,
 	UpdatePlayer,
@@ -28,7 +29,7 @@ import { ApplyPhysicsPipeline } from "../../physics/Master.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
 import { ResolveEntityAnimation } from "./Animation.js";
-import { GetSimDistanceValue } from "../../physics/Collision.js";
+import { IsBeyondSimDistance } from "../../physics/Collision.js";
 import { InitializeTextureAnimation, UpdateTextureAnimation, AddTextureAnimationEntries } from "./Texture.js";
 import { PrepareLevelVisualResources, AddToVisualResources } from "../../builder/NewTexture.js";
 import { Clamp01 } from "../../math/Utilities.js";
@@ -302,6 +303,37 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 	return sceneGraph;
 }
 
+// Drives every group's lifetime and emits the siblings a seeding group asks for.
+// Reverse-index because seeding appends: new entries wait for the next frame.
+function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
+	const seedRequests = [];
+
+	for (let i = sceneGraph.entities.length - 1; i >= 0; i--) {
+		const group = sceneGraph.entities[i].particle;
+		if (group === null) continue;
+		group.advance(deltaMilliseconds, deltaSeconds);
+
+		// Splice-safe: `i` counts down, and seeding drains after the loop.
+		if (group.finished) {
+			sceneGraph.entities.splice(i, 1);
+			continue;
+		}
+		if (group.seedDue(deltaMilliseconds)) seedRequests.push(group.request);
+	}
+
+	// Siblings reuse the level-built group's geometry key and texture id, so a plain push is complete.
+	seedRequests.forEach((request) => {
+		const { groups } = GenerateParticles(
+			request,
+			sceneGraph.cameraConfig.state.position,
+			sceneGraph.world.textureScale,
+			sceneGraph.visualResources.textureRegistry,
+			sceneGraph.partGeometryCache
+		);
+		sceneGraph.entities.push(...groups);
+	});
+}
+
 function runFrameTail(sceneGraph, deltaMilliseconds) {
 	UpdateTextureAnimation(sceneGraph, deltaMilliseconds);
 	syncEntityMeshes(sceneGraph);
@@ -330,11 +362,17 @@ function Update(deltaMilliseconds) {
 
 	// === NON-PLAYER ENTITY UPDATE ===
 	sceneGraph.entities.forEach(entity => {
+		// "none" particles are integrated by the tick instead, ahead of any distance math.
+		if (entity.particle !== null && entity.particle.physicsMode === "none") return;
 		if (entity.type === "player") return;
-		if (Vector3Distance(sceneGraph.cameraConfig.state.position, entity.transform.position) > GetSimDistanceValue()) return;
+		if (IsBeyondSimDistance(sceneGraph.cameraConfig.state.position, entity.transform.position)) return;
 		updateEntityMovement(entity, deltaSeconds);
 		ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds);
 	});
+
+	// === PARTICLES ===
+	// After the entity pass so "full" groups are already displaced, before runFrameTail publishes.
+	updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds);
 
 	// === CAMERA ===
 	sceneGraph.cameraConfig.state = UpdateCameraState(
@@ -371,6 +409,18 @@ function buildSceneSurfaceMap(terrain, obstacles) {
 		};
 	});
 	return map;
+}
+
+// Flattens the three collections' differing shapes for core/ validators. undefined = no such id.
+function findSceneTarget(sceneGraph, id) {
+	const entity = sceneGraph.entities.find((candidate) => candidate.id === id);
+	if (entity !== undefined) return { type: entity.type, position: entity.transform.position };
+
+	const obstacle = sceneGraph.obstacles.find((candidate) => candidate.id === id);
+	if (obstacle !== undefined) return { type: "obstacle", position: obstacle.parts[0].transform.position };
+
+	const mesh = sceneGraph.terrain.find((candidate) => candidate.id === id);
+	return mesh === undefined ? undefined : { type: "terrain", position: mesh.transform.position };
 }
 
 function finalizeSpawn(result, objectType, sceneGraph) {
@@ -429,9 +479,49 @@ function DespawnFromScene(target, objectType, sceneGraph) {
 	return target;
 }
 
+// Game-facing particle request. Fire-and-forget: nothing is returned, everything is logged.
+// Push-only: a game's event handler re-enters this mid-forEach, which skips appends but not splices.
+function SpawnParticles(request, generator) {
+	const sceneGraph = GetActiveLevel();
+	if (sceneGraph === null) {
+		Log("ENGINE", "Level.SpawnParticles: no active level.", "error", "Level");
+		return;
+	}
+	if (IsSimulatorActive()) {
+		Log("ENGINE", "Level.SpawnParticles: simulator mode never ticks particles.", "error", "Level");
+		return;
+	}
+
+	const resolveTarget = (id) => findSceneTarget(sceneGraph, id);
+	const normalized = ValidateRuntime.Particles(request, generator, resolveTarget);
+	if (normalized === null) return;
+
+	// Validation already proved the target resolves; re-checking it here would be a defensive guard.
+	if (normalized.mode === "generator") {
+		normalized.position = resolveTarget(normalized.target.id).position.clone().add(normalized.position);
+	}
+
+	const { groups } = GenerateParticles(
+		normalized,
+		sceneGraph.cameraConfig.state.position,
+		sceneGraph.world.textureScale,
+		sceneGraph.visualResources.textureRegistry,
+		sceneGraph.partGeometryCache
+	);
+	if (groups.length === 0) {
+		Log("ENGINE", `Level.SpawnParticles: '${normalized.templateId}' produced no groups (gated by performance or sim distance).`, "warn", "Level");
+		return;
+	}
+
+	// "entity", not "particle": ENTITY_TYPES has none, and the fallback branch assumes terrain.
+	sceneGraph.entities.push(...groups);
+	finalizeSpawn(groups, "entity", sceneGraph);
+	Log("ENGINE", `Particles spawned: id=${normalized.templateId}, mode=${normalized.mode}, groups=${groups.length}`, "log", "Level");
+}
+
 
 export {
 	CreateLevel, ClearLevel, Update, GetActiveLevel,
 	StartLevelLoop, StopLevelLoop, PauseLevelLoop, ResumeLevelLoop, ToggleLevelLoopPause,
-	SpawnIntoScene, DespawnFromScene,
+	SpawnIntoScene, DespawnFromScene, SpawnParticles,
 };

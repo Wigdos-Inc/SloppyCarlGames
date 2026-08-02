@@ -43,7 +43,19 @@ function cloneTexture(texture) {
 	};
 }
 
-function cloneTemplatePart(part) {
+// Repeat copies must not share the ref override's generator instance.
+function cloneParticle(particle) {
+	if (particle === null) return null;
+	const overrides = particle.overrides;
+	return {
+		...particle,
+		position : particle.position.clone(),
+		overrides: particle.overrides === null ? null
+			: { ...particle.overrides, velocity: particle.overrides.velocity === null ? null : particle.overrides.velocity.clone() },
+	};
+}
+
+function CloneTemplatePart(part) {
 	return {
 		...part,
 		dimensions      : part.dimensions.clone(),
@@ -54,6 +66,7 @@ function cloneTemplatePart(part) {
 		primitiveOptions: clonePrimitiveOptions(part),
 		texture         : cloneTexture(part.texture),
 		detail          : structuredClone(part.detail),
+		particle        : cloneParticle(part.particle),
 	};
 }
 
@@ -75,6 +88,7 @@ function applyPartOverride(part, override) {
 	if (override.texture !== null) part.texture.generated = structuredClone(override.texture.generated);
 	if (override.color !== null) part.texture.generated.primary = { ...override.color };
 	if (override.scale !== null) part.localScale = CloneVector3(override.scale);
+	if (override.particle !== null) part.particle = cloneParticle(override.particle);
 }
 
 // count = additional copies. Copy i: position/rotation offset by i steps, scale multiplicative.
@@ -89,7 +103,7 @@ function expandRepeats(parts) {
 
 		const offset = repeat.offset;
 		for (let i = 1; i <= repeat.count; i++) {
-			const copy = cloneTemplatePart(part);
+			const copy = CloneTemplatePart(part);
 			copy.id = `${part.id}-r${i}`;
 			copy.localPosition.add(ScaleVector3(offset.position, i));
 			copy.localRotation.add(ScaleVector3(offset.rotation, i));
@@ -110,7 +124,7 @@ function resolveParts(templateParts, overrides, refColor, refTexture) {
 	overrides.forEach((entry) => { overridesById[entry.id] = entry; });
 
 	const parts = templateParts.map((templatePart) => {
-		const part = cloneTemplatePart(templatePart);
+		const part = CloneTemplatePart(templatePart);
 		if (refTexture !== null) part.texture.generated = structuredClone(refTexture.generated);
 		if (refColor !== null) part.texture.generated.primary = { ...refColor };
 		applyPartOverride(part, overridesById[part.id]);
@@ -142,6 +156,7 @@ function ResolveObjectSource(source, role) {
 		static        : shared.static,
 		mode          : source.mode !== null ? source.mode : shared.mode,
 		nullable      : shared.nullable,
+		particle      : source.particle,
 		parts         : resolveParts(template.parts, source.parts, source.color, source.texture),
 	};
 }
@@ -180,4 +195,4 @@ function ResolveEntitySource(source) {
 	};
 }
 
-export { ResolveObjectSource, ResolveEntitySource };
+export { ResolveObjectSource, ResolveEntitySource, CloneTemplatePart };

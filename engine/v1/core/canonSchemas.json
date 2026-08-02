@@ -1329,7 +1329,53 @@
       "custom": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
     },
     "detail": { "__meta": { "description": "Part detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
-    "addsToBounds": { "__meta": { "description": "Whether this part contributes to the entity AABB", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } }
+    "addsToBounds": { "__meta": { "description": "Whether this part contributes to the entity AABB", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } },
+    "particle": {
+      "__meta": { "description": "Persistent particle generator (null = none)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "id": { "__meta": { "description": "Particle template id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": null, "deprecated": false } },
+      "position": {
+        "__meta": { "description": "Generator offset from the owning mesh", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+        "x": { "__meta": { "description": "Offset x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "y": { "__meta": { "description": "Offset y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "z": { "__meta": { "description": "Offset z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+      },
+      "overrides": {
+        "__meta": { "description": "Per-generator template overrides (null = template verbatim)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+        "count":   { "__meta": { "description": "Particle count override",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 1, "max": 50 }, "deprecated": false } },
+        "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
+        "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
+        "color": {
+          "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "min": {
+            "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
+            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+          },
+          "max": {
+            "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+          }
+        },
+        "velocity": {
+          "__meta": { "description": "Burst velocity override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "x": { "__meta": { "description": "Velocity x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "y": { "__meta": { "description": "Velocity y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "z": { "__meta": { "description": "Velocity z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+        },
+        "duration": {
+          "__meta": { "description": "Lifetime override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "mode":       { "__meta": { "description": "Dissipation mode",        "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": "fade", "allowedValues": ["fade", "shrink"], "deprecated": false } },
+          "holdTimeMs": { "__meta": { "description": "Full-strength hold ms",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+          "endTimeMs":  { "__meta": { "description": "Total lifetime ms",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+          "intervalMs": { "__meta": { "description": "Regeneration cadence ms", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } }
+        }
+      }
+    }
   },
   "tubeNode": {
     "dimensions": {
@@ -1510,6 +1556,52 @@
         "fallback": true,
         "deprecated": false
       }
+    },
+    "particle": {
+      "__meta": { "description": "Persistent particle generator (null = none)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "id": { "__meta": { "description": "Particle template id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": null, "deprecated": false } },
+      "position": {
+        "__meta": { "description": "Generator offset from the owning mesh", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+        "x": { "__meta": { "description": "Offset x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "y": { "__meta": { "description": "Offset y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "z": { "__meta": { "description": "Offset z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+      },
+      "overrides": {
+        "__meta": { "description": "Per-generator template overrides (null = template verbatim)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+        "count":   { "__meta": { "description": "Particle count override",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 1, "max": 50 }, "deprecated": false } },
+        "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
+        "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
+        "color": {
+          "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "min": {
+            "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
+            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+          },
+          "max": {
+            "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+          }
+        },
+        "velocity": {
+          "__meta": { "description": "Burst velocity override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "x": { "__meta": { "description": "Velocity x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "y": { "__meta": { "description": "Velocity y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "z": { "__meta": { "description": "Velocity z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+        },
+        "duration": {
+          "__meta": { "description": "Lifetime override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "mode":       { "__meta": { "description": "Dissipation mode",        "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": "fade", "allowedValues": ["fade", "shrink"], "deprecated": false } },
+          "holdTimeMs": { "__meta": { "description": "Full-strength hold ms",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+          "endTimeMs":  { "__meta": { "description": "Total lifetime ms",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+          "intervalMs": { "__meta": { "description": "Regeneration cadence ms", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } }
+        }
+      }
     }
   },
   "levelMovement": {
@@ -1534,11 +1626,12 @@
     "disappear": { "__meta": { "description": "Disappear flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "chase": { "__meta": { "description": "Chase flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "physics": {
-      "__meta": { "description": "Per-stage physics flags", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false }, "deprecated": false },
+      "__meta": { "description": "Per-stage physics flags", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false, "collision": true }, "deprecated": false },
       "gravity":    { "__meta": { "description": "Gravity stage",    "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": true, "fallback": false, "deprecated": false } },
       "buoyancy":   { "__meta": { "description": "Buoyancy stage",   "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": true, "fallback": false, "deprecated": false } },
       "resistance": { "__meta": { "description": "Resistance stage", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": true, "fallback": false, "deprecated": false } },
-      "correction": { "__meta": { "description": "Correction stage", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": true, "fallback": false, "deprecated": false } }
+      "correction": { "__meta": { "description": "Correction stage", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": true, "fallback": false, "deprecated": false } },
+      "collision":  { "__meta": { "description": "Collision stage",  "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": true, "fallback": true, "deprecated": false } }
     }
   },
   "levelAttack": {
@@ -1771,6 +1864,52 @@
     },
     "collisionShape": { "__meta": { "description": "Collision shape override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "aabb", "obb", "sphere", "capsule", "triangle-soup"], "deprecated": false } },
     "mode": { "__meta": { "description": "Render/collision mode override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["default", "invisible", "void"], "deprecated": false } },
+    "particle": {
+      "__meta": { "description": "Persistent particle generator (null = none)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "id": { "__meta": { "description": "Particle template id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": null, "deprecated": false } },
+      "position": {
+        "__meta": { "description": "Generator offset from the owning mesh", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+        "x": { "__meta": { "description": "Offset x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "y": { "__meta": { "description": "Offset y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "z": { "__meta": { "description": "Offset z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+      },
+      "overrides": {
+        "__meta": { "description": "Per-generator template overrides (null = template verbatim)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+        "count":   { "__meta": { "description": "Particle count override",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 1, "max": 50 }, "deprecated": false } },
+        "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
+        "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
+        "color": {
+          "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "min": {
+            "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
+            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+          },
+          "max": {
+            "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+          }
+        },
+        "velocity": {
+          "__meta": { "description": "Burst velocity override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "x": { "__meta": { "description": "Velocity x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "y": { "__meta": { "description": "Velocity y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+          "z": { "__meta": { "description": "Velocity z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+        },
+        "duration": {
+          "__meta": { "description": "Lifetime override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "mode":       { "__meta": { "description": "Dissipation mode",        "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": "fade", "allowedValues": ["fade", "shrink"], "deprecated": false } },
+          "holdTimeMs": { "__meta": { "description": "Full-strength hold ms",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+          "endTimeMs":  { "__meta": { "description": "Total lifetime ms",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+          "intervalMs": { "__meta": { "description": "Regeneration cadence ms", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } }
+        }
+      }
+    },
     "parts": {
       "__meta": { "description": "Per-part overrides keyed on template part id", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false },
       "__entry": {
@@ -1791,6 +1930,52 @@
           "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
           "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
           "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+        },
+        "particle": {
+          "__meta": { "description": "Persistent particle generator (null = none)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "id": { "__meta": { "description": "Particle template id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": null, "deprecated": false } },
+          "position": {
+            "__meta": { "description": "Generator offset from the owning mesh", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+            "x": { "__meta": { "description": "Offset x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+            "y": { "__meta": { "description": "Offset y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+            "z": { "__meta": { "description": "Offset z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+          },
+          "overrides": {
+            "__meta": { "description": "Per-generator template overrides (null = template verbatim)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+            "count":   { "__meta": { "description": "Particle count override",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 1, "max": 50 }, "deprecated": false } },
+            "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
+            "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
+            "color": {
+              "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+              "min": {
+                "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
+                "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+              },
+              "max": {
+                "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+                "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+              }
+            },
+            "velocity": {
+              "__meta": { "description": "Burst velocity override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+              "x": { "__meta": { "description": "Velocity x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+              "y": { "__meta": { "description": "Velocity y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+              "z": { "__meta": { "description": "Velocity z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+            },
+            "duration": {
+              "__meta": { "description": "Lifetime override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+              "mode":       { "__meta": { "description": "Dissipation mode",        "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": "fade", "allowedValues": ["fade", "shrink"], "deprecated": false } },
+              "holdTimeMs": { "__meta": { "description": "Full-strength hold ms",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+              "endTimeMs":  { "__meta": { "description": "Total lifetime ms",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+              "intervalMs": { "__meta": { "description": "Regeneration cadence ms", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } }
+            }
+          }
         }
       }
     }
@@ -1852,8 +2037,104 @@
             "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
             "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
             "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+          },
+          "particle": {
+            "__meta": { "description": "Persistent particle generator (null = none)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+            "id": { "__meta": { "description": "Particle template id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": null, "deprecated": false } },
+            "position": {
+              "__meta": { "description": "Generator offset from the owning mesh", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+              "x": { "__meta": { "description": "Offset x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+              "y": { "__meta": { "description": "Offset y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+              "z": { "__meta": { "description": "Offset z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+            },
+            "overrides": {
+              "__meta": { "description": "Per-generator template overrides (null = template verbatim)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+              "count":   { "__meta": { "description": "Particle count override",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 1, "max": 50 }, "deprecated": false } },
+              "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
+              "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
+              "color": {
+                "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+                "min": {
+                  "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
+                  "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                  "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                  "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                  "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+                },
+                "max": {
+                  "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+                  "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                  "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                  "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                  "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+                }
+              },
+              "velocity": {
+                "__meta": { "description": "Burst velocity override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+                "x": { "__meta": { "description": "Velocity x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+                "y": { "__meta": { "description": "Velocity y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+                "z": { "__meta": { "description": "Velocity z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+              },
+              "duration": {
+                "__meta": { "description": "Lifetime override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+                "mode":       { "__meta": { "description": "Dissipation mode",        "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": "fade", "allowedValues": ["fade", "shrink"], "deprecated": false } },
+                "holdTimeMs": { "__meta": { "description": "Full-strength hold ms",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+                "endTimeMs":  { "__meta": { "description": "Total lifetime ms",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+                "intervalMs": { "__meta": { "description": "Regeneration cadence ms", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } }
+              }
+            }
           }
         }
+      }
+    }
+  },
+  "particleRequest": {
+    "id": { "__meta": { "description": "Particle template id", "aliases": ["templateId"], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": null, "deprecated": false } },
+    "target": {
+      "__meta": { "description": "Scene object a generator attaches to (null = burst)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "id":   { "__meta": { "description": "Target scene object id",   "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+      "type": { "__meta": { "description": "Target scene object type", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } }
+    },
+    "position": {
+      "__meta": { "description": "Absolute spawn point in burst mode; offset from target in generator mode", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+      "x": { "__meta": { "description": "Offset x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "y": { "__meta": { "description": "Offset y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+      "z": { "__meta": { "description": "Offset z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+    },
+    "overrides": {
+      "__meta": { "description": "Per-generator template overrides (null = template verbatim)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "count":   { "__meta": { "description": "Particle count override",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 1, "max": 50 }, "deprecated": false } },
+      "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
+      "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
+      "color": {
+        "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+        "min": {
+          "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
+          "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+        },
+        "max": {
+          "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+          "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+        }
+      },
+      "velocity": {
+        "__meta": { "description": "Burst velocity override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+        "x": { "__meta": { "description": "Velocity x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "y": { "__meta": { "description": "Velocity y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "z": { "__meta": { "description": "Velocity z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+      },
+      "duration": {
+        "__meta": { "description": "Lifetime override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+        "mode":       { "__meta": { "description": "Dissipation mode",        "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": "fade", "allowedValues": ["fade", "shrink"], "deprecated": false } },
+        "holdTimeMs": { "__meta": { "description": "Full-strength hold ms",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+        "endTimeMs":  { "__meta": { "description": "Total lifetime ms",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
+        "intervalMs": { "__meta": { "description": "Regeneration cadence ms", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } }
       }
     }
   }

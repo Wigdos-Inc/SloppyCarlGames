@@ -16,7 +16,7 @@
 			"airFloatiness": 1,
 			"waterFloatiness": 1
 		},
-		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
+		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true, "collision": true },
 		"collisionOverride": { "physics": "capsule", "hurtbox": "sphere", "hitbox": "sphere" },
 		"model": {
 			"parts": [
@@ -238,7 +238,7 @@
 			"airFloatiness": 5,
 			"waterFloatiness": 3
 		},
-		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
+		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true, "collision": true },
 		"collisionOverride": { "physics": "capsule", "hurtbox": "sphere", "hitbox": "sphere" },
 		"model": {
 			"parts": [
@@ -468,7 +468,7 @@
 	"carl": {
 		"name": { "s": "Carl", "l": "Carl the Urgent Slug Urchin" },
 		"meta": { "maxSpeed": 8, "acceleration": 20, "deceleration": 10, "stoppingThresholdRatio": 0.35, "airControl": 0.2, "underwaterAirControl": 0.5, "momentumTurnRate": 14, "jumpHeight": 2, "airFloatiness": 1, "waterFloatiness": 1 },
-		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true },
+		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true, "collision": true },
 		"collisionOverride": { "physics": "auto", "hurtbox": "sphere", "hitbox": "sphere" },
 		"model": {
 			"parts": [

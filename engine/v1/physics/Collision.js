@@ -14,6 +14,7 @@ import {
 	ScaleVector3,
 	DotVector3,
 	Vector3Sq,
+	Vector3Distance,
 	CloneVector3,
 	ToVector3,
 	AbsoluteVector3,
@@ -370,6 +371,11 @@ function GetSimDistanceValue() {
 	return 100;
 }
 
+// A null viewer opts out of the gate entirely (payloads may carry no player).
+function IsBeyondSimDistance(viewerPosition, targetPosition) {
+	return viewerPosition !== null && Vector3Distance(viewerPosition, targetPosition) > GetSimDistanceValue();
+}
+
 const getHalfExtents = (aabb) => aabb.max.clone().subtract(aabb.min).scale(0.5);
 
 function expandAabb(aabb, padding) {
@@ -393,7 +399,7 @@ const getAabbCenter = (aabb) => aabb.min.clone().add(aabb.max).scale(0.5);
 /**
  * Broadphase: collect all collidable scene objects within sim radius.
  */
-function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
+function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers, includeEntities) {
 	const candidates = [];
 	const withinSimRadius = (aabb) => AabbOverlap(simRadiusAabb, aabb);
 
@@ -457,34 +463,39 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb) {
 	collectVoidWalls(sceneGraph.voids.terrain);
 	collectVoidWalls(sceneGraph.voids.obstacles);
 
-	// Triggers.
-	sceneGraph.triggers.forEach(trig => {
-		if (!withinSimRadius(trig.worldAabb)) return;
-		candidates.push({
-			id       : trig.id,
-			pairId   : trig.id,
-			aabb     : trig.worldAabb,
-			isTrigger: true,
-			type     : "trigger",
-			trigger  : trig.meta.trigger,
-			ref      : trig,
+	// Triggers (only ever consumed by the player).
+	if (includeTriggers) {
+		sceneGraph.triggers.forEach(trig => {
+			if (!withinSimRadius(trig.worldAabb)) return;
+			candidates.push({
+				id       : trig.id,
+				pairId   : trig.id,
+				aabb     : trig.worldAabb,
+				isTrigger: true,
+				type     : "trigger",
+				trigger  : trig.meta.trigger,
+				ref      : trig,
+			});
 		});
-	});
+	}
 
-	// Physics-enabled entities (for N-body physics).
-	sceneGraph.entities.forEach(ent => {
-		if (ent.type === "player" || !ent.collision.detailedBounds) return;
-		if (!withinSimRadius(ent.collision.aabb)) return;
-		candidates.push({
-			id: ent.id,
-			pairId: ent.id,
-			aabb: ent.collision.aabb,
-			detailedBounds: ent.collision.detailedBounds,
-			isTrigger: false,
-			type: "entity",
-			ref: ent,
+	// Physics-enabled entities (for N-body physics). Particles neither obstruct nor are obstructed:
+	// a burst spawns at its emitter's origin, so the emitter would strip its own launch velocity.
+	if (includeEntities) {
+		sceneGraph.entities.forEach(ent => {
+			if (ent.type === "player" || ent.type === "particle" || !ent.collision.detailedBounds) return;
+			if (!withinSimRadius(ent.collision.aabb)) return;
+			candidates.push({
+				id: ent.id,
+				pairId: ent.id,
+				aabb: ent.collision.aabb,
+				detailedBounds: ent.collision.detailedBounds,
+				isTrigger: false,
+				type: "entity",
+				ref: ent,
+			});
 		});
-	});
+	}
 
 	return candidates;
 }
@@ -630,6 +641,8 @@ function resolveWallApproachStrength(velocity, normal) {
 	return -DotVector3(horizontalVelocity, horizontalNormal) / Math.sqrt(velocityLengthSq * normalLengthSq);
 }
 
+const GetEntityPhysicsFlags = (e) => e.type === "player" ? e.character.physics : e.movement.physics;
+
 /* ========================================================================
  * LAYER 1: PHYSICS COLLISION DETECTION
  * ======================================================================== */
@@ -644,13 +657,14 @@ function resolveWallApproachStrength(velocity, normal) {
  * @returns {{ solids: {items, count}, triggers: {items, count} }}
  */
 function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
-	if (CONFIG.PHYSICS.Collision.Enabled === false) {
+	const isPlayer = entity.type === "player";
+	if (CONFIG.PHYSICS.Collision.Enabled === false || !GetEntityPhysicsFlags(entity).collision) {
 		ResetCollisionPools();
 		return { solids: solidResultPool, triggers: triggerResultPool };
 	}
 
 	const vel = displacement;
-	const candidates = BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb);
+	const candidates = BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb, isPlayer, entity.type !== "particle");
 
 	// Determine swept mode from entity physics shape.
 	const useSphereSwept = entity.collision.physics.shape === "sphere";
@@ -685,8 +699,8 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 		else swept = checkSweptAabbPair(entity.transform.position, vel, entity.collision.aabb, candidate.aabb);
 
 		if (swept.hit && swept.tEntry >= 0 && swept.tEntry <= 1) {
-			const cachedPair = entity.type === "player" ? null : readReusableActiveCollisionPair(entity, candidate);
-			if (entity.type === "player") {
+			const cachedPair = isPlayer ? null : readReusableActiveCollisionPair(entity, candidate);
+			if (isPlayer) {
 				let contact = cachedPair ? buildContactFromCachedPair(cachedPair) : NoContact();
 				if (!cachedPair) {
 					contact = narrowphaseContact(offsetDetailedBounds(entity.collision.physics.bounds, vel), candidate.detailedBounds);
@@ -747,14 +761,15 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 }
 
 function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
-	if (CONFIG.PHYSICS.Collision.Enabled === false) {
+	const isPlayer = entity.type === "player";
+	if (CONFIG.PHYSICS.Collision.Enabled === false || !GetEntityPhysicsFlags(entity).collision) {
 		ResetCollisionPools();
 		return { solids: solidResultPool, triggers: triggerResultPool };
 	}
 
 	ResetCollisionPools();
 
-	for (const candidate of BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb)) {
+	for (const candidate of BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb, isPlayer, entity.type !== "particle")) {
 		if (candidate.type === "entity" && candidate.ref === entity) continue;
 
 		if (candidate.isTrigger) {
@@ -769,7 +784,7 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 
 		if (!AabbOverlap(entity.collision.aabb, candidate.aabb)) continue;
 
-		const cachedPair = entity.type === "player" || candidate.detailedBounds.type === "triangle-soup"
+		const cachedPair = isPlayer || candidate.detailedBounds.type === "triangle-soup"
 			? null
 			: readReusableActiveCollisionPair(entity, candidate);
 		const contact = cachedPair 
@@ -785,7 +800,7 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 			continue;
 		}
 		const push = resolveAabbDetailedPushContact(entity.collision.aabb, candidate.detailedBounds, contact);
-		if (entity.type !== "player") cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
+		if (!isPlayer) cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
 
 		const item = poolPush(solidResultPool);
 		item.target = candidate;
@@ -832,7 +847,7 @@ function DetectCombatOverlaps(playerState, entities, simRadius, cameraPos) {
 	poolReset(hurtboxResultPool);
 
 	for (const entity of entities) {
-		if (entity === playerState || entity.type === "collectible") continue;
+		if (entity === playerState || entity.type === "collectible" || entity.type === "particle") continue;
 
 		// SimDistance gate.
 		if (Vector3Sq(SubtractVector3(cameraPos, entity.transform.position)) > simRadius * simRadius) continue;
@@ -1081,6 +1096,8 @@ export {
 	ProbeGroundContact,
 	NarrowphaseTest,
 	GetSimDistanceValue,
+	IsBeyondSimDistance,
 	CheckEntityAabbOverlap,
 	CheckEntityTrueOverlap,
+	GetEntityPhysicsFlags,
 };

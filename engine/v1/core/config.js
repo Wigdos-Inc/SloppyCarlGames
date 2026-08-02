@@ -35,7 +35,7 @@ const CONFIG = {
       DetailedBounds: {                      // Render Detailed Bounds
         Terrain : true,
         Obstacle: true,
-        Entity  : true,
+        Entity  : false,
         Player  : true,
         Boss    : true,
       },
@@ -90,6 +90,7 @@ const CONFIG = {
     TerrainScatter: "High",
     RenderDistance: "High",
     SimDistance   : "High",
+    Particles     : "High",
     Animations    : {
       Active : true,
       Quality: "high"
@@ -116,7 +117,7 @@ const CONFIG = {
       spawn          : false,
       despawn        : false,
       actionChange   : false,
-      collision      : false,
+      collision      : true,
       groundedChange : false,
       damageReceived : false,
       damageInflicted: false,

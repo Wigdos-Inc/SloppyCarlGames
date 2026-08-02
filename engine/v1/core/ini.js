@@ -12,7 +12,7 @@ import { CONFIG } from "./config.js";
 import { ApplyMenuUI, LoadScreen, ClearUI } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
 import { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes } from "../handlers/Sound.js";
-import { CreateLevel, ClearLevel, Update as UpdateLevel, GetActiveLevel, PauseLevelLoop as PauseLevel, ResumeLevelLoop as ResumeLevel } from "../handlers/game/Level.js";
+import { CreateLevel, ClearLevel, Update as UpdateLevel, GetActiveLevel, PauseLevelLoop as PauseLevel, ResumeLevelLoop as ResumeLevel, SpawnParticles } from "../handlers/game/Level.js";
 import { Start, Load, Cache as SimulatorCache, Clear, Exit, GetModelState, GetFullState } from "../handlers/game/Simulator.js";
 import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
@@ -54,7 +54,7 @@ function Initialize() {
     Startup: { ProvideSplashScreenPayload },
     UI: { ApplyMenuUI, LoadScreen, ClearUI },
     Audio: { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes },
-    Level: { CreateLevel, ClearLevel, UpdateLevel, GetActiveLevel, PauseLevel, ResumeLevel, Player },
+    Level: { CreateLevel, ClearLevel, UpdateLevel, GetActiveLevel, PauseLevel, ResumeLevel, SpawnParticles, Player },
     Math: {
       Convert   : { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU },
       Vector3   : { AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3 },

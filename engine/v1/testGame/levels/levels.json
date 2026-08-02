@@ -820,7 +820,39 @@
                         ],
                         "triggers": []
                     },
-                    "obstacles": [],
+                    "obstacles": [
+                        {
+                            "id": "smoke-torch",
+                            "color": { "r": 0.34, "g": 0.24, "b": 0.15, "a": 1 },
+                            "shape": "cylinder",
+                            "complexity": "medium",
+                            "dimensions": { "x": 0.25, "y": 2, "z": 0.25 },
+                            "position": { "x": 19, "y": 1, "z": 5 },
+                            "rotation": { "x": 0, "y": 0, "z": 0 },
+                            "scale": { "x": 1, "y": 1, "z": 1 },
+                            "pivot": { "x": 0, "y": 0, "z": 0 },
+                            "primitiveOptions": {
+                                "thickness": 0,
+                                "radius": 0,
+                                "subdivisionsX": 1,
+                                "subdivisionsZ": 1
+                            },
+                            "texture": {
+                                "generated": {
+                                    "id": "wood-stump",
+                                    "opacity": 1
+                                },
+                                "custom": []
+                            },
+                            "detail": {
+                                "scatter": []
+                            },
+                            "particle": {
+                                "id": "smoke",
+                                "position": { "x": 0, "y": 1.1, "z": 0 }
+                            }
+                        }
+                    ],
                     "entities": [
                         {
                             "id": "cnu-fall-cube",

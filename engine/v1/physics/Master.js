@@ -7,7 +7,7 @@ import { CONFIG } from "../core/config.js";
 import { Log, SendEvent, EPSILON } from "../core/meta.js";
 import { AbsoluteVector3, CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence } from "./Forces.js";
-import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, ResetCollisionPools, ProbeGroundContact } from "./Collision.js";
+import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, ResetCollisionPools, ProbeGroundContact, GetEntityPhysicsFlags } from "./Collision.js";
 import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation } from "./Correction.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";
 import { UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
@@ -69,7 +69,7 @@ function updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration) {
 
 function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	const isPlayer = entity.type === "player";
-	const applyCorrection = (isPlayer ? entity.character.physics : entity.movement.physics).correction;
+	const applyCorrection = GetEntityPhysicsFlags(entity).correction;
 	let latestTriggers;
 	let groundContact = { hit: false, normal: CloneVector3(WORLD_NORMALS.Up) };
 	let iterations;
@@ -169,7 +169,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
  */
 function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 	const isPlayer = entity.type === "player";
-	const entityPhysics = isPlayer ? entity.character.physics : entity.movement.physics;
+	const entityPhysics = GetEntityPhysicsFlags(entity);
 	const deathBarrierY = sceneGraph.world.deathBarrierY.value;
 	const wasGrounded = isPlayer ? entity.grounded : undefined;
 

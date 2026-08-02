@@ -8,6 +8,7 @@ import obstacleImport from "./obstacles.json" with { type: "json" };
 import characterImport from "./characters.json" with { type: "json" };
 import enemyImport from "./enemies.json" with { type: "json" };
 import projectileImport from "./projectiles.json" with { type: "json" };
+import particleImport from "./particles.json" with { type: "json" };
 import simulatorLevelsImport from "./levels.json" with { type: "json" };
 import { Unit, UnitVector3 } from "../../math/Utilities.js";
 
@@ -35,6 +36,9 @@ function instancePartRepeat(part) {
 // Object template parts may author texture: null (shared texture baked in afterwards).
 function instanceModelPart(part) {
 	canonicalizePartTransform(part);
+
+	// Engine templates author no generators; absent canonicalizes to null.
+	if (part.particle === undefined) part.particle = null;
 
 	if (part.texture !== null) {
 		part.texture.custom.forEach((decal) => {
@@ -109,6 +113,15 @@ function instanceEntityTemplates() {
 	});
 }
 
+// Group velocity is the burst axis; the single prototype part reuses the shared part instancer.
+function instanceParticleTemplates() {
+	for (const templateId in particleImport) {
+		const template = particleImport[templateId];
+		template.velocity = toUnitVector3(template.velocity, "cnu");
+		instanceModelPart(template.part);
+	}
+}
+
 function instanceSimulatorTemplates() {
 	const disc = simulatorLevelsImport.simulatorLevel.terrain.objects[0];
 	disc.dimensions = toUnitVector3(disc.dimensions, "cnu");
@@ -126,6 +139,7 @@ function InstanceEngineTemplates() {
 		Characters      : structuredClone(characterImport),
 		Enemies         : structuredClone(enemyImport),
 		Projectiles     : structuredClone(projectileImport),
+		Particles       : structuredClone(particleImport),
 		Scatter         : structuredClone(texturesImport.scatterTypes),
 	};
 
@@ -133,6 +147,7 @@ function InstanceEngineTemplates() {
 	instanceScatterTemplates();
 	instanceObjectTemplates();
 	instanceEntityTemplates();
+	instanceParticleTemplates();
 	instanceSimulatorTemplates();
 
 	const instanced = {
@@ -142,6 +157,7 @@ function InstanceEngineTemplates() {
 		Characters      : characterImport,
 		Enemies         : enemyImport,
 		Projectiles     : projectileImport,
+		Particles       : particleImport,
 		Scatter         : texturesImport.scatterTypes,
 	};
 

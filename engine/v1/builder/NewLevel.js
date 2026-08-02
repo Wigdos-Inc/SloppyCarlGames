@@ -4,10 +4,12 @@
 // Used by handlers/game/Level.js
 // Uses NewEntity.js for building Enemies
 // Uses NewObstacle.js for static obstacles
+// Uses NewParticles.js for level-authored particle generators
 // Uses NewObject.js for terrain generation.
 
 import { BuildObject } from "./NewObject.js";
 import { BuildEntity } from "./NewEntity.js";
+import { GenerateParticles } from "./NewParticles.js";
 import { BuildObstacles } from "./NewObstacle.js";
 import { BuildTerrain } from "./NewTerrain.js";
 import { ResolveObjectSource } from "./NewTemplate.js";
@@ -360,6 +362,28 @@ async function BuildLevel(payload) {
 		return built;
 	});
 	if (entities.length > 0) Log("ENGINE", `Entity group created: count=${entities.length}`, "log", "Level");
+
+	let particleGroups = 0;
+
+	[...allTerrain, ...allObstacleRecords.flatMap((record) => record.parts)].forEach((mesh) => {
+		if (mesh.meta.particle === null) return;
+		const { groups } = GenerateParticles(
+			{
+				templateId: mesh.meta.particle.id,
+				position  : mesh.transform.position.clone().add(mesh.meta.particle.position),
+				overrides : mesh.meta.particle.overrides,
+				mode      : "generator",
+				target    : null,
+			},
+			payload.player === null ? null : payload.player.spawnPosition,
+			payload.world.textureScale,
+			faceTextureStore,
+			partGeometryCache
+		);
+		entities.push(...groups);
+		particleGroups += groups.length;
+	});
+	if (particleGroups > 0) Log("ENGINE", `Particle group created: count=${particleGroups}`, "log", "Level");
 
 	const waterVisual = buildWaterVisualMeshes(payload.world, faceTextureStore);
 
