@@ -11,7 +11,7 @@ import { RenderLevel, RemoveRoot, ClearLevelRenderer } from "../Render.js";
 import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS, ENTITY_TYPES, ReleasePointerLock } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
-import { Vector3Distance, LerpVector3, CloneVector3 } from "../../math/Vector3.js";
+import { Vector3Distance, LerpVector3, CloneVector3, RotateByEuler } from "../../math/Vector3.js";
 import { BuildEntity, UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { GenerateParticles } from "../../builder/NewParticles.js";
 import { BuildObstacles } from "../../builder/NewObstacle.js";
@@ -307,10 +307,13 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 // Reverse-index because seeding appends: new entries wait for the next frame.
 function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
 	const seedRequests = [];
+	const targets = resolveGeneratorTargets(sceneGraph);
 
 	for (let i = sceneGraph.entities.length - 1; i >= 0; i--) {
 		const group = sceneGraph.entities[i].particle;
 		if (group === null) continue;
+		// Mode test: a burst has no target to ride.
+		if (group.targetKey !== null) group.follow(targets);
 		group.advance(deltaMilliseconds, deltaSeconds);
 
 		// Splice-safe: `i` counts down, and seeding drains after the loop.
@@ -411,16 +414,63 @@ function buildSceneSurfaceMap(terrain, obstacles) {
 	return map;
 }
 
+// Every entity type other than terrain and obstacle lives in the entities array.
+const generatorCollections = {
+	terrain : (sceneGraph) => sceneGraph.terrain,
+	obstacle: (sceneGraph) => sceneGraph.obstacles,
+	entity  : (sceneGraph) => sceneGraph.entities,
+};
+
+const generatorCollectionOf = (type) => (type === "terrain" || type === "obstacle" ? type : "entity");
+
+function indexById(collection) {
+	const index = new Map();
+	collection.forEach((candidate) => index.set(candidate.id, candidate));
+	return index;
+}
+
+// A null partId anchors to the object's own transform; a named part that is gone resolves to undefined.
+function targetTransform(owner, partId, collection) {
+	if (collection === "terrain") return owner.transform;
+	if (collection === "obstacle") return partId === null ? owner.parts[0].transform : owner.parts.find((part) => part.id === partId)?.transform;
+	return partId === null ? owner.transform : owner.model.parts.find((part) => part.id === partId)?.mesh.transform;
+}
+
+// One shared build per frame, so it cannot desync; null when no group follows anything.
+// Values are live transform references — the map is discarded at the end of the frame.
+function resolveGeneratorTargets(sceneGraph) {
+	const wanted = new Map();
+	sceneGraph.entities.forEach((entity) => {
+		const group = entity.particle;
+		if (group === null || group.targetKey === null) return;
+		wanted.set(group.targetKey, group.target);
+	});
+	if (wanted.size === 0) return null;
+
+	const indexes = {};
+	const targets = {};
+	wanted.forEach((target, key) => {
+		const collection = generatorCollectionOf(target.type);
+		// Memoization gate: each wanted collection is walked once per frame, whatever the group count.
+		if (indexes[collection] === undefined) indexes[collection] = indexById(generatorCollections[collection](sceneGraph));
+
+		const owner = indexes[collection].get(target.id);
+		// A dead object leaves its key undefined, which is what orphans the group that follows it.
+		targets[key] = owner === undefined ? undefined : targetTransform(owner, target.partId, collection);
+	});
+	return targets;
+}
+
 // Flattens the three collections' differing shapes for core/ validators. undefined = no such id.
-function findSceneTarget(sceneGraph, id) {
+function findSceneTarget(sceneGraph, id, partId) {
 	const entity = sceneGraph.entities.find((candidate) => candidate.id === id);
-	if (entity !== undefined) return { type: entity.type, position: entity.transform.position };
+	if (entity !== undefined) return { type: entity.type, transform: targetTransform(entity, partId, "entity") };
 
 	const obstacle = sceneGraph.obstacles.find((candidate) => candidate.id === id);
-	if (obstacle !== undefined) return { type: "obstacle", position: obstacle.parts[0].transform.position };
+	if (obstacle !== undefined) return { type: "obstacle", transform: targetTransform(obstacle, partId, "obstacle") };
 
 	const mesh = sceneGraph.terrain.find((candidate) => candidate.id === id);
-	return mesh === undefined ? undefined : { type: "terrain", position: mesh.transform.position };
+	return mesh === undefined ? undefined : { type: "terrain", transform: mesh.transform };
 }
 
 function finalizeSpawn(result, objectType, sceneGraph) {
@@ -492,13 +542,15 @@ function SpawnParticles(request, generator) {
 		return;
 	}
 
-	const resolveTarget = (id) => findSceneTarget(sceneGraph, id);
+	const resolveTarget = (id, partId) => findSceneTarget(sceneGraph, id, partId);
 	const normalized = ValidateRuntime.Particles(request, generator, resolveTarget);
 	if (normalized === null) return;
 
 	// Validation already proved the target resolves; re-checking it here would be a defensive guard.
 	if (normalized.mode === "generator") {
-		normalized.position = resolveTarget(normalized.target.id).position.clone().add(normalized.position);
+		const { transform } = resolveTarget(normalized.target.id, normalized.target.partId);
+		normalized.offset   = normalized.position;
+		normalized.position = transform.position.clone().add(RotateByEuler(normalized.offset, transform.rotation));
 	}
 
 	const { groups } = GenerateParticles(

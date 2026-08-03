@@ -773,6 +773,15 @@ function normalizeParticle(particle, label) {
 	return particle;
 }
 
+// Parts carry their own generators, so a root one has nowhere to sit and the builder would drop it.
+function normalizeRootParticle(particle, partCount, label) {
+	if (particle !== null && partCount > 0) {
+		warnLog(`${label}.particle: generators are per-part on an object with parts, dropping root generator.`);
+		return null;
+	}
+	return normalizeParticle(particle, `${label}.particle`);
+}
+
 function normalizeOverrideTexture(texture, label) {
 	texture.generated = normalizePayloadSchema(texture.generated, "generatedTexture");
 	texture.generated.id = resolveTextureId(texture.generated.id, canonSchemas.generatedTexture.id.__meta.fallback, `${label}.texture.generated.id`);
@@ -806,7 +815,7 @@ function normalizeObjectTemplateRef(rawObject, ctx, collection, label) {
 	ref.rotation = toUnitVector3(ref.rotation, "degrees").toRadians(true);
 	if (ref.scale !== null) ref.scale = CloneVector3(ref.scale);
 	if (ref.texture !== null) normalizeOverrideTexture(ref.texture, label);
-	ref.particle = normalizeParticle(ref.particle, `${label}.particle`);
+	ref.particle = normalizeRootParticle(ref.particle, templatePartList(collection, ref.template).length, label);
 	ref.parts = normalizeTemplatePartOverrides(ref.parts, collection, ref.template, label);
 	ctx.surfaceIds.add(ref.id);
 	return ref;
@@ -857,8 +866,8 @@ function normalizeLevelObject(rawObject, ctx, multipartFallbackShape = null) {
 	object.texture = normalizeTexture(objectSource.texture !== undefined ? objectSource.texture : object.texture, object, ctx);
 	object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
 	if (object.shape === "tube") object.primitiveOptions = normalizeTubeOptions(object.primitiveOptions);
-	object.particle = normalizeParticle(object.particle, `levelObject.${object.id}.particle`);
 	object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part, ctx));
+	object.particle = normalizeRootParticle(object.particle, object.parts.length, `levelObject.${object.id}`);
 	object.collisionShape = object.collisionShape !== null ? object.collisionShape
 		: multipartFallbackShape !== null && object.parts.length > 1 ? multipartFallbackShape
 			: defaultsByShape[object.shape];
@@ -1272,9 +1281,12 @@ const Runtime = {
 		return {
 			templateId: request.id,
 			position  : request.position,
+			// Absolute until a generator resolves against its target, which fills the target-local offset.
+			offset    : null,
 			overrides : request.overrides,
 			mode      : generator === true ? "generator" : "burst",
-			target    : request.target,
+			// Mode owns the target: a burst never tracks one, however the caller filled the field.
+			target    : generator === true ? request.target : null,
 		};
 	},
 

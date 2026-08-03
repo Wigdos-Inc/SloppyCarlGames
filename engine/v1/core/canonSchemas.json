@@ -2092,8 +2092,9 @@
     "id": { "__meta": { "description": "Particle template id", "aliases": ["templateId"], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": null, "deprecated": false } },
     "target": {
       "__meta": { "description": "Scene object a generator attaches to (null = burst)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-      "id":   { "__meta": { "description": "Target scene object id",   "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
-      "type": { "__meta": { "description": "Target scene object type", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } }
+      "id":     { "__meta": { "description": "Target scene object id",   "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+      "type":   { "__meta": { "description": "Target scene object type", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+      "partId": { "__meta": { "description": "Target part id (null = the object's own transform)", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } }
     },
     "position": {
       "__meta": { "description": "Absolute spawn point in burst mode; offset from target in generator mode", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },

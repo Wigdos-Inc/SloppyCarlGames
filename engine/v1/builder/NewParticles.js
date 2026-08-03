@@ -9,7 +9,7 @@
 import particleTemplates from "./templates/particles.json" with { type: "json" };
 import { BuildEntity, UpdateEntityModelFromTransform } from "./NewEntity.js";
 import { CloneTemplatePart } from "./NewTemplate.js";
-import { AddVector3, CrossVector3, MultiplyVector3, ScaleVector3, ToVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
+import { AddVector3, CrossVector3, MultiplyVector3, RotateByEuler, ScaleVector3, ToVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
 import { Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
 import { IsBeyondSimDistance } from "../physics/Collision.js";
 import { CONFIG } from "../core/config.js";
@@ -217,6 +217,9 @@ function synthesizeGroupDefinition(templateId, resolved, position, size, index, 
 
 /* === GROUP LIFETIME === */
 
+// Sole authority on the key format every producer and consumer of a target resolves through.
+const particleTargetKey = (target) => `${target.type}::${target.id}::${target.partId}`;
+
 // One built group's runtime state. Lifetime is frame-tracked: `total` accumulates deltaMs.
 class particleGroup {
 	constructor(entity, request, resolved, halfAngle) {
@@ -227,9 +230,14 @@ class particleGroup {
 		this.physicsMode = resolved.physics;
 		this.colorRange  = resolved.color;
 		this.halfAngle   = halfAngle;
-		// Id, not a reference — a despawned target must not stay pinned.
-		this.targetId    = request.target === null ? null : request.target.id;
+		// A key, not a scene reference — a despawned target must not stay pinned.
+		this.target      = request.target;
+		this.targetKey   = request.target === null ? null : particleTargetKey(request.target);
+		this.offset      = request.offset === null ? null : request.offset.clone();
+		this.orphaned    = false;
 		this.spawnOrigin = entity.transform.position.clone();
+		// BuildEntity re-seats the group on the spawn plane, so the origin is not the request position.
+		this.originCorrection = this.spawnOrigin.clone().subtract(request.position);
 		this.spawnAxis   = resolved.velocity.clone();
 		// intervalMs is a recycle cadence; a one-shot ends when its decay does.
 		this.lifespan    = resolved.duration.intervalMs;
@@ -239,6 +247,23 @@ class particleGroup {
 		this.baseAlpha   = entity.model.parts.map((part) => part.mesh.displayColor.a);
 	}
 
+	// Re-seats the origin on the live target each frame; `targets` is rebuilt by the driver.
+	follow(targets) {
+		const transform = targets[this.targetKey];
+		// Existence check in case of target death/deletion.
+		if (transform === undefined) { this.orphan(); return; }
+
+		// The stored request seeds siblings, so it tracks too — they spawn where the target is now.
+		this.request.position.set(transform.position).add(RotateByEuler(this.offset, transform.rotation));
+		this.spawnOrigin.set(this.request.position).add(this.originCorrection);
+	}
+
+	// Ends the loop on the authored decay instead of the recycle cadence.
+	orphan() {
+		this.orphaned = true;
+		this.lifespan = this.duration.endTimeMs;
+	}
+
 	advance(deltaMs, deltaSeconds) {
 		this.total += deltaMs;
 
@@ -246,10 +271,7 @@ class particleGroup {
 		if (this.physicsMode === "none")   this.entity.transform.position.add(ScaleVector3(this.entity.velocity, deltaSeconds));
 		if (this.physicsMode === "simple") this.entity.velocity.y -= arcRate.value * deltaSeconds;
 
-		if (this.total >= this.lifespan) {
-			this.expire();
-			return;
-		}
+		if (this.total >= this.lifespan) { this.expire(); return; }
 		if (this.total < this.duration.holdTimeMs) return;
 
 		if (this.decayStart === null) this.decayStart = this.total;
@@ -282,7 +304,10 @@ class particleGroup {
 	}
 
 	// End of one emission: looping by default, so the burst subclass overrides instead.
-	expire() { this.recycle(); }
+	expire() {
+		if (this.orphaned) { this.finished = true; return; }
+		this.recycle();
+	}
 
 	// Only the seeding subclass emits siblings; a base method keeps the driver's call guaranteed.
 	seedDue() { return false; }
@@ -299,6 +324,7 @@ class seedingParticleGroup extends particleGroup {
 
 	// `amount - 1` siblings: an `amount`th would land in phase with this group's own recycle.
 	seedDue(deltaMs) {
+		if (this.orphaned) return false;
 		this.seedClock += deltaMs;
 		if (this.seeded >= this.amount - 1) return false;
 		if (this.seedClock < (this.seeded + 1) * (this.duration.intervalMs / this.amount)) return false;
@@ -321,7 +347,7 @@ class burstParticleGroup extends particleGroup {
 
 /**
  * Generate the particle groups for one request.
- * @param {object} request — { templateId, position (UnitVector3 cnu), overrides, mode, target }.
+ * @param {object} request — { templateId, position (absolute UnitVector3 cnu), offset (target-local, un-rotated), overrides, mode, target }.
  * @param {object} viewerPosition — camera/spawn reference for the sim-distance gate; null skips it.
  * @param {number} textureScale — world texture scale (px per CNU); opts into the geometry cache.
  * @param {object} faceTextureStore — content-signature-keyed store the per-face bake dedups against.

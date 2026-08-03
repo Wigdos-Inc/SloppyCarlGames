@@ -348,7 +348,7 @@ async function ValidateSimulatorBulkPayload(bulkPayload) {
 /* === RUNTIME REQUESTS === */
 
 // Small fire-and-forget requests from the running game: validate → normalize → build → insert.
-// Scene access is an id → { type, position } resolver; core/ cannot import handlers/.
+// Scene access is an (id, partId) → { type, transform } resolver; core/ cannot import handlers/.
 const ValidateRuntime = {
 	Particles: (request, generator, resolveTarget) => {
 		const errors = validatePayloadSchema(request, "particleRequest");
@@ -375,9 +375,12 @@ const ValidateRuntime = {
 		// Returns an error string or null.
 		targetExists(resolveTarget, target) {
 			if (!isPlainObject(target)) return "particleRequest.target: required when requesting a generator.";
-			const entry = resolveTarget(target.id);
+			// Raw request: an omitted partId is the object's own transform, not a missing part.
+			const partId = target.partId ?? null;
+			const entry = resolveTarget(target.id, partId);
 			if (entry === undefined) return `particleRequest.target: no scene object with id '${target.id}'.`;
 			if (entry.type !== target.type) return `particleRequest.target: '${target.id}' is type '${entry.type}', not '${target.type}'.`;
+			if (entry.transform === undefined) return `particleRequest.target: '${target.id}' has no part '${partId}'.`;
 			return null;
 		},
 	},

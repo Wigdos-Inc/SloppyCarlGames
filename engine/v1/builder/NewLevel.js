@@ -18,7 +18,7 @@ import { BuildVoidWalls } from "./NewVoid.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { Clamp, UnitVector3 } from "../math/Utilities.js";
-import { AbsoluteVector3, ToVector3 } from "../math/Vector3.js";
+import { AbsoluteVector3, RotateByEuler, ToVector3 } from "../math/Vector3.js";
 
 function resolveEntityBlueprintMap(payload) {
 	const map = {};
@@ -365,15 +365,22 @@ async function BuildLevel(payload) {
 
 	let particleGroups = 0;
 
-	[...allTerrain, ...allObstacleRecords.flatMap((record) => record.parts)].forEach((mesh) => {
-		if (mesh.meta.particle === null) return;
+	// Materialized before the loop: the loop pushes its groups into the `entities` array it reads from.
+	const generatorSources = [
+		...allTerrain.map((mesh) => ({ particle: mesh.meta.particle, transform: mesh.transform, target: { type: "terrain", id: mesh.id, partId: null } })),
+		...allObstacleRecords.flatMap((record) => record.parts.map((mesh) => ({ particle: mesh.meta.particle, transform: mesh.transform, target: { type: "obstacle", id: record.id, partId: mesh.id } }))),
+		...entities.flatMap((entity) => entity.model.parts.map((part) => ({ particle: part.mesh.meta.particle, transform: part.mesh.transform, target: { type: entity.type, id: entity.id, partId: part.id } }))),
+	].filter((source) => source.particle !== null);
+
+	generatorSources.forEach((source) => {
 		const { groups } = GenerateParticles(
 			{
-				templateId: mesh.meta.particle.id,
-				position  : mesh.transform.position.clone().add(mesh.meta.particle.position),
-				overrides : mesh.meta.particle.overrides,
+				templateId: source.particle.id,
+				position  : source.transform.position.clone().add(RotateByEuler(source.particle.position, source.transform.rotation)),
+				offset    : source.particle.position,
+				overrides : source.particle.overrides,
 				mode      : "generator",
-				target    : null,
+				target    : source.target,
 			},
 			payload.player === null ? null : payload.player.spawnPosition,
 			payload.world.textureScale,

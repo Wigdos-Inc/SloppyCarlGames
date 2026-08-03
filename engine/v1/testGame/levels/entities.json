@@ -503,6 +503,78 @@
 					}
 				]
 			}
+		},
+		{
+			"id": "entity.smoke-torch",
+			"type": "entity",
+			"hp": 1,
+			"movement": {
+				"start": { "x": 9, "y": 0, "z": -7 },
+				"end": { "x": 9, "y": 0, "z": 4 },
+				"repeat": false,
+				"backAndForth": true,
+				"speed": 2,
+				"jump": 0,
+				"jumpInterval": 0,
+				"jumpOnSight": false,
+				"disappear": false,
+				"chase": false,
+				"physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false, "collision": false }
+			},
+			"velocity": { "x": 0, "y": 0, "z": 0 },
+			"platform": null,
+			"attacks": [],
+			"hardcoded": {},
+			"animations": {},
+			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
+			"customEvents": {},
+			"model": {
+				"spawnSurfaceId": null,
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				"parts": [
+					{
+						"id": "post",
+						"color": { "r": 0.34, "g": 0.24, "b": 0.15, "a": 1 },
+						"parentId": "root",
+						"anchorPoint": "bottom",
+						"attachmentPoint": "top",
+						"shape": "cylinder",
+						"complexity": "medium",
+						"dimensions": { "x": 0.25, "y": 2, "z": 0.25 },
+						"localPosition": { "x": 0, "y": 0, "z": 0 },
+						"localRotation": { "x": 0, "y": 0, "z": 0 },
+						"localScale": { "x": 1, "y": 1, "z": 1 },
+						"pivot": { "x": 0, "y": 0, "z": 0 },
+						"primitiveOptions": {
+							"thickness": 0,
+							"radius": 0,
+							"subdivisionsX": 1,
+							"subdivisionsZ": 1
+						},
+						"texture": {
+							"generated": {
+								"id": "wood-stump",
+								"opacity": 1,
+								"density": 1,
+								"speckSize": 1
+							},
+							"custom": []
+						},
+						"detail": {
+							"scatter": []
+						},
+						"particle": {
+							"id": "smoke",
+							"position": { "x": 0, "y": 1.1, "z": 0 }
+						}
+					}
+				]
+			}
 		}
 	]
 }

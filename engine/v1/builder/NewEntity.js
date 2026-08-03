@@ -188,6 +188,7 @@ function buildPart(source, textureScale, faceTextureStore, geometryCache, geomet
 			role            : "entity-part",
 			collisionShape  : "none",
 			parentId        : source.parentId,
+			particle        : source.particle,
 			textureScale, faceTextureStore, geometryCache,
 			geometryCacheKey: `${geometryCacheKeyPrefix}::${source.id}`,
 		}
