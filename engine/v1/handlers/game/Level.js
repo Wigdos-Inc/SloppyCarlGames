@@ -303,6 +303,11 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 	return sceneGraph;
 }
 
+// Every scene-side particle spawn resolves the same three scene fields; only the viewer gate differs.
+const generateForScene = (request, viewerPosition, sceneGraph) => GenerateParticles(
+	request, viewerPosition, sceneGraph.world.textureScale, sceneGraph.visualResources.textureRegistry, sceneGraph.partGeometryCache
+);
+
 // Drives every group's lifetime and emits the siblings a seeding group asks for.
 // Reverse-index because seeding appends: new entries wait for the next frame.
 function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
@@ -326,13 +331,7 @@ function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
 
 	// Siblings reuse the level-built group's geometry key and texture id, so a plain push is complete.
 	seedRequests.forEach((request) => {
-		const { groups } = GenerateParticles(
-			request,
-			sceneGraph.cameraConfig.state.position,
-			sceneGraph.world.textureScale,
-			sceneGraph.visualResources.textureRegistry,
-			sceneGraph.partGeometryCache
-		);
+		const { groups } = generateForScene(request, sceneGraph.cameraConfig.state.position, sceneGraph);
 		sceneGraph.entities.push(...groups);
 	});
 }
@@ -349,6 +348,7 @@ function Update(deltaMilliseconds) {
 
 	if (IsSimulatorActive()) {
 		UpdateSimulator(deltaMilliseconds, sceneGraph);
+		updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds);
 		runFrameTail(sceneGraph, deltaMilliseconds);
 		return;
 	}
@@ -553,13 +553,7 @@ function SpawnParticles(request, generator) {
 		normalized.position = transform.position.clone().add(RotateByEuler(normalized.offset, transform.rotation));
 	}
 
-	const { groups } = GenerateParticles(
-		normalized,
-		sceneGraph.cameraConfig.state.position,
-		sceneGraph.world.textureScale,
-		sceneGraph.visualResources.textureRegistry,
-		sceneGraph.partGeometryCache
-	);
+	const { groups } = generateForScene(normalized, sceneGraph.cameraConfig.state.position, sceneGraph);
 	if (groups.length === 0) {
 		Log("ENGINE", `Level.SpawnParticles: '${normalized.templateId}' produced no groups (gated by performance or sim distance).`, "warn", "Level");
 		return;
@@ -571,9 +565,19 @@ function SpawnParticles(request, generator) {
 	Log("ENGINE", `Particles spawned: id=${normalized.templateId}, mode=${normalized.mode}, groups=${groups.length}`, "log", "Level");
 }
 
+// Generators for a runtime-spawned object. Requests arrive built; the caller owns their overrides.
+function SpawnParticleRequests(requests, sceneGraph) {
+	requests.forEach((request) => {
+		// The Simulator previews at any range, so no viewer gate.
+		const { groups } = generateForScene(request, null, sceneGraph);
+		sceneGraph.entities.push(...groups);
+		finalizeSpawn(groups, "entity", sceneGraph);
+	});
+}
+
 
 export {
 	CreateLevel, ClearLevel, Update, GetActiveLevel,
 	StartLevelLoop, StopLevelLoop, PauseLevelLoop, ResumeLevelLoop, ToggleLevelLoopPause,
-	SpawnIntoScene, DespawnFromScene, SpawnParticles,
+	SpawnIntoScene, DespawnFromScene, SpawnParticles, SpawnParticleRequests,
 };

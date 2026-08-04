@@ -124,7 +124,8 @@
       "Bash(node --check \"c:/Users/Tayri/Desktop/Coding Projects/SloppyCarlGames/engine/v1/core/validate.js\")",
       "Bash(node --check engine/v1/handlers/game/Simulator.js)",
       "Bash(node --check engine/v1/physics/Master.js)",
-      "Bash(node --check builder/NewLevel.js)"
+      "Bash(node --check builder/NewLevel.js)",
+      "Bash(node --check builder/NewParticles.js)"
     ]
   }
 }

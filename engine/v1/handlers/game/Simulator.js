@@ -1,7 +1,8 @@
 // Simulator handler — manages the two-phase simulator lifecycle:
 // Start() builds the disc environment; Load/Clear mutate the live sceneGraph directly.
 
-import { CreateLevel, ClearLevel, GetActiveLevel, StopLevelLoop, SpawnIntoScene, DespawnFromScene } from "./Level.js";
+import { CreateLevel, ClearLevel, GetActiveLevel, StopLevelLoop, SpawnIntoScene, DespawnFromScene, SpawnParticleRequests } from "./Level.js";
+import { ParticleGeneratorRequests, WithParticleOverride } from "../../builder/NewParticles.js";
 import { UpdateCameraState, SetDefaultCamFraming } from "./Camera.js";
 import { ResolveEntityAnimation } from "./Animation.js";
 import { Cache, Log, SendEvent, ENTITY_TYPES, EngineInitialized } from "../../core/meta.js";
@@ -10,6 +11,7 @@ import { SetElementText, RemoveRoot } from "../Render.js";
 import { ValidateSimulatorPayload, ValidateSimulatorBulkPayload } from "../../core/validate.js";
 import { MergeAabb, CreateDetailedBoundsFromParts } from "../../builder/NewObstacle.js";
 import { UpdateObjectWorldAabb } from "../../builder/NewObject.js";
+import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { UnitVector3 } from "../../math/Utilities.js";
 import simulatorTemplates from "../../builder/templates/levels.json" with { type: "json" };
 import { CloneVector3, SubtractVector3 } from "../../math/Vector3.js";
@@ -211,6 +213,9 @@ function frameLoadedObject(aabb) {
 	return ext;
 }
 
+// Only the loaded object can emit here, so every live group belongs to the object being replaced.
+const clearParticles = (sceneGraph) => DespawnFromScene(sceneGraph.entities.filter((entity) => entity.particle !== null), "entity", sceneGraph);
+
 async function Load(payload) {
 	if (!simulatorRuntime.active) {
 		Log("ENGINE", "Simulator.Load: simulator not active.", "error", "Simulator");
@@ -242,6 +247,7 @@ async function Load(payload) {
 	if (simulatorRuntime.builtObject !== null) {
 		DespawnFromScene(simulatorRuntime.builtObject, simulatorRuntime.objectType, sceneGraph);
 	}
+	clearParticles(sceneGraph);
 	clearTargetState();
 
 	// Reset the part-geometry cache each load
@@ -260,17 +266,28 @@ async function Load(payload) {
 		if (simulatorRuntime.platformMesh === null) simulatorRuntime.platformMesh = spawnPlatform(sceneGraph, templateDisc.dimensions.x);
 		built = SpawnIntoScene(definition, objectType, sceneGraph);
 
+		const platformMesh = simulatorRuntime.platformMesh[0];
+
 		if (objectType === "obstacle") {
-			// Obstacles have no self-grounding step; snap onto the platform here.
-			const platformMesh  = simulatorRuntime.platformMesh[0];
-			const platformTopY  = platformMesh.transform.position.y + (platformMesh.dimensions.y * platformMesh.transform.scale.y * 0.5);
-			const deltaY        = platformTopY - built.worldAabb.min.y;
+			// Obstacles have no self-grounding step; centre on the platform and snap onto it here.
+			const platformTopY = platformMesh.transform.position.y + (platformMesh.dimensions.y * platformMesh.transform.scale.y * 0.5);
+			const deltaY       = platformTopY - built.worldAabb.min.y;
+			const deltaX       = platformMesh.transform.position.x - (built.worldAabb.min.x + built.worldAabb.max.x) * 0.5;
+			const deltaZ       = platformMesh.transform.position.z - (built.worldAabb.min.z + built.worldAabb.max.z) * 0.5;
 			built.parts.forEach((part) => {
+				part.transform.position.x += deltaX;
 				part.transform.position.y += deltaY;
+				part.transform.position.z += deltaZ;
 				UpdateObjectWorldAabb(part);
 			});
 			built.worldAabb      = built.parts.reduce((accumulator, part) => MergeAabb(accumulator, part.worldAabb), null);
 			built.detailedBounds = CreateDetailedBoundsFromParts(built, built.parts, built.worldAabb);
+		}
+		else {
+			// The surface map grounds Y; authored placement and a movement path still carry X/Z off the disc.
+			built.transform.position.x = platformMesh.transform.position.x;
+			built.transform.position.z = platformMesh.transform.position.z;
+			UpdateEntityModelFromTransform(built);
 		}
 
 		aabb  = ENTITY_TYPES.includes(objectType) ? built.collision.aabb : built.worldAabb;
@@ -289,6 +306,15 @@ async function Load(payload) {
 	}
 
 	initSimulatorTarget(ENTITY_TYPES.includes(objectType) ? built : null, objectType, definition);
+
+	// Terrain spawns return an array of meshes; every other type returns one carrier.
+	const carriers = objectType === "terrain" ? built : [built];
+	const requests = carriers.flatMap((carrier) => ParticleGeneratorRequests(carrier, ENTITY_TYPES.includes(objectType) ? "entity" : objectType));
+
+	// No physics pipeline runs here, so anything but "none" would emit and never move.
+	requests.forEach((request) => { request.overrides = WithParticleOverride(request.overrides, "physics", "none"); });
+	SpawnParticleRequests(requests, sceneGraph);
+
 	Log("ENGINE", `Simulator loaded: id=${definition.id}, type=${objectType}`, "log", "Simulator");
 }
 
@@ -305,6 +331,7 @@ function Clear() {
 		return;
 	}
 	if (simulatorRuntime.builtObject !== null) DespawnFromScene(simulatorRuntime.builtObject, simulatorRuntime.objectType, GetActiveLevel());
+	clearParticles(GetActiveLevel());
 	clearTargetState();
 	updateSimulatorHudNoTarget();
 	Log("ENGINE", "simulator target cleared", "log", "Simulator");

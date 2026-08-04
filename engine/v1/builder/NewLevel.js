@@ -9,7 +9,7 @@
 
 import { BuildObject } from "./NewObject.js";
 import { BuildEntity } from "./NewEntity.js";
-import { GenerateParticles } from "./NewParticles.js";
+import { GenerateParticles, ParticleGeneratorRequests } from "./NewParticles.js";
 import { BuildObstacles } from "./NewObstacle.js";
 import { BuildTerrain } from "./NewTerrain.js";
 import { ResolveObjectSource } from "./NewTemplate.js";
@@ -18,7 +18,7 @@ import { BuildVoidWalls } from "./NewVoid.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { Clamp, UnitVector3 } from "../math/Utilities.js";
-import { AbsoluteVector3, RotateByEuler, ToVector3 } from "../math/Vector3.js";
+import { AbsoluteVector3, ToVector3 } from "../math/Vector3.js";
 
 function resolveEntityBlueprintMap(payload) {
 	const map = {};
@@ -366,22 +366,15 @@ async function BuildLevel(payload) {
 	let particleGroups = 0;
 
 	// Materialized before the loop: the loop pushes its groups into the `entities` array it reads from.
-	const generatorSources = [
-		...allTerrain.map((mesh) => ({ particle: mesh.meta.particle, transform: mesh.transform, target: { type: "terrain", id: mesh.id, partId: null } })),
-		...allObstacleRecords.flatMap((record) => record.parts.map((mesh) => ({ particle: mesh.meta.particle, transform: mesh.transform, target: { type: "obstacle", id: record.id, partId: mesh.id } }))),
-		...entities.flatMap((entity) => entity.model.parts.map((part) => ({ particle: part.mesh.meta.particle, transform: part.mesh.transform, target: { type: entity.type, id: entity.id, partId: part.id } }))),
-	].filter((source) => source.particle !== null);
+	const generatorRequests = [
+		...allTerrain.flatMap((mesh) => ParticleGeneratorRequests(mesh, "terrain")),
+		...allObstacleRecords.flatMap((record) => ParticleGeneratorRequests(record, "obstacle")),
+		...entities.flatMap((entity) => ParticleGeneratorRequests(entity, "entity")),
+	];
 
-	generatorSources.forEach((source) => {
+	generatorRequests.forEach((request) => {
 		const { groups } = GenerateParticles(
-			{
-				templateId: source.particle.id,
-				position  : source.transform.position.clone().add(RotateByEuler(source.particle.position, source.transform.rotation)),
-				offset    : source.particle.position,
-				overrides : source.particle.overrides,
-				mode      : "generator",
-				target    : source.target,
-			},
+			request,
 			payload.player === null ? null : payload.player.spawnPosition,
 			payload.world.textureScale,
 			faceTextureStore,

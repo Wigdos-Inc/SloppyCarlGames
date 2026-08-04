@@ -99,19 +99,22 @@ function randomInCone(axis, halfAngle) {
 
 /* === REQUEST RESOLUTION === */
 
+// The six overridable keys — the sole authority both resolution and single-key replacement read.
+const overrideKeys = ["count", "spread", "physics", "color", "velocity", "duration"];
+
 // null (whole object or per key) = use the template. Only these six keys are overridable.
 function resolveRequest(template, overrides) {
-	const pick = overrides === null ? (key) => template[key] : (key) => (overrides[key] !== null ? overrides[key] : template[key]);
-	return {
-		count   : pick("count"),
-		spread  : pick("spread"),
-		physics : pick("physics"),
-		color   : pick("color"),
-		velocity: pick("velocity"),
-		duration: pick("duration"),
-		amount  : template.amount,
-		part    : template.part,
-	};
+	const resolved = { amount: template.amount, part: template.part };
+	overrideKeys.forEach((key) => { resolved[key] = overrides === null || overrides[key] === null ? template[key] : overrides[key]; });
+	return resolved;
+}
+
+// Returns a complete override set with one key replaced, so a caller need not know the other five.
+function WithParticleOverride(overrides, key, value) {
+	const merged = {};
+	overrideKeys.forEach((name) => { merged[name] = overrides === null ? null : overrides[name]; });
+	merged[key] = value;
+	return merged;
 }
 
 // physicsMode is the sole authority for the flag bag.
@@ -393,4 +396,21 @@ function GenerateParticles(request, viewerPosition, textureScale, faceTextureSto
 	return { groups };
 }
 
-export { GenerateParticles };
+// Sole authority on how a built carrier becomes generator requests — target keys must match `follow`.
+function ParticleGeneratorRequests(carrier, kind) {
+	const sources =
+		kind === "terrain"  ? [{ particle: carrier.meta.particle, transform: carrier.transform, target: { type: "terrain", id: carrier.id, partId: null } }] :
+		kind === "obstacle" ? carrier.parts.map((mesh) => ({ particle: mesh.meta.particle, transform: mesh.transform, target: { type: "obstacle", id: carrier.id, partId: mesh.id } })) :
+		                      carrier.model.parts.map((part) => ({ particle: part.mesh.meta.particle, transform: part.mesh.transform, target: { type: carrier.type, id: carrier.id, partId: part.id } }));
+
+	return sources.filter((source) => source.particle !== null).map((source) => ({
+		templateId: source.particle.id,
+		position  : source.transform.position.clone().add(RotateByEuler(source.particle.position, source.transform.rotation)),
+		offset    : source.particle.position,
+		overrides : source.particle.overrides,
+		mode      : "generator",
+		target    : source.target,
+	}));
+}
+
+export { GenerateParticles, ParticleGeneratorRequests, WithParticleOverride };
