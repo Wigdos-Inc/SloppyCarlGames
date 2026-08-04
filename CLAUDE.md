@@ -88,7 +88,8 @@ Small visual changes are also handled by the user.
 Three files track engine history outside of git: `engine/v1/docs/changelog` (completed changes, what/why/where), `engine/v1/docs/status/DEFERRED.md` (work raised or started and consciously postponed — not general backlog ideas, those go in `engine/v1/docs/todo`), and `engine/v1/docs/status/AGENT_LOG.md` (Short, concise summaries of the findings and work done by agents).
 
 SAGE is the only agent that writes to these files. The main agent never edits them directly.
-The only exception is removing resolved entries from DEFERRED.md. Any agent is free to do so.
+
+**Resolved DEFERRED entries get deleted, not annotated.** SAGE sweeps `## Pending` on every `log` call and deletes what the pass resolved. Any agent may also delete a resolved entry at any time — there is no "I don't have access" here. An entry that has been resolved and left standing is a bug in the log, so if you notice one, remove it; do not report it to the user as something you cannot touch. Verify against source before deleting.
 
 **When to check:** at the end of any pass that involved a code change, a custom-agent invocation, or a substantive design discussion — even if no code changed. Decide whether anything meaningful happened that belongs in one or more of the three files. Do not log routine invocations, trivial fixes, or discussions that didn't reach a decision. Do this automatically; don't wait for the user to ask.
 
@@ -109,7 +110,15 @@ Never use bare backtick paths for file references — always link them.
 | `path/to/file.js` | 120 | 105 | −15 |
 | **Total** | | | **−15** |
 
-Report this at the end of any response where files were edited.
+**Engine and game source only** — `.js` and payload/data `.json` under `engine/v1/`. Never count documentation: nothing under `engine/v1/docs/`, and no `.md` file anywhere. Doc line counts carry no information and must not appear in the table or the summary.
+
+**Summarize the engine work, not the paperwork.** The end-of-pass summary is about what changed in the engine — what was built, what broke, what was decided. A docs/logging pass is a footnote at most; if a pass touched only docs, say so in one line and skip the table entirely.
+
+Report this at the end of any response where source files were edited.
+
+**A SAGE call is never the last thing in a pass.** SAGE runs inline, so its output lands in the response as if it were yours. Left last, its docs report becomes the entire summary and buries the engine work. Call SAGE, then write the engine summary and the source line-count table *after* it, and cut SAGE's report down to a line or two on the way past. If a response would otherwise end on documentation, it is wrong — fix it before sending, not next pass.
+
+**Never report on documentation content.** What went into the changelog, which DEFERRED entries were deleted and on what evidence, which stale line anchors were corrected, how many pending entries remain — none of this reaches the user. It is bookkeeping, it lives in the files, and reporting it wastes the user's time. State that logging happened, in one line, and move on.
 
 ## Node.js Bash Checks — Limitations
 
