@@ -3,7 +3,6 @@ This file contains current priorities.
 Add new characters to test multiple types of characters with intuitive physics
 - Jeff (in progress)
 - Latina
-Expand Simulator (+App) to support Terrain and Obstacles.
 Breakable Obstacles
 Particles
 Entity AI:
@@ -50,7 +49,8 @@ Additions to Level API:
   - DisablePhysics(entityId)
   - SetMeta(entityId, ...)
   - SetTransform(entityId)
-  - Damage(entityId, amount)
+  - DamageEntity(entityId, amount)
+  - DamageObstacle(obstacleId)
   - SetState(entityId)
 - Player:
   - Animate

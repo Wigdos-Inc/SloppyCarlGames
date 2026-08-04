@@ -18,7 +18,7 @@ SendEvent("LEVEL_READY", { levelId: "level-1", title: "Green Hills" });
 
 // Game side (inside game code)
 window.addEventListener("LEVEL_READY", (event) => {
-    const { levelId, title } = event.detail.payload;
+    const { levelId, title } = event.detail;
 });
 ```
 

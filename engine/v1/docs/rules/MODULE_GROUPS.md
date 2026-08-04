@@ -86,7 +86,7 @@ Anything of critical importance to the functionality of the engine.
 All logic for building anything visuals-related.
 
 - **Called by**: Handlers.
-- **Contains**: Mesh construction (`NewObject.js`), entity building (`NewEntity.js`), obstacle building (`NewObstacle.js`), scatter/detail generation (`NewScatter.js`), texture/material management (`NewTexture.js`), level assembly (`NewLevel.js`), UI building (`NewUI.js`).
+- **Contains**: Mesh construction (`NewObject.js`), entity building (`NewEntity.js`), obstacle building (`NewObstacle.js`), scatter/detail generation (`NewScatter.js`), particle group generation (`NewParticles.js`), texture/material management (`NewTexture.js`), level assembly (`NewLevel.js`), UI building (`NewUI.js`).
 - **The rendering pipeline depends on these** — builders produce the mesh and scene data that the renderer consumes.
 - **Does not**: Manage state or drive update loops. Builders are called, produce output, and return.
 

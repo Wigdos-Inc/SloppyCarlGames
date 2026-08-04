@@ -18,6 +18,7 @@ engine/
       NewLevel.js // Builder for creating levels from incoming data (uses most other builders)
       NewObject.js // Builder of 3D meshes (mainly to be used by other builders)
       NewObstacle.js // Builder of obstacles
+      NewParticles.js // Resolves particle templates + per-call overrides into randomized particle-group entities (GenerateParticles)
       NewTemplate.js // Resolves shape:"template" references and repeat expansion for terrain/obstacle/entity builders
       NewTerrain.js // Terrain builder; BuildTerrains supports both single-part and (new) flattened multi-part composition
       NewScatter.js // Procedurally generated multi-part static object scatter models placed on top of meshes.
@@ -30,6 +31,7 @@ engine/
         enemies.json // Enemy templates (shape:"template" refs of type "enemy")
         levels.json // Level and simulator template definitions
         obstacles.json // Obstacle templates (shape:"template" refs, terrain/obstacle role "obstacle")
+        particles.json // Particle types (color/velocity/spread/duration/physics + a single part prototype); resolved by NewParticles.js
         projectiles.json // Projectile templates (shape:"template" refs of type "projectile")
         terrain.json // Terrain templates (shape:"template" refs, terrain/obstacle role "terrain")
         textures.json // Texture preset definitions
