@@ -46,7 +46,6 @@ function cloneTexture(texture) {
 // Repeat copies must not share the ref override's generator instance.
 function cloneParticle(particle) {
 	if (particle === null) return null;
-	const overrides = particle.overrides;
 	return {
 		...particle,
 		position : particle.position.clone(),

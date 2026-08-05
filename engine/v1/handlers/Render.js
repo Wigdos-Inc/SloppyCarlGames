@@ -1137,7 +1137,8 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	root.innerHTML = "";
 	root.appendChild(canvas);
 
-	const gl = canvas.getContext("webgl2", { stencil: true });
+	// alpha: false — stops the white page bleeding through via framebuffer alpha.
+	const gl = canvas.getContext("webgl2", { stencil: true, alpha: false });
 	if (!gl) {
 		Log("ENGINE", "WebGL2 is not supported by this browser.", "error", "Render");
 		return null;
@@ -1200,12 +1201,22 @@ function syncCanvasSize(renderer) {
 	}
 }
 
+// displayColor.a is authoritative when present — particle texture opacity is always 1.
+const isTranslucentMesh = (mesh) => mesh.displayColor !== null ? mesh.displayColor.a < 1 : mesh.material.transparent;
+
+// The key is omitted rather than set false, so absence means UV.
+const meshUsesTriplanar = (mesh) => mesh.geometry.triplanar === true;
+
 function collectRenderableMeshes(sceneGraph) {
 	const obstacles = [];
 	const entitiesUv = [];
 	const entitiesTriplanar = [];
+	const entitiesTranslucent = [];
 
-	const collectEntityPart = (mesh) => (mesh.geometry.triplanar ? entitiesTriplanar : entitiesUv).push(mesh);
+	const collectEntityPart = (mesh) => {
+		if (isTranslucentMesh(mesh)) { entitiesTranslucent.push(mesh); return; }
+		(meshUsesTriplanar(mesh) ? entitiesTriplanar : entitiesUv).push(mesh);
+	};
 
 	sceneGraph.obstacles.forEach((record) => {
 		if (record.mode !== "default") return;
@@ -1221,10 +1232,17 @@ function collectRenderableMeshes(sceneGraph) {
 
 	// Scatter and triggers are excluded — scatter via instanced path, triggers via post-scatter pass.
 	const terrain = sceneGraph.terrain.filter((mesh) => mesh.meta.mode === "default");
-	return { terrain, obstacles, entitiesUv, entitiesTriplanar };
+	return { terrain, obstacles, entitiesUv, entitiesTriplanar, entitiesTranslucent };
 }
 
-const resolveWaterVisualMeshes = (sceneGraph) => !sceneGraph.waterVisual ? [] : [sceneGraph.waterVisual.body, sceneGraph.waterVisual.top];
+// Decorated in a side table so the O(n log n) comparator never allocates.
+function sortBackToFront(meshes, cameraPosition) {
+	const distancesSq = new Map();
+	for (const mesh of meshes) {
+		distancesSq.set(mesh, Vector3Sq(SubtractVector3(mesh.displayTransform.position, cameraPosition)));
+	}
+	meshes.sort((a, b) => distancesSq.get(b) - distancesSq.get(a));
+}
 
 function configureTexturedMeshPass(gl, shader, passState) {
 	gl.useProgram(shader.program);
@@ -1253,7 +1271,6 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 
 	const gl = renderer.gl;
 	const disableDepthWriteForPass = options.depthMask === false;
-	const skipDepthWrite = options.skipDepthWrite || (() => false);
 
 	const stencilBit = options.stencilExcludeBit || options.stencilIncludeBit;
 	if (stencilBit) {
@@ -1273,7 +1290,6 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		if (!meshBuffer) continue;
 
 		const dc = mesh.displayColor;
-		const disableDepthWriteForMesh = disableDepthWriteForPass === false && skipDepthWrite(mesh) === true;
 
 		gl.bindVertexArray(meshBuffer.vao);
 		gl.uniform1i(shader.uniforms.texture, 0);
@@ -1286,14 +1302,12 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		if (options.triplanar) gl.uniform1f(shader.uniforms.texScale, mesh.material.textureScale);
 
 		if (mesh.geometry.faceTextureGroups) {
-			if (disableDepthWriteForMesh) gl.depthMask(false);
 			for (const group of mesh.geometry.faceTextureGroups) {
 				const faceTex = ensureSceneTexture(renderer, sceneGraph, group.textureID);
 				gl.activeTexture(gl.TEXTURE0);
 				gl.bindTexture(gl.TEXTURE_2D, faceTex);
 				gl.drawElements(gl.TRIANGLES, group.indexCount, gl.UNSIGNED_SHORT, group.indexStart * 2);
 			}
-			if (disableDepthWriteForMesh) gl.depthMask(true);
 			gl.bindVertexArray(null);
 			continue;
 		}
@@ -1301,9 +1315,7 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		const texture = ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
-		if (disableDepthWriteForMesh) gl.depthMask(false);
 		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
-		if (disableDepthWriteForMesh) gl.depthMask(true);
 		gl.bindVertexArray(null);
 	}
 
@@ -1311,14 +1323,37 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 	if (stencilBit) gl.disable(gl.STENCIL_TEST);
 }
 
-function drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue) {
-	drawMeshList(
-		renderer,
-		sceneGraph,
-		resolveWaterVisualMeshes(sceneGraph),
-		{ projection, view, fogDensity, farValue, colorShift, underwaterValue },
-		{ depthMask: false }
-	);
+function drawWaterPass(renderer, sceneGraph, passState) {
+	const meshes = sceneGraph.waterVisual === null ? [] : [sceneGraph.waterVisual.body, sceneGraph.waterVisual.top];
+	drawMeshList(renderer, sceneGraph, meshes, passState, { depthMask: false });
+}
+
+// Issued as runs of consecutive same-shader meshes so global sort order survives.
+function drawSortedRuns(renderer, sceneGraph, meshes, passState) {
+	let start = 0;
+	while (start < meshes.length) {
+		const triplanar = meshUsesTriplanar(meshes[start]);
+		let end = start + 1;
+		while (end < meshes.length && meshUsesTriplanar(meshes[end]) === triplanar) end++;
+		const run = start === 0 && end === meshes.length ? meshes : meshes.slice(start, end);
+		drawMeshList(renderer, sceneGraph, run, passState, { depthMask: false, triplanar });
+		start = end;
+	}
+}
+
+// Water is a fixed anchor: far side of the camera draws first, near side last.
+function drawTranslucentPass(renderer, sceneGraph, meshes, passState, cameraPosition, waterLevelCnu, underwater) {
+	sortBackToFront(meshes, cameraPosition);
+
+	if (waterLevelCnu === null) { drawSortedRuns(renderer, sceneGraph, meshes, passState); return; }
+
+	const above = [];
+	const below = [];
+	for (const mesh of meshes) (mesh.displayTransform.position.y > waterLevelCnu ? above : below).push(mesh);
+
+	drawSortedRuns(renderer, sceneGraph, underwater ? above : below, passState);
+	drawWaterPass(renderer, sceneGraph, passState);
+	drawSortedRuns(renderer, sceneGraph, underwater ? below : above, passState);
 }
 
 // Tessellation density of the shared decal grid. A higher value conforms more smoothly
@@ -1594,8 +1629,8 @@ function drawScene(renderer, sceneGraph) {
 	);
 	const view = createLookAtMatrix(cameraState.position, cameraState.target, cameraState.up);
 
-	const waterLevelWorldUnits = sceneGraph.world.waterLevel ? sceneGraph.world.waterLevel.toWorldUnit() : null;
-	const underwater = waterLevelWorldUnits !== null && cameraState.position.y < waterLevelWorldUnits;
+	const waterLevelCnu = sceneGraph.world.waterLevel === null ? null : sceneGraph.world.waterLevel.value;
+	const underwater = waterLevelCnu !== null && cameraState.position.y < waterLevelCnu;
 	const fogDensity = underwater ? 0.85 : 0.2;
 	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
 	const farValue = cameraState.far.value;
@@ -1611,7 +1646,7 @@ function drawScene(renderer, sceneGraph) {
 	}
 
 	// === Stencil write (before Pass A) ===
-	const { terrain, obstacles, entitiesUv, entitiesTriplanar } = collectRenderableMeshes(sceneGraph);
+	const { terrain, obstacles, entitiesUv, entitiesTriplanar, entitiesTranslucent } = collectRenderableMeshes(sceneGraph);
 	if (hasVoidRenderables(sceneGraph.voids.terrain) || hasVoidRenderables(sceneGraph.voids.obstacles)) {
 		drawDepthPrePass(renderer, terrain, obstacles, passState);
 		drawVoidStencil(renderer, sceneGraph, passState);
@@ -1650,8 +1685,8 @@ function drawScene(renderer, sceneGraph) {
 	// === PASS C: Trigger overlay (no depth write — color filter over all solid geometry) ===
 	if (sceneGraph.debug.showTriggerVolumes) drawMeshList(renderer, sceneGraph, sceneGraph.triggers, passState, { depthMask: false });
 
-	// === PASS D: Water overlay (translucent; top brighter than body) ===
-	drawWaterPass(renderer, sceneGraph, projection, view, fogDensity, farValue, colorShift, underwaterValue);
+	// === PASS D: Translucent meshes, water-anchored (sorted back-to-front, no depth write) ===
+	drawTranslucentPass(renderer, sceneGraph, entitiesTranslucent, passState, cameraState.position, waterLevelCnu, underwater);
 
 	drawBoundingBoxes(renderer, sceneGraph, projection, view);
 	drawGridOverlay(renderer, sceneGraph, projection, view);

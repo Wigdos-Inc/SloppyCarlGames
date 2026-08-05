@@ -10,7 +10,7 @@ import particleTemplates from "./templates/particles.json" with { type: "json" }
 import { BuildEntity, UpdateEntityModelFromTransform } from "./NewEntity.js";
 import { CloneTemplatePart } from "./NewTemplate.js";
 import { AddVector3, CrossVector3, MultiplyVector3, RotateByEuler, ScaleVector3, ToVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
-import { Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
+import { Clamp01, Lerp, Unit, UnitVector3 } from "../math/Utilities.js";
 import { IsBeyondSimDistance } from "../physics/Collision.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
@@ -70,12 +70,14 @@ function performanceParticleMultiplier() {
 const randomRange = (min, max) => min + Math.random() * (max - min);
 const randomInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 
-// Writes in place — recycle runs every interval and must not allocate.
-function randomizeColor(target, color) {
-	target.r = randomRange(color.min.r, color.max.r);
-	target.g = randomRange(color.min.g, color.max.g);
-	target.b = randomRange(color.min.b, color.max.b);
-	target.a = randomRange(color.min.a, color.max.a);
+// One offset shared by r/g/b — a per-channel roll would drift the hue, so grey could never stay grey.
+const randomVariance = (variance) => randomRange(-variance, variance);
+
+// RGB only; duration.mode owns alpha. Writes in place — recycle runs every interval and must not allocate.
+function writeParticleRgb(target, start, end, factor, offset) {
+	target.r = Clamp01(Lerp(start.r, end.r, factor) + offset);
+	target.g = Clamp01(Lerp(start.g, end.g, factor) + offset);
+	target.b = Clamp01(Lerp(start.b, end.b, factor) + offset);
 	return target;
 }
 
@@ -231,7 +233,11 @@ class particleGroup {
 		this.request     = { ...request, position: request.position.clone(), mode: "sibling" };
 		this.duration    = resolved.duration;
 		this.physicsMode = resolved.physics;
-		this.colorRange  = resolved.color;
+		this.startColor  = resolved.color.start;
+		// null end = constant colour, resolved here so the per-frame write never branches.
+		this.endColor    = resolved.color.end === null ? resolved.color.start : resolved.color.end;
+		this.variance    = resolved.color.variance;
+		this.offsets     = entity.model.parts.map(() => randomVariance(this.variance));
 		this.halfAngle   = halfAngle;
 		// A key, not a scene reference — a despawned target must not stay pinned.
 		this.target      = request.target;
@@ -247,7 +253,11 @@ class particleGroup {
 		this.total       = 0;
 		this.decayStart  = null;
 		this.finished    = false;
-		this.baseAlpha   = entity.model.parts.map((part) => part.mesh.displayColor.a);
+
+		// Tint rides on displayColor: baking it into texture.generated would key a canvas per particle.
+		entity.model.parts.forEach((part, index) => {
+			part.mesh.displayColor = writeParticleRgb({ a: this.startColor.a }, this.startColor, this.endColor, 0, this.offsets[index]);
+		});
 	}
 
 	// Re-seats the origin on the live target each frame; `targets` is rebuilt by the driver.
@@ -280,14 +290,14 @@ class particleGroup {
 		if (this.decayStart === null) this.decayStart = this.total;
 		const decay = 1 - Clamp01((this.total - this.decayStart) / (this.duration.endTimeMs - this.decayStart));
 
-		// Always resolved from a stored base — multiplying compounds and never recovers on recycle.
-		if (this.duration.mode === "fade") {
-			this.entity.model.parts.forEach((part, index) => { part.mesh.displayColor.a = this.baseAlpha[index] * decay; });
-			return;
-		}
+		// Always resolved from the stored start — multiplying compounds and never recovers on recycle.
+		const fadeAlpha = this.duration.mode === "fade" ? this.startColor.a * decay : this.startColor.a;
+		this.entity.model.parts.forEach((part, index) => {
+			writeParticleRgb(part.mesh.displayColor, this.startColor, this.endColor, 1 - decay, this.offsets[index]).a = fadeAlpha;
+		});
 
 		// Group scale shrinks each particle in place; local offsets are unscaled, so spread holds.
-		this.entity.transform.scale = ToVector3(Math.max(shrinkFloor, decay));
+		if (this.duration.mode === "shrink") this.entity.transform.scale = ToVector3(Math.max(shrinkFloor, decay));
 	}
 
 	recycle() {
@@ -301,8 +311,10 @@ class particleGroup {
 		// A fresh life is entitled to its own first collision event.
 		this.entity.physicsRuntime.lastPhysicsCollisionKey = "";
 
+		// Re-roll the jitter and restore the spawn alpha a fade has decayed.
 		this.entity.model.parts.forEach((part, index) => {
-			this.baseAlpha[index] = randomizeColor(part.mesh.displayColor, this.colorRange).a;
+			this.offsets[index] = randomVariance(this.variance);
+			writeParticleRgb(part.mesh.displayColor, this.startColor, this.endColor, 0, this.offsets[index]).a = this.startColor.a;
 		});
 	}
 
@@ -377,9 +389,6 @@ function GenerateParticles(request, viewerPosition, textureScale, faceTextureSto
 			particleSurfaceMap,
 			textureScale, faceTextureStore, geometryCache
 		);
-
-		// Tint rides on displayColor: baking it into texture.generated would key a canvas per particle.
-		entity.model.parts.forEach((part) => { part.mesh.displayColor = randomizeColor({}, resolved.color); });
 
 		// BuildEntity seats the model's AABB floor on the spawn plane; a burst is centered on it.
 		entity.transform.position.y += request.position.y - (entity.collision.aabb.min.y + entity.collision.aabb.max.y) * 0.5;

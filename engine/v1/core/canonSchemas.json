@@ -1345,20 +1345,20 @@
         "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
         "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
         "color": {
-          "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-          "min": {
-            "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
-            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-            "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
-          },
-          "max": {
-            "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+          "__meta": { "description": "Per-particle color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "start": {
+            "__meta": { "description": "Spawn color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
             "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
             "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
             "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
             "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+          },
+          "variance": { "__meta": { "description": "Shared +/- jitter applied to r, g and b", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "end": {
+            "__meta": { "description": "Color at end of decay (null = constant)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
           }
         },
         "velocity": {
@@ -1572,20 +1572,20 @@
         "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
         "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
         "color": {
-          "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-          "min": {
-            "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
-            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-            "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
-          },
-          "max": {
-            "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+          "__meta": { "description": "Per-particle color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "start": {
+            "__meta": { "description": "Spawn color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
             "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
             "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
             "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
             "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+          },
+          "variance": { "__meta": { "description": "Shared +/- jitter applied to r, g and b", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "end": {
+            "__meta": { "description": "Color at end of decay (null = constant)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
           }
         },
         "velocity": {
@@ -1879,20 +1879,20 @@
         "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
         "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
         "color": {
-          "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-          "min": {
-            "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
-            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-            "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
-          },
-          "max": {
-            "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+          "__meta": { "description": "Per-particle color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "start": {
+            "__meta": { "description": "Spawn color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
             "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
             "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
             "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
             "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+          },
+          "variance": { "__meta": { "description": "Shared +/- jitter applied to r, g and b", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "end": {
+            "__meta": { "description": "Color at end of decay (null = constant)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+            "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+            "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
           }
         },
         "velocity": {
@@ -1946,20 +1946,20 @@
             "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
             "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
             "color": {
-              "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-              "min": {
-                "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
-                "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-                "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-                "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-                "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
-              },
-              "max": {
-                "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+              "__meta": { "description": "Per-particle color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+              "start": {
+                "__meta": { "description": "Spawn color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
                 "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
                 "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
                 "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
                 "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+              },
+              "variance": { "__meta": { "description": "Shared +/- jitter applied to r, g and b", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+              "end": {
+                "__meta": { "description": "Color at end of decay (null = constant)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+                "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
               }
             },
             "velocity": {
@@ -2053,20 +2053,20 @@
               "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
               "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
               "color": {
-                "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-                "min": {
-                  "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
-                  "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-                  "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-                  "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-                  "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
-                },
-                "max": {
-                  "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+                "__meta": { "description": "Per-particle color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+                "start": {
+                  "__meta": { "description": "Spawn color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
                   "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
                   "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
                   "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
                   "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+                },
+                "variance": { "__meta": { "description": "Shared +/- jitter applied to r, g and b", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                "end": {
+                  "__meta": { "description": "Color at end of decay (null = constant)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+                  "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                  "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+                  "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
                 }
               },
               "velocity": {
@@ -2108,20 +2108,20 @@
       "spread":  { "__meta": { "description": "Burst cone width override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["narrow", "medium", "wide", "max"], "deprecated": false } },
       "physics": { "__meta": { "description": "Physics mode override",     "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "simple", "full"], "deprecated": false } },
       "color": {
-        "__meta": { "description": "Per-particle color range override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-        "min": {
-          "__meta": { "description": "Color range minimum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 0, "g": 0, "b": 0, "a": 1 }, "deprecated": false },
-          "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-          "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-          "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-          "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
-        },
-        "max": {
-          "__meta": { "description": "Color range maximum", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+        "__meta": { "description": "Per-particle color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+        "start": {
+          "__meta": { "description": "Spawn color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": true, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
           "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
           "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
           "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
           "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+        },
+        "variance": { "__meta": { "description": "Shared +/- jitter applied to r, g and b", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+        "end": {
+          "__meta": { "description": "Color at end of decay (null = constant)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+          "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
         }
       },
       "velocity": {

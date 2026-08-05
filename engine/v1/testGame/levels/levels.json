@@ -115,39 +115,6 @@
                                 }
                             },
                             {
-                                "id": "platform-b",
-                                "color": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
-                                "shape": "cube",
-                                "complexity": "medium",
-                                "dimensions": { "x": 10, "y": 2, "z": 5 },
-                                "position": { "x": 90, "y": 5, "z": 52 },
-                                "rotation": { "x": 0, "y": 0, "z": 0 },
-                                "scale": { "x": 1, "y": 1, "z": 1 },
-                                "pivot": { "x": 0, "y": 0, "z": 0 },
-                                "primitiveOptions": {
-                                    "thickness": 0,
-                                    "radius": 0,
-                                    "subdivisionsX": 1,
-                                    "subdivisionsZ": 1
-                                },
-                                "texture": {
-                                    "generated": {
-                                        "id": "stone-block",
-                                        "shape": "circle",
-                                        "opacity": 1,
-                                        "animated": true,
-                                        "holdTimeSpeed": 1.25,
-                                        "blendTimeSpeed": 1.25
-                                    },
-                                    "custom": []
-                                },
-                                "detail": {
-                                    "scatter": [
-                                        { "typeID": "pebbles", "density": 0.8 }
-                                    ]
-                                }
-                            },
-                            {
                                 "id": "beacon",
                                 "color": { "r": 0.51, "g": 0.55, "b": 0.66, "a": 1 },
                                 "shape": "pyramid",
@@ -276,6 +243,465 @@
                                 "scatter": []
                             },
                             "destructible": true
+                        },
+                        {
+                            "id": "platform-b",
+                            "color": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                            "shape": "cube",
+                            "complexity": "medium",
+                            "dimensions": { "x": 10, "y": 2, "z": 5 },
+                            "position": { "x": 90, "y": 5, "z": 52 },
+                            "rotation": { "x": 0, "y": 0, "z": 0 },
+                            "scale": { "x": 1, "y": 1, "z": 1 },
+                            "pivot": { "x": 0, "y": 0, "z": 0 },
+                            "primitiveOptions": {
+                                "thickness": 0,
+                                "radius": 0,
+                                "subdivisionsX": 1,
+                                "subdivisionsZ": 1
+                            },
+                            "texture": {
+                                "generated": {
+                                    "id": "stone-block",
+                                    "shape": "circle",
+                                    "opacity": 1,
+                                    "animated": true,
+                                    "holdTimeSpeed": 1.25,
+                                    "blendTimeSpeed": 1.25
+                                },
+                                "custom": []
+                            },
+                            "detail": {
+                                "scatter": []
+                            },
+                            "parts": [
+                                {
+                                    "id": "rock-1",
+                                    "label": "rock-1",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.4, "y": 3.4, "z": 3.4 },
+                                    "localPosition": { "x": -3.75, "y": 0.15, "z": -1.2 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true,
+                                    "particle": {
+                                        "id": "falling_pebbles",
+                                        "position": { "x": 0, "y": -1.75, "z": 0 },
+                                        "overrides": {
+                                            "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 4200 }
+                                        }
+                                    }
+                                },
+                                {
+                                    "id": "rock-2",
+                                    "label": "rock-2",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.1, "y": 3.1, "z": 3.1 },
+                                    "localPosition": { "x": -2.3, "y": -0.05, "z": -1.05 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true
+                                },
+                                {
+                                    "id": "rock-3",
+                                    "label": "rock-3",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.7, "y": 3.7, "z": 3.7 },
+                                    "localPosition": { "x": -0.85, "y": 0.2, "z": -1.25 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true,
+                                    "particle": {
+                                        "id": "falling_pebbles",
+                                        "position": { "x": 0, "y": -1.90, "z": 0 },
+                                        "overrides": {
+                                            "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 5100 }
+                                        }
+                                    }
+                                },
+                                {
+                                    "id": "rock-4",
+                                    "label": "rock-4",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.2, "y": 3.2, "z": 3.2 },
+                                    "localPosition": { "x": 0.6, "y": 0, "z": -1.1 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true
+                                },
+                                {
+                                    "id": "rock-5",
+                                    "label": "rock-5",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.6, "y": 3.6, "z": 3.6 },
+                                    "localPosition": { "x": 2.05, "y": 0.15, "z": -1.2 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true,
+                                    "particle": {
+                                        "id": "falling_pebbles",
+                                        "position": { "x": 0, "y": -1.85, "z": 0 },
+                                        "overrides": {
+                                            "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 6300 }
+                                        }
+                                    }
+                                },
+                                {
+                                    "id": "rock-6",
+                                    "label": "rock-6",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.3, "y": 3.3, "z": 3.3 },
+                                    "localPosition": { "x": 3.5, "y": -0.1, "z": -1.05 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true
+                                },
+                                {
+                                    "id": "rock-7",
+                                    "label": "rock-7",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.6, "y": 3.6, "z": 3.6 },
+                                    "localPosition": { "x": -3.5, "y": 0.1, "z": 1.15 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true
+                                },
+                                {
+                                    "id": "rock-8",
+                                    "label": "rock-8",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.3, "y": 3.3, "z": 3.3 },
+                                    "localPosition": { "x": -2.05, "y": 0.25, "z": 1.25 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true,
+                                    "particle": {
+                                        "id": "falling_pebbles",
+                                        "position": { "x": 0, "y": -1.70, "z": 0 },
+                                        "overrides": {
+                                            "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 7200 }
+                                        }
+                                    }
+                                },
+                                {
+                                    "id": "rock-9",
+                                    "label": "rock-9",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.5, "y": 3.5, "z": 3.5 },
+                                    "localPosition": { "x": -0.6, "y": 0, "z": 1.05 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true
+                                },
+                                {
+                                    "id": "rock-10",
+                                    "label": "rock-10",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.8, "y": 3.8, "z": 3.8 },
+                                    "localPosition": { "x": 0.85, "y": 0.2, "z": 1.2 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true,
+                                    "particle": {
+                                        "id": "falling_pebbles",
+                                        "position": { "x": 0, "y": -1.95, "z": 0 },
+                                        "overrides": {
+                                            "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 8100 }
+                                        }
+                                    }
+                                },
+                                {
+                                    "id": "rock-11",
+                                    "label": "rock-11",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.2, "y": 3.2, "z": 3.2 },
+                                    "localPosition": { "x": 2.3, "y": -0.05, "z": 1.1 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true
+                                },
+                                {
+                                    "id": "rock-12",
+                                    "label": "rock-12",
+                                    "parentId": "root",
+                                    "anchorPoint": "center",
+                                    "attachmentPoint": "center",
+                                    "shape": "sphere",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 3.4, "y": 3.4, "z": 3.4 },
+                                    "localPosition": { "x": 3.75, "y": 0.15, "z": 1.25 },
+                                    "localRotation": { "x": 0, "y": 0, "z": 0 },
+                                    "localScale": { "x": 1, "y": 1, "z": 1 },
+                                    "pivot": { "x": 0, "y": 0, "z": 0 },
+                                    "primitiveOptions": {},
+                                    "texture": {
+                                        "generated": {
+                                            "id": "stone-block",
+                                            "shape": null,
+                                            "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
+                                            "secondary": null,
+                                            "opacity": 1,
+                                            "density": 1,
+                                            "speckSize": 1,
+                                            "animated": false,
+                                            "holdTimeSpeed": 1,
+                                            "blendTimeSpeed": 1
+                                        },
+                                        "custom": []
+                                    },
+                                    "detail": { "scatter": [] },
+                                    "addsToBounds": true,
+                                    "particle": {
+                                        "id": "falling_pebbles",
+                                        "position": { "x": 0, "y": -1.75, "z": 0 },
+                                        "overrides": {
+                                            "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 9000 }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     ],
                     "entities": [
