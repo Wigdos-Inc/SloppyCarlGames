@@ -187,6 +187,7 @@ function buildSceneBoundingBoxes(sceneGraph) {
 	const classifyEntityType = (entity) => {
 		if (entity.type.includes("player")) return { whole: "Player", part: "PlayerPart" };
 		if (entity.type.includes("boss")) return { whole: "Boss", part: "BossPart" };
+		if (entity.type.includes("particle")) return { whole: "Particle", part: "ParticlePart" };
 		return { whole: "Entity", part: "EntityPart" };
 	};
 
@@ -229,6 +230,7 @@ function buildSceneDetailedBounds(sceneGraph) {
 		const type = entity.type;
 		if (type.includes("player")) return "Player";
 		if (type.includes("boss")) return "Boss";
+		if (type.includes("particle")) return "Particle";
 		return "Entity";
 	};
 

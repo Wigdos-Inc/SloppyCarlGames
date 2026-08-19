@@ -18,16 +18,18 @@ const CONFIG = {
       Triggers: true,                        // Render Trigger Meshes
       FreeCam : false,                        // Free Camera Mode
       BoundingBox: {                         // Render Bounding Boxes
-        Terrain   : true,
-        Scatter   : false,
-        Entity    : false,
-        EntityPart: false,
-        Obstacle  : false,
-        Player    : true,
-        PlayerPart: false,
-        Boss      : false,
-        BossPart  : false,
-        Grid      : {                        // Render Debug Grid
+        Terrain     : true,
+        Scatter     : false,
+        Entity      : false,
+        EntityPart  : false,
+        Obstacle    : false,
+        Player      : true,
+        PlayerPart  : false,
+        Boss        : false,
+        BossPart    : false,
+        Particle    : false,
+        ParticlePart: false,
+        Grid        : {                      // Render Debug Grid
           Visible: true,
           Scale  : new Unit(1, "cnu"),
         }
@@ -38,6 +40,7 @@ const CONFIG = {
         Entity  : false,
         Player  : true,
         Boss    : true,
+        Particle: false,
       },
       Trails: {                              // Render Movement Trails
         Player     : true,
@@ -45,6 +48,7 @@ const CONFIG = {
         Enemies    : false,
         Collectible: false,
         Projectile : false,
+        Particle   : false,
       },
     },
     LOGGING: {                               // Logging Flags
@@ -93,7 +97,7 @@ const CONFIG = {
     Particles     : "High",
     Animations    : {
       Active : true,
-      Quality: "high"
+      Quality: "High"
     },
     FrameRate     : 60
   },

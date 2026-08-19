@@ -55,6 +55,8 @@ const boundingBoxTypeColors = {
 	PlayerPart: { r: 0.75, g: 0.85, b: 1, a: 1 },
 	Boss: { r: 0.95, g: 0.2, b: 0.9, a: 1 },
 	BossPart: { r: 1, g: 0.45, b: 0.95, a: 1 },
+	Particle: { r: 0.6, g: 0.4, b: 1, a: 1 },
+	ParticlePart: { r: 0.75, g: 0.6, b: 1, a: 1 },
 };
 
 const detailedBoundsTypeColors = {
@@ -63,6 +65,7 @@ const detailedBoundsTypeColors = {
 	Entity: { r: 0.15, g: 0.95, b: 0.95, a: 1 },
 	Player: { r: 0.85, g: 0.95, b: 1, a: 1 },
 	Boss: { r: 1, g: 0.35, b: 0.85, a: 1 },
+	Particle: { r: 0.6, g: 0.4, b: 1, a: 1 },
 };
 
 function createPerspectiveMatrix(fovDegrees, aspect, near, far) {
@@ -907,6 +910,7 @@ const trailTypeColors = {
 	Enemies: { r: 1, g: 0.6, b: 0.2, a: 1 },
 	Collectible: { r: 0.2, g: 1, b: 0.4, a: 1 },
 	Projectile: { r: 1, g: 1, b: 0.2, a: 1 },
+	Particle: { r: 0.7, g: 0.4, b: 1, a: 1 },
 };
 
 const isTrailDebugEnabled = (type) => !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.Trails[type]);
@@ -916,6 +920,7 @@ function classifyEntityTrailType(entity) {
 	if (entity.type.includes("boss"))        return "Boss";
 	if (entity.type.includes("collectible")) return "Collectible";
 	if (entity.type.includes("projectile"))  return "Projectile";
+	if (entity.type.includes("particle"))    return "Particle";
 	return "Enemies";
 }
 

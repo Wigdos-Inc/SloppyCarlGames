@@ -72,20 +72,14 @@ function buildIncomingPayloadSummary(payload) {
 	].join("\n");
 }
 
+// Refreshes bounding boxes and detailed bounds, so both flag groups gate it.
 function shouldRefreshBoundingBoxes() {
 	if (CONFIG.DEBUG.ALL !== true) return false;
-	return (
-		CONFIG.DEBUG.LEVELS.BoundingBox.Terrain === true ||
-		CONFIG.DEBUG.LEVELS.BoundingBox.Scatter === true ||
-		CONFIG.DEBUG.LEVELS.BoundingBox.Entity === true ||
-		CONFIG.DEBUG.LEVELS.BoundingBox.EntityPart === true ||
-		CONFIG.DEBUG.LEVELS.BoundingBox.Obstacle === true ||
-		CONFIG.DEBUG.LEVELS.BoundingBox.Player === true ||
-		CONFIG.DEBUG.LEVELS.BoundingBox.PlayerPart === true ||
-		CONFIG.DEBUG.LEVELS.BoundingBox.Boss === true ||
-		CONFIG.DEBUG.LEVELS.BoundingBox.BossPart === true ||
-		CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible === true
-	);
+	if (CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible === true) return true;
+	if (Object.values(CONFIG.DEBUG.LEVELS.DetailedBounds).some(Boolean)) return true;
+
+	// Grid is a nested config object, not a flag.
+	return Object.entries(CONFIG.DEBUG.LEVELS.BoundingBox).some(([type, enabled]) => type !== "Grid" && enabled === true);
 }
 
 function updateEntityMovement(entity, deltaSeconds) {
@@ -109,19 +103,11 @@ function updateEntityMovement(entity, deltaSeconds) {
 	entity.transform.position.set(LerpVector3(entity.movement.start, entity.movement.end, Clamp01(moveProg)));
 }
 
+// Re-poses only entities whose transform moved this frame; the rest short-circuit inside the builder.
 function syncEntityMeshes(sceneGraph) {
 	sceneGraph.entities.forEach(entity => {
 		if (entity.type === "player") return;
-
-		if (entity.model) {
-			UpdateEntityModelFromTransform(entity);
-			entity.mesh = entity.model.parts[0].mesh;
-			return;
-		}
-
-		entity.mesh.transform.position = entity.transform.position.clone();
-		entity.mesh.transform.rotation = entity.transform.rotation.clone();
-		entity.mesh.transform.scale = CloneVector3(entity.transform.scale);
+		UpdateEntityModelFromTransform(entity);
 	});
 }
 

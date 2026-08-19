@@ -134,6 +134,14 @@ function cloneLocalTransform(transform) {
 	return { position, rotation, scale };
 }
 
+const vector3Matches = (a, b) => a.x === b.x && a.y === b.y && a.z === b.z;
+
+// model.posedTransform records what the mesh hierarchy currently reflects; equal means the re-pose is a no-op.
+const poseMatchesTransform = (model, transform) =>
+	vector3Matches(model.posedTransform.position, transform.position) &&
+	vector3Matches(model.posedTransform.rotation, transform.rotation) &&
+	vector3Matches(model.posedTransform.scale, transform.scale);
+
 function ComposeTransform(parentTransform, localTransform) {
 	const localPosition = localTransform.position.clone();
 	const rotatedChildPos = RotateByEuler(localPosition, parentTransform.rotation);
@@ -343,6 +351,13 @@ function applyModelPose(model) {
 
 	const rootTransform = cloneRootTransform(model.rootTransform);
 	model.roots.forEach((rootId) => applyPart(rootId, rootTransform));
+
+	// cloneRootTransform already copied position/rotation; scale is aliased there, so clone it.
+	model.posedTransform = {
+		position: rootTransform.position,
+		rotation: rootTransform.rotation,
+		scale   : CloneVector3(rootTransform.scale),
+	};
 }
 
 /* === AABB === */
@@ -638,10 +653,10 @@ function refreshEntityDerivedState(entity) {
 }
 
 function UpdateEntityModelFromTransform(entity) {
-	entity.model.rootTransform.position.set(entity.transform.position);
-	entity.model.rootTransform.rotation.set(entity.transform.rotation);
-	entity.model.rootTransform.scale = entity.transform.scale;
+	if (poseMatchesTransform(entity.model, entity.transform)) return;
 
+	// rootTransform shares entity.transform's position/rotation objects; only scale is ever re-pointed.
+	entity.model.rootTransform.scale = entity.transform.scale;
 	refreshEntityDerivedState(entity);
 }
 

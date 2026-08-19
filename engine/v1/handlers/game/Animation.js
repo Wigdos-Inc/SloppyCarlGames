@@ -61,7 +61,7 @@ function ensureAnimationRuntime(entity) {
 /* === CORRECTION FRAME COUNT (config tier + entity type) === */
 
 function resolveCorrectionFrames(entityType) {
-	const qualityScale = { low: 0.25, medium: 0.50, high: 1 }[CONFIG.PERFORMANCE.Animations.Quality];
+	const qualityScale = { Low: 0.25, Medium: 0.50, High: 1 }[CONFIG.PERFORMANCE.Animations.Quality];
 	const isPlayer = entityType === "player";
 	const scaled = Math.round((isPlayer ? 8 : 4) * qualityScale);
 	return isPlayer ? Clamp(scaled, 4, 8) : Clamp(scaled, 0, 4);
