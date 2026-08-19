@@ -55,11 +55,11 @@
 					"primitiveOptions": {},
 					"texture": {
 						"generated": {
+							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
 							"primary": { "r": 0.16, "g": 0.30, "b": 0.59, "a": 1 },
 							"secondary": { "r": 0.11, "g": 0.21, "b": 0.44, "a": 1 },
-							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
 							"animated": false,
@@ -87,11 +87,11 @@
 					"primitiveOptions": {},
 					"texture": {
 						"generated": {
+							"compositeMode": null,
 							"id": "none",
 							"shape": null,
 							"primary": { "r": 0.51, "g": 0.52, "b": 0.46, "a": 1 },
 							"secondary": null,
-							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
 							"animated": false,
@@ -119,11 +119,11 @@
 					"primitiveOptions": {},
 					"texture": {
 						"generated": {
+							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
 							"primary": { "r": 0.16, "g": 0.30, "b": 0.59, "a": 1 },
 							"secondary": { "r": 0.11, "g": 0.21, "b": 0.44, "a": 1 },
-							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
 							"animated": false,
@@ -151,11 +151,11 @@
 					"primitiveOptions": {},
 					"texture": {
 						"generated": {
+							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
 							"primary": { "r": 0.16, "g": 0.30, "b": 0.59, "a": 1 },
 							"secondary": { "r": 0.11, "g": 0.21, "b": 0.44, "a": 1 },
-							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
 							"animated": false,
@@ -183,11 +183,11 @@
 					"primitiveOptions": {},
 					"texture": {
 						"generated": {
+							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
 							"primary": { "r": 0.14, "g": 0.15, "b": 0.23, "a": 1 },
 							"secondary": { "r": 0.09, "g": 0.11, "b": 0.17, "a": 1 },
-							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
 							"animated": false,
@@ -215,11 +215,11 @@
 					"primitiveOptions": {},
 					"texture": {
 						"generated": {
+							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
 							"primary": { "r": 0.14, "g": 0.15, "b": 0.23, "a": 1 },
 							"secondary": { "r": 0.09, "g": 0.11, "b": 0.17, "a": 1 },
-							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
 							"animated": false,
@@ -247,11 +247,11 @@
 					"primitiveOptions": {},
 					"texture": {
 						"generated": {
+							"compositeMode": null,
 							"id": "none",
 							"shape": null,
 							"primary": { "r": 0.75, "g": 0.72, "b": 0.6, "a": 1 },
 							"secondary": null,
-							"opacity": 1,
 							"density": 1,
 							"speckSize": 1,
 							"animated": false,

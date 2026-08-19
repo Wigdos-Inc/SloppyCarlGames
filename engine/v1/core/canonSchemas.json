@@ -1182,6 +1182,18 @@
         "deprecated": false
       }
     },
+    "compositeMode": {
+      "__meta": {
+        "description": "How secondary elements paint over the primary base (null = derive from secondary alpha)",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "allowedValues": ["replace", "overlay"],
+        "deprecated": false
+      }
+    },
     "primary": {
       "__meta": {
         "description": "Primary texture color override",

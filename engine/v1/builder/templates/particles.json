@@ -27,11 +27,11 @@
 			"primitiveOptions": {},
 			"texture": {
 				"generated": {
+					"compositeMode": null,
 					"id": "none",
 					"shape": null,
 					"primary": null,
 					"secondary": null,
-					"opacity": 1,
 					"density": 1,
 					"speckSize": 1,
 					"animated": false,
@@ -72,11 +72,11 @@
 			"primitiveOptions": {},
 			"texture": {
 				"generated": {
+					"compositeMode": null,
 					"id": "none",
 					"shape": null,
 					"primary": null,
 					"secondary": null,
-					"opacity": 1,
 					"density": 1,
 					"speckSize": 1,
 					"animated": false,
@@ -117,11 +117,11 @@
 			"primitiveOptions": {},
 			"texture": {
 				"generated": {
+					"compositeMode": null,
 					"id": "none",
 					"shape": null,
 					"primary": null,
 					"secondary": null,
-					"opacity": 1,
 					"density": 1,
 					"speckSize": 1,
 					"animated": false,
@@ -162,11 +162,11 @@
 			"primitiveOptions": {},
 			"texture": {
 				"generated": {
+					"compositeMode": null,
 					"id": "none",
 					"shape": null,
 					"primary": null,
 					"secondary": null,
-					"opacity": 1,
 					"density": 1,
 					"speckSize": 1,
 					"animated": false,

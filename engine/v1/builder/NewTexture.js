@@ -1,7 +1,10 @@
 // Create 2D textures (like grass or pebbles) to populate the world with.
 
-// Used by NewObject.js to apply 2D and/or 3D textures to model parts.
-// Uses NewObject.js to build simple 3D textures (like grass, pebbles, etc)
+// Used by NewObject.js for mesh and decal textures
+// Used by NewScatter.js for scatter batch texture IDs
+// Used by NewVoid.js for void face textures
+// Used by handlers/game/Texture.js for runtime custom textures
+// Used by handlers/game/Level.js to prepare level visual resources
 
 import visualTemplates from "./templates/textures.json" with { type: "json" };
 import { CONFIG } from "../core/config.js";
@@ -12,11 +15,15 @@ const rgbaToCss = (c) => `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)
 // Cache-key form; a raw color object stringifies to [object Object].
 const formatColorKey = (c) => `${c.r.toFixed(4)},${c.g.toFixed(4)},${c.b.toFixed(4)},${c.a.toFixed(4)}`;
 
+// Must include every field that affects the bake, or distinct meshes collapse onto one entry.
 function ComputeGeneratedTextureID(generatedTexture) {
-	if (generatedTexture.primary === null && generatedTexture.secondary === null) return generatedTexture.id;
 	const parts = [generatedTexture.id];
-	if (generatedTexture.primary   !== null) parts.push(`p=${formatColorKey(generatedTexture.primary)}`);
-	if (generatedTexture.secondary !== null) parts.push(`s=${formatColorKey(generatedTexture.secondary)}`);
+	if (generatedTexture.primary       !== null) parts.push(`p=${formatColorKey(generatedTexture.primary)}`);
+	if (generatedTexture.secondary     !== null) parts.push(`s=${formatColorKey(generatedTexture.secondary)}`);
+	if (generatedTexture.shape         !== null) parts.push(`sh=${generatedTexture.shape}`);
+	if (generatedTexture.compositeMode !== null) parts.push(`cm=${generatedTexture.compositeMode}`);
+	if (generatedTexture.density       !== 1)    parts.push(`d=${generatedTexture.density}`);
+	if (generatedTexture.speckSize     !== 1)    parts.push(`ss=${generatedTexture.speckSize}`);
 	return parts.join("::");
 }
 
@@ -32,8 +39,7 @@ const FREQUENCY_PATTERN_CONFIG = {
 	grid   : "Grid",
 };
 
-// Translucent paint compounds over the base, so erase its footprint first.
-// Opaque paint must not: the erase pass eats the antialiased rim.
+// Erase footprint first for translucent paint only (avoids double-blend); opaque skips it.
 function fillReplacing(ctx, replace, drawFn) {
 	if (!replace) { drawFn(); return; }
 	const paintStyle = ctx.fillStyle;
@@ -44,6 +50,10 @@ function fillReplacing(ctx, replace, drawFn) {
 	ctx.fillStyle = paintStyle;
 	drawFn();
 }
+
+// null = derive from alpha (legacy default). New mode: also add to canonSchemas.json allowedValues.
+const resolveReplace = (definition) =>
+	definition.compositeMode !== null ? definition.compositeMode === "replace" : definition.secondary.a < 1;
 
 function drawShape(ctx, shape, replace, x, y, width, height) {
 	fillReplacing(ctx, replace, () => {
@@ -80,7 +90,7 @@ function drawShape(ctx, shape, replace, x, y, width, height) {
 function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 	const primary = rgbaToCss(textureDefinition.primary);
 	const secondary = rgbaToCss(textureDefinition.secondary);
-	const replace = textureDefinition.secondary.a < 1;
+	const replace = resolveReplace(textureDefinition);
     const draw = (x, y, width, height) => drawShape(ctx, textureDefinition.shape, replace, x, y, width, height);
 
     ctx.fillStyle = primary;
@@ -137,8 +147,7 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			return;
 		}
 		case "grid": {
-			// Checker lattice (cell = pitch/2) of off-colored squares, wrapped for tiling.
-			// Square side scales linearly with speckSize: 1 = clean 50/50 checker, >1 overlaps neighbours.
+			// Checker lattice, cell = pitch/2. speckSize 1 = clean 50/50, >1 overlaps.
 			const cfg         = CONFIG.RENDERING.Texture.Grid;
 			const cellsPerRow = periods;
 			if (cellsPerRow === 0) return;
@@ -190,7 +199,7 @@ function BuildTextureSurface(textureDefinition, resolvedSize, textureScale, peri
 function createUsageEntry(baseTextureID) {
 	return {
 		isTerrain: false, maxSpan: 1, density: 1, speckSize: 1, animatedRequested: false,
-		holdTimeSpeed: 1, blendTimeSpeed: 1, baseTextureID, shape: null,
+		holdTimeSpeed: 1, blendTimeSpeed: 1, baseTextureID, shape: null, compositeMode: null,
 		primaryOverride: null, secondaryOverride: null,
 	};
 }
@@ -203,6 +212,7 @@ function registerTextureUsage(id, options, usage) {
 	entry.speckSize = options.speckSize;
 	entry.baseTextureID = options.baseTextureID;
 	entry.shape = options.shape;
+	entry.compositeMode = options.compositeMode;
 	entry.animatedRequested = options.animatedRequested;
 	entry.holdTimeSpeed = options.holdTimeSpeed;
 	entry.blendTimeSpeed = options.blendTimeSpeed;
@@ -210,8 +220,7 @@ function registerTextureUsage(id, options, usage) {
 	entry.secondaryOverride = options.secondaryOverride;
 }
 
-// Map a full texture definition to registerTextureUsage options. Shared by mesh and scatter-batch
-// collection so the field mapping (and the animated coercion) lives in one place.
+// Texture definition -> registerTextureUsage options. Shared by mesh and scatter-batch collection.
 function textureRegistrationOptions(texture, isTerrain, maxSpan) {
 	return {
 		isTerrain, maxSpan,
@@ -219,6 +228,7 @@ function textureRegistrationOptions(texture, isTerrain, maxSpan) {
 		speckSize        : texture.speckSize,
 		baseTextureID    : texture.id,
 		shape            : texture.shape,
+		compositeMode    : texture.compositeMode,
 		animatedRequested: texture.animated === true,
 		holdTimeSpeed    : texture.holdTimeSpeed,
 		blendTimeSpeed   : texture.blendTimeSpeed,
@@ -301,7 +311,6 @@ function collectTextureUsage(sceneGraph) {
 		});
 	});
 
-	// Include any water visual meshes so their textures are registered as well.
 	if (sceneGraph.waterVisual) {
 		const waterMeshes = [];
 		if (sceneGraph.waterVisual.body) waterMeshes.push(sceneGraph.waterVisual.body);
@@ -354,8 +363,7 @@ function AddToVisualResources(built, objectType, sceneGraph) {
 	}
 }
 
-// Adding a shape: add its method here AND in normalize.js shapeRequiredFields AND in
-// canonSchemas.json levelCustomTexture.shape.allowedValues.
+// New shape: add method here + normalize.js shapeRequiredFields + canonSchemas.json allowedValues.
 const shapeMaskBuilders = {
 	square: (w, h) => {
 		const canvas = document.createElement("canvas");
@@ -431,7 +439,7 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 		};
 		const effectiveScale = autoRatio > 0 ? textureScale / autoRatio : textureScale;
 
-		// Frequency patterns: bake period count directly (no tiling). Non-frequency patterns ignore periods, default 1 is harmless.
+		// Frequency patterns bake period count directly; others ignore periods (default 1).
 		const decalConfigKey = FREQUENCY_PATTERN_CONFIG[resolvedBlueprint.pattern];
 		const periods = decalConfigKey ? Math.round(resolvedBlueprint.density * CONFIG.RENDERING.Texture[decalConfigKey].Density) : 1;
 
@@ -450,13 +458,14 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 		const textureBlueprint = visualTemplates.textures[usageEntry.baseTextureID];
 		const resolvedSize = resolveTextureSize(textureBlueprint, usageEntry);
 		
-		// Frequency patterns: density NOT baked into canvas (lives in per-mesh UVs); only speckSize is. Noise bakes density.
+		// Density baked only for noise; frequency patterns keep it in per-mesh UVs.
 		const isFrequencyPattern = FREQUENCY_PATTERN_CONFIG[textureBlueprint.pattern] !== undefined;
 		const resolvedTextureBlueprint = {
 			...textureBlueprint,
 			density:   isFrequencyPattern ? textureBlueprint.density : textureBlueprint.density * usageEntry.density,
 			speckSize: textureBlueprint.speckSize * usageEntry.speckSize,
 			...(usageEntry.shape              && { shape:     usageEntry.shape                              }),
+			...(usageEntry.compositeMode !== null && { compositeMode: usageEntry.compositeMode }),
 			...(usageEntry.primaryOverride   !== null && { primary:   usageEntry.primaryOverride   }),
 			...(usageEntry.secondaryOverride !== null && { secondary: usageEntry.secondaryOverride }),
 		};
@@ -512,8 +521,7 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	const { usage, customTextureUsage } = collectTextureUsage(sceneGraph);
 	const textureRegistry = createTextureRegistry(usage, customTextureUsage, { textureScale: sceneGraph.world.textureScale });
 
-	// pendingFaceTextures is a content-signature-keyed store: identical faces across terrain, obstacles,
-	// voids, water, and entities already collapsed to one entry during build, so this merge is idempotent.
+	// pendingFaceTextures is signature-keyed; identical faces already collapsed, so merge is idempotent.
 	for (const id in sceneGraph.pendingFaceTextures) textureRegistry[id] = sceneGraph.pendingFaceTextures[id];
 	sceneGraph.pendingFaceTextures = {};
 
@@ -533,14 +541,14 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	return sceneGraph;
 }
 
-// Composes blueprint density/speckSize/shape with per-mesh detail scalars and optional color overrides.
-// null is the "no override" sentinel. Shared by NewObject and NewVoid for color override parity.
+// Merges blueprint with per-mesh detail scalars/overrides; null = no override. Shared by NewObject/NewVoid.
 function ResolveNoiseFaceBlueprint(textureBlueprint, textureDetail) {
 	return {
 		...textureBlueprint,
 		density  : textureBlueprint.density   * textureDetail.density,
 		speckSize: textureBlueprint.speckSize  * textureDetail.speckSize,
-		shape    : textureDetail.shape !== null ? textureDetail.shape : textureBlueprint.shape,
+		shape        : textureDetail.shape !== null ? textureDetail.shape : textureBlueprint.shape,
+		compositeMode: textureDetail.compositeMode !== null ? textureDetail.compositeMode : textureBlueprint.compositeMode,
 		...(textureDetail.primary   !== null && { primary:   textureDetail.primary   }),
 		...(textureDetail.secondary !== null && { secondary: textureDetail.secondary }),
 	};
@@ -554,7 +562,7 @@ function BuildNoiseFaceCanvas(blueprint, pixelW, pixelH, textureScale) {
 
 	const primary   = rgbaToCss(blueprint.primary);
 	const secondary = rgbaToCss(blueprint.secondary);
-	const replace   = blueprint.secondary.a < 1;
+	const replace   = resolveReplace(blueprint);
 	const draw = (x, y, width, height) => drawShape(ctx, blueprint.shape, replace, x, y, width, height);
 
 	ctx.fillStyle = primary;
@@ -592,7 +600,7 @@ function BuildNoiseAnimationOptions(blueprint, textureDetail) {
 	};
 }
 
-// Memoization gate: returns stored entry if id exists, otherwise builds via buildFn, stores, and returns it.
+// Memoization gate.
 function getOrBuildFaceTexture(store, id, buildFn) {
 	const existing = store[id];
 	if (existing !== undefined) return existing;
@@ -601,10 +609,9 @@ function getOrBuildFaceTexture(store, id, buildFn) {
 	return entry;
 }
 
-// Content signature: identical face content collapses to one canvas/GL texture.
-// ::face= is preserved for Render.js CLAMP_TO_EDGE.
+// Content signature; ::face= marker is read by Render.js CLAMP_TO_EDGE.
 function buildFaceTextureSignature(baseTextureID, resolvedBlueprint, pixelW, pixelH, textureScale, animationOptions) {
-	const colorKey = `${formatColorKey(resolvedBlueprint.primary)}|${formatColorKey(resolvedBlueprint.secondary)}|${resolvedBlueprint.shape}`;
+	const colorKey = `${formatColorKey(resolvedBlueprint.primary)}|${formatColorKey(resolvedBlueprint.secondary)}|${resolvedBlueprint.shape}|${resolvedBlueprint.compositeMode}`;
 	const shapeKey = `d=${resolvedBlueprint.density}|s=${resolvedBlueprint.speckSize}`;
 	const sizeKey  = `${pixelW}x${pixelH}`;
 	const scaleKey = `ts=${textureScale}`;

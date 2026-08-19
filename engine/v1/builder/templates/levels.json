@@ -34,11 +34,11 @@
                     "parts": [],
                     "texture": {
                         "generated": {
+                            "compositeMode": null,
                             "id": "stone-block",
                             "shape": null,
                             "primary": null,
-                            "secondary": { "r": 0.68, "g": 0.72, "b": 0.78, "a": 1 },
-                            "opacity": 1,
+                            "secondary": { "r": 0.68, "g": 0.72, "b": 0.78, "a": 1 },
                             "density": 1,
                             "speckSize": 1,
                             "animated": false,
