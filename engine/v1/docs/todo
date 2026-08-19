@@ -3,8 +3,14 @@ This file contains current priorities.
 Add new characters to test multiple types of characters with intuitive physics
 - Jeff (in progress)
 - Latina
-Breakable Obstacles
-Particles
+Projectile Functionality
+COMBAT REWORK:
+- Damage and destroy objects
+- Custom object destruction results & configurable particles
+- Entity damage
+- A seamless system of hit detection > damage/other effects
+- Configured SFX
+- "Weapons" & Attacks functionality
 Entity AI:
 - Default behaviours (not mutually exclusive):
   - Chase
@@ -23,6 +29,7 @@ Build new trigger types:
 - Level Clear
 - Custom
 Add new Terrain, Obstacle and Entity Templates.
+- Think of a list with Claude
 - Sonic-style Loop (Terrain)
 - Half-Pipe (Terrain)
 - City Rubble (Obstacle)
@@ -34,6 +41,14 @@ Build Load Screen functionality.
 - HTML Element support
 - Music Support
 Add aliases to canonSchemas.json
+Performance Enhancements (DRYAD):
+- Must abide simulation distance:
+  - Any animations. From textures to entities.
+  - Rendering instances. We must check whether skipping rendering based on distance would be worthwhile
+    - If yes, then fade them in/out rather than allowing pop-in
+  - Particle logic.
+  - Advanced physics application.
+  - Runtime instance spawning. Any instance that's being spawned too far, gets enqueued until the player gets close enough.
 
 
 Additions to Level API:

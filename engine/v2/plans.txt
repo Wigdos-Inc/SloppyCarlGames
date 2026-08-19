@@ -2,3 +2,10 @@
 - Custom Model Import Support
 - Rig Animation Support
 - Procedural Terrain Support
+- New object shapes
+- True liquid objects like water, rather than just a simple water-level
+- Great Semantic Refactor:
+  - Modules must be separated by function rather than just purpose
+  - Module groups need a master module that orchestrates.
+  - Look into Add-on modules so not everything has to always be loaded.
+  - Look into creating a smaller engine core or game template that each game can use instead of manually having to import the engine and start it
