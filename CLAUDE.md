@@ -68,7 +68,8 @@ After ERA and DRYAD return, apply the following ARGUS rules:
 - Judge whether the logical regression risk is great enough to warrant invoking ARGUS. If unsure, ask the user.
 - If ERA and DRYAD both returned clean (no genuine violations): invoke ARGUS via the `Skill` tool to verify the change in the browser. Ask the user before committing to this.
 - If ERA and/or DRYAD flagged genuine issues: report the findings to the user and offer an ARGUS run once those findings have been reviewed. Do not invoke ARGUS until the issues are resolved.
-- If browser verification is not warranted for the change (no risk of runtime errors or behavioral changes), skip ARGUS regardless of audit results. Also skip ARGUS if regression-risk is primarily visual.
+- If browser verification is not warranted for the change (no risk of runtime errors or behavioral changes), skip ARGUS regardless of audit results.
+- Never autonomously invoke ARGUS on primarily visual changes. If there are notable visual AND behavioral changes, then ask the user directly.
 
 **When ARGUS returns bugs:**
 - Investigate all reported issues.
