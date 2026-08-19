@@ -120,6 +120,8 @@ Once a builder has generated internal geometry arrays, downstream builder helper
 
 Once a runtime subsystem has constructed pooled collision, trigger, or correction result objects, downstream consumers must treat fields such as `normal`, `pushNormal`, `supportY`, `tEntry`, `targetAabb`, and trigger payloads as canonical engine-owned data. Do not normalize, null-guard, or fallback those fields again downstream.
 
+When a `core/canonSchemas.json` field group gains a key, audit every engine-owned JSON source of that shape in the same pass and add the key as a literal. Engine-owned JSON — imported template files, and verbatim clones such as the one `builder/NewTemplate.js` makes — never passes through `normalizePayloadSchema`, so an absent key there is a real gap, not a covered default. Verify with a script that checks every literal of the shape for the new key; an edit count is not proof every site was reached.
+
 Never patch over upstream contract bugs with downstream guards.
 
 ---
@@ -138,7 +140,7 @@ Validation of game-provided/raw input payloads is allowed in boundary modules:
 
 This exception applies only to game-provided payload data.
 
-Imported engine JSON, alias/schema maps, internal default objects, helper option objects, and any other engine-owned data consumed inside those same boundary modules are still canonical engine data and must be used directly without defensive guards or fallback substitution.
+Imported engine JSON, alias/schema maps, internal default objects, helper option objects, and any other engine-owned data consumed inside those same boundary modules are still canonical engine data and must be used directly without defensive guards or fallback substitution. Keeping that guarantee true as `canonSchemas.json` evolves is an authoring obligation, not a consumption-side exception — see §4.
 
 These checks may only appear once on arrival or first usage and should never be repeated.
 
