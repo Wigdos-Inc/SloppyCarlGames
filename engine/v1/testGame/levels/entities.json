@@ -67,7 +67,6 @@
 						"texture": {
 							"generated": {
 								"id": "metal-panel",
-								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
 							},
@@ -99,7 +98,6 @@
 						"texture": {
 							"generated": {
 								"id": "metal-panel",
-								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
 							},
@@ -131,7 +129,6 @@
 						"texture": {
 							"generated": {
 								"id": "metal-panel",
-								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
 							},
@@ -163,7 +160,6 @@
 						"texture": {
 							"generated": {
 								"id": "energy-core",
-								"opacity": 1,
 								"density": 1,
 								"speckSize": 1,
 								"animated": true,
@@ -240,7 +236,6 @@
 						"texture": {
 							"generated": {
 								"id": "wood-stump",
-								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
 							},
@@ -272,7 +267,6 @@
 						"texture": {
 							"generated": {
 								"id": "wood-stump",
-								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
 							},
@@ -345,7 +339,6 @@
 						"texture": {
 							"generated": {
 								"id": "energy-core",
-								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
 							},
@@ -418,7 +411,8 @@
 						"texture": {
 							"generated": {
 								"id": "energy-core",
-								"opacity": 0.95,
+								"primary": { "r": 0.498, "g": 0.973, "b": 1, "a": 0.95 },
+								"secondary": { "r": 0.247, "g": 0.376, "b": 1, "a": 0.95 },
 								"density": 1,
 								"speckSize": 1
 							},
@@ -491,7 +485,6 @@
 						"texture": {
 							"generated": {
 								"id": "metal-panel",
-								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
 							},
@@ -559,7 +552,6 @@
 						"texture": {
 							"generated": {
 								"id": "wood-stump",
-								"opacity": 1,
 								"density": 1,
 								"speckSize": 1
 							},

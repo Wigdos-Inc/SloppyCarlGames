@@ -17,7 +17,7 @@
                         "width": 80,
                         "height": 40,
                         "deathBarrierY": -20,
-                        "waterLevel": 5,
+                        "waterLevel": 9,
                         "textureScale": 2,
                         "scatterScale": 1
                     },
@@ -58,8 +58,7 @@
                                 "texture": {
                                     "generated": {
                                         "id": "grass-soft",
-                                        "shape": "circle",
-                                        "opacity": 1
+                                        "shape": "circle"
                                     },
                                     "custom": []
                                 },
@@ -91,8 +90,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "stone-block",
-                                        "opacity": 1
+                                        "id": "stone-block"
                                     },
                                     "custom": [
                                         {
@@ -132,8 +130,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "metal-panel",
-                                        "opacity": 1
+                                        "id": "metal-panel"
                                     },
                                     "custom": []
                                 },
@@ -155,7 +152,8 @@
                                 "texture": {
                                     "generated": {
                                         "id": "default-tiles",
-                                        "opacity": 0.6,
+                                        "primary": { "r": 0.651, "g": 0.725, "b": 0.8, "a": 0.6 },
+                                        "secondary": { "r": 0.435, "g": 0.51, "b": 0.6, "a": 0.6 },
                                         "animated": false,
                                         "holdTimeSpeed": 1,
                                         "blendTimeSpeed": 1
@@ -180,7 +178,6 @@
                                 "texture": {
                                     "generated": {
                                         "id": "default-tiles",
-                                        "opacity": 1,
                                         "animated": false,
                                         "holdTimeSpeed": 1,
                                         "blendTimeSpeed": 1
@@ -234,8 +231,7 @@
                             },
                             "texture": {
                                 "generated": {
-                                    "id": "wood-stump",
-                                    "opacity": 1
+                                    "id": "wood-stump"
                                 },
                                 "custom": []
                             },
@@ -264,7 +260,6 @@
                                 "generated": {
                                     "id": "stone-block",
                                     "shape": "circle",
-                                    "opacity": 1,
                                     "animated": true,
                                     "holdTimeSpeed": 1.25,
                                     "blendTimeSpeed": 1.25
@@ -295,7 +290,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -334,7 +328,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -366,7 +359,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -405,7 +397,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -437,7 +428,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -476,7 +466,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -508,7 +497,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -540,7 +528,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -579,7 +566,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -611,7 +597,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -650,7 +635,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -682,7 +666,6 @@
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                             "secondary": null,
-                                            "opacity": 1,
                                             "density": 1,
                                             "speckSize": 1,
                                             "animated": false,
@@ -910,8 +893,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "default-tiles",
-                                        "opacity": 1
+                                        "id": "default-tiles"
                                     },
                                     "custom": []
                                 },
@@ -937,8 +919,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "default-tiles",
-                                        "opacity": 1
+                                        "id": "default-tiles"
                                     },
                                     "custom": []
                                 },
@@ -964,8 +945,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "default-tiles",
-                                        "opacity": 1
+                                        "id": "default-tiles"
                                     },
                                     "custom": []
                                 },
@@ -991,8 +971,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "default-tiles",
-                                        "opacity": 1
+                                        "id": "default-tiles"
                                     },
                                     "custom": []
                                 },
@@ -1018,8 +997,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "default-grid",
-                                        "opacity": 1
+                                        "id": "default-grid"
                                     },
                                     "custom": []
                                 },
@@ -1045,8 +1023,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "metal-panel",
-                                        "opacity": 1
+                                        "id": "metal-panel"
                                     },
                                     "custom": []
                                 },
@@ -1072,8 +1049,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "metal-panel",
-                                        "opacity": 1
+                                        "id": "metal-panel"
                                     },
                                     "custom": []
                                 },
@@ -1099,8 +1075,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "metal-panel",
-                                        "opacity": 1
+                                        "id": "metal-panel"
                                     },
                                     "custom": []
                                 },
@@ -1126,8 +1101,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "metal-panel",
-                                        "opacity": 1
+                                        "id": "metal-panel"
                                     },
                                     "custom": []
                                 },
@@ -1153,8 +1127,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "metal-panel",
-                                        "opacity": 1
+                                        "id": "metal-panel"
                                     },
                                     "custom": []
                                 },
@@ -1180,8 +1153,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "stone-block",
-                                        "opacity": 1
+                                        "id": "stone-block"
                                     },
                                     "custom": []
                                 },
@@ -1207,8 +1179,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "stone-block",
-                                        "opacity": 1
+                                        "id": "stone-block"
                                     },
                                     "custom": []
                                 },
@@ -1234,8 +1205,7 @@
                                 },
                                 "texture": {
                                     "generated": {
-                                        "id": "stone-block",
-                                        "opacity": 1
+                                        "id": "stone-block"
                                     },
                                     "custom": []
                                 },
@@ -1265,8 +1235,7 @@
                             },
                             "texture": {
                                 "generated": {
-                                    "id": "wood-stump",
-                                    "opacity": 1
+                                    "id": "wood-stump"
                                 },
                                 "custom": []
                             },

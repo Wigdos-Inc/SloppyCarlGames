@@ -3,7 +3,7 @@
 // Called by anything that wants any 3D object or wants to build models.
 
 import { BuildScatter } from "./NewScatter.js";
-import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveNoiseFaceBlueprint, FREQUENCY_PATTERN_CONFIG, VISUAL_TEMPLATES, ComputeGeneratedTextureID } from "./NewTexture.js";
+import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveNoiseFaceBlueprint, FREQUENCY_PATTERN_CONFIG, VISUAL_TEMPLATES, ComputeGeneratedTextureID, IsTextureTransparent } from "./NewTexture.js";
 import { CONFIG } from "../core/config.js";
 import { CreateModelMatrix, CreateIdentityMatrix, MultiplyMatrix4 } from "../math/Matrix.js";
 import { SampleConnectorCenterline, ParallelTransportFrames } from "../math/Curves.js";
@@ -1149,8 +1149,8 @@ function BuildObject(source) {
 			material        : {
 				textureID  : materialTextureID,
 				color      : { r: 1, g: 1, b: 1, a: 1 },
-				opacity    : texture.opacity,
-				transparent: texture.opacity < 1,
+				opacity    : 1,
+				transparent: IsTextureTransparent(texture),
 			},
 			meta: {
 				trigger  : source.trigger,
@@ -1225,8 +1225,8 @@ function BuildObject(source) {
 		material: {
 			textureID  : ComputeGeneratedTextureID(texture),
 			color      : { r: 1, g: 1, b: 1, a: 1 },
-			opacity    : texture.opacity,
-			transparent: texture.opacity < 1,
+			opacity    : 1,
+			transparent: IsTextureTransparent(texture),
 		},
 		meta: {
 			trigger  : source.trigger,

@@ -576,10 +576,17 @@ function resolveTextureId(textureId, fallbackTextureId, fieldPath = "") {
 	return fallbackTextureId;
 }
 
+// Authoring alias; an explicit dest value wins.
+function foldColorAlias(source, sourceKey, dest, destKey) {
+	if (source[sourceKey] !== null && dest[destKey] === null) dest[destKey] = source[sourceKey];
+	delete source[sourceKey];
+}
+
 function normalizeTexture(rawTexture, part, ctx) {
 	const source = normalizeObject(rawTexture).value;
 
 	const generated = normalizePayloadSchema(normalizeObject(source.generated).value, "generatedTexture");
+	foldColorAlias(generated, "color", generated, "secondary");
 	const fallback = canonSchemas.generatedTexture.id.__meta.fallback;
 	generated.id = resolveTextureId(generated.id, fallback, "texture.generated.id");
 
@@ -784,6 +791,7 @@ function normalizeRootParticle(particle, partCount, label) {
 
 function normalizeOverrideTexture(texture, label) {
 	texture.generated = normalizePayloadSchema(texture.generated, "generatedTexture");
+	foldColorAlias(texture.generated, "color", texture.generated, "secondary");
 	texture.generated.id = resolveTextureId(texture.generated.id, canonSchemas.generatedTexture.id.__meta.fallback, `${label}.texture.generated.id`);
 }
 
@@ -848,6 +856,7 @@ function normalizePart(rawPart, ctx) {
 	part.localScale = CloneVector3(part.localScale);
 	part.pivot = toUnitVector3(part.pivot, "cnu");
 	part.texture = normalizeTexture(partSource.texture !== undefined ? partSource.texture : part.texture, part, ctx);
+	foldColorAlias(part, "color", part.texture.generated, "primary");
 	part.detail = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail);
 	if (part.shape === "tube") part.primitiveOptions = normalizeTubeOptions(part.primitiveOptions);
 	part.particle = normalizeParticle(part.particle, `levelPart.${part.id}.particle`);
@@ -864,6 +873,7 @@ function normalizeLevelObject(rawObject, ctx, multipartFallbackShape = null) {
 	object.scale = CloneVector3(object.scale);
 	object.pivot = toUnitVector3(object.pivot, "cnu");
 	object.texture = normalizeTexture(objectSource.texture !== undefined ? objectSource.texture : object.texture, object, ctx);
+	foldColorAlias(object, "color", object.texture.generated, "primary");
 	object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
 	if (object.shape === "tube") object.primitiveOptions = normalizeTubeOptions(object.primitiveOptions);
 	object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part, ctx));
@@ -1082,16 +1092,6 @@ function mergeSimulatorEntity(blueprint, ctx) {
 	);
 }
 
-function hoistObjectColor(node) {
-	if ("color" in node) {
-		node.texture = node.texture || {};
-		node.texture.generated = node.texture.generated || {};
-		if (!("primary" in node.texture.generated)) node.texture.generated.primary = node.color;
-		delete node.color;
-	}
-	if (Array.isArray(node.parts)) node.parts.forEach((part) => hoistObjectColor(part));
-}
-
 function applyImageLoadResults(affectedParts, affectedDecalSources) {
 	affectedParts.forEach((part) => part.texture.custom = part.texture.custom.filter((e) => e.decalType !== "image" || e.bitmap !== null));
 	affectedDecalSources.forEach((decalEntry) => {
@@ -1113,17 +1113,6 @@ async function LevelPayload(payload) {
 	const rawPayload = normalizeObject(payload).value;
 
 	const blueprintBuckets = ["enemies", "npcs", "collectibles", "projectiles", "entities"];
-	rawPayload.terrain?.objects?.forEach((item) => { if (!isTemplateRef(item)) hoistObjectColor(item); });
-	rawPayload.obstacles?.forEach((item) => { if (!isTemplateRef(item)) hoistObjectColor(item); });
-	rawPayload.entities?.forEach((item)  => hoistObjectColor(item));
-	if (rawPayload.entityBlueprints) {
-		blueprintBuckets.forEach((bucket) => {
-			rawPayload.entityBlueprints[bucket]?.forEach((blueprint) => {
-				if (isTemplateRef(blueprint)) return;
-				blueprint.model?.parts?.forEach((part) => hoistObjectColor(part));
-			});
-		});
-	}
 
 	const normalized = normalizePayloadSchema(rawPayload, "level");
 
@@ -1245,17 +1234,13 @@ async function SimulatorPayload(payload) {
 			pendingEntityBlueprint = normalizeEntityTemplateRef(payload.definition, ctx, "simulator.definition");
 			if (pendingEntityBlueprint === null) normalized.definition = null;
 		}
-		else {
-			payload.definition?.model?.parts?.forEach((part) => hoistObjectColor(part));
-			pendingEntityBlueprint = normalizeBlueprint(payload.definition, ctx, {});
-		}
+		else pendingEntityBlueprint = normalizeBlueprint(payload.definition, ctx, {});
 	}
 	else if (isTemplateRef(payload.definition)) {
 		const collection = normalized.objectType === "terrain" ? "terrain" : "obstacle";
 		normalized.definition = normalizeObjectTemplateRef(payload.definition, ctx, collection, "simulator.definition");
 	}
 	else {
-		hoistObjectColor(payload.definition);
 		const multipartFallbackShape = normalized.objectType === "obstacle" ? "triangle-soup" : null;
 		normalized.definition = normalizeLevelObject(payload.definition, ctx, multipartFallbackShape);
 	}

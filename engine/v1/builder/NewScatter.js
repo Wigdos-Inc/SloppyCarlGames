@@ -415,7 +415,7 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 					});
 				}
 
-				batchMap.get(batchKey).instances.push({ modelMatrix, tint: [1, 1, 1, part.texture.generated.opacity] });
+				batchMap.get(batchKey).instances.push({ modelMatrix, tint: [1, 1, 1, 1] });
 				totalParts++;
 
 				const half = part.dimensions.clone().multiply(scale).scale(0.5);

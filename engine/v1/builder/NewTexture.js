@@ -7,29 +7,22 @@ import visualTemplates from "./templates/textures.json" with { type: "json" };
 import { CONFIG } from "../core/config.js";
 import { Log, ENTITY_TYPES } from "../core/meta.js";
 
-function parseHexColor(hex) {
-	// Builders assume templates are canonicalized upstream; minimal parsing only.
-	const value = (hex).replace("#", "").trim();
-	const r = Number.parseInt(value.slice(0, 2), 16);
-	const g = Number.parseInt(value.slice(2, 4), 16);
-	const b = Number.parseInt(value.slice(4, 6), 16);
-	return `rgb(${r}, ${g}, ${b})`;
-}
+const rgbaToCss = (c) => `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)}, ${c.a})`;
 
-function RgbaToHex(rgba) {
-	const r = Math.round(rgba.r * 255).toString(16).padStart(2, "0");
-	const g = Math.round(rgba.g * 255).toString(16).padStart(2, "0");
-	const b = Math.round(rgba.b * 255).toString(16).padStart(2, "0");
-	return `#${r}${g}${b}`;
-}
+// Cache-key form; a raw color object stringifies to [object Object].
+const formatColorKey = (c) => `${c.r.toFixed(4)},${c.g.toFixed(4)},${c.b.toFixed(4)},${c.a.toFixed(4)}`;
 
 function ComputeGeneratedTextureID(generatedTexture) {
 	if (generatedTexture.primary === null && generatedTexture.secondary === null) return generatedTexture.id;
-	const fmt = (c) => `${c.r.toFixed(4)},${c.g.toFixed(4)},${c.b.toFixed(4)},${c.a.toFixed(4)}`;
 	const parts = [generatedTexture.id];
-	if (generatedTexture.primary   !== null) parts.push(`p=${fmt(generatedTexture.primary)}`);
-	if (generatedTexture.secondary !== null) parts.push(`s=${fmt(generatedTexture.secondary)}`);
+	if (generatedTexture.primary   !== null) parts.push(`p=${formatColorKey(generatedTexture.primary)}`);
+	if (generatedTexture.secondary !== null) parts.push(`s=${formatColorKey(generatedTexture.secondary)}`);
 	return parts.join("::");
+}
+
+function IsTextureTransparent(generatedTexture) {
+	return (generatedTexture.primary !== null && generatedTexture.primary.a < 1)
+		|| (generatedTexture.secondary !== null && generatedTexture.secondary.a < 1);
 }
 
 // Map frequency patterns to CONFIG.RENDERING.Texture blocks. Absent = not a frequency pattern.
@@ -39,40 +32,56 @@ const FREQUENCY_PATTERN_CONFIG = {
 	grid   : "Grid",
 };
 
-function drawShape(ctx, shape, x, y, width, height) {
-	switch (shape) {
-		case "circle": {
-			ctx.beginPath();
-			ctx.ellipse(
-				x + width * 0.5,
-				y + height * 0.5,
-				Math.max(0.5, width * 0.5),
-				Math.max(0.5, height * 0.5),
-				0,
-				0,
-				Math.PI * 2
-			);
-			ctx.fill();
-			break;
+// Translucent paint compounds over the base, so erase its footprint first.
+// Opaque paint must not: the erase pass eats the antialiased rim.
+function fillReplacing(ctx, replace, drawFn) {
+	if (!replace) { drawFn(); return; }
+	const paintStyle = ctx.fillStyle;
+	ctx.globalCompositeOperation = "destination-out";
+	ctx.fillStyle = "#000";
+	drawFn();
+	ctx.globalCompositeOperation = "source-over";
+	ctx.fillStyle = paintStyle;
+	drawFn();
+}
+
+function drawShape(ctx, shape, replace, x, y, width, height) {
+	fillReplacing(ctx, replace, () => {
+		switch (shape) {
+			case "circle": {
+				ctx.beginPath();
+				ctx.ellipse(
+					x + width * 0.5,
+					y + height * 0.5,
+					Math.max(0.5, width * 0.5),
+					Math.max(0.5, height * 0.5),
+					0,
+					0,
+					Math.PI * 2
+				);
+				ctx.fill();
+				break;
+			}
+			case "diamond": {
+				ctx.beginPath();
+				ctx.moveTo(x + width * 0.5, y);
+				ctx.lineTo(x + width, y + height * 0.5);
+				ctx.lineTo(x + width * 0.5, y + height);
+				ctx.lineTo(x, y + height * 0.5);
+				ctx.closePath();
+				ctx.fill();
+				break;
+			}
+			default: { ctx.fillRect(x, y, width, height) }
 		}
-		case "diamond": {
-			ctx.beginPath();
-			ctx.moveTo(x + width * 0.5, y);
-			ctx.lineTo(x + width, y + height * 0.5);
-			ctx.lineTo(x + width * 0.5, y + height);
-			ctx.lineTo(x, y + height * 0.5);
-			ctx.closePath();
-			ctx.fill();
-			break;
-		}
-		default: { ctx.fillRect(x, y, width, height) }
-	}
+	});
 }
 
 function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
-	const primary = parseHexColor(textureDefinition.primary);
-	const secondary = parseHexColor(textureDefinition.secondary);
-    const draw = (x, y, width, height) => drawShape(ctx, textureDefinition.shape, x, y, width, height);
+	const primary = rgbaToCss(textureDefinition.primary);
+	const secondary = rgbaToCss(textureDefinition.secondary);
+	const replace = textureDefinition.secondary.a < 1;
+    const draw = (x, y, width, height) => drawShape(ctx, textureDefinition.shape, replace, x, y, width, height);
 
     ctx.fillStyle = primary;
     ctx.fillRect(0, 0, size, size);
@@ -87,7 +96,7 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			const inset     = (cellSize - blockSize) / 2;
 			ctx.fillStyle = secondary;
 			for (let xi = 0; xi < cellCount; xi++) for (let yi = 0; yi < cellCount; yi++) {
-				ctx.fillRect(Math.round(xi * cellSize + inset), Math.round(yi * cellSize + inset), blockSize, blockSize);
+				fillReplacing(ctx, replace, () => ctx.fillRect(Math.round(xi * cellSize + inset), Math.round(yi * cellSize + inset), blockSize, blockSize));
 			}
 			return;
 		}
@@ -99,7 +108,7 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			const effSpeckSize   = textureDefinition.speckSize * cfg.SpeckSize;
 			const offStripeWidth = Math.max(1, Math.floor(pitch * effSpeckSize / (1 + effSpeckSize)));
 			ctx.fillStyle = secondary;
-			for (let yi = 0; yi < stripeCount; yi++) ctx.fillRect(0, Math.round(yi * pitch), size, offStripeWidth);
+			for (let yi = 0; yi < stripeCount; yi++) fillReplacing(ctx, replace, () => ctx.fillRect(0, Math.round(yi * pitch), size, offStripeWidth));
 			return;
 		}
 		case "radial": {
@@ -142,7 +151,7 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 				for (const dx of [-size, 0, size]) for (const dy of [-size, 0, size]) {
 					const x = x0 + dx, y = y0 + dy;
 					if (x + blockSize <= 0 || x >= size || y + blockSize <= 0 || y >= size) continue;
-					ctx.fillRect(Math.round(x), Math.round(y), blockSize, blockSize);
+					fillReplacing(ctx, replace, () => ctx.fillRect(Math.round(x), Math.round(y), blockSize, blockSize));
 				}
 			};
 			ctx.fillStyle = secondary;
@@ -396,9 +405,7 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 	canvas.width = size; canvas.height = size;
 	const ctx = canvas.getContext("2d");
 
-	ctx.fillStyle = ct.mutable
-		? "rgba(255, 255, 255, 1)"
-		: `rgba(${Math.round(ct.color.r * 255)}, ${Math.round(ct.color.g * 255)}, ${Math.round(ct.color.b * 255)}, ${ct.color.a})`;
+	ctx.fillStyle = ct.mutable ? "rgba(255, 255, 255, 1)" : rgbaToCss(ct.color);
 	ctx.fillRect(0, 0, size, size);
 	ctx.globalCompositeOperation = "destination-in";
 	ctx.drawImage(shapeMaskBuilders[ct.shape](size, size), 0, 0);
@@ -414,17 +421,13 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 		const partFaceSize  = Math.max(faceW, faceH);
 		const autoRatio     = partFaceSize > 0 ? Math.max(ct.localTransform.scale.x, ct.localTransform.scale.y) / partFaceSize : 1;
 
-		const partBlueprint     = visualTemplates.textures[mesh.detail.texture.id];
-		const partEffDensity   = mesh.detail.texture.density;
-		const partEffSpeckSize = mesh.detail.texture.speckSize;
-
 		const decalBlueprint    = visualTemplates.textures[ct.detail.baseTextureID];
 		const resolvedBlueprint = {
 			...decalBlueprint,
-			density:   partEffDensity   * ct.detail.density,
-			speckSize: partEffSpeckSize * ct.detail.speckSize,
-			...(ct.detail.primary   !== null && { primary:   RgbaToHex(ct.detail.primary)   }),
-			...(ct.detail.secondary !== null && { secondary: RgbaToHex(ct.detail.secondary) }),
+			density:   mesh.detail.texture.density   * ct.detail.density,
+			speckSize: mesh.detail.texture.speckSize * ct.detail.speckSize,
+			...(ct.detail.primary   !== null && { primary:   ct.detail.primary   }),
+			...(ct.detail.secondary !== null && { secondary: ct.detail.secondary }),
 		};
 		const effectiveScale = autoRatio > 0 ? textureScale / autoRatio : textureScale;
 
@@ -454,8 +457,8 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 			density:   isFrequencyPattern ? textureBlueprint.density : textureBlueprint.density * usageEntry.density,
 			speckSize: textureBlueprint.speckSize * usageEntry.speckSize,
 			...(usageEntry.shape              && { shape:     usageEntry.shape                              }),
-			...(usageEntry.primaryOverride   !== null && { primary:   RgbaToHex(usageEntry.primaryOverride)   }),
-			...(usageEntry.secondaryOverride !== null && { secondary: RgbaToHex(usageEntry.secondaryOverride) }),
+			...(usageEntry.primaryOverride   !== null && { primary:   usageEntry.primaryOverride   }),
+			...(usageEntry.secondaryOverride !== null && { secondary: usageEntry.secondaryOverride }),
 		};
 
 		const animatedRequested = usageEntry.animatedRequested === true;
@@ -537,9 +540,9 @@ function ResolveNoiseFaceBlueprint(textureBlueprint, textureDetail) {
 		...textureBlueprint,
 		density  : textureBlueprint.density   * textureDetail.density,
 		speckSize: textureBlueprint.speckSize  * textureDetail.speckSize,
-		shape    : textureDetail.shape,
-		...(textureDetail.primary   !== null && { primary:   RgbaToHex(textureDetail.primary)   }),
-		...(textureDetail.secondary !== null && { secondary: RgbaToHex(textureDetail.secondary) }),
+		shape    : textureDetail.shape !== null ? textureDetail.shape : textureBlueprint.shape,
+		...(textureDetail.primary   !== null && { primary:   textureDetail.primary   }),
+		...(textureDetail.secondary !== null && { secondary: textureDetail.secondary }),
 	};
 }
 
@@ -549,9 +552,10 @@ function BuildNoiseFaceCanvas(blueprint, pixelW, pixelH, textureScale) {
 	canvas.height = pixelH;
 	const ctx = canvas.getContext("2d");
 
-	const primary   = parseHexColor(blueprint.primary);
-	const secondary = parseHexColor(blueprint.secondary);
-	const draw = (x, y, width, height) => drawShape(ctx, blueprint.shape, x, y, width, height);
+	const primary   = rgbaToCss(blueprint.primary);
+	const secondary = rgbaToCss(blueprint.secondary);
+	const replace   = blueprint.secondary.a < 1;
+	const draw = (x, y, width, height) => drawShape(ctx, blueprint.shape, replace, x, y, width, height);
 
 	ctx.fillStyle = primary;
 	ctx.fillRect(0, 0, pixelW, pixelH);
@@ -600,7 +604,7 @@ function getOrBuildFaceTexture(store, id, buildFn) {
 // Content signature: identical face content collapses to one canvas/GL texture.
 // ::face= is preserved for Render.js CLAMP_TO_EDGE.
 function buildFaceTextureSignature(baseTextureID, resolvedBlueprint, pixelW, pixelH, textureScale, animationOptions) {
-	const colorKey = `${resolvedBlueprint.primary}|${resolvedBlueprint.secondary}|${resolvedBlueprint.shape}`;
+	const colorKey = `${formatColorKey(resolvedBlueprint.primary)}|${formatColorKey(resolvedBlueprint.secondary)}|${resolvedBlueprint.shape}`;
 	const shapeKey = `d=${resolvedBlueprint.density}|s=${resolvedBlueprint.speckSize}`;
 	const sizeKey  = `${pixelW}x${pixelH}`;
 	const scaleKey = `ts=${textureScale}`;
@@ -635,4 +639,4 @@ function BuildFaceTextureData(store, textureID, resolvedBlueprint, faceGroupData
 	return { faceTextureGroups };
 }
 
-export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources, BuildNoiseFaceCanvas, BuildFaceTextureData, ResolveNoiseFaceBlueprint, BuildNoiseAnimationOptions, FREQUENCY_PATTERN_CONFIG, visualTemplates as VISUAL_TEMPLATES, ComputeGeneratedTextureID, RgbaToHex };
+export { PrepareLevelVisualResources, BuildTextureSurface, AddToVisualResources, BuildNoiseFaceCanvas, BuildFaceTextureData, ResolveNoiseFaceBlueprint, BuildNoiseAnimationOptions, FREQUENCY_PATTERN_CONFIG, visualTemplates as VISUAL_TEMPLATES, ComputeGeneratedTextureID, IsTextureTransparent };
