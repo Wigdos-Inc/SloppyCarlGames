@@ -11,6 +11,8 @@ COMBAT REWORK:
 - A seamless system of hit detection > damage/other effects
 - Configured SFX
 - "Weapons" & Attacks functionality
+Option to block scatter spawn on top of decals
+- Add spikes to Carl model
 Entity AI:
 - Default behaviours (not mutually exclusive):
   - Chase
@@ -28,6 +30,7 @@ Rework Collectible system into collections with built-in handling support.
 Build new trigger types:
 - Level Clear
 - Custom
+- Teleport
 Add new Terrain, Obstacle and Entity Templates.
 - Think of a list with Claude
 - Sonic-style Loop (Terrain)
