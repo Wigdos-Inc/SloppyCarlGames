@@ -14,6 +14,14 @@ import { Unit, UnitVector3 } from "../../math/Utilities.js";
 
 const toUnitVector3 = (vector, type) => new UnitVector3(vector.x, vector.y, vector.z, type);
 
+// Shared by instanceModelPart and instanceScatterTemplates — canonicalizes decal placement fields.
+function canonicalizeDecalTransforms(customTextures) {
+	customTextures.forEach((decal) => {
+		decal.localTransform.position = toUnitVector3(decal.localTransform.position, "cnu");
+		decal.localTransform.rotation = new Unit(decal.localTransform.rotation, "degrees").toRadians(true);
+	});
+}
+
 // Scatter parts carry no pivot.
 function canonicalizePartTransform(part, includePivot = true) {
 	part.dimensions    = toUnitVector3(part.dimensions,    "cnu");
@@ -40,12 +48,7 @@ function instanceModelPart(part) {
 	// Engine templates author no generators; absent canonicalizes to null.
 	if (part.particle === undefined) part.particle = null;
 
-	if (part.texture !== null) {
-		part.texture.custom.forEach((decal) => {
-			decal.localTransform.position = toUnitVector3(decal.localTransform.position, "cnu");
-			decal.localTransform.rotation = new Unit(decal.localTransform.rotation, "degrees").toRadians(true);
-		});
-	}
+	if (part.texture !== null) canonicalizeDecalTransforms(part.texture.custom);
 
 	// Tube parts carry a bone chain of world-space nodes.
 	if (part.shape !== "tube") return;
@@ -68,7 +71,10 @@ function instanceCharacterTemplates() {
 
 function instanceScatterTemplates() {
 	for (const key in texturesImport.scatterTypes) {
-		texturesImport.scatterTypes[key].parts.forEach((part) => canonicalizePartTransform(part, false));
+		texturesImport.scatterTypes[key].parts.forEach((part) => {
+			canonicalizePartTransform(part, false);
+			canonicalizeDecalTransforms(part.texture.custom);
+		});
 	}
 }
 

@@ -72,7 +72,7 @@ function buildIncomingPayloadSummary(payload) {
 	].join("\n");
 }
 
-// Refreshes bounding boxes and detailed bounds, so both flag groups gate it.
+// Gates RefreshSceneBoundingBoxes, which rebuilds debugBoundingBoxes and debug.detailedBounds.
 function shouldRefreshBoundingBoxes() {
 	if (CONFIG.DEBUG.ALL !== true) return false;
 	if (CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible === true) return true;

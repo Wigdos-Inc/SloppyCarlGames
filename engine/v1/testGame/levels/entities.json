@@ -235,7 +235,7 @@
 						},
 						"texture": {
 							"generated": {
-								"id": "wood-stump",
+								"id": "wood-planks",
 								"density": 1,
 								"speckSize": 1
 							},
@@ -266,7 +266,7 @@
 						},
 						"texture": {
 							"generated": {
-								"id": "wood-stump",
+								"id": "wood-planks",
 								"density": 1,
 								"speckSize": 1
 							},
@@ -551,7 +551,7 @@
 						},
 						"texture": {
 							"generated": {
-								"id": "wood-stump",
+								"id": "wood-planks",
 								"density": 1,
 								"speckSize": 1
 							},

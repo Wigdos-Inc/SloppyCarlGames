@@ -234,8 +234,7 @@ function createProgram(gl) {
 }
 
 function createEntityTriplanarProgram(gl) {
-	// Object-space triplanar for noise entity parts. Vertex mirrors the main program (keeps a_uv active so the
-	// shared VAO layout is unchanged) plus an object-space position varying for derivative-based normals.
+	// Object-space triplanar for noise entity parts; adds a position varying for derivative-based normals.
 	const vertexShaderSource = `#version 300 es
 		in vec3 a_position;
 		in vec2 a_uv;
@@ -405,8 +404,7 @@ function createScatterProgram(gl) {
 	});
 }
 
-// Decal shape enum — must stay in sync with the JS shapeEnum map below and the
-// primitive builders in builder/NewObject.js that these projections mirror.
+// Decal shape enum; keep in sync with the JS shapeEnum map below and builder/NewObject.js.
 const decalShapeFlat     = 0; // any non-curved primitive — no projection
 const decalShapeSphere   = 1; // buildSphere   (NewObject.js ~L495)
 const decalShapeCylinder = 2; // buildCylinder (NewObject.js ~L444)
@@ -419,9 +417,60 @@ function shapeEnum(shape) {
 	return decalShapeFlat;
 }
 
+// Cylinder caps are flat disks (unlike capsule ends) — decals there skip radial projection.
+function resolveDecalShapeCode(baseShapeCode, side) {
+	if (baseShapeCode === decalShapeCylinder && (side === "top" || side === "bottom")) return decalShapeFlat;
+	return baseShapeCode;
+}
+
+// Shared by both decal vertex shaders; mirrors the primitive builders in builder/NewObject.js.
+const decalSurfaceProjectionGLSL = `
+	const int SHAPE_FLAT = 0;
+	const int SHAPE_SPHERE = 1;
+	const int SHAPE_CYLINDER = 2;
+	const int SHAPE_CAPSULE = 3;
+
+	vec3 projectToSurface(int shape, vec3 local, vec3 r) {
+		if (shape == SHAPE_SPHERE) {
+			vec3 n = local / r;
+			float d2 = dot(n, n);
+			if (d2 <= 0.0) return local;
+			return local * inversesqrt(d2);
+		}
+		if (shape == SHAPE_CYLINDER) {
+			vec2 n = local.xz / r.xz;
+			float d2 = dot(n, n);
+			if (d2 <= 0.0) return local;
+			vec3 surf = local;
+			surf.xz = local.xz * inversesqrt(d2);
+			return surf;
+		}
+		if (shape == SHAPE_CAPSULE) {
+			float capRadius = clamp(r.z, 0.0001, r.x);
+			float cylinderHalf = max(0.0, r.y - capRadius);
+			if (abs(local.y) <= cylinderHalf) {
+				vec2 n = local.xz / r.xz;
+				float d2 = dot(n, n);
+				if (d2 <= 0.0) return local;
+				vec3 surf = local;
+				surf.xz = local.xz * inversesqrt(d2);
+				return surf;
+			}
+			float capCenterY = sign(local.y) * cylinderHalf;
+			vec3 capLocal = vec3(local.x, local.y - capCenterY, local.z);
+			vec3 capR = vec3(r.x, capRadius, r.z);
+			vec3 n = capLocal / capR;
+			float d2 = dot(n, n);
+			if (d2 <= 0.0) return local;
+			vec3 projected = capLocal * inversesqrt(d2);
+			return vec3(projected.x, projected.y + capCenterY, projected.z);
+		}
+		return local;
+	}
+`;
+
 function createDecalProgram(gl) {
 	// Vertex shader: projects the placed quad onto the part surface, then applies u_partWorld.
-	// projectToSurface mirrors the primitive builders in builder/NewObject.js (sphere/cylinder/capsule).
 	const vertexShaderSource = `#version 300 es
 		in vec3 a_position;
 		in vec2 a_uv;
@@ -434,48 +483,7 @@ function createDecalProgram(gl) {
 		out vec2 v_uv;
 		out float v_depth;
 
-		const int SHAPE_FLAT = 0;
-		const int SHAPE_SPHERE = 1;
-		const int SHAPE_CYLINDER = 2;
-		const int SHAPE_CAPSULE = 3;
-
-		vec3 projectToSurface(int shape, vec3 local, vec3 r) {
-			if (shape == SHAPE_SPHERE) {
-				vec3 n = local / r;
-				float d2 = dot(n, n);
-				if (d2 <= 0.0) return local;
-				return local * inversesqrt(d2);
-			}
-			if (shape == SHAPE_CYLINDER) {
-				vec2 n = local.xz / r.xz;
-				float d2 = dot(n, n);
-				if (d2 <= 0.0) return local;
-				vec3 surf = local;
-				surf.xz = local.xz * inversesqrt(d2);
-				return surf;
-			}
-			if (shape == SHAPE_CAPSULE) {
-				float capRadius = clamp(r.z, 0.0001, r.x);
-				float cylinderHalf = max(0.0, r.y - capRadius);
-				if (abs(local.y) <= cylinderHalf) {
-					vec2 n = local.xz / r.xz;
-					float d2 = dot(n, n);
-					if (d2 <= 0.0) return local;
-					vec3 surf = local;
-					surf.xz = local.xz * inversesqrt(d2);
-					return surf;
-				}
-				float capCenterY = sign(local.y) * cylinderHalf;
-				vec3 capLocal = vec3(local.x, local.y - capCenterY, local.z);
-				vec3 capR = vec3(r.x, capRadius, r.z);
-				vec3 n = capLocal / capR;
-				float d2 = dot(n, n);
-				if (d2 <= 0.0) return local;
-				vec3 projected = capLocal * inversesqrt(d2);
-				return vec3(projected.x, projected.y + capCenterY, projected.z);
-			}
-			return local;
-		}
+		${decalSurfaceProjectionGLSL}
 
 		void main() {
 			vec3 local = (u_placement * vec4(a_position, 1.0)).xyz;
@@ -518,6 +526,94 @@ function createDecalProgram(gl) {
 	});
 }
 
+function createScatterDecalProgram(gl) {
+	// Instanced variant of the decal shader: u_partWorld becomes per-instance row attributes.
+	const vertexShaderSource = `#version 300 es
+		layout(location = 0) in vec3 a_position;
+		layout(location = 1) in vec2 a_uv;
+		layout(location = 2) in vec4 a_instanceRow0;
+		layout(location = 3) in vec4 a_instanceRow1;
+		layout(location = 4) in vec4 a_instanceRow2;
+		layout(location = 5) in vec4 a_instanceRow3;
+		uniform mat4 u_projection;
+		uniform mat4 u_view;
+		uniform mat4 u_placement;
+		uniform int u_shape;
+		uniform vec3 u_halfExtents;
+		out vec2 v_uv;
+		out float v_depth;
+
+		${decalSurfaceProjectionGLSL}
+
+		void main() {
+			mat4 instanceModel = mat4(a_instanceRow0, a_instanceRow1, a_instanceRow2, a_instanceRow3);
+			vec3 local = (u_placement * vec4(a_position, 1.0)).xyz;
+			vec3 surf = projectToSurface(u_shape, local, u_halfExtents);
+			vec4 world = instanceModel * vec4(surf, 1.0);
+			vec4 viewPos = u_view * world;
+			gl_Position = u_projection * viewPos;
+			v_uv = a_uv;
+			v_depth = abs(viewPos.z);
+		}
+	`;
+
+	return createLinkedProgram(gl, {
+		vertexShaderSource: vertexShaderSource,
+		fragmentShaderSource: createFoggedTextureFragmentShader(
+			"uniform vec4 u_tint;",
+			"vec4(texel.rgb * u_tint.rgb * u_tint.a, texel.a * u_tint.a)",
+			true
+		),
+		uniformNames: {
+			projection : "u_projection",
+			view       : "u_view",
+			placement  : "u_placement",
+			shape      : "u_shape",
+			halfExtents: "u_halfExtents",
+			texture    : "u_texture",
+			tint       : "u_tint",
+			fogDensity : "u_fogDensity",
+			far        : "u_far",
+			colorShift : "u_colorShift",
+			underwater : "u_underwater",
+		},
+		createError    : "scatter decal shader program creation failed",
+		linkErrorPrefix: "scatter decal shader link error",
+	});
+}
+
+// Crossfades two baked surfaces; fog/tint are applied later by the textured programs, not here.
+function createBlendProgram(gl) {
+	const vertexShaderSource = `#version 300 es
+		in vec2 a_position;
+		out vec2 v_uv;
+		void main() {
+			v_uv = a_position * 0.5 + 0.5;
+			gl_Position = vec4(a_position, 0.0, 1.0);
+		}
+	`;
+
+	const fragmentShaderSource = `#version 300 es
+		precision highp float;
+		uniform sampler2D u_from;
+		uniform sampler2D u_to;
+		uniform float u_ratio;
+		in vec2 v_uv;
+		out vec4 fragColor;
+		void main() {
+			fragColor = mix(texture(u_from, v_uv), texture(u_to, v_uv), u_ratio);
+		}
+	`;
+
+	return createLinkedProgram(gl, {
+		vertexShaderSource, fragmentShaderSource,
+		attributeNames : { position: "a_position" },
+		uniformNames   : { from: "u_from", to: "u_to", ratio: "u_ratio" },
+		createError    : "texture blend program creation failed",
+		linkErrorPrefix: "texture blend shader link error",
+	});
+}
+
 /* === GEOMETRY REGISTRY === */
 // Shared geometry pool: one set of GPU buffers per unique (primitive, dimensions) combo.
 
@@ -555,9 +651,39 @@ function ensureSharedGeometry(renderer, sceneGraph, primitiveKey) {
 /* === SCATTER INSTANCE BUFFERS === */
 // Builds per-batch VAOs and instance buffers from scatterBatches on the sceneGraph.
 
+// Shared position/uv/index + per-instance model-matrix rows, optional trailing tint row.
+function buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBuffer, includeTint) {
+	const vao = gl.createVertexArray();
+	gl.bindVertexArray(vao);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+	gl.enableVertexAttribArray(0);
+	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+	gl.enableVertexAttribArray(1);
+	gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);
+
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
+	const stride = 80;
+	const rowCount = includeTint ? 5 : 4;
+	for (let row = 0; row < rowCount; row++) {
+		const location = 2 + row;
+		gl.enableVertexAttribArray(location);
+		gl.vertexAttribPointer(location, 4, gl.FLOAT, false, stride, row * 16);
+		gl.vertexAttribDivisor(location, 1);
+	}
+
+	gl.bindVertexArray(null);
+	return vao;
+}
+
 function buildScatterInstanceBuffers(renderer, sceneGraph) {
 	if (sceneGraph.scatterBatches.size === 0) {
 		renderer.scatterInstances = [];
+		renderer.scatterDecalBatches = [];
 		renderer.scatterInstancesBuilt = true;
 		return;
 	}
@@ -565,6 +691,7 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 	const gl = renderer.gl;
 	const results = [];
 	let totalInstances = 0;
+	const decalQuadBuffer = ensureDecalQuadBuffer(renderer);
 
 	sceneGraph.scatterBatches.forEach((batch, batchKey) => {
 		if (batch.instanceCount === 0) return;
@@ -579,53 +706,20 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 		gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, instanceData, gl.STATIC_DRAW);
 
-		// Create a VAO that binds shared geometry + instance attributes.
-		const vao = gl.createVertexArray();
-		gl.bindVertexArray(vao);
+		// Model matrix rows 0-3 + per-instance tint row 4.
+		const vao = buildInstancedVao(gl, geo.positionBuffer, geo.uvBuffer, geo.indexBuffer, instanceBuffer, true);
 
-		// Attribute 0: a_position (vec3) — per-vertex
-		gl.bindBuffer(gl.ARRAY_BUFFER, geo.positionBuffer);
-		gl.enableVertexAttribArray(0);
-		gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+		const decalVao = batch.customTextures.length > 0 && decalQuadBuffer
+			? buildInstancedVao(gl, decalQuadBuffer.position, decalQuadBuffer.uv, decalQuadBuffer.index, instanceBuffer, false)
+			: null;
 
-		// Attribute 1: a_uv (vec2) — per-vertex
-		gl.bindBuffer(gl.ARRAY_BUFFER, geo.uvBuffer);
-		gl.enableVertexAttribArray(1);
-		gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);
-
-		// Index buffer
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, geo.indexBuffer);
-
-		// Instance attributes from instanceBuffer (stride = 20 floats = 80 bytes)
-		gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
-		const stride = 80;
-
-		// Attribute 2: a_instanceRow0 (vec4) — offset 0
-		gl.enableVertexAttribArray(2);
-		gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 0);
-		gl.vertexAttribDivisor(2, 1);
-
-		// Attribute 3: a_instanceRow1 (vec4) — offset 16
-		gl.enableVertexAttribArray(3);
-		gl.vertexAttribPointer(3, 4, gl.FLOAT, false, stride, 16);
-		gl.vertexAttribDivisor(3, 1);
-
-		// Attribute 4: a_instanceRow2 (vec4) — offset 32
-		gl.enableVertexAttribArray(4);
-		gl.vertexAttribPointer(4, 4, gl.FLOAT, false, stride, 32);
-		gl.vertexAttribDivisor(4, 1);
-
-		// Attribute 5: a_instanceRow3 (vec4) — offset 48
-		gl.enableVertexAttribArray(5);
-		gl.vertexAttribPointer(5, 4, gl.FLOAT, false, stride, 48);
-		gl.vertexAttribDivisor(5, 1);
-
-		// Attribute 6: a_instanceTint (vec4) — offset 64
-		gl.enableVertexAttribArray(6);
-		gl.vertexAttribPointer(6, 4, gl.FLOAT, false, stride, 64);
-		gl.vertexAttribDivisor(6, 1);
-
-		gl.bindVertexArray(null);
+		// Scatter decals don't animate at runtime, so placement/shape are static — built once here.
+		const baseShapeCode = shapeEnum(batch.primitive);
+		const decalDraws = decalVao ? batch.customTextures.map((decalEntry, index) => ({
+			shapeCode: resolveDecalShapeCode(baseShapeCode, decalEntry.side),
+			placement: buildDecalPlacementMatrix(batch.dimensions, decalEntry),
+			textureKey: `${batchKey}::customTexture::${index}`,
+		})) : null;
 
 		totalInstances += instanceCount;
 		results.push({
@@ -634,10 +728,14 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 			indexCount: geo.indexCount,
 			instanceCount: instanceCount,
 			textureID: batch.textureID,
+			decalVao,
+			decalDraws,
+			dimensions: batch.dimensions,
 		});
 	});
 
 	renderer.scatterInstances = results;
+	renderer.scatterDecalBatches = results.filter((batch) => batch.decalVao !== null);
 	renderer.scatterInstancesBuilt = true;
 	Log(
 		"ENGINE",
@@ -1013,9 +1111,8 @@ function ensureStencilMeshBuffer(renderer, mesh) {
 	return buf;
 }
 
-// Stencil buffer for a relation's world-space open faces. Positions are converted to world
-// render units once and drawn with an identity model matrix (the stencil shader only reads
-// positions). Cached by a derived key off the relation owner id.
+// Stencil buffer for a relation's open faces; positions pre-converted to world units, drawn
+// with an identity model matrix. Cached by relation owner id.
 function createOpenFaceStencilBuffer(gl, openFaces, stencilShader) {
 	const positions = new Float32Array(openFaces.length * 9);
 	const indices   = new Uint16Array(openFaces.length * 3);
@@ -1085,42 +1182,138 @@ function createFallbackTexture(gl) {
 	return texture;
 }
 
+// Decals specifically upload premultiplied; reallocate=false reuses storage via texSubImage2D.
+function uploadTextureImage(gl, textureID, source, reallocate) {
+	const isDecal = textureID.includes("::customTexture::");
+	if (isDecal) gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+	if (reallocate) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+	else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
+	if (isDecal) gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+}
+
 function ensureSceneTexture(renderer, sceneGraph, textureID) {
 	const gl = renderer.gl;
-	const entry = sceneGraph.visualResources.textureRegistry[textureID];
-
-	// decal textures upload premultiplied (see drawDecalPass) and clamp; meshes/faces do not.
-	const isDecal = textureID.includes("::customTexture::");
-	const uploadSource = () => {
-		if (isDecal) gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.source);
-		if (isDecal) gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-	};
-
-	if (renderer.textures.has(textureID)) {
-		const cachedTexture = renderer.textures.get(textureID);
-		if (entry.dirty === true) {
-			gl.bindTexture(gl.TEXTURE_2D, cachedTexture);
-			uploadSource();
-			entry.dirty = false;
-		}
-		return cachedTexture;
-	}
+	if (renderer.textures.has(textureID)) return renderer.textures.get(textureID);
 
 	const texture = gl.createTexture();
 	if (!texture) return renderer.fallbackTexture;
 
-	const wrapMode = (textureID.includes("::face=") || isDecal) ? gl.CLAMP_TO_EDGE : gl.REPEAT;
+	const wrapMode = (textureID.includes("::face=") || textureID.includes("::customTexture::"))
+		? gl.CLAMP_TO_EDGE
+		: gl.REPEAT;
 	gl.bindTexture(gl.TEXTURE_2D, texture);
-	uploadSource();
+	uploadTextureImage(gl, textureID, sceneGraph.visualResources.textureRegistry[textureID].source, true);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	entry.dirty = false;
 
 	renderer.textures.set(textureID, texture);
 	return texture;
+}
+
+function ensureBlendQuad(renderer) {
+	if (renderer.blendQuad) return renderer.blendQuad;
+
+	const gl = renderer.gl;
+	const positionBuffer = gl.createBuffer();
+	const indexBuffer = gl.createBuffer();
+	if (!positionBuffer || !indexBuffer) {
+		Log("ENGINE", "Blend quad buffer creation failed", "error", "Render");
+		return null;
+	}
+
+	const vao = gl.createVertexArray();
+	gl.bindVertexArray(vao);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+	gl.enableVertexAttribArray(renderer.blendShader.attributes.position);
+	gl.vertexAttribPointer(renderer.blendShader.attributes.position, 2, gl.FLOAT, false, 0, 0);
+
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2, 2, 1, 3]), gl.STATIC_DRAW);
+
+	gl.bindVertexArray(null);
+
+	renderer.blendQuad = { vao, position: positionBuffer, index: indexBuffer, indexCount: 6 };
+	return renderer.blendQuad;
+}
+
+// Both surfaces upload here, so a rollover queued before first draw is consumed too.
+function ensureAnimatedSources(renderer, textureID, stateEntry) {
+	const existing = renderer.animatedSources.get(textureID);
+	if (existing !== undefined) return existing;
+
+	const gl = renderer.gl;
+	const createFrom = (source) => {
+		const texture = gl.createTexture();
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		uploadTextureImage(gl, textureID, source, true);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		return texture;
+	};
+
+	const sources = { from: createFrom(stateEntry.fromSurface), to: createFrom(stateEntry.toSurface) };
+	stateEntry.pendingSurface = null;
+	renderer.animatedSources.set(textureID, sources);
+	return sources;
+}
+
+function blendAnimatedTextures(renderer, sceneGraph) {
+	const gl = renderer.gl;
+	const byTextureID = sceneGraph.visualResources.textureAnimation.byTextureID;
+	const quad = ensureBlendQuad(renderer);
+	if (!quad) return;
+
+	gl.disable(gl.DEPTH_TEST);
+	gl.disable(gl.BLEND);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, renderer.blendFramebuffer);
+	gl.useProgram(renderer.blendShader.program);
+	gl.uniform1i(renderer.blendShader.uniforms.from, 0);
+	gl.uniform1i(renderer.blendShader.uniforms.to, 1);
+	gl.bindVertexArray(quad.vao);
+
+	for (const textureID in byTextureID) {
+		// Absent from cache = never drawn, so nothing samples its target.
+		const target = renderer.textures.get(textureID);
+		if (target === undefined) continue;
+
+		const stateEntry = byTextureID[textureID];
+		if (stateEntry.toSurface === null) continue;
+
+		const sources = ensureAnimatedSources(renderer, textureID, stateEntry);
+
+		// Outgoing "from" becomes the new "to"; same dimensions, so storage is reused.
+		if (stateEntry.pendingSurface !== null) {
+			const recycled = sources.from;
+			sources.from = sources.to;
+			sources.to = recycled;
+			gl.activeTexture(gl.TEXTURE0);
+			gl.bindTexture(gl.TEXTURE_2D, sources.to);
+			uploadTextureImage(gl, textureID, stateEntry.pendingSurface, false);
+			stateEntry.pendingSurface = null;
+		}
+
+		if (stateEntry.phase !== "blend") continue;
+
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target, 0);
+		gl.viewport(0, 0, stateEntry.toSurface.width, stateEntry.toSurface.height);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, sources.from);
+		gl.activeTexture(gl.TEXTURE1);
+		gl.bindTexture(gl.TEXTURE_2D, sources.to);
+		gl.uniform1f(renderer.blendShader.uniforms.ratio, stateEntry.blendRatio);
+		gl.drawElements(gl.TRIANGLES, quad.indexCount, gl.UNSIGNED_SHORT, 0);
+	}
+
+	gl.bindVertexArray(null);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	gl.activeTexture(gl.TEXTURE0);
 }
 
 function ensureLevelRenderer(rootId, rootStyles) {
@@ -1170,9 +1363,27 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		return null;
 	}
 
+	const scatterDecalShader = createScatterDecalProgram(gl);
+	if (!scatterDecalShader) {
+		Log("ENGINE", "Failed to create scatter decal shader.", "error", "Render");
+		return null;
+	}
+
 	const entityTriplanarShader = createEntityTriplanarProgram(gl);
 	if (!entityTriplanarShader) {
 		Log("ENGINE", "Failed to create entity triplanar shader.", "error", "Render");
+		return null;
+	}
+
+	const blendShader = createBlendProgram(gl);
+	if (!blendShader) {
+		Log("ENGINE", "Failed to create texture blend shader.", "error", "Render");
+		return null;
+	}
+
+	const blendFramebuffer = gl.createFramebuffer();
+	if (!blendFramebuffer) {
+		Log("ENGINE", "Failed to create texture blend framebuffer.", "error", "Render");
 		return null;
 	}
 
@@ -1181,12 +1392,18 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		scatterShader,
 		stencilShader,
 		decalShader,
+		scatterDecalShader,
 		entityTriplanarShader,
+		blendShader,
+		blendFramebuffer,
+		blendQuad: null,
+		animatedSources: new Map(),
 		meshBuffers: new Map(),
 		textures: new Map(),
 		geometryRegistry: new Map(),
 		stencilBufferCache: new Map(),
 		scatterInstances: null,
+		scatterDecalBatches: null,
 		scatterInstancesBuilt: false,
 		fallbackTexture: createFallbackTexture(gl),
 		loggedScatterSubmission: false,
@@ -1361,8 +1578,7 @@ function drawTranslucentPass(renderer, sceneGraph, meshes, passState, cameraPosi
 	drawSortedRuns(renderer, sceneGraph, underwater ? below : above, passState);
 }
 
-// Tessellation density of the shared decal grid. A higher value conforms more smoothly
-// to curved surfaces at the cost of more vertices per decal draw.
+// Decal grid tessellation density; higher = smoother on curves, more vertices per draw.
 const decalGridSegments = 12;
 
 function ensureDecalQuadBuffer(renderer) {
@@ -1424,8 +1640,7 @@ function ensureDecalQuadBuffer(renderer) {
 	return renderer.decalQuadBuffer;
 }
 
-// Face rotation matrices (column-major). Each aligns the quad's +Z normal to the face normal.
-// Computed from standard rotation formulas with exact trig values at 0°/90°/180°.
+// Face rotation matrices (column-major), aligning quad +Z to the face normal; exact trig at 0/90/180°.
 const decalFaceRotations = {
 	front:  [1, 0,  0, 0,  0, 1,  0, 0,  0,  0, 1, 0,  0, 0, 0, 1], // identity
 	back:   [-1, 0, 0, 0,  0, 1,  0, 0,  0,  0,-1, 0,  0, 0, 0, 1], // 180° Y
@@ -1435,9 +1650,23 @@ const decalFaceRotations = {
 	left:   [0, 0,  1, 0,  0, 1,  0, 0, -1,  0, 0, 0,  0, 0, 0, 1], // −90° Y
 };
 
-function buildDecalPlacementMatrix(partMesh, decalEntry) {
-	const dim = partMesh.dimensions;
-	const lt  = decalEntry.displayTransform;
+// Shared decal blend/depth state: additive-over-straight blend + polygon offset to avoid z-fighting.
+function beginDecalState(gl, shader, passState) {
+	configureTexturedMeshPass(gl, shader, passState);
+	gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+	gl.enable(gl.POLYGON_OFFSET_FILL);
+	gl.polygonOffset(-1, -1);
+	gl.depthMask(false);
+}
+
+function endDecalState(gl) {
+	gl.depthMask(true);
+	gl.disable(gl.POLYGON_OFFSET_FILL);
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); // restore frame-init straight-alpha blend
+}
+
+function buildDecalPlacementMatrix(dim, decalEntry) {
+	const lt = decalEntry.displayTransform;
 	const pos = lt.position;
 	const sc  = lt.scale;
 
@@ -1453,8 +1682,7 @@ function buildDecalPlacementMatrix(partMesh, decalEntry) {
 
 	const [tx, ty, tz] = faceTranslations[decalEntry.side];
 	const c = Math.cos(lt.rotation.value), s = Math.sin(lt.rotation.value);
-	// Part-local placement: T(face_center + local_offset) × R_face × R_z(rotation) × S(scale).
-	// The part world matrix is applied separately as u_partWorld, after surface conforming.
+	// Part-local placement: T(face_center+local_offset) × R_face × R_z(rotation) × S(scale). Part world applied separately as u_partWorld.
 	const tMatrix  = [1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  tx, ty, tz, 1];
 	const rzMatrix = [c, s, 0, 0,  -s, c, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
 	const sMatrix  = [sc.x, 0, 0, 0,  0, sc.y, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
@@ -1469,24 +1697,21 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	const gl = renderer.gl;
 	const decalShader = renderer.decalShader;
 
-	configureTexturedMeshPass(gl, renderer.decalShader, passState);
-	gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-	gl.enable(gl.POLYGON_OFFSET_FILL);
-	gl.polygonOffset(-1, -1);
-	gl.depthMask(false);
+	beginDecalState(gl, decalShader, passState);
 
 	const drawDecalsForMesh = (mesh) => {
 		if (mesh.customTextures.length === 0) return;
 
 		// Mesh-level uniforms: identical for every decal on this mesh — set once.
 		gl.uniformMatrix4fv(decalShader.uniforms.partWorld, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
-		gl.uniform1i(decalShader.uniforms.shape, shapeEnum(mesh.shape));
 		const dim = mesh.dimensions;
 		gl.uniform3f(decalShader.uniforms.halfExtents, dim.x / 2, dim.y / 2, dim.z / 2);
 		gl.uniform1i(decalShader.uniforms.texture, 0);
+		const baseShapeCode = shapeEnum(mesh.shape);
 
 		mesh.customTextures.forEach((decalEntry, index) => {
-			gl.uniformMatrix4fv(decalShader.uniforms.placement, false, buildDecalPlacementMatrix(mesh, decalEntry));
+			gl.uniform1i(decalShader.uniforms.shape, resolveDecalShapeCode(baseShapeCode, decalEntry.side));
+			gl.uniformMatrix4fv(decalShader.uniforms.placement, false, buildDecalPlacementMatrix(mesh.dimensions, decalEntry));
 			if (decalEntry.mutable === true && decalEntry.activeSourceKey === null) {
 				const tint = decalEntry.displayColor !== null ? decalEntry.displayColor : decalEntry.color;
 				gl.uniform4f(decalShader.uniforms.tint, tint.r, tint.g, tint.b, tint.a);
@@ -1513,9 +1738,36 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	sceneGraph.terrain.forEach((mesh) => drawDecalsForMesh(mesh));
 
 	gl.bindVertexArray(null);
-	gl.depthMask(true);
-	gl.disable(gl.POLYGON_OFFSET_FILL);
-	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); // restore frame-init straight-alpha blend
+	endDecalState(gl);
+}
+
+// Instanced counterpart of drawDecalPass — placement/shape are precomputed in buildScatterInstanceBuffers.
+function drawScatterDecalPass(renderer, sceneGraph, passState) {
+	if (renderer.scatterDecalBatches.length === 0) return;
+
+	const gl = renderer.gl;
+	const shader = renderer.scatterDecalShader;
+
+	beginDecalState(gl, shader, passState);
+	gl.uniform1i(shader.uniforms.texture, 0);
+	gl.uniform4f(shader.uniforms.tint, 1, 1, 1, 1);
+	gl.activeTexture(gl.TEXTURE0);
+
+	renderer.scatterDecalBatches.forEach((batch) => {
+		gl.bindVertexArray(batch.decalVao);
+		const dim = batch.dimensions;
+		gl.uniform3f(shader.uniforms.halfExtents, dim.x / 2, dim.y / 2, dim.z / 2);
+
+		batch.decalDraws.forEach((draw) => {
+			gl.uniform1i(shader.uniforms.shape, draw.shapeCode);
+			gl.uniformMatrix4fv(shader.uniforms.placement, false, draw.placement);
+			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, draw.textureKey));
+			gl.drawElementsInstanced(gl.TRIANGLES, renderer.decalQuadBuffer.indexCount, gl.UNSIGNED_SHORT, 0, batch.instanceCount);
+		});
+	});
+
+	gl.bindVertexArray(null);
+	endDecalState(gl);
 }
 
 // Flatten every void entry's relation voidWallMeshes into one list (used for textured draws).
@@ -1556,8 +1808,7 @@ function drawVoidStencil(renderer, sceneGraph, passState) {
 	gl.enable(gl.STENCIL_TEST);
 	gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
 
-	// Stencil geometry is coplanar with the depth pre-pass terrain top; negative polygon
-	// offset biases it toward the viewer so LEQUAL passes without z-fighting.
+	// Stencil geometry is coplanar with terrain top; negative polygon offset avoids z-fighting under LEQUAL.
 	gl.enable(gl.POLYGON_OFFSET_FILL);
 	gl.polygonOffset(-1, -1);
 
@@ -1617,6 +1868,9 @@ function drawScene(renderer, sceneGraph) {
 	const gl = renderer.gl;
 
 	syncCanvasSize(renderer);
+	
+	// Writes animated textures off-screen; viewport/depth/blend below restore what it touched.
+	blendAnimatedTextures(renderer, sceneGraph);
 	gl.viewport(0, 0, renderer.canvas.width, renderer.canvas.height);
 	gl.enable(gl.DEPTH_TEST);
 	gl.enable(gl.BLEND);
@@ -1686,6 +1940,9 @@ function drawScene(renderer, sceneGraph) {
 			gl.bindVertexArray(null);
 		});
 	}
+
+	// === PASS B2: Instanced scatter decals (custom textures baked per batch) ===
+	drawScatterDecalPass(renderer, sceneGraph, passState);
 
 	// === PASS C: Trigger overlay (no depth write — color filter over all solid geometry) ===
 	if (sceneGraph.debug.showTriggerVolumes) drawMeshList(renderer, sceneGraph, sceneGraph.triggers, passState, { depthMask: false });

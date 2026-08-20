@@ -30,14 +30,31 @@ const particleSurfaceMap = {
 
 /* === LAYOUT & SPREAD === */
 
+const maxGroupSize = 10;
+
 // Dimensionless multipliers of the part's own dimensions — proportional at any size, never unit space.
-const groupLayouts = {
+const tunedLayouts = {
 	1: [{ x:  0,   y:  0,   z:  0   }],
 	2: [{ x: -0.8, y:  0.3, z:  0.2 }, { x:  0.8, y: -0.3, z: -0.2 }],
 	3: [{ x:  0,   y:  0.9, z:  0   }, { x: -0.9, y: -0.5, z:  0.5 }, { x:  0.9, y: -0.5, z: -0.5 }],
 	4: [{ x: -0.8, y:  0.7, z:  0.4 }, { x:  0.9, y:  0.5, z: -0.5 }, { x: -0.6, y: -0.7, z: -0.8 }, { x:  0.7, y: -0.6, z:  0.7 }],
 	5: [{ x:  0,   y:  1.1, z:  0   }, { x: -1,   y:  0.2, z:  0.9 }, { x:  1,   y:  0.3, z: -0.8 }, { x: -0.9, y: -0.8, z: -0.7 }, { x:  0.8, y: -0.9, z:  0.6 }],
 };
+
+// Golden-angle sphere: even coverage at any size, and identical every run.
+const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+const sphereLayout = (size) => Array.from({ length: size }, (_, index) => {
+	const y      = 1 - ((index + 0.5) / size) * 2;
+	const radius = Math.sqrt(1 - y * y);
+	const angle  = index * goldenAngle;
+	return { x: Math.cos(angle) * radius, y, z: Math.sin(angle) * radius };
+});
+
+// Built once at import; sizes past the tuned set are generated, then read by plain index like the rest.
+const groupLayouts = {};
+for (let size = 1; size <= maxGroupSize; size++) {
+	groupLayouts[size] = size <= Object.keys(tunedLayouts).length ? tunedLayouts[size] : sphereLayout(size);
+}
 
 // Burst cone half-angles. Feel values; "max" is a full sphere, not a cone.
 const spreadHalfAngles = {
@@ -50,11 +67,12 @@ const spreadHalfAngles = {
 // Downward acceleration the tick applies in "simple" mode. Feel value.
 const arcRate = new Unit(9, "cnu");
 
-// Shrink stops short of zero: a degenerate collider radius breaks the swept test.
-const shrinkFloor = 0.05;
-
-const minGroupSize = 2;
-const maxGroupSize = 5;
+// Bigger emissions consolidate into chunkier groups; small ones keep their fine-grained spray.
+function minGroupSizeFor(count) {
+	if (count > 20) return 5;
+	if (count > 10) return 3;
+	return 2;
+}
 
 /* === PERFORMANCE === */
 
@@ -143,24 +161,25 @@ function balancedSplit(total, groups) {
 }
 
 // Break up the even split with ±1 transfers that keep both ends in range.
-function jitterGroupSizes(sizes) {
+function jitterGroupSizes(sizes, minSize) {
 	for (let i = 0; i < sizes.length; i++) {
 		const from = randomInt(0, sizes.length - 1);
 		const to   = randomInt(0, sizes.length - 1);
-		if (from === to || sizes[from] - 1 < minGroupSize || sizes[to] + 1 > maxGroupSize) continue;
+		if (from === to || sizes[from] - 1 < minSize || sizes[to] + 1 > maxGroupSize) continue;
 		sizes[from] -= 1;
 		sizes[to]   += 1;
 	}
 	return sizes;
 }
 
-// <3 → singles. 3–7 → three near-equal groups. ≥8 → a random group count, each group 2–5 parts.
+// <3 → singles. 3–7 → three near-equal groups. ≥8 → a random group count, sized by minGroupSizeFor.
 function resolveGroupSizes(count) {
 	if (count < 3) return new Array(count).fill(1);
 	if (count <= 7) return balancedSplit(count, 3);
 
-	const groups = randomInt(Math.max(3, Math.ceil(count / maxGroupSize)), Math.floor(count / minGroupSize));
-	return jitterGroupSizes(balancedSplit(count, groups));
+	const minSize = minGroupSizeFor(count);
+	const groups = randomInt(Math.max(3, Math.ceil(count / maxGroupSize)), Math.floor(count / minSize));
+	return jitterGroupSizes(balancedSplit(count, groups), minSize);
 }
 
 /* === DEFINITION SYNTHESIS === */
@@ -297,7 +316,7 @@ class particleGroup {
 		});
 
 		// Group scale shrinks each particle in place; local offsets are unscaled, so spread holds.
-		if (this.duration.mode === "shrink") this.entity.transform.scale = ToVector3(Math.max(shrinkFloor, decay));
+		if (this.duration.mode === "shrink") this.entity.transform.scale = ToVector3(Math.max(0.05, decay));
 	}
 
 	recycle() {

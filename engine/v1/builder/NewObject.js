@@ -3,7 +3,7 @@
 // Called by anything that wants any 3D object or wants to build models.
 
 import { BuildScatter } from "./NewScatter.js";
-import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveNoiseFaceBlueprint, FREQUENCY_PATTERN_CONFIG, VISUAL_TEMPLATES, ComputeGeneratedTextureID, IsTextureTransparent } from "./NewTexture.js";
+import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveNoiseFaceBlueprint, FREQUENCY_PATTERN_CONFIG, VISUAL_TEMPLATES, ComputeGeneratedTextureID, IsTextureTransparent, InitializeDecalDisplay } from "./NewTexture.js";
 import { CONFIG } from "../core/config.js";
 import { CreateModelMatrix, CreateIdentityMatrix, MultiplyMatrix4 } from "../math/Matrix.js";
 import { SampleConnectorCenterline, ParallelTransportFrames } from "../math/Curves.js";
@@ -1178,11 +1178,7 @@ function BuildObject(source) {
 		}
 		partMesh.detailedBounds = computeDetailedBounds(partMesh);
 
-		partMesh.customTextures.forEach((decal) => {
-			decal.displayTransform = decal.localTransform;
-			decal.displayColor = null;
-			decal.activeSourceKey = null;
-		});
+		InitializeDecalDisplay(partMesh.customTextures);
 
 		const scatterContext = source.scatterContext;
 		if (scatterContext && partMesh.detail.scatter.length > 0) {
@@ -1250,13 +1246,7 @@ function BuildObject(source) {
 	};
 	mesh.detailedBounds = computeDetailedBounds(mesh);
 
-	// Decal render source — same reference as the face-local transform until the animation
-	// runtime swaps in a separate object for animated decals.
-	mesh.customTextures.forEach((decal) => {
-		decal.displayTransform = decal.localTransform;
-		decal.displayColor = null;
-		decal.activeSourceKey = null;
-	});
+	InitializeDecalDisplay(mesh.customTextures);
 
 	const scatterContext = source.scatterContext;
 	if (scatterContext && mesh.detail.scatter.length > 0) {

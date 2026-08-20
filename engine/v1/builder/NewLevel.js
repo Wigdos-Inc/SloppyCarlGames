@@ -18,7 +18,7 @@ import { BuildVoidWalls } from "./NewVoid.js";
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { Clamp, UnitVector3 } from "../math/Utilities.js";
-import { AbsoluteVector3, ToVector3 } from "../math/Vector3.js";
+import { ToVector3 } from "../math/Vector3.js";
 
 function resolveEntityBlueprintMap(payload) {
 	const map = {};
@@ -48,7 +48,7 @@ function resolveTriggerColor(triggerType) {
 		case "cutscene": return { r: 0.45, g: 0.75, b: 1, a: 0.35 };
 		case "dialogue": return { r: 0.4, g: 1, b: 0.65, a: 0.35 };
 		case "combat"  : return { r: 1, g: 0.45, b: 0.45, a: 0.35 };
-		default        : return { r: 1, g: 0.85, b: 0.4, a: 0.3 };
+		default        : return { r: 1, g: 0.85, b: 0.4, a: 0.35 };
 	}
 }
 
@@ -154,7 +154,7 @@ function buildWaterVisualMeshes(world, faceTextureStore) {
 					id: "sea-surface", shape: null, compositeMode: null,
 					primary: null, secondary: null,
 					density: 4, speckSize: 2,
-					animated: true, holdTimeSpeed: 1.5, blendTimeSpeed: 0.8,
+					animated: true, holdTimeSpeed: 1, blendTimeSpeed: 1,
 				},
 				custom: [],
 			},
@@ -185,8 +185,8 @@ function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
 function buildSceneBoundingBoxes(sceneGraph) {
 	const bounds = [];
 	const classifyEntityType = (entity) => {
-		if (entity.type.includes("player")) return { whole: "Player", part: "PlayerPart" };
-		if (entity.type.includes("boss")) return { whole: "Boss", part: "BossPart" };
+		if (entity.type.includes("player"))   return { whole: "Player", part: "PlayerPart" };
+		if (entity.type.includes("boss"))     return { whole: "Boss", part: "BossPart" };
 		if (entity.type.includes("particle")) return { whole: "Particle", part: "ParticlePart" };
 		return { whole: "Entity", part: "EntityPart" };
 	};

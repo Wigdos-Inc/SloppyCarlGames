@@ -307,15 +307,12 @@ function iterateCompoundSpheres(compound, contactFn) {
 }
 
 function narrowphaseContact(boundsA, boundsB) {
-	const typeA = boundsA.type;
-	const typeB = boundsB.type;
-
 	const invertContact = (contact) => {
 		if (!contact.hit) return contact;
 		return { hit: true, normal: ScaleVector3(contact.normal, -1), depth: contact.depth, point: contact.point };
 	}
 
-	switch (typeA.substring(0, 2) + typeB.substring(0, 2)) {
+	switch (boundsA.type.substring(0, 2) + boundsB.type.substring(0, 2)) {
 		case "spsp": return SphereSphereContact(boundsA.center, boundsA.radius, boundsB.center, boundsB.radius);
 		case "spaa": return SphereAABBContact(boundsA.center, boundsA.radius, boundsB);
 		case "aasp": return invertContact(SphereAABBContact(boundsB.center, boundsB.radius, boundsA));
@@ -346,8 +343,8 @@ function narrowphaseContact(boundsA, boundsB) {
 		case "coca": return iterateCompoundSpheres(boundsA, s => SphereCapsuleContact(s.center, s.radius, boundsB));
 	}
 	
-	if (typeA === "compound-sphere") return iterateCompoundSpheres(boundsA, s => narrowphaseContact({ type: "sphere", center: s.center, radius: s.radius }, boundsB));
-	if (typeB === "compound-sphere") return iterateCompoundSpheres(boundsB, s => narrowphaseContact(boundsA, { type: "sphere", center: s.center, radius: s.radius }));
+	if (boundsA.type === "compound-sphere") return iterateCompoundSpheres(boundsA, s => narrowphaseContact({ type: "sphere", center: s.center, radius: s.radius }, boundsB));
+	if (boundsB.type === "compound-sphere") return iterateCompoundSpheres(boundsB, s => narrowphaseContact(boundsA, { type: "sphere", center: s.center, radius: s.radius }));
 
 	return NoContact();
 }
@@ -377,13 +374,6 @@ function IsBeyondSimDistance(viewerPosition, targetPosition) {
 }
 
 const getHalfExtents = (aabb) => aabb.max.clone().subtract(aabb.min).scale(0.5);
-
-function expandAabb(aabb, padding) {
-	return {
-		min: aabb.min.clone().subtract(ToVector3(padding)),
-		max: aabb.max.clone().add(ToVector3(padding)),
-	};
-}
 
 function buildEntityAabbAtPosition(entityAabb, position) {
 	const halfExtents = getHalfExtents(entityAabb);

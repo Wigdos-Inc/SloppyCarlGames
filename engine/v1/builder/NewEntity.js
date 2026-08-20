@@ -352,7 +352,7 @@ function applyModelPose(model) {
 	const rootTransform = cloneRootTransform(model.rootTransform);
 	model.roots.forEach((rootId) => applyPart(rootId, rootTransform));
 
-	// cloneRootTransform already copied position/rotation; scale is aliased there, so clone it.
+	// cloneRootTransform copies position and rotation, aliases scale. Scale is cloned here.
 	model.posedTransform = {
 		position: rootTransform.position,
 		rotation: rootTransform.rotation,

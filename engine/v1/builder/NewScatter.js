@@ -9,8 +9,8 @@ import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateRenderMatrix } from "../math/Matrix.js";
 import { BuildObject, BuildGeometry, GenerateUVs } from "./NewObject.js";
-import { ComputeGeneratedTextureID } from "./NewTexture.js";
-import { RotateByEuler, MultiplyVector3, ScaleVector3, AddVector3, SubtractVector3, WORLD_NORMALS } from "../math/Vector3.js";
+import { ComputeGeneratedTextureID, ComputeCustomTextureSignature, InitializeDecalDisplay } from "./NewTexture.js";
+import { RotateByEuler, MultiplyVector3, ScaleVector3, CloneVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import visualTemplates from "./templates/textures.json" with { type: "json" };
 
 function GetPerformanceScatterMultiplier() {
@@ -42,6 +42,18 @@ function hashNoise(x, z, seed) {
 }
 
 const primitiveGeometryKey = (prim, dim, comp, primOptions) => `${prim}_${dim.x}_${dim.y}_${dim.z}_${comp}_${primOptions}`;
+
+// Field-wise decal clone, mirroring cloneTexture in NewTemplate.js
+function cloneScatterDecal(decal) {
+	return {
+		...decal,
+		localTransform: {
+			position: decal.localTransform.position.clone(),
+			rotation: decal.localTransform.rotation.clone(),
+			scale   : CloneVector3(decal.localTransform.scale),
+		},
+	};
+}
 
 function logScatterBounds(message, objectMesh) {
 	Log(
@@ -399,21 +411,25 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 		{
 			processPart: (ctx, partContext) => {
 				const { part, position, rotation, scale } = partContext;
-				const modelMatrix = CreateRenderMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot });
 				const textureID = ComputeGeneratedTextureID(part.texture.generated);
+				const customSignature = ComputeCustomTextureSignature(part.texture.custom);
 				const primitiveKey = primitiveGeometryKey(part.primitive, part.dimensions, part.complexity, part.primitiveOptions);
-				const batchKey = `${part.primitive}_${part.dimensions.x}_${part.dimensions.y}_${part.dimensions.z}_${textureID}_${part.complexity}_${part.primitiveOptions}`;
+				const batchKey = `${primitiveKey}_${textureID}_${customSignature}`;
 				if (!batchMap.has(batchKey)) {
+					const customTextures = part.texture.custom.map(cloneScatterDecal);
+					InitializeDecalDisplay(customTextures);
 					batchMap.set(batchKey, {
 						primitive: part.primitive.toLowerCase(),
 						dimensions: part.dimensions.clone(),
 						complexity: part.complexity, primitiveOptions: part.primitiveOptions, primitiveKey, textureID,
 						texture: part.texture.generated,
+						customTextures,
 						instances: [],
 						instanceCount: 0,
 						instanceData: null,
 					});
 				}
+				const modelMatrix = CreateRenderMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot });
 
 				batchMap.get(batchKey).instances.push({ modelMatrix, tint: [1, 1, 1, 1] });
 				totalParts++;

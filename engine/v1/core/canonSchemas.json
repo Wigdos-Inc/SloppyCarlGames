@@ -1434,6 +1434,7 @@
       "baseTextureID": { "__meta": { "description": "Base texture id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": null, "deprecated": false } },
       "density":       { "__meta": { "description": "Texture density",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } },
       "speckSize":     { "__meta": { "description": "Speck size",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } },
+      "animated":      { "__meta": { "description": "Re-bake the decal texture on the preset's animation cycle", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
       "primary": {
         "__meta": { "description": "Primary color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
         "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
@@ -1485,6 +1486,7 @@
       "baseTextureID": { "__meta": { "description": "Base texture id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null, "deprecated": false } },
       "density":       { "__meta": { "description": "Texture density",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } },
       "speckSize":     { "__meta": { "description": "Speck size",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } },
+      "animated":      { "__meta": { "description": "Re-bake the decal texture on the preset's animation cycle", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
       "primary": {
         "__meta": { "description": "Primary color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
         "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
