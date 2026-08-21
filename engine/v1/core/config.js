@@ -99,7 +99,8 @@ const CONFIG = {
       Active : true,
       Quality: "High"
     },
-    FrameRate     : 60
+    FrameRate     : 60,
+    Resolution    : 100
   },
   PHYSICS: {
     Gravity   : { 

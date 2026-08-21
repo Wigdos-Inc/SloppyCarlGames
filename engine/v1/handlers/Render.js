@@ -1416,11 +1416,15 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	return renderer;
 }
 
+// Scaled target, not client size to prevent per-frame re-allocation.
 function syncCanvasSize(renderer) {
-	if (renderer.canvas.width !== renderer.canvas.clientWidth || renderer.canvas.height !== renderer.canvas.clientHeight) {
-		renderer.canvas.width = renderer.canvas.clientWidth;
-		renderer.canvas.height = renderer.canvas.clientHeight;
-	}
+	const scale = CONFIG.PERFORMANCE.Resolution / 100;
+	const width  = Math.round(renderer.canvas.clientWidth  * scale);
+	const height = Math.round(renderer.canvas.clientHeight * scale);
+
+	if (renderer.canvas.width === width && renderer.canvas.height === height) return;
+	renderer.canvas.width  = width;
+	renderer.canvas.height = height;
 }
 
 // displayColor.a is authoritative when present — particle texture opacity is always 1.

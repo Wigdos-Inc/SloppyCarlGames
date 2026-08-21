@@ -24,7 +24,18 @@ const SETTING_KEY_BY_ID = {
 	"setting-cutscenes-volume": "cutscene",
 	"setting-sensitivity-mouse": "mouseSensitivity",
 	"setting-sensitivity-keyboard": "keyboardSensitivity",
+	"setting-terrain-scatter": "terrainScatter",
+	"setting-particles": "particles",
+	"setting-sim-distance": "simDistance",
+	"setting-animation-quality": "animationQuality",
+	"setting-frame-rate": "frameRate",
+	"setting-resolution": "resolution",
+	"setting-performance-preset": "performancePreset",
 };
+
+const TIER_LEVELS = ["Low", "Medium", "High"];
+const PRESET_LEVELS = ["Low", "Medium", "High", "Custom"];
+const TIER_IDS = new Set(["setting-terrain-scatter", "setting-particles", "setting-sim-distance", "setting-animation-quality"]);
 
 function loadSettings() {
 	const raw = localStorage.getItem("settings");
@@ -40,7 +51,17 @@ function applySettingsToPayload(payload) {
 	const applyValue = (definitions) => {
 		definitions.forEach((definition) => {
 			const key = SETTING_KEY_BY_ID[definition.id];
-			if (key) definition.value = String(settings[key] ?? definition.value);
+			if (key) {
+				if (TIER_IDS.has(definition.id)) {
+					const index = TIER_LEVELS.indexOf(settings[key]);
+					if (index !== -1) definition.value = String(index);
+				} else if (definition.id === "setting-performance-preset") {
+					const index = PRESET_LEVELS.indexOf(settings[key]);
+					if (index !== -1) definition.value = String(index);
+				} else {
+					definition.value = String(settings[key] ?? definition.value);
+				}
+			}
 			if (Array.isArray(definition.children)) applyValue(definition.children);
 		});
 	};

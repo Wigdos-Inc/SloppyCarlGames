@@ -151,6 +151,8 @@ function StartInputRouter(target) {
 
 	const handler = (event) => {
 		const targetId = event.target?.id ?? null;
+		const activeLevel = GetActiveLevel();
+		const levelIsLoaded = Boolean(activeLevel);
 		let consumed = false;
 
 		if (eventTypes[event.type] === true) {
@@ -168,19 +170,19 @@ function StartInputRouter(target) {
 				}
 			}
 
-			const activeLevel = GetActiveLevel();
-			const levelIsLoaded = Boolean(activeLevel);
-			if (levelIsLoaded && event.type === "keydown" && event.code === "KeyP") {
-				ToggleLevelLoopPause();
-				consumed = true;
-			} 
-			else if (levelIsLoaded && handleDebugLevelInput(event, activeLevel)) consumed = true;
+			if (levelIsLoaded && handleDebugLevelInput(event, activeLevel)) consumed = true;
 			else if (levelIsLoaded && IsSimulatorActive()) consumed = HandleSimulatorInput(event);
 
 			if (!consumed && levelIsLoaded) {
 				if (!!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true)) consumed = HandleFreeCamInput(event, activeLevel);
 				else consumed = HandleDefaultCamInput(event);
 			}
+		}
+
+		// Fallback: reached only if nothing above consumed the key, so it works even with eventTypes.keydown off.
+		if (!consumed && levelIsLoaded && event.type === "keydown" && (event.code === "KeyP" || event.code === "Escape")) {
+			ToggleLevelLoopPause(event.code === "Escape");
+			consumed = true;
 		}
 
 		if (consumed) {

@@ -65,9 +65,10 @@ class UIElement {
 	}
 
 	static removeRoot(rootId) {
-		// Remove a root container by id.
-		Log("ENGINE", `Removed ${rootId}.`, "log", "UI");
+		// Remove a root container by id, if present.
 		const element = document.getElementById(rootId);
+		if (!element) return;
+		Log("ENGINE", `Removed ${rootId}.`, "log", "UI");
 		element.parentNode.removeChild(element);
 	}
 }

@@ -40,7 +40,17 @@ const DEFAULT_SETTINGS = {
 	debugMode: true,
 	mouseSensitivity: 50,
 	keyboardSensitivity: 50,
+	terrainScatter: "High",
+	particles: "High",
+	simDistance: "High",
+	animationQuality: "High",
+	frameRate: 60,
+	resolution: 100,
+	performancePreset: "High",
 };
+
+const TIER_LEVELS = ["Low", "Medium", "High"];
+const PRESET_LEVELS = ["Low", "Medium", "High", "Custom"];
 
 const saveSettings = (settings) => localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 
@@ -86,15 +96,43 @@ function updateSliderVisual(targetId, value) {
 	if (percentElement) percentElement.textContent = `${percent}%`;
 }
 
-function updateSensitivitySliderVisual(targetId, value) {
+const stepPercent = (value, min) => Math.round(ENGINE.Math.Other.Clamp(value, min, 100) / 5) * 5;
+
+function updatePercentSliderVisual(targetId, value, min) {
 	const input = document.getElementById(targetId);
 	if (!input) return;
-	const stepped = Math.round(ENGINE.Math.Other.Clamp(value, 0, 100) / 5) * 5;
+	const stepped = stepPercent(value, min);
 	input.value = String(stepped);
 	input.style.background = buildSliderGradient(stepped);
 
 	const percentElement = document.getElementById(`${targetId}-percent`);
 	if (percentElement) percentElement.textContent = `${stepped}%`;
+}
+
+function updateLeveledSliderVisual(targetId, levels, levelName) {
+	const input = document.getElementById(targetId);
+	if (!input) return;
+	const index = Math.max(0, levels.indexOf(levelName));
+	const percent = Math.round((index / (levels.length - 1)) * 100);
+	input.value = String(index);
+	input.style.background = buildSliderGradient(percent);
+
+	const labelElement = document.getElementById(`${targetId}-percent`);
+	if (labelElement) labelElement.textContent = levelName.toUpperCase();
+}
+
+function updateFrameRateVisual(targetId, value) {
+	const input = document.getElementById(targetId);
+	if (!input) return;
+	const min = Number(input.min) || 30;
+	const max = Number(input.max) || 144;
+	const stepped = ENGINE.Math.Other.Clamp(Math.round(value), min, max);
+	const percent = Math.round(((stepped - min) / (max - min)) * 100);
+	input.value = String(stepped);
+	input.style.background = buildSliderGradient(percent);
+
+	const labelElement = document.getElementById(`${targetId}-percent`);
+	if (labelElement) labelElement.textContent = String(stepped);
 }
 
 function updateToggleVisual(toggleId, isOn) {
@@ -130,7 +168,7 @@ function getSettingsSnapshot() {
 	if (stored) return stored;
 
 	const cfg = ENGINE.CONFIG;
-	return {
+	const snapshot = {
 		master: cfg.VOLUME.Master,
 		music: cfg.VOLUME.Music,
 		voice: cfg.VOLUME.Voice,
@@ -141,7 +179,15 @@ function getSettingsSnapshot() {
 		debugMode: cfg.DEBUG.ALL,
 		mouseSensitivity: cfg.CAMERA.Sensitivity.Mouse,
 		keyboardSensitivity: cfg.CAMERA.Sensitivity.Keyboard,
+		terrainScatter: cfg.PERFORMANCE.TerrainScatter,
+		particles: cfg.PERFORMANCE.Particles,
+		simDistance: cfg.PERFORMANCE.SimDistance,
+		animationQuality: cfg.PERFORMANCE.Animations.Quality,
+		frameRate: cfg.PERFORMANCE.FrameRate,
+		resolution: cfg.PERFORMANCE.Resolution,
 	};
+	snapshot.performancePreset = derivePerformancePreset(snapshot);
+	return snapshot;
 }
 
 function syncSettingsUi(settings) {
@@ -155,8 +201,14 @@ function syncSettingsUi(settings) {
 	updateToggleVisual("setting-skip-intro", Boolean(settings.skipIntro));
 	updateToggleVisual("setting-debug-mode", Boolean(settings.debugMode));
 
-	updateSensitivitySliderVisual("setting-sensitivity-mouse", settings.mouseSensitivity);
-	updateSensitivitySliderVisual("setting-sensitivity-keyboard", settings.keyboardSensitivity);
+	PERCENT_SLIDER_MAP.forEach((entry) => updatePercentSliderVisual(entry.id, settings[entry.key], entry.min));
+
+	updateLeveledSliderVisual("setting-terrain-scatter", TIER_LEVELS, settings.terrainScatter);
+	updateLeveledSliderVisual("setting-particles", TIER_LEVELS, settings.particles);
+	updateLeveledSliderVisual("setting-sim-distance", TIER_LEVELS, settings.simDistance);
+	updateLeveledSliderVisual("setting-animation-quality", TIER_LEVELS, settings.animationQuality);
+	updateFrameRateVisual("setting-frame-rate", settings.frameRate);
+	updateLeveledSliderVisual(PRESET_SLIDER_ID, PRESET_LEVELS, settings.performancePreset);
 }
 
 function applySettings(settings) {
@@ -171,6 +223,12 @@ function applySettings(settings) {
 	cfg.DEBUG.ALL = settings.debugMode;
 	cfg.CAMERA.Sensitivity.Mouse = settings.mouseSensitivity;
 	cfg.CAMERA.Sensitivity.Keyboard = settings.keyboardSensitivity;
+	cfg.PERFORMANCE.TerrainScatter = settings.terrainScatter;
+	cfg.PERFORMANCE.Particles = settings.particles;
+	cfg.PERFORMANCE.SimDistance = settings.simDistance;
+	cfg.PERFORMANCE.Animations.Quality = settings.animationQuality;
+	cfg.PERFORMANCE.FrameRate = settings.frameRate;
+	cfg.PERFORMANCE.Resolution = settings.resolution;
 
 	ENGINE.Audio.UpdateActiveAudioVolumes();
 
@@ -223,6 +281,35 @@ function handleLoadGame() {
 	void requestLevelLoad(saveData);
 }
 
+const PAUSE_ROOT_ID = "engine-pause-root";
+
+function handleLevelPaused() {
+	window.dispatchEvent(new CustomEvent("UI_REQUEST", { detail: { screenId: "pause" } }));
+}
+
+function handleLevelResumed() {
+	ENGINE.UI.ClearUI(PAUSE_ROOT_ID);
+}
+
+function handlePauseResume() {
+	ENGINE.Level.ResumeLevel();
+}
+
+function handlePauseRestart() {
+	const saveData = loadSave() || { levelIndex: 0, stageIndex: 0 };
+	ENGINE.UI.ClearUI(PAUSE_ROOT_ID);
+	ENGINE.Level.ClearLevel();
+	startGame(saveData);
+	void requestLevelLoad(saveData);
+}
+
+function handlePauseExit() {
+	ENGINE.UI.ClearUI(PAUSE_ROOT_ID);
+	ENGINE.Level.ClearLevel();
+	ENGINE.Audio.StopMusic();
+	window.dispatchEvent(new CustomEvent("UI_REQUEST", { detail: { screenId: "TitleScreen" } }));
+}
+
 const VOLUME_SLIDER_MAP = [
 	{ id: "setting-master",           key: "master" },
 	{ id: "setting-music",            key: "music" },
@@ -232,15 +319,41 @@ const VOLUME_SLIDER_MAP = [
 	{ id: "setting-cutscenes-volume", key: "cutscene" },
 ];
 
-const SENSITIVITY_SLIDER_MAP = [
-	{ id: "setting-sensitivity-mouse",    key: "mouseSensitivity" },
-	{ id: "setting-sensitivity-keyboard", key: "keyboardSensitivity" },
+// Resolution floors at 5; a 0% buffer makes the projection aspect NaN.
+const PERCENT_SLIDER_MAP = [
+	{ id: "setting-sensitivity-mouse",    key: "mouseSensitivity",    min: 0 },
+	{ id: "setting-sensitivity-keyboard", key: "keyboardSensitivity", min: 0 },
+	{ id: "setting-resolution",           key: "resolution",          min: 5 },
 ];
 
 const TOGGLE_MAP = [
 	{ id: "setting-skip-intro", key: "skipIntro" },
 	{ id: "setting-debug-mode", key: "debugMode" },
 ];
+
+const TIER_SLIDER_MAP = [
+	{ id: "setting-terrain-scatter",   key: "terrainScatter" },
+	{ id: "setting-particles",         key: "particles" },
+	{ id: "setting-sim-distance",      key: "simDistance" },
+	{ id: "setting-animation-quality", key: "animationQuality" },
+];
+
+const PRESET_SLIDER_ID = "setting-performance-preset";
+
+function derivePerformancePreset(settings) {
+	const matchedTier = TIER_LEVELS.find(
+		(tier) => TIER_SLIDER_MAP.every((entry) => settings[entry.key] === tier)
+	);
+	return matchedTier || "Custom";
+}
+
+function applyPerformancePreset(presetName, settings) {
+	if (presetName === "Custom") return;
+	TIER_SLIDER_MAP.forEach((entry) => {
+		settings[entry.key] = presetName;
+		updateLeveledSliderVisual(entry.id, TIER_LEVELS, presetName);
+	});
+}
 
 function handleSettingsInput(payload) {
 	if (!payload.targetId) return;
@@ -265,13 +378,13 @@ function handleSettingsInput(payload) {
 		}
 	}
 
-	const sensitivityEntry = SENSITIVITY_SLIDER_MAP.find((entry) => entry.id === resolvedTargetId);
-	if (sensitivityEntry && typeof value === "number") {
-		const stepped = Math.round(ENGINE.Math.Other.Clamp(value, 0, 100) / 5) * 5;
-		settings[sensitivityEntry.key] = stepped;
-		changedKey = sensitivityEntry.key;
+	const percentEntry = PERCENT_SLIDER_MAP.find((entry) => entry.id === resolvedTargetId);
+	if (percentEntry && typeof value === "number") {
+		const stepped = stepPercent(value, percentEntry.min);
+		settings[percentEntry.key] = stepped;
+		changedKey = percentEntry.key;
 		changedValue = stepped;
-		updateSensitivitySliderVisual(sensitivityEntry.id, stepped);
+		updatePercentSliderVisual(percentEntry.id, stepped, percentEntry.min);
 	}
 
 	const toggleEntry = TOGGLE_MAP.find((entry) => entry.id === resolvedTargetId);
@@ -280,6 +393,37 @@ function handleSettingsInput(payload) {
 		changedKey = toggleEntry.key;
 		changedValue = settings[toggleEntry.key];
 		updateToggleVisual(toggleEntry.id, settings[toggleEntry.key]);
+	}
+
+	const tierEntry = TIER_SLIDER_MAP.find((entry) => entry.id === resolvedTargetId);
+	if (tierEntry && typeof value === "number") {
+		const index = ENGINE.Math.Other.Clamp(Math.round(value), 0, TIER_LEVELS.length - 1);
+		const tierName = TIER_LEVELS[index];
+		settings[tierEntry.key] = tierName;
+		changedKey = tierEntry.key;
+		changedValue = tierName;
+		updateLeveledSliderVisual(tierEntry.id, TIER_LEVELS, tierName);
+
+		settings.performancePreset = derivePerformancePreset(settings);
+		updateLeveledSliderVisual(PRESET_SLIDER_ID, PRESET_LEVELS, settings.performancePreset);
+	}
+
+	if (resolvedTargetId === PRESET_SLIDER_ID && typeof value === "number") {
+		const index = ENGINE.Math.Other.Clamp(Math.round(value), 0, PRESET_LEVELS.length - 1);
+		const presetName = PRESET_LEVELS[index];
+		settings.performancePreset = presetName;
+		changedKey = "performancePreset";
+		changedValue = presetName;
+		applyPerformancePreset(presetName, settings);
+		updateLeveledSliderVisual(PRESET_SLIDER_ID, PRESET_LEVELS, presetName);
+	}
+
+	if (resolvedTargetId === "setting-frame-rate" && typeof value === "number") {
+		const stepped = ENGINE.Math.Other.Clamp(Math.round(value), 30, 144);
+		settings.frameRate = stepped;
+		changedKey = "frameRate";
+		changedValue = stepped;
+		updateFrameRateVisual("setting-frame-rate", stepped);
 	}
 
 	if (!changedKey) return;
@@ -333,6 +477,44 @@ function handleLevelSelectInput(payload) {
 	}
 }
 
+function showSettingsPage(pageIndex) {
+	const page1 = document.getElementById("settings-page-1");
+	const page2 = document.getElementById("settings-page-2");
+	if (!page1 || !page2) return;
+
+	const showFirst = pageIndex === 1;
+	page1.style.display = showFirst ? "flex" : "none";
+	page1.style.opacity = showFirst ? "1" : "0";
+	page1.style.pointerEvents = showFirst ? "auto" : "none";
+
+	page2.style.display = showFirst ? "none" : "flex";
+	page2.style.opacity = showFirst ? "0" : "1";
+	page2.style.pointerEvents = showFirst ? "none" : "auto";
+}
+
+function handleSettingsPageInput(payload) {
+	if (payload.screenId !== "Settings") return;
+
+	if (payload.type === "keydown") {
+		if (payload.key === "ArrowLeft") {
+			showSettingsPage(1);
+		}
+		if (payload.key === "ArrowRight") {
+			showSettingsPage(2);
+		}
+		return;
+	}
+
+	if (payload.type === "click") {
+		if (payload.targetId === "settings-nav-prev") {
+			showSettingsPage(1);
+		}
+		if (payload.targetId === "settings-nav-next") {
+			showSettingsPage(2);
+		}
+	}
+}
+
 function handlePlayerInput(payload) {
 	const input = window.engineOptional('Level.Player.Input');
 	if (!input) return;
@@ -362,6 +544,7 @@ function handlePlayerInput(payload) {
 function handleUserInput(event) {
 	const payload = event.detail;
 	handleSettingsInput(payload);
+	handleSettingsPageInput(payload);
 	handleLevelSelectInput(payload);
 	handlePlayerInput(payload);
 }
@@ -462,6 +645,11 @@ window.addEventListener("USER_INPUT", handleUserInput);
 window.addEventListener("DELETE_SAVE_DATA", deleteSaveData);
 window.addEventListener("LEVEL_REQUEST", handleLevelRequest);
 window.addEventListener("LOAD_GAME", handleLoadGame);
+window.addEventListener("LEVEL_PAUSED", handleLevelPaused);
+window.addEventListener("LEVEL_RESUMED", handleLevelResumed);
+window.addEventListener("PAUSE_RESUME", handlePauseResume);
+window.addEventListener("PAUSE_RESTART", handlePauseRestart);
+window.addEventListener("PAUSE_EXIT", handlePauseExit);
 window.addEventListener("ENTITY_SPAWN", handleEntitySpawn);
 window.addEventListener("ENTITY_COLLISION", handleEntityCollision);
 window.addEventListener("UI_RENDERED", (event) => {

@@ -8,7 +8,7 @@
 
 import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js";
 import { RenderLevel, RemoveRoot, ClearLevelRenderer } from "../Render.js";
-import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS, ENTITY_TYPES, ReleasePointerLock } from "../../core/meta.js";
+import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS, ENTITY_TYPES, ReleasePointerLock, IsPointerLocked } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
 import { Vector3Distance, LerpVector3, CloneVector3, RotateByEuler } from "../../math/Vector3.js";
@@ -177,20 +177,30 @@ function ClearLevel(clearCache = true) {
 }
 
 function PauseLevelLoop() {
-	if (levelLoop.paused) return;
+	if (levelLoop.paused || IsSimulatorActive()) return;
 	ReleasePointerLock()
 	levelLoop.paused = true;
 	SendEvent("LEVEL_PAUSED", {});
 }
 
-function ResumeLevelLoop() {
-	if (!levelLoop.paused) return;
-	RequestPointerLock();
+function ResumeLevelLoop(triggeredByEscape = false) {
+	if (!levelLoop.paused || IsSimulatorActive()) return;
+	if (!triggeredByEscape) RequestPointerLock();
 	levelLoop.paused = false;
+	UpdateInputEventTypes({ payloadType: "level" });
 	SendEvent("LEVEL_RESUMED", {});
+
+	// Escape-denied (or otherwise missed) lock requests are picked up on the next user input instead.
+	function fallbackPointerLock() {
+		if (!IsPointerLocked()) RequestPointerLock();
+		document.removeEventListener("pointerdown", fallbackPointerLock);
+		document.removeEventListener("keydown", fallbackPointerLock);
+	}
+	document.addEventListener("pointerdown", fallbackPointerLock);
+	document.addEventListener("keydown", fallbackPointerLock);
 }
 
-const ToggleLevelLoopPause = () => levelLoop.paused ? ResumeLevelLoop() : PauseLevelLoop();
+const ToggleLevelLoopPause = (triggeredByEscape = false) => levelLoop.paused ? ResumeLevelLoop(triggeredByEscape) : PauseLevelLoop();
 
 async function CreateLevel(payload, options, simulatorOverride = false) {
 
