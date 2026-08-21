@@ -88,6 +88,10 @@ function normalizePayloadSchema(payload, rootKey) {
 			else {
 				resolvedValue = sourceLayer[matchedKey];
 				if (meta.deprecated === true) warnLog(`${rootKey}.${key}: '${matchedKey}' is deprecated.`);
+				// Warns on the alias spelling only, unlike `deprecated` which also fires on a canonical match.
+				if (meta.deprecatedAliases && meta.deprecatedAliases.some((alias) => normalizeSchemaKey(alias) === normalizeSchemaKey(matchedKey))) {
+					warnLog(`${rootKey}.${key}: '${matchedKey}' is deprecated, use '${key}'.`);
+				}
 
 				let valid = meta.isExpected === false && resolvedValue === null;
 				if (!valid) {
@@ -523,6 +527,11 @@ function instanceAnimationTracks(animations) {
 }
 
 function markMutableDecals(animations, parts) {
+	// A mutable decal is GPU-tinted from texture.primary, so the rest tint must exist.
+	const markMutable = (ct) => {
+		ct.mutable = true;
+		if (ct.texture.primary === null) ct.texture.primary = { r: 1, g: 1, b: 1, a: 1 };
+	};
 	const decalMap = new Map();
 	parts.forEach((part) => part.texture.custom.forEach((ct) => { if (ct.id) decalMap.set(ct.id, ct); }));
 	for (const animName in animations) {
@@ -533,10 +542,10 @@ function markMutableDecals(animations, parts) {
 				const ct = decalMap.get(decalId);
 				if (ct === undefined) continue;
 				if (track.color !== undefined && track.color.keyframes.length > 0 && ct.decalType === "shape") {
-					ct.mutable = true;
+					markMutable(ct);
 				}
 				if (track.swap !== undefined && track.swap.length > 0) {
-					if (ct.decalType === "shape") ct.mutable = true;
+					if (ct.decalType === "shape") markMutable(ct);
 					if (ct.sources !== null) {
 						const validKeys = new Set(Object.keys(ct.sources));
 						track.swap = track.swap.filter((snap) => {
@@ -570,9 +579,9 @@ const defaultsByShape = {
 	"ramp-complex": "triangle-soup",
 };
 
-function resolveTextureId(textureId, fallbackTextureId, fieldPath = "") {
+function resolveTextureId(textureId, fallbackTextureId, fieldPath) {
 	if (objectDetail.textures[textureId] !== undefined) return textureId;
-	if (fieldPath !== "") warnLog(`${fieldPath}: '${textureId}' invalid, using '${fallbackTextureId}'.`);
+	warnLog(`${fieldPath}: '${textureId}' invalid, using '${fallbackTextureId}'.`);
 	return fallbackTextureId;
 }
 
@@ -580,6 +589,15 @@ function resolveTextureId(textureId, fallbackTextureId, fieldPath = "") {
 function foldColorAlias(source, sourceKey, dest, destKey) {
 	if (source[sourceKey] !== null && dest[destKey] === null) dest[destKey] = source[sourceKey];
 	delete source[sourceKey];
+}
+
+// Decal counterpart of normalizeTexture's generated branch. `texture` is always materialized;
+// an authored null survives the schema pass, so normalizeObject absorbs it first.
+function normalizeDecalTexture(entry, rootKey) {
+	entry.texture = normalizePayloadSchema(normalizeObject(entry.texture).value, "decalTexture");
+	foldColorAlias(entry.texture, "color", entry.texture, "secondary");
+	foldColorAlias(entry, "color", entry.texture, "primary");
+	entry.texture.id = resolveTextureId(entry.texture.id, canonSchemas.decalTexture.id.__meta.fallback, `${rootKey}.texture.id`);
 }
 
 function normalizeTexture(rawTexture, part, ctx) {
@@ -640,6 +658,7 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 				continue;
 			}
 			const src = normalizePayloadSchema(rawSrc.value, "levelDecalSource");
+			normalizeDecalTexture(src, "levelDecalSource");
 			switch (src.decalType) {
 				case null   : localWarnLog(`source '${key}' has null decalType`); continue;
 				case "image":
@@ -653,14 +672,6 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 					break;
 				case "shape":
 					if (src.shape === null) { localWarnLog(`shape source '${key}' missing required 'shape' field`); continue; }
-					if (src.detail !== null) {
-						const validBaseId = resolveTextureId(src.detail.baseTextureID, null);
-						if (validBaseId === null && src.detail.baseTextureID !== null) {
-							localWarnLog(`shape source '${key}' detail.baseTextureID '${src.detail.baseTextureID}' invalid`);
-							continue;
-						}
-						src.detail.baseTextureID = validBaseId;
-					}
 					src.mutable = false;
 					normalized[key] = src;
 					break;
@@ -673,6 +684,7 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 		const entrySource = normalizeObject(rawEntry);
 		if (!entrySource.bool) return;
 		const entry = normalizePayloadSchema(entrySource.value, "levelCustomTexture");
+		normalizeDecalTexture(entry, "levelCustomTexture");
 
 		entry.localTransform.position = toUnitVector3(entry.localTransform.position, "cnu");
 		entry.localTransform.rotation = new Unit(entry.localTransform.rotation, "degrees").toRadians(true);
@@ -700,14 +712,6 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 				if (!shapeRequiredFields[entry.shape]()) {
 					warnLog(`normalizeCustomTextures: shape '${entry.shape}' failed required field check, dropping entry.`);
 					return;
-				}
-				if (entry.detail !== null) {
-					const validBaseId = resolveTextureId(entry.detail.baseTextureID, null);
-					if (validBaseId === null && entry.detail.baseTextureID !== null) {
-						warnLog(`normalizeCustomTextures: detail.baseTextureID '${entry.detail.baseTextureID}' is not a valid texture ID, dropping entry.`);
-						return;
-					}
-					entry.detail.baseTextureID = validBaseId;
 				}
 				entry.mutable = false;
 				normalizeSources(entry);

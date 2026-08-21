@@ -1293,6 +1293,140 @@
       }
     }
   },
+  "decalTexture": {
+    "id": {
+      "__meta": {
+        "description": "Decal texture id",
+        "aliases": ["baseTextureID"],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": "none",
+        "deprecated": false
+      }
+    },
+    "shape": {
+      "__meta": {
+        "description": "Texture pattern shape",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
+    "compositeMode": {
+      "__meta": {
+        "description": "How secondary elements paint over the primary base (null = derive from secondary alpha)",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "allowedValues": ["replace", "overlay"],
+        "deprecated": false
+      }
+    },
+    "primary": {
+      "__meta": {
+        "description": "Primary texture color override",
+        "aliases": ["textureColor"],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": true
+      },
+      "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+    },
+    "secondary": {
+      "__meta": {
+        "description": "Secondary texture color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": true
+      },
+      "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+    },
+    "color": {
+      "__meta": {
+        "description": "Secondary texture color override (modern name)",
+        "aliases": [],
+        "dataType": "object",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      },
+      "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+      "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+    },
+    "density": {
+      "__meta": {
+        "description": "Texture density",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": 1,
+        "range": { "min": 0, "max": 100 },
+        "deprecated": false
+      }
+    },
+    "speckSize": {
+      "__meta": {
+        "description": "Texture speck size",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": 1,
+        "range": { "min": 0, "max": 100 },
+        "deprecated": false
+      }
+    },
+    "animated": {
+      "__meta": {
+        "description": "Animated texture flag",
+        "aliases": [],
+        "dataType": "boolean",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": false,
+        "deprecated": false
+      }
+    },
+    "holdTimeSpeed": {
+      "__meta": {
+        "description": "Texture hold time multiplier",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": 1,
+        "range": { "min": 0.01, "max": 100 },
+        "deprecated": false
+      }
+    },
+    "blendTimeSpeed": {
+      "__meta": {
+        "description": "Texture blend time multiplier",
+        "aliases": [],
+        "dataType": "number",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": 1,
+        "range": { "min": 0.01, "max": 100 },
+        "deprecated": false
+      }
+    }
+  },
   "levelPart": {
     "id": { "__meta": { "description": "Part id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "part", "deprecated": false } },
     "parentId": { "__meta": { "description": "Parent id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "root", "deprecated": false } },
@@ -1423,33 +1557,13 @@
     "sourceType": { "__meta": { "description": "Source kind",                "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "allowedValues": ["local","url"], "deprecated": false } },
     "shape":      { "__meta": { "description": "Decal shape",                "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "allowedValues": ["square","circle","triangle"], "deprecated": false } },
     "color": {
-      "__meta": { "description": "Decal fill color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+      "__meta": { "description": "Decal fill color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
       "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
       "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
       "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
       "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
     },
-    "detail": {
-      "__meta": { "description": "Shape texture detail", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-      "baseTextureID": { "__meta": { "description": "Base texture id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": null, "deprecated": false } },
-      "density":       { "__meta": { "description": "Texture density",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } },
-      "speckSize":     { "__meta": { "description": "Speck size",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } },
-      "animated":      { "__meta": { "description": "Re-bake the decal texture on the preset's animation cycle", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
-      "primary": {
-        "__meta": { "description": "Primary color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-        "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
-      },
-      "secondary": {
-        "__meta": { "description": "Secondary color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-        "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
-      }
-    },
+    "texture":    { "__meta": { "description": "Decal texture block", "aliases": ["detail"], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecatedAliases": ["detail"], "deprecated": false } },
     "side":       { "__meta": { "description": "Face the decal attaches to", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": "front", "allowedValues": ["front","back","left","right","top","bottom"], "deprecated": false } },
     "sources":    { "__meta": { "description": "Alternate source pool (keyed by source key)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "localTransform": {
@@ -1475,33 +1589,13 @@
     "imagePath":  { "__meta": { "description": "Source asset path or URL", "aliases": [], "dataType": "string",  "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "sourceType": { "__meta": { "description": "Source kind",              "aliases": [], "dataType": "string",  "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["local","url"], "deprecated": false } },
     "color": {
-      "__meta": { "description": "Source fill color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": { "r": 1, "g": 1, "b": 1, "a": 1 }, "deprecated": false },
+      "__meta": { "description": "Source fill color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
       "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
       "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
       "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
       "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
     },
-    "detail": {
-      "__meta": { "description": "Shape texture detail", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-      "baseTextureID": { "__meta": { "description": "Base texture id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null, "deprecated": false } },
-      "density":       { "__meta": { "description": "Texture density",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } },
-      "speckSize":     { "__meta": { "description": "Speck size",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1,    "deprecated": false } },
-      "animated":      { "__meta": { "description": "Re-bake the decal texture on the preset's animation cycle", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
-      "primary": {
-        "__meta": { "description": "Primary color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-        "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
-      },
-      "secondary": {
-        "__meta": { "description": "Secondary color override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-        "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
-        "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
-      }
-    }
+    "texture":    { "__meta": { "description": "Decal texture block", "aliases": ["detail"], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecatedAliases": ["detail"], "deprecated": false } }
   },
   "levelAnimationSet": {
     "duration": { "__meta": { "description": "Animation duration (seconds)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 100000 }, "deprecated": false } },

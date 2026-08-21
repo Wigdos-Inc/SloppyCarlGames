@@ -3,7 +3,7 @@
 // Called by anything that wants any 3D object or wants to build models.
 
 import { BuildScatter } from "./NewScatter.js";
-import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveNoiseFaceBlueprint, FREQUENCY_PATTERN_CONFIG, VISUAL_TEMPLATES, ComputeGeneratedTextureID, IsTextureTransparent, InitializeDecalDisplay } from "./NewTexture.js";
+import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveTextureBlueprint, FREQUENCY_PATTERN_CONFIG, VISUAL_TEMPLATES, ComputeGeneratedTextureID, IsTextureTransparent, InitializeDecalDisplay } from "./NewTexture.js";
 import { CONFIG } from "../core/config.js";
 import { CreateModelMatrix, CreateIdentityMatrix, MultiplyMatrix4 } from "../math/Matrix.js";
 import { SampleConnectorCenterline, ParallelTransportFrames } from "../math/Curves.js";
@@ -1274,7 +1274,7 @@ function BuildObject(source) {
 		const { uvs: normalizedUvs, faceSpans } = GenerateFaceProjectedUvs(geometry.positions, geometry.faceGroups, true);
 		mesh.geometry.uvs = normalizedUvs;
 
-		const resolvedBlueprint = ResolveNoiseFaceBlueprint(textureBlueprint, texture);
+		const resolvedBlueprint = ResolveTextureBlueprint(textureBlueprint, texture);
 
 		const animationOptions = BuildNoiseAnimationOptions(textureBlueprint, texture);
 

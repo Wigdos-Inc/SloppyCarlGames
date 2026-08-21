@@ -1713,7 +1713,7 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 			gl.uniform1i(decalShader.uniforms.shape, resolveDecalShapeCode(baseShapeCode, decalEntry.side));
 			gl.uniformMatrix4fv(decalShader.uniforms.placement, false, buildDecalPlacementMatrix(mesh.dimensions, decalEntry));
 			if (decalEntry.mutable === true && decalEntry.activeSourceKey === null) {
-				const tint = decalEntry.displayColor !== null ? decalEntry.displayColor : decalEntry.color;
+				const tint = decalEntry.displayColor !== null ? decalEntry.displayColor : decalEntry.texture.primary;
 				gl.uniform4f(decalShader.uniforms.tint, tint.r, tint.g, tint.b, tint.a);
 			}
 			else gl.uniform4f(decalShader.uniforms.tint, 1, 1, 1, 1);

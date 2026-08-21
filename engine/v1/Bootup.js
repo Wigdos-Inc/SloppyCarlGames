@@ -218,9 +218,19 @@ export function StartEngine() {
   // Check for Up-to-Date Browser Context
   if (!browserContextCheck()) return;
 
+  // Invoke and finalize API creation
   const ENGINE = Initialize();
-  ENGINE.Startup.PlayIntroCinematic = PlayIntroCinematic;
-  globalThis.ENGINE = ENGINE;
+  ENGINE.Startup.PlayIntroCinematic = PlayIntroCinematic; 
+  Object.freeze(ENGINE.Startup); 
+  Object.freeze(ENGINE);
+
+  // Globalize the API
+  Object.defineProperty(globalThis, "ENGINE", { 
+    get: () => ENGINE,
+    set: () => Log("ENGINE", "The ENGINE API is read-only.", "error", "Meta"), 
+    configurable: false ,
+    enumerable: true
+  });
 
   Log("ENGINE", "Bootup complete.", "log", "Startup");
   Log("ENGINE", "'ENGINE' API is now globally accesible.", "log", "Startup");

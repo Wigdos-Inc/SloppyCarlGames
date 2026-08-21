@@ -41,24 +41,21 @@ function IsTextureTransparent(generatedTexture) {
 		|| (generatedTexture.secondary !== null && generatedTexture.secondary.a < 1);
 }
 
-const formatDecalColor = (c) => c === null ? "n" : formatColorKey(c);
 const formatDecalTransform = (t) => `${t.position.x},${t.position.y},${t.position.z}|${t.rotation.value}|${t.scale.x},${t.scale.y},${t.scale.z}`;
 
-function formatDecalDetail(d) {
-	return d === null ? "n" 
-		: `${d.baseTextureID}|${d.density}|${d.speckSize}|${d.animated}|${formatDecalColor(d.primary)}|${formatDecalColor(d.secondary)}`;
-}
+// Bake fields shared with meshes come from ComputeGeneratedTextureID; the tail covers the rest.
+const formatDecalTexture = (t) => `${ComputeGeneratedTextureID(t)}|${t.animated}|${t.holdTimeSpeed}|${t.blendTimeSpeed}`;
 
 function formatDecalSource(src) {
-	return src.decalType === "image" ? `image|${src.imagePath}|${src.sourceType}` 
-		: `shape|${src.shape}|${formatDecalColor(src.color)}|${formatDecalDetail(src.detail)}`;
+	return src.decalType === "image" ? `image|${src.imagePath}|${src.sourceType}`
+		: `shape|${src.shape}|${formatDecalTexture(src.texture)}`;
 }
 
 function formatCustomTextureEntry(ct) {
 	const base = `${ct.decalType}|${ct.side}|${formatDecalTransform(ct.localTransform)}`;
 	if (ct.decalType === "image") return `${base}|img=${ct.imagePath}|op=${ct.opacity}`;
 	const sourcesKey = ct.sources === null ? "n" : Object.keys(ct.sources).sort().map((key) => `${key}=${formatDecalSource(ct.sources[key])}`).join(",");
-	return `${base}|${ct.shape}|${formatDecalColor(ct.color)}|${formatDecalDetail(ct.detail)}|src=${sourcesKey}`;
+	return `${base}|${ct.shape}|${formatDecalTexture(ct.texture)}|src=${sourcesKey}`;
 }
 
 // Two parts must never collapse into one scatter batch if their decal authoring differs.
@@ -223,6 +220,8 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			}
 			return;
 		}
+		// Base fill only; no pattern elements.
+		case "flat":
 		default: return;
 	}
 }
@@ -313,7 +312,7 @@ function collectDecalAlternateSources(baseId, ct, mesh, customTextureUsage) {
 			customTextureUsage[altId] = {
 				decalType: "shape",
 				ct: {
-					shape: src.shape, color: src.color, detail: src.detail,
+					shape: src.shape, texture: src.texture,
 					localTransform: { scale: ct.localTransform.scale }, side: ct.side, mutable: false,
 				},
 				mesh, placement,
@@ -379,7 +378,7 @@ function collectTextureUsage(sceneGraph) {
 		registerTextureUsage(batch.textureID, textureRegistrationOptions(batch.texture, false, 1), usage);
 		if (batch.customTextures.length > 0) {
 			collectCustomTextures(
-				{ id: batchKey, customTextures: batch.customTextures, dimensions: batch.dimensions, detail: { texture: batch.texture } },
+				{ id: batchKey, customTextures: batch.customTextures, dimensions: batch.dimensions },
 				customTextureUsage
 			);
 		}
@@ -475,60 +474,48 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 	canvas.width = size; canvas.height = size;
 	const ctx = canvas.getContext("2d");
 
-	ctx.fillStyle = ct.mutable ? "rgba(255, 255, 255, 1)" : rgbaToCss(ct.color);
-	ctx.fillRect(0, 0, size, size);
+	const faceSizes = {
+		front: [mesh.dimensions.x, mesh.dimensions.y], back:   [mesh.dimensions.x, mesh.dimensions.y],
+		top:   [mesh.dimensions.x, mesh.dimensions.z], bottom: [mesh.dimensions.x, mesh.dimensions.z],
+		right: [mesh.dimensions.z, mesh.dimensions.y], left:   [mesh.dimensions.z, mesh.dimensions.y],
+	};
+	const [faceW, faceH] = faceSizes[ct.side];
+	const partFaceSize  = Math.max(faceW, faceH);
+	const autoRatio     = partFaceSize > 0 ? Math.max(ct.localTransform.scale.x, ct.localTransform.scale.y) / partFaceSize : 1;
+
+	// A mutable decal is tinted on the GPU; baking its colors too would double-apply them at rest.
+	const overrides = ct.mutable ? { ...ct.texture, primary: null, secondary: null } : ct.texture;
+	const decalBlueprint = VISUAL_TEMPLATES.textures[ct.texture.id];
+	const resolvedBlueprint = ResolveTextureBlueprint(decalBlueprint, overrides);
+	const effectiveScale = autoRatio > 0 ? textureScale / autoRatio : textureScale;
+
+	// Frequency patterns bake period count directly; others ignore periods (default 1).
+	const decalConfigKey = FREQUENCY_PATTERN_CONFIG[resolvedBlueprint.pattern];
+	const periods = decalConfigKey ? Math.round(resolvedBlueprint.density * CONFIG.RENDERING.Texture[decalConfigKey].Density) : 1;
+
+	// Mask last so per-pixel alpha from the pattern survives.
+	ctx.drawImage(buildTextureSurface(resolvedBlueprint, toPowerOfTwoSize(decalBlueprint.size), effectiveScale, periods), 0, 0, size, size);
 	ctx.globalCompositeOperation = "destination-in";
 	ctx.drawImage(shapeMaskBuilders[ct.shape](size, size), 0, 0);
 	ctx.globalCompositeOperation = "source-over";
 
-	if (ct.detail !== null && ct.detail.baseTextureID !== null) {
-		const faceSizes = {
-			front: [mesh.dimensions.x, mesh.dimensions.y], back:   [mesh.dimensions.x, mesh.dimensions.y],
-			top:   [mesh.dimensions.x, mesh.dimensions.z], bottom: [mesh.dimensions.x, mesh.dimensions.z],
-			right: [mesh.dimensions.z, mesh.dimensions.y], left:   [mesh.dimensions.z, mesh.dimensions.y],
-		};
-		const [faceW, faceH] = faceSizes[ct.side];
-		const partFaceSize  = Math.max(faceW, faceH);
-		const autoRatio     = partFaceSize > 0 ? Math.max(ct.localTransform.scale.x, ct.localTransform.scale.y) / partFaceSize : 1;
-
-		const decalBlueprint = VISUAL_TEMPLATES.textures[ct.detail.baseTextureID];
-		const resolvedBlueprint = {
-			...decalBlueprint,
-			density:   mesh.detail.texture.density   * ct.detail.density,
-			speckSize: mesh.detail.texture.speckSize * ct.detail.speckSize,
-			...(ct.detail.primary   !== null && { primary:   ct.detail.primary   }),
-			...(ct.detail.secondary !== null && { secondary: ct.detail.secondary }),
-		};
-		const effectiveScale = autoRatio > 0 ? textureScale / autoRatio : textureScale;
-
-		// Frequency patterns bake period count directly; others ignore periods (default 1).
-		const decalConfigKey = FREQUENCY_PATTERN_CONFIG[resolvedBlueprint.pattern];
-		const periods = decalConfigKey ? Math.round(resolvedBlueprint.density * CONFIG.RENDERING.Texture[decalConfigKey].Density) : 1;
-
-		ctx.globalCompositeOperation = "source-atop";
-		ctx.drawImage(buildTextureSurface(resolvedBlueprint, toPowerOfTwoSize(decalBlueprint.size), effectiveScale, periods), 0, 0, size, size);
-		ctx.globalCompositeOperation = "source-over";
-	}
-
 	return canvas;
 }
 
-// null = static decal. Animation needs the decal to opt in and its preset to support it; the
-// preset's own hold/blend times are used, matching shape and compositeMode being preset-only here.
+// null = static decal. Animation needs the decal to opt in and its preset to support it.
 function decalAnimationDefinition(cu) {
 	if (cu.decalType !== "shape") return null;
-	if (cu.ct.detail === null || cu.ct.detail.baseTextureID === null) return null;
-	if (cu.ct.detail.animated !== true) return null;
+	if (cu.ct.texture.animated !== true) return null;
 
-	const blueprint = VISUAL_TEMPLATES.textures[cu.ct.detail.baseTextureID];
+	const blueprint = VISUAL_TEMPLATES.textures[cu.ct.texture.id];
 	if (blueprint.animation.able !== true) return null;
 
 	return {
 		bakeKind      : "decal",
 		ct            : cu.ct,
 		mesh          : cu.mesh,
-		holdTimeSpeed : 1,
-		blendTimeSpeed: 1,
+		holdTimeSpeed : cu.ct.texture.holdTimeSpeed,
+		blendTimeSpeed: cu.ct.texture.blendTimeSpeed,
 		animation     : { able: true, holdTime: blueprint.animation.holdTime, blendTime: blueprint.animation.blendTime },
 	};
 }
@@ -623,8 +610,8 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	return sceneGraph;
 }
 
-// Merges blueprint with per-mesh detail scalars/overrides; null = no override. Shared by NewObject/NewVoid.
-function ResolveNoiseFaceBlueprint(textureBlueprint, textureDetail) {
+// Merges a preset with per-mesh or per-decal scalars/overrides; null = no override.
+function ResolveTextureBlueprint(textureBlueprint, textureDetail) {
 	return {
 		...textureBlueprint,
 		density  : textureBlueprint.density   * textureDetail.density,
@@ -756,7 +743,7 @@ export {
 	BeginTextureBake, 
 	AdvanceNoiseBake, 
 	BuildFaceTextureData, 
-	ResolveNoiseFaceBlueprint, 
+	ResolveTextureBlueprint,
 	BuildNoiseAnimationOptions, 
 	FREQUENCY_PATTERN_CONFIG, 
 	VISUAL_TEMPLATES, 

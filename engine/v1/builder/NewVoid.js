@@ -8,7 +8,7 @@ import { CreateModelMatrix } from "../math/Matrix.js";
 import { AabbOverlap, StrictAabbOverlap } from "../math/Collision.js";
 import { NarrowphaseTest } from "../physics/Collision.js";
 import { GenerateUVs, GenerateFaceProjectedUvs, TransformPointByMatrix } from "./NewObject.js";
-import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveNoiseFaceBlueprint, VISUAL_TEMPLATES } from "./NewTexture.js";
+import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveTextureBlueprint, VISUAL_TEMPLATES } from "./NewTexture.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { AddVector3, CrossVector3, DivideVector3, DotVector3, ScaleVector3, SubtractVector3, ToVector3, Vector3Sq, WORLD_NORMALS } from "../math/Vector3.js";
 
@@ -204,7 +204,7 @@ function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textu
 		const positionArray            = new Float32Array(newPositions);
 		const { uvs, faceSpans }       = GenerateFaceProjectedUvs(positionArray, faceGroupData, true);
 
-		const resolvedBlueprint = ResolveNoiseFaceBlueprint(textureBlueprint, defaultMesh.detail.texture);
+		const resolvedBlueprint = ResolveTextureBlueprint(textureBlueprint, defaultMesh.detail.texture);
 
 		const animationOptions = BuildNoiseAnimationOptions(textureBlueprint, defaultMesh.detail.texture);
 

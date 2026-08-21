@@ -3,7 +3,7 @@
         "none": {
             "id": "none",
             "size": 64,
-            "pattern": "tiles",
+            "pattern": "flat",
             "animation": { "able": false, "holdTime": 2, "blendTime": 1 },
             "density": 1,
             "speckSize": 0,
@@ -35,6 +35,18 @@
             "compositeMode": null,
             "primary": { "r": 0.651, "g": 0.7255, "b": 0.8, "a": 1 },
             "secondary": { "r": 0.4353, "g": 0.5098, "b": 0.6, "a": 1 }
+        },
+        "static": {
+            "id": "static",
+            "size": 128,
+            "pattern": "noise",
+            "animation": { "able": false, "holdTime": 2, "blendTime": 1 },
+            "density": 4,
+            "speckSize": 0.15,
+            "shape": null,
+            "compositeMode": null,
+            "primary": { "r": 1, "g": 1, "b": 1, "a": 1 },
+            "secondary": { "r": 0, "g": 0, "b": 0, "a": 1 }
         },
         "grassland": {
             "id": "grassland",
@@ -95,18 +107,6 @@
             "compositeMode": null,
             "primary": { "r": 0.28, "g": 0.16, "b": 0.08, "a": 1 },
             "secondary": { "r": 0.2, "g": 0.12, "b": 0.06, "a": 1 }
-        },
-        "static": {
-            "id": "static",
-            "size": 128,
-            "pattern": "noise",
-            "animation": { "able": false, "holdTime": 2, "blendTime": 1 },
-            "density": 4,
-            "speckSize": 0.15,
-            "shape": null,
-            "compositeMode": null,
-            "primary": { "r": 1, "g": 1, "b": 1, "a": 1 },
-            "secondary": { "r": 0, "g": 0, "b": 0, "a": 1 }
         },
         "stone-block": {
             "id": "stone-block",
@@ -199,18 +199,7 @@
                     "localRotation": { "x": 0, "y": 0, "z": 1 },
                     "localScale": { "x": 1, "y": 1, "z": 1 },
                     "texture": {
-                        "generated": {
-                            "compositeMode": null,
-                            "id": "grass-blade",
-                            "shape": null,
-                            "primary": null,
-                            "secondary": null,
-                            "density": 1,
-                            "speckSize": 0.2,
-                            "animated": false,
-                            "holdTimeSpeed": 1,
-                            "blendTimeSpeed": 1
-                        },
+                        "generated": { "compositeMode": null, "id": "grass-blade", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 0.2, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
                         "custom": []
                     }
                 },
@@ -223,18 +212,7 @@
                     "localRotation": { "x": 0, "y": 0, "z": 6 },
                     "localScale": { "x": 1, "y": 1, "z": 1 },
                     "texture": {
-                        "generated": {
-                            "compositeMode": null,
-                            "id": "grass-blade",
-                            "shape": null,
-                            "primary": null,
-                            "secondary": null,
-                            "density": 1,
-                            "speckSize": 0.2,
-                            "animated": false,
-                            "holdTimeSpeed": 1,
-                            "blendTimeSpeed": 1
-                        },
+                        "generated": { "compositeMode": null, "id": "grass-blade", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 0.2, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
                         "custom": []
                     }
                 },
@@ -247,18 +225,7 @@
                     "localRotation": { "x": 0, "y": 0, "z": -12 },
                     "localScale": { "x": 1, "y": 1, "z": 1 },
                     "texture": {
-                        "generated": {
-                            "compositeMode": null,
-                            "id": "grass-blade",
-                            "shape": null,
-                            "primary": null,
-                            "secondary": null,
-                            "density": 1,
-                            "speckSize": 0.2,
-                            "animated": false,
-                            "holdTimeSpeed": 1,
-                            "blendTimeSpeed": 1
-                        },
+                        "generated": { "compositeMode": null, "id": "grass-blade", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 0.2, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
                         "custom": []
                     }
                 },
@@ -271,18 +238,7 @@
                     "localRotation": { "x": 0, "y": 0, "z": -4 },
                     "localScale": { "x": 1, "y": 1, "z": 1 },
                     "texture": {
-                        "generated": {
-                            "compositeMode": null,
-                            "id": "grass-blade",
-                            "shape": null,
-                            "primary": null,
-                            "secondary": null,
-                            "density": 1,
-                            "speckSize": 0.2,
-                            "animated": false,
-                            "holdTimeSpeed": 1,
-                            "blendTimeSpeed": 1
-                        },
+                        "generated": { "compositeMode": null, "id": "grass-blade", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 0.2, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
                         "custom": []
                     }
                 },
@@ -295,23 +251,12 @@
                     "localRotation": { "x": 0, "y": 0, "z": 3 },
                     "localScale": { "x": 1, "y": 1, "z": 1 },
                     "texture": {
-                        "generated": {
-                            "compositeMode": null,
-                            "id": "grass-blade",
-                            "shape": null,
-                            "primary": null,
-                            "secondary": null,
-                            "density": 1,
-                            "speckSize": 0.2,
-                            "animated": false,
-                            "holdTimeSpeed": 1,
-                            "blendTimeSpeed": 1
-                        },
+                        "generated": { "compositeMode": null, "id": "grass-blade", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 0.2, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
                         "custom": []
                     }
                 }
             ],
-            "scaleRange": { "min": 0.8, "max": 1.35 }
+            "scaleRange": { "min": 0.8, "max": 1.5 }
         },
         "pebbles": {
             "id": "pebbles",
@@ -365,18 +310,7 @@
                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                     "localScale": { "x": 1, "y": 1, "z": 1 },
                     "texture": {
-                        "generated": {
-                            "compositeMode": null,
-                            "id": "tree-leaves-green",
-                            "shape": null,
-                            "primary": null,
-                            "secondary": null,
-                            "density": 1,
-                            "speckSize": 1,
-                            "animated": false,
-                            "holdTimeSpeed": 1,
-                            "blendTimeSpeed": 1
-                        },
+                        "generated": { "compositeMode": null, "id": "tree-leaves-green", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
                         "custom": []
                     }
                 },
@@ -389,18 +323,7 @@
                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                     "localScale": { "x": 1, "y": 1, "z": 1 },
                     "texture": {
-                        "generated": {
-                            "compositeMode": null,
-                            "id": "wood-stump",
-                            "shape": null,
-                            "primary": null,
-                            "secondary": null,
-                            "density": 1,
-                            "speckSize": 1,
-                            "animated": false,
-                            "holdTimeSpeed": 1,
-                            "blendTimeSpeed": 1
-                        },
+                        "generated": { "compositeMode": null, "id": "wood-stump", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
                         "custom": []
                     }
                 }
@@ -410,7 +333,7 @@
         "leaves": {
             "id": "leaves",
             "noiseScale": 0.2,
-            "clusterThreshold": 0.1,
+            "clusterThreshold": 0.2,
             "heightMin": -100,
             "heightMax": 999,
             "slopeMax": 0.3,
@@ -427,15 +350,198 @@
                             "compositeMode": null,
                             "id": "tree-leaves-green",
                             "shape": null,
-                            "primary": { "r": 0.55, "g": 0.35, "b": 0.17, "a": 0.8 },
-                            "secondary": { "r": 0.33, "g": 0.18, "b": 0.06, "a": 0.8 },
+                            "primary": { "r": 0.55, "g": 0.35, "b": 0.17, "a": 0.95 },
+                            "secondary": { "r": 0.33, "g": 0.18, "b": 0.06, "a": 0.95 },
                             "density": 1,
                             "speckSize": 1,
                             "animated": false,
                             "holdTimeSpeed": 1,
                             "blendTimeSpeed": 1
                         },
-                        "custom": []
+                        "custom": [
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": 0, "y": 0, "z": 0 },
+                                    "rotation": 0,
+                                    "scale": { "x": 0.74, "y": 0.04, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": 0.1715, "y": 0, "z": 0.0851 },
+                                    "rotation": -35,
+                                    "scale": { "x": 0.2967, "y": 0.025, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": 0.1715, "y": 0, "z": -0.0851 },
+                                    "rotation": 35,
+                                    "scale": { "x": 0.2967, "y": 0.025, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": 0.0364, "y": 0, "z": 0.1095 },
+                                    "rotation": -35,
+                                    "scale": { "x": 0.3819, "y": 0.025, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": 0.0364, "y": 0, "z": -0.1095 },
+                                    "rotation": 35,
+                                    "scale": { "x": 0.3819, "y": 0.025, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": -0.1137, "y": 0, "z": 0.1235 },
+                                    "rotation": -35,
+                                    "scale": { "x": 0.4305, "y": 0.025, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": -0.1137, "y": 0, "z": -0.1235 },
+                                    "rotation": 35,
+                                    "scale": { "x": 0.4305, "y": 0.025, "z": 1 }
+                                }
+                            }
+                        ]
                     }
                 },
                 {
@@ -450,19 +556,202 @@
                             "compositeMode": null,
                             "id": "tree-leaves-green",
                             "shape": null,
-                            "primary": null,
-                            "secondary": null,
+                            "primary": { "r": 0.55, "g": 0.35, "b": 0.17, "a": 0.95 },
+                            "secondary": { "r": 0.33, "g": 0.18, "b": 0.06, "a": 0.95 },
                             "density": 1,
                             "speckSize": 1,
                             "animated": false,
                             "holdTimeSpeed": 1,
                             "blendTimeSpeed": 1
                         },
-                        "custom": []
+                        "custom": [
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": 0, "y": 0, "z": 0 },
+                                    "rotation": 0,
+                                    "scale": { "x": 0.74, "y": 0.04, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": 0.1715, "y": 0, "z": 0.0851 },
+                                    "rotation": -35,
+                                    "scale": { "x": 0.2967, "y": 0.025, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": 0.1715, "y": 0, "z": -0.0851 },
+                                    "rotation": 35,
+                                    "scale": { "x": 0.2967, "y": 0.025, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": 0.0364, "y": 0, "z": 0.1095 },
+                                    "rotation": -35,
+                                    "scale": { "x": 0.3819, "y": 0.025, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": 0.0364, "y": 0, "z": -0.1095 },
+                                    "rotation": 35,
+                                    "scale": { "x": 0.3819, "y": 0.025, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": -0.1137, "y": 0, "z": 0.1235 },
+                                    "rotation": -35,
+                                    "scale": { "x": 0.4305, "y": 0.025, "z": 1 }
+                                }
+                            },
+                            {
+                                "id": null,
+                                "decalType": "shape",
+                                "imagePath": null,
+                                "sourceType": null,
+                                "shape": "square",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "tree-leaves-green",
+                                    "shape": null,
+                                    "primary": { "r": 0.33, "g": 0.21, "b": 0.1, "a": 0.3 },
+                                    "secondary": { "r": 0.2, "g": 0.11, "b": 0.04, "a": 0.3 },
+                                    "density": 1,
+                                    "speckSize": 1,
+                                    "animated": false,
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
+                                },
+                                "side": "top",
+                                "sources": null,
+                                "localTransform": {
+                                    "position": { "x": -0.1137, "y": 0, "z": -0.1235 },
+                                    "rotation": 35,
+                                    "scale": { "x": 0.4305, "y": 0.025, "z": 1 }
+                                }
+                            }
+                        ]
                     }
                 }
             ],
-            "scaleRange": { "min": 0.2, "max": 1.0 }
+            "scaleRange": { "min": 0.2, "max": 0.4 }
         },
         "branches": {
             "id": "branches",
@@ -480,17 +769,17 @@
                     "localRotation": { "x": 0, "y": 0, "z": 90 },
                     "localScale": { "x": 1, "y": 1, "z": 1 },
                     "texture": {
-                        "generated": {
-                            "compositeMode": null,
-                            "id": "wood-stump",
-                            "shape": null,
-                            "primary": null,
-                            "secondary": null,
-                            "density": 1,
-                            "speckSize": 1,
-                            "animated": false,
-                            "holdTimeSpeed": 1,
-                            "blendTimeSpeed": 1
+                        "generated": { 
+                            "compositeMode": null, 
+                            "id": "wood-stump", 
+                            "shape": null, 
+                            "primary": null, 
+                            "secondary": null, 
+                            "density": 1, 
+                            "speckSize": 1, 
+                            "animated": false, 
+                            "holdTimeSpeed": 1, 
+                            "blendTimeSpeed": 1 
                         },
                         "custom": [
                             {
@@ -499,14 +788,17 @@
                                 "imagePath": null,
                                 "sourceType": null,
                                 "shape": "circle",
-                                "color": { "r": 1, "g": 1, "b": 1, "a": 1 },
-                                "detail": {
-                                    "baseTextureID": "static",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "static",
+                                    "shape": null,
+                                    "primary": { "r": 0.72, "g": 0.54, "b": 0.34, "a": 1 },
+                                    "secondary": { "r": 0.58, "g": 0.42, "b": 0.24, "a": 1 },
                                     "density": 1,
                                     "speckSize": 1,
                                     "animated": false,
-                                    "primary": { "r": 0.72, "g": 0.54, "b": 0.34, "a": 1 },
-                                    "secondary": { "r": 0.58, "g": 0.42, "b": 0.24, "a": 1 }
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
                                 },
                                 "side": "top",
                                 "sources": null,
@@ -522,14 +814,17 @@
                                 "imagePath": null,
                                 "sourceType": null,
                                 "shape": "circle",
-                                "color": { "r": 1, "g": 1, "b": 1, "a": 1 },
-                                "detail": {
-                                    "baseTextureID": "static",
+                                "texture": {
+                                    "compositeMode": null,
+                                    "id": "static",
+                                    "shape": null,
+                                    "primary": { "r": 0.72, "g": 0.54, "b": 0.34, "a": 1 },
+                                    "secondary": { "r": 0.58, "g": 0.42, "b": 0.24, "a": 1 },
                                     "density": 1.5,
                                     "speckSize": 0.5,
                                     "animated": false,
-                                    "primary": { "r": 0.72, "g": 0.54, "b": 0.34, "a": 1 },
-                                    "secondary": { "r": 0.58, "g": 0.42, "b": 0.24, "a": 1 }
+                                    "holdTimeSpeed": 1,
+                                    "blendTimeSpeed": 1
                                 },
                                 "side": "bottom",
                                 "sources": null,

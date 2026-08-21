@@ -39,30 +39,30 @@ function Initialize() {
   // Start global input routing.
   const Router = StartInputRouter();
 
-  // Expose the engine public API surface.
+  // Create, freeze and expose the engine public API surface.
   return {
     Log,
     CONFIG,
     Cache,
-    Meta: {
+    Meta: Object.freeze({
       LogAll, LogCache, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
       SessionKey, CNU_SCALE, VERSION,
-    },
+    }),
     Controls,
-    Input: { Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, },
-    Cutscene: { PlayEngineCutscene, PlayRenderedCutscene },
-    Startup: { ProvideSplashScreenPayload },
-    UI: { ApplyMenuUI, LoadScreen, ClearUI },
-    Audio: { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes },
-    Level: { CreateLevel, ClearLevel, UpdateLevel, GetActiveLevel, PauseLevel, ResumeLevel, SpawnParticles, Player },
-    Math: {
-      Convert   : { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU },
-      Vector3   : { AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3 },
-      Instancing: { Unit, UnitVector3 },
-      Physics   : { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence },
-      Other     : { Clamp, Clamp01 }
-    },
-    Simulator: { Start, Load, Cache: SimulatorCache, Clear, Exit, GetModelState, GetFullState },
+    Input   : Object.freeze({ Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, }),
+    Cutscene: Object.freeze({ PlayEngineCutscene, PlayRenderedCutscene }),
+    Startup : { ProvideSplashScreenPayload },
+    UI      : Object.freeze({ ApplyMenuUI, LoadScreen, ClearUI }),
+    Audio   : Object.freeze({ PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes }),
+    Level   : Object.freeze({ CreateLevel, ClearLevel, UpdateLevel, GetActiveLevel, PauseLevel, ResumeLevel, SpawnParticles, Player }),
+    Math    : Object.freeze({
+      Convert   : Object.freeze({ DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU }),
+      Vector3   : Object.freeze({ AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3 }),
+      Instancing: Object.freeze({ Unit, UnitVector3 }),
+      Physics   : Object.freeze({ ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence }),
+      Other     : Object.freeze({ Clamp, Clamp01 })
+    }),
+    Simulator : Object.freeze({ Start, Load, Cache: SimulatorCache, Clear, Exit, GetModelState, GetFullState }),
     Blueprints: InstanceEngineTemplates().raw,
   };
 }

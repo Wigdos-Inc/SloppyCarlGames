@@ -67,7 +67,7 @@
                                         { "typeID": "grass", "density": 50 },
                                         { "typeID": "pebbles", "density": 0.7 },
                                         { "typeID": "bushes", "density": 0.4 },
-                                        { "typeID": "leaves", "density": 0.1 },
+                                        { "typeID": "leaves", "density": 1 },
                                         { "typeID": "branches", "density": 0.3 }
                                     ]
                                 }
