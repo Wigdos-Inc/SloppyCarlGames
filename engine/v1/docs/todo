@@ -94,3 +94,8 @@ Additions to Level API:
 
 
 Add full documentation API so devs can understand how to work the engine.
+
+
+
+
+Terrain Scatter is a big performance hit (render distance?)

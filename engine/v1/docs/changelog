@@ -1,13 +1,1 @@
 # Changelog (engine/v1/)
-
-## ResumeLevelLoop input routing fix
-
-**What:** Added `UpdateInputEventTypes({ payloadType: "level" })` to `ResumeLevelLoop()` in [Level.js](engine/v1/handlers/game/Level.js).
-**Why:** `ApplyMenuUI` switches global input-event routing to `"ui"` mode (click/pointerover/pointerout only) whenever a UI payload is shown — e.g. a pause menu — and nothing restored `"level"` mode (keydown/keyup/pointerdown/mousemove/wheel) on resume, so player movement and camera input stayed dead for the rest of the session after any UI-driven pause/resume cycle.
-**Where:** `engine/v1/handlers/game/Level.js` — `ResumeLevelLoop()`, mirroring the identical `UpdateInputEventTypes` call `CreateLevel()` already makes.
-
-## PERFORMANCE.Resolution render scale
-
-**What:** Added `Resolution` to `CONFIG.PERFORMANCE` as an integer percent (default `100`, matching the `CAMERA.Sensitivity` convention rather than a float scale), and made `syncCanvasSize` scale-aware: it derives the canvas backing store from `Math.round(clientWidth * Resolution / 100)` and compares against that scaled target, returning early when unchanged.
-**Why:** Gives a real GPU-cost lever — the canvas is CSS-sized `100%`/`100%` inside a `fixed inset:0` root, so a smaller backing store is stretched to fill the viewport by the browser and the upscale is free. `gl.viewport` and the perspective aspect ratio already derive from `canvas.width`/`.height` in `drawScene`, so both follow with no further change. Comparing against the scaled target rather than `clientWidth` is load-bearing: the original equality check would mismatch on every frame at any scale below 100% and reallocate the drawing buffer continuously, costing more than the resolution drop saves. Config is read per frame, so the setting applies live without a level restart — unlike `FrameRate`, which is latched once in `StartLevelLoop`. Values above 100% are out of scope: the engine renders simple geometry, so supersampling past native buys nothing.
-**Where:** `engine/v1/core/config.js` — `PERFORMANCE.Resolution`; `engine/v1/handlers/Render.js` — `syncCanvasSize`.
