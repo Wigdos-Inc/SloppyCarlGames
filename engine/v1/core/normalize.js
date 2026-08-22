@@ -21,6 +21,8 @@ import { CloneVector3 } from "../math/Vector3.js";
 
 const warnLog = (text) => Log("ENGINE", text, "warn", "Validation");
 
+const cssUrlPattern = /url\((['"]?)([^'"()]+)\1\)/gi;
+
 /* Data Type Normalization */
 
 function normalizeString(value, fallback = "") {
@@ -251,9 +253,7 @@ async function MenuPayload(payload) {
 			if (element.type === "img" && element.src !== undefined) queueImagePath(element.src);
 
 			if (typeof element.styles.backgroundImage === "string") {
-				for (const match of element.styles.backgroundImage.matchAll(/url\((['\"]?)([^'\"()]+)\1\)/gi)) {
-					queueImagePath(match[2]);
-				}
+				for (const match of element.styles.backgroundImage.matchAll(cssUrlPattern)) queueImagePath(match[2]);
 			}
 
 			queueElementImages(element.children);
@@ -261,6 +261,12 @@ async function MenuPayload(payload) {
 	};
 
 	queueElementImages(normalized.elements);
+
+	// Stylesheet backgrounds preload too, otherwise they pop in on first paint.
+	if (normalized.stylesheet !== null) {
+		for (const match of normalized.stylesheet.matchAll(cssUrlPattern)) queueImagePath(match[2]);
+	}
+
 	await Promise.all(pendingImageLoads);
 
 	if (preloadedImages.length > 0) {

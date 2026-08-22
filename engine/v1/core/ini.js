@@ -7,9 +7,9 @@
 // Core diagnostics and logging support.
 
 // Engine API function imports.
-import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey, ReleasePointerLock, VERSION } from "./meta.js";
+import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey, ReleasePointerLock } from "./meta.js";
 import { CONFIG } from "./config.js";
-import { ApplyMenuUI, LoadScreen, ClearUI } from "../handlers/UI.js";
+import { ApplyMenuUI, LoadScreen, ClearUI, ConvertHTML } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
 import { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes } from "../handlers/Sound.js";
 import { CreateLevel, ClearLevel, Update as UpdateLevel, GetActiveLevel, PauseLevelLoop as PauseLevel, ResumeLevelLoop as ResumeLevel, SpawnParticles } from "../handlers/game/Level.js";
@@ -46,13 +46,14 @@ function Initialize() {
     Cache,
     Meta: Object.freeze({
       LogAll, LogCache, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
-      SessionKey, CNU_SCALE, VERSION,
+      SessionKey, CNU_SCALE, 
+      Version: "0.27",
     }),
     Controls,
     Input   : Object.freeze({ Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, }),
     Cutscene: Object.freeze({ PlayEngineCutscene, PlayRenderedCutscene }),
     Startup : { ProvideSplashScreenPayload },
-    UI      : Object.freeze({ ApplyMenuUI, LoadScreen, ClearUI }),
+    UI      : Object.freeze({ ApplyMenuUI, LoadScreen, ClearUI, ConvertHTML }),
     Audio   : Object.freeze({ PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes }),
     Level   : Object.freeze({ CreateLevel, ClearLevel, UpdateLevel, GetActiveLevel, PauseLevel, ResumeLevel, SpawnParticles, Player }),
     Math    : Object.freeze({

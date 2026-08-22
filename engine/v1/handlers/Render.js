@@ -31,6 +31,25 @@ function ensureRoot(rootId, rootStyles) {
 	return root;
 }
 
+// One engine-owned <style> tag per root; null clears it.
+function ApplyRootStylesheet(rootId, stylesheet) {
+	const tagId = `engine-ui-style-${rootId}`;
+	let tag = document.getElementById(tagId);
+
+	if (stylesheet === null) {
+		if (tag) tag.parentNode.removeChild(tag);
+		return;
+	}
+
+	if (!tag) {
+		tag = document.createElement("style");
+		tag.id = tagId;
+		document.head.appendChild(tag);
+	}
+
+	tag.textContent = stylesheet;
+}
+
 
 /* === PAYLOADS === */
 // Renders payloads built by the UI builder.
@@ -1982,6 +2001,7 @@ const ClearLevelRenderer = (rootId) => levelRendererCache.delete(rootId);
 
 export {
 	RenderPayload,
+	ApplyRootStylesheet,
 	RenderLevel,
 	GetElement,
 	SetElementText,

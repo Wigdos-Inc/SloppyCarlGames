@@ -88,6 +88,7 @@ function waitForUserStart() {
     screenId: "EngineStartup",
     rootId: "engine-startup-overlay",
     rootStyles: startupOverlayStyles,
+    stylesheet: null,
     elements: [
       {
         type: "img",
@@ -232,7 +233,7 @@ export function StartEngine() {
     enumerable: true
   });
 
-  Log("ENGINE", "Bootup complete.", "log", "Startup");
+  Log("ENGINE", `Completed bootup of CarlNet Engine v${ENGINE.Meta.Version}.`, "log", "Startup");
   Log("ENGINE", "'ENGINE' API is now globally accesible.", "log", "Startup");
   
   waitForUserStart();

@@ -1,4 +1,5 @@
 let uiDataPromise = null;
+let sampleHtmlPromise = null;
 
 function loadUiData() {
 	if (!uiDataPromise) {
@@ -7,6 +8,15 @@ function loadUiData() {
 	}
 
 	return uiDataPromise;
+}
+
+function loadSampleHtml() {
+	if (!sampleHtmlPromise) {
+		sampleHtmlPromise = fetch(new URL("./sample.html", import.meta.url))
+			.then((response) => response.text());
+	}
+
+	return sampleHtmlPromise;
 }
 
 function resolvePayloadEntry(uiData, payloadId) {
@@ -69,11 +79,36 @@ function applySettingsToPayload(payload) {
 	applyValue(payload.elements);
 }
 
+async function processSamplePayload() {
+	// HTML-authored screen: convert, then apply through the normal path.
+	const payload = ENGINE.UI.ConvertHTML(await loadSampleHtml(), { screenId: "Sample", rootId: "engine-ui-root" });
+
+	ENGINE.Log("GAME", "Sending Sample UI Payload (converted from HTML).", "log", "UI");
+	ENGINE.UI.ApplyMenuUI(payload);
+
+	window.addEventListener(
+		"UI_RENDERED",
+		() => document.getElementById("sample-close").addEventListener("click", () => ENGINE.UI.ClearUI(payload.rootId)),
+		{ once: true }
+	);
+}
+
+function injectVersionIntoPayload(payload, screenId) {
+	if (screenId === "TitleScreen" && payload.elements?.[0]?.children) {
+		const logoWrap = payload.elements[0].children.find(el => el.id === "logo-wrap");
+		if (logoWrap?.children?.[1]) {
+			logoWrap.children[1].text = `Engine - v${ENGINE.Meta.Version}`;
+		}
+	}
+}
+
 async function processPayload(payloadId) {
+	if (payloadId === "Sample") return processSamplePayload();
+
 	const uiData = await loadUiData();
 	const entry = resolvePayloadEntry(uiData, payloadId);
 	if (!entry) {
-		ENGINE.Log("GAME", `Missing UI payload: ${payloadId}`, "warn", "UI");
+		ENGINE.Log("GAME", `Missing UI payload: ${payloadId}`, "error", "UI");
 		return;
 	}
 
@@ -89,6 +124,7 @@ async function processPayload(payloadId) {
 	if (!payload.screenId) payload.screenId = payloadId;
 
 	applySettingsToPayload(payload);
+	injectVersionIntoPayload(payload, payloadId);
 
 	ENGINE.Log(
 		"GAME",

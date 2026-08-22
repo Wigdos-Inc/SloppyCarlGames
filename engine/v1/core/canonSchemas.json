@@ -125,6 +125,17 @@
         "deprecated": false
       }
     },
+    "stylesheet": {
+      "__meta": {
+        "description": "Raw CSS applied for this root",
+        "aliases": [],
+        "dataType": "string",
+        "isRequired": false,
+        "isExpected": false,
+        "fallback": null,
+        "deprecated": false
+      }
+    },
     "music": {
       "__meta": {
         "description": "Menu music payload",

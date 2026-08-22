@@ -8,8 +8,8 @@
 // Rendering and audio handlers.
 
 import { Cache, Log, SendEvent, Cursor, ExitGame, PushToSession, SESSION_KEYS } from "../core/meta.js";
-import { BuildElements } from "../builder/NewUI.js";
-import { RenderPayload, RemoveRoot } from "./Render.js";
+import { BuildElements, ParseHTML } from "../builder/NewUI.js";
+import { RenderPayload, RemoveRoot, ApplyRootStylesheet } from "./Render.js";
 import { PlayMusic } from "./Sound.js";
 import { UpdateInputEventTypes } from "./Controls.js";
 import { ValidateMenuPayload } from "../core/validate.js";
@@ -18,7 +18,16 @@ import { ValidateMenuPayload } from "../core/validate.js";
 /* === MENU UI === */
 // Applies game menu payloads and handles music switching.
 
-const CreateUI = (payload) => RenderPayload({ rootId: payload.rootId, ...payload, elements: BuildElements(payload.elements, payload.screenId) });
+function CreateUI(payload) {
+	ApplyRootStylesheet(payload.rootId, payload.stylesheet);
+	RenderPayload({ rootId: payload.rootId, ...payload, elements: BuildElements(payload.elements, payload.screenId) });
+}
+
+// Converts authored HTML into a raw menu payload for ApplyMenuUI.
+function ConvertHTML(html, options) {
+	Log("ENGINE", `Converting HTML (${html.length} chars) to a menu payload.`, "log", "UI");
+	return ParseHTML(html, options);
+}
 
 function createUiRuntimeMaps() {
 	return {
@@ -190,10 +199,11 @@ function ClearUI(rootId, clearCache = true) {
 	}
 
 	RemoveRoot(rootId);
+	ApplyRootStylesheet(rootId, null);
 	Log("ENGINE", `UI cleared: ${rootId}`, "log", "UI");
 }
 
 /* === EXPORTS === */
 // Public UI API for engine modules.
 
-export { CreateUI, ApplyMenuUI, LoadScreen, ClearUI, HandleUiAction, ResolvePrecomputedAction }; 
+export { CreateUI, ConvertHTML, ApplyMenuUI, LoadScreen, ClearUI, HandleUiAction, ResolvePrecomputedAction };

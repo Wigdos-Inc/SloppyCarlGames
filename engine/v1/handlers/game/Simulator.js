@@ -58,6 +58,7 @@ function buildSimulatorHud() {
 	CreateUI({
 		screenId: "SimulatorHUD",
 		rootId: simulatorRuntime.hudRootId,
+		stylesheet: null,
 		rootStyles: {
 			position: "fixed", top: "0", left: "0",
 			width: "100%", height: "100%",

@@ -172,6 +172,7 @@ function renderSplashStepElements(step, context, stepIndex) {
 	CreateUI({
 		screenId: `EngineSplashStep${stepIndex}`,
 		rootId: context.overlayId,
+		stylesheet: null,
 		replace: false,
 		elements,
 	});
