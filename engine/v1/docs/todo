@@ -52,6 +52,12 @@ Performance Enhancements (DRYAD):
   - Particle logic.
   - Advanced physics application.
   - Runtime instance spawning. Any instance that's being spawned too far, gets enqueued until the player gets close enough.
+Per-entity render flags, set during the SimDistance check collision already runs:
+- render.animatedTexture: texture gate ORs its owners' flags instead of testing every owner AABB per frame.
+- render.model: skip rendering distant entities entirely. Reaches into the decal and translucent passes, so it's its own pass.
+- Force the SimDistance check even when an entity's collision flag is off.
+- Entity-owned textures only. Large static owners (sea-surface, terrain, obstacles) keep point-to-AABB.
+- Multi-owner still needs the OR. energy-core resolves two owners at different distances.
 
 
 Additions to Level API:
@@ -98,4 +104,5 @@ Add full documentation API so devs can understand how to work the engine.
 
 
 
-Terrain Scatter is a big performance hit (render distance?)
+Terrain Scatter is a big performance hit (simulation distance?)
+Render Distance makes more sense semantically, but I think having them separated doesn't really make sense in this engine since computations rarely cause issues right now anyway.
