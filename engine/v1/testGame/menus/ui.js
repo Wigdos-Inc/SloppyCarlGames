@@ -34,18 +34,28 @@ const SETTING_KEY_BY_ID = {
 	"setting-cutscenes-volume": "cutscene",
 	"setting-sensitivity-mouse": "mouseSensitivity",
 	"setting-sensitivity-keyboard": "keyboardSensitivity",
-	"setting-terrain-scatter": "terrainScatter",
+	"setting-scatter-density": "scatterDensity",
+	"setting-scatter-quality": "scatterQuality",
 	"setting-particles": "particles",
 	"setting-sim-distance": "simDistance",
-	"setting-animation-quality": "animationQuality",
+	"setting-animations": "animations",
 	"setting-frame-rate": "frameRate",
 	"setting-resolution": "resolution",
 	"setting-performance-preset": "performancePreset",
 };
 
-const TIER_LEVELS = ["Low", "Medium", "High"];
+// Scatter quality and sim distance are always-on grades; the rest can be switched off.
+const TIER_LEVELS = ["Disabled", "Low", "Medium", "High"];
+const GRADED_LEVELS = ["Low", "Medium", "High"];
+const DISTANCE_LEVELS = ["Low", "Medium", "High", "Ultra"];
 const PRESET_LEVELS = ["Low", "Medium", "High", "Custom"];
-const TIER_IDS = new Set(["setting-terrain-scatter", "setting-particles", "setting-sim-distance", "setting-animation-quality"]);
+const TIER_LEVELS_BY_ID = {
+	"setting-scatter-density": TIER_LEVELS,
+	"setting-scatter-quality": GRADED_LEVELS,
+	"setting-particles": TIER_LEVELS,
+	"setting-sim-distance": DISTANCE_LEVELS,
+	"setting-animations": TIER_LEVELS,
+};
 
 function loadSettings() {
 	const raw = localStorage.getItem("settings");
@@ -62,8 +72,9 @@ function applySettingsToPayload(payload) {
 		definitions.forEach((definition) => {
 			const key = SETTING_KEY_BY_ID[definition.id];
 			if (key) {
-				if (TIER_IDS.has(definition.id)) {
-					const index = TIER_LEVELS.indexOf(settings[key]);
+				const tierLevels = TIER_LEVELS_BY_ID[definition.id];
+				if (tierLevels) {
+					const index = tierLevels.indexOf(settings[key]);
 					if (index !== -1) definition.value = String(index);
 				} else if (definition.id === "setting-performance-preset") {
 					const index = PRESET_LEVELS.indexOf(settings[key]);

@@ -22,12 +22,11 @@ function canonicalizeDecalTransforms(customTextures) {
 	});
 }
 
-// Scatter parts carry no pivot.
-function canonicalizePartTransform(part, includePivot = true) {
+function canonicalizePartTransform(part) {
 	part.dimensions    = toUnitVector3(part.dimensions,    "cnu");
 	part.localPosition = toUnitVector3(part.localPosition, "cnu");
 	part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
-	if (includePivot) part.pivot = toUnitVector3(part.pivot, "cnu");
+	part.pivot         = toUnitVector3(part.pivot,         "cnu");
 }
 
 // Absent repeat canonicalizes to null; authored offsets instance once.
@@ -69,10 +68,23 @@ function instanceCharacterTemplates() {
 	}
 }
 
+const toCnuVector    = (vector) => toUnitVector3(vector, "cnu");
+const toRadianVector = (vector) => toUnitVector3(vector, "degrees").toRadians(true);
+
+// Scatter-only: a quality-tiered field is keyed low/medium/high, so each tier instances in place.
+function instanceScatterField(part, field, instancer) {
+	const value = part[field];
+	if (value.low === undefined) { part[field] = instancer(value); return; }
+	for (const tier in value) value[tier] = instancer(value[tier]);
+}
+
+// Scatter parts carry no pivot, and localScale stays a raw vector at every tier.
 function instanceScatterTemplates() {
 	for (const key in texturesImport.scatterTypes) {
 		texturesImport.scatterTypes[key].parts.forEach((part) => {
-			canonicalizePartTransform(part, false);
+			instanceScatterField(part, "dimensions",    toCnuVector);
+			instanceScatterField(part, "localPosition", toCnuVector);
+			instanceScatterField(part, "localRotation", toRadianVector);
 			canonicalizeDecalTransforms(part.texture.custom);
 		});
 	}

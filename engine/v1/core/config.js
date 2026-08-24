@@ -18,32 +18,32 @@ const CONFIG = {
       Triggers: true,                        // Render Trigger Meshes
       FreeCam : false,                        // Free Camera Mode
       BoundingBox: {                         // Render Bounding Boxes
-        Terrain     : true,
+        Terrain     : false,
         Scatter     : false,
         Entity      : false,
         EntityPart  : false,
         Obstacle    : false,
-        Player      : true,
+        Player      : false,
         PlayerPart  : false,
         Boss        : false,
         BossPart    : false,
         Particle    : false,
         ParticlePart: false,
         Grid        : {                      // Render Debug Grid
-          Visible: true,
+          Visible: false,
           Scale  : new Unit(1, "cnu"),
         }
       },
       DetailedBounds: {                      // Render Detailed Bounds
-        Terrain : true,
-        Obstacle: true,
+        Terrain : false,
+        Obstacle: false,
         Entity  : false,
-        Player  : true,
-        Boss    : true,
+        Player  : false,
+        Boss    : false,
         Particle: false,
       },
       Trails: {                              // Render Movement Trails
-        Player     : true,
+        Player     : false,
         Boss       : false,
         Enemies    : false,
         Collectible: false,
@@ -91,38 +91,42 @@ const CONFIG = {
     Cutscene: settings?.cutscene ?? 1
   },
   PERFORMANCE: {
-    TerrainScatter: "High",
-    RenderDistance: "High",
-    SimDistance   : "High",
-    Particles     : "High",
-    Animations    : {
-      Active : true,
-      Quality: "High"
-    },
-    FrameRate     : 60,
-    Resolution    : 100
+    Scatter    : { Density: "High", Quality: "High" },
+    Particles  : "High",
+    SimDistance: "High",
+    Animations : "High",
+    FrameRate  : 60,
+    Resolution : 100
   },
   PHYSICS: {
     Gravity   : { 
-      Enabled: true, 
-      Strength: new Unit(10, "cnu"), 
+      Enabled         : true, 
+      Strength        : new Unit(10, "cnu"), 
       TerminalVelocity: { Air: new Unit(30, "cnu"), Water: new Unit(3, "cnu") } 
     },
     Resistance: { Enabled: true },
     Buoyancy  : { 
-      Enabled: true, 
-      Force: { Min: new Unit(1, "cnu"), Max: new Unit(8, "cnu") }, 
+      Enabled      : true, 
+      Force        : { Min: new Unit(1, "cnu"), Max: new Unit(8, "cnu") }, 
       GradientDepth: new Unit(2, "cnu") 
     },
-    Collision : { Enabled: true, Hurtbox: false, Hitbox: false },
-    Correction: { Enabled: true, MinDeltaDegrees: 5, MaxDeltaDegrees: 35 },
+    Collision : { 
+      Enabled: true, 
+      Hurtbox: false, 
+      Hitbox : false 
+    },
+    Correction: { 
+      Enabled        : true, 
+      MinDeltaDegrees: 5, 
+      MaxDeltaDegrees: 35 
+    },
   },
   CUSTOM_EVENTS: {
     Entities: {
       spawn          : false,
       despawn        : false,
       actionChange   : false,
-      collision      : true,
+      collision      : false,
       groundedChange : false,
       damageReceived : false,
       damageInflicted: false,
@@ -130,7 +134,10 @@ const CONFIG = {
   },
   CAMERA: { 
     Fov: 60,
-    Sensitivity: { Mouse: 40, Keyboard: 50 },
+    Sensitivity: { 
+      Mouse: 40, 
+      Keyboard: 50 
+    },
   },
   RENDERING: {
     Texture: {
@@ -142,7 +149,26 @@ const CONFIG = {
   }
 };
 
+// Engine-internal performance-related scaling.
+const PERFORMANCE_SCALING = {
+  SimDistance: {
+    Tiers    : { Low: new Unit(50, "cnu"), Medium: new Unit(100, "cnu"), High: new Unit(150, "cnu"), Ultra: new Unit(250, "cnu") },
+    Fractions: {
+      Scatter         : { Cull: 0.70, Fade: 0.40 },                   // Cull relative to SimDistance; Fade relative to Cull
+      TextureAnimation: { StopBake : 0.60 }
+    }
+  },
+  Density: {
+    Scatter  : { Disabled: 0, Low: 0.40, Medium: 0.70, High: 1 },
+    Particles: { Disabled: 0, Low: 0.40, Medium: 0.70, High: 1 }
+  },
+  Animation: {
+    Entities: { Disabled: 0, Low: 0.25, Medium: 0.50, High: 1 }       // Frame correction budget
+  }
+}
+
+
 /* === EXPORTS === */
 // Public configuration surface for engine modules.
 
-export { CONFIG };
+export { CONFIG, PERFORMANCE_SCALING };

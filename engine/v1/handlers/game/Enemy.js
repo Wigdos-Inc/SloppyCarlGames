@@ -33,7 +33,7 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 	const combatResults = DetectCombatOverlaps(
 		playerState, 
 		sceneGraph.entities, 
-		GetSimDistanceValue(), 
+		GetSimDistanceValue().value,
 		sceneGraph.cameraConfig.state.position
 	);
 

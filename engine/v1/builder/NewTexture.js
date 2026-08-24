@@ -342,35 +342,38 @@ function collectCustomTextures(mesh, customTextureUsage) {
 	});
 }
 
+// The one enumeration of meshes that can contribute a texture id. Texture.js walks it to resolve
+// animation owners, so a collection added here reaches both and the two cannot drift apart.
+// Kinds: "terrain" spans its own texture, "plain" carries no decals, "detailed" does.
+function ForEachTexturedMesh(sceneGraph, visit) {
+	sceneGraph.terrain.forEach((mesh) => { if (mesh.meta.mode === "default") visit(mesh, "terrain"); });
+	sceneGraph.triggers.forEach((mesh) => visit(mesh, "plain"));
+	sceneGraph.scatter.forEach((mesh) => visit(mesh, "plain"));
+	sceneGraph.obstacles.forEach((obstacle) => {
+		if (obstacle.mode !== "default") return;
+		obstacle.parts.forEach((part) => visit(part, "detailed"));
+	});
+	sceneGraph.entities.forEach((entity) => entity.model.parts.forEach((part) => visit(part.mesh, "detailed")));
+
+	// Water is a level fixture, not terrain.
+	if (sceneGraph.waterVisual) {
+		if (sceneGraph.waterVisual.body) visit(sceneGraph.waterVisual.body, "plain");
+		if (sceneGraph.waterVisual.top) visit(sceneGraph.waterVisual.top, "plain");
+	}
+}
+
 function collectTextureUsage(sceneGraph) {
 	const usage = { "default-tiles": createUsageEntry("default-tiles") };
 	const customTextureUsage = {};
 	const nonTerrainOptions = { isTerrain: false, maxSpan: 1 };
 
-	sceneGraph.terrain.forEach((mesh) => {
-		if (mesh.meta.mode !== "default") return;
-		const span = Math.max(mesh.dimensions.x * mesh.transform.scale.x, mesh.dimensions.z * mesh.transform.scale.z);
-		collectMesh(mesh, { isTerrain: true, maxSpan: span }, mesh.id, usage, customTextureUsage);
-		collectCustomTextures(mesh, customTextureUsage);
+	ForEachTexturedMesh(sceneGraph, (mesh, kind) => {
+		const options = kind === "terrain"
+			? { isTerrain: true, maxSpan: Math.max(mesh.dimensions.x * mesh.transform.scale.x, mesh.dimensions.z * mesh.transform.scale.z) }
+			: nonTerrainOptions;
+		collectMesh(mesh, options, mesh.id, usage, customTextureUsage);
+		if (kind !== "plain") collectCustomTextures(mesh, customTextureUsage);
 	});
-
-	sceneGraph.triggers.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id, usage, customTextureUsage));
-	sceneGraph.scatter.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id, usage, customTextureUsage));
-	sceneGraph.obstacles.forEach((obstacle) => {
-		if (obstacle.mode !== "default") return;
-		collectMesh(obstacle.mesh, nonTerrainOptions, obstacle.mesh.id, usage, customTextureUsage);
-		obstacle.parts.forEach((part) => {
-			collectMesh(part, nonTerrainOptions, part.id, usage, customTextureUsage);
-			collectCustomTextures(part, customTextureUsage);
-		});
-	});
-
-	if (sceneGraph.waterVisual) {
-		const waterMeshes = [];
-		if (sceneGraph.waterVisual.body) waterMeshes.push(sceneGraph.waterVisual.body);
-		if (sceneGraph.waterVisual.top) waterMeshes.push(sceneGraph.waterVisual.top);
-		waterMeshes.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id, usage, customTextureUsage));
-	}
 
 	// Collect texture IDs from instanced scatter batches. Decal texture(s) bake once per batch
 	// (keyed by batchKey), not once per instance — batchKey already guarantees identical authoring.
@@ -382,13 +385,6 @@ function collectTextureUsage(sceneGraph) {
 				customTextureUsage
 			);
 		}
-	});
-
-	sceneGraph.entities.forEach((entity) => {
-		entity.model.parts.forEach((part) => {
-			collectMesh(part.mesh, nonTerrainOptions, part.mesh.id, usage, customTextureUsage);
-			collectCustomTextures(part.mesh, customTextureUsage);
-		});
 	});
 
 	return { usage, customTextureUsage };
@@ -737,11 +733,12 @@ function BuildFaceTextureData(store, textureID, resolvedBlueprint, faceGroupData
 	return { faceTextureGroups };
 }
 
-export { 
-	PrepareLevelVisualResources, 
-	AddToVisualResources, 
-	BeginTextureBake, 
-	AdvanceNoiseBake, 
+export {
+	PrepareLevelVisualResources,
+	AddToVisualResources,
+	ForEachTexturedMesh,
+	BeginTextureBake,
+	AdvanceNoiseBake,
 	BuildFaceTextureData, 
 	ResolveTextureBlueprint,
 	BuildNoiseAnimationOptions, 

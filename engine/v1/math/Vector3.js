@@ -58,8 +58,6 @@ function ClampVector3(valV, minV, maxV) {
 	};
 }
 
-const DotVector3 = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
-
 function CrossVector3(a, b) {
 	return {
 		x: a.y * b.z - a.z * b.y,
@@ -69,6 +67,7 @@ function CrossVector3(a, b) {
 }
 
 const LerpVector3 = (start, end, t) => AddVector3(start, ScaleVector3(SubtractVector3(end, start), Clamp01(t)));
+const DotVector3 = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
 const Vector3Sq = (vector) => (vector.x * vector.x) + (vector.y * vector.y) + (vector.z * vector.z);
 const Vector3Length = (vector) => Math.hypot(vector.x, vector.y, vector.z);
 const Vector3Distance = (a, b) => Vector3Length(SubtractVector3(a, b));

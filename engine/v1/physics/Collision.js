@@ -4,7 +4,7 @@
 
 // Used by physics/Master.js
 
-import { CONFIG } from "../core/config.js";
+import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
 import { EPSILON } from "../core/meta.js";
 import { Unit } from "../math/Utilities.js";
 import { ComputeCapsuleFromAabb } from "../builder/NewEntity.js";
@@ -16,7 +16,6 @@ import {
 	Vector3Sq,
 	Vector3Distance,
 	CloneVector3,
-	ToVector3,
 	AbsoluteVector3,
 	WORLD_NORMALS,
 } from "../math/Vector3.js";
@@ -362,16 +361,10 @@ const NarrowphaseTest = (bA, bB) => narrowphaseContact(bA, bB).hit;
  * BROADPHASE
  * ======================================================================== */
 
-function GetSimDistanceValue() {
-	if (CONFIG.PERFORMANCE.SimDistance === "Low")    { return 35; }
-	if (CONFIG.PERFORMANCE.SimDistance === "Medium") { return 60; }
-	return 100;
-}
+const GetSimDistanceValue = () => PERFORMANCE_SCALING.SimDistance.Tiers[CONFIG.PERFORMANCE.SimDistance];
 
 // A null viewer opts out of the gate entirely (payloads may carry no player).
-function IsBeyondSimDistance(viewerPosition, targetPosition) {
-	return viewerPosition !== null && Vector3Distance(viewerPosition, targetPosition) > GetSimDistanceValue();
-}
+const IsBeyondSimDistance = (viewerPos, tgtPos) => viewerPos !== null && Vector3Distance(viewerPos, tgtPos) > GetSimDistanceValue().value;
 
 const getHalfExtents = (aabb) => aabb.max.clone().subtract(aabb.min).scale(0.5);
 

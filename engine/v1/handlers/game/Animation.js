@@ -7,7 +7,7 @@
 // handler layer (Level.js for the player); the same `ResolveEntityAnimation` serves any entity once
 // a driver wires it.
 
-import { CONFIG } from "../../core/config.js";
+import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
 import { Log } from "../../core/meta.js";
 import { ComposeTransform } from "../../builder/NewEntity.js";
 import { AddVector3, MultiplyVector3, LerpVector3, CloneVector3, ToVector3 } from "../../math/Vector3.js";
@@ -61,9 +61,8 @@ function ensureAnimationRuntime(entity) {
 /* === CORRECTION FRAME COUNT (config tier + entity type) === */
 
 function resolveCorrectionFrames(entityType) {
-	const qualityScale = { Low: 0.25, Medium: 0.50, High: 1 }[CONFIG.PERFORMANCE.Animations.Quality];
 	const isPlayer = entityType === "player";
-	const scaled = Math.round((isPlayer ? 8 : 4) * qualityScale);
+	const scaled = Math.round((isPlayer ? 8 : 4) * PERFORMANCE_SCALING.Animation.Entities[CONFIG.PERFORMANCE.Animations]);
 	return isPlayer ? Clamp(scaled, 4, 8) : Clamp(scaled, 0, 4);
 }
 
@@ -275,7 +274,7 @@ function resolveSetName(animations, currentAction) {
 }
 
 function ResolveEntityAnimation(entity, deltaSeconds) {
-	if (CONFIG.PERFORMANCE.Animations.Active !== true) return;
+	if (CONFIG.PERFORMANCE.Animations === "Disabled") return;
 
 	const runtime = ensureAnimationRuntime(entity);
 	if (entity.action !== runtime.lastAction) {

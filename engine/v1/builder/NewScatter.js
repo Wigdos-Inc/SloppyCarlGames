@@ -10,14 +10,8 @@ import { Log } from "../core/meta.js";
 import { CreateRenderMatrix } from "../math/Matrix.js";
 import { BuildObject, BuildGeometry, GenerateUVs } from "./NewObject.js";
 import { ComputeGeneratedTextureID, ComputeCustomTextureSignature, InitializeDecalDisplay } from "./NewTexture.js";
-import { RotateByEuler, MultiplyVector3, ScaleVector3, CloneVector3, WORLD_NORMALS } from "../math/Vector3.js";
+import { RotateByEuler, MultiplyVector3, ScaleVector3, CloneVector3, WORLD_NORMALS, DotVector3, AbsoluteVector3 } from "../math/Vector3.js";
 import visualTemplates from "./templates/textures.json" with { type: "json" };
-
-function GetPerformanceScatterMultiplier() {
-	if (CONFIG.PERFORMANCE.TerrainScatter === "High") return 1;
-	if (CONFIG.PERFORMANCE.TerrainScatter === "Low") return 0;
-	return 0.5;
-}
 
 function isPointInDetailedBoundsXZ(worldX, worldZ, detailedBounds) {
 	if (detailedBounds.type === "aabb") return (
@@ -42,6 +36,9 @@ function hashNoise(x, z, seed) {
 }
 
 const primitiveGeometryKey = (prim, dim, comp, primOptions) => `${prim}_${dim.x}_${dim.y}_${dim.z}_${comp}_${primOptions}`;
+
+// A quality-tiered field is an object keyed low/medium/high; anything else is a constant.
+const resolveTier = (value, tier) => (value.low === undefined ? value : value[tier]);
 
 // Field-wise decal clone, mirroring cloneTexture in NewTemplate.js
 function cloneScatterDecal(decal) {
@@ -100,17 +97,16 @@ function processScatterModels(params, handlers) {
 // Compute the half-height (vertical extent / 2) of the part after localRotation is applied.
 // Returns value in the same units as `part.dimensions` (CNU) so callers can multiply by uniformScale
 function getPartHalfHeight(part, uniformScale) {
-	if (part.primitive === "plane") return 0;
-
 	// Columns of rotation matrix = R * basis vectors. We want the Y-row contributions, which
 	// are the y components of those columns. Use shared RotateByEuler (Y->X->Z) to rotate basis.
-	const colX = RotateByEuler(WORLD_NORMALS.Right, part.localRotation);
-	const colY = RotateByEuler(WORLD_NORMALS.Up, part.localRotation);
-	const colZ = RotateByEuler(WORLD_NORMALS.Forward, part.localRotation);
+	const col = {
+		x: RotateByEuler(WORLD_NORMALS.Right, part.localRotation).y,
+		y: RotateByEuler(WORLD_NORMALS.Up, part.localRotation).y,
+		z: RotateByEuler(WORLD_NORMALS.Forward, part.localRotation).y
+	}
 
 	const h = ScaleVector3(MultiplyVector3(part.dimensions, part.localScale), uniformScale * 0.5);
-	const halfHeight = Math.abs(colX.y) * h.x + Math.abs(colY.y) * h.y + Math.abs(colZ.y) * h.z;
-	return Math.max(0, halfHeight);
+	return Math.max(0, DotVector3(AbsoluteVector3(col), h));
 }
 
 function resolveRootPart(parts, uniformScale) {
@@ -260,14 +256,18 @@ function iterateScatterInstances(params, handler) {
 	let globalTypeCount = 0;
 	let globalModelCount = 0;
 
+	const qualityTier = CONFIG.PERFORMANCE.Scatter.Quality.toLowerCase();
+
 	scatterRequests.forEach((request, scatterTypeIndex) => {
 		const scatterType = visualTemplates.scatterTypes[request.typeID];
 		const canonicalParts = scatterType.parts.map((part) => {
 			return {
 				...part,
-				dimensions: part.dimensions.clone(),
-				localPosition: part.localPosition.clone(),
-				localRotation: part.localRotation.clone(),
+				primitive: resolveTier(part.primitive, qualityTier),
+				dimensions: resolveTier(part.dimensions, qualityTier).clone(),
+				localPosition: resolveTier(part.localPosition, qualityTier).clone(),
+				localRotation: resolveTier(part.localRotation, qualityTier).clone(),
+				localScale: resolveTier(part.localScale, qualityTier),
 			};
 		});
 
@@ -330,6 +330,14 @@ function iterateScatterInstances(params, handler) {
 				}
 
 				partContexts.push({ part, partIndex, position, rotation, scale });
+
+				// Crossed pair: the twin reuses this rotation; its own partIndex would reseed the yaw.
+				if (part.primitive === "plane") {
+					const crossRotation = rotation.clone();
+					crossRotation.y += Math.PI * 0.5;
+					partContexts.push({ part, partIndex, position: position.clone(), rotation: crossRotation, scale });
+					typeCount++;
+				}
 			});
 
 			if (partContexts.length === 0) continue;
@@ -518,4 +526,4 @@ function BuildScatterVisualResources(scatterBatches) {
 const BuildScatter = (p) => generateObjectScatter(p.objectMesh, p.scatterMultiplier, p.world, p.indexSeed, p.explicitScatter, p.openFaces);
 const BuildScatterBatches = (p) => generateObjectScatterBatches(p.objectMesh, p.scatterMultiplier, p.world, p.indexSeed, p.explicitScatter, p.batchMap, p.debugBboxAccumulator, p.openFaces);
 
-export { BuildScatter, BuildScatterBatches, BuildScatterVisualResources, GetPerformanceScatterMultiplier };
+export { BuildScatter, BuildScatterBatches, BuildScatterVisualResources };

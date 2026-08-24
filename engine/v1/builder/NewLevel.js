@@ -13,9 +13,9 @@ import { GenerateParticles, ParticleGeneratorRequests } from "./NewParticles.js"
 import { BuildObstacles } from "./NewObstacle.js";
 import { BuildTerrain } from "./NewTerrain.js";
 import { ResolveObjectSource } from "./NewTemplate.js";
-import { GetPerformanceScatterMultiplier, BuildScatterBatches, BuildScatterVisualResources } from "./NewScatter.js";
+import { BuildScatterBatches, BuildScatterVisualResources } from "./NewScatter.js";
 import { BuildVoidWalls } from "./NewVoid.js";
-import { CONFIG } from "../core/config.js";
+import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { Clamp, UnitVector3 } from "../math/Utilities.js";
 import { ToVector3 } from "../math/Vector3.js";
@@ -45,10 +45,10 @@ function buildEntityInput(source, blueprintMap) {
 
 function resolveTriggerColor(triggerType) {
 	switch (triggerType) {
-		case "cutscene": return { r: 0.45, g: 0.75, b: 1, a: 0.35 };
-		case "dialogue": return { r: 0.4, g: 1, b: 0.65, a: 0.35 };
-		case "combat"  : return { r: 1, g: 0.45, b: 0.45, a: 0.35 };
-		default        : return { r: 1, g: 0.85, b: 0.4, a: 0.35 };
+		case "cutscene": return { r: 0.45, g: 0.75, b: 1,    a: 0.35 };
+		case "dialogue": return { r: 0.4,  g: 1,    b: 0.65, a: 0.35 };
+		case "combat"  : return { r: 1,    g: 0.45, b: 0.45, a: 0.35 };
+		default        : return { r: 1,    g: 0.85, b: 0.4,  a: 0.35 };
 	}
 }
 
@@ -277,7 +277,7 @@ async function BuildLevel(payload) {
 		if (objectMesh.detail.scatter.length === 0) return;
 		BuildScatterBatches({
 			objectMesh, indexSeed, openFaces,
-			scatterMultiplier   : GetPerformanceScatterMultiplier(),
+			scatterMultiplier   : PERFORMANCE_SCALING.Density.Scatter[CONFIG.PERFORMANCE.Scatter.Density],
 			world               : payload.world,
 			explicitScatter     : objectMesh.detail.scatter,
 			batchMap            : scatterBatches,

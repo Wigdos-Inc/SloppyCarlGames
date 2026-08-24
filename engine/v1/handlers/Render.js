@@ -6,10 +6,11 @@
 // UI element builder.
 
 import { UIElement } from "../builder/NewUI.js";
-import { CONFIG } from "../core/config.js";
+import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateRenderMatrix, MultiplyMatrix4 } from "../math/Matrix.js";
 import { AddVector3, CrossVector3, DotVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, Vector3Sq } from "../math/Vector3.js";
+import { GetSimDistanceValue } from "../physics/Collision.js";
 
 /* === INTERNALS === */
 // DOM helpers for rendering payloads.
@@ -369,6 +370,20 @@ function createStencilProgram(gl) {
 	});
 }
 
+// Shared by both scatter vertex shaders; decals must cull in lockstep with their blade.
+const scatterCullGLSL = `
+	vec3 instanceOrigin = instanceModel[3].xyz;
+	float instanceDistance = length((u_view * vec4(instanceOrigin, 1.0)).xyz);
+	float fade = 1.0 - smoothstep(u_cullRadius * (1.0 - float(${PERFORMANCE_SCALING.SimDistance.Fractions.Scatter.Fade})), u_cullRadius, instanceDistance);
+	float cullHash = fract(sin(dot(instanceOrigin, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+	if (cullHash > fade) {
+		gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+		return;
+	}
+	// Dissolve over the last quarter of each instance's own margin.
+	float instanceAlpha = clamp((fade - cullHash) * 4.0, 0.0, 1.0);
+`;
+
 function createScatterProgram(gl) {
 	// Instanced scatter shader: per-instance model matrix + tint via vertex attributes.
 	// Attribute layout:
@@ -390,17 +405,19 @@ function createScatterProgram(gl) {
 		layout(location = 6) in vec4 a_instanceTint;
 		uniform mat4 u_projection;
 		uniform mat4 u_view;
+		uniform float u_cullRadius;
 		out vec2 v_uv;
 		out float v_depth;
 		out vec4 v_tint;
 		void main() {
 			mat4 instanceModel = mat4(a_instanceRow0, a_instanceRow1, a_instanceRow2, a_instanceRow3);
+			${scatterCullGLSL}
 			vec4 world = instanceModel * vec4(a_position, 1.0);
 			vec4 viewPos = u_view * world;
 			gl_Position = u_projection * viewPos;
 			v_uv = a_uv;
 			v_depth = abs(viewPos.z);
-			v_tint = a_instanceTint;
+			v_tint = vec4(a_instanceTint.rgb, a_instanceTint.a * instanceAlpha);
 		}
 	`;
 
@@ -418,6 +435,7 @@ function createScatterProgram(gl) {
 			far       : "u_far",
 			colorShift: "u_colorShift",
 			underwater: "u_underwater",
+			cullRadius: "u_cullRadius",
 		},
 		linkErrorPrefix: "Scatter shader link error",
 	});
@@ -559,13 +577,16 @@ function createScatterDecalProgram(gl) {
 		uniform mat4 u_placement;
 		uniform int u_shape;
 		uniform vec3 u_halfExtents;
+		uniform float u_cullRadius;
 		out vec2 v_uv;
 		out float v_depth;
+		out float v_cullAlpha;
 
 		${decalSurfaceProjectionGLSL}
 
 		void main() {
 			mat4 instanceModel = mat4(a_instanceRow0, a_instanceRow1, a_instanceRow2, a_instanceRow3);
+			${scatterCullGLSL}
 			vec3 local = (u_placement * vec4(a_position, 1.0)).xyz;
 			vec3 surf = projectToSurface(u_shape, local, u_halfExtents);
 			vec4 world = instanceModel * vec4(surf, 1.0);
@@ -573,14 +594,15 @@ function createScatterDecalProgram(gl) {
 			gl_Position = u_projection * viewPos;
 			v_uv = a_uv;
 			v_depth = abs(viewPos.z);
+			v_cullAlpha = instanceAlpha;
 		}
 	`;
 
 	return createLinkedProgram(gl, {
 		vertexShaderSource: vertexShaderSource,
 		fragmentShaderSource: createFoggedTextureFragmentShader(
-			"uniform vec4 u_tint;",
-			"vec4(texel.rgb * u_tint.rgb * u_tint.a, texel.a * u_tint.a)",
+			"uniform vec4 u_tint;\n\t\tin float v_cullAlpha;",
+			"vec4(texel.rgb * u_tint.rgb * u_tint.a, texel.a * u_tint.a) * v_cullAlpha",
 			true
 		),
 		uniformNames: {
@@ -595,6 +617,7 @@ function createScatterDecalProgram(gl) {
 			far        : "u_far",
 			colorShift : "u_colorShift",
 			underwater : "u_underwater",
+			cullRadius : "u_cullRadius",
 		},
 		createError    : "scatter decal shader program creation failed",
 		linkErrorPrefix: "scatter decal shader link error",
@@ -1212,6 +1235,7 @@ function uploadTextureImage(gl, textureID, source, reallocate) {
 
 function ensureSceneTexture(renderer, sceneGraph, textureID) {
 	const gl = renderer.gl;
+	renderer.drawnTextures.add(textureID);
 	if (renderer.textures.has(textureID)) return renderer.textures.get(textureID);
 
 	const texture = gl.createTexture();
@@ -1301,6 +1325,9 @@ function blendAnimatedTextures(renderer, sceneGraph) {
 		// Absent from cache = never drawn, so nothing samples its target.
 		const target = renderer.textures.get(textureID);
 		if (target === undefined) continue;
+
+		// In the cache but not last frame's draws = currently hidden.
+		if (!renderer.drawnTextures.has(textureID)) continue;
 
 		const stateEntry = byTextureID[textureID];
 		if (stateEntry.toSurface === null) continue;
@@ -1417,6 +1444,7 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		blendFramebuffer,
 		blendQuad: null,
 		animatedSources: new Map(),
+		drawnTextures: new Set(),
 		meshBuffers: new Map(),
 		textures: new Map(),
 		geometryRegistry: new Map(),
@@ -1772,6 +1800,7 @@ function drawScatterDecalPass(renderer, sceneGraph, passState) {
 	const shader = renderer.scatterDecalShader;
 
 	beginDecalState(gl, shader, passState);
+	gl.uniform1f(shader.uniforms.cullRadius, passState.cullRadius);
 	gl.uniform1i(shader.uniforms.texture, 0);
 	gl.uniform4f(shader.uniforms.tint, 1, 1, 1, 1);
 	gl.activeTexture(gl.TEXTURE0);
@@ -1894,6 +1923,7 @@ function drawScene(renderer, sceneGraph) {
 	
 	// Writes animated textures off-screen; viewport/depth/blend below restore what it touched.
 	blendAnimatedTextures(renderer, sceneGraph);
+	renderer.drawnTextures.clear(); // Cleared after the blend, so this frame's binds feed the next one.
 	gl.viewport(0, 0, renderer.canvas.width, renderer.canvas.height);
 	gl.enable(gl.DEPTH_TEST);
 	gl.enable(gl.BLEND);
@@ -1917,7 +1947,8 @@ function drawScene(renderer, sceneGraph) {
 	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
 	const farValue = cameraState.far.value;
 	const underwaterValue = underwater ? 1 : 0;
-	const passState = { projection, view, fogDensity, farValue, colorShift, underwaterValue };
+	const cullRadius = GetSimDistanceValue().toWorldUnit() * PERFORMANCE_SCALING.SimDistance.Fractions.Scatter.Cull;
+	const passState = { projection, view, fogDensity, farValue, colorShift, underwaterValue, cullRadius };
 
 	if (
 		underwater &&
@@ -1953,6 +1984,7 @@ function drawScene(renderer, sceneGraph) {
 
 	if (renderer.scatterInstances.length > 0) {
 		configureTexturedMeshPass(gl, renderer.scatterShader, passState);
+		gl.uniform1f(renderer.scatterShader.uniforms.cullRadius, passState.cullRadius);
 
 		renderer.scatterInstances.forEach(batch => {
 			gl.bindVertexArray(batch.vao);

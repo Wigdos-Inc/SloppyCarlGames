@@ -12,7 +12,7 @@ import { CloneTemplatePart } from "./NewTemplate.js";
 import { AddVector3, CrossVector3, MultiplyVector3, RotateByEuler, ScaleVector3, ToVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
 import { Clamp01, Lerp, Unit, UnitVector3 } from "../math/Utilities.js";
 import { IsBeyondSimDistance } from "../physics/Collision.js";
-import { CONFIG } from "../core/config.js";
+import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
 import { Log } from "../core/meta.js";
 
 /* === SPAWN SURFACE === */
@@ -72,15 +72,6 @@ function minGroupSizeFor(count) {
 	if (count > 20) return 5;
 	if (count > 10) return 3;
 	return 2;
-}
-
-/* === PERFORMANCE === */
-
-// Same shape as GetPerformanceScatterMultiplier; Low blocks generation outright.
-function performanceParticleMultiplier() {
-	if (CONFIG.PERFORMANCE.Particles === "High") return 1;
-	if (CONFIG.PERFORMANCE.Particles === "Low") return 0;
-	return 0.5;
 }
 
 /* === RANDOMIZATION === */
@@ -389,9 +380,9 @@ class burstParticleGroup extends particleGroup {
  * @returns {object} — { groups } — built entities, one per group.
  */
 function GenerateParticles(request, viewerPosition, textureScale, faceTextureStore, geometryCache) {
-	const multiplier = performanceParticleMultiplier();
+	const multiplier = PERFORMANCE_SCALING.Density.Particles[CONFIG.PERFORMANCE.Particles];
 	if (multiplier === 0) {
-		Log("ENGINE", "Particles disabled: PERFORMANCE.Particles is Low.", "warn", "Level");
+		Log("ENGINE", "Particles disabled: PERFORMANCE.Particles is Disabled.", "warn", "Level");
 		return { groups: [] };
 	}
 	if (IsBeyondSimDistance(viewerPosition, request.position)) return { groups: [] };

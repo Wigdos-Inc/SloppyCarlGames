@@ -40,17 +40,23 @@ const DEFAULT_SETTINGS = {
 	debugMode: true,
 	mouseSensitivity: 50,
 	keyboardSensitivity: 50,
-	terrainScatter: "High",
+	scatterDensity: "High",
+	scatterQuality: "High",
 	particles: "High",
 	simDistance: "High",
-	animationQuality: "High",
+	animations: "High",
 	frameRate: 60,
 	resolution: 100,
 	performancePreset: "High",
 };
 
-const TIER_LEVELS = ["Low", "Medium", "High"];
+// Scatter quality and sim distance are always-on grades; the rest can be switched off.
+// Ultra sits outside PRESET_TIERS, so selecting it always resolves the preset to Custom.
+const TIER_LEVELS = ["Disabled", "Low", "Medium", "High"];
+const GRADED_LEVELS = ["Low", "Medium", "High"];
+const DISTANCE_LEVELS = ["Low", "Medium", "High", "Ultra"];
 const PRESET_LEVELS = ["Low", "Medium", "High", "Custom"];
+const PRESET_TIERS = PRESET_LEVELS.slice(0, -1);
 
 const saveSettings = (settings) => localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 
@@ -179,10 +185,11 @@ function getSettingsSnapshot() {
 		debugMode: cfg.DEBUG.ALL,
 		mouseSensitivity: cfg.CAMERA.Sensitivity.Mouse,
 		keyboardSensitivity: cfg.CAMERA.Sensitivity.Keyboard,
-		terrainScatter: cfg.PERFORMANCE.TerrainScatter,
+		scatterDensity: cfg.PERFORMANCE.Scatter.Density,
+		scatterQuality: cfg.PERFORMANCE.Scatter.Quality,
 		particles: cfg.PERFORMANCE.Particles,
 		simDistance: cfg.PERFORMANCE.SimDistance,
-		animationQuality: cfg.PERFORMANCE.Animations.Quality,
+		animations: cfg.PERFORMANCE.Animations,
 		frameRate: cfg.PERFORMANCE.FrameRate,
 		resolution: cfg.PERFORMANCE.Resolution,
 	};
@@ -203,10 +210,7 @@ function syncSettingsUi(settings) {
 
 	PERCENT_SLIDER_MAP.forEach((entry) => updatePercentSliderVisual(entry.id, settings[entry.key], entry.min));
 
-	updateLeveledSliderVisual("setting-terrain-scatter", TIER_LEVELS, settings.terrainScatter);
-	updateLeveledSliderVisual("setting-particles", TIER_LEVELS, settings.particles);
-	updateLeveledSliderVisual("setting-sim-distance", TIER_LEVELS, settings.simDistance);
-	updateLeveledSliderVisual("setting-animation-quality", TIER_LEVELS, settings.animationQuality);
+	TIER_SLIDER_MAP.forEach((entry) => updateLeveledSliderVisual(entry.id, entry.levels, settings[entry.key]));
 	updateFrameRateVisual("setting-frame-rate", settings.frameRate);
 	updateLeveledSliderVisual(PRESET_SLIDER_ID, PRESET_LEVELS, settings.performancePreset);
 }
@@ -223,10 +227,11 @@ function applySettings(settings) {
 	cfg.DEBUG.ALL = settings.debugMode;
 	cfg.CAMERA.Sensitivity.Mouse = settings.mouseSensitivity;
 	cfg.CAMERA.Sensitivity.Keyboard = settings.keyboardSensitivity;
-	cfg.PERFORMANCE.TerrainScatter = settings.terrainScatter;
+	cfg.PERFORMANCE.Scatter.Density = settings.scatterDensity;
+	cfg.PERFORMANCE.Scatter.Quality = settings.scatterQuality;
 	cfg.PERFORMANCE.Particles = settings.particles;
 	cfg.PERFORMANCE.SimDistance = settings.simDistance;
-	cfg.PERFORMANCE.Animations.Quality = settings.animationQuality;
+	cfg.PERFORMANCE.Animations = settings.animations;
 	cfg.PERFORMANCE.FrameRate = settings.frameRate;
 	cfg.PERFORMANCE.Resolution = settings.resolution;
 
@@ -332,16 +337,18 @@ const TOGGLE_MAP = [
 ];
 
 const TIER_SLIDER_MAP = [
-	{ id: "setting-terrain-scatter",   key: "terrainScatter" },
-	{ id: "setting-particles",         key: "particles" },
-	{ id: "setting-sim-distance",      key: "simDistance" },
-	{ id: "setting-animation-quality", key: "animationQuality" },
+	{ id: "setting-scatter-density",  key: "scatterDensity",  levels: TIER_LEVELS },
+	{ id: "setting-scatter-quality", key: "scatterQuality", levels: GRADED_LEVELS },
+	{ id: "setting-particles",       key: "particles",      levels: TIER_LEVELS },
+	{ id: "setting-sim-distance",    key: "simDistance",    levels: DISTANCE_LEVELS },
+	{ id: "setting-animations",      key: "animations",     levels: TIER_LEVELS },
 ];
 
 const PRESET_SLIDER_ID = "setting-performance-preset";
 
+// Presets only span Low/Medium/High, so a Disabled tier always reads as Custom.
 function derivePerformancePreset(settings) {
-	const matchedTier = TIER_LEVELS.find(
+	const matchedTier = PRESET_TIERS.find(
 		(tier) => TIER_SLIDER_MAP.every((entry) => settings[entry.key] === tier)
 	);
 	return matchedTier || "Custom";
@@ -351,7 +358,7 @@ function applyPerformancePreset(presetName, settings) {
 	if (presetName === "Custom") return;
 	TIER_SLIDER_MAP.forEach((entry) => {
 		settings[entry.key] = presetName;
-		updateLeveledSliderVisual(entry.id, TIER_LEVELS, presetName);
+		updateLeveledSliderVisual(entry.id, entry.levels, presetName);
 	});
 }
 
@@ -397,12 +404,12 @@ function handleSettingsInput(payload) {
 
 	const tierEntry = TIER_SLIDER_MAP.find((entry) => entry.id === resolvedTargetId);
 	if (tierEntry && typeof value === "number") {
-		const index = ENGINE.Math.Other.Clamp(Math.round(value), 0, TIER_LEVELS.length - 1);
-		const tierName = TIER_LEVELS[index];
+		const index = ENGINE.Math.Other.Clamp(Math.round(value), 0, tierEntry.levels.length - 1);
+		const tierName = tierEntry.levels[index];
 		settings[tierEntry.key] = tierName;
 		changedKey = tierEntry.key;
 		changedValue = tierName;
-		updateLeveledSliderVisual(tierEntry.id, TIER_LEVELS, tierName);
+		updateLeveledSliderVisual(tierEntry.id, tierEntry.levels, tierName);
 
 		settings.performancePreset = derivePerformancePreset(settings);
 		updateLeveledSliderVisual(PRESET_SLIDER_ID, PRESET_LEVELS, settings.performancePreset);
