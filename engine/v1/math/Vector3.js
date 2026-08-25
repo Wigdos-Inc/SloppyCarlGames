@@ -71,6 +71,7 @@ const DotVector3 = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
 const Vector3Sq = (vector) => (vector.x * vector.x) + (vector.y * vector.y) + (vector.z * vector.z);
 const Vector3Length = (vector) => Math.hypot(vector.x, vector.y, vector.z);
 const Vector3Distance = (a, b) => Vector3Length(SubtractVector3(a, b));
+const Vector3Matches = (a, b) => SubtractVector3(a, b) === ToVector3(0);
 
 function ResolveVector3Axis(vector) {
 	const length = Vector3Length(vector);
@@ -129,6 +130,7 @@ export {
 	Vector3Sq,
 	Vector3Length,
 	Vector3Distance,
+	Vector3Matches,
 	ResolveVector3Axis,
 	LerpVector3,
 	RotateByEuler,

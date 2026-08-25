@@ -9,7 +9,7 @@ import { UIElement } from "../builder/NewUI.js";
 import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateRenderMatrix, MultiplyMatrix4 } from "../math/Matrix.js";
-import { AddVector3, CrossVector3, DotVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, Vector3Sq } from "../math/Vector3.js";
+import { AddVector3, CloneVector3, CrossVector3, DotVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, Vector3Matches, Vector3Sq } from "../math/Vector3.js";
 import { GetSimDistanceValue } from "../physics/Collision.js";
 
 /* === INTERNALS === */
@@ -1190,6 +1190,26 @@ function ensureOpenFaceStencilBuffer(renderer, key, openFaces) {
 	return buf;
 }
 
+// Snapshot covers every field CreateRenderMatrix reads.
+function renderMatrixFor(mesh) {
+	const cache     = mesh.renderMatrixCache;
+	const transform = mesh.displayTransform;
+	if (Vector3Matches(cache.position, transform.position) &&
+		Vector3Matches(cache.pivot,    transform.pivot)    &&
+		Vector3Matches(cache.rotation, transform.rotation) &&
+		Vector3Matches(cache.scale,    transform.scale)
+	) {
+		return cache.matrix;
+	}
+
+	cache.matrix.set(CreateRenderMatrix(transform));
+	cache.position.set(transform.position);
+	cache.pivot.set(transform.pivot);
+	cache.rotation.set(transform.rotation);
+	cache.scale = CloneVector3(transform.scale);
+	return cache.matrix;
+}
+
 function drawDepthPrePass(renderer, terrain, obstacles, passState) {
 	if (terrain.length === 0 && obstacles.length === 0) return;
 	const gl = renderer.gl;
@@ -1201,7 +1221,7 @@ function drawDepthPrePass(renderer, terrain, obstacles, passState) {
 	gl.enable(gl.DEPTH_TEST);
 	for (const mesh of [...terrain, ...obstacles]) {
 		const buf = ensureStencilMeshBuffer(renderer, mesh);
-		gl.uniformMatrix4fv(renderer.stencilShader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
+		gl.uniformMatrix4fv(renderer.stencilShader.uniforms.model, false, renderMatrixFor(mesh));
 		gl.bindVertexArray(buf.vao);
 		gl.drawElements(gl.TRIANGLES, buf.indexCount, gl.UNSIGNED_SHORT, 0);
 		gl.bindVertexArray(null);
@@ -1566,7 +1586,7 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 
 		gl.bindVertexArray(meshBuffer.vao);
 		gl.uniform1i(shader.uniforms.texture, 0);
-		gl.uniformMatrix4fv(shader.uniforms.model, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
+		gl.uniformMatrix4fv(shader.uniforms.model, false, renderMatrixFor(mesh));
 		gl.uniform4f(shader.uniforms.tint,
 			dc !== null ? dc.r : mesh.material.color.r,
 			dc !== null ? dc.g : mesh.material.color.g,
@@ -1754,7 +1774,7 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 		if (mesh.customTextures.length === 0) return;
 
 		// Mesh-level uniforms: identical for every decal on this mesh — set once.
-		gl.uniformMatrix4fv(decalShader.uniforms.partWorld, false, new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
+		gl.uniformMatrix4fv(decalShader.uniforms.partWorld, false, renderMatrixFor(mesh));
 		const dim = mesh.dimensions;
 		gl.uniform3f(decalShader.uniforms.halfExtents, dim.x / 2, dim.y / 2, dim.z / 2);
 		gl.uniform1i(decalShader.uniforms.texture, 0);
@@ -1879,7 +1899,7 @@ function drawVoidStencil(renderer, sceneGraph, passState) {
 			for (const id in entry.relations) {
 				const relation = entry.relations[id];
 				for (const mesh of relation.voidWallMeshes) {
-					drawStencilBuffer(ensureStencilMeshBuffer(renderer, mesh), new Float32Array(CreateRenderMatrix(mesh.displayTransform)));
+					drawStencilBuffer(ensureStencilMeshBuffer(renderer, mesh), renderMatrixFor(mesh));
 				}
 				if (relation.openFaces.length > 0) {
 					drawStencilBuffer(ensureOpenFaceStencilBuffer(renderer, `${entry.id}|${id}|openFaces`, relation.openFaces), identityMatrix);

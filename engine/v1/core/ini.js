@@ -47,7 +47,7 @@ function Initialize() {
     Meta: Object.freeze({
       LogAll, LogCache, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
       SessionKey, CNU_SCALE, 
-      Version: "0.28",
+      Version: "0.28.1",
     }),
     Controls,
     Input   : Object.freeze({ Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, }),

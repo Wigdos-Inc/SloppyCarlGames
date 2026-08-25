@@ -1,4 +1,4 @@
-import { ScaleVector3 } from "./Vector3.js";
+import { CloneVector3, ScaleVector3 } from "./Vector3.js";
 import { CNU_SCALE } from "./Utilities.js";
 
 function CreateIdentityMatrix() {
@@ -107,9 +107,21 @@ function CreateRenderMatrix(transform) {
 	);
 }
 
+// Matrix plus a by-value snapshot of its source fields; always fully populated.
+function CreateRenderMatrixCache(transform) {
+	return {
+		matrix  : new Float32Array(CreateRenderMatrix(transform)),
+		position: transform.position.clone(),
+		pivot   : transform.pivot.clone(),
+		rotation: transform.rotation.clone(),
+		scale   : CloneVector3(transform.scale),
+	};
+}
+
 export {
 	CreateIdentityMatrix,
 	CreateModelMatrix,
 	CreateRenderMatrix,
+	CreateRenderMatrixCache,
 	MultiplyMatrix4,
 };

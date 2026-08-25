@@ -17,6 +17,7 @@ import {
 	ScaleVector3,
 	SubtractVector3,
 	ToVector3,
+	Vector3Matches,
 	Vector3Sq,
 	WORLD_NORMALS,
 } from "../math/Vector3.js";
@@ -134,13 +135,12 @@ function cloneLocalTransform(transform) {
 	return { position, rotation, scale };
 }
 
-const vector3Matches = (a, b) => a.x === b.x && a.y === b.y && a.z === b.z;
-
 // model.posedTransform records what the mesh hierarchy currently reflects; equal means the re-pose is a no-op.
-const poseMatchesTransform = (model, transform) =>
-	vector3Matches(model.posedTransform.position, transform.position) &&
-	vector3Matches(model.posedTransform.rotation, transform.rotation) &&
-	vector3Matches(model.posedTransform.scale, transform.scale);
+const poseMatchesTransform = (model, transform) => {
+	return Vector3Matches(model.posedTransform.position, transform.position) &&
+	Vector3Matches(model.posedTransform.rotation, transform.rotation) &&
+	Vector3Matches(model.posedTransform.scale, transform.scale);
+}
 
 function ComposeTransform(parentTransform, localTransform) {
 	const localPosition = localTransform.position.clone();

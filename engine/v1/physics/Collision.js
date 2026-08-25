@@ -1071,6 +1071,7 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance) {
 /* === EXPORTS === */
 
 export {
+	BroadphaseCollectCandidates,
 	DetectPhysicsCollisions,
 	DetectCurrentPhysicsOverlaps,
 	DetectCombatOverlaps,

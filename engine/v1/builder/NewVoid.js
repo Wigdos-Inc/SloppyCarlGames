@@ -4,7 +4,7 @@
 // Used by builder/NewLevel.js
 // Uses math/Matrix.js, math/Collision.js, physics/Collision.js, builder/NewObject.js
 
-import { CreateModelMatrix } from "../math/Matrix.js";
+import { CreateModelMatrix, CreateRenderMatrixCache } from "../math/Matrix.js";
 import { AabbOverlap, StrictAabbOverlap } from "../math/Collision.js";
 import { NarrowphaseTest } from "../physics/Collision.js";
 import { GenerateUVs, GenerateFaceProjectedUvs, TransformPointByMatrix } from "./NewObject.js";
@@ -213,13 +213,14 @@ function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textu
 		);
 
 		const mesh = {
-			id              : `${voidMesh.id}-void-${defaultMesh.id}`,
-			primitive       : "void",
-			dimensions      : voidMesh.dimensions,
-			complexity      : "void",
-			displayColor    : null,
-			displayTransform: voidMesh.transform,
-			material        : {
+			id               : `${voidMesh.id}-void-${defaultMesh.id}`,
+			primitive        : "void",
+			dimensions       : voidMesh.dimensions,
+			complexity       : "void",
+			displayColor     : null,
+			displayTransform : voidMesh.transform,
+			renderMatrixCache: CreateRenderMatrixCache(voidMesh.transform),
+			material         : {
 				textureID  : material.textureID,
 				color      : material.color,
 				opacity    : material.opacity,
@@ -257,13 +258,14 @@ function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textu
 	const uvs           = GenerateUVs(positionArray, { faceGroups });
 
 	const mesh = {
-		id              : `${voidMesh.id}-void-${defaultMesh.id}`,
-		primitive       : "void",
-		dimensions      : voidMesh.dimensions,
-		complexity      : "void",
-		displayColor    : null,
-		displayTransform: voidMesh.transform,
-		material        : {
+		id               : `${voidMesh.id}-void-${defaultMesh.id}`,
+		primitive        : "void",
+		dimensions       : voidMesh.dimensions,
+		complexity       : "void",
+		displayColor     : null,
+		displayTransform : voidMesh.transform,
+		renderMatrixCache: CreateRenderMatrixCache(voidMesh.transform),
+		material         : {
 			textureID  : material.textureID,
 			color      : material.color,
 			opacity    : material.opacity,

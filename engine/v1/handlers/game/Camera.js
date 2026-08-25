@@ -15,8 +15,10 @@ import {
 	ToVector3,
 	WORLD_NORMALS,
 	LerpVector3,
+	MultiplyVector3,
 } from "../../math/Vector3.js";
 import { ClampVelocity, RayAABBIntersect, RayAABBDetailedBoundsIntersect, RayDetailedBoundsIntersect } from "../../math/Collision.js";
+import { BroadphaseCollectCandidates } from "../../physics/Collision.js";
 import { Lerp, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
 import { IsSimulatorActive } from "./Simulator.js";
 const pitchClampDegrees = 89;
@@ -25,21 +27,21 @@ const freeCamEnabled = !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeC
 
 const distanceDefaults = {
 	freeCamStartPosition: new UnitVector3(0, 20, 40, "cnu"),
-	freeCamAcceleration: new Unit(44, "cnu"),
-	freeCamMaxSpeed: new Unit(14, "cnu"),
-	freeCamStartY: new Unit(20, "cnu"),
-	freeCamStartZ: new Unit(40, "cnu"),
-	freeCamFar: new Unit(800, "cnu"),
+	freeCamAcceleration : new Unit(44, "cnu"),
+	freeCamMaxSpeed     : new Unit(14, "cnu"),
+	freeCamStartY       : new Unit(20, "cnu"),
+	freeCamStartZ       : new Unit(40, "cnu"),
+	freeCamFar          : new Unit(800, "cnu"),
 
-	defaultCamDistance: new Unit(10, "cnu"),
-	defaultCamHeightOffset: new Unit(3, "cnu"),
+	defaultCamDistance       : new Unit(10, "cnu"),
+	defaultCamHeightOffset   : new Unit(3, "cnu"),
 	defaultCamCurrentDistance: new Unit(10, "cnu"),
-	defaultCamTargetDistance: new Unit(10, "cnu"),
-	defaultLevelMinY: new Unit(20, "cnu"),
-	defaultLevelMinZ: new Unit(30, "cnu"),
-	defaultLevelMinFar: new Unit(200, "cnu"),
+	defaultCamTargetDistance : new Unit(10, "cnu"),
+	defaultLevelMinY         : new Unit(20, "cnu"),
+	defaultLevelMinZ         : new Unit(30, "cnu"),
+	defaultLevelMinFar       : new Unit(200, "cnu"),
 
-	obstructionOffset: new Unit(0.3, "cnu"),
+	obstructionOffset     : new Unit(0.3, "cnu"),
 	obstructionMinDistance: new Unit(0.5, "cnu"),
 };
 
@@ -48,49 +50,49 @@ let latestCameraPosition = null;
 const freeCamRuntime = {
 	levelKey: null,
 	keyState: {
-		KeyW: false,
-		KeyA: false,
-		KeyS: false,
-		KeyD: false,
-		ArrowLeft: false,
-		ArrowUp: false,
-		ArrowDown: false,
+		KeyW      : false,
+		KeyA      : false,
+		KeyS      : false,
+		KeyD      : false,
+		ArrowLeft : false,
+		ArrowUp   : false,
+		ArrowDown : false,
 		ArrowRight: false,
-		Space: false,
-		ShiftLeft: false,
+		Space     : false,
+		ShiftLeft : false,
 		ShiftRight: false,
 	},
-	tuningStep: 0,
-	acceleration: distanceDefaults.freeCamAcceleration.clone(),
+	tuningStep   : 0,
+	acceleration : distanceDefaults.freeCamAcceleration.clone(),
 	dampingFactor: 0.12,
-	maxSpeed: distanceDefaults.freeCamMaxSpeed.clone(),
-	lookDeltaX: 0,
-	lookDeltaY: 0,
-	wheelDelta: 0,
+	maxSpeed     : distanceDefaults.freeCamMaxSpeed.clone(),
+	lookDeltaX   : 0,
+	lookDeltaY   : 0,
+	wheelDelta   : 0,
 };
 const defaultCamRuntime = {
-	active: false,
-	yaw: 0,
-	pitch: -15,
+	active         : false,
+	yaw            : 0,
+	pitch          : -15,
 	currentDistance: distanceDefaults.defaultCamCurrentDistance.clone(),
-	targetDistance: distanceDefaults.defaultCamTargetDistance.clone(),
-	lookDeltaX: 0,
-	lookDeltaY: 0,
-	arrowKeyState: {
-		ArrowLeft: false,
-		ArrowRight: false,
-		ArrowUp: false,
-		ArrowDown: false,
+	targetDistance : distanceDefaults.defaultCamTargetDistance.clone(),
+	lookDeltaX     : 0,
+	lookDeltaY     : 0,
+	arrowKeyState  : {
+		ArrowLeft  : false,
+		ArrowRight : false,
+		ArrowUp    : false,
+		ArrowDown  : false,
 	},
 	obstructionLogged: false,
-	wheelDelta: 0,
-	zoomMultiplier: 1,
+	wheelDelta       : 0,
+	zoomMultiplier   : 1,
 	config: {
-		distance: distanceDefaults.defaultCamDistance.clone(),
-		sensitivity: CONFIG.CAMERA.Sensitivity.Mouse * 0.0024,
+		distance    : distanceDefaults.defaultCamDistance.clone(),
+		sensitivity : CONFIG.CAMERA.Sensitivity.Mouse * 0.0024,
 		heightOffset: distanceDefaults.defaultCamHeightOffset.clone(),
-		minPitch: -60,
-		maxPitch: 60,
+		minPitch    : -60,
+		maxPitch    : 60,
 	},
 };
 
@@ -346,37 +348,29 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 
 	let closestT = rayLen;
 	let obstructed = false;
-	const testCandidate = (aabb, detailedBounds) => {
-		const hit = RayAABBDetailedBoundsIntersect(playerHeadPos, ResolveVector3Axis(ray), aabb, detailedBounds, closestT);
-		if (!hit.hit || hit.t <= 0 || hit.t >= closestT) return;
+	const dir = ResolveVector3Axis(ray);
 
-		closestT = hit.t;
-		obstructed = true;
-	};
+	// No precomputed simRadiusAabb here.
+	const boomAabb = {
+		min: playerHeadPos.clone().min(desiredCamPos),
+		max: playerHeadPos.clone().max(desiredCamPos)
+	}
 
-	// Broadphase is AABB-only; obstruction only counts after detailed-bounds narrowphase.
-	for (const mesh of sceneGraph.terrain)  testCandidate(mesh.worldAabb, mesh.detailedBounds);
-	for (const obs of sceneGraph.obstacles) testCandidate(obs.worldAabb, obs.detailedBounds);
-	// Void walls: origin may be inside the AABB, so broadphase with RayAABBIntersect only
-	// and run RayDetailedBoundsIntersect directly (no exit-t cap rejecting boundary tris).
-	const voidDir = ResolveVector3Axis(ray);
-	const testVoidBounds = (worldAabb, bounds) => {
-		if (!RayAABBIntersect(playerHeadPos, voidDir, worldAabb).hit) return;
-		const hit = RayDetailedBoundsIntersect(bounds, playerHeadPos, voidDir, closestT);
-		if (!hit.hit || hit.t <= 0 || hit.t >= closestT) return;
-		closestT = hit.t;
-		obstructed = true;
-	};
-	const testVoidWalls = (entries) => {
-		for (const entry of entries) for (const id in entry.relations) {
-			for (const voidWall of entry.relations[id].voidWallMeshes) {
-				testVoidBounds(voidWall.worldAabb, voidWall.wallBounds);
-				if (voidWall.floorBounds.triangles.length > 0) testVoidBounds(voidWall.worldAabb, voidWall.floorBounds);
-			}
+	for (const candidate of BroadphaseCollectCandidates(sceneGraph, boomAabb, false, false)) {
+		let hit;
+		if (candidate.type === "voidWall") {
+			// Origin can sit inside the AABB — gate only, no exit-t cap.
+			if (!RayAABBIntersect(playerHeadPos, dir, candidate.aabb).hit) continue;
+			hit = RayDetailedBoundsIntersect(candidate.detailedBounds, playerHeadPos, dir, closestT);
+		} else {
+			hit = RayAABBDetailedBoundsIntersect(playerHeadPos, dir, candidate.aabb, candidate.detailedBounds, closestT);
 		}
-	};
-	testVoidWalls(sceneGraph.voids.terrain);
-	testVoidWalls(sceneGraph.voids.obstacles);
+		// Exit hit — head is inside, nothing obstructs.
+		if (!hit.hit || hit.inside || hit.t <= 0 || hit.t >= closestT) continue;
+
+		closestT = hit.t;
+		obstructed = true;
+	}
 
 	if (obstructed) {
 		closestT = Math.max(
@@ -422,22 +416,19 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	const playerPos = playerState.transform.position;
 
 	// Camera target: player position + height offset.
-	const targetPoint = {
-		x: playerPos.x,
-		y: playerPos.y + cfg.heightOffset.value,
-		z: playerPos.z,
-	};
+	const targetPoint = playerPos.clone();
+	targetPoint.y += cfg.heightOffset.value;
 
 	// Compute desired camera position using spherical coordinates.
 	const yawRad = (defaultCamRuntime.yaw * Math.PI) / 180;
 	const pitchRad = (defaultCamRuntime.pitch * Math.PI) / 180;
 
 	const scaledDistance = cfg.distance.value * defaultCamRuntime.zoomMultiplier;
-	const desiredPos = {
-		x: playerPos.x + scaledDistance * Math.cos(pitchRad) * Math.sin(yawRad),
-		y: playerPos.y + cfg.heightOffset.value + scaledDistance * Math.sin(pitchRad),
-		z: playerPos.z + scaledDistance * Math.cos(pitchRad) * Math.cos(yawRad),
-	};
+	// Horizontal foreshortening — keeps desiredPos on finalPos's sphere.
+	const desiredPos = targetPoint.clone().add(MultiplyVector3(
+		ToVector3(scaledDistance),
+		{ x: Math.cos(pitchRad) * Math.sin(yawRad), y: Math.sin(pitchRad), z: Math.cos(pitchRad) * Math.cos(yawRad) }
+	));
 
 	// Camera obstruction detection. Skipped while simulating — the target sits inside its own bounds.
 	const { obstructed, clippedDistance } = IsSimulatorActive()

@@ -615,7 +615,8 @@ function SweptAABB(position, velocity, halfExtents, staticAabb) {
 // Used by camera obstruction detection.
 // Returns { hit, t, normal }.
 
-const noRayHit = () => { return { hit: false, t: Infinity, normal: ToVector3(0) } };
+// `inside`: exit hit — no surface faces the origin.
+const noRayHit = () => { return { hit: false, t: Infinity, normal: ToVector3(0), inside: false } };
 
 function chooseClosestRayHit(best, candidate) {
 	if (!candidate.hit) return best;
@@ -626,7 +627,7 @@ function chooseClosestRayHit(best, candidate) {
 const limitRayHit = (result, maxDistance) => !result.hit || result.t > maxDistance ? noRayHit() : result;
 
 function RayAABBIntersect(origin, direction, aabb) {
-	const result = { hit: false, t: Infinity, normal: ToVector3(0) };
+	const result = { hit: false, t: Infinity, normal: ToVector3(0), inside: false };
 	let tMin = -Infinity;
 	let tMax = Infinity;
 	const hitNormal = ToVector3(0);
@@ -659,10 +660,11 @@ function RayAABBIntersect(origin, direction, aabb) {
 
 	if (tMin < 0) {
 		if (tMax < 0) return result;
-		// Origin is inside the box.
+		// Origin inside the box — t is the exit.
 		result.hit = true;
 		result.t = tMax;
 		result.normal = hitNormal;
+		result.inside = true;
 		return result;
 	}
 
@@ -683,11 +685,13 @@ function RaySphereIntersect(origin, direction, sphere, maxDistance = Infinity) {
 
 	const root = Math.sqrt(discriminant);
 	let t = -b - root;
-	if (t < 0) t = -b + root;
+	// Near root behind us — inside, so take the exit root.
+	const inside = t < 0;
+	if (inside) t = -b + root;
 	if (t < 0 || t > maxDistance) return noRayHit();
 
 	return {
-		hit: true, t,
+		hit: true, t, inside,
 		normal: ResolveVector3Axis(SubtractVector3(AddVector3(origin, ScaleVector3(direction, t)), sphere.center)),
 	};
 }
@@ -701,6 +705,7 @@ function RayOBBIntersect(origin, direction, obb, maxDistance = Infinity) {
 	return {
 		hit: true,
 		t: result.t,
+		inside: result.inside,
 		normal: projectObbNormalToWorld(result.normal, obb),
 	};
 }
@@ -731,7 +736,7 @@ function RayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity)
 			const root = Math.sqrt(discriminant);
 			const roots = [(-b - root) / a, (-b + root) / a];
 
-			roots.forEach(t => {
+			roots.forEach((t, rootIndex) => {
 				if (t < 0 || t > maxDistance) return;
 
 				const y = segmentDotOrigin + (t * segmentDotDirection);
@@ -740,6 +745,8 @@ function RayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity)
 				const axisPoint = AddVector3(capsule.segmentStart, ScaleVector3(segment, y / segmentLengthSq));
 				best = chooseClosestRayHit(best, {
 					hit: true, t,
+					// Far root with the near one behind us — inside.
+					inside: rootIndex === 1 && roots[0] < 0,
 					normal: ResolveVector3Axis(SubtractVector3(AddVector3(origin, ScaleVector3(direction, t)), axisPoint)),
 				});
 			});
@@ -776,7 +783,7 @@ function RayTriangleIntersect(origin, direction, triangle, maxDistance = Infinit
 	if (t < 0 || t > maxDistance) return noRayHit();
 
 	return {
-		hit: true, t,
+		hit: true, t, inside: false,
 		normal: DotVector3(triangle.normal, direction) <= 0 ? CloneVector3(triangle.normal) : ScaleVector3(triangle.normal, -1),
 	};
 }
@@ -792,7 +799,7 @@ function RayTriangleSoupIntersect(origin, direction, triangleSoup, maxDistance =
 function rayCompoundSphereIntersect(origin, direction, compound, maxDistance = Infinity) {
 	let best = noRayHit();
 	compound.spheres.forEach(sphere => best = chooseClosestRayHit(
-		best, RayTriangleIntersect(origin, direction, sphere, Math.min(best.t, maxDistance))
+		best, RaySphereIntersect(origin, direction, sphere, Math.min(best.t, maxDistance))
 	));
 	return best;
 }
@@ -802,7 +809,8 @@ function RayAABBDetailedBoundsIntersect(origin, direction, aabb, detailedBounds,
 	const broadHit = limitRayHit(RayAABBIntersect(origin, direction, aabb), maxDistance);
 	if (!broadHit.hit)                  return broadHit;
 	if (detailedBounds.type === "aabb") return broadHit;
-	return RayDetailedBoundsIntersect(detailedBounds, origin, direction, broadHit.t);
+	// Ray's own limit, not broadHit.t — an entry-t cap rejects every real hit.
+	return RayDetailedBoundsIntersect(detailedBounds, origin, direction, maxDistance);
 }
 
 const rayDetailedBoundsIntersectors = {
