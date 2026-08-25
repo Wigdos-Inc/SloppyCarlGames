@@ -62,3 +62,13 @@
 **Scope:** physics is unaffected — the change is purely additive, no existing `t` or `normal` value changed, and physics reads only `.hit`/`.t`/`.normal`. Void walls are structurally unaffected: that camera branch discards the broad `t` and uses only triangle-soup results, which never set the flag. The sphere and capsule paths are not exercisable by current testGame content and were accepted on inspection rather than tested.
 
 **Rejected alternative:** a camera-local test for the origin being inside the candidate's AABB, touching no shared math. It over-rejects when the head is inside a bounding box but outside the actual solid — a sphere's box corner, say — which would reintroduce the same silent-no-obstruction failure class the entry above had just fixed.
+
+## DefaultCam horizontal foreshortening restored
+
+**What:** `desiredPos` in `updateDefaultCamState` again applies `cos(pitch)` to its X and Z components.
+
+**Why:** A refactor of `Camera.js` dropped that factor, leaving `x = d·sin(yaw)` and `z = d·cos(yaw)`. `y` was untouched, so the error was invisible at pitch 0 and grew with pitch — roughly 3% at the default −15°, 32% at the −60° clamp. Two effects compounded. `desiredPos` left the sphere (its distance from `targetPoint` became `d·√(1 + sin²pitch)`), so the obstruction ray both overshot and pointed along a different line than the real boom; and `finalPos` still used the correct spherical formula, so a `clippedDistance` measured along the longer ray was applied as the radius in the correct one — placing the camera farther out than the obstruction it had just detected. Symptom: obstruction registered against the rock obstacle, but the camera still entered it.
+
+**Where:** `engine/v1/handlers/game/Camera.js` — `updateDefaultCamState`, the `desiredPos` construction.
+
+**Load-bearing relationship:** `desiredPos` and `finalPos` must describe the same sphere around `targetPoint`. `clippedDistance` is measured along the ray to `desiredPos` and then consumed as the radius by `finalPos`; if the two formulas disagree, obstruction distances silently stop meaning what the placement uses them for.
