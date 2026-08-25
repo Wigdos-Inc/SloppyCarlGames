@@ -100,9 +100,3 @@ Additions to Level API:
 
 
 Add full documentation API so devs can understand how to work the engine.
-
-
-
-
-Terrain Scatter is a big performance hit (simulation distance?)
-Render Distance makes more sense semantically, but I think having them separated doesn't really make sense in this engine since computations rarely cause issues right now anyway.
