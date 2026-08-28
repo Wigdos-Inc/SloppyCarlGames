@@ -6,7 +6,7 @@
 
 import { BeginTextureBake, AdvanceNoiseBake, ForEachTexturedMesh } from "../../builder/NewTexture.js";
 import { Clamp01 } from "../../math/Utilities.js";
-import { ClampVector3, Vector3Sq } from "../../math/Vector3.js";
+import { Vector3SqDistanceToAabb } from "../../math/Vector3.js";
 import { GetSimDistanceValue } from "../../physics/Collision.js";
 import { PERFORMANCE_SCALING } from "../../core/config.js";
 
@@ -117,12 +117,9 @@ function AddTextureAnimationEntries(sceneGraph) {
 	addAnimationEntries(sceneGraph, sceneGraph.visualResources.textureAnimation);
 }
 
-// 0 inside the box, so a plane underfoot never reads as distant.
-const sqDistanceToAabb = (pos, aabb) => Vector3Sq(pos.clone().subtract(ClampVector3(pos, aabb.min, aabb.max)));
-
 // A shared face texture is near if any owner mesh is.
 function isOwnerWithinReach(ownerMeshes, cameraPosition, sqReach) {
-	for (const mesh of ownerMeshes) if (sqDistanceToAabb(cameraPosition, mesh.worldAabb) <= sqReach) return true;
+	for (const mesh of ownerMeshes) if (Vector3SqDistanceToAabb(cameraPosition, mesh.worldAabb) <= sqReach) return true;
 	return false;
 }
 

@@ -49,15 +49,20 @@ function instanceModelPart(part) {
 
 	if (part.texture !== null) canonicalizeDecalTransforms(part.texture.custom);
 
-	// Tube parts carry a bone chain of world-space nodes.
-	if (part.shape !== "tube") return;
-	part.primitiveOptions.thickness = new Unit(part.primitiveOptions.thickness, "cnu");
-	part.primitiveOptions.nodes.forEach((node) => {
-		node.dimensions    = toUnitVector3(node.dimensions,    "cnu");
-		node.localPosition = toUnitVector3(node.localPosition, "cnu");
-		node.localRotation = toUnitVector3(node.localRotation, "degrees").toRadians(true);
-		node.thickness     = new Unit(node.thickness,          "cnu");
-	});
+	if (part.shape === "tube") {
+		// Tube parts carry a bone chain of world-space nodes
+		part.primitiveOptions.thickness = new Unit(part.primitiveOptions.thickness, "cnu");
+		part.primitiveOptions.nodes.forEach((node) => {
+			node.dimensions    = toUnitVector3(node.dimensions,    "cnu");
+			node.localPosition = toUnitVector3(node.localPosition, "cnu");
+			node.localRotation = toUnitVector3(node.localRotation, "degrees").toRadians(true);
+			node.thickness     = new Unit(node.thickness,          "cnu");
+		});
+	}
+	else if (part.shape === "ramp-simple" || part.shape === "ramp-complex") {
+		// Ramp parts carry an authored angle.
+		part.primitiveOptions.angle = new Unit(part.primitiveOptions.angle, "degrees").toRadians(true);
+	}
 }
 
 function instanceCharacterTemplates() {

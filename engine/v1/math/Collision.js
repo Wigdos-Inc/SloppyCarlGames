@@ -1,4 +1,5 @@
 // Physics math helpers — acceleration, swept AABB, ray intersection, projection.
+// Solid queries on closed triangle meshes — point containment, triangle/plane splitting, mesh overlap.
 
 // Used by physics/ modules and physics/Master.js.
 // Uses math/Vector3.js for vector operations.
@@ -550,6 +551,97 @@ function StrictAabbOverlap(aabbA, aabbB) {
 	);
 }
 
+/* === SOLID QUERIES === */
+// Build-time predicates over closed triangle meshes. Convexity-independent.
+
+// Off-axis on purpose — this geometry is dominated by axis-aligned faces and an exact edge hit breaks parity.
+const parityRayDirection = ResolveVector3Axis({ x: 0.4371383, y: 0.7218935, z: 0.5364271 });
+const planeCrossEpsilon  = 0.000001;
+
+function TriangleAabb(triangle) {
+	return {
+		min: {
+			x: Math.min(triangle.a.x, triangle.b.x, triangle.c.x),
+			y: Math.min(triangle.a.y, triangle.b.y, triangle.c.y),
+			z: Math.min(triangle.a.z, triangle.b.z, triangle.c.z),
+		},
+		max: {
+			x: Math.max(triangle.a.x, triangle.b.x, triangle.c.x),
+			y: Math.max(triangle.a.y, triangle.b.y, triangle.c.y),
+			z: Math.max(triangle.a.z, triangle.b.z, triangle.c.z),
+		},
+	};
+}
+
+// Odd crossing count along a fixed ray means the point is enclosed.
+function PointInsideMesh(point, triangles) {
+	let crossings = 0;
+	for (const triangle of triangles) if (RayTriangleIntersect(point, parityRayDirection, triangle).hit) crossings++;
+	return (crossings & 1) === 1;
+}
+
+function fanTriangulate(polygon, normal, output) {
+	for (let index = 2; index < polygon.length; index++) {
+		output.push({ a: polygon[0], b: polygon[index - 1], c: polygon[index], normal });
+	}
+}
+
+// Plane is (normal, offset) with offset = dot(normal, pointOnPlane). Yields 1-3 triangles.
+function SplitTriangleByPlane(triangle, planeNormal, planeOffset) {
+	const vertices  = [triangle.a, triangle.b, triangle.c];
+	const distances = vertices.map((vertex) => DotVector3(planeNormal, vertex) - planeOffset);
+
+	let frontCount = 0, backCount = 0;
+	for (const distance of distances) {
+		if (distance >  planeCrossEpsilon) frontCount++;
+		if (distance < -planeCrossEpsilon) backCount++;
+	}
+	if (frontCount === 0 || backCount === 0) return [triangle];
+
+	const frontPolygon = [], backPolygon = [];
+	for (let index = 0; index < 3; index++) {
+		const next  = (index + 1) % 3;
+		const here  = distances[index];
+		const there = distances[next];
+
+		if (here >= -planeCrossEpsilon) frontPolygon.push(vertices[index]);
+		if (here <=  planeCrossEpsilon) backPolygon.push(vertices[index]);
+		if ((here > planeCrossEpsilon && there < -planeCrossEpsilon) || (here < -planeCrossEpsilon && there > planeCrossEpsilon)) {
+			const crossing = AddVector3(vertices[index], ScaleVector3(SubtractVector3(vertices[next], vertices[index]), here / (here - there)));
+			frontPolygon.push(crossing);
+			backPolygon.push(crossing);
+		}
+	}
+
+	const pieces = [];
+	fanTriangulate(frontPolygon, triangle.normal, pieces);
+	fanTriangulate(backPolygon, triangle.normal, pieces);
+	return pieces;
+}
+
+function edgesCrossMesh(triangles, targetTriangles) {
+	for (const triangle of triangles) {
+		for (const edge of [[triangle.a, triangle.b], [triangle.b, triangle.c], [triangle.c, triangle.a]]) {
+			const delta  = SubtractVector3(edge[1], edge[0]);
+			const length = Math.sqrt(Vector3Sq(delta));
+			if (length <= planeCrossEpsilon) continue;
+
+			const direction = ScaleVector3(delta, 1 / length);
+			for (const target of targetTriangles) if (RayTriangleIntersect(edge[0], direction, target, length).hit) return true;
+		}
+	}
+	return false;
+}
+
+// Broad reject, then containment either way, then edge crossings either way. All four clauses are load-bearing.
+function MeshesIntersect(trianglesA, aabbA, trianglesB, aabbB) {
+	if (!AabbOverlap(aabbA, aabbB)) return false;
+	for (const triangle of trianglesA) if (PointInsideMesh(triangle.a, trianglesB)) return true;
+	for (const triangle of trianglesB) if (PointInsideMesh(triangle.a, trianglesA)) return true;
+	if (edgesCrossMesh(trianglesA, trianglesB)) return true;
+	return edgesCrossMesh(trianglesB, trianglesA);
+}
+
 /* === SWEPT AABB === */
 // Continuous collision detection for moving AABB against static AABB.
 // Returns { hit, tEntry, tExit, normal }.
@@ -857,6 +949,10 @@ export {
 	ReflectVector3,
 	AabbOverlap,
 	StrictAabbOverlap,
+	TriangleAabb,
+	PointInsideMesh,
+	SplitTriangleByPlane,
+	MeshesIntersect,
 	SweptAABB,
 	RayAABBIntersect,
 	RayAABBDetailedBoundsIntersect,

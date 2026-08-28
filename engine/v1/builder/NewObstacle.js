@@ -115,22 +115,16 @@ function buildObstacleParts(source, index, options) {
 
 		// Compute world-space position
 		const worldPos = source.position.clone();
-		worldPos.add(part.localPosition);
+		worldPos.add(MultiplyVector3(part.localPosition, rootScale));
 		worldPos.y += part.dimensions.y * combinedScale.y * 0.5;
 
 		const { mesh: partMesh } = BuildObject(
 			{
 				...part,
-				id: part.id,
-				shape: part.shape,
-				complexity: part.complexity,
-				dimensions: part.dimensions,
 				position: worldPos,
 				rotation: source.rotation.clone().add(part.localRotation),
 				scale: combinedScale,
 				pivot: source.pivot,
-				primitiveOptions: part.primitiveOptions,
-				texture: part.texture,
 				detail: { scatter: part.detail.scatter.length > 0 ? part.detail.scatter : (partIndex === 0 ? source.detail.scatter: []) },
 				role          : "obstacle",
 				collisionShape: source.collisionShape,
@@ -169,6 +163,7 @@ function BuildObstacle(source, index, options) {
 		state         : { destroyed: false },
 		mode          : source.mode,
 		nullable      : source.nullable,
+		performance   : { rendering: true },
 	};
 }
 

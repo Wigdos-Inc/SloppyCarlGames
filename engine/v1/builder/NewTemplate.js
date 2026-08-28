@@ -15,18 +15,22 @@ import { CloneVector3, ScaleVector3 } from "../math/Vector3.js";
 // Field-wise clones keep the instanced template singletons pristine across placements.
 
 function clonePrimitiveOptions(part) {
-	if (part.shape !== "tube") return structuredClone(part.primitiveOptions);
-	return {
-		...part.primitiveOptions,
-		thickness: part.primitiveOptions.thickness.clone(),
-		nodes: part.primitiveOptions.nodes.map((node) => ({
-			...node,
-			dimensions   : node.dimensions.clone(),
-			localPosition: node.localPosition.clone(),
-			localRotation: node.localRotation.clone(),
-			thickness    : node.thickness.clone(),
-		})),
-	};
+	switch (part.shape) {
+		case "tube": return {
+			...part.primitiveOptions,
+			thickness: part.primitiveOptions.thickness.clone(),
+			nodes: part.primitiveOptions.nodes.map((node) => ({
+				...node,
+				dimensions   : node.dimensions.clone(),
+				localPosition: node.localPosition.clone(),
+				localRotation: node.localRotation.clone(),
+				thickness    : node.thickness.clone(),
+			})),
+		};
+		case "ramp-simple":
+		case "ramp-complex": return { ...part.primitiveOptions, angle: part.primitiveOptions.angle.clone() };
+		default: return structuredClone(part.primitiveOptions);
+	}
 }
 
 function cloneTexture(texture) {

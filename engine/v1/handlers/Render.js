@@ -71,6 +71,7 @@ const boundingBoxTypeColors = {
 	Entity: { r: 0.2, g: 0.6, b: 1, a: 1 },
 	EntityPart: { r: 0.45, g: 0.75, b: 1, a: 1 },
 	Obstacle: { r: 1, g: 0.35, b: 0.35, a: 1 },
+	Void: { r: 0.35, g: 1, b: 0.85, a: 1 },
 	Player: { r: 0.9, g: 0.95, b: 1, a: 1 },
 	PlayerPart: { r: 0.75, g: 0.85, b: 1, a: 1 },
 	Boss: { r: 0.95, g: 0.2, b: 0.9, a: 1 },
@@ -86,6 +87,9 @@ const detailedBoundsTypeColors = {
 	Player: { r: 0.85, g: 0.95, b: 1, a: 1 },
 	Boss: { r: 1, g: 0.35, b: 0.85, a: 1 },
 	Particle: { r: 0.6, g: 0.4, b: 1, a: 1 },
+	Void: { r: 0.35, g: 1, b: 0.85, a: 1 },
+	VoidWall: { r: 0.2, g: 0.5, b: 1, a: 1 },
+	VoidOpenFace: { r: 1, g: 0.2, b: 0.55, a: 1 },
 };
 
 function createPerspectiveMatrix(fovDegrees, aspect, near, far) {
@@ -127,7 +131,7 @@ function createShader(gl, type, source) {
 	return shader;
 }
 
-function resolveProgramLocations(gl, program, names, resolver) {
+function resolveProgramLocations(names, resolver) {
 	const locations = {};
 	for (const key in names) locations[key] = resolver(names[key]);
 	return locations;
@@ -158,18 +162,8 @@ function createLinkedProgram(gl, options) {
 
 	return {
 		program,
-		attributes: resolveProgramLocations(
-			gl,
-			program,
-			options.attributeNames || {},
-			(name) => gl.getAttribLocation(program, name)
-		),
-		uniforms: resolveProgramLocations(
-			gl,
-			program,
-			options.uniformNames,
-			(name) => gl.getUniformLocation(program, name)
-		),
+		attributes: resolveProgramLocations(options.attributeNames || {}, (name) => gl.getAttribLocation(program, name)),
+		uniforms: resolveProgramLocations(options.uniformNames, (name) => gl.getUniformLocation(program, name)),
 	};
 }
 
@@ -448,10 +442,12 @@ const decalShapeCylinder = 2; // buildCylinder (NewObject.js ~L444)
 const decalShapeCapsule  = 3; // buildCapsule  (NewObject.js ~L567)
 
 function shapeEnum(shape) {
-	if (shape === "sphere") return decalShapeSphere;
-	if (shape === "cylinder") return decalShapeCylinder;
-	if (shape === "capsule") return decalShapeCapsule;
-	return decalShapeFlat;
+	switch (shape) {
+		case "sphere"  : return decalShapeSphere;
+		case "cylinder": return decalShapeCylinder;
+		case "capsule" : return decalShapeCapsule;
+		default        : return decalShapeFlat;
+	}
 }
 
 // Cylinder caps are flat disks (unlike capsule ends) — decals there skip radial projection.
@@ -1008,7 +1004,8 @@ function drawDetailedBoundsShape(gl, shader, bounds) {
 		case "obb"          : vertices = createObbLineVertices(bounds);          break;
 		case "sphere"       : vertices = createSphereLineVertices(bounds);       break;
 		case "aabb"         : vertices = createMinMaxBoxLineVertices(bounds);    break;
-		case "triangle-soup": vertices = createTriangleSoupLineVertices(bounds); break;
+		case "triangle-soup":
+		case "voidWall"     : vertices = createTriangleSoupLineVertices(bounds); break;
 		case "compound"     :
 			bounds.parts.forEach((part) => drawDetailedBoundsShape(gl, shader, part));
 			return;
@@ -1036,7 +1033,7 @@ function drawDetailedBounds(renderer, sceneGraph, projection, view) {
 	const shader = renderer.debugLineShader;
 
 	records.forEach((record) => {
-		if (!isDetailedBoundsDebugEnabled(record.type)) return;
+		if (!isDetailedBoundsDebugEnabled(record.toggle)) return;
 
 		const color = detailedBoundsTypeColors[record.type];
 		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
@@ -1851,21 +1848,18 @@ function gatherVoidWallMeshes(entries) {
 	return meshes;
 }
 
-// True if any relation across the given entries holds renderable void meshes or open faces.
-function hasVoidRenderables(entries) {
+// True if any relation across the given entries holds open faces — the sole source of the stencil bit.
+function hasVoidOpenFaces(entries) {
 	for (const entry of entries) {
-		for (const id in entry.relations) {
-			const relation = entry.relations[id];
-			if (relation.voidWallMeshes.length > 0 || relation.openFaces.length > 0) return true;
-		}
+		for (const id in entry.relations) if (entry.relations[id].openFaces.length > 0) return true;
 	}
 	return false;
 }
 
 function drawVoidStencil(renderer, sceneGraph, passState) {
 	const { terrain: nsTerrain, obstacles: nsObstacles } = sceneGraph.voids;
-	const terrainRenderable  = hasVoidRenderables(nsTerrain);
-	const obstacleRenderable = hasVoidRenderables(nsObstacles);
+	const terrainRenderable  = hasVoidOpenFaces(nsTerrain);
+	const obstacleRenderable = hasVoidOpenFaces(nsObstacles);
 	if (!terrainRenderable && !obstacleRenderable) return;
 
 	const gl = renderer.gl;
@@ -1893,14 +1887,11 @@ function drawVoidStencil(renderer, sceneGraph, passState) {
 		gl.bindVertexArray(null);
 	};
 
-	// Stencil every void mesh (its own model matrix) and every open face (world-space, identity).
+	// Open faces are exact host-surface clips, so they alone define the punch region.
 	const stencilEntries = (entries) => {
 		for (const entry of entries) {
 			for (const id in entry.relations) {
 				const relation = entry.relations[id];
-				for (const mesh of relation.voidWallMeshes) {
-					drawStencilBuffer(ensureStencilMeshBuffer(renderer, mesh), renderMatrixFor(mesh));
-				}
 				if (relation.openFaces.length > 0) {
 					drawStencilBuffer(ensureOpenFaceStencilBuffer(renderer, `${entry.id}|${id}|openFaces`, relation.openFaces), identityMatrix);
 				}
@@ -1931,7 +1922,7 @@ function drawVoidStencil(renderer, sceneGraph, passState) {
 
 function drawVoidWalls(renderer, sceneGraph, passState) {
 	const { terrain: nsTerrain, obstacles: nsObstacles } = sceneGraph.voids;
-	if (!hasVoidRenderables(nsTerrain) && !hasVoidRenderables(nsObstacles)) return;
+	if (!hasVoidOpenFaces(nsTerrain) && !hasVoidOpenFaces(nsObstacles)) return;
 	drawMeshList(renderer, sceneGraph, gatherVoidWallMeshes(nsTerrain),   passState, { stencilIncludeBit: 0x01 });
 	drawMeshList(renderer, sceneGraph, gatherVoidWallMeshes(nsObstacles), passState, { stencilIncludeBit: 0x02 });
 }
@@ -1980,7 +1971,7 @@ function drawScene(renderer, sceneGraph) {
 
 	// === Stencil write (before Pass A) ===
 	const { terrain, obstacles, entitiesUv, entitiesTriplanar, entitiesTranslucent } = collectRenderableMeshes(sceneGraph);
-	if (hasVoidRenderables(sceneGraph.voids.terrain) || hasVoidRenderables(sceneGraph.voids.obstacles)) {
+	if (hasVoidOpenFaces(sceneGraph.voids.terrain) || hasVoidOpenFaces(sceneGraph.voids.obstacles)) {
 		drawDepthPrePass(renderer, terrain, obstacles, passState);
 		drawVoidStencil(renderer, sceneGraph, passState);
 		gl.clear(gl.DEPTH_BUFFER_BIT);

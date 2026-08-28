@@ -10,7 +10,7 @@ import {
 	ResolveVector3Axis,
 	CloneVector3,
 } from "../../math/Vector3.js";
-import { GetSimDistanceValue, DetectCombatOverlaps } from "../../physics/Collision.js";
+import { DetectCombatOverlaps } from "../../physics/Collision.js";
 import { TriggerPlayerRespawnSequence, SetPlayerAction } from "../../player/Master.js";
 
 const knockbackForce = 12;
@@ -30,12 +30,7 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 	if (playerState.action === "Dead") return;
 
 	// Use three-layer combat detection.
-	const combatResults = DetectCombatOverlaps(
-		playerState, 
-		sceneGraph.entities, 
-		GetSimDistanceValue().value,
-		sceneGraph.cameraConfig.state.position
-	);
+	const combatResults = DetectCombatOverlaps(playerState, sceneGraph.entities);
 
 	for (let i = combatResults.count - 1; i >= 0; i--) {
 		const result = combatResults.items[i];

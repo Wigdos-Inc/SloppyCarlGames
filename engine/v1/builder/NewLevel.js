@@ -209,10 +209,10 @@ function buildSceneBoundingBoxes(sceneGraph) {
 		obstacle.parts.forEach((part) => push("Obstacle", part.id, part.worldAabb));
 	});
 
-	sceneGraph.voids.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.worldAabb));
+	sceneGraph.voids.terrain.forEach((mesh) => push("Void", mesh.id, mesh.worldAabb));
 	sceneGraph.voids.obstacles.forEach((obstacle) => {
-		push("Obstacle", obstacle.id, obstacle.worldAabb);
-		obstacle.parts.forEach((part) => push("Obstacle", part.id, part.worldAabb));
+		push("Void", obstacle.id, obstacle.worldAabb);
+		obstacle.parts.forEach((part) => push("Void", part.id, part.worldAabb));
 	});
 
 	sceneGraph.entities.forEach((entity) => {
@@ -234,15 +234,30 @@ function buildSceneDetailedBounds(sceneGraph) {
 		return "Entity";
 	};
 
-	const push = (type, id, bounds) => {
+	// `toggle` selects the CONFIG.DEBUG.LEVELS.DetailedBounds key; `type` selects the wireframe colour.
+	const push = (type, id, bounds, toggle = type) => {
 		if (!bounds) return;
-		detailed.push({ type: type, id: id, bounds: bounds });
+		detailed.push({ type: type, id: id, bounds: bounds, toggle: toggle });
+	};
+
+	// A void's own volume plus the classified geometry derived from it, all under the Void toggle.
+	const pushVoid = (entry) => {
+		push("Void", entry.id, entry.detailedBounds);
+		for (const hostId in entry.relations) {
+			const relation = entry.relations[hostId];
+			relation.voidWallMeshes.forEach((wall) => {
+				push("VoidWall", `${wall.id}|floor`, wall.floorBounds, "Void");
+				push("VoidWall", `${wall.id}|wall`, wall.wallBounds, "Void");
+			});
+			if (relation.openFaces.length === 0) continue;
+			push("VoidOpenFace", `${entry.id}|${hostId}|open`, { type: "triangle-soup", triangles: relation.openFaces }, "Void");
+		}
 	};
 
 	sceneGraph.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.detailedBounds));
 	sceneGraph.obstacles.forEach((obstacle) => push("Obstacle", obstacle.id, obstacle.detailedBounds));
-	sceneGraph.voids.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.detailedBounds));
-	sceneGraph.voids.obstacles.forEach((obstacle) => push("Obstacle", obstacle.id, obstacle.detailedBounds));
+	sceneGraph.voids.terrain.forEach(pushVoid);
+	sceneGraph.voids.obstacles.forEach(pushVoid);
 
 	sceneGraph.entities.forEach((entity) => {
 		const category = classifyEntityType(entity);

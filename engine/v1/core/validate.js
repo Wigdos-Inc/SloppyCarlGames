@@ -271,7 +271,7 @@ function ValidateLevelPayload(payload) {
 				validateCollisionOverride(rawEntry.collisionOverride, `${path}.collisionOverride`);
 				return;
 			}
-			errors.push(...validatePayloadSchema(rawEntry, "levelEntityBlueprint", `${path}.collisionOverride`));
+			errors.push(...validatePayloadSchema(rawEntry, "levelEntityBlueprint", path));
 
 			const blueprintSource = isPlainObject(rawEntry) ? rawEntry : {};
 			validateMovement(blueprintSource.movement, `${path}.movement`);

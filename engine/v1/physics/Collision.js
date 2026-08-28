@@ -811,11 +811,9 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
  *
  * @param {object} playerState — player entity (checked as both attacker and target).
  * @param {Array} entities — all entities in the scene.
- * @param {number} simRadius — activity radius for filtering.
- * @param {{ x, y, z }} cameraPos — camera position for distance gating.
  * @returns {{ items: Array, count: number }}
  */
-function DetectCombatOverlaps(playerState, entities, simRadius, cameraPos) {
+function DetectCombatOverlaps(playerState, entities) {
 	if (
 		CONFIG.PHYSICS.Collision.Enabled === false || 
 		(
@@ -832,8 +830,7 @@ function DetectCombatOverlaps(playerState, entities, simRadius, cameraPos) {
 	for (const entity of entities) {
 		if (entity === playerState || entity.type === "collectible" || entity.type === "particle") continue;
 
-		// SimDistance gate.
-		if (Vector3Sq(SubtractVector3(cameraPos, entity.transform.position)) > simRadius * simRadius) continue;
+		if (!entity.performance.physics) continue;
 
 		// Broadphase: player AABB vs entity AABB.
 		if (!AabbOverlap(playerState.collision.aabb, entity.collision.aabb)) continue;

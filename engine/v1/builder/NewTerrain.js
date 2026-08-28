@@ -30,8 +30,7 @@ function buildSingleTerrain(source, world, faceTextureStore) {
 function buildTerrainParts(source, world, faceTextureStore) {
 	return source.parts.map((part, partIndex) => {
 		const combinedScale = MultiplyVector3(source.scale, part.localScale);
-
-		const worldPos = source.position.clone().add(part.localPosition);
+		const worldPos = source.position.clone().add(MultiplyVector3(part.localPosition, source.scale));
 		worldPos.y += part.dimensions.y * combinedScale.y * 0.5;
 
 		const { mesh } = BuildObject(

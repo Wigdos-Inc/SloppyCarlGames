@@ -1561,6 +1561,9 @@
     "curved": { "__meta": { "description": "Round the forward connector to the next node", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "smoothness": { "__meta": { "description": "Forward connector fillet amount", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } }
   },
+  "rampOptions": {
+    "angle": { "__meta": { "description": "Slope angle in degrees (0 = derive rise from dimensions.y)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "deprecated": false } }
+  },
   "levelCustomTexture": {
     "id":         { "__meta": { "description": "Decal id (animation targeting)", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "deprecated": false } },
     "decalType":  { "__meta": { "description": "Decal kind",                 "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null,    "allowedValues": ["image","shape"], "deprecated": false } },

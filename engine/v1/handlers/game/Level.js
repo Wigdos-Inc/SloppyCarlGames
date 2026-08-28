@@ -9,7 +9,7 @@
 import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js";
 import { RenderLevel, RemoveRoot, ClearLevelRenderer } from "../Render.js";
 import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS, ENTITY_TYPES, ReleasePointerLock, IsPointerLocked } from "../../core/meta.js";
-import { CONFIG } from "../../core/config.js";
+import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
 import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
 import { Vector3Distance, LerpVector3, CloneVector3, RotateByEuler } from "../../math/Vector3.js";
 import { BuildEntity, UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
@@ -29,7 +29,7 @@ import { ApplyPhysicsPipeline } from "../../physics/Master.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
 import { ResolveEntityAnimation } from "./Animation.js";
-import { IsBeyondSimDistance } from "../../physics/Collision.js";
+import { UpdatePerformanceFlags } from "./Performance.js";
 import { InitializeTextureAnimation, UpdateTextureAnimation, AddTextureAnimationEntries } from "./Texture.js";
 import { PrepareLevelVisualResources, AddToVisualResources } from "../../builder/NewTexture.js";
 import { Clamp01 } from "../../math/Utilities.js";
@@ -47,8 +47,11 @@ const levelLoop = {
 	lastFrameTime: 0,
 	accumulator: 0,
 	fixedTimeStep: 1000 / 60,
-	maxFrameTime: 250,
+	cappedStreak: 0,
 };
+
+// Consecutive capped frames before the warning escalates to an error.
+const sustainedCapFrames = 10;
 
 
 function cacheLevelPayload(payload) {
@@ -124,6 +127,7 @@ function StartLevelLoop() {
 	levelLoop.paused = false;
 	levelLoop.lastFrameTime = performance.now();
 	levelLoop.accumulator = 0;
+	levelLoop.cappedStreak = 0;
 	levelLoop.fixedTimeStep = 1000 / CONFIG.PERFORMANCE.FrameRate;
 	document.addEventListener("pointerlockchange", onPointerLockChange);
 
@@ -131,18 +135,35 @@ function StartLevelLoop() {
 		if (!levelLoop.active) return;
 
 		const now = performance.now();
-		let frameTime = now - levelLoop.lastFrameTime;
+		const frameTime = now - levelLoop.lastFrameTime;
 		levelLoop.lastFrameTime = now;
 
-		if (frameTime > levelLoop.maxFrameTime) frameTime = levelLoop.maxFrameTime;
-		if (!levelLoop.paused) levelLoop.accumulator += frameTime;
+		if (!levelLoop.paused) {
+			levelLoop.accumulator += frameTime;
 
-		while (levelLoop.accumulator >= levelLoop.fixedTimeStep && !levelLoop.paused) {
-			Update(levelLoop.fixedTimeStep);
-			levelLoop.accumulator -= levelLoop.fixedTimeStep;
+			const maxSubsteps = PERFORMANCE_SCALING.Loop.MaxSubsteps;
+			let steps = 0;
+			while (levelLoop.accumulator >= levelLoop.fixedTimeStep && steps < maxSubsteps) {
+				Update(levelLoop.fixedTimeStep);
+				levelLoop.accumulator -= levelLoop.fixedTimeStep;
+				steps++;
+			}
+
+			if (levelLoop.accumulator >= levelLoop.fixedTimeStep) {
+				// Debt is dropped so time dilates instead of compounding into a spiral.
+				levelLoop.accumulator = levelLoop.fixedTimeStep;
+				levelLoop.cappedStreak++;
+				if (levelLoop.cappedStreak === 1) {
+					Log("ENGINE", `Frame hit the ${maxSubsteps}-substep cap; simulation debt dropped.`, "warn", "Level");
+				}
+				else if (levelLoop.cappedStreak === sustainedCapFrames) {
+					Log("ENGINE", `Substep cap sustained ${sustainedCapFrames} frames; simulation is running behind real time.`, "error", "Level");
+				}
+			}
+			else levelLoop.cappedStreak = 0;
+
+			RenderLevel(levelRuntimeState.sceneGraph, levelRuntimeState.renderOptions);
 		}
-
-		if (!levelLoop.paused) RenderLevel(levelRuntimeState.sceneGraph, levelRuntimeState.renderOptions);
 
 		levelLoop.animationFrameId = requestAnimationFrame(frame);
 	};
@@ -342,6 +363,8 @@ function Update(deltaMilliseconds) {
 	const deltaSeconds = Math.max(0, deltaMilliseconds) / 1000;
 	const sceneGraph = levelRuntimeState.sceneGraph;
 
+	UpdatePerformanceFlags(sceneGraph);
+
 	if (IsSimulatorActive()) {
 		UpdateSimulator(deltaMilliseconds, sceneGraph);
 		updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds);
@@ -364,7 +387,7 @@ function Update(deltaMilliseconds) {
 		// "none" particles are integrated by the tick instead, ahead of any distance math.
 		if (entity.particle !== null && entity.particle.physicsMode === "none") return;
 		if (entity.type === "player") return;
-		if (IsBeyondSimDistance(sceneGraph.cameraConfig.state.position, entity.transform.position)) return;
+		if (!entity.performance.physics) return;
 		updateEntityMovement(entity, deltaSeconds);
 		ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds);
 	});

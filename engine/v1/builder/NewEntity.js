@@ -612,6 +612,7 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 			hitbox        : detailed.hitbox,
 		},
 		hitboxActive: detailed.hitbox !== null,
+		performance: { physics: true, rendering: true },
 		animations: definition.animations,
 		particle: null,		// Particle groups replace this with their lifetime instance; null on every other entity.
 		state: {

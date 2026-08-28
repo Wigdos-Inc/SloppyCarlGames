@@ -740,12 +740,21 @@ function normalizeTubeNode(rawNode) {
 }
 
 // Canonicalize the opaque tube primitiveOptions bag at this boundary so the builder needs no guards.
-function normalizeTubeOptions(rawOptions) {
-	const options = normalizeObject(rawOptions).value;
+function normalizeTubeOptions(options) {
 	options.nodes = normalizeArray(options.nodes).value.map((node) => normalizeTubeNode(node));
 	options.thickness = new Unit(normalizeNumber(options.thickness, 0.1).value, "cnu");
 	options.curved = normalizeBool(options.curved, false).value;
+	options.solid = normalizeBool(options.solid, false).value;
 	options.smoothness = Clamp(normalizeNumber(options.smoothness, 0).value, 0, 1);
+	return options;
+}
+
+const isRampShape = (shape) => shape === "ramp-simple" || shape === "ramp-complex";
+
+// Ramp angle is authored in degrees, like every other payload angle.
+function normalizeRampOptions(rawOptions) {
+	const options = normalizePayloadSchema(rawOptions, "rampOptions");
+	options.angle = new Unit(options.angle, "degrees").toRadians(true);
 	return options;
 }
 
@@ -869,9 +878,18 @@ function normalizePart(rawPart, ctx) {
 	foldColorAlias(part, "color", part.texture.generated, "primary");
 	part.detail = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail);
 	if (part.shape === "tube") part.primitiveOptions = normalizeTubeOptions(part.primitiveOptions);
+	else if (isRampShape(part.shape)) part.primitiveOptions = normalizeRampOptions(part.primitiveOptions);
 	part.particle = normalizeParticle(part.particle, `levelPart.${part.id}.particle`);
 	if (part.label === null) delete part.label;
 	return part;
+}
+
+// Void classification is ray-parity based, so a void must be a closed solid. `plane` is the only open primitive.
+const openPrimitiveShapes = new Set(["plane"]);
+const hasOpenPrimitive = (object) => {
+	return object.parts.length === 0
+		? openPrimitiveShapes.has(object.shape)
+		: object.parts.some((part) => openPrimitiveShapes.has(part.shape));
 }
 
 function normalizeLevelObject(rawObject, ctx, multipartFallbackShape = null) {
@@ -886,7 +904,12 @@ function normalizeLevelObject(rawObject, ctx, multipartFallbackShape = null) {
 	foldColorAlias(object, "color", object.texture.generated, "primary");
 	object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
 	if (object.shape === "tube") object.primitiveOptions = normalizeTubeOptions(object.primitiveOptions);
+	else if (isRampShape(object.shape)) object.primitiveOptions = normalizeRampOptions(object.primitiveOptions);
 	object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part, ctx));
+	if (object.mode === "void" && hasOpenPrimitive(object)) {
+		warnLog(`levelObject.${object.id}: mode 'void' requires a closed shape, dropping.`);
+		return null;
+	}
 	object.particle = normalizeRootParticle(object.particle, object.parts.length, `levelObject.${object.id}`);
 	object.collisionShape = object.collisionShape !== null ? object.collisionShape
 		: multipartFallbackShape !== null && object.parts.length > 1 ? multipartFallbackShape
@@ -1051,6 +1074,7 @@ function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 				node.thickness     = new Unit(node.thickness.value,    "cnu");
 			});
 		}
+		else if (isRampShape(part.shape)) part.primitiveOptions.angle = new Unit(part.primitiveOptions.angle.value, "radians");
 		if (part.particle !== null) {
 			part.particle.position = toUnitVector3(part.particle.position, "cnu");
 			if (part.particle.overrides !== null && part.particle.overrides.velocity !== null) part.particle.overrides.velocity = toUnitVector3(part.particle.overrides.velocity, "cnu");

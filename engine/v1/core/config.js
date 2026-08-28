@@ -23,6 +23,7 @@ const CONFIG = {
         Entity      : false,
         EntityPart  : false,
         Obstacle    : false,
+        Void        : false,
         Player      : false,
         PlayerPart  : false,
         Boss        : false,
@@ -37,6 +38,7 @@ const CONFIG = {
       DetailedBounds: {                      // Render Detailed Bounds
         Terrain : false,
         Obstacle: false,
+        Void    : false,                     // Void volume + its void walls and open faces
         Entity  : false,
         Player  : false,
         Boss    : false,
@@ -152,18 +154,22 @@ const CONFIG = {
 // Engine-internal performance-related scaling.
 const PERFORMANCE_SCALING = {
   SimDistance: {
-    Tiers    : { Low: new Unit(50, "cnu"), Medium: new Unit(100, "cnu"), High: new Unit(150, "cnu"), Ultra: new Unit(250, "cnu") },
+    Tiers    : { Low: new Unit(50, "cnu"), Medium: new Unit(80, "cnu"), High: new Unit(120, "cnu"), Ultra: new Unit(200, "cnu") },
     Fractions: {
       Scatter         : { Cull: 0.70, Fade: 0.40 },                   // Cull relative to SimDistance; Fade relative to Cull
-      TextureAnimation: { StopBake : 0.60 }
+      TextureAnimation: { StopBake : 0.60 },
+      WorldInstances  : { Cull: 1.5 }
     }
   },
   Density: {
-    Scatter  : { Disabled: 0, Low: 0.40, Medium: 0.70, High: 1 },
-    Particles: { Disabled: 0, Low: 0.40, Medium: 0.70, High: 1 }
+    Scatter  : { Disabled: 0, Low: 0.25, Medium: 0.50, High: 1 },
+    Particles: { Disabled: 0, Low: 0.50, Medium: 0.80, High: 1 }
   },
   Animation: {
     Entities: { Disabled: 0, Low: 0.25, Medium: 0.50, High: 1 }       // Frame correction budget
+  },
+  Loop: {
+    MaxSubsteps: 4                                                    // Physics ticks per frame before time dilates
   }
 }
 
