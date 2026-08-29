@@ -17,13 +17,12 @@ import { Start, Load, Cache as SimulatorCache, Clear, Exit, GetModelState, GetFu
 import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
 import { PlayerAPI as Player } from "../player/Master.js";
-import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3, CNU_SCALE, Clamp, Clamp01 } from "../math/Utilities.js"
+import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3, CNU_SCALE, Clamp, Clamp01, Squared as Sq } from "../math/Utilities.js"
 import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3 } from "../math/Vector3.js";
 import { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence } from "../math/Forces.js";
 
 // Boot-time engine template instancing (owns the blueprint/template JSON imports).
 import { InstanceEngineTemplates } from "../builder/templates/Instance.js";
-
 /* === INITIALIZATION === */
 // Bootstraps engine subsystems and returns the public API.
 
@@ -47,7 +46,7 @@ function Initialize() {
     Meta: Object.freeze({
       LogAll, LogCache, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
       SessionKey, CNU_SCALE, 
-      Version: "0.28.2",
+      Version: "0.29",
     }),
     Controls,
     Input   : Object.freeze({ Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, }),
@@ -61,7 +60,7 @@ function Initialize() {
       Vector3   : Object.freeze({ AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3 }),
       Instancing: Object.freeze({ Unit, UnitVector3 }),
       Physics   : Object.freeze({ ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence }),
-      Other     : Object.freeze({ Clamp, Clamp01 })
+      Other     : Object.freeze({ Clamp, Clamp01, Sq })
     }),
     Simulator : Object.freeze({ Start, Load, Cache: SimulatorCache, Clear, Exit, GetModelState, GetFullState }),
     Blueprints: InstanceEngineTemplates().raw,

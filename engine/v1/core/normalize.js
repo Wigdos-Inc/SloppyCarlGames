@@ -16,6 +16,7 @@ import enemyTemplates from "../builder/templates/enemies.json" with { type: "jso
 import projectileTemplates from "../builder/templates/projectiles.json" with { type: "json" };
 import particleTemplates from "../builder/templates/particles.json" with { type: "json" };
 import { Log, ENTITY_TYPES } from "./meta.js";
+import { SKY_STOP_LIMIT } from "./config.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import { CloneVector3 } from "../math/Vector3.js";
 
@@ -1136,6 +1137,47 @@ function applyImageLoadResults(affectedParts, affectedDecalSources) {
 	});
 }
 
+const defaultSkyStop = { r: 0.04, g: 0.05, b: 0.08, a: 1 };
+
+function normalizeSkyStop(rawStop, path) {
+	const source = normalizeObject(rawStop).value;
+	const stop = {};
+	for (const channel in defaultSkyStop) {
+		const resolved = normalizeNumber(source[channel], defaultSkyStop[channel]);
+		if (!resolved.bool) warnLog(`${path}.${channel}: invalid number, using fallback ${defaultSkyStop[channel]}.`);
+		stop[channel] = Clamp(resolved.value, 0, 1);
+	}
+	return stop;
+}
+
+// Post-condition: 2..SKY_STOP_LIMIT stops.
+function resolveSkyStops(rawSkybox, mode) {
+	const source = normalizeObject(rawSkybox).value;
+	const path = "level.world.skybox.color";
+
+	if (mode === "fill") {
+		const stop = normalizeSkyStop(source.color, path);
+		return [stop, { ...stop }];
+	}
+
+	const stops = normalizeArray(source.color).value.map((entry, index) => normalizeSkyStop(entry, `${path}[${index}]`));
+
+	if (stops.length > SKY_STOP_LIMIT) {
+		warnLog(`${path}: ${stops.length} stops exceeds ${SKY_STOP_LIMIT}, truncating.`);
+		stops.length = SKY_STOP_LIMIT;
+	}
+	if (stops.length === 0) {
+		warnLog(`${path}: no gradient stops, using fallback ${JSON.stringify(defaultSkyStop)}.`);
+		return [{ ...defaultSkyStop }, { ...defaultSkyStop }];
+	}
+	if (stops.length === 1) {
+		warnLog(`${path}: single gradient stop, duplicating.`);
+		stops.push({ ...stops[0] });
+	}
+
+	return stops;
+}
+
 async function LevelPayload(payload) {
 	const ctx = {
 		pendingImageLoads   : [],
@@ -1157,13 +1199,14 @@ async function LevelPayload(payload) {
 	normalized.world.width         = new Unit(normalized.world.width, "cnu");
 	normalized.world.height        = new Unit(normalized.world.height, "cnu");
 	normalized.world.deathBarrierY = new Unit(normalized.world.deathBarrierY, "cnu");
-	if (normalized.world.waterLevel !== null) {
-		const clampedWaterLevel = Clamp(normalized.world.waterLevel, normalized.world.deathBarrierY.value, normalized.world.height.value);
-		if (clampedWaterLevel !== normalized.world.waterLevel) {
-			warnLog(`level.world.waterLevel: clamped ${normalized.world.waterLevel} to ${clampedWaterLevel}.`);
+	if (normalized.world.water.level !== null) {
+		const clampedWaterLevel = Clamp(normalized.world.water.level, normalized.world.deathBarrierY.value, normalized.world.height.value);
+		if (clampedWaterLevel !== normalized.world.water.level) {
+			warnLog(`level.world.water.level: clamped ${normalized.world.water.level} to ${clampedWaterLevel}.`);
 		}
-		normalized.world.waterLevel = new Unit(clampedWaterLevel, "cnu");
+		normalized.world.water.level = new Unit(clampedWaterLevel, "cnu");
 	}
+	normalized.world.skybox.stops = resolveSkyStops(normalizeObject(rawPayload.world).value.skybox, normalized.world.skybox.mode);
 
 	normalized.camera.distance = new Unit(normalized.camera.distance, "cnu");
 	normalized.camera.heightOffset = new Unit(normalized.camera.heightOffset, "cnu");

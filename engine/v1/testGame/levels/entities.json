@@ -567,6 +567,85 @@
 					}
 				]
 			}
+		},
+		{
+			"id": "entity.blocky-placeholder",
+			"type": "entity",
+			"hp": 1,
+			"movement": {
+				"collision": true,
+				"physics": { "gravity": true, "buoyancy": false, "resistance": false, "correction": false, "collision": true }
+			},
+			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
+			"model": {
+				"spawnSurfaceId": null,
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				"parts": [
+					{
+						"id": "body",
+						"parentId": "root",
+						"shape": "cube",
+						"complexity": "medium",
+						"dimensions": { "x": 1.4, "y": 1.2, "z": 1 },
+						"localPosition": { "x": 0, "y": 0.9, "z": 0 },
+						"color": { "r": 0.6, "g": 0.36, "b": 0.42, "a": 1 },
+						"texture": { "generated": { "id": "default-grid" } }
+					},
+					{
+						"id": "legFrontLeft",
+						"parentId": "body",
+						"anchorPoint": "center",
+						"attachmentPoint": "center",
+						"shape": "cube",
+						"complexity": "medium",
+						"dimensions": { "x": 0.3, "y": 0.9, "z": 0.3 },
+						"localPosition": { "x": -0.5, "y": -1.05, "z": 0.3 },
+						"color": { "r": 0.38, "g": 0.24, "b": 0.3, "a": 1 },
+						"texture": { "generated": { "id": "default-tiles" } }
+					},
+					{
+						"id": "legFrontRight",
+						"parentId": "body",
+						"anchorPoint": "center",
+						"attachmentPoint": "center",
+						"shape": "cube",
+						"complexity": "medium",
+						"dimensions": { "x": 0.3, "y": 0.9, "z": 0.3 },
+						"localPosition": { "x": 0.5, "y": -1.05, "z": 0.3 },
+						"color": { "r": 0.38, "g": 0.24, "b": 0.3, "a": 1 },
+						"texture": { "generated": { "id": "default-tiles" } }
+					},
+					{
+						"id": "legBackLeft",
+						"parentId": "body",
+						"anchorPoint": "center",
+						"attachmentPoint": "center",
+						"shape": "cube",
+						"complexity": "medium",
+						"dimensions": { "x": 0.3, "y": 0.9, "z": 0.3 },
+						"localPosition": { "x": -0.5, "y": -1.05, "z": -0.3 },
+						"color": { "r": 0.38, "g": 0.24, "b": 0.3, "a": 1 },
+						"texture": { "generated": { "id": "default-tiles" } }
+					},
+					{
+						"id": "legBackRight",
+						"parentId": "body",
+						"anchorPoint": "center",
+						"attachmentPoint": "center",
+						"shape": "cube",
+						"complexity": "medium",
+						"dimensions": { "x": 0.3, "y": 0.9, "z": 0.3 },
+						"localPosition": { "x": 0.5, "y": -1.05, "z": -0.3 },
+						"color": { "r": 0.38, "g": 0.24, "b": 0.3, "a": 1 },
+						"texture": { "generated": { "id": "default-tiles" } }
+					}
+				]
+			}
 		}
 	]
 }

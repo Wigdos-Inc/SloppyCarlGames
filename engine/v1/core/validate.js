@@ -239,6 +239,19 @@ function ValidateLevelPayload(payload) {
 		validateCollisionOverride(overrideSource.collisionOverride, `${path}.collisionOverride`);
 	}
 
+	// Shape follows mode, which the generic pass cannot express with a single dataType.
+	function validateSkybox(rawWorld, path) {
+		if (!isPlainObject(rawWorld) || !isPlainObject(rawWorld.skybox)) return;
+
+		const skybox = rawWorld.skybox;
+		if (skybox.color === undefined) { errors.push(`${path}.color: missing required color.`); return; }
+		if (skybox.mode === "gradient") {
+			if (!Array.isArray(skybox.color)) errors.push(`${path}.color: expected array in 'gradient' mode.`);
+			return;
+		}
+		if (!isPlainObject(skybox.color)) errors.push(`${path}.color: expected object in 'fill' mode.`);
+	}
+
 	function validatePlayer(rawPlayer, path) {
 		errors.push(...validatePayloadSchema(rawPlayer, "levelPlayer", path));
 
@@ -251,6 +264,7 @@ function ValidateLevelPayload(payload) {
 	}
 
 	const rawPayload = isPlainObject(payload) ? payload : {};
+	validateSkybox(rawPayload.world, "level.world.skybox");
 	validateObjectList(rawPayload.terrain?.objects, "level.terrain.objects");
 	if (Array.isArray(rawPayload.terrain?.triggers)) {
 		rawPayload.terrain.triggers.forEach((rawTrigger, index) => {

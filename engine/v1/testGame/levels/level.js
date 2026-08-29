@@ -3,8 +3,11 @@ let entitiesDataPromise = null;
 
 function loadLevelsData() {
 	if (!levelsDataPromise) {
-		levelsDataPromise = fetch(new URL("./levels.json", import.meta.url))
-			.then((response) => response.json());
+		levelsDataPromise = Promise.all(
+			["./levels.json", "./lvl2.json"].map((path) =>
+				fetch(new URL(path, import.meta.url)).then((response) => response.json())
+			)
+		).then((files) => ({ levels: files.flatMap((file) => file.levels) }));
 	}
 
 	return levelsDataPromise;

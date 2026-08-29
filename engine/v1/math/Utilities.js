@@ -181,6 +181,7 @@ const Clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const Clamp01 = (value) => Clamp(value, 0, 1);
 
 const Lerp = (a, b, t) => a + (b - a) * Clamp01(t);
+const Squared = (value) => value * value;
 
 // Hermite smoothstep interpolation between two scalar values
 function SmoothStep(a, b, t) {
@@ -197,6 +198,7 @@ export {
 	Clamp, 
 	Clamp01,
 	Lerp, 
+	Squared,
 	SmoothStep, 
 	Unit, 
 	UnitVector3 

@@ -747,12 +747,13 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 	const isPlayer = entity.type === "player";
 	if (CONFIG.PHYSICS.Collision.Enabled === false || !GetEntityPhysicsFlags(entity).collision) {
 		ResetCollisionPools();
-		return { solids: solidResultPool, triggers: triggerResultPool };
+		return { solids: solidResultPool, triggers: triggerResultPool, candidates: [] };
 	}
 
 	ResetCollisionPools();
 
-	for (const candidate of BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb, isPlayer, entity.type !== "particle")) {
+	const candidates = BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb, isPlayer, entity.type !== "particle");
+	for (const candidate of candidates) {
 		if (candidate.type === "entity" && candidate.ref === entity) continue;
 
 		if (candidate.isTrigger) {
@@ -798,7 +799,7 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 		item.shape = entity.collision.physics.bounds.type;
 	}
 
-	return { solids: solidResultPool, triggers: triggerResultPool };
+	return { solids: solidResultPool, triggers: triggerResultPool, candidates };
 }
 
 /* ========================================================================
@@ -975,7 +976,7 @@ function ResolveCollisions(velocity, displacement, solids) {
  * @param {object} sceneGraph
  * @returns {{ hit: boolean, normal?: object, type?: string, supportPoint?: object }}
  */
-function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance) {
+function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates) {
 	if (CONFIG.PHYSICS.Collision.Enabled === false) return { hit: false };
 
 	// Grounding always uses an AABB-derived capsule, whatever narrowphase collider the entity declares.
@@ -1003,38 +1004,26 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance) {
 		return hit;
 	};
 
-	for (const mesh of sceneGraph.terrain) {
-		if (!AabbOverlap(entity.collision.simRadiusAabb, mesh.worldAabb)) continue;
+	// Candidates are already simRadius-filtered by the broadphase, so no overlap test is repeated here.
+	for (const candidate of candidates) {
+		const isTerrain = candidate.type === "terrain";
+		if (!isTerrain && candidate.type !== "obstacle") continue;
 		let t, normal;
-		if      (mesh.detailedBounds.type === "aabb") { 
-			t = tryAABB(mesh.detailedBounds); 
-			if (t === Infinity) continue; normal = WORLD_NORMALS.Up; 
+		if (candidate.detailedBounds.type === "aabb") {
+			t = tryAABB(candidate.detailedBounds);
+			if (t === Infinity) continue; normal = WORLD_NORMALS.Up;
 		}
-		else if (mesh.detailedBounds.type === "obb") { 
-			const hit = tryOBB(mesh.detailedBounds); 
-			if (!hit) continue; t = hit.t; normal = hit.normal; 
+		else if (candidate.detailedBounds.type === "obb") {
+			const hit = tryOBB(candidate.detailedBounds);
+			if (!hit) continue; t = hit.t; normal = hit.normal;
 		}
 		else continue;
 		if (t >= bestT) continue;
-		if (mesh.meta.nullable !== false && isGroundSupportInVoid({ x: probe.x, y: probe.y - t, z: probe.z }, mesh.id, sceneGraph.voids.terrain)) continue;
-		bestT = t; bestNormal = normal; type = "terrain";
-	}
-
-	for (const obs of sceneGraph.obstacles) {
-		if (!AabbOverlap(entity.collision.simRadiusAabb, obs.worldAabb)) continue;
-		let t, normal;
-		if      (obs.detailedBounds.type === "aabb") { 
-			t = tryAABB(obs.detailedBounds); 
-			if (t === Infinity) continue; normal = WORLD_NORMALS.Up; 
-		}
-		else if (obs.detailedBounds.type === "obb")  { 
-			const hit = tryOBB(obs.detailedBounds); 
-			if (!hit) continue; t = hit.t; normal = hit.normal; 
-		}
-		else continue;
-		if (t >= bestT) continue;
-		if (obs.nullable !== false && isGroundSupportInVoid({ x: probe.x, y: probe.y - t, z: probe.z }, obs.id, sceneGraph.voids.obstacles)) continue;
-		bestT = t; bestNormal = normal; type = "obstacle";
+		const source = candidate.ref;
+		const nullable = isTerrain ? source.meta.nullable : source.nullable;
+		const voids = isTerrain ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles;
+		if (nullable !== false && isGroundSupportInVoid({ x: probe.x, y: probe.y - t, z: probe.z }, source.id, voids)) continue;
+		bestT = t; bestNormal = normal; type = candidate.type;
 	}
 
 	// Void-wall floors (upward normal) are standable ground; reported under their source category.

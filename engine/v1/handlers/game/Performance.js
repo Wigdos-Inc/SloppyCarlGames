@@ -6,6 +6,7 @@
 import { PERFORMANCE_SCALING } from "../../core/config.js";
 import { GetSimDistanceValue, IsBeyondSimDistance } from "../../physics/Collision.js";
 import { Vector3SqDistanceToAabb } from "../../math/Vector3.js";
+import { Squared } from "../../math/Utilities.js";
 
 /**
  * Writes `performance.physics` (entities) and `performance.rendering` (all world instances).
@@ -15,8 +16,7 @@ import { Vector3SqDistanceToAabb } from "../../math/Vector3.js";
  */
 function UpdatePerformanceFlags(sceneGraph) {
 	const cameraPosition = sceneGraph.cameraConfig.state.position;
-	const renderReach    = GetSimDistanceValue().value * PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances.Cull;
-	const renderReachSq  = renderReach * renderReach;
+	const renderReachSq  = Squared(GetSimDistanceValue().value * PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances.Cull);
 
 	// Point-to-AABB — bounds, not centre.
 	const withinRender = (aabb) => Vector3SqDistanceToAabb(cameraPosition, aabb) <= renderReachSq;

@@ -142,6 +142,11 @@ const poseMatchesTransform = (model, transform) => {
 	Vector3Matches(model.posedTransform.scale, transform.scale);
 }
 
+// Orientation held means the pose only shifted, so it can be translated instead of recomposed.
+const poseOrientationMatches = (model, transform) => {
+	return Vector3Matches(model.posedTransform.rotation, transform.rotation) && Vector3Matches(model.posedTransform.scale, transform.scale);
+}
+
 function ComposeTransform(parentTransform, localTransform) {
 	const localPosition = localTransform.position.clone();
 	const rotatedChildPos = RotateByEuler(localPosition, parentTransform.rotation);
@@ -633,9 +638,8 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 	return { entity };
 }
 
-function refreshEntityDerivedState(entity) {
-	applyModelPose(entity.model);
-	entity.collision.aabb = computeEntityAabb(entity.model);
+// Every collision layer but compound-sphere derives from the entity AABB alone.
+function assignCollisionBounds(entity) {
 	entity.collision.simRadiusAabb = computeExpandedAabb(
 		entity.collision.aabb,
 		entity.collision.simRadiusPadding
@@ -653,11 +657,35 @@ function refreshEntityDerivedState(entity) {
 	entity.collision.hitbox = detailed.hitbox;
 }
 
+function refreshEntityDerivedState(entity) {
+	applyModelPose(entity.model);
+	entity.collision.aabb = computeEntityAabb(entity.model);
+	assignCollisionBounds(entity);
+}
+
+// Shifts the posed hierarchy by delta. Exact while orientation holds, since every part moves together.
+function translateEntityDerivedState(entity, delta) {
+	entity.model.parts.forEach((part) => {
+		part.mesh.transform.position.add(delta);
+		part.mesh.worldAabb.min.add(delta);
+		part.mesh.worldAabb.max.add(delta);
+	});
+	entity.model.posedTransform.position.add(delta);
+	entity.collision.aabb.min.add(delta);
+	entity.collision.aabb.max.add(delta);
+	assignCollisionBounds(entity);
+}
+
 function UpdateEntityModelFromTransform(entity) {
 	if (poseMatchesTransform(entity.model, entity.transform)) return;
 
 	// rootTransform shares entity.transform's position/rotation objects; only scale is ever re-pointed.
 	entity.model.rootTransform.scale = entity.transform.scale;
+
+	if (poseOrientationMatches(entity.model, entity.transform)) {
+		translateEntityDerivedState(entity, SubtractVector3(entity.transform.position, entity.model.posedTransform.position));
+		return;
+	}
 	refreshEntityDerivedState(entity);
 }
 

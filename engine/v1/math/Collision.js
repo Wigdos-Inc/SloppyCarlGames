@@ -804,7 +804,7 @@ function RayOBBIntersect(origin, direction, obb, maxDistance = Infinity) {
 
 function RayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity) {
 	const segment = SubtractVector3(capsule.segmentEnd, capsule.segmentStart);
-	const segmentLengthSq = DotVector3(segment, segment);
+	const segmentLengthSq = Vector3Sq(segment);
 	if (segmentLengthSq <= EPSILON) {
 		return RaySphereIntersect(origin, direction, {
 			center: capsule.segmentStart,
@@ -815,7 +815,7 @@ function RayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity)
 	const originOffset = SubtractVector3(origin, capsule.segmentStart);
 	const segmentDotDirection = DotVector3(segment, direction);
 	const segmentDotOrigin = DotVector3(segment, originOffset);
-	const originLengthSq = DotVector3(originOffset, originOffset);
+	const originLengthSq = Vector3Sq(originOffset);
 	const a = segmentLengthSq - (segmentDotDirection * segmentDotDirection);
 	const b = (segmentLengthSq * DotVector3(direction, originOffset)) - (segmentDotOrigin * segmentDotDirection);
 	const c = (segmentLengthSq * originLengthSq) - (segmentDotOrigin * segmentDotOrigin) - (capsule.radius.value * capsule.radius.value * segmentLengthSq);

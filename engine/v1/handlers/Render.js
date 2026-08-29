@@ -6,7 +6,7 @@
 // UI element builder.
 
 import { UIElement } from "../builder/NewUI.js";
-import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
+import { CONFIG, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateRenderMatrix, MultiplyMatrix4 } from "../math/Matrix.js";
 import { AddVector3, CloneVector3, CrossVector3, DotVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, Vector3Matches, Vector3Sq } from "../math/Vector3.js";
@@ -167,6 +167,34 @@ function createLinkedProgram(gl, options) {
 	};
 }
 
+// Shared by the sky quad and every fogged surface.
+const skySampleGLSL = `
+	uniform mat4 u_view;
+	uniform vec4 u_skyStops[${SKY_STOP_LIMIT}];
+	uniform int u_skyStopCount;
+	uniform vec3 u_waterTint;
+	uniform float u_underwater;
+
+	// Stop 0 = horizon, last = zenith, evenly spaced; everything below the horizon takes stop 0. Alpha is ignored.
+	vec3 sampleSky(float elevation) {
+		float span = float(u_skyStopCount - 1);
+		float t = clamp(elevation, 0.0, 1.0) * span;
+		int lower = int(min(floor(t), span - 1.0));
+		vec3 sky = mix(u_skyStops[lower].rgb, u_skyStops[lower + 1].rgb, t - float(lower));
+		return mix(sky, u_waterTint, clamp(u_underwater, 0.0, 1.0));
+	}
+
+	// Column 1 of the view matrix is world-up expressed in view space.
+	float viewRayElevation(vec3 viewRay) {
+		return dot(normalize(viewRay), u_view[1].xyz);
+	}
+
+	// Callers holding the ray length already reuse it instead of normalizing again.
+	float viewRayElevation(vec3 viewRay, float viewDist) {
+		return dot(viewRay, u_view[1].xyz) / viewDist;
+	}
+`;
+
 function createFoggedTextureFragmentShader(
 	sharedDeclarations, shadedExpression, premultiplied = false,
 	varyings = "in vec2 v_uv;",
@@ -178,13 +206,12 @@ function createFoggedTextureFragmentShader(
 	return `#version 300 es
 		precision highp float;
 		uniform sampler2D u_texture;
-		uniform float u_fogDensity;
-		uniform float u_far;
+		uniform float u_fogFull;
 		uniform vec3 u_colorShift;
-		uniform float u_underwater;
+		${skySampleGLSL}
 		${sharedDeclarations}
 		${varyings}
-		in float v_depth;
+		in vec3 v_viewPos;
 		out vec4 fragColor;
 		void main() {
 			${texelComputation}
@@ -193,10 +220,12 @@ function createFoggedTextureFragmentShader(
 				discard;
 			}
 
-			float normalizedDepth = v_depth / max(1.0, u_far);
-			float fog = clamp(normalizedDepth * u_fogDensity, 0.0, 1.0);
+			float viewDist = length(v_viewPos);
+			// Cubed ramp; near geometry stays clear, fog still saturates at the reach.
+			float fog = clamp(viewDist / u_fogFull, 0.0, 1.0);
+			fog *= fog * fog;
 			vec3 shifted = ${shiftExpr};
-			vec3 fogColor = mix(vec3(0.04, 0.05, 0.08), vec3(0.03, 0.13, 0.2), clamp(u_underwater, 0.0, 1.0));
+			vec3 fogColor = sampleSky(viewRayElevation(v_viewPos, viewDist));
 			vec3 finalColor = mix(shifted, ${fogColorExpr}, fog);
 			fragColor = vec4(finalColor, shaded.a);
 		}
@@ -211,13 +240,13 @@ function createProgram(gl) {
 		uniform mat4 u_view;
 		uniform mat4 u_model;
 		out vec2 v_uv;
-		out float v_depth;
+		out vec3 v_viewPos;
 		void main() {
 			vec4 world = u_model * vec4(a_position, 1.0);
 			vec4 viewPos = u_view * world;
 			gl_Position = u_projection * viewPos;
 			v_uv = a_uv;
-			v_depth = abs(viewPos.z);
+			v_viewPos = viewPos.xyz;
 		}
 	`;
 
@@ -232,15 +261,17 @@ function createProgram(gl) {
 			uv      : "a_uv",
 		},
 		uniformNames: {
-			projection: "u_projection",
-			view      : "u_view",
-			model     : "u_model",
-			texture   : "u_texture",
-			tint      : "u_tint",
-			fogDensity: "u_fogDensity",
-			far       : "u_far",
-			colorShift: "u_colorShift",
-			underwater: "u_underwater",
+			projection  : "u_projection",
+			view        : "u_view",
+			model       : "u_model",
+			texture     : "u_texture",
+			tint        : "u_tint",
+			fogFull     : "u_fogFull",
+			colorShift  : "u_colorShift",
+			underwater  : "u_underwater",
+			skyStops    : "u_skyStops[0]",
+			skyStopCount: "u_skyStopCount",
+			waterTint   : "u_waterTint",
 		},
 		createError    : "WebGL program creation failed",
 		linkErrorPrefix: "Program link error",
@@ -256,14 +287,14 @@ function createEntityTriplanarProgram(gl) {
 		uniform mat4 u_view;
 		uniform mat4 u_model;
 		out vec2 v_uv;
-		out float v_depth;
+		out vec3 v_viewPos;
 		out vec3 v_objPos;
 		void main() {
 			vec4 world = u_model * vec4(a_position, 1.0);
 			vec4 viewPos = u_view * world;
 			gl_Position = u_projection * viewPos;
 			v_uv = a_uv;
-			v_depth = abs(viewPos.z);
+			v_viewPos = viewPos.xyz;
 			v_objPos = a_position;
 		}
 	`;
@@ -288,16 +319,18 @@ function createEntityTriplanarProgram(gl) {
 			uv      : "a_uv",
 		},
 		uniformNames: {
-			projection: "u_projection",
-			view      : "u_view",
-			model     : "u_model",
-			texture   : "u_texture",
-			tint      : "u_tint",
-			fogDensity: "u_fogDensity",
-			far       : "u_far",
-			colorShift: "u_colorShift",
-			underwater: "u_underwater",
-			texScale  : "u_texScale",
+			projection  : "u_projection",
+			view        : "u_view",
+			model       : "u_model",
+			texture     : "u_texture",
+			tint        : "u_tint",
+			fogFull     : "u_fogFull",
+			colorShift  : "u_colorShift",
+			underwater  : "u_underwater",
+			texScale    : "u_texScale",
+			skyStops    : "u_skyStops[0]",
+			skyStopCount: "u_skyStopCount",
+			waterTint   : "u_waterTint",
 		},
 		createError    : "WebGL triplanar program creation failed",
 		linkErrorPrefix: "Triplanar program link error",
@@ -401,7 +434,7 @@ function createScatterProgram(gl) {
 		uniform mat4 u_view;
 		uniform float u_cullRadius;
 		out vec2 v_uv;
-		out float v_depth;
+		out vec3 v_viewPos;
 		out vec4 v_tint;
 		void main() {
 			mat4 instanceModel = mat4(a_instanceRow0, a_instanceRow1, a_instanceRow2, a_instanceRow3);
@@ -410,7 +443,7 @@ function createScatterProgram(gl) {
 			vec4 viewPos = u_view * world;
 			gl_Position = u_projection * viewPos;
 			v_uv = a_uv;
-			v_depth = abs(viewPos.z);
+			v_viewPos = viewPos.xyz;
 			v_tint = vec4(a_instanceTint.rgb, a_instanceTint.a * instanceAlpha);
 		}
 	`;
@@ -422,14 +455,16 @@ function createScatterProgram(gl) {
 			"vec4(texel.rgb * v_tint.rgb, texel.a * v_tint.a)"
 		),
 		uniformNames: {
-			projection: "u_projection",
-			view      : "u_view",
-			texture   : "u_texture",
-			fogDensity: "u_fogDensity",
-			far       : "u_far",
-			colorShift: "u_colorShift",
-			underwater: "u_underwater",
-			cullRadius: "u_cullRadius",
+			projection  : "u_projection",
+			view        : "u_view",
+			texture     : "u_texture",
+			fogFull     : "u_fogFull",
+			colorShift  : "u_colorShift",
+			underwater  : "u_underwater",
+			cullRadius  : "u_cullRadius",
+			skyStops    : "u_skyStops[0]",
+			skyStopCount: "u_skyStopCount",
+			waterTint   : "u_waterTint",
 		},
 		linkErrorPrefix: "Scatter shader link error",
 	});
@@ -514,7 +549,7 @@ function createDecalProgram(gl) {
 		uniform int u_shape;
 		uniform vec3 u_halfExtents;
 		out vec2 v_uv;
-		out float v_depth;
+		out vec3 v_viewPos;
 
 		${decalSurfaceProjectionGLSL}
 
@@ -525,7 +560,7 @@ function createDecalProgram(gl) {
 			vec4 viewPos = u_view * world;
 			gl_Position = u_projection * viewPos;
 			v_uv = a_uv;
-			v_depth = abs(viewPos.z);
+			v_viewPos = viewPos.xyz;
 		}
 	`;
 
@@ -541,18 +576,20 @@ function createDecalProgram(gl) {
 			uv      : "a_uv",
 		},
 		uniformNames: {
-			projection : "u_projection",
-			view       : "u_view",
-			placement  : "u_placement",
-			partWorld  : "u_partWorld",
-			shape      : "u_shape",
-			halfExtents: "u_halfExtents",
-			texture    : "u_texture",
-			tint       : "u_tint",
-			fogDensity : "u_fogDensity",
-			far        : "u_far",
-			colorShift : "u_colorShift",
-			underwater : "u_underwater",
+			projection  : "u_projection",
+			view        : "u_view",
+			placement   : "u_placement",
+			partWorld   : "u_partWorld",
+			shape       : "u_shape",
+			halfExtents : "u_halfExtents",
+			texture     : "u_texture",
+			tint        : "u_tint",
+			fogFull     : "u_fogFull",
+			colorShift  : "u_colorShift",
+			underwater  : "u_underwater",
+			skyStops    : "u_skyStops[0]",
+			skyStopCount: "u_skyStopCount",
+			waterTint   : "u_waterTint",
 		},
 		createError    : "decal shader program creation failed",
 		linkErrorPrefix: "decal shader link error",
@@ -575,7 +612,7 @@ function createScatterDecalProgram(gl) {
 		uniform vec3 u_halfExtents;
 		uniform float u_cullRadius;
 		out vec2 v_uv;
-		out float v_depth;
+		out vec3 v_viewPos;
 		out float v_cullAlpha;
 
 		${decalSurfaceProjectionGLSL}
@@ -589,7 +626,7 @@ function createScatterDecalProgram(gl) {
 			vec4 viewPos = u_view * world;
 			gl_Position = u_projection * viewPos;
 			v_uv = a_uv;
-			v_depth = abs(viewPos.z);
+			v_viewPos = viewPos.xyz;
 			v_cullAlpha = instanceAlpha;
 		}
 	`;
@@ -602,21 +639,61 @@ function createScatterDecalProgram(gl) {
 			true
 		),
 		uniformNames: {
-			projection : "u_projection",
-			view       : "u_view",
-			placement  : "u_placement",
-			shape      : "u_shape",
-			halfExtents: "u_halfExtents",
-			texture    : "u_texture",
-			tint       : "u_tint",
-			fogDensity : "u_fogDensity",
-			far        : "u_far",
-			colorShift : "u_colorShift",
-			underwater : "u_underwater",
-			cullRadius : "u_cullRadius",
+			projection  : "u_projection",
+			view        : "u_view",
+			placement   : "u_placement",
+			shape       : "u_shape",
+			halfExtents : "u_halfExtents",
+			texture     : "u_texture",
+			tint        : "u_tint",
+			fogFull     : "u_fogFull",
+			colorShift  : "u_colorShift",
+			underwater  : "u_underwater",
+			cullRadius  : "u_cullRadius",
+			skyStops    : "u_skyStops[0]",
+			skyStopCount: "u_skyStopCount",
+			waterTint   : "u_waterTint",
 		},
 		createError    : "scatter decal shader program creation failed",
 		linkErrorPrefix: "scatter decal shader link error",
+	});
+}
+
+// Fullscreen backdrop; the view ray is the exact inverse of the projection in use.
+function createSkyProgram(gl) {
+	const vertexShaderSource = `#version 300 es
+		in vec2 a_position;
+		uniform vec2 u_rayScale;
+		out vec3 v_viewPos;
+		void main() {
+			v_viewPos = vec3(a_position * u_rayScale, -1.0);
+			gl_Position = vec4(a_position, 0.0, 1.0);
+		}
+	`;
+
+	const fragmentShaderSource = `#version 300 es
+		precision highp float;
+		${skySampleGLSL}
+		in vec3 v_viewPos;
+		out vec4 fragColor;
+		void main() {
+			fragColor = vec4(sampleSky(viewRayElevation(v_viewPos)), 1.0);
+		}
+	`;
+
+	return createLinkedProgram(gl, {
+		vertexShaderSource, fragmentShaderSource,
+		attributeNames : { position: "a_position" },
+		uniformNames   : {
+			view        : "u_view",
+			rayScale    : "u_rayScale",
+			skyStops    : "u_skyStops[0]",
+			skyStopCount: "u_skyStopCount",
+			waterTint   : "u_waterTint",
+			underwater  : "u_underwater",
+		},
+		createError    : "sky program creation failed",
+		linkErrorPrefix: "sky shader link error",
 	});
 }
 
@@ -1272,14 +1349,14 @@ function ensureSceneTexture(renderer, sceneGraph, textureID) {
 	return texture;
 }
 
-function ensureBlendQuad(renderer) {
-	if (renderer.blendQuad) return renderer.blendQuad;
+function ensureFullscreenQuad(renderer, cacheKey, shader, label) {
+	if (renderer[cacheKey]) return renderer[cacheKey];
 
 	const gl = renderer.gl;
 	const positionBuffer = gl.createBuffer();
 	const indexBuffer = gl.createBuffer();
 	if (!positionBuffer || !indexBuffer) {
-		Log("ENGINE", "Blend quad buffer creation failed", "error", "Render");
+		Log("ENGINE", `${label} quad buffer creation failed`, "error", "Render");
 		return null;
 	}
 
@@ -1288,16 +1365,33 @@ function ensureBlendQuad(renderer) {
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-	gl.enableVertexAttribArray(renderer.blendShader.attributes.position);
-	gl.vertexAttribPointer(renderer.blendShader.attributes.position, 2, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(shader.attributes.position);
+	gl.vertexAttribPointer(shader.attributes.position, 2, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2, 2, 1, 3]), gl.STATIC_DRAW);
 
 	gl.bindVertexArray(null);
 
-	renderer.blendQuad = { vao, position: positionBuffer, index: indexBuffer, indexCount: 6 };
-	return renderer.blendQuad;
+	renderer[cacheKey] = { vao, position: positionBuffer, index: indexBuffer, indexCount: 6 };
+	return renderer[cacheKey];
+}
+
+const ensureBlendQuad = (renderer) => ensureFullscreenQuad(renderer, "blendQuad", renderer.blendShader, "Blend");
+const ensureSkyQuad   = (renderer) => ensureFullscreenQuad(renderer, "skyQuad",   renderer.skyShader,   "Sky");
+
+// Entries past u_skyStopCount are never sampled, so only the live stops are written.
+function fillSkyStops(renderer, stops) {
+	const data = renderer.skyStopData;
+	for (let index = 0; index < stops.length; index++) {
+		const stop = stops[index];
+		const offset = index * 4;
+		data[offset]     = stop.r;
+		data[offset + 1] = stop.g;
+		data[offset + 2] = stop.b;
+		data[offset + 3] = stop.a;
+	}
+	return data;
 }
 
 // Both surfaces upload here, so a rollover queued before first draw is consumed too.
@@ -1438,6 +1532,12 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		return null;
 	}
 
+	const skyShader = createSkyProgram(gl);
+	if (!skyShader) {
+		Log("ENGINE", "Failed to create sky shader.", "error", "Render");
+		return null;
+	}
+
 	const blendShader = createBlendProgram(gl);
 	if (!blendShader) {
 		Log("ENGINE", "Failed to create texture blend shader.", "error", "Render");
@@ -1457,9 +1557,12 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		decalShader,
 		scatterDecalShader,
 		entityTriplanarShader,
+		skyShader,
 		blendShader,
 		blendFramebuffer,
 		blendQuad: null,
+		skyQuad: null,
+		skyStopData: new Float32Array(SKY_STOP_LIMIT * 4),
 		animatedSources: new Map(),
 		drawnTextures: new Set(),
 		meshBuffers: new Map(),
@@ -1509,7 +1612,7 @@ function collectRenderableMeshes(sceneGraph) {
 	};
 
 	sceneGraph.obstacles.forEach((record) => {
-		if (record.mode !== "default") return;
+		if (record.mode !== "default" || !record.performance.rendering) return;
 		record.parts.forEach((part) => obstacles.push(part));
 	});
 	sceneGraph.entities.forEach((entity) => {
@@ -1521,7 +1624,7 @@ function collectRenderableMeshes(sceneGraph) {
 	});
 
 	// Scatter and triggers are excluded — scatter via instanced path, triggers via post-scatter pass.
-	const terrain = sceneGraph.terrain.filter((mesh) => mesh.meta.mode === "default");
+	const terrain = sceneGraph.terrain.filter((mesh) => mesh.meta.mode === "default" && mesh.performance.rendering);
 	return { terrain, obstacles, entitiesUv, entitiesTriplanar, entitiesTranslucent };
 }
 
@@ -1534,14 +1637,38 @@ function sortBackToFront(meshes, cameraPosition) {
 	meshes.sort((a, b) => distancesSq.get(b) - distancesSq.get(a));
 }
 
+function applySkyUniforms(gl, shader, passState) {
+	gl.uniform4fv(shader.uniforms.skyStops, passState.skyStops);
+	gl.uniform1i(shader.uniforms.skyStopCount, passState.skyStopCount);
+	gl.uniform3f(shader.uniforms.waterTint, passState.waterTint.r, passState.waterTint.g, passState.waterTint.b);
+	gl.uniform1f(shader.uniforms.underwater, passState.underwaterValue);
+}
+
 function configureTexturedMeshPass(gl, shader, passState) {
 	gl.useProgram(shader.program);
 	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(passState.projection));
 	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(passState.view));
-	gl.uniform1f(shader.uniforms.fogDensity, passState.fogDensity);
-	gl.uniform1f(shader.uniforms.far, passState.farValue);
+	gl.uniform1f(shader.uniforms.fogFull, passState.fogFull);
 	gl.uniform3f(shader.uniforms.colorShift, passState.colorShift.r, passState.colorShift.g, passState.colorShift.b);
-	gl.uniform1f(shader.uniforms.underwater, passState.underwaterValue);
+	applySkyUniforms(gl, shader, passState);
+}
+
+// Depth-neutral: with DEPTH_TEST off nothing writes depth, so the pass never occludes later geometry.
+function drawSkyPass(renderer, passState) {
+	const gl = renderer.gl;
+	const quad = ensureSkyQuad(renderer);
+	if (!quad) return;
+
+	const shader = renderer.skyShader;
+	gl.disable(gl.DEPTH_TEST);
+	gl.useProgram(shader.program);
+	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(passState.view));
+	gl.uniform2f(shader.uniforms.rayScale, 1 / passState.projection[0], 1 / passState.projection[5]);
+	applySkyUniforms(gl, shader, passState);
+	gl.bindVertexArray(quad.vao);
+	gl.drawElements(gl.TRIANGLES, quad.indexCount, gl.UNSIGNED_SHORT, 0);
+	gl.bindVertexArray(null);
+	gl.enable(gl.DEPTH_TEST);
 }
 
 function ensureMeshBuffer(renderer, mesh, shader) {
@@ -1801,9 +1928,10 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 		entity.model.parts.forEach((part) => drawDecalsForMesh(part.mesh));
 	});
 	sceneGraph.obstacles.forEach((obstacle) => {
+		if (!obstacle.performance.rendering) return;
 		obstacle.parts.forEach((part) => drawDecalsForMesh(part));
 	});
-	sceneGraph.terrain.forEach((mesh) => drawDecalsForMesh(mesh));
+	sceneGraph.terrain.forEach((mesh) => { if (mesh.performance.rendering) drawDecalsForMesh(mesh); });
 
 	gl.bindVertexArray(null);
 	endDecalState(gl);
@@ -1952,14 +2080,24 @@ function drawScene(renderer, sceneGraph) {
 	);
 	const view = createLookAtMatrix(cameraState.position, cameraState.target, cameraState.up);
 
-	const waterLevelCnu = sceneGraph.world.waterLevel === null ? null : sceneGraph.world.waterLevel.value;
+	const waterLevelCnu = sceneGraph.world.water.level === null ? null : sceneGraph.world.water.level.value;
 	const underwater = waterLevelCnu !== null && cameraState.position.y < waterLevelCnu;
-	const fogDensity = underwater ? 0.85 : 0.2;
 	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
-	const farValue = cameraState.far.value;
 	const underwaterValue = underwater ? 1 : 0;
-	const cullRadius = GetSimDistanceValue().toWorldUnit() * PERFORMANCE_SCALING.SimDistance.Fractions.Scatter.Cull;
-	const passState = { projection, view, fogDensity, farValue, colorShift, underwaterValue, cullRadius };
+	const simDistance = GetSimDistanceValue().toWorldUnit();
+	const worldInstances = PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances;
+	const fogPercent = underwater ? CONFIG.RENDERING.Fog.Water : CONFIG.RENDERING.Fog.Air;
+	const fogFull = simDistance * worldInstances.Cull * worldInstances.Fog * (fogPercent / 100);
+	const cullRadius = simDistance * PERFORMANCE_SCALING.SimDistance.Fractions.Scatter.Cull;
+	const skyStops = sceneGraph.world.skybox.stops;
+	const passState = {
+		projection, view, fogFull, colorShift, underwaterValue, cullRadius,
+		skyStops    : fillSkyStops(renderer, skyStops),
+		skyStopCount: skyStops.length,
+		waterTint   : sceneGraph.world.water.tint,
+	};
+
+	drawSkyPass(renderer, passState);
 
 	if (
 		underwater &&

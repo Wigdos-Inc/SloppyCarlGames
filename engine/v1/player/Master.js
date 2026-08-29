@@ -277,11 +277,11 @@ const GetPlayerInput = () => playerInputFlags;
 const PlayerAPI = {
 	Input      : playerInputFlags,
 	GetState   : GetPlayerState,
-	SetPosition: (x, y, z) => {
-		playerState.transform.position.set({ x, y, z });
+	SetPosition: (v) => {
+		playerState.transform.position.set(v);
 		playerState.velocity.set(ToVector3(0));
-		playerState.jumpStartY.value = y;
-		playerState.jumpApexY.value = y;
+		playerState.jumpStartY.value = v.y;
+		playerState.jumpApexY.value = v.y;
 		UpdatePlayerModel();
 	},
 };

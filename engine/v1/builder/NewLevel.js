@@ -104,16 +104,16 @@ function buildTriggerMesh(triggerDefinition, world, index) {
 }
 
 function buildWaterVisualMeshes(world, faceTextureStore) {
-	if (!world.waterLevel) return null;
+	if (!world.water.level) return null;
 
 	const centerX     = world.length.value * 0.5;
 	const centerZ     = world.width.value * 0.5;
-	const waterBottom = Clamp(world.waterLevel.value - 0.1, 0, world.deathBarrierY.value);
-	const waterHeight = Math.max(0.1, world.waterLevel.value - waterBottom);
+	const waterBottom = Clamp(world.water.level.value - 0.1, 0, world.deathBarrierY.value);
+	const waterHeight = Math.max(0.1, world.water.level.value - waterBottom);
 
 	const { mesh: body } = BuildObject(
 		{
-			id              : `water-body-${world.length.value}-${world.width.value}-${waterBottom}-${world.waterLevel.value}`,
+			id              : `water-body-${world.length.value}-${world.width.value}-${waterBottom}-${world.water.level.value}`,
 			shape           : "cube",
 			complexity      : "medium",
 			dimensions      : new UnitVector3(world.length.value, waterHeight, world.width.value, "cnu"),
@@ -141,10 +141,10 @@ function buildWaterVisualMeshes(world, faceTextureStore) {
 
 	const { mesh: top } = BuildObject(
 		{
-			id: `water-top-${world.length.value}-${world.width.value}-${world.waterLevel.value}`,
+			id: `water-top-${world.length.value}-${world.width.value}-${world.water.level.value}`,
 			shape: "plane", complexity: "medium",
 			dimensions      : new UnitVector3(world.length.value, 1, world.width.value, "cnu"),
-			position        : new UnitVector3( centerX, world.waterLevel.value + 0.02, centerZ, "cnu"),
+			position        : new UnitVector3( centerX, world.water.level.value + 0.02, centerZ, "cnu"),
 			rotation        : new UnitVector3(0, 0, 0, "radians"),
 			scale           : ToVector3(1),
 			pivot           : new UnitVector3(0, 0, 0, "cnu"),

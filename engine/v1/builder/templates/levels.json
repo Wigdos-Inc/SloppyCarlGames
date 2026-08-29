@@ -7,6 +7,14 @@
             "width": 20,
             "height": 20,
             "deathBarrierY": -50,
+            "water": {
+                "level": null,
+                "tint": { "r": 0.03, "g": 0.13, "b": 0.2, "a": 1 }
+            },
+            "skybox": {
+                "mode": "fill",
+                "color": { "r": 0.04, "g": 0.05, "b": 0.08, "a": 1 }
+            },
             "textureScale": 1,
             "scatterScale": 0
         },
@@ -38,7 +46,7 @@
                             "id": "stone-block",
                             "shape": null,
                             "primary": null,
-                            "secondary": { "r": 0.68, "g": 0.72, "b": 0.78, "a": 1 },
+                            "secondary": { "r": 0.68, "g": 0.72, "b": 0.78, "a": 1 },
                             "density": 1,
                             "speckSize": 1,
                             "animated": false,

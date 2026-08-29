@@ -690,15 +690,64 @@
           "deprecated": false
         }
       },
-      "waterLevel": {
+      "water": {
         "__meta": {
-          "description": "World water level",
+          "description": "World water block",
           "aliases": [],
-          "dataType": "number",
+          "dataType": "object",
           "isRequired": false,
-          "isExpected": false,
-          "fallback": null,
+          "isExpected": true,
+          "fallback": {},
           "deprecated": false
+        },
+        "level": {
+          "__meta": {
+            "description": "World water level, null when the world has no water",
+            "aliases": [],
+            "dataType": "number",
+            "isRequired": false,
+            "isExpected": false,
+            "fallback": null,
+            "deprecated": false
+          }
+        },
+        "tint": {
+          "__meta": {
+            "description": "Underwater view colour",
+            "aliases": [],
+            "dataType": "object",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": { "r": 0.03, "g": 0.13, "b": 0.2, "a": 1 },
+            "deprecated": false
+          },
+          "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0.03, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0.13, "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0.2,  "range": { "min": 0, "max": 1 }, "deprecated": false } },
+          "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1,    "range": { "min": 0, "max": 1 }, "deprecated": false } }
+        }
+      },
+      "skybox": {
+        "__meta": {
+          "description": "Skybox block; 'color' is shape-conditional on 'mode' and resolved in normalize.js. Gradient stops run horizon to zenith, evenly spaced",
+          "aliases": [],
+          "dataType": "object",
+          "isRequired": true,
+          "isExpected": true,
+          "fallback": {},
+          "deprecated": false
+        },
+        "mode": {
+          "__meta": {
+            "description": "Skybox colour mode",
+            "aliases": [],
+            "dataType": "string",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": "fill",
+            "allowedValues": ["fill", "gradient"],
+            "deprecated": false
+          }
         }
       },
       "textureScale": {

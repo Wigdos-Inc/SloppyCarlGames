@@ -1,7 +1,7 @@
 import { Unit } from "../math/Utilities.js";
 
 /* === CONFIG === */
-// Base values and rule switches for the engine.
+// Base values and rule switches for the engine and game-facing API.
 
 
 const settings = JSON.parse(localStorage.getItem("settings")) ?? null;
@@ -104,7 +104,7 @@ const CONFIG = {
     Gravity   : { 
       Enabled         : true, 
       Strength        : new Unit(10, "cnu"), 
-      TerminalVelocity: { Air: new Unit(30, "cnu"), Water: new Unit(3, "cnu") } 
+      TerminalVelocity: { Air: new Unit(30, "cnu"), Water: new Unit(12, "cnu") } 
     },
     Resistance: { Enabled: true },
     Buoyancy  : { 
@@ -148,17 +148,21 @@ const CONFIG = {
       Stripes: { Density: 1, SpeckSize: 1 },
       Grid   : { Density: 1, SpeckSize: 1 },
     },
+    Fog: { Air: 100, Water: 60 },            // Fog reach %, 20-100; >100 saturates past the cull radius and pops in
   }
 };
+
+// Max authorable skybox gradient stops.
+const SKY_STOP_LIMIT = 10;
 
 // Engine-internal performance-related scaling.
 const PERFORMANCE_SCALING = {
   SimDistance: {
-    Tiers    : { Low: new Unit(50, "cnu"), Medium: new Unit(80, "cnu"), High: new Unit(120, "cnu"), Ultra: new Unit(200, "cnu") },
+    Tiers    : { Low: new Unit(50, "cnu"), Medium: new Unit(100, "cnu"), High: new Unit(150, "cnu"), Ultra: new Unit(250, "cnu") },
     Fractions: {
       Scatter         : { Cull: 0.70, Fade: 0.40 },                   // Cull relative to SimDistance; Fade relative to Cull
       TextureAnimation: { StopBake : 0.60 },
-      WorldInstances  : { Cull: 1.5 }
+      WorldInstances  : { Cull: 1.5, Fog: 0.90 }                      // Cull relative to SimDistance; Fog relative to Cull
     }
   },
   Density: {
@@ -168,13 +172,11 @@ const PERFORMANCE_SCALING = {
   Animation: {
     Entities: { Disabled: 0, Low: 0.25, Medium: 0.50, High: 1 }       // Frame correction budget
   },
-  Loop: {
-    MaxSubsteps: 4                                                    // Physics ticks per frame before time dilates
-  }
+  Loop: { MaxSubsteps: 4 }                                            // Physics ticks per frame before time dilates
 }
 
 
 /* === EXPORTS === */
 // Public configuration surface for engine modules.
 
-export { CONFIG, PERFORMANCE_SCALING };
+export { CONFIG, PERFORMANCE_SCALING, SKY_STOP_LIMIT };

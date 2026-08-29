@@ -469,12 +469,12 @@
 		"meta": { 
 			"maxSpeed": 25, 
 			"acceleration": 25, 
-			"deceleration": 5, 
+			"deceleration": 10, 
 			"stoppingThresholdRatio": 0.35, 
-			"airControl": 0.2, 
+			"airControl": 0.5, 
 			"underwaterAirControl": 0.8, 
 			"momentumTurnRate": 14, 
-			"jumpHeight": 2, 
+			"jumpHeight": 2.5, 
 			"airFloatiness": 1, 
 			"waterFloatiness": 4 
 		},

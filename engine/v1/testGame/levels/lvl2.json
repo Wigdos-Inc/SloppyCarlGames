@@ -1,0 +1,3549 @@
+{
+	"levels": [
+		{
+			"id": "level1",
+			"title": "Mechanical Test Range",
+			"stages": [
+				{
+					"id": "stage0",
+					"title": "Mechanical Test Range",
+					"world": {
+						"length": 1200,
+						"width": 1000,
+						"height": 120,
+						"deathBarrierY": 5,
+						"water": {
+							"level": 33,
+							"tint": {"r":0.03,"g":0.13,"b":0.2,"a":1}
+						},
+						"skybox": {
+							"mode": "gradient",
+							"color": [
+								{"r":0.62,"g":0.66,"b":0.72,"a":1},
+								{"r":0.16,"g":0.34,"b":0.66,"a":1}
+							]
+						},
+						"textureScale": 2,
+						"scatterScale": 1
+					},
+					"camera": {
+						"distance": 6,
+						"sensitivity": 0.12,
+						"heightOffset": 1.5,
+						"levelOpening": {
+							"startPosition": {"x":640,"y":30,"z":570},
+							"endPosition": {"x":640,"y":30,"z":570}
+						}
+					},
+					"player": {
+						"character": "carl",
+						"spawnPosition": {"x":640,"y":12,"z":500},
+						"scale": {"x":1,"y":1,"z":1}
+					},
+					"terrain": {
+						"objects": [
+							{
+								"id": "hub-platform",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":260,"y":14,"z":240},
+								"position": {"x":560,"y":22,"z":500},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.42,"g":0.46,"b":0.54,"a":1}
+							},
+							{
+								"id": "start-platform",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":100,"y":4,"z":90},
+								"position": {"x":640,"y":6,"z":500},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.24,"g":0.44,"b":0.48,"a":1}
+							},
+							{
+								"id": "uw-runway-floor",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":460,"y":4,"z":30},
+								"position": {"x":920,"y":6,"z":500},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"color": {"r":0.2,"g":0.34,"b":0.4,"a":1}
+							},
+							{
+								"id": "uw-runway-wall-north",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":460,"y":22,"z":4},
+								"position": {"x":920,"y":10,"z":483},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"color": {"r":0.16,"g":0.26,"b":0.31,"a":1}
+							},
+							{
+								"id": "uw-runway-wall-south",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":460,"y":22,"z":4},
+								"position": {"x":920,"y":10,"z":517},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"color": {"r":0.16,"g":0.26,"b":0.31,"a":1}
+							},
+							{
+								"id": "shared-runway-slab",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":460,"y":4,"z":38},
+								"position": {"x":920,"y":32,"z":500},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"color": {"r":0.46,"g":0.48,"b":0.52,"a":1}
+							},
+							{
+								"id": "aw-runway-wall-north",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":460,"y":12,"z":4},
+								"position": {"x":920,"y":36,"z":483},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"color": {"r":0.52,"g":0.54,"b":0.58,"a":1}
+							},
+							{
+								"id": "aw-runway-wall-south",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":460,"y":12,"z":4},
+								"position": {"x":920,"y":36,"z":517},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"color": {"r":0.52,"g":0.54,"b":0.58,"a":1}
+							},
+							{
+								"id": "runway-link-void",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":8,"z":26},
+								"position": {"x":1130,"y":30,"z":500},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "main-slope-00",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":3,"z":8},
+								"position": {"x":640,"y":7,"z":451},
+								"rotation": {"x":0,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.68,"g":0.42,"b":0.22,"a":1}
+							},
+							{
+								"id": "main-slope-01",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":3,"z":7.039},
+								"position": {"x":640,"y":7.376,"z":443.343},
+								"rotation": {"x":6,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.68,"g":0.39999999999999997,"b":0.22,"a":1}
+							},
+							{
+								"id": "main-slope-02",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":3,"z":7.156},
+								"position": {"x":640,"y":8.512,"z":436.188},
+								"rotation": {"x":12,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.68,"g":0.38,"b":0.22,"a":1}
+							},
+							{
+								"id": "main-slope-03",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":3,"z":6.309},
+								"position": {"x":640,"y":10.272,"z":429.536},
+								"rotation": {"x":18,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.68,"g":0.36,"b":0.22,"a":1}
+							},
+							{
+								"id": "main-slope-04",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":3,"z":6.568},
+								"position": {"x":640,"y":12.639,"z":423.39},
+								"rotation": {"x":24,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.68,"g":0.33999999999999997,"b":0.22,"a":1}
+							},
+							{
+								"id": "main-slope-05",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":3,"z":5.774},
+								"position": {"x":640,"y":15.489,"z":417.75},
+								"rotation": {"x":30,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.68,"g":0.31999999999999995,"b":0.22,"a":1}
+							},
+							{
+								"id": "main-slope-06",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":3,"z":4.944},
+								"position": {"x":640,"y":18.471,"z":413.118},
+								"rotation": {"x":36,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.68,"g":0.3,"b":0.22,"a":1}
+							},
+							{
+								"id": "main-slope-07",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":3,"z":4.037},
+								"position": {"x":640,"y":21.373,"z":409.496},
+								"rotation": {"x":42,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.68,"g":0.27999999999999997,"b":0.22,"a":1}
+							},
+							{
+								"id": "main-slope-08",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":3,"z":4.483},
+								"position": {"x":640,"y":24.501,"z":406.385},
+								"rotation": {"x":48,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.68,"g":0.26,"b":0.22,"a":1}
+							},
+							{
+								"id": "main-slope-09",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":3,"z":4.253},
+								"position": {"x":640,"y":28.009,"z":403.536},
+								"rotation": {"x":54,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.68,"g":0.24,"b":0.22,"a":1}
+							},
+							{
+								"id": "main-slope-10",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":40,"y":3,"z":4.49},
+								"position": {"x":640,"y":31.806,"z":401.078},
+								"rotation": {"x":60,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.68,"g":0.21999999999999997,"b":0.22,"a":1}
+							},
+							{
+								"id": "hub-pierce-void",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":44,"y":18,"z":44},
+								"position": {"x":640,"y":20,"z":406.156},
+								"rotation": {"x":55,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "hub-pierce-mouth",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":44,"y":14,"z":26},
+								"position": {"x":640,"y":22,"z":402},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "slope-field-platform",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":220,"y":8,"z":220},
+								"position": {"x":320,"y":28,"z":500},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.5,"g":0.44,"b":0.3,"a":1}
+							},
+							{
+								"id": "obstacle-field-platform",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":135,"y":8,"z":140},
+								"position": {"x":502.5,"y":28,"z":310},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.46,"g":0.34,"b":0.34,"a":1}
+							},
+							{
+								"id": "enemy-field-platform",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":115,"y":8,"z":140},
+								"position": {"x":632.5,"y":28,"z":310},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.4,"g":0.34,"b":0.46,"a":1}
+							},
+							{
+								"id": "collectible-field-platform",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":125,"y":8,"z":140},
+								"position": {"x":497.5,"y":28,"z":690},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.48,"g":0.46,"b":0.28,"a":1}
+							},
+							{
+								"id": "trigger-zone-platform",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":125,"y":8,"z":140},
+								"position": {"x":627.5,"y":28,"z":690},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.3,"g":0.42,"b":0.44,"a":1}
+							},
+							{
+								"id": "swirl-path-00",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":26,"y":8,"z":34},
+								"position": {"x":326.466,"y":28,"z":626.629},
+								"rotation": {"x":0,"y":12,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.34,"g":0.46,"b":0.36,"a":1}
+							},
+							{
+								"id": "swirl-path-01",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":26,"y":8,"z":34},
+								"position": {"x":313.043,"y":28,"z":651.389},
+								"rotation": {"x":0,"y":40,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.34,"g":0.46,"b":0.36,"a":1}
+							},
+							{
+								"id": "swirl-path-02",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":26,"y":8,"z":34},
+								"position": {"x":289.568,"y":28,"z":666.95},
+								"rotation": {"x":0,"y":68,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.34,"g":0.46,"b":0.36,"a":1}
+							},
+							{
+								"id": "swirl-path-03",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":26,"y":8,"z":34},
+								"position": {"x":261.535,"y":28,"z":673.222},
+								"rotation": {"x":0,"y":84,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.34,"g":0.46,"b":0.36,"a":1}
+							},
+							{
+								"id": "swirl-path-04",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":26,"y":8,"z":34},
+								"position": {"x":234.59,"y":28,"z":682.458},
+								"rotation": {"x":0,"y":62,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.34,"g":0.46,"b":0.36,"a":1}
+							},
+							{
+								"id": "swirl-path-05",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":26,"y":8,"z":34},
+								"position": {"x":215.495,"y":28,"z":702.814},
+								"rotation": {"x":0,"y":30,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.34,"g":0.46,"b":0.36,"a":1}
+							},
+							{
+								"id": "swirl-path-06",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":26,"y":8,"z":34},
+								"position": {"x":195.569,"y":28,"z":722.957},
+								"rotation": {"x":0,"y":55,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.34,"g":0.46,"b":0.36,"a":1}
+							},
+							{
+								"id": "swirl-path-07",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":26,"y":8,"z":34},
+								"position": {"x":169.111,"y":28,"z":733.374},
+								"rotation": {"x":0,"y":78,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.34,"g":0.46,"b":0.36,"a":1}
+							},
+							{
+								"id": "swiss-cheese-platform",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":260,"y":8,"z":200},
+								"position": {"x":157,"y":28,"z":836},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.44,"g":0.44,"b":0.5,"a":1}
+							},
+							{
+								"id": "swiss-central-void",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":84,"y":10,"z":84},
+								"position": {"x":157,"y":26,"z":836},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-walkway-ew",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":100,"y":8,"z":9},
+								"position": {"x":157,"y":28,"z":836},
+								"texture": {"generated":{"id":"default-grid"}},
+								"nullable": false,
+								"color": {"r":0.72,"g":0.62,"b":0.24,"a":1}
+							},
+							{
+								"id": "swiss-walkway-ns",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":9,"y":8,"z":100},
+								"position": {"x":157,"y":28,"z":836},
+								"texture": {"generated":{"id":"default-grid"}},
+								"nullable": false,
+								"color": {"r":0.72,"g":0.62,"b":0.24,"a":1}
+							},
+							{
+								"id": "swiss-hole-00",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":6,"y":10,"z":6},
+								"position": {"x":252.295,"y":26,"z":916.887},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-01",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":5,"y":10,"z":5},
+								"position": {"x":43.969,"y":26,"z":914.672},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-02",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":6,"y":10,"z":6},
+								"position": {"x":260.425,"y":26,"z":756.703},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-03",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":5,"y":10,"z":5},
+								"position": {"x":58.773,"y":26,"z":920.98},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-04",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":5,"y":10,"z":5},
+								"position": {"x":201.108,"y":26,"z":881.746},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-05",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":5,"y":10,"z":5},
+								"position": {"x":60.408,"y":26,"z":790.055},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-06",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":4,"y":10,"z":4},
+								"position": {"x":68.83,"y":26,"z":898.489},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-07",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":5,"y":10,"z":5},
+								"position": {"x":250.876,"y":26,"z":813.578},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-08",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":5,"y":10,"z":5},
+								"position": {"x":198.388,"y":26,"z":765.17},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-09",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":15,"y":10,"z":15},
+								"position": {"x":124.078,"y":26,"z":757.223},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-10",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":7,"y":10,"z":7},
+								"position": {"x":253.868,"y":26,"z":829.045},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-11",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":12,"y":10,"z":12},
+								"position": {"x":41.93,"y":26,"z":828.138},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-12",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":5,"y":10,"z":5},
+								"position": {"x":70.269,"y":26,"z":768.22},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-13",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":5,"y":10,"z":5},
+								"position": {"x":102.413,"y":26,"z":921.52},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-14",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":15,"y":10,"z":15},
+								"position": {"x":190.428,"y":26,"z":904.035},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-15",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":15,"y":10,"z":15},
+								"position": {"x":43.464,"y":26,"z":891.597},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-16",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":15,"y":10,"z":15},
+								"position": {"x":261.885,"y":26,"z":863.604},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-17",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":5,"y":10,"z":5},
+								"position": {"x":106.408,"y":26,"z":796.939},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-18",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":5,"y":10,"z":5},
+								"position": {"x":236.767,"y":26,"z":921.404},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-19",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":21,"y":10,"z":21},
+								"position": {"x":220.725,"y":26,"z":763.39},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-20",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":15,"y":10,"z":15},
+								"position": {"x":80.823,"y":26,"z":853.718},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-21",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":6,"y":10,"z":6},
+								"position": {"x":72.305,"y":26,"z":888.322},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-22",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":7,"y":10,"z":7},
+								"position": {"x":268.903,"y":26,"z":889.214},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-23",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":9,"y":10,"z":9},
+								"position": {"x":237.173,"y":26,"z":779.824},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-24",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":7,"y":10,"z":7},
+								"position": {"x":38.603,"y":26,"z":769.767},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "swiss-hole-25",
+								"shape": "cylinder",
+								"complexity": "medium",
+								"dimensions": {"x":18,"y":10,"z":18},
+								"position": {"x":163.286,"y":26,"z":751.743},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "underwater-massif",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":160,"y":16,"z":220},
+								"position": {"x":510,"y":6,"z":500},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"color": {"r":0.26,"g":0.3,"b":0.34,"a":1}
+							},
+							{
+								"id": "uw-tube-uturn",
+								"shape": "tube",
+								"complexity": "medium",
+								"dimensions": {"x":11,"y":0,"z":11},
+								"position": {"x":590,"y":16,"z":468},
+								"rotation": {"x":0,"y":0,"z":90},
+								"primitiveOptions": {
+									"thickness": 1,
+									"curved": true,
+									"smoothness": 1,
+									"solid": true,
+									"nodes": [
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":70,"z":0},
+											"localRotation": {"x":0,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":16,"z":0},
+											"localRotation": {"x":30,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":16,"z":0},
+											"localRotation": {"x":30,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":16,"z":0},
+											"localRotation": {"x":30,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":16,"z":0},
+											"localRotation": {"x":30,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":16,"z":0},
+											"localRotation": {"x":30,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":16,"z":0},
+											"localRotation": {"x":30,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":86,"z":0},
+											"localRotation": {"x":0,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										}
+									]
+								},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "uw-tube-winding",
+								"shape": "tube",
+								"complexity": "medium",
+								"dimensions": {"x":11,"y":0,"z":11},
+								"position": {"x":590,"y":16,"z":560},
+								"rotation": {"x":0,"y":0,"z":90},
+								"primitiveOptions": {
+									"thickness": 1,
+									"curved": true,
+									"smoothness": 1,
+									"solid": true,
+									"nodes": [
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":45,"z":0},
+											"localRotation": {"x":0,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":20,"z":0},
+											"localRotation": {"x":-35,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":22,"z":0},
+											"localRotation": {"x":45,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":20,"z":0},
+											"localRotation": {"x":-30,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":18,"z":0},
+											"localRotation": {"x":0,"y":0,"z":-45},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":14,"z":0},
+											"localRotation": {"x":0,"y":0,"z":-45},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":10.101,"z":0},
+											"localRotation": {"x":0,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										}
+									]
+								},
+								"texture": {"generated":{"id":"default-tiles"}},
+								"mode": "void",
+								"color": {"r":0.1,"g":0.11,"b":0.12,"a":0.6}
+							},
+							{
+								"id": "slope-field-halfpipe",
+								"shape": "template",
+								"template": "halfpipe",
+								"position": {"x":320,"y":36,"z":420},
+								"rotation": {"x":0,"y":0,"z":0},
+								"scale": {"x":26,"y":3,"z":3}
+							},
+							{
+								"id": "slope-fixed-ramp-15",
+								"shape": "ramp-simple",
+								"complexity": "medium",
+								"dimensions": {"x":18,"y":5.359,"z":20},
+								"position": {"x":240,"y":36,"z":500},
+								"primitiveOptions": {
+									"angle": 15
+								},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
+							},
+							{
+								"id": "slope-fixed-cube-15",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":18,"y":2,"z":16},
+								"position": {"x":240,"y":41.464,"z":517.986},
+								"rotation": {"x":-15,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.62,"g":0.44,"b":0.3,"a":1}
+							},
+							{
+								"id": "slope-fixed-ramp-25",
+								"shape": "ramp-simple",
+								"complexity": "medium",
+								"dimensions": {"x":18,"y":9.326,"z":20},
+								"position": {"x":285,"y":36,"z":500},
+								"primitiveOptions": {
+									"angle": 25
+								},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
+							},
+							{
+								"id": "slope-fixed-cube-25",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":18,"y":2,"z":16},
+								"position": {"x":285,"y":46.801,"z":517.673},
+								"rotation": {"x":-25,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.62,"g":0.44,"b":0.3,"a":1}
+							},
+							{
+								"id": "slope-fixed-ramp-35",
+								"shape": "ramp-simple",
+								"complexity": "medium",
+								"dimensions": {"x":18,"y":14.004,"z":20},
+								"position": {"x":330,"y":36,"z":500},
+								"primitiveOptions": {
+									"angle": 35
+								},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
+							},
+							{
+								"id": "slope-fixed-cube-35",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":18,"y":2,"z":16},
+								"position": {"x":330,"y":52.774,"z":517.127},
+								"rotation": {"x":-35,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.62,"g":0.44,"b":0.3,"a":1}
+							},
+							{
+								"id": "slope-fixed-ramp-45",
+								"shape": "ramp-simple",
+								"complexity": "medium",
+								"dimensions": {"x":18,"y":20,"z":20},
+								"position": {"x":375,"y":36,"z":500},
+								"primitiveOptions": {
+									"angle": 45
+								},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
+							},
+							{
+								"id": "slope-fixed-cube-45",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":18,"y":2,"z":16},
+								"position": {"x":375,"y":59.95,"z":516.364},
+								"rotation": {"x":-45,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.62,"g":0.44,"b":0.3,"a":1}
+							},
+							{
+								"id": "slope-fixed-ramp-55",
+								"shape": "ramp-simple",
+								"complexity": "medium",
+								"dimensions": {"x":18,"y":28.563,"z":20},
+								"position": {"x":420,"y":36,"z":500},
+								"primitiveOptions": {
+									"angle": 55
+								},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
+							},
+							{
+								"id": "slope-fixed-cube-55",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":18,"y":2,"z":16},
+								"position": {"x":420,"y":69.543,"z":515.408},
+								"rotation": {"x":-55,"y":0,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.62,"g":0.44,"b":0.3,"a":1}
+							},
+							{
+								"id": "aw-runway-descent-ramp",
+								"shape": "ramp-simple",
+								"complexity": "medium",
+								"dimensions": {"x":26,"y":6,"z":40},
+								"position": {"x":1090,"y":36,"z":500},
+								"rotation": {"x":0,"y":90,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.56,"g":0.52,"b":0.44,"a":1}
+							},
+							{
+								"id": "complex-geo-ground",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":390,"y":8,"z":310},
+								"position": {"x":885,"y":28,"z":775},
+								"texture": {
+									"generated": {
+										"id": "grassland",
+										"shape": "circle"
+									}
+								},
+								"detail": {
+									"scatter": [
+										{
+											"typeID": "grass",
+											"density": 10
+										},
+										{
+											"typeID": "pebbles",
+											"density": 0.4
+										},
+										{
+											"typeID": "bushes",
+											"density": 0.3
+										},
+										{
+											"typeID": "leaves",
+											"density": 0.5
+										},
+										{
+											"typeID": "branches",
+											"density": 0.2
+										}
+									]
+								}
+							},
+							{
+								"id": "cave-wall",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":130,"y":60,"z":200},
+								"position": {"x":1015,"y":36,"z":820},
+								"texture": {"generated":{"id":"stone-block"}},
+								"detail": {
+									"scatter": [
+										{
+											"typeID": "pebbles",
+											"density": 0.3
+										}
+									]
+								}
+							},
+							{
+								"id": "cave-tunnel",
+								"shape": "tube",
+								"complexity": "medium",
+								"dimensions": {"x":13,"y":0,"z":13},
+								"position": {"x":950,"y":46,"z":830},
+								"rotation": {"x":0,"y":0,"z":-90},
+								"primitiveOptions": {
+									"thickness": 1,
+									"curved": true,
+									"smoothness": 1,
+									"solid": true,
+									"nodes": [
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":28,"z":0},
+											"localRotation": {"x":0,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":20,"z":0},
+											"localRotation": {"x":30,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":20,"z":0},
+											"localRotation": {"x":-38,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										},
+										{
+											"dimensions": {"x":11,"y":0,"z":11},
+											"thickness": 1,
+											"localPosition": {"x":0,"y":16,"z":0},
+											"localRotation": {"x":22,"y":0,"z":0},
+											"curved": true,
+											"smoothness": 1
+										}
+									]
+								},
+								"texture": {"generated":{"id":"stone-block"}},
+								"mode": "void"
+							},
+							{
+								"id": "cave-chamber-a",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":34,"y":22,"z":30},
+								"position": {"x":1031.165,"y":40,"z":837.773},
+								"rotation": {"x":0,"y":18,"z":0},
+								"texture": {"generated":{"id":"stone-block"}},
+								"mode": "void"
+							},
+							{
+								"id": "cave-chamber-b",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":26,"y":16,"z":34},
+								"position": {"x":1043.165,"y":42,"z":851.773},
+								"rotation": {"x":12,"y":-40,"z":8},
+								"texture": {"generated":{"id":"stone-block"}},
+								"mode": "void"
+							},
+							{
+								"id": "cave-chamber-c",
+								"shape": "sphere",
+								"complexity": "medium",
+								"dimensions": {"x":26,"y":26,"z":26},
+								"position": {"x":1021.165,"y":46,"z":849.773},
+								"rotation": {"x":0,"y":0,"z":0},
+								"texture": {"generated":{"id":"stone-block"}},
+								"mode": "void"
+							},
+							{
+								"id": "cave-chamber-d",
+								"shape": "cube",
+								"complexity": "medium",
+								"dimensions": {"x":22,"y":26,"z":20},
+								"position": {"x":1039.165,"y":44,"z":825.773},
+								"rotation": {"x":-22,"y":35,"z":14},
+								"texture": {"generated":{"id":"stone-block"}},
+								"mode": "void"
+							},
+							{
+								"id": "cave-chamber-e",
+								"shape": "sphere",
+								"complexity": "medium",
+								"dimensions": {"x":20,"y":20,"z":20},
+								"position": {"x":1047.165,"y":41,"z":831.773},
+								"rotation": {"x":0,"y":0,"z":0},
+								"texture": {"generated":{"id":"stone-block"}},
+								"mode": "void"
+							}
+						],
+						"triggers": [
+							{
+								"id": "trigger-placeholder-00",
+								"type": "custom",
+								"start": {"x":576,"y":36,"z":647},
+								"end": {"x":590,"y":36,"z":661},
+								"payload": {
+									"slot": 0
+								},
+								"activateOnce": false
+							},
+							{
+								"id": "trigger-placeholder-01",
+								"type": "custom",
+								"start": {"x":598,"y":36,"z":647},
+								"end": {"x":612,"y":36,"z":661},
+								"payload": {
+									"slot": 1
+								},
+								"activateOnce": false
+							},
+							{
+								"id": "trigger-placeholder-02",
+								"type": "custom",
+								"start": {"x":620,"y":36,"z":647},
+								"end": {"x":634,"y":36,"z":661},
+								"payload": {
+									"slot": 2
+								},
+								"activateOnce": false
+							},
+							{
+								"id": "trigger-placeholder-03",
+								"type": "custom",
+								"start": {"x":642,"y":36,"z":647},
+								"end": {"x":656,"y":36,"z":661},
+								"payload": {
+									"slot": 3
+								},
+								"activateOnce": false
+							},
+							{
+								"id": "trigger-placeholder-04",
+								"type": "custom",
+								"start": {"x":664,"y":36,"z":647},
+								"end": {"x":678,"y":36,"z":661},
+								"payload": {
+									"slot": 4
+								},
+								"activateOnce": false
+							},
+							{
+								"id": "trigger-placeholder-05",
+								"type": "custom",
+								"start": {"x":576,"y":36,"z":707},
+								"end": {"x":590,"y":36,"z":721},
+								"payload": {
+									"slot": 5
+								},
+								"activateOnce": false
+							},
+							{
+								"id": "trigger-placeholder-06",
+								"type": "custom",
+								"start": {"x":598,"y":36,"z":707},
+								"end": {"x":612,"y":36,"z":721},
+								"payload": {
+									"slot": 6
+								},
+								"activateOnce": false
+							},
+							{
+								"id": "trigger-placeholder-07",
+								"type": "custom",
+								"start": {"x":620,"y":36,"z":707},
+								"end": {"x":634,"y":36,"z":721},
+								"payload": {
+									"slot": 7
+								},
+								"activateOnce": false
+							},
+							{
+								"id": "trigger-placeholder-08",
+								"type": "custom",
+								"start": {"x":642,"y":36,"z":707},
+								"end": {"x":656,"y":36,"z":721},
+								"payload": {
+									"slot": 8
+								},
+								"activateOnce": false
+							},
+							{
+								"id": "trigger-placeholder-09",
+								"type": "custom",
+								"start": {"x":664,"y":36,"z":707},
+								"end": {"x":678,"y":36,"z":721},
+								"payload": {
+									"slot": 9
+								},
+								"activateOnce": false
+							}
+						]
+					},
+					"obstacles": [
+						{
+							"id": "boulder-00",
+							"shape": "sphere",
+							"complexity": "low",
+							"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+							"position": {"x":509.729,"y":36,"z":336.922},
+							"scale": {"x":1.721,"y":1.721,"z":1.721},
+							"texture": {"generated":{"id":"default-tiles"}},
+							"parts": [
+								{
+									"id": "boulder-00-core",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-00-lumpA",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":4.1,"y":4.1,"z":4.1},
+									"localPosition": {"x":-2.2,"y":-0.4,"z":1.1},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-00-lumpB",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3.6,"y":3.6,"z":3.6},
+									"localPosition": {"x":2,"y":-0.6,"z":-1.3},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-00-lumpC",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3,"y":3,"z":3},
+									"localPosition": {"x":0.4,"y":1.6,"z":-1.9},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								}
+							],
+							"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+						},
+						{
+							"id": "boulder-01",
+							"shape": "sphere",
+							"complexity": "low",
+							"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+							"position": {"x":521.832,"y":36,"z":345.425},
+							"scale": {"x":1.295,"y":1.295,"z":1.295},
+							"texture": {"generated":{"id":"default-tiles"}},
+							"parts": [
+								{
+									"id": "boulder-01-core",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-01-lumpA",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":4.1,"y":4.1,"z":4.1},
+									"localPosition": {"x":-2.2,"y":-0.4,"z":1.1},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-01-lumpB",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3.6,"y":3.6,"z":3.6},
+									"localPosition": {"x":2,"y":-0.6,"z":-1.3},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-01-lumpC",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3,"y":3,"z":3},
+									"localPosition": {"x":0.4,"y":1.6,"z":-1.9},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								}
+							],
+							"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+						},
+						{
+							"id": "boulder-02",
+							"shape": "sphere",
+							"complexity": "low",
+							"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+							"position": {"x":524.188,"y":36,"z":264.313},
+							"scale": {"x":1.34,"y":1.34,"z":1.34},
+							"texture": {"generated":{"id":"default-tiles"}},
+							"parts": [
+								{
+									"id": "boulder-02-core",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-02-lumpA",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":4.1,"y":4.1,"z":4.1},
+									"localPosition": {"x":-2.2,"y":-0.4,"z":1.1},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-02-lumpB",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3.6,"y":3.6,"z":3.6},
+									"localPosition": {"x":2,"y":-0.6,"z":-1.3},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-02-lumpC",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3,"y":3,"z":3},
+									"localPosition": {"x":0.4,"y":1.6,"z":-1.9},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								}
+							],
+							"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+						},
+						{
+							"id": "boulder-03",
+							"shape": "sphere",
+							"complexity": "low",
+							"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+							"position": {"x":509.062,"y":36,"z":360.164},
+							"scale": {"x":1.29,"y":1.29,"z":1.29},
+							"texture": {"generated":{"id":"default-tiles"}},
+							"parts": [
+								{
+									"id": "boulder-03-core",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-03-lumpA",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":4.1,"y":4.1,"z":4.1},
+									"localPosition": {"x":-2.2,"y":-0.4,"z":1.1},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-03-lumpB",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3.6,"y":3.6,"z":3.6},
+									"localPosition": {"x":2,"y":-0.6,"z":-1.3},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-03-lumpC",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3,"y":3,"z":3},
+									"localPosition": {"x":0.4,"y":1.6,"z":-1.9},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								}
+							],
+							"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+						},
+						{
+							"id": "boulder-04",
+							"shape": "sphere",
+							"complexity": "low",
+							"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+							"position": {"x":531.956,"y":36,"z":322.561},
+							"scale": {"x":1.475,"y":1.475,"z":1.475},
+							"texture": {"generated":{"id":"default-tiles"}},
+							"parts": [
+								{
+									"id": "boulder-04-core",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-04-lumpA",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":4.1,"y":4.1,"z":4.1},
+									"localPosition": {"x":-2.2,"y":-0.4,"z":1.1},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-04-lumpB",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3.6,"y":3.6,"z":3.6},
+									"localPosition": {"x":2,"y":-0.6,"z":-1.3},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-04-lumpC",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3,"y":3,"z":3},
+									"localPosition": {"x":0.4,"y":1.6,"z":-1.9},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								}
+							],
+							"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+						},
+						{
+							"id": "boulder-05",
+							"shape": "sphere",
+							"complexity": "low",
+							"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+							"position": {"x":476.995,"y":36,"z":305.628},
+							"scale": {"x":0.968,"y":0.968,"z":0.968},
+							"texture": {"generated":{"id":"default-tiles"}},
+							"parts": [
+								{
+									"id": "boulder-05-core",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-05-lumpA",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":4.1,"y":4.1,"z":4.1},
+									"localPosition": {"x":-2.2,"y":-0.4,"z":1.1},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-05-lumpB",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3.6,"y":3.6,"z":3.6},
+									"localPosition": {"x":2,"y":-0.6,"z":-1.3},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-05-lumpC",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3,"y":3,"z":3},
+									"localPosition": {"x":0.4,"y":1.6,"z":-1.9},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								}
+							],
+							"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+						},
+						{
+							"id": "boulder-06",
+							"shape": "sphere",
+							"complexity": "low",
+							"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+							"position": {"x":491.558,"y":36,"z":285.524},
+							"scale": {"x":1.298,"y":1.298,"z":1.298},
+							"texture": {"generated":{"id":"default-tiles"}},
+							"parts": [
+								{
+									"id": "boulder-06-core",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-06-lumpA",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":4.1,"y":4.1,"z":4.1},
+									"localPosition": {"x":-2.2,"y":-0.4,"z":1.1},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-06-lumpB",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3.6,"y":3.6,"z":3.6},
+									"localPosition": {"x":2,"y":-0.6,"z":-1.3},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-06-lumpC",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3,"y":3,"z":3},
+									"localPosition": {"x":0.4,"y":1.6,"z":-1.9},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								}
+							],
+							"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+						},
+						{
+							"id": "boulder-07",
+							"shape": "sphere",
+							"complexity": "low",
+							"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+							"position": {"x":517.167,"y":36,"z":337.331},
+							"scale": {"x":1.587,"y":1.587,"z":1.587},
+							"texture": {"generated":{"id":"default-tiles"}},
+							"parts": [
+								{
+									"id": "boulder-07-core",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-07-lumpA",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":4.1,"y":4.1,"z":4.1},
+									"localPosition": {"x":-2.2,"y":-0.4,"z":1.1},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-07-lumpB",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3.6,"y":3.6,"z":3.6},
+									"localPosition": {"x":2,"y":-0.6,"z":-1.3},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-07-lumpC",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3,"y":3,"z":3},
+									"localPosition": {"x":0.4,"y":1.6,"z":-1.9},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								}
+							],
+							"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+						},
+						{
+							"id": "boulder-08",
+							"shape": "sphere",
+							"complexity": "low",
+							"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+							"position": {"x":495.571,"y":36,"z":258.184},
+							"scale": {"x":1.701,"y":1.701,"z":1.701},
+							"texture": {"generated":{"id":"default-tiles"}},
+							"parts": [
+								{
+									"id": "boulder-08-core",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-08-lumpA",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":4.1,"y":4.1,"z":4.1},
+									"localPosition": {"x":-2.2,"y":-0.4,"z":1.1},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-08-lumpB",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3.6,"y":3.6,"z":3.6},
+									"localPosition": {"x":2,"y":-0.6,"z":-1.3},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-08-lumpC",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3,"y":3,"z":3},
+									"localPosition": {"x":0.4,"y":1.6,"z":-1.9},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								}
+							],
+							"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+						},
+						{
+							"id": "boulder-09",
+							"shape": "sphere",
+							"complexity": "low",
+							"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+							"position": {"x":456.719,"y":36,"z":322.38},
+							"scale": {"x":1.14,"y":1.14,"z":1.14},
+							"texture": {"generated":{"id":"default-tiles"}},
+							"parts": [
+								{
+									"id": "boulder-09-core",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-09-lumpA",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":4.1,"y":4.1,"z":4.1},
+									"localPosition": {"x":-2.2,"y":-0.4,"z":1.1},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-09-lumpB",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3.6,"y":3.6,"z":3.6},
+									"localPosition": {"x":2,"y":-0.6,"z":-1.3},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-09-lumpC",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3,"y":3,"z":3},
+									"localPosition": {"x":0.4,"y":1.6,"z":-1.9},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								}
+							],
+							"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+						},
+						{
+							"id": "boulder-10",
+							"shape": "sphere",
+							"complexity": "low",
+							"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+							"position": {"x":533.019,"y":36,"z":342.794},
+							"scale": {"x":1.488,"y":1.488,"z":1.488},
+							"texture": {"generated":{"id":"default-tiles"}},
+							"parts": [
+								{
+									"id": "boulder-10-core",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":5.2,"z":5.2},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-10-lumpA",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":4.1,"y":4.1,"z":4.1},
+									"localPosition": {"x":-2.2,"y":-0.4,"z":1.1},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-10-lumpB",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3.6,"y":3.6,"z":3.6},
+									"localPosition": {"x":2,"y":-0.6,"z":-1.3},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								},
+								{
+									"id": "boulder-10-lumpC",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":3,"y":3,"z":3},
+									"localPosition": {"x":0.4,"y":1.6,"z":-1.9},
+									"texture": {"generated":{"id":"default-tiles"}},
+									"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+								}
+							],
+							"color": {"r":0.4,"g":0.38,"b":0.36,"a":1}
+						},
+						{
+							"id": "collectible-field-sign",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":497.5,"y":36,"z":632},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "collectible-field-sign-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "collectible-field-sign-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": [
+											{
+												"decalType": "shape",
+												"shape": "circle",
+												"side": "front",
+												"color": {"r":0.98,"g":0.8,"b":0.18,"a":1},
+												"localTransform": {
+													"position": {"x":0,"y":0,"z":0},
+													"rotation": 0,
+													"scale": {"x":2,"y":2,"z":1}
+												}
+											}
+										]
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						},
+						{
+							"id": "trigger-sign-00",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":594,"y":36,"z":665},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "trigger-sign-00-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "trigger-sign-00-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": []
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						},
+						{
+							"id": "trigger-sign-01",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":616,"y":36,"z":665},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "trigger-sign-01-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "trigger-sign-01-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": []
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						},
+						{
+							"id": "trigger-sign-02",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":638,"y":36,"z":665},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "trigger-sign-02-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "trigger-sign-02-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": []
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						},
+						{
+							"id": "trigger-sign-03",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":660,"y":36,"z":665},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "trigger-sign-03-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "trigger-sign-03-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": []
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						},
+						{
+							"id": "trigger-sign-04",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":682,"y":36,"z":665},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "trigger-sign-04-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "trigger-sign-04-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": []
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						},
+						{
+							"id": "trigger-sign-05",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":594,"y":36,"z":725},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "trigger-sign-05-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "trigger-sign-05-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": []
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						},
+						{
+							"id": "trigger-sign-06",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":616,"y":36,"z":725},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "trigger-sign-06-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "trigger-sign-06-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": []
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						},
+						{
+							"id": "trigger-sign-07",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":638,"y":36,"z":725},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "trigger-sign-07-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "trigger-sign-07-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": []
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						},
+						{
+							"id": "trigger-sign-08",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":660,"y":36,"z":725},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "trigger-sign-08-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "trigger-sign-08-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": []
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						},
+						{
+							"id": "trigger-sign-09",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":682,"y":36,"z":725},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "trigger-sign-09-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "trigger-sign-09-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": []
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						},
+						{
+							"id": "cg-tree-00",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":745.938,"y":36,"z":874.622},
+							"scale": {"x":1.276,"y":1.276,"z":1.276},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-00-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-00-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-00-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-01",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":1041.826,"y":36,"z":692.093},
+							"scale": {"x":1.006,"y":1.006,"z":1.006},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-01-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-01-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-01-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-02",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":865.79,"y":36,"z":790.257},
+							"scale": {"x":1.103,"y":1.103,"z":1.103},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-02-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-02-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-02-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-03",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":835.95,"y":36,"z":804.76},
+							"scale": {"x":1.232,"y":1.232,"z":1.232},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-03-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-03-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-03-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-04",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":998.716,"y":36,"z":653.242},
+							"scale": {"x":1.21,"y":1.21,"z":1.21},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-04-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-04-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-04-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-05",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":762.1,"y":36,"z":814.498},
+							"scale": {"x":1.209,"y":1.209,"z":1.209},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-05-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-05-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-05-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-06",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":785.364,"y":36,"z":681.02},
+							"scale": {"x":1.532,"y":1.532,"z":1.532},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-06-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-06-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-06-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-07",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":977.251,"y":36,"z":703.269},
+							"scale": {"x":0.883,"y":0.883,"z":0.883},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-07-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-07-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-07-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-08",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":960.804,"y":36,"z":681.093},
+							"scale": {"x":1.21,"y":1.21,"z":1.21},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-08-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-08-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-08-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-09",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":1056.664,"y":36,"z":706.93},
+							"scale": {"x":0.853,"y":0.853,"z":0.853},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-09-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-09-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-09-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-10",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":907.636,"y":36,"z":873.172},
+							"scale": {"x":1.239,"y":1.239,"z":1.239},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-10-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-10-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-10-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-11",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":757.321,"y":36,"z":669.757},
+							"scale": {"x":1.19,"y":1.19,"z":1.19},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-11-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-11-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-11-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-12",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":779.808,"y":36,"z":829.887},
+							"scale": {"x":1.28,"y":1.28,"z":1.28},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-12-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-12-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-12-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-13",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":847.411,"y":36,"z":665.765},
+							"scale": {"x":1.194,"y":1.194,"z":1.194},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-13-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-13-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-13-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-14",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":978.445,"y":36,"z":693.027},
+							"scale": {"x":1.343,"y":1.343,"z":1.343},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-14-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-14-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-14-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-15",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":876.024,"y":36,"z":652.007},
+							"scale": {"x":0.876,"y":0.876,"z":0.876},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-15-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-15-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-15-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-16",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":828.23,"y":36,"z":865.952},
+							"scale": {"x":0.955,"y":0.955,"z":0.955},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-16-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-16-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-16-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-17",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":1043.447,"y":36,"z":640.299},
+							"scale": {"x":0.938,"y":0.938,"z":0.938},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-17-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-17-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-17-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-18",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":797.732,"y":36,"z":898.322},
+							"scale": {"x":1.143,"y":1.143,"z":1.143},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-18-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-18-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-18-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-19",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":715.069,"y":36,"z":725.873},
+							"scale": {"x":1.56,"y":1.56,"z":1.56},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-19-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-19-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-19-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-20",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":842.738,"y":36,"z":688.342},
+							"scale": {"x":0.965,"y":0.965,"z":0.965},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-20-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-20-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-20-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "cg-tree-21",
+							"shape": "cylinder",
+							"complexity": "medium",
+							"dimensions": {"x":1.6,"y":7,"z":1.6},
+							"position": {"x":899.85,"y":36,"z":726.888},
+							"scale": {"x":1.236,"y":1.236,"z":1.236},
+							"texture": {"generated":{"id":"wood-stump"}},
+							"parts": [
+								{
+									"id": "cg-tree-21-trunk",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cylinder",
+									"complexity": "medium",
+									"dimensions": {"x":1.6,"y":7,"z":1.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-stump"}}
+								},
+								{
+									"id": "cg-tree-21-canopyLow",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":7.2,"y":5.4,"z":7.2},
+									"localPosition": {"x":0,"y":6,"z":0},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								},
+								{
+									"id": "cg-tree-21-canopyHigh",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "sphere",
+									"complexity": "low",
+									"dimensions": {"x":5.2,"y":4.4,"z":5.2},
+									"localPosition": {"x":0.8,"y":9,"z":-0.6},
+									"texture": {"generated":{"id":"tree-leaves-green"}}
+								}
+							]
+						},
+						{
+							"id": "sonic-loop-marker-sign",
+							"shape": "cube",
+							"complexity": "medium",
+							"dimensions": {"x":0.6,"y":5,"z":0.6},
+							"position": {"x":730,"y":36,"z":775},
+							"texture": {"generated":{"id":"wood-planks"}},
+							"parts": [
+								{
+									"id": "sonic-loop-marker-sign-post",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":0.6,"y":5,"z":0.6},
+									"localPosition": {"x":0,"y":0,"z":0},
+									"texture": {"generated":{"id":"wood-planks"}},
+									"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+								},
+								{
+									"id": "sonic-loop-marker-sign-panel",
+									"parentId": "root",
+									"anchorPoint": "center",
+									"attachmentPoint": "center",
+									"shape": "cube",
+									"complexity": "medium",
+									"dimensions": {"x":4.4,"y":3,"z":0.3},
+									"localPosition": {"x":0,"y":4,"z":0},
+									"texture": {
+										"generated": {
+											"id": "wood-planks"
+										},
+										"custom": []
+									},
+									"color": {"r":0.56,"g":0.42,"b":0.27,"a":1}
+								}
+							],
+							"color": {"r":0.42,"g":0.31,"b":0.2,"a":1}
+						}
+					],
+					"entities": [
+						{
+							"id": "slope-watcher-15",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "slope-field-platform",
+							"rootTransform": {
+								"position": {"x":-80,"y":0,"z":-24},
+								"rotation": {"x":0,"y":180,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "slope-watcher-25",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "slope-field-platform",
+							"rootTransform": {
+								"position": {"x":-35,"y":0,"z":-24},
+								"rotation": {"x":0,"y":180,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "slope-watcher-35",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "slope-field-platform",
+							"rootTransform": {
+								"position": {"x":10,"y":0,"z":-24},
+								"rotation": {"x":0,"y":180,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "slope-watcher-45",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "slope-field-platform",
+							"rootTransform": {
+								"position": {"x":55,"y":0,"z":-24},
+								"rotation": {"x":0,"y":180,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "slope-watcher-55",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "slope-field-platform",
+							"rootTransform": {
+								"position": {"x":100,"y":0,"z":-24},
+								"rotation": {"x":0,"y":180,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-00",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":28.437,"y":0,"z":56.409},
+								"rotation": {"x":0,"y":90,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-01",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":19.843,"y":0,"z":23.247},
+								"rotation": {"x":0,"y":4,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-02",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":-19.199,"y":0,"z":-33.86},
+								"rotation": {"x":0,"y":252,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-03",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":45.203,"y":0,"z":11.145},
+								"rotation": {"x":0,"y":305,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-04",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":-4.805,"y":0,"z":50.499},
+								"rotation": {"x":0,"y":242,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-05",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":5.437,"y":0,"z":-57.818},
+								"rotation": {"x":0,"y":347,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-06",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":3.373,"y":0,"z":22.637},
+								"rotation": {"x":0,"y":110,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-07",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":9.46,"y":0,"z":30.846},
+								"rotation": {"x":0,"y":276,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-08",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":38.13,"y":0,"z":28.769},
+								"rotation": {"x":0,"y":161,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-09",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":8.496,"y":0,"z":34.063},
+								"rotation": {"x":0,"y":70,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-10",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":-27.79,"y":0,"z":26.693},
+								"rotation": {"x":0,"y":121,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						},
+						{
+							"id": "enemy-placeholder-11",
+							"type": "entity",
+							"blueprintId": "entity.blocky-placeholder",
+							"spawnSurfaceId": "enemy-field-platform",
+							"rootTransform": {
+								"position": {"x":28.567,"y":0,"z":15.046},
+								"rotation": {"x":0,"y":152,"z":0},
+								"scale": {"x":1,"y":1,"z":1}
+							}
+						}
+					]
+				}
+			]
+		}
+	]
+}

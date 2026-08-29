@@ -5,9 +5,9 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log, SendEvent, EPSILON } from "../core/meta.js";
-import { AbsoluteVector3, CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
+import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence } from "./Forces.js";
-import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, ResetCollisionPools, ProbeGroundContact, GetEntityPhysicsFlags } from "./Collision.js";
+import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, ResetCollisionPools, ProbeGroundContact, GetEntityPhysicsFlags, BroadphaseCollectCandidates } from "./Collision.js";
 import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation } from "./Correction.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";
 import { UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
@@ -122,7 +122,13 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 
 		UpdateEntityModelFromTransform(entity);
 
-		if (isPlayer) groundContact = ProbeGroundContact(entity, sceneGraph, physicsState.groundSnapTolerance);
+		if (isPlayer) {
+			// Broadphase ran before this iteration's correction; only a move invalidates its candidates.
+			const probeCandidates = overlapResolution.changedPosition
+				? BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb, false, false)
+				: overlaps.candidates;
+			groundContact = ProbeGroundContact(entity, sceneGraph, physicsState.groundSnapTolerance, probeCandidates);
+		}
 		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact) : noResult.correction;
 		const orientation = applyCorrection ? ApplyPlayerSurfaceOrientation(entity) : noResult.orientation;
 		hadMeaningfulWork = hadMeaningfulWork || correction.anyChanged || orientation.anyChanged;
@@ -176,7 +182,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 	const physicsState = {
 		deltaSeconds,
 		submergence: 0,
-		waterLevel: sceneGraph.world.waterLevel,
+		waterLevel: sceneGraph.world.water.level,
 		// Anti-phasing tolerance (CNU), owned here and consumed by ground probe/snap.
 		groundSnapTolerance: 0.01,
 		gravity: {
@@ -200,7 +206,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 	};
 
 	if (physicsState.buoyancy.enabled || physicsState.resistance.enabled) {
-		physicsState.submergence = GetSubmergence(entity, sceneGraph.world.waterLevel);
+		physicsState.submergence = GetSubmergence(entity, sceneGraph.world.water.level);
 		entity.submergence = physicsState.submergence;
 		entity.underwater   = physicsState.submergence >= 0.5;
 		entity.buoyancyForce = 0;

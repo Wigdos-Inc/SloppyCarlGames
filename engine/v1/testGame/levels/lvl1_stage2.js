@@ -58,7 +58,7 @@ function preprocessWorld(world, cnuScale) {
 	nextWorld.width = divideScalar(nextWorld.width, cnuScale);
 	nextWorld.height = divideScalar(nextWorld.height, cnuScale);
 	nextWorld.deathBarrierY = divideScalar(nextWorld.deathBarrierY, cnuScale);
-	if (typeof nextWorld.waterLevel === "number") nextWorld.waterLevel = divideScalar(nextWorld.waterLevel, cnuScale);
+	if (typeof nextWorld.water.level === "number") nextWorld.water.level = divideScalar(nextWorld.water.level, cnuScale);
 	return nextWorld;
 }
 

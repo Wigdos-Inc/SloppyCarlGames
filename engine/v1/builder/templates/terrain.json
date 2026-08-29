@@ -1,1 +1,90 @@
-{}
+{
+	"halfpipe": {
+		"shared": {
+			"dimensions": { "x": 8, "y": 4, "z": 14 },
+			"scale": { "x": 1, "y": 1, "z": 1 },
+			"pivot": { "x": 0, "y": 0, "z": 0 },
+			"texture": {
+				"generated": {
+					"id": "default-grid",
+					"shape": null,
+					"compositeMode": null,
+					"primary": { "r": 0.45, "g": 0.47, "b": 0.55, "a": 1 },
+					"secondary": null,
+					"density": 1,
+					"speckSize": 1,
+					"animated": false,
+					"holdTimeSpeed": 1,
+					"blendTimeSpeed": 1
+				},
+				"custom": []
+			},
+			"detail": { "scatter": [] },
+			"collisionShape": "triangle-soup",
+			"mode": "default",
+			"nullable": true
+		},
+		"parts": [
+			{
+				"id": "curve",
+				"parentId": "root",
+				"anchorPoint": "center",
+				"attachmentPoint": "center",
+				"shape": "ramp-complex",
+				"complexity": "high",
+				"dimensions": { "x": 8, "y": 4, "z": 4 },
+				"localPosition": { "x": 0, "y": 0, "z": 0 },
+				"localRotation": { "x": 0, "y": 0, "z": 0 },
+				"localScale": { "x": 1, "y": 1, "z": 1 },
+				"pivot": { "x": 0, "y": 0, "z": 0 },
+				"primitiveOptions": { "angle": 0 },
+				"texture": {
+					"generated": {
+						"id": "default-grid",
+						"shape": null,
+						"compositeMode": null,
+						"primary": { "r": 0.44, "g": 0.50, "b": 0.58, "a": 1 },
+						"secondary": null,
+						"density": 1,
+						"speckSize": 1,
+						"animated": false,
+						"holdTimeSpeed": 1,
+						"blendTimeSpeed": 1
+					},
+					"custom": []
+				},
+				"detail": { "scatter": [] }
+			},
+			{
+				"id": "deck",
+				"parentId": "root",
+				"anchorPoint": "center",
+				"attachmentPoint": "center",
+				"shape": "cube",
+				"complexity": "medium",
+				"dimensions": { "x": 8, "y": 4, "z": 6 },
+				"localPosition": { "x": 0, "y": 0, "z": 5 },
+				"localRotation": { "x": 0, "y": 0, "z": 0 },
+				"localScale": { "x": 1, "y": 1, "z": 1 },
+				"pivot": { "x": 0, "y": 0, "z": 0 },
+				"primitiveOptions": {},
+				"texture": {
+					"generated": {
+						"id": "default-tiles",
+						"shape": null,
+						"compositeMode": null,
+						"primary": { "r": 0.38, "g": 0.42, "b": 0.50, "a": 1 },
+						"secondary": null,
+						"density": 1,
+						"speckSize": 1,
+						"animated": false,
+						"holdTimeSpeed": 1,
+						"blendTimeSpeed": 1
+					},
+					"custom": []
+				},
+				"detail": { "scatter": [] }
+			}
+		]
+	}
+}

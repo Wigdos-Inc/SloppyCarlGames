@@ -17,7 +17,14 @@
                         "width": 80,
                         "height": 40,
                         "deathBarrierY": -20,
-                        "waterLevel": 9,
+                        "water": {
+                            "level": 9,
+                            "tint": { "r": 0.03, "g": 0.13, "b": 0.2, "a": 1 }
+                        },
+                        "skybox": {
+                            "mode": "fill",
+                            "color": { "r": 0.04, "g": 0.05, "b": 0.08, "a": 1 }
+                        },
                         "textureScale": 2,
                         "scatterScale": 1
                     },
@@ -784,7 +791,14 @@
                         "width": 20,
                         "height": 8,
                         "deathBarrierY": -6,
-                        "waterLevel": null,
+                        "water": {
+                            "level": null,
+                            "tint": { "r": 0.03, "g": 0.13, "b": 0.2, "a": 1 }
+                        },
+                        "skybox": {
+                            "mode": "fill",
+                            "color": { "r": 0.04, "g": 0.05, "b": 0.08, "a": 1 }
+                        },
                         "textureScale": 2,
                         "scatterScale": 1
                     },
