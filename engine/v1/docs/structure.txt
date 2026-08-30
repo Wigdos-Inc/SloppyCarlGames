@@ -24,7 +24,7 @@ engine/
       NewScatter.js // Procedurally generated multi-part static object scatter models placed on top of meshes.
       NewTexture.js // Procedurally generated texture mapping onto meshes.
       NewUI.js // Builder of UI components (mainly HTML elements)
-      NewVoid.js // Classifies null-space mesh faces and builds void wall renderable meshes (used by NewLevel.js)
+      NewVoid.js // Builds void wall meshes and clips host surfaces to the void solid for openings (used by NewLevel.js)
       templates/
         Instance.js // Boot-time Unit-instancing of engine-owned template JSON; exports InstanceEngineTemplates() (called from core/ini.js)
         characters.json // Character templates (shape:"template" refs of type "character")
@@ -49,6 +49,7 @@ engine/
         Collectible.js // Collectible item behavior
         Enemy.js // Enemy behavior handler
         Level.js // Level lifecycle and orchestration (entire level state manager)
+        Performance.js // Per-instance physics/rendering distance flags, resolved once per tick
         Simulator.js // Simulator mode lifecycle and live scene preview orchestration
         Texture.js // Custom texture and sprite loading onto meshes. Includes animated texture handling.
       menu/
@@ -64,7 +65,7 @@ engine/
       Master.js // Cutscene state manager.
 
     math/
-      Collision.js // Physics math helpers: overlap, sweep, ray, and projection calculations
+      Collision.js // Physics math helpers: overlap, sweep, ray, projection, and closed-mesh solid queries
       Curves.js // Easings, cubic-Bezier tube connector centerlines, and rotation-minimizing frames
       Forces.js // Pure gravity, buoyancy, resistance, and submergence math helpers
       Matrix.js // 4x4 matrix creation and transform composition helpers

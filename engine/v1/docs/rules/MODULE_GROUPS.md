@@ -47,7 +47,7 @@ State managers. These orchestrate the behaviours of other module groups.
 
 ### Sub-structure
 
-- `handlers/game/` — Handlers specific to in-game (level) state: `Level.js`, `Camera.js`, `Enemy.js`, `Collectible.js`, `Animation.js`, `Boss.js`, `Texture.js`, `Simulator.js`.
+- `handlers/game/` — Handlers specific to in-game (level) state: `Level.js`, `Camera.js`, `Enemy.js`, `Collectible.js`, `Animation.js`, `Boss.js`, `Performance.js`, `Texture.js`, `Simulator.js`.
 - `handlers/menu/` — Handlers for menu state: `Credits.js`, `LoadScreen.js`, `Splash.js`.
 - `handlers/` (root) — Cross-cutting handlers: `Render.js`, `Sound.js`, `UI.js`, `Controls.js`, `Cutscene.js`.
 
@@ -116,6 +116,15 @@ Modules within the same tier may import from each other freely. The one-directio
 - This exception applies only to normalization-time lookups of allowed IDs/defaults.
 - `core/normalize.js` must not call builder runtime functions or depend on builder execution flow.
 - This exception does not apply to any other `core/` module.
+
+### Restricted Consumer: `core/normalize.js`
+
+The rule above governs what `normalize.js` may import. This one governs who may import *it*.
+
+- `core/normalize.js` functions may only be called by `core/validate.js`. Normalization is a boundary step, and routing every caller through validation is what keeps it one.
+- **Single exception:** `NormalizeImage` may be imported by any module. Bitmap creation is required to preload image assets, which cannot wait for the payload boundary.
+- No other `normalize.js` export may be imported outside `core/`.
+- A module needing normalized data takes it from the validated payload, never by calling `normalize.js` itself.
 
 ---
 
