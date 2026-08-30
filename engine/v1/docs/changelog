@@ -1,1 +1,49 @@
 # Changelog (engine/v1/)
+
+## Void classification logging aggregated
+
+**What:** Void classification now emits one summary line per level build instead of one line per void. `logVoidRelations` became `accumulateVoidTotals`, which folds each void's relation counts into a shared `totals` object; `BuildVoidWalls` owns the object and logs it once after both builders run. The line reports voids, hosts, voidWalls, openFaces, and maxPerHost with the id of the void owning that maximum. Channel and level are unchanged (`"log"`, `"Level"`).
+
+**Where:**
+- `engine/v1/builder/NewVoid.js:380-391` — `logVoidRelations` replaced by `accumulateVoidTotals(totals, id, relations)`; tracks `maxPerHostId` alongside `maxPerHost`.
+- `engine/v1/builder/NewVoid.js:393`, `:420` — `buildTerrainVoidWalls` and `buildObstacleVoidWalls` take `totals` as a fourth parameter.
+- `engine/v1/builder/NewVoid.js:416`, `:451` — per-void `Log` calls replaced by `accumulateVoidTotals`.
+- `engine/v1/builder/NewVoid.js:455-462` — `BuildVoidWalls` initialises `totals` and emits the single aggregate line.
+
+## Void collision suppression tests containment
+
+**What:** Void meshes and void obstacle records now carry `solidTriangles`, their world-space triangle geometry, built from the `buildWorldTriangles` result the carving pass already computes per void. The two suppression tests attempt the existing `NarrowphaseTest` against `detailedBounds` first, then fall back to exact `PointInsideMesh` ray-parity containment against `solidTriangles`. Containment is an additional accept path, not a replacement, so suppression can only widen. Obstacle void records aggregate the triangles of all their parts into one soup.
+
+**Where:**
+- `engine/v1/builder/NewVoid.js:416` — terrain void meshes assign `mesh.solidTriangles`.
+- `engine/v1/builder/NewVoid.js:436`, `:439`, `:454` — obstacle void records accumulate part triangles into `record.solidTriangles`.
+- `engine/v1/physics/Collision.js:38` — `PointInsideMesh` added to the `math/Collision.js` import.
+- `engine/v1/physics/Collision.js:520` — `isVoidCancelled` containment fallback on the entity AABB centre.
+- `engine/v1/physics/Collision.js:532` — `IsPointInSuppressingVoid` containment fallback on the support point.
+
+## Void wall cavity normals from sampled winding
+
+**What:** `classifyFaces` no longer derives cavity-facing normals from a `meshCenter` vertex average. A new `resolveCavitySign` samples up to `cavitySampleCount` strided triangles, probes `centroid + normal * interiorSampleDepth`, ray-parity tests each with `PointInsideMesh`, and takes the majority; the resulting sign is applied to every triangle's winding normal. `meshCenter` is removed. `classifyFaces` takes the void's world triangles as a third parameter.
+
+**Where:**
+- `engine/v1/builder/NewVoid.js:19` — new `cavitySampleCount` module local.
+- `engine/v1/builder/NewVoid.js:101-114` — `resolveCavitySign`.
+- `engine/v1/builder/NewVoid.js:116` — `classifyFaces(voidMesh, defaultMeshes, voidTriangles)`.
+- `engine/v1/builder/NewVoid.js:124-129` — `cavityNormal` drops its centroid parameter and scales by the resolved sign.
+- `engine/v1/builder/NewVoid.js:415`, `:453` — both call sites pass `voidTriangles`.
+
+## Triplanar sampling for non-noise void walls
+
+**What:** Void walls built on a non-noise host texture now declare `geometry.triplanar` and `material.textureScale: 1`, and are drawn through the triplanar shader. `drawVoidWalls` delegates to a new `drawVoidWallBucket`, which partitions each stencil bucket by `meshUsesTriplanar` so each run draws with its own shader. The noise branch is unchanged and keeps per-face baked textures.
+
+**Where:**
+- `engine/v1/builder/NewVoid.js:367-380` — non-noise void wall mesh gains `material.textureScale` and `geometry.triplanar`.
+- `engine/v1/handlers/Render.js:2055-2058` — new `drawVoidWallBucket`.
+- `engine/v1/handlers/Render.js:2060-2065` — `drawVoidWalls` routes both buckets through it.
+
+## offsetAabb preserves Unit instancing
+
+**What:** `offsetAabb` built its result with `AddVector3`, returning plain vectors from a `UnitVector3`-backed AABB. It now uses `.clone().add(offset)`, matching `offsetDetailedBounds`, `computeEntityAabb` and `computeExpandedAabb`.
+
+**Where:**
+- `engine/v1/physics/Collision.js:496-501` — `offsetAabb`.
