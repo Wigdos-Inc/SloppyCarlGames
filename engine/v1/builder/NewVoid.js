@@ -16,6 +16,7 @@ import { AddVector3, CrossVector3, DivideVector3, DotVector3, ScaleVector3, Subt
 const centroidSphereRadius = new Unit(0.001, "cnu");
 const interiorSampleDepth  = new Unit(0.001, "cnu");
 const minimumOpenFaceArea  = 0.000001;
+const cavitySampleCount    = 32;
 
 function windingNormal(a, b, c) {
 	const n = CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a));
@@ -95,26 +96,36 @@ function groupCoplanarFaceTriples(srcPositions, faceTriples) {
 	return normalGroups;
 }
 
-function classifyFaces(voidMesh, defaultMeshes) {
+// Winding is uniform per primitive, so one sampled majority decides it for the whole mesh.
+// Per-triangle parity would be O(n²) — a medium tube is ~2000 triangles.
+function resolveCavitySign(triangles) {
+	const step = Math.max(1, Math.floor(triangles.length / cavitySampleCount));
+	let inside = 0, sampled = 0;
+
+	for (let i = 0; i < triangles.length; i += step) {
+		const triangle = triangles[i];
+		const centroid = DivideVector3(AddVector3(AddVector3(triangle.a, triangle.b), triangle.c), ToVector3(3));
+		const probe    = AddVector3(centroid, ScaleVector3(triangle.normal, interiorSampleDepth.value));
+		if (PointInsideMesh(probe, triangles)) inside++;
+		sampled++;
+	}
+
+	return inside * 2 >= sampled ? 1 : -1;
+}
+
+function classifyFaces(voidMesh, defaultMeshes, voidTriangles) {
 	const modelMatrix = CreateModelMatrix(voidMesh.transform);
 	const positions   = voidMesh.geometry.positions;
 	const indices     = voidMesh.geometry.indices;
 	const groups      = new Map();
+	const cavitySign  = resolveCavitySign(voidTriangles);
 
-	// Compute mesh center in CNU by averaging all transformed vertex positions.
-	let center = ToVector3(0);
-	const vertCount = positions.length / 3;
-	for (let i = 0; i < vertCount; i++) {
-		center = AddVector3(center, TransformPointByMatrix({ x: positions[i * 3], y: positions[i * 3 + 1], z: positions[i * 3 + 2] }, modelMatrix));
-	}
-	const meshCenter = DivideVector3(center, ToVector3(vertCount));
-
-	// Cavity-facing authored normal: winding normal oriented toward the mesh center.
-	const cavityNormal = (w0, w1, w2, centroid) => {
+	// Cavity-facing authored normal: winding normal turned toward the void interior.
+	const cavityNormal = (w0, w1, w2) => {
 		const winding = CrossVector3(SubtractVector3(w1, w0), SubtractVector3(w2, w0));
 		const windingLen = Math.sqrt(Vector3Sq(winding));
 		const unitWinding = windingLen > 0 ? DivideVector3(winding, ToVector3(windingLen)) : WORLD_NORMALS.Up;
-		return DotVector3(unitWinding, SubtractVector3(meshCenter, centroid)) >= 0 ? unitWinding : ScaleVector3(unitWinding, -1);
+		return ScaleVector3(unitWinding, cavitySign);
 	};
 
 	for (let i = 0; i < indices.length; i += 3) {
@@ -149,7 +160,7 @@ function classifyFaces(voidMesh, defaultMeshes) {
 		if (!groups.has(best.id)) groups.set(best.id, { defaultMesh: best, faceTriples: [], worldTriangles: [] });
 		const group = groups.get(best.id);
 		group.faceTriples.push(i0, i1, i2);
-		group.worldTriangles.push({ w0, w1, w2, normal: cavityNormal(w0, w1, w2, centroid) });
+		group.worldTriangles.push({ w0, w1, w2, normal: cavityNormal(w0, w1, w2) });
 	}
 
 	return { groups };
@@ -354,15 +365,18 @@ function buildVoidMesh(voidMesh, faceTriples, worldTriangles, defaultMesh, textu
 		displayTransform : voidMesh.transform,
 		renderMatrixCache: CreateRenderMatrixCache(voidMesh.transform),
 		material         : {
-			textureID  : material.textureID,
-			color      : material.color,
-			opacity    : material.opacity,
-			transparent: material.transparent,
+			textureID   : material.textureID,
+			color       : material.color,
+			opacity     : material.opacity,
+			transparent : material.transparent,
+			// Scale 1 makes triplanar's objPos sampling match the planar projection it replaces.
+			textureScale: 1,
 		},
 		geometry: {
 			positions: positionArray,
 			uvs      : new Float32Array(uvs),
 			indices  : new Uint16Array(newIndices),
+			triplanar: true,
 		},
 		worldAabb  : collision.worldAabb,
 		floorBounds: collision.floorBounds,
@@ -377,18 +391,20 @@ function getOrCreateRelation(relations, id) {
 	return relations[id];
 }
 
-function logVoidRelations(id, relations) {
-	let hosts = 0, embedded = 0, openFaces = 0, maxPerHost = 0;
+function accumulateVoidTotals(totals, id, relations) {
+	totals.voids++;
 	for (const hostId in relations) {
-		hosts++;
-		embedded  += relations[hostId].voidWallMeshes.length;
-		openFaces += relations[hostId].openFaces.length;
-		if (relations[hostId].openFaces.length > maxPerHost) maxPerHost = relations[hostId].openFaces.length;
+		totals.hosts     ++;
+		totals.voidWalls += relations[hostId].voidWallMeshes.length;
+		totals.openFaces += relations[hostId].openFaces.length;
+		if (relations[hostId].openFaces.length > totals.maxPerHost) {
+			totals.maxPerHost   = relations[hostId].openFaces.length;
+			totals.maxPerHostId = id;
+		}
 	}
-	Log("ENGINE", `Void classified: id=${id}, hosts=${hosts}, voidWalls=${embedded}, openFaces=${openFaces}, maxPerHost=${maxPerHost}`, "log", "Level");
 }
 
-function buildTerrainVoidWalls(sceneGraph, textureScale, faceTextureStore) {
+function buildTerrainVoidWalls(sceneGraph, textureScale, faceTextureStore, totals) {
 	if (sceneGraph.voids.terrain.length === 0) return;
 
 	const hostMeshes = sceneGraph.terrain.filter((m) => m.meta.mode === "default" && m.meta.nullable !== false);
@@ -399,7 +415,7 @@ function buildTerrainVoidWalls(sceneGraph, textureScale, faceTextureStore) {
 		const relatedHosts  = collectRelationHosts(voidTriangles, mesh.worldAabb, hosts);
 		const relations     = {};
 
-		for (const { defaultMesh, faceTriples, worldTriangles } of classifyFaces(mesh, hostMeshes).groups.values()) {
+		for (const { defaultMesh, faceTriples, worldTriangles } of classifyFaces(mesh, hostMeshes, voidTriangles).groups.values()) {
 			const built = buildVoidMesh(mesh, faceTriples, worldTriangles, defaultMesh, textureScale, faceTextureStore);
 			getOrCreateRelation(relations, defaultMesh.id).voidWallMeshes.push(built.mesh);
 		}
@@ -410,12 +426,13 @@ function buildTerrainVoidWalls(sceneGraph, textureScale, faceTextureStore) {
 			);
 		}
 
-		mesh.relations = relations;
-		logVoidRelations(mesh.id, relations);
+		mesh.relations      = relations;
+		mesh.solidTriangles = voidTriangles;
+		accumulateVoidTotals(totals, mesh.id, relations);
 	}
 }
 
-function buildObstacleVoidWalls(sceneGraph, textureScale, faceTextureStore) {
+function buildObstacleVoidWalls(sceneGraph, textureScale, faceTextureStore, totals) {
 	if (sceneGraph.voids.obstacles.length === 0) return;
 
 	const defaultParts = [], partToRecordId = new Map(), hosts = [];
@@ -429,12 +446,14 @@ function buildObstacleVoidWalls(sceneGraph, textureScale, faceTextureStore) {
 	}
 
 	for (const record of sceneGraph.voids.obstacles) {
-		const relations = {};
+		const relations      = {};
+		const solidTriangles = [];
 		for (const part of record.parts) {
 			const voidTriangles = buildWorldTriangles(part);
+			solidTriangles.push(...voidTriangles);
 			const relatedHosts  = collectRelationHosts(voidTriangles, part.worldAabb, hosts);
 
-			for (const { defaultMesh, faceTriples, worldTriangles } of classifyFaces(part, defaultParts).groups.values()) {
+			for (const { defaultMesh, faceTriples, worldTriangles } of classifyFaces(part, defaultParts, voidTriangles).groups.values()) {
 				const built = buildVoidMesh(part, faceTriples, worldTriangles, defaultMesh, textureScale, faceTextureStore);
 				getOrCreateRelation(relations, partToRecordId.get(defaultMesh.id)).voidWallMeshes.push(built.mesh);
 			}
@@ -445,14 +464,19 @@ function buildObstacleVoidWalls(sceneGraph, textureScale, faceTextureStore) {
 				);
 			}
 		}
-		record.relations = relations;
-		logVoidRelations(record.id, relations);
+		record.relations      = relations;
+		record.solidTriangles = solidTriangles;
+		accumulateVoidTotals(totals, record.id, relations);
 	}
 }
 
 function BuildVoidWalls(sceneGraph, textureScale, faceTextureStore) {
-	buildTerrainVoidWalls(sceneGraph, textureScale, faceTextureStore);
-	buildObstacleVoidWalls(sceneGraph, textureScale, faceTextureStore);
+	const totals = { voids: 0, hosts: 0, voidWalls: 0, openFaces: 0, maxPerHost: 0, maxPerHostId: "none" };
+
+	buildTerrainVoidWalls(sceneGraph, textureScale, faceTextureStore, totals);
+	buildObstacleVoidWalls(sceneGraph, textureScale, faceTextureStore, totals);
+
+	Log("ENGINE", `Void classification complete: voids=${totals.voids}, hosts=${totals.hosts}, voidWalls=${totals.voidWalls}, openFaces=${totals.openFaces}, maxPerHost=${totals.maxPerHost} (${totals.maxPerHostId})`, "log", "Level");
 }
 
 export { BuildVoidWalls };

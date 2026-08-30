@@ -35,6 +35,7 @@ import {
 	CapsuleTriangleSoupContact,
 	SphereVoidWallContact,
 	CapsuleVoidWallContact,
+	PointInsideMesh,
 	RayOBBIntersect,
 	RayTriangleIntersect,
 	SweptSphereAABB,
@@ -494,8 +495,8 @@ function expandAabbY(aabb, epsilon) {
 // Returns a copy of an AABB translated by an offset vector on all axes.
 function offsetAabb(aabb, offset) {
 	return {
-		min: AddVector3(aabb.min, offset),
-		max: AddVector3(aabb.max, offset),
+		min: aabb.min.clone().add(offset),
+		max: aabb.max.clone().add(offset),
 	};
 }
 
@@ -510,11 +511,12 @@ function isVoidCancelled(entity, candidate, sceneGraph, motionOffset) {
 
 	for (const ns of (isTerrain ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles)) {
 		if (ns.relations[candidate.ref.id]?.suppressed !== true) continue;
-		const nsAabb = ns.worldAabb;
 		const entityAabb = motionOffset ? offsetAabb(entity.collision.aabb, motionOffset) : entity.collision.aabb;
-		if (!StrictAabbOverlap(entityAabb, expandAabbY(nsAabb, voidBoundaryEpsilon.value))) continue;
+		if (!StrictAabbOverlap(entityAabb, expandAabbY(ns.worldAabb, voidBoundaryEpsilon.value))) continue;
 		const entityBounds = motionOffset ? offsetDetailedBounds(entity.collision.physics.bounds, motionOffset) : entity.collision.physics.bounds;
 		if (ns.detailedBounds && NarrowphaseTest(entityBounds, ns.detailedBounds)) return true;
+		// Bounds are an approximation of the void; containment catches bodies fully inside it.
+		if (PointInsideMesh(getAabbCenter(entityAabb), ns.solidTriangles)) return true;
 	}
 
 	return false;
@@ -523,9 +525,9 @@ function isVoidCancelled(entity, candidate, sceneGraph, motionOffset) {
 function IsPointInSuppressingVoid(supportPt, candidateId, voids) {
 	for (const ns of voids) {
 		if (ns.relations[candidateId]?.suppressed !== true) continue;
-		const nsAabb = ns.worldAabb;
-		if (!AabbOverlap({ min: supportPt, max: supportPt }, expandAabbY(nsAabb, voidBoundaryEpsilon.value))) continue;
+		if (!AabbOverlap({ min: supportPt, max: supportPt }, expandAabbY(ns.worldAabb, voidBoundaryEpsilon.value))) continue;
 		if (NarrowphaseTest({ type: "sphere", center: supportPt, radius: groundProbeRadius }, ns.detailedBounds)) return true;
+		if (PointInsideMesh(supportPt, ns.solidTriangles)) return true;
 	}
 	return false;
 }

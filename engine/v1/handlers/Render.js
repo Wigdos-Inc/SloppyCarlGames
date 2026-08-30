@@ -2051,11 +2051,17 @@ function drawVoidStencil(renderer, sceneGraph, passState) {
 	gl.disable(gl.POLYGON_OFFSET_FILL);
 }
 
+// Triplanar walls carry no usable UVs of their own; split so each run gets its shader.
+function drawVoidWallBucket(renderer, sceneGraph, meshes, passState, stencilIncludeBit) {
+	drawMeshList(renderer, sceneGraph, meshes.filter((mesh) => !meshUsesTriplanar(mesh)), passState, { stencilIncludeBit });
+	drawMeshList(renderer, sceneGraph, meshes.filter(meshUsesTriplanar),                  passState, { stencilIncludeBit, triplanar: true });
+}
+
 function drawVoidWalls(renderer, sceneGraph, passState) {
 	const { terrain: nsTerrain, obstacles: nsObstacles } = sceneGraph.voids;
 	if (!hasVoidOpenFaces(nsTerrain) && !hasVoidOpenFaces(nsObstacles)) return;
-	drawMeshList(renderer, sceneGraph, gatherVoidWallMeshes(nsTerrain),   passState, { stencilIncludeBit: 0x01 });
-	drawMeshList(renderer, sceneGraph, gatherVoidWallMeshes(nsObstacles), passState, { stencilIncludeBit: 0x02 });
+	drawVoidWallBucket(renderer, sceneGraph, gatherVoidWallMeshes(nsTerrain),   passState, 0x01);
+	drawVoidWallBucket(renderer, sceneGraph, gatherVoidWallMeshes(nsObstacles), passState, 0x02);
 }
 
 function drawScene(renderer, sceneGraph) {
