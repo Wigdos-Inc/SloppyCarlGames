@@ -18,7 +18,7 @@ import {
 	MultiplyVector3,
 } from "../../math/Vector3.js";
 import { ClampVelocity, RayAABBIntersect, RayAABBDetailedBoundsIntersect, RayDetailedBoundsIntersect } from "../../math/Collision.js";
-import { BroadphaseCollectCandidates } from "../../physics/Collision.js";
+import { BroadphaseCollectCandidates, IsPointInSuppressingVoid } from "../../physics/Collision.js";
 import { Lerp, Clamp, Unit, UnitVector3 } from "../../math/Utilities.js";
 import { IsSimulatorActive } from "./Simulator.js";
 const pitchClampDegrees = 89;
@@ -367,6 +367,12 @@ function checkCameraObstruction(playerHeadPos, desiredCamPos, sceneGraph) {
 		}
 		// Exit hit — head is inside, nothing obstructs.
 		if (!hit.hit || hit.inside || hit.t <= 0 || hit.t >= closestT) continue;
+
+		// Host surface carved away by a void is not a real obstruction.
+		if (candidate.type !== "voidWall") {
+			const voids = candidate.type === "terrain" ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles;
+			if (IsPointInSuppressingVoid(AddVector3(playerHeadPos, ScaleVector3(dir, hit.t)), candidate.id, voids)) continue;
+		}
 
 		closestT = hit.t;
 		obstructed = true;

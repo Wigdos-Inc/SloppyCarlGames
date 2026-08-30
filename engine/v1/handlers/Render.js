@@ -2015,11 +2015,14 @@ function drawVoidStencil(renderer, sceneGraph, passState) {
 		gl.bindVertexArray(null);
 	};
 
-	// Open faces are exact host-surface clips, so they alone define the punch region.
+	// Open faces clip the punch region; walls write it too, since the opening can be off-screen.
 	const stencilEntries = (entries) => {
 		for (const entry of entries) {
 			for (const id in entry.relations) {
 				const relation = entry.relations[id];
+				for (const mesh of relation.voidWallMeshes) {
+					drawStencilBuffer(ensureStencilMeshBuffer(renderer, mesh), renderMatrixFor(mesh));
+				}
 				if (relation.openFaces.length > 0) {
 					drawStencilBuffer(ensureOpenFaceStencilBuffer(renderer, `${entry.id}|${id}|openFaces`, relation.openFaces), identityMatrix);
 				}

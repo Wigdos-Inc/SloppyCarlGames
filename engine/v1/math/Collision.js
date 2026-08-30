@@ -902,7 +902,10 @@ function RayAABBDetailedBoundsIntersect(origin, direction, aabb, detailedBounds,
 	if (!broadHit.hit)                  return broadHit;
 	if (detailedBounds.type === "aabb") return broadHit;
 	// Ray's own limit, not broadHit.t — an entry-t cap rejects every real hit.
-	return RayDetailedBoundsIntersect(detailedBounds, origin, direction, maxDistance);
+	const hit = RayDetailedBoundsIntersect(detailedBounds, origin, direction, maxDistance);
+	// Soups can't determine containment; inherit the broad answer.
+	if (detailedBounds.type === "triangle-soup") hit.inside = broadHit.inside;
+	return hit;
 }
 
 const rayDetailedBoundsIntersectors = {

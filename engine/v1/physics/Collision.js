@@ -520,7 +520,7 @@ function isVoidCancelled(entity, candidate, sceneGraph, motionOffset) {
 	return false;
 }
 
-function isGroundSupportInVoid(supportPt, candidateId, voids) {
+function IsPointInSuppressingVoid(supportPt, candidateId, voids) {
 	for (const ns of voids) {
 		if (ns.relations[candidateId]?.suppressed !== true) continue;
 		const nsAabb = ns.worldAabb;
@@ -1022,7 +1022,7 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates)
 		const source = candidate.ref;
 		const nullable = isTerrain ? source.meta.nullable : source.nullable;
 		const voids = isTerrain ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles;
-		if (nullable !== false && isGroundSupportInVoid({ x: probe.x, y: probe.y - t, z: probe.z }, source.id, voids)) continue;
+		if (nullable !== false && IsPointInSuppressingVoid({ x: probe.x, y: probe.y - t, z: probe.z }, source.id, voids)) continue;
 		bestT = t; bestNormal = normal; type = candidate.type;
 	}
 
@@ -1058,6 +1058,7 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates)
 
 export {
 	BroadphaseCollectCandidates,
+	IsPointInSuppressingVoid,
 	DetectPhysicsCollisions,
 	DetectCurrentPhysicsOverlaps,
 	DetectCombatOverlaps,
