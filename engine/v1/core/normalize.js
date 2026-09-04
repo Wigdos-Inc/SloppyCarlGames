@@ -740,14 +740,16 @@ function normalizeTubeNode(rawNode) {
 	return node;
 }
 
-// Canonicalize the opaque tube primitiveOptions bag at this boundary so the builder needs no guards.
-function normalizeTubeOptions(options) {
-	options.nodes = normalizeArray(options.nodes).value.map((node) => normalizeTubeNode(node));
-	options.thickness = new Unit(normalizeNumber(options.thickness, 0.1).value, "cnu");
-	options.curved = normalizeBool(options.curved, false).value;
-	options.solid = normalizeBool(options.solid, false).value;
-	options.smoothness = Clamp(normalizeNumber(options.smoothness, 0).value, 0, 1);
-	return options;
+// Canonicalizes the opaque tube primitiveOptions bag; returns a fresh object, like normalizeRampOptions.
+function normalizeTubeOptions(rawOptions) {
+	return {
+		...rawOptions,
+		nodes     : normalizeArray(rawOptions.nodes).value.map((node) => normalizeTubeNode(node)),
+		thickness : new Unit(normalizeNumber(rawOptions.thickness, 0.1).value, "cnu"),
+		curved    : normalizeBool(rawOptions.curved, false).value,
+		solid     : normalizeBool(rawOptions.solid, false).value,
+		smoothness: Clamp(normalizeNumber(rawOptions.smoothness, 0).value, 0, 1),
+	};
 }
 
 const isRampShape = (shape) => shape === "ramp-simple" || shape === "ramp-complex";

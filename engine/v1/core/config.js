@@ -16,7 +16,8 @@ const CONFIG = {
     },
     LEVELS: {
       Triggers: true,                        // Render Trigger Meshes
-      FreeCam : false,                        // Free Camera Mode
+      FreeCam : false,                       // Free Camera Mode
+      BackfaceCulling: false,                // Cull back faces — wrongly wound geometry vanishes
       BoundingBox: {                         // Render Bounding Boxes
         Terrain     : false,
         Scatter     : false,
@@ -38,7 +39,7 @@ const CONFIG = {
       DetailedBounds: {                      // Render Detailed Bounds
         Terrain : false,
         Obstacle: false,
-        Void    : false,                     // Void volume + its void walls and open faces
+        Void    : true,                      // Void volume + its void walls and open faces
         Entity  : false,
         Player  : false,
         Boss    : false,

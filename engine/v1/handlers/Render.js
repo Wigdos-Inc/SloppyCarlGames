@@ -65,6 +65,7 @@ function RenderPayload(payload) {
 // WebGL level renderer for fully constructed 3D scene graphs.
 
 const levelRendererCache = new Map();
+const identityRenderMatrix = new Float32Array(CreateIdentityMatrix());
 const boundingBoxTypeColors = {
 	Terrain: { r: 0.95, g: 0.85, b: 0.2, a: 1 },
 	Scatter: { r: 0.2, g: 0.8, b: 0.2, a: 1 },
@@ -369,31 +370,6 @@ function createLineProgram(gl) {
 			model     : "u_model",
 			color     : "u_color",
 		},
-	});
-}
-
-function createStencilProgram(gl) {
-	const vertexShaderSource = `#version 300 es
-		in vec3 a_position;
-		uniform mat4 u_projection;
-		uniform mat4 u_view;
-		uniform mat4 u_model;
-		void main() {
-			gl_Position = u_projection * u_view * u_model * vec4(a_position, 1.0);
-		}
-	`;
-
-	const fragmentShaderSource = `#version 300 es
-		void main() { }
-	`;
-
-	return createLinkedProgram(gl, {
-		vertexShaderSource  : vertexShaderSource,
-		fragmentShaderSource: fragmentShaderSource,
-		attributeNames      : { position: "a_position" },
-		uniformNames        : { projection: "u_projection", view: "u_view", model: "u_model" },
-		createError         : "stencil shader program creation failed",
-		linkErrorPrefix     : "stencil shader link error",
 	});
 }
 
@@ -866,9 +842,9 @@ const isDetailedBoundsDebugEnabled = (type) => !!(CONFIG.DEBUG.ALL && CONFIG.DEB
 
 function bindDebugLinePass(renderer, gl, projection, view) {
 	gl.useProgram(renderer.debugLineShader.program);
-	gl.uniformMatrix4fv(renderer.debugLineShader.uniforms.projection, false, new Float32Array(projection));
-	gl.uniformMatrix4fv(renderer.debugLineShader.uniforms.view, false, new Float32Array(view));
-	gl.uniformMatrix4fv(renderer.debugLineShader.uniforms.model, false, new Float32Array(CreateIdentityMatrix()));
+	gl.uniformMatrix4fv(renderer.debugLineShader.uniforms.projection, false, projection);
+	gl.uniformMatrix4fv(renderer.debugLineShader.uniforms.view, false, view);
+	gl.uniformMatrix4fv(renderer.debugLineShader.uniforms.model, false, identityRenderMatrix);
 	gl.bindBuffer(gl.ARRAY_BUFFER, renderer.debugLineBuffer);
 	gl.enableVertexAttribArray(renderer.debugLineShader.attributes.position);
 	gl.vertexAttribPointer(renderer.debugLineShader.attributes.position, 3, gl.FLOAT, false, 0, 0);
@@ -1191,8 +1167,9 @@ function createMeshBuffers(gl, mesh, shader) {
 	gl.enableVertexAttribArray(shader.attributes.uv);
 	gl.vertexAttribPointer(shader.attributes.uv, 2, gl.FLOAT, false, 0, 0);
 
+	// 32-bit: a carved host can exceed the 65535-index ceiling, and a wrap would be silent.
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.geometry.indices), gl.STATIC_DRAW);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(mesh.geometry.indices), gl.STATIC_DRAW);
 
 	gl.bindVertexArray(null);
 
@@ -1203,65 +1180,6 @@ function createMeshBuffers(gl, mesh, shader) {
 		indexCount: mesh.geometry.indices.length,
 		vao,
 	};
-}
-
-function createStencilMeshBuffer(gl, mesh, stencilShader) {
-	const vao = gl.createVertexArray();
-	gl.bindVertexArray(vao);
-	const posBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.geometry.positions), gl.STATIC_DRAW);
-	gl.enableVertexAttribArray(stencilShader.attributes.position);
-	gl.vertexAttribPointer(stencilShader.attributes.position, 3, gl.FLOAT, false, 0, 0);
-	const indexBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.geometry.indices), gl.STATIC_DRAW);
-	gl.bindVertexArray(null);
-	return { vao, indexCount: mesh.geometry.indices.length };
-}
-
-function ensureStencilMeshBuffer(renderer, mesh) {
-	if (renderer.stencilBufferCache.has(mesh.id)) return renderer.stencilBufferCache.get(mesh.id);
-	const buf = createStencilMeshBuffer(renderer.gl, mesh, renderer.stencilShader);
-	renderer.stencilBufferCache.set(mesh.id, buf);
-	return buf;
-}
-
-// Stencil buffer for a relation's open faces; positions pre-converted to world units, drawn
-// with an identity model matrix. Cached by relation owner id.
-function createOpenFaceStencilBuffer(gl, openFaces, stencilShader) {
-	const positions = new Float32Array(openFaces.length * 9);
-	const indices   = new Uint16Array(openFaces.length * 3);
-	openFaces.forEach((face, i) => {
-		const a = face.a.toWorldUnit(), b = face.b.toWorldUnit(), c = face.c.toWorldUnit();
-		const p = i * 9;
-		positions[p + 0] = a.x; positions[p + 1] = a.y; positions[p + 2] = a.z;
-		positions[p + 3] = b.x; positions[p + 4] = b.y; positions[p + 5] = b.z;
-		positions[p + 6] = c.x; positions[p + 7] = c.y; positions[p + 8] = c.z;
-		indices[i * 3 + 0] = i * 3 + 0;
-		indices[i * 3 + 1] = i * 3 + 1;
-		indices[i * 3 + 2] = i * 3 + 2;
-	});
-
-	const vao = gl.createVertexArray();
-	gl.bindVertexArray(vao);
-	const posBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
-	gl.enableVertexAttribArray(stencilShader.attributes.position);
-	gl.vertexAttribPointer(stencilShader.attributes.position, 3, gl.FLOAT, false, 0, 0);
-	const indexBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
-	gl.bindVertexArray(null);
-	return { vao, indexCount: indices.length };
-}
-
-function ensureOpenFaceStencilBuffer(renderer, key, openFaces) {
-	if (renderer.stencilBufferCache.has(key)) return renderer.stencilBufferCache.get(key);
-	const buf = createOpenFaceStencilBuffer(renderer.gl, openFaces, renderer.stencilShader);
-	renderer.stencilBufferCache.set(key, buf);
-	return buf;
 }
 
 // Snapshot covers every field CreateRenderMatrix reads.
@@ -1284,26 +1202,7 @@ function renderMatrixFor(mesh) {
 	return cache.matrix;
 }
 
-function drawDepthPrePass(renderer, terrain, obstacles, passState) {
-	if (terrain.length === 0 && obstacles.length === 0) return;
-	const gl = renderer.gl;
-	gl.useProgram(renderer.stencilShader.program);
-	gl.uniformMatrix4fv(renderer.stencilShader.uniforms.projection, false, new Float32Array(passState.projection));
-	gl.uniformMatrix4fv(renderer.stencilShader.uniforms.view,       false, new Float32Array(passState.view));
-	gl.colorMask(false, false, false, false);
-	gl.depthMask(true);
-	gl.enable(gl.DEPTH_TEST);
-	for (const mesh of [...terrain, ...obstacles]) {
-		const buf = ensureStencilMeshBuffer(renderer, mesh);
-		gl.uniformMatrix4fv(renderer.stencilShader.uniforms.model, false, renderMatrixFor(mesh));
-		gl.bindVertexArray(buf.vao);
-		gl.drawElements(gl.TRIANGLES, buf.indexCount, gl.UNSIGNED_SHORT, 0);
-		gl.bindVertexArray(null);
-	}
-	gl.colorMask(true, true, true, true);
-}
-
-const getMeshBufferKey = (mesh) => `${mesh.id}|${mesh.primitive}|${mesh.dimensions.x}|${mesh.dimensions.y}|${mesh.dimensions.z}|${mesh.complexity}`;
+const getMeshBufferKey = (mesh) => `${mesh.id}|${mesh.primitive}|${mesh.dimensions.x}|${mesh.dimensions.y}|${mesh.dimensions.z}|${mesh.complexity}|${mesh.geometry.indices.length}`;
 
 function createFallbackTexture(gl) {
 	const texture = gl.createTexture();
@@ -1493,7 +1392,7 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	root.appendChild(canvas);
 
 	// alpha: false — stops the white page bleeding through via framebuffer alpha.
-	const gl = canvas.getContext("webgl2", { stencil: true, alpha: false });
+	const gl = canvas.getContext("webgl2", { alpha: false });
 	if (!gl) {
 		Log("ENGINE", "WebGL2 is not supported by this browser.", "error", "Render");
 		return null;
@@ -1505,12 +1404,6 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	const scatterShader = createScatterProgram(gl);
 	if (!scatterShader) {
 		Log("ENGINE", "Failed to create instanced scatter shader.", "error", "Render");
-		return null;
-	}
-
-	const stencilShader = createStencilProgram(gl);
-	if (!stencilShader) {
-		Log("ENGINE", "Failed to create stencil shader.", "error", "Render");
 		return null;
 	}
 
@@ -1553,7 +1446,6 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	const renderer = {
 		rootId, root, canvas, gl, shader,
 		scatterShader,
-		stencilShader,
 		decalShader,
 		scatterDecalShader,
 		entityTriplanarShader,
@@ -1568,10 +1460,12 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		meshBuffers: new Map(),
 		textures: new Map(),
 		geometryRegistry: new Map(),
-		stencilBufferCache: new Map(),
 		scatterInstances: null,
 		scatterDecalBatches: null,
 		scatterInstancesBuilt: false,
+		voidWallUvMeshes: null,
+		voidWallTriplanarMeshes: null,
+		voidWallMeshesBuilt: false,
 		fallbackTexture: createFallbackTexture(gl),
 		loggedScatterSubmission: false,
 		debugLineShader: null,
@@ -1601,6 +1495,7 @@ const isTranslucentMesh = (mesh) => mesh.displayColor !== null ? mesh.displayCol
 const meshUsesTriplanar = (mesh) => mesh.geometry.triplanar === true;
 
 function collectRenderableMeshes(sceneGraph) {
+	const terrain = [];
 	const obstacles = [];
 	const entitiesUv = [];
 	const entitiesTriplanar = [];
@@ -1611,6 +1506,11 @@ function collectRenderableMeshes(sceneGraph) {
 		(meshUsesTriplanar(mesh) ? entitiesTriplanar : entitiesUv).push(mesh);
 	};
 
+	// Scatter and triggers are excluded — scatter via instanced path, triggers via post-scatter pass.
+	sceneGraph.terrain.forEach((mesh) => {
+		if (mesh.meta.mode !== "default" || !mesh.performance.rendering) return;
+		terrain.push(mesh);
+	});
 	sceneGraph.obstacles.forEach((record) => {
 		if (record.mode !== "default" || !record.performance.rendering) return;
 		record.parts.forEach((part) => obstacles.push(part));
@@ -1623,8 +1523,6 @@ function collectRenderableMeshes(sceneGraph) {
 		collectEntityPart(entity.mesh);
 	});
 
-	// Scatter and triggers are excluded — scatter via instanced path, triggers via post-scatter pass.
-	const terrain = sceneGraph.terrain.filter((mesh) => mesh.meta.mode === "default" && mesh.performance.rendering);
 	return { terrain, obstacles, entitiesUv, entitiesTriplanar, entitiesTranslucent };
 }
 
@@ -1646,8 +1544,8 @@ function applySkyUniforms(gl, shader, passState) {
 
 function configureTexturedMeshPass(gl, shader, passState) {
 	gl.useProgram(shader.program);
-	gl.uniformMatrix4fv(shader.uniforms.projection, false, new Float32Array(passState.projection));
-	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(passState.view));
+	gl.uniformMatrix4fv(shader.uniforms.projection, false, passState.projection);
+	gl.uniformMatrix4fv(shader.uniforms.view, false, passState.view);
 	gl.uniform1f(shader.uniforms.fogFull, passState.fogFull);
 	gl.uniform3f(shader.uniforms.colorShift, passState.colorShift.r, passState.colorShift.g, passState.colorShift.b);
 	applySkyUniforms(gl, shader, passState);
@@ -1662,7 +1560,7 @@ function drawSkyPass(renderer, passState) {
 	const shader = renderer.skyShader;
 	gl.disable(gl.DEPTH_TEST);
 	gl.useProgram(shader.program);
-	gl.uniformMatrix4fv(shader.uniforms.view, false, new Float32Array(passState.view));
+	gl.uniformMatrix4fv(shader.uniforms.view, false, passState.view);
 	gl.uniform2f(shader.uniforms.rayScale, 1 / passState.projection[0], 1 / passState.projection[5]);
 	applySkyUniforms(gl, shader, passState);
 	gl.bindVertexArray(quad.vao);
@@ -1688,14 +1586,6 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 
 	const gl = renderer.gl;
 	const disableDepthWriteForPass = options.depthMask === false;
-
-	const stencilBit = options.stencilExcludeBit || options.stencilIncludeBit;
-	if (stencilBit) {
-		gl.enable(gl.STENCIL_TEST);
-		gl.stencilFunc(options.stencilExcludeBit ? gl.NOTEQUAL : gl.EQUAL, stencilBit, stencilBit);
-		gl.stencilMask(0x00);
-		gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
-	}
 
 	const shader = options.triplanar ? renderer.entityTriplanarShader : renderer.shader;
 
@@ -1723,7 +1613,7 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 				const faceTex = ensureSceneTexture(renderer, sceneGraph, group.textureID);
 				gl.activeTexture(gl.TEXTURE0);
 				gl.bindTexture(gl.TEXTURE_2D, faceTex);
-				gl.drawElements(gl.TRIANGLES, group.indexCount, gl.UNSIGNED_SHORT, group.indexStart * 2);
+				gl.drawElements(gl.TRIANGLES, group.indexCount, gl.UNSIGNED_INT, group.indexStart * 4);
 			}
 			gl.bindVertexArray(null);
 			continue;
@@ -1732,12 +1622,11 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		const texture = ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
+		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_INT, 0);
 		gl.bindVertexArray(null);
 	}
 
 	if (disableDepthWriteForPass) gl.depthMask(true);
-	if (stencilBit) gl.disable(gl.STENCIL_TEST);
 }
 
 function drawWaterPass(renderer, sceneGraph, passState) {
@@ -1976,92 +1865,20 @@ function gatherVoidWallMeshes(entries) {
 	return meshes;
 }
 
-// True if any relation across the given entries holds open faces — the sole source of the stencil bit.
-function hasVoidOpenFaces(entries) {
-	for (const entry of entries) {
-		for (const id in entry.relations) if (entry.relations[id].openFaces.length > 0) return true;
-	}
-	return false;
-}
-
-function drawVoidStencil(renderer, sceneGraph, passState) {
-	const { terrain: nsTerrain, obstacles: nsObstacles } = sceneGraph.voids;
-	const terrainRenderable  = hasVoidOpenFaces(nsTerrain);
-	const obstacleRenderable = hasVoidOpenFaces(nsObstacles);
-	if (!terrainRenderable && !obstacleRenderable) return;
-
-	const gl = renderer.gl;
-	gl.useProgram(renderer.stencilShader.program);
-	gl.uniformMatrix4fv(renderer.stencilShader.uniforms.projection, false, new Float32Array(passState.projection));
-	gl.uniformMatrix4fv(renderer.stencilShader.uniforms.view,       false, new Float32Array(passState.view));
-
-	gl.colorMask(false, false, false, false);
-	gl.depthMask(false);
-	gl.enable(gl.DEPTH_TEST);
-	gl.depthFunc(gl.LEQUAL);
-	gl.enable(gl.STENCIL_TEST);
-	gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-
-	// Stencil geometry is coplanar with terrain top; negative polygon offset avoids z-fighting under LEQUAL.
-	gl.enable(gl.POLYGON_OFFSET_FILL);
-	gl.polygonOffset(-1, -1);
-
-	const identityMatrix = new Float32Array(CreateIdentityMatrix());
-
-	const drawStencilBuffer = (buf, modelMatrix) => {
-		gl.uniformMatrix4fv(renderer.stencilShader.uniforms.model, false, modelMatrix);
-		gl.bindVertexArray(buf.vao);
-		gl.drawElements(gl.TRIANGLES, buf.indexCount, gl.UNSIGNED_SHORT, 0);
-		gl.bindVertexArray(null);
-	};
-
-	// Open faces clip the punch region; walls write it too, since the opening can be off-screen.
-	const stencilEntries = (entries) => {
-		for (const entry of entries) {
-			for (const id in entry.relations) {
-				const relation = entry.relations[id];
-				for (const mesh of relation.voidWallMeshes) {
-					drawStencilBuffer(ensureStencilMeshBuffer(renderer, mesh), renderMatrixFor(mesh));
-				}
-				if (relation.openFaces.length > 0) {
-					drawStencilBuffer(ensureOpenFaceStencilBuffer(renderer, `${entry.id}|${id}|openFaces`, relation.openFaces), identityMatrix);
-				}
-			}
-		}
-	};
-
-	if (terrainRenderable) {
-		gl.stencilMask(0x01);
-		gl.stencilFunc(gl.ALWAYS, 0x01, 0x01);
-		stencilEntries(nsTerrain);
-	}
-
-	if (obstacleRenderable) {
-		gl.stencilMask(0x02);
-		gl.stencilFunc(gl.ALWAYS, 0x02, 0x02);
-		stencilEntries(nsObstacles);
-	}
-
-	gl.stencilMask(0x00);
-	gl.colorMask(true, true, true, true);
-	gl.depthMask(true);
-	gl.depthFunc(gl.LESS);
-	gl.disable(gl.STENCIL_TEST);
-	gl.polygonOffset(0, 0);
-	gl.disable(gl.POLYGON_OFFSET_FILL);
-}
-
-// Triplanar walls carry no usable UVs of their own; split so each run gets its shader.
-function drawVoidWallBucket(renderer, sceneGraph, meshes, passState, stencilIncludeBit) {
-	drawMeshList(renderer, sceneGraph, meshes.filter((mesh) => !meshUsesTriplanar(mesh)), passState, { stencilIncludeBit });
-	drawMeshList(renderer, sceneGraph, meshes.filter(meshUsesTriplanar),                  passState, { stencilIncludeBit, triplanar: true });
+// Void walls are fixed at level build, so the shader split is resolved once.
+function ensureVoidWallMeshes(renderer, sceneGraph) {
+	if (renderer.voidWallMeshesBuilt) return;
+	const meshes = gatherVoidWallMeshes(sceneGraph.voids.terrain);
+	meshes.push(...gatherVoidWallMeshes(sceneGraph.voids.obstacles));
+	renderer.voidWallUvMeshes        = meshes.filter((mesh) => !meshUsesTriplanar(mesh));
+	renderer.voidWallTriplanarMeshes = meshes.filter(meshUsesTriplanar);
+	renderer.voidWallMeshesBuilt     = true;
 }
 
 function drawVoidWalls(renderer, sceneGraph, passState) {
-	const { terrain: nsTerrain, obstacles: nsObstacles } = sceneGraph.voids;
-	if (!hasVoidOpenFaces(nsTerrain) && !hasVoidOpenFaces(nsObstacles)) return;
-	drawVoidWallBucket(renderer, sceneGraph, gatherVoidWallMeshes(nsTerrain),   passState, 0x01);
-	drawVoidWallBucket(renderer, sceneGraph, gatherVoidWallMeshes(nsObstacles), passState, 0x02);
+	ensureVoidWallMeshes(renderer, sceneGraph);
+	drawMeshList(renderer, sceneGraph, renderer.voidWallUvMeshes,        passState);
+	drawMeshList(renderer, sceneGraph, renderer.voidWallTriplanarMeshes, passState, { triplanar: true });
 }
 
 function drawScene(renderer, sceneGraph) {
@@ -2076,18 +1893,20 @@ function drawScene(renderer, sceneGraph) {
 	gl.enable(gl.DEPTH_TEST);
 	gl.enable(gl.BLEND);
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+	if (CONFIG.DEBUG.LEVELS.BackfaceCulling) gl.enable(gl.CULL_FACE);
+	else gl.disable(gl.CULL_FACE);
 	gl.clearColor(0.04, 0.05, 0.08, 1);
-	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	const cameraState = sceneGraph.cameraConfig.state;
 
-	const projection = createPerspectiveMatrix(
+	const projection = new Float32Array(createPerspectiveMatrix(
 		cameraState.fov,
 		renderer.canvas.width / renderer.canvas.height,
 		cameraState.near.value,
 		cameraState.far.value
-	);
-	const view = createLookAtMatrix(cameraState.position, cameraState.target, cameraState.up);
+	));
+	const view = new Float32Array(createLookAtMatrix(cameraState.position, cameraState.target, cameraState.up));
 
 	const waterLevelCnu = sceneGraph.world.water.level === null ? null : sceneGraph.world.water.level.value;
 	const underwater = waterLevelCnu !== null && cameraState.position.y < waterLevelCnu;
@@ -2116,21 +1935,14 @@ function drawScene(renderer, sceneGraph) {
 		sceneGraph.effects.underwater.particleHook(cameraState, sceneGraph);
 	}
 
-	// === Stencil write (before Pass A) ===
 	const { terrain, obstacles, entitiesUv, entitiesTriplanar, entitiesTranslucent } = collectRenderableMeshes(sceneGraph);
-	if (hasVoidOpenFaces(sceneGraph.voids.terrain) || hasVoidOpenFaces(sceneGraph.voids.obstacles)) {
-		drawDepthPrePass(renderer, terrain, obstacles, passState);
-		drawVoidStencil(renderer, sceneGraph, passState);
-		gl.clear(gl.DEPTH_BUFFER_BIT);
-	} 
-	else drawVoidStencil(renderer, sceneGraph, passState);
 
 	// === PASS 2.5: Void walls (textured interior surfaces inside void holes) ===
 	drawVoidWalls(renderer, sceneGraph, passState);
 
-	// === PASS A: terrain/obstacles filtered by type-specific stencil; entities unaffected ===
-	drawMeshList(renderer, sceneGraph, terrain,   passState, { stencilExcludeBit: 0x01 });
-	drawMeshList(renderer, sceneGraph, obstacles, passState, { stencilExcludeBit: 0x02 });
+	// === PASS A: hosts ship pre-carved from the builder; entities unaffected ===
+	drawMeshList(renderer, sceneGraph, terrain,           passState);
+	drawMeshList(renderer, sceneGraph, obstacles,         passState);
 	drawMeshList(renderer, sceneGraph, entitiesUv,        passState);
 	drawMeshList(renderer, sceneGraph, entitiesTriplanar, passState, { triplanar: true });
 

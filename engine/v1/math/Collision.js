@@ -358,9 +358,28 @@ function sphereTriangleContact(center, radius, triangle) {
 	return makeContact(ScaleVector3(delta, 1 / distance), radius.value - distance, closest);
 }
 
+// Soup prefilter — the shape's extent grown by its radius; a triangle outside it can't reach.
+const segmentQueryBox = (start, end, radius) => ({
+	min: { x: Math.min(start.x, end.x) - radius, y: Math.min(start.y, end.y) - radius, z: Math.min(start.z, end.z) - radius },
+	max: { x: Math.max(start.x, end.x) + radius, y: Math.max(start.y, end.y) + radius, z: Math.max(start.z, end.z) + radius },
+});
+
+const sphereQueryBox  = (center, radius) => segmentQueryBox(center, center, radius.value);
+const capsuleQueryBox = (capsule) => segmentQueryBox(capsule.segmentStart, capsule.segmentEnd, capsule.radius.value);
+
+// Inlined rather than TriangleAabb + AabbOverlap — that allocates three objects per triangle.
+const triangleInQueryBox = (t, box) =>
+	Math.max(t.a.x, t.b.x, t.c.x) >= box.min.x && Math.min(t.a.x, t.b.x, t.c.x) <= box.max.x &&
+	Math.max(t.a.y, t.b.y, t.c.y) >= box.min.y && Math.min(t.a.y, t.b.y, t.c.y) <= box.max.y &&
+	Math.max(t.a.z, t.b.z, t.c.z) >= box.min.z && Math.min(t.a.z, t.b.z, t.c.z) <= box.max.z;
+
 function SphereTriangleSoupContact(center, radius, triangleSoup) {
 	let best = NoContact();
-	triangleSoup.triangles.forEach(triangle => best = chooseDeepestContact(best, sphereTriangleContact(center, radius, triangle)));
+	const box = sphereQueryBox(center, radius);
+	for (const triangle of triangleSoup.triangles) {
+		if (!triangleInQueryBox(triangle, box)) continue;
+		best = chooseDeepestContact(best, sphereTriangleContact(center, radius, triangle));
+	}
 	return best;
 }
 
@@ -461,14 +480,15 @@ function capsuleTriangleContact(capsule, triangle) {
 
 function CapsuleTriangleSoupContact(capsule, triangleSoup) {
 	let best = NoContact();
-	triangleSoup.triangles.forEach(triangle => best = chooseDeepestContact(best, capsuleTriangleContact(capsule, triangle)));
+	const box = capsuleQueryBox(capsule);
+	for (const triangle of triangleSoup.triangles) {
+		if (!triangleInQueryBox(triangle, box)) continue;
+		best = chooseDeepestContact(best, capsuleTriangleContact(capsule, triangle));
+	}
 	return best;
 }
 
-// One-sided sphere-vs-triangle: blocks only when approached from the authored
-// (cavity-facing) normal side. Unlike sphereTriangleContact it never flips the
-// normal by side — the authored normal is used directly and the solid-side
-// approach is rejected instead.
+// One-sided: only the cavity-facing approach blocks, and the authored normal is never flipped.
 function sphereVoidWallTriangleContact(center, radius, triangle) {
 	const closest = closestPointOnTriangle(center, triangle.a, triangle.b, triangle.c);
 	const delta = SubtractVector3(center, closest);
@@ -483,7 +503,11 @@ function sphereVoidWallTriangleContact(center, radius, triangle) {
 
 function SphereVoidWallContact(center, radius, voidWall) {
 	let best = NoContact();
-	voidWall.triangles.forEach(triangle => best = chooseDeepestContact(best, sphereVoidWallTriangleContact(center, radius, triangle)));
+	const box = sphereQueryBox(center, radius);
+	for (const triangle of voidWall.triangles) {
+		if (!triangleInQueryBox(triangle, box)) continue;
+		best = chooseDeepestContact(best, sphereVoidWallTriangleContact(center, radius, triangle));
+	}
 	return best;
 }
 
@@ -507,7 +531,11 @@ function capsuleVoidWallTriangleContact(capsule, triangle) {
 
 function CapsuleVoidWallContact(capsule, voidWall) {
 	let best = NoContact();
-	voidWall.triangles.forEach(triangle => best = chooseDeepestContact(best, capsuleVoidWallTriangleContact(capsule, triangle)));
+	const box = capsuleQueryBox(capsule);
+	for (const triangle of voidWall.triangles) {
+		if (!triangleInQueryBox(triangle, box)) continue;
+		best = chooseDeepestContact(best, capsuleVoidWallTriangleContact(capsule, triangle));
+	}
 	return best;
 }
 
@@ -576,7 +604,13 @@ function TriangleAabb(triangle) {
 // Odd crossing count along a fixed ray means the point is enclosed.
 function PointInsideMesh(point, triangles) {
 	let crossings = 0;
-	for (const triangle of triangles) if (RayTriangleIntersect(point, parityRayDirection, triangle).hit) crossings++;
+	for (const triangle of triangles) {
+		// Ray is positive on every axis — a triangle wholly behind the origin is unreachable.
+		if (Math.max(triangle.a.x, triangle.b.x, triangle.c.x) < point.x) continue;
+		if (Math.max(triangle.a.y, triangle.b.y, triangle.c.y) < point.y) continue;
+		if (Math.max(triangle.a.z, triangle.b.z, triangle.c.z) < point.z) continue;
+		if (RayTriangleIntersect(point, parityRayDirection, triangle).hit) crossings++;
+	}
 	return (crossings & 1) === 1;
 }
 

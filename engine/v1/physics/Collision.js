@@ -500,8 +500,7 @@ function offsetAabb(aabb, offset) {
 	};
 }
 
-// motionOffset (optional): evaluate suppression at the swept contact position instead of
-// the static one, so look-ahead detection doesn't stop the entity a frame early.
+// motionOffset tests the end-of-frame position — at the contact instant the body is still outside.
 function isVoidCancelled(entity, candidate, sceneGraph, motionOffset) {
 	if (candidate.type !== "terrain" && candidate.type !== "obstacle") return false;
 
@@ -699,7 +698,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 					}
 				}
 
-				if (isVoidCancelled(entity, candidate, sceneGraph, ScaleVector3(vel, swept.tEntry))) {
+				if (isVoidCancelled(entity, candidate, sceneGraph, vel)) {
 					removeActiveCollisionPair(entity, candidate);
 					continue;
 				}
@@ -720,7 +719,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 				cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
 			}
 
-			if (isVoidCancelled(entity, candidate, sceneGraph, ScaleVector3(vel, swept.tEntry))) {
+			if (isVoidCancelled(entity, candidate, sceneGraph, vel)) {
 				removeActiveCollisionPair(entity, candidate);
 				continue;
 			}

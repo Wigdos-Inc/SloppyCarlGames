@@ -425,7 +425,7 @@ function buildPyramid(size) {
 		faceGroups.push({ normal, vertexIndices: [start, start + 1, start + 2], indexStart, indexCount: 3 });
 	};
 
-	addQuadFace(baseFrontLeft, baseFrontRight, baseBackRight, baseBackLeft, WORLD_NORMALS.Up);
+	addQuadFace(baseBackLeft, baseBackRight, baseFrontRight, baseFrontLeft, WORLD_NORMALS.Down);
 	addTriangleFace(baseFrontLeft, baseFrontRight, apex);
 	addTriangleFace(baseFrontRight, baseBackRight, apex);
 	addTriangleFace(baseBackRight, baseBackLeft, apex);
@@ -489,13 +489,13 @@ function buildCylinder(size, complexity) {
 	const topCenter = pushVertex(0, radius.y, 0);
 	const topRing = appendRadialVertices(positions, radius.x, radius.y, radius.z, segments);
 	const topIndexStart = indices.length;
-	appendTriangleFanIndices(indices, topCenter, topRing.start, segments);
+	appendTriangleFanIndices(indices, topCenter, topRing.start, segments, true);
 	faceGroups.push({ normal: WORLD_NORMALS.Up, vertexIndices: [topCenter, ...topRing.vertexIndices], indexStart: topIndexStart, indexCount: indices.length - topIndexStart });
 
 	const bottomCenter = pushVertex(0, -radius.y, 0);
 	const bottomRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
 	const bottomIndexStart = indices.length;
-	appendTriangleFanIndices(indices, bottomCenter, bottomRing.start, segments, true);
+	appendTriangleFanIndices(indices, bottomCenter, bottomRing.start, segments);
 	faceGroups.push({ normal: WORLD_NORMALS.Down, vertexIndices: [bottomCenter, ...bottomRing.vertexIndices], indexStart: bottomIndexStart, indexCount: indices.length - bottomIndexStart });
 
 	return { positions, indices, faceGroups };
@@ -527,8 +527,8 @@ function buildSphere(size, complexity) {
 		for (let slice = 0; slice < resolution.slices; slice++) {
 			const first = stack * (resolution.slices + 1) + slice;
 			const second = first + resolution.slices + 1;
-			indices.push(first, second, first + 1);
-			indices.push(second, second + 1, first + 1);
+			indices.push(first, first + 1, second);
+			indices.push(second, first + 1, second + 1);
 		}
 	}
 
@@ -552,7 +552,7 @@ function buildCone(size, complexity) {
 	sideVertexIndices.push(...sideRing.vertexIndices);
 
 	const sideIndexStart = indices.length;
-	for (let index = 0; index < segments; index++) indices.push(apexIndex, sideRing.start + index, sideRing.start + index + 1);
+	for (let index = 0; index < segments; index++) indices.push(apexIndex, sideRing.start + index + 1, sideRing.start + index);
 	const sideIndexCount = indices.length - sideIndexStart;
 
 	const baseCenter = positions.length / 3;
@@ -562,7 +562,7 @@ function buildCone(size, complexity) {
 	const baseRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
 	baseVertexIndices.push(...baseRing.vertexIndices);
 	const baseIndexStart = indices.length;
-	appendTriangleFanIndices(indices, baseCenter, baseRing.start, segments, true);
+	appendTriangleFanIndices(indices, baseCenter, baseRing.start, segments);
 
 	return {
 		positions, indices,
@@ -613,8 +613,8 @@ function buildCapsule(size, complexity) {
 			const c = rings[ring + 1].start + index;
 			const d = rings[ring + 1].start + index + 1;
 
-			indices.push(a, c, b);
-			indices.push(b, c, d);
+			indices.push(a, b, c);
+			indices.push(b, d, c);
 
 			if (rings[ring].group === "top" && rings[ring + 1].group === "top") topVertices.push(a, b, c, d);
 			else if (rings[ring].group === "bottom" && rings[ring + 1].group === "bottom") bottomVertices.push(a, b, c, d);
@@ -738,8 +738,8 @@ function capTubeRing(indices, ring, segments, forward, solid) {
 		const apex = ring.outerIndices[0];
 		for (let i = 1; i < segments - 1; i++) {
 			const o0 = ring.outerIndices[i], o1 = ring.outerIndices[i + 1];
-			if (forward) indices.push(apex, o0, o1);
-			else indices.push(apex, o1, o0);
+			if (forward) indices.push(apex, o1, o0);
+			else indices.push(apex, o0, o1);
 		}
 		return;
 	}
@@ -748,11 +748,12 @@ function capTubeRing(indices, ring, segments, forward, solid) {
 		const o0 = ring.outerIndices[i], o1 = ring.outerIndices[i + 1];
 		const in0 = ring.innerIndices[i], in1 = ring.innerIndices[i + 1];
 		if (forward) {
-			indices.push(o0, o1, in1);
-			indices.push(o0, in1, in0);
-		} else {
 			indices.push(o0, in1, o1);
 			indices.push(o0, in0, in1);
+		} 
+		else {
+			indices.push(o0, o1, in1);
+			indices.push(o0, in1, in0);
 		}
 	}
 }
@@ -857,8 +858,8 @@ function buildTorus(size, complexity, options) {
 			const b = (major + 1) * stride + minor;
 			const c = a + 1;
 			const d = b + 1;
-			indices.push(a, b, c);
-			indices.push(c, b, d);
+			indices.push(a, c, b);
+			indices.push(c, d, b);
 		}
 	}
 
