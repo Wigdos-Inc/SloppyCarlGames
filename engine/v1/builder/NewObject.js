@@ -11,7 +11,6 @@ import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
 import {
 	AbsoluteVector3,
 	AddVector3,
-	CloneVector3,
 	CrossVector3,
 	DivideVector3,
 	DotVector3,
@@ -77,12 +76,14 @@ function computeCapsuleFromMesh(mesh) {
 }
 
 function computeTriangleSoupFromMesh(mesh) {
+	// One matrix for the whole buffer — the transform is fixed across the sweep.
+	const modelMatrix = CreateModelMatrix(mesh.transform);
 	const readVertex = (vertexIndex) => {
 		const vertex = TransformPointByMatrix({
 			x: mesh.geometry.positions[vertexIndex * 3],
 			y: mesh.geometry.positions[(vertexIndex * 3) + 1],
 			z: mesh.geometry.positions[(vertexIndex * 3) + 2],
-		}, CreateModelMatrix(mesh.transform));
+		}, modelMatrix);
 		return new UnitVector3(vertex.x, vertex.y, vertex.z, "cnu");
 	};
 
@@ -281,15 +282,9 @@ function computeBounds(positions) {
 	};
 
 	for (let index = 3; index < positions.length; index += 3) {
-		const x = positions[index + 0];
-		const y = positions[index + 1];
-		const z = positions[index + 2];
-		if (x < bounds.min.x) bounds.min.x = x;
-		if (y < bounds.min.y) bounds.min.y = y;
-		if (z < bounds.min.z) bounds.min.z = z;
-		if (x > bounds.max.x) bounds.max.x = x;
-		if (y > bounds.max.y) bounds.max.y = y;
-		if (z > bounds.max.z) bounds.max.z = z;
+		const local = { x: positions[index], y: positions[index + 1], z: positions[index + 2] };
+		bounds.min.min(local);
+		bounds.max.max(local);
 	}
 
 	return bounds;
@@ -303,27 +298,22 @@ function TransformPointByMatrix(localPoint, matrix) {
 	};
 }
 
-const transformPoint = (localPoint, transform) => TransformPointByMatrix(localPoint, CreateModelMatrix(transform));
-
 function computeWorldAabbFromGeometry(positions, transform) {
-	const firstWorld = transformPoint({ x: positions[0], y: positions[1], z: positions[2] }, transform);
-	const min = CloneVector3(firstWorld);
-	const max = CloneVector3(firstWorld);
+	// One matrix for the whole buffer — the transform is fixed across the sweep.
+	const matrix = CreateModelMatrix(transform);
+	const first  = TransformPointByMatrix({ x: positions[0], y: positions[1], z: positions[2] }, matrix);
+	const bounds = {
+		min: new UnitVector3(first.x, first.y, first.z, "cnu"),
+		max: new UnitVector3(first.x, first.y, first.z, "cnu")
+	};
 
 	for (let index = 3; index < positions.length; index += 3) {
-		const world = transformPoint({ x: positions[index], y: positions[index + 1], z: positions[index + 2] }, transform);
-		if (world.x < min.x) min.x = world.x;
-		if (world.y < min.y) min.y = world.y;
-		if (world.z < min.z) min.z = world.z;
-		if (world.x > max.x) max.x = world.x;
-		if (world.y > max.y) max.y = world.y;
-		if (world.z > max.z) max.z = world.z;
+		const world = TransformPointByMatrix({ x: positions[index], y: positions[index + 1], z: positions[index + 2] }, matrix);
+		bounds.min.min(world);
+		bounds.max.max(world);
 	}
 
-	return {
-		min: new UnitVector3(min.x, min.y, min.z, "cnu"),
-		max: new UnitVector3(max.x, max.y, max.z, "cnu"),
-	};
+	return bounds;
 }
 
 function computeWorldAabbFromBounds(localBounds, transform) {
@@ -335,19 +325,17 @@ function computeWorldAabbFromBounds(localBounds, transform) {
 		{ x: mn.x, y: mx.y, z: mx.z }, { x: mx.x, y: mx.y, z: mx.z },
 	];
 	const matrix = CreateModelMatrix(transform);
-	const first = TransformPointByMatrix(corners[0], matrix);
-	const min = CloneVector3(first);
-	const max = CloneVector3(first);
+	const first  = TransformPointByMatrix(corners[0], matrix);
+	const bounds = {
+		min: new UnitVector3(first.x, first.y, first.z, "cnu"),
+		max: new UnitVector3(first.x, first.y, first.z, "cnu")
+	};
 	for (let i = 1; i < 8; i++) {
 		const w = TransformPointByMatrix(corners[i], matrix);
-		if (w.x < min.x) min.x = w.x; if (w.x > max.x) max.x = w.x;
-		if (w.y < min.y) min.y = w.y; if (w.y > max.y) max.y = w.y;
-		if (w.z < min.z) min.z = w.z; if (w.z > max.z) max.z = w.z;
+		bounds.min.min(w);
+		bounds.max.max(w);
 	}
-	return {
-		min: new UnitVector3(min.x, min.y, min.z, "cnu"),
-		max: new UnitVector3(max.x, max.y, max.z, "cnu"),
-	};
+	return bounds;
 }
 
 function buildCube(size) {

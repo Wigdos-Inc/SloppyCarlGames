@@ -39,7 +39,7 @@ const CONFIG = {
       DetailedBounds: {                      // Render Detailed Bounds
         Terrain : false,
         Obstacle: false,
-        Void    : true,                      // Void volume + its void walls and open faces
+        Void    : false,                     // Void volume + its void walls and open faces
         Entity  : false,
         Player  : false,
         Boss    : false,
