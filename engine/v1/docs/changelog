@@ -1,5 +1,26 @@
 # Changelog (engine/v1/)
 
+## AABB accumulators instanced once in NewObject.js
+
+**What:** The three AABB sweeps in `NewObject.js` now instance their `min`/`max` accumulators as `UnitVector3` once at entry and grow them with the class's `.min()`/`.max()` methods, instead of tracking plain `{ x, y, z }` bags through inline per-axis comparisons and instancing the result at return. `computeBounds`, `computeWorldAabbFromGeometry` and `computeWorldAabbFromBounds` all return the accumulator object directly. Matches `MergeAabb` in `NewObstacle.js`, `computeEntityAabb` in `NewEntity.js` and `buildVoidCollision` in `NewVoid.js`. `CloneVector3` is no longer used in the file and is dropped from the `Vector3.js` import.
+
+**Where:**
+- `engine/v1/builder/NewObject.js:12-24` — `CloneVector3` removed from the import list.
+- `engine/v1/builder/NewObject.js:278-291` — `computeBounds`.
+- `engine/v1/builder/NewObject.js:301-317` — `computeWorldAabbFromGeometry`.
+- `engine/v1/builder/NewObject.js:319-337` — `computeWorldAabbFromBounds`.
+
+
+## Model matrix hoisted out of the per-vertex sweeps in NewObject.js
+
+**What:** `computeWorldAabbFromGeometry` builds the model matrix once before its sweep and calls `TransformPointByMatrix` directly, instead of calling a `transformPoint(localPoint, transform)` helper that rebuilt the matrix through `CreateModelMatrix` on every vertex. `computeTriangleSoupFromMesh` does the same: its `readVertex` closure now captures one `modelMatrix` built at function entry rather than composing a fresh one per vertex read. The now-unused `transformPoint` helper is deleted. Both match the form already used by `computeObbFromMesh` and `computeWorldAabbFromBounds` in the same file. Output is unchanged — the matrix is a pure function of a transform that does not vary across either loop.
+
+**Where:**
+- `engine/v1/builder/NewObject.js:81`, `:87` — `computeTriangleSoupFromMesh` captures one `modelMatrix`.
+- `engine/v1/builder/NewObject.js:306` — `transformPoint` removed.
+- `engine/v1/builder/NewObject.js:308-316` — `computeWorldAabbFromGeometry` builds `matrix` once.
+
+
 ## Soup query boxes use the canonical AABB shape
 
 **What:** The query box built for a soup scan is now a `{ min: { x, y, z }, max: { x, y, z } }` AABB — the shape `AabbOverlap`, `StrictAabbOverlap` and `TriangleAabb` already use — instead of the flat `minX`/`maxX` bag introduced with the conservative rejects. `sphereQueryBox` and `capsuleQueryBox` are now one-line adapters over a shared `segmentQueryBox(start, end, radius)`, with the sphere passing its centre as both endpoints. `triangleInQueryBox` reads the nested fields and keeps its inlined per-axis comparison. The four soup loops and `PointInsideMesh` are otherwise unchanged.
