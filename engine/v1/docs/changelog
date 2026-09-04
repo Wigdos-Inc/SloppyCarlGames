@@ -1,5 +1,121 @@
 # Changelog (engine/v1/)
 
+## Soup query boxes use the canonical AABB shape
+
+**What:** The query box built for a soup scan is now a `{ min: { x, y, z }, max: { x, y, z } }` AABB — the shape `AabbOverlap`, `StrictAabbOverlap` and `TriangleAabb` already use — instead of the flat `minX`/`maxX` bag introduced with the conservative rejects. `sphereQueryBox` and `capsuleQueryBox` are now one-line adapters over a shared `segmentQueryBox(start, end, radius)`, with the sphere passing its centre as both endpoints. `triangleInQueryBox` reads the nested fields and keeps its inlined per-axis comparison. The four soup loops and `PointInsideMesh` are otherwise unchanged.
+
+**Where:**
+- `engine/v1/math/Collision.js:361-374` — `segmentQueryBox`, `sphereQueryBox`, `capsuleQueryBox`, `triangleInQueryBox`.
+
+## Void wall linings subtract neighbouring voids
+
+**What:** A lining is now clipped against the other voids carving the same host, not just against the host solid, so overlapping voids produce one union boundary instead of one full wall each. `buildRelation` is split in two: `queuePairing` creates the relation entry, records the void↔host pairing and queues the carve, and `drainPairings` runs after both drivers to build the lining and open faces. That deferral is what makes the full neighbour set per host available — it is read back off the `carveQueue` entry for the host mesh, minus the pairing's own solid. `buildHostLining` takes those neighbour solids as a third parameter, filters each face's host-clipped pieces to the ones inside the host before subtracting, then subtracts each neighbour whose AABB overlaps the face using `carveTriangleByVoid`, the same progressive-split routine the geometry carve uses. `accumulateVoidTotals` moves out of the two drivers into `BuildVoidWalls`, which walks a `built` list of `{ id, relations }` after the drain. `carveHostGeometry`, `clipHostSurfaceToVoid` and `splitTriangleBySolid` are unchanged.
+
+**Where:**
+- `engine/v1/builder/NewVoid.js:311-345` — `buildHostLining`.
+- `engine/v1/builder/NewVoid.js:632-650` — `queuePairing` and `drainPairings`.
+- `engine/v1/builder/NewVoid.js:665`, `:691` — driver signatures take `built`/`pairings`.
+- `engine/v1/builder/NewVoid.js:722-733` — `BuildVoidWalls` drains pairings, then accumulates totals.
+
+## Void wall linings clipped to their host
+
+**What:** `classifyFaces` is gone. It probed one point per void triangle, picked the nearest host containing it, and emitted the whole triangle as both the renderable lining and the `voidWall` collision soup — so a lining spanned the void's entire face, including the parts outside the host. The lining is now clipped: `buildVoidFaces` prepares each void triangle in both spaces (local and world corners, world barycentric basis, source vertex indices, source face normal, cavity-facing world normal), and `buildHostLining` splits each face by every host plane that straddles it, keeping the pieces whose material-side probe lies inside the host solid. `appendLiningVertex` rebuilds local positions for clip crossings from barycentric weights taken off the world corners and applied to the local corners, using the per-axis clamped delta form; corners keep their source vertex index, and crossings are keyed per source face, so an unclipped face reproduces the previous vertex numbering.
+
+The lining is driven by `collectRelationHosts` rather than a nearest-host tiebreak, so each related host gets its own clip of the full void surface and a face spanning two hosts contributes to both. The plane-split inner loop is extracted as `splitTriangleBySolid` and shared by `clipHostSurfaceToVoid` and `buildHostLining`, leaving open-face output unchanged. `buildVoidSolid` becomes `buildCuttingSolid` (it builds host solids too, and only builds `candidateIndices` when asked), `pieceInsideVoid` becomes `pieceInsideSolid`, and `groupCoplanarFaceTriples`/`buildFaceGroupsFromTriangles` become `groupCoplanarPieces`, which buckets by the source face's local normal instead of re-deriving one from a clipped sliver. `buildVoidMesh` takes the lining instead of `faceTriples`. `buildRelation` pushes a wall mesh only when the lining is non-empty, since `buildVoidCollision` seeds its AABB from `±Infinity`. `clipHostSurfaceToVoid` now takes the host's cutting solid and reads its cached per-triangle AABBs instead of recomputing them on every void-host pairing. `apertureProbeDepth` and `centroidSphereRadius` are removed, along with the `physics/Collision.js` import.
+
+**Where:**
+- `engine/v1/builder/NewVoid.js:106-141` — `buildVoidFaces`.
+- `engine/v1/builder/NewVoid.js:145-154` — `buildCuttingSolid`.
+- `engine/v1/builder/NewVoid.js:182-196` — `splitTriangleBySolid`.
+- `engine/v1/builder/NewVoid.js:279-330` — `appendLiningVertex` and `buildHostLining`.
+- `engine/v1/builder/NewVoid.js` — `groupCoplanarPieces`, `buildVoidMesh`, `buildRelation`, `clipHostSurfaceToVoid`.
+
+## Triangle soup scans gain conservative rejects
+
+**What:** The four soup contact loops — `SphereTriangleSoupContact`, `CapsuleTriangleSoupContact`, `SphereVoidWallContact`, `CapsuleVoidWallContact` — now skip triangles outside a query box before running per-triangle contact math. The box is the query shape's own extent grown by its radius, built once per call by `sphereQueryBox`/`capsuleQueryBox` and tested by `triangleInQueryBox`. `PointInsideMesh` skips triangles lying wholly behind the ray origin on any axis, which `parityRayDirection` allows because all three of its components are positive. Both are pure rejects: an excluded triangle cannot produce a contact within the radius, and cannot be crossed by the ray.
+
+**Where:**
+- `engine/v1/math/Collision.js:361-380` — query box helpers and `triangleInQueryBox`.
+- `engine/v1/math/Collision.js:382-390` — `SphereTriangleSoupContact`.
+- `engine/v1/math/Collision.js` — `CapsuleTriangleSoupContact`, `SphereVoidWallContact`, `CapsuleVoidWallContact`.
+- `engine/v1/math/Collision.js:577-589` — `PointInsideMesh`.
+
+## Void holes carved into host geometry at build time
+
+**What:** Host meshes are now physically carved where a void overlaps them, and the per-frame stencil mask is gone. `clipHostSurfaceToVoid`'s splitting body is split into reusable `collectCrossingPlanes` and `pieceInsideVoid`, with `clipHostSurfaceToVoid` itself keeping its original global-plane algorithm so its `openFaces` decomposition is unchanged. The carve runs on its own path: `carveTriangleByVoid` walks an explicit stack in which each piece re-selects its cutting planes from a narrowing candidate list, and `carveHostGeometry` rewrites the host index buffer around its voids, reconstructing split vertices from `barycentricBasis`/`barycentricWeights` and `blendAxis` so positions and UVs are blended from their source corners. Vertices are appended and never deleted, so bounds derived from `positions` are unchanged. `carveHostGeometry` writes only `geometry.positions`, `geometry.uvs`, `geometry.indices` and `geometry.faceTextureGroups`; `localBounds`, `worldAabb`, `detailedBounds`, `collisionShape`, `dimensions` and `meta` are untouched. `buildVoidSolid` gains a `planeOffsets` array so the per-void-triangle plane offset is computed once instead of per host triangle and per candidate. A `carveQueue` is populated by both void-wall drivers and drained at the end of `BuildVoidWalls`, which emits a second summary line reporting carved hosts, triangle and vertex growth, the worst host, and elapsed time.
+
+In `handlers/Render.js` the stencil path is deleted entirely: `createStencilProgram`, `drawDepthPrePass`, `createStencilMeshBuffer`/`ensureStencilMeshBuffer`, `createVoidSolidStencilBuffer`/`ensureVoidSolidStencilBuffer`, `createIndexedPositionVao`, `countVoidVolumes`, `resolveVoidCounter`, `drawVoidVolumeStencil`, the temporary `debugVoidCounter`, the `stencilRejectMask` option in `drawMeshList`, the `terrainUncarved`/`obstaclesUncarved` split in `collectRenderableMeshes`, the `stencilShader`/`stencilBufferCache`/`voidResolveQuad` renderer fields, `{ stencil: true }` on the context, and `STENCIL_BUFFER_BIT` from the frame clear. `createMeshBuffers` uploads `Uint32Array` and both consuming draws use `gl.UNSIGNED_INT`, with the `faceTextureGroups` byte offset changed from `indexStart * 2` to `* 4`. `getMeshBufferKey` gains the index count so a carved mesh cannot reuse an uncarved VAO. `drawVoidWalls` and `entry.solidTriangles` are unchanged.
+
+`normalizeTubeOptions` returns a fresh object instead of mutating and returning the raw payload bag, matching `normalizeRampOptions`.
+
+**Where:**
+- `engine/v1/builder/NewVoid.js:176-180` — `buildVoidSolid` `planeOffsets`.
+- `engine/v1/builder/NewVoid.js:184-207` — `collectCrossingPlanes`.
+- `engine/v1/builder/NewVoid.js:209-243` — `clipHostSurfaceToVoid`, original algorithm retained.
+- `engine/v1/builder/NewVoid.js:246-300` — `carveTriangleByVoid` and the barycentric reconstruction helpers.
+- `engine/v1/builder/NewVoid.js:303-360` — `carveHostGeometry`.
+- `engine/v1/builder/NewVoid.js` — `carveQueue` population in both drivers, drained in `BuildVoidWalls` with the new summary line.
+- `engine/v1/handlers/Render.js:1616`, `:1625` — `gl.UNSIGNED_INT` draws; `faceTextureGroups` offset `* 4`.
+- `engine/v1/handlers/Render.js:1860-1881` — `gatherVoidWallMeshes`/`drawVoidWalls`, retained.
+- `engine/v1/core/normalize.js:743-752` — `normalizeTubeOptions`.
+
+## Temporary void counter measurement
+
+**What:** `debugVoidCounter` captures one frame's void stencil counter as a histogram. It draws 64 fullscreen quads through the existing `debugLineShader`, one per counter value, writing the value into the red channel under `stencilFunc(EQUAL, value, 0x3F)`, then `readPixels` and tallies. Result lands on `window.voidCounterResult` as `{ total, histogram }`; triggered by setting `window.voidCounterRequest`, which the capture clears. Destroys the captured frame's colour — a measurement, not a viewing mode. Gated on a global rather than a `CONFIG` key. Temporary; marked for removal once the void stencil work closes.
+
+**Where:**
+- `engine/v1/handlers/Render.js:2087-2128`, `:2235` — the capture and its call site.
+
+## Void suppression evaluated at the end-of-frame position
+
+**What:** Both swept branches of `DetectPhysicsCollisions` passed `ScaleVector3(vel, swept.tEntry)` as `isVoidCancelled`'s `motionOffset` — the contact instant, where the body still sits outside the void — so a void entrance applied one frame of full collision response before suppressing. Both now pass `vel`. The resting-overlap call in `DetectCurrentPhysicsOverlaps` still passes no offset and is unchanged. `isVoidCancelled`'s header comment updated to match.
+
+**Where:**
+- `engine/v1/physics/Collision.js:503-504` — header comment.
+- `engine/v1/physics/Collision.js:702` — player branch.
+- `engine/v1/physics/Collision.js:723` — non-player branch.
+
+## Void aperture classification probes host material
+
+**What:** `classifyFaces` decides embedded-vs-open from a probe offset into the host material rather than from the face centroid: `materialProbe = centroid - cavityNormal * apertureProbeDepth` (0.05 cnu), so a cap sitting at an aperture no longer classifies as lining. `drawVoidVolumeStencil` also drops its trailing `gl.stencilMask(0xFF)`; the frame clear sets the mask at its own call site.
+
+**Where:**
+- `engine/v1/builder/NewVoid.js:18` — `apertureProbeDepth`.
+- `engine/v1/builder/NewVoid.js:144-153` — `materialProbe` replaces `centroid` in the embedded test.
+- `engine/v1/handlers/Render.js:2062` — `drawVoidVolumeStencil` state restore.
+
+## Void stencil rewritten as z-fail volume counting
+
+**What:** The screen-space void punch is replaced by a depth-bounded stencil volume test. Each void solid is rasterized from `entry.solidTriangles` (world-space, drawn with an identity model matrix, scaled by `CNU_SCALE`) with `stencilOpSeparate` incrementing on depth-failing back faces and decrementing on depth-failing front faces, so a nonzero 6-bit counter (`0x3F`) means the visible host surface lies inside a void. Obstacle voids are counted first and resolved to flag bit `0x40` by a fullscreen quad, the counter is masked-cleared, then terrain voids are counted and left in the counter — obstacles reject on `0x40`, terrain rejects on `0x3F`. The obstacle half is skipped entirely when no obstacle voids exist. Counting disables `gl.CULL_FACE` for its duration and restores the `BackfaceCulling` debug state afterwards. `drawMeshList`'s `stencilExcludeBit`/`stencilIncludeBit` collapse to one `stencilRejectMask` option, void walls lose their stencil gate entirely, and `collectRenderableMeshes` now splits `nullable: false` hosts into `terrainUncarved`/`obstaclesUncarved` so a depth-correct mask cannot cut them. Void wall meshes are gathered and split by shader once per level onto the renderer rather than rebuilt each frame. `createOpenFaceStencilBuffer`, `ensureOpenFaceStencilBuffer`, `hasVoidOpenFaces`, `drawVoidStencil` and `drawVoidWallBucket` are deleted; `createIndexedPositionVao` is extracted from the shared VAO boilerplate. `openFaces` remains untouched in `builder/` where scatter suppression, the debug overlay and the build log still consume it. Also folds in per-frame `Float32Array` camera matrices and a module-level identity matrix in place of repeated allocations.
+
+**Where:**
+- `engine/v1/handlers/Render.js:12`, `:69` — `CNU_SCALE` import; module-level `identityRenderMatrix`.
+- `engine/v1/handlers/Render.js:1210-1223` — `createIndexedPositionVao`, shared by both stencil buffer builders.
+- `engine/v1/handlers/Render.js:1241-1264` — `createVoidSolidStencilBuffer` / `ensureVoidSolidStencilBuffer`, cached under `` `${entry.id}|voidSolid` ``.
+- `engine/v1/handlers/Render.js:1287` — `drawDepthPrePass` takes a list of mesh lists and loops sequentially.
+- `engine/v1/handlers/Render.js:1566`, `:1577-1579` — `voidResolveQuad` and the cached void wall lists on the renderer state.
+- `engine/v1/handlers/Render.js:1608` — `collectRenderableMeshes` uncarved split.
+- `engine/v1/handlers/Render.js:1705` — `drawMeshList` `stencilRejectMask`.
+- `engine/v1/handlers/Render.js:1993-2072` — `countVoidVolumes`, `resolveVoidCounter`, `drawVoidVolumeStencil`.
+- `engine/v1/handlers/Render.js:2074-2087` — `ensureVoidWallMeshes`; `drawVoidWalls` draws the two cached lists ungated.
+- `engine/v1/handlers/Render.js:2156-2157` — reject masks in `drawScene`; pass ordering above them.
+
+## Primitive winding normalised to outward
+
+**What:** Every primitive builder now emits consistently outward-wound triangles. `buildCylinder`, `buildPyramid` and `buildTube` were mixed (sides outward, caps or base inward); `buildSphere`, `buildTorus`, `buildCone` and `buildCapsule` were uniformly inward. `buildPyramid`'s base face group also had its declared normal corrected from `Up` to `Down`. `buildCube`, `buildRampSimple`, `buildRampComplex` and `buildPlane` were already outward and are unchanged. Separately, `drawScene` now sets `gl.stencilMask(0xFF)` before its frame clear — `gl.clear(gl.STENCIL_BUFFER_BIT)` is gated by the stencil write mask, which earlier passes left at `0x00`. A `CONFIG.DEBUG.LEVELS.BackfaceCulling` flag was added, default off, enabling `gl.CULL_FACE` in `drawScene` as a winding diagnostic.
+
+**Where:**
+- `engine/v1/builder/NewObject.js:428` — `buildPyramid` base quad reversed; declared normal now `WORLD_NORMALS.Down`.
+- `engine/v1/builder/NewObject.js:492`, `:498` — `buildCylinder` top and bottom cap fan flags swapped.
+- `engine/v1/builder/NewObject.js:530-531` — `buildSphere` index loop.
+- `engine/v1/builder/NewObject.js:555`, `:565` — `buildCone` side triangles and base fan flag.
+- `engine/v1/builder/NewObject.js:616-617` — `buildCapsule` index loop.
+- `engine/v1/builder/NewObject.js:736-758` — `capTubeRing` solid and hollow branches swapped.
+- `engine/v1/builder/NewObject.js:860-861` — `buildTorus` index loop.
+- `engine/v1/handlers/Render.js:2101`, `:2104` — `BackfaceCulling` toggle; `stencilMask(0xFF)` before the frame clear.
+- `engine/v1/core/config.js:20` — `CONFIG.DEBUG.LEVELS.BackfaceCulling`.
+- `engine/v1/builder/NewVoid.js:99` — `resolveCavitySign` comment reduced to a fragment.
+
 ## Void classification logging aggregated
 
 **What:** Void classification now emits one summary line per level build instead of one line per void. `logVoidRelations` became `accumulateVoidTotals`, which folds each void's relation counts into a shared `totals` object; `BuildVoidWalls` owns the object and logs it once after both builders run. The line reports voids, hosts, voidWalls, openFaces, and maxPerHost with the id of the void owning that maximum. Channel and level are unchanged (`"log"`, `"Level"`).
