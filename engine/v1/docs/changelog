@@ -184,3 +184,20 @@ In `handlers/Render.js` the stencil path is deleted entirely: `createStencilProg
 
 **Where:**
 - `engine/v1/physics/Collision.js:496-501` — `offsetAabb`.
+
+## Noise void wall linings share one tiling canvas
+
+**What:** The noise branch of `buildVoidMesh` no longer bakes a per-face canvas per coplanar
+group. It calls `GenerateFaceProjectedUvs` with `normalize` false for raw planar UVs on each
+group's dominant axis, scales them by `textureScale / textureBlueprint.size`, and drops
+`faceTextureGroups` so the lining references its host's plain textureID as a tiling surface;
+`BuildFaceTextureData` is no longer called from this path. Both branches of `buildVoidMesh` now
+attach `detail.texture` from the host, and `collectTextureUsage` runs `collectMesh` over every
+lining in `sceneGraph.voids.terrain` and `.obstacles` so that id is registered as a surface — a
+noise host otherwise bakes only per-face canvases and the id has none. Dropped the
+`BuildFaceTextureData`, `BuildNoiseAnimationOptions` and `ResolveTextureBlueprint` imports from
+`NewVoid.js`, and removed the now-unused `faceTextureStore` parameter from `buildVoidMesh`,
+`drainPairings` and `BuildVoidWalls` and from the `BuildVoidWalls` call.
+
+**Where:** `engine/v1/builder/NewVoid.js`, `engine/v1/builder/NewTexture.js`,
+`engine/v1/builder/NewLevel.js`
