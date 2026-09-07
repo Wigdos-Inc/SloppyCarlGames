@@ -387,6 +387,15 @@ function collectTextureUsage(sceneGraph) {
 		}
 	});
 
+	// Linings sit outside ForEachTexturedMesh — they inherit a host id that needs a tiling surface.
+	const collectVoidWalls = (voidRecords) => voidRecords.forEach((record) => {
+		for (const hostId in record.relations) {
+			record.relations[hostId].voidWallMeshes.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id, usage, customTextureUsage));
+		}
+	});
+	collectVoidWalls(sceneGraph.voids.terrain);
+	collectVoidWalls(sceneGraph.voids.obstacles);
+
 	return { usage, customTextureUsage };
 }
 

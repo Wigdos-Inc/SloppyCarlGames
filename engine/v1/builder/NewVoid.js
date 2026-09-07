@@ -8,7 +8,7 @@ import { CreateModelMatrix, CreateRenderMatrixCache } from "../math/Matrix.js";
 import { AabbOverlap, MeshesIntersect, PointInsideMesh, SplitTriangleByPlane, StrictAabbOverlap, TriangleAabb } from "../math/Collision.js";
 import { Log } from "../core/meta.js";
 import { GenerateUVs, GenerateFaceProjectedUvs, TransformPointByMatrix } from "./NewObject.js";
-import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveTextureBlueprint, VISUAL_TEMPLATES } from "./NewTexture.js";
+import { VISUAL_TEMPLATES } from "./NewTexture.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { AddVector3, CrossVector3, DivideVector3, DotVector3, ScaleVector3, SubtractVector3, ToVector3, Vector3Sq, WORLD_NORMALS } from "../math/Vector3.js";
 
@@ -500,7 +500,7 @@ function buildVoidCollision(worldTriangles) {
 	};
 }
 
-function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale, faceTextureStore) {
+function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale) {
 	const material        = defaultMesh.material;
 	const liningPositions = lining.positions;
 	const collision       = buildVoidCollision(lining.worldTriangles);
@@ -531,13 +531,12 @@ function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale, faceTextureS
 			faceGroupData.push({ normal: group.normal, vertexIndices, indexStart, indexCount });
 		}
 
-		const positionArray            = new Float32Array(newPositions);
-		const { uvs, faceSpans }       = GenerateFaceProjectedUvs(positionArray, faceGroupData, true);
-		const resolvedBlueprint = ResolveTextureBlueprint(textureBlueprint, defaultMesh.detail.texture);
-		const animationOptions = BuildNoiseAnimationOptions(textureBlueprint, defaultMesh.detail.texture);
-		const { faceTextureGroups } = BuildFaceTextureData(
-			faceTextureStore, material.textureID, resolvedBlueprint, faceGroupData, faceSpans, textureScale, animationOptions
-		);
+		const positionArray = new Float32Array(newPositions);
+
+		// Raw UVs scaled to the tile's world size — per-face bakes collapse to 1x1 on curved facets.
+		const uvs       = GenerateFaceProjectedUvs(positionArray, faceGroupData, false);
+		const tileScale = textureScale / textureBlueprint.size;
+		for (let i = 0; i < uvs.length; i++) uvs[i] *= tileScale;
 
 		const mesh = {
 			id               : `${voidMesh.id}-void-${defaultMesh.id}`,
@@ -553,11 +552,12 @@ function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale, faceTextureS
 				opacity    : material.opacity,
 				transparent: material.transparent,
 			},
+			// Every lining carries its host's texture so the registry can resolve its id.
+			detail           : { texture: defaultMesh.detail.texture },
 			geometry: {
 				positions       : positionArray,
 				uvs             : new Float32Array(uvs),
 				indices         : new Uint16Array(newIndices),
-				faceTextureGroups,
 			},
 			worldAabb  : collision.worldAabb,
 			floorBounds: collision.floorBounds,
@@ -604,6 +604,8 @@ function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale, faceTextureS
 			// Scale 1 makes triplanar's objPos sampling match the planar projection it replaces.
 			textureScale: 1,
 		},
+		// Every lining carries its host's texture so the registry can resolve its id.
+		detail           : { texture: defaultMesh.detail.texture },
 		geometry: {
 			positions: positionArray,
 			uvs      : new Float32Array(uvs),
@@ -626,13 +628,13 @@ function queuePairing(pairings, carveQueue, relations, host, voidMesh, voidFaces
 }
 
 // The host-clipped lining mesh, plus the void-clipped host openings.
-function drainPairings(pairings, carveQueue, textureScale, faceTextureStore) {
+function drainPairings(pairings, carveQueue, textureScale) {
 	for (const { relation, host, voidMesh, voidFaces, voidSolid } of pairings) {
 		const neighbours = carveQueue.get(host.mesh).filter((solid) => solid !== voidSolid);
 		const lining     = buildHostLining(voidFaces, host.solid, neighbours);
 
 		if (lining.triples.length > 0) {
-			relation.voidWallMeshes.push(buildVoidMesh(voidMesh, lining, host.mesh, textureScale, faceTextureStore));
+			relation.voidWallMeshes.push(buildVoidMesh(voidMesh, lining, host.mesh, textureScale));
 		}
 
 		relation.openFaces.push(...clipHostSurfaceToVoid(voidSolid, host.solid));
@@ -709,7 +711,7 @@ function buildObstacleVoidWalls(sceneGraph, built, pairings, carveQueue) {
 	}
 }
 
-function BuildVoidWalls(sceneGraph, textureScale, faceTextureStore) {
+function BuildVoidWalls(sceneGraph, textureScale) {
 	const totals     = { voids: 0, hosts: 0, voidWalls: 0, openFaces: 0, maxPerHost: 0, maxPerHostId: "none" };
 	const carveQueue = new Map();
 	const pairings   = [];
@@ -718,7 +720,7 @@ function BuildVoidWalls(sceneGraph, textureScale, faceTextureStore) {
 	buildTerrainVoidWalls(sceneGraph, built, pairings, carveQueue);
 	buildObstacleVoidWalls(sceneGraph, built, pairings, carveQueue);
 
-	drainPairings(pairings, carveQueue, textureScale, faceTextureStore);
+	drainPairings(pairings, carveQueue, textureScale);
 	for (const { id, relations } of built) accumulateVoidTotals(totals, id, relations);
 
 	const carve = drainCarveQueue(carveQueue);

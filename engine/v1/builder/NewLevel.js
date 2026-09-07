@@ -319,11 +319,7 @@ async function BuildLevel(payload) {
 	// Void walls run before scatter: classification attaches a `relations` map (with openFaces)
 	// onto each void entry, which scatter then reads to reject samples over openings.
 	const voids = { terrain: voidTerrain, obstacles: voidObstacleRecords };
-	BuildVoidWalls(
-		{ terrain, obstacles: obstacleRecords, voids },
-		payload.world.textureScale,
-		faceTextureStore
-	);
+	BuildVoidWalls({ terrain, obstacles: obstacleRecords, voids }, payload.world.textureScale);
 
 	// Open faces lookup: per default object id, the concatenated world-space open boundary faces
 	// across every void relation that references it.
