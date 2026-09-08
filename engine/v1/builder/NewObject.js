@@ -515,8 +515,9 @@ function buildSphere(size, complexity) {
 		for (let slice = 0; slice < resolution.slices; slice++) {
 			const first = stack * (resolution.slices + 1) + slice;
 			const second = first + resolution.slices + 1;
-			indices.push(first, first + 1, second);
-			indices.push(second, first + 1, second + 1);
+			// Skips the zero-area half of each pole cell.
+			if (stack !== 0) indices.push(first, first + 1, second);
+			if (stack !== resolution.stacks - 1) indices.push(second, first + 1, second + 1);
 		}
 	}
 

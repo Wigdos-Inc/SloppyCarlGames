@@ -11,7 +11,6 @@ import { CONFIG } from "./config.js";
 // Persistence helpers for same-tab navigation.
 
 const SESSION_KEYS = {
-  Logs: "ENGINE_LOGS",
   Cache: "ENGINE_CACHE",
   SplashPlayed: "ENGINE_SPLASH_PLAYED",
 };
@@ -48,7 +47,7 @@ function clearSessionStorage() {
 /* === STATE === */
 // Stored log history.
 
-const logs = ReadFromSession(SESSION_KEYS.Logs) ?? {
+const logs = {
   all     : [],
   engine  : [],
   game    : [],
@@ -223,8 +222,6 @@ function Log(source, message, level, channel) {
   else if (entry.source === "ENGINE") logs.engine.push(entry);
   else if (entry.source === "GAME")   logs.game.push(entry);
   else                                logs.other.push(entry);
-
-  PushToSession(SESSION_KEYS.Logs, logs);
 
   // Skip console output when debug gating fails.
   if (!shouldLog(entry.source, entry.channel, entry.level, entry.message)) return;

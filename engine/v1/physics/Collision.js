@@ -35,6 +35,8 @@ import {
 	CapsuleTriangleSoupContact,
 	SphereVoidWallContact,
 	CapsuleVoidWallContact,
+	AabbTriangleSoupContact,
+	AabbVoidWallContact,
 	PointInsideMesh,
 	RayOBBIntersect,
 	RayTriangleIntersect,
@@ -55,6 +57,10 @@ const groundProbeRadius = new Unit(0.001, "cnu");
 // (support point at y == void.min.y). Applied to the y axis only — x/z stay exact.
 const voidBoundaryEpsilon = new Unit(0.001, "cnu");
 
+// Depth (CNU) a contact point is pushed back into the host to sample the material it touched.
+// Same depth as NewVoid.js's aperture probe.
+const contactMaterialProbe = new Unit(0.05, "cnu");
+
 /* ========================================================================
  * RESULT POOLS — grow-once, zero GC per frame.
  * ======================================================================== */
@@ -73,8 +79,9 @@ function poolPush(pool) {
 		pushNormal: null,
 		point: null,
 		supportPoint: null,
-		type: null, 
-		trigger: null, 
+		type: null,
+		sourceType: null,
+		trigger: null,
 		attacker: null, 
 		shape: null 
 	};
@@ -210,14 +217,12 @@ function projectAabbPushContact(entityAabb, candidateBounds, contact) {
 }
 
 function resolveAabbDetailedPushContact(entityAabb, candidateBounds, contact) {
-	if (candidateBounds.type !== "triangle-soup") {
-		const pushContact = narrowphaseContact({
-			type: "aabb",
-			min: entityAabb.min,
-			max: entityAabb.max,
-		}, candidateBounds);
-		if (pushContact.hit) return { contact: pushContact, supportPoint: resolvePushSupportPoint(candidateBounds, pushContact) };
-	}
+	const pushContact = narrowphaseContact({
+		type: "aabb",
+		min: entityAabb.min,
+		max: entityAabb.max,
+	}, candidateBounds);
+	if (pushContact.hit) return { contact: pushContact, supportPoint: resolvePushSupportPoint(candidateBounds, pushContact) };
 
 	return projectAabbPushContact(entityAabb, candidateBounds, contact);
 }
@@ -333,6 +338,10 @@ function narrowphaseContact(boundsA, boundsB) {
 		case "vosp": return invertContact(SphereVoidWallContact(boundsB.center, boundsB.radius, boundsA));
 		case "cavo": return CapsuleVoidWallContact(boundsA, boundsB);
 		case "voca": return invertContact(CapsuleVoidWallContact(boundsB, boundsA));
+		case "aatr": return AabbTriangleSoupContact(boundsA, boundsB);
+		case "traa": return invertContact(AabbTriangleSoupContact(boundsB, boundsA));
+		case "aavo": return AabbVoidWallContact(boundsA, boundsB);
+		case "voaa": return invertContact(AabbVoidWallContact(boundsB, boundsA));
 		case "aaaa": return aabbAabbContact(boundsA, boundsB);
 		case "aaob": return AabbObbContact(boundsA, boundsB);
 		case "obaa": return invertContact(AabbObbContact(boundsB, boundsA));
@@ -415,9 +424,9 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 		});
 	});
 
-	// Void walls (one-sided, never void-suppressed): floor and wall faces are separate
-	// candidates so a deeper wall contact can't mask the floor's ground contact.
-	const collectVoidWalls = (entries) => {
+	// Floor and wall faces enter as separate candidates.
+	// sourceType is the category they resolve under, matching ProbeGroundContact.
+	const collectVoidWalls = (entries, sourceType) => {
 		for (const entry of entries) for (const id in entry.relations) {
 			for (const voidWall of entry.relations[id].voidWallMeshes) {
 				if (!withinSimRadius(voidWall.worldAabb)) continue;
@@ -428,6 +437,7 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 					detailedBounds: voidWall.wallBounds,
 					isTrigger     : false,
 					type          : "voidWall",
+					sourceType    : sourceType,
 					ref           : voidWall,
 				});
 				if (voidWall.floorBounds.triangles.length > 0) {
@@ -438,14 +448,15 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 						detailedBounds: voidWall.floorBounds,
 						isTrigger     : false,
 						type          : "voidWall",
+						sourceType    : sourceType,
 						ref           : voidWall,
 					});
 				}
 			}
 		}
 	};
-	collectVoidWalls(sceneGraph.voids.terrain);
-	collectVoidWalls(sceneGraph.voids.obstacles);
+	collectVoidWalls(sceneGraph.voids.terrain, "terrain");
+	collectVoidWalls(sceneGraph.voids.obstacles, "obstacle");
 
 	// Triggers (only ever consumed by the player).
 	if (includeTriggers) {
@@ -500,8 +511,8 @@ function offsetAabb(aabb, offset) {
 	};
 }
 
-// motionOffset tests the end-of-frame position — at the contact instant the body is still outside.
-function isVoidCancelled(entity, candidate, sceneGraph, motionOffset) {
+// motionOffset tests the end-of-frame position; a void cancels a contact only where the material behind it was carved away.
+function isVoidCancelled(entity, candidate, sceneGraph, motionOffset, contact) {
 	if (candidate.type !== "terrain" && candidate.type !== "obstacle") return false;
 
 	const isTerrain  = candidate.type === "terrain";
@@ -512,10 +523,17 @@ function isVoidCancelled(entity, candidate, sceneGraph, motionOffset) {
 		if (ns.relations[candidate.ref.id]?.suppressed !== true) continue;
 		const entityAabb = motionOffset ? offsetAabb(entity.collision.aabb, motionOffset) : entity.collision.aabb;
 		if (!StrictAabbOverlap(entityAabb, expandAabbY(ns.worldAabb, voidBoundaryEpsilon.value))) continue;
+		// Centre inside the cavity cancels the host outright.
+		if (PointInsideMesh(getAabbCenter(entityAabb), ns.solidTriangles)) return true;
+
+		if (contact && contact.point) {
+			// Probe sits contactMaterialProbe inside the host, behind the contact point.
+			if (PointInsideMesh(AddVector3(contact.point, ScaleVector3(contact.normal, -contactMaterialProbe.value)), ns.solidTriangles)) return true;
+			continue;
+		}
+
 		const entityBounds = motionOffset ? offsetDetailedBounds(entity.collision.physics.bounds, motionOffset) : entity.collision.physics.bounds;
 		if (ns.detailedBounds && NarrowphaseTest(entityBounds, ns.detailedBounds)) return true;
-		// Bounds are an approximation of the void; containment catches bodies fully inside it.
-		if (PointInsideMesh(getAabbCenter(entityAabb), ns.solidTriangles)) return true;
 	}
 
 	return false;
@@ -573,6 +591,7 @@ function fillSolidResult(candidate, swept, contact, candidateBounds) {
 	item.point        = contact.point;
 	item.supportPoint = resolveContactSupportPoint(candidateBounds, contact);
 	item.type         = candidate.type;
+	item.sourceType   = candidate.sourceType || null;
 	return item;
 }
 
@@ -587,11 +606,11 @@ function createEmptyGroundContact() {
 	};
 }
 
-function buildGroundContact(collision, supportY) {
+function buildGroundContact(collision, supportY, surfaceType) {
 	return {
 		hit: true,
 		normal: CloneVector3(collision.pushNormal),
-		type: collision.type,
+		type: surfaceType,
 		supportPoint: CloneVector3(collision.supportPoint),
 		supportY: supportY,
 		tEntry: collision.tEntry,
@@ -698,7 +717,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 					}
 				}
 
-				if (isVoidCancelled(entity, candidate, sceneGraph, vel)) {
+				if (isVoidCancelled(entity, candidate, sceneGraph, vel, contact)) {
 					removeActiveCollisionPair(entity, candidate);
 					continue;
 				}
@@ -719,7 +738,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 				cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
 			}
 
-			if (isVoidCancelled(entity, candidate, sceneGraph, vel)) {
+			if (isVoidCancelled(entity, candidate, sceneGraph, vel, contact)) {
 				removeActiveCollisionPair(entity, candidate);
 				continue;
 			}
@@ -780,7 +799,7 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 			removeActiveCollisionPair(entity, candidate);
 			continue;
 		}
-		if (isVoidCancelled(entity, candidate, sceneGraph)) {
+		if (isVoidCancelled(entity, candidate, sceneGraph, null, contact)) {
 			removeActiveCollisionPair(entity, candidate);
 			continue;
 		}
@@ -797,6 +816,7 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 		item.point = contact.point;
 		item.supportPoint = push.supportPoint || resolveContactSupportPoint(candidate.detailedBounds, contact);
 		item.type = candidate.type;
+		item.sourceType = candidate.sourceType || null;
 		item.shape = entity.collision.physics.bounds.type;
 	}
 
@@ -899,7 +919,9 @@ function ResolveCollisions(velocity, displacement, solids) {
 
 	for (let i = 0; i < solids.count; i++) { 
 		const collision = solids.items[i];
-		const isSurfaceCandidate = collision.type === "terrain" || collision.type === "obstacle";
+		// A voidWall resolves under its source category
+		const surfaceType = collision.sourceType || collision.type;
+		const isSurfaceCandidate = surfaceType === "terrain" || surfaceType === "obstacle";
 		const wallApproach = isSurfaceCandidate ? resolveWallApproachStrength(velocity, collision.normal) : 0;
 
 		if (isSurfaceCandidate && collision.pushNormal.y > 0.5) {
@@ -907,7 +929,7 @@ function ResolveCollisions(velocity, displacement, solids) {
 				!groundContact.hit || collision.pushNormal.y > groundContact.supportY ||
 				(collision.pushNormal.y === groundContact.supportY && collision.tEntry < groundContact.tEntry)
 			) {
-				groundContact = buildGroundContact(collision, collision.pushNormal.y);
+				groundContact = buildGroundContact(collision, collision.pushNormal.y, surfaceType);
 			}
 		}
 

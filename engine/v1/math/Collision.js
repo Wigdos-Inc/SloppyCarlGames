@@ -497,8 +497,9 @@ function sphereVoidWallTriangleContact(center, radius, triangle) {
 	if (distSq <= EPSILON) return makeContact(triangle.normal, radius.value, closest);
 	if (DotVector3(triangle.normal, delta) < 0) return NoContact();
 
+	// Contact normal is triangle-point-to-shape, not the face plane.
 	const distance = Math.sqrt(distSq);
-	return makeContact(triangle.normal, radius.value - distance, closest);
+	return makeContact(ScaleVector3(delta, 1 / distance), radius.value - distance, closest);
 }
 
 function SphereVoidWallContact(center, radius, voidWall) {
@@ -525,8 +526,9 @@ function capsuleVoidWallTriangleContact(capsule, triangle) {
 	if (closest.distanceSq <= EPSILON) return makeContact(triangle.normal, capsule.radius.value, closest.trianglePoint);
 	if (DotVector3(triangle.normal, SubtractVector3(closest.segmentPoint, closest.trianglePoint)) < 0) return NoContact();
 
+	// Contact normal is triangle-point-to-shape, not the face plane.
 	const distance = Math.sqrt(closest.distanceSq);
-	return makeContact(triangle.normal, capsule.radius.value - distance, closest.trianglePoint);
+	return makeContact(ScaleVector3(SubtractVector3(closest.segmentPoint, closest.trianglePoint), 1 / distance), capsule.radius.value - distance, closest.trianglePoint);
 }
 
 function CapsuleVoidWallContact(capsule, voidWall) {
@@ -538,6 +540,69 @@ function CapsuleVoidWallContact(capsule, voidWall) {
 	}
 	return best;
 }
+
+const axisDuplicateDot = 0.9999;
+
+// SAT of the box against the overlapping triangles taken as one hull — smallest overlap wins.
+function aabbTriangleSetContact(aabb, soup, oneSided) {
+	const center      = ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5);
+	const halfExtents = ScaleVector3(SubtractVector3(aabb.max, aabb.min), 0.5);
+
+	const cluster = [];
+	for (const triangle of soup.triangles) {
+		if (!triangleInQueryBox(triangle, aabb)) continue;
+		// One-sided: only front faces that see the centre participate.
+		if (oneSided && DotVector3(triangle.normal, SubtractVector3(center, triangle.a)) < 0) continue;
+		cluster.push(triangle);
+	}
+	if (cluster.length === 0) return NoContact();
+
+	const axes = [WORLD_NORMALS.Right, WORLD_NORMALS.Up, WORLD_NORMALS.Forward];
+	for (const triangle of cluster) {
+		let duplicate = false;
+		// Anti-parallel normals dedupe to one axis.
+		for (const axis of axes) if (Math.abs(DotVector3(triangle.normal, axis)) > axisDuplicateDot) { duplicate = true; break; }
+		if (!duplicate) axes.push(triangle.normal);
+	}
+
+	let best = null;
+	for (const axis of axes) {
+		let triMin = Infinity;
+		let triMax = -Infinity;
+		for (const triangle of cluster) {
+			const pa = DotVector3(triangle.a, axis);
+			const pb = DotVector3(triangle.b, axis);
+			const pc = DotVector3(triangle.c, axis);
+			triMin = Math.min(triMin, pa, pb, pc);
+			triMax = Math.max(triMax, pa, pb, pc);
+		}
+
+		const radius        = projectAabbRadiusOntoAxis(halfExtents, axis);
+		const centerProject = DotVector3(center, axis);
+		const overlap       = Math.min(centerProject + radius, triMax) - Math.max(centerProject - radius, triMin);
+		if (overlap <= 0) return NoContact();
+		if (!best || overlap < best.depth) best = { unit: axis, depth: overlap, centerProject, hullCenter: (triMin + triMax) * 0.5 };
+	}
+
+	const normal = best.centerProject - best.hullCenter >= 0 ? best.unit : ScaleVector3(best.unit, -1);
+
+	let contactTriangle = cluster[0];
+	let bestAlignment   = -Infinity;
+	for (const triangle of cluster) {
+		const alignment = DotVector3(triangle.normal, normal);
+		if (alignment > bestAlignment) {
+			bestAlignment   = alignment;
+			contactTriangle = triangle;
+		}
+	}
+	// One-sided: reject a normal no front face backs.
+	if (oneSided && bestAlignment <= 0) return NoContact();
+
+	return makeContact(normal, best.depth, closestPointOnTriangle(center, contactTriangle.a, contactTriangle.b, contactTriangle.c));
+}
+
+const AabbTriangleSoupContact = (aabb, triangleSoup) => aabbTriangleSetContact(aabb, triangleSoup, false);
+const AabbVoidWallContact     = (aabb, voidWall)     => aabbTriangleSetContact(aabb, voidWall, true);
 
 /* === ACCELERATION & VELOCITY === */
 
@@ -1013,5 +1078,7 @@ export {
 	CapsuleTriangleSoupContact,
 	SphereVoidWallContact,
 	CapsuleVoidWallContact,
+	AabbTriangleSoupContact,
+	AabbVoidWallContact,
 	NoContact,
 };

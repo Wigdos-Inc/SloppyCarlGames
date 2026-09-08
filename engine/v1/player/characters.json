@@ -475,8 +475,8 @@
 			"underwaterAirControl": 0.8, 
 			"momentumTurnRate": 14, 
 			"jumpHeight": 2.5, 
-			"airFloatiness": 1, 
-			"waterFloatiness": 4 
+			"airFloatiness": 0.8, 
+			"waterFloatiness": 1 
 		},
 		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true, "collision": true },
 		"collisionOverride": { "physics": "auto", "hurtbox": "sphere", "hitbox": "sphere" },
