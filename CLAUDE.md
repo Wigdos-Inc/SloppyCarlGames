@@ -126,6 +126,7 @@ Report this at the end of any response where source files were edited.
 ## Node.js Bash Checks — Limitations
 
 `node --check <file>` (syntax checking) works on any engine module and should be used after edits.
+Please separate these checks from any other bash commands, and do them per module so I can grant project-wide permission. Ensure to use a local path for these commands, NOT the global one.
 
 **Importing or executing engine modules in Node does not work** and must not be attempted. Two permanent blockers:
 1. **Browser APIs** — `localStorage`, `sessionStorage`, WebGL (`gl.*`), `createImageBitmap`, etc. are referenced at module scope throughout the engine.
