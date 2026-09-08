@@ -293,3 +293,13 @@ case (`distanceSq <= EPSILON`, no direction available) still returns `triangle.n
 
 **Where:** `engine/v1/math/Collision.js` (`sphereVoidWallTriangleContact`,
 `capsuleVoidWallTriangleContact`)
+
+## ramp-simple defaults to triangle-soup collision
+
+**What:** `defaultsByShape` maps `ramp-simple` to `triangle-soup` instead of `obb`, matching
+`ramp-complex`. The map resolves an object's collision shape only when `collisionShape` is authored
+null, so explicit overrides are unaffected; `computeDetailedBounds` then builds the soup from the
+mesh rather than a bounding box, and the sloped face becomes collidable. The entry also moves from
+the obb group to sit beside `ramp-complex`, keeping the map grouped by value.
+
+**Where:** `engine/v1/core/normalize.js` (`defaultsByShape`)
