@@ -59,10 +59,6 @@ function instanceModelPart(part) {
 			node.thickness     = new Unit(node.thickness,          "cnu");
 		});
 	}
-	else if (part.shape === "ramp-simple" || part.shape === "ramp-complex") {
-		// Ramp parts carry an authored angle.
-		part.primitiveOptions.angle = new Unit(part.primitiveOptions.angle, "degrees").toRadians(true);
-	}
 }
 
 function instanceCharacterTemplates() {

@@ -868,16 +868,16 @@ function buildTorus(size, complexity, options) {
 	return { positions, indices, faceGroups };
 }
 
-function resolveRampShape(size, options) {
+function resolveRampShape(size) {
 	const halfDepth = size.z / 2;
 	const baseY = -size.y / 2;
-	const desiredRise = Math.tan(options.angle.value) * (halfDepth * 2);
-	const rise = Clamp(Math.abs(desiredRise) > 0 ? desiredRise : size.y, 0.0001, size.y);
-	return { halfWidth: size.x / 2, halfDepth, baseY, rise, backY: baseY + rise };
+	const slopeAngle = Math.atan2(size.y, halfDepth * 2);
+	const slopeNormal = { x: 0, y: Math.cos(slopeAngle), z: -Math.sin(slopeAngle) };
+	return { halfWidth: size.x / 2, halfDepth, baseY, rise: size.y, backY: baseY + size.y, slopeNormal };
 }
 
-function buildRampSimple(size, options) {
-	const ramp = resolveRampShape(size, options);
+function buildRampSimple(size) {
+	const ramp = resolveRampShape(size);
 	const positions = [
 		-ramp.halfWidth, ramp.baseY, -ramp.halfDepth,
 		ramp.halfWidth, ramp.baseY, -ramp.halfDepth,
@@ -898,13 +898,12 @@ function buildRampSimple(size, options) {
 		1, 4, 2,
 	];
 
-	const slopeAngle = Math.atan2(ramp.rise, ramp.halfDepth * 2);
 	return {
 		positions, indices,
 		faceGroups: [
 			{ normal: WORLD_NORMALS.Down,    vertexIndices: [0, 1, 2, 3], indexStart: 0,  indexCount: 6 },
 			{ normal: WORLD_NORMALS.Forward, vertexIndices: [2, 3, 4, 5], indexStart: 6,  indexCount: 6 },
-			{ normal: { x: 0, y: Math.cos(slopeAngle), z: -Math.sin(slopeAngle) }, vertexIndices: [0, 1, 4, 5], indexStart: 12, indexCount: 6 },
+			{ normal: ramp.slopeNormal,      vertexIndices: [0, 1, 4, 5], indexStart: 12, indexCount: 6 },
 			{ normal: WORLD_NORMALS.Left,    vertexIndices: [0, 3, 5],    indexStart: 18, indexCount: 3 },
 			{ normal: WORLD_NORMALS.Right,   vertexIndices: [1, 2, 4],    indexStart: 21, indexCount: 3 },
 		],
@@ -912,8 +911,9 @@ function buildRampSimple(size, options) {
 }
 
 function buildRampComplex(size, complexity, options) {
-	const ramp = resolveRampShape(size, options);
+	const ramp = resolveRampShape(size);
 	const segments = resolveRampCurveSegments(complexity);
+	const depth = options.depth;
 	const positions = [];
 	const indices = [];
 	const topLeftIndices = [];
@@ -921,19 +921,17 @@ function buildRampComplex(size, complexity, options) {
 	const bottomLeftIndices = [];
 	const bottomRightIndices = [];
 
+	// Quadratic Bezier toe-to-crest; depth slides the control point toward the bottom-back corner.
+	const curveZ = (t) => ramp.halfDepth * (((2 * t) - 1) + (2 * depth * t * (1 - t)));
+
 	for (let index = 0; index <= segments; index++) {
 		const t = index / segments;
-		const z = -ramp.halfDepth + ((ramp.halfDepth * 2) * t);
-		const y = ramp.baseY + (ramp.rise * (1 - Math.cos(t * Math.PI * 0.5)));
+		const z = curveZ(t);
+		const y = ramp.baseY + (ramp.rise * (((1 - t) * t * (1 - depth)) + (t * t)));
 		topLeftIndices.push(positions.length / 3);
 		positions.push(-ramp.halfWidth, y, z);
 		topRightIndices.push(positions.length / 3);
 		positions.push(ramp.halfWidth, y, z);
-	}
-
-	for (let index = 0; index <= segments; index++) {
-		const t = index / segments;
-		const z = -ramp.halfDepth + ((ramp.halfDepth * 2) * t);
 		bottomLeftIndices.push(positions.length / 3);
 		positions.push(-ramp.halfWidth, ramp.baseY, z);
 		bottomRightIndices.push(positions.length / 3);
@@ -981,13 +979,12 @@ function buildRampComplex(size, complexity, options) {
 		rightVertexIndices.push(bottomRightIndices[index], topRightIndices[index]);
 	}
 
-	const slopeAngle = Math.atan2(ramp.rise, ramp.halfDepth * 2);
 	return {
 		positions, indices,
 		faceGroups: [
 			{ normal: WORLD_NORMALS.Down, vertexIndices: bottomVertexIndices },
 			{ normal: WORLD_NORMALS.Forward, vertexIndices: [backBottomLeft, backBottomRight, backTopRight, backTopLeft] },
-			{ normal: { x: 0, y: Math.cos(slopeAngle), z: -Math.sin(slopeAngle) }, vertexIndices: topVertexIndices },
+			{ normal: ramp.slopeNormal, vertexIndices: topVertexIndices },
 			{ normal: WORLD_NORMALS.Left, vertexIndices: leftVertexIndices },
 			{ normal: WORLD_NORMALS.Right, vertexIndices: rightVertexIndices },
 		],
@@ -1001,7 +998,7 @@ function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 		case "sphere"      : return buildSphere(size, complexity);
 		case "capsule"     : return buildCapsule(size, complexity);
 		case "cone"        : return buildCone(size, complexity);
-		case "ramp-simple" : return buildRampSimple(size, primitiveOptions);
+		case "ramp-simple" : return buildRampSimple(size);
 		case "ramp-complex": return buildRampComplex(size, complexity, primitiveOptions);
 		case "tube"        : return buildTube(size, complexity, primitiveOptions);
 		case "torus"       : return buildTorus(size, complexity, primitiveOptions);

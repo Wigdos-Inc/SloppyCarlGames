@@ -27,8 +27,6 @@ function clonePrimitiveOptions(part) {
 				thickness    : node.thickness.clone(),
 			})),
 		};
-		case "ramp-simple":
-		case "ramp-complex": return { ...part.primitiveOptions, angle: part.primitiveOptions.angle.clone() };
 		default: return structuredClone(part.primitiveOptions);
 	}
 }

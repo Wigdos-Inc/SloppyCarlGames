@@ -918,9 +918,6 @@
 								"complexity": "medium",
 								"dimensions": {"x":18,"y":5.359,"z":20},
 								"position": {"x":287.273,"y":36,"z":461.004},
-								"primitiveOptions": {
-									"angle": 15
-								},
 								"texture": {"generated":{"id":"default-grid"}},
 								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
 							},
@@ -940,9 +937,6 @@
 								"complexity": "medium",
 								"dimensions": {"x":18,"y":9.326,"z":20},
 								"position": {"x":328.182,"y":36,"z":461.082},
-								"primitiveOptions": {
-									"angle": 25
-								},
 								"texture": {"generated":{"id":"default-grid"}},
 								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
 							},
@@ -962,9 +956,6 @@
 								"complexity": "medium",
 								"dimensions": {"x":18,"y":14.004,"z":20},
 								"position": {"x":369.091,"y":36,"z":461.218},
-								"primitiveOptions": {
-									"angle": 35
-								},
 								"texture": {"generated":{"id":"default-grid"}},
 								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
 							},
@@ -984,9 +975,6 @@
 								"complexity": "medium",
 								"dimensions": {"x":18,"y":20,"z":20},
 								"position": {"x":410,"y":36,"z":461.409},
-								"primitiveOptions": {
-									"angle": 45
-								},
 								"texture": {"generated":{"id":"default-grid"}},
 								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
 							},
@@ -1006,9 +994,6 @@
 								"complexity": "medium",
 								"dimensions": {"x":18,"y":28.563,"z":20},
 								"position": {"x":450.909,"y":36,"z":461.648},
-								"primitiveOptions": {
-									"angle": 55
-								},
 								"texture": {"generated":{"id":"default-grid"}},
 								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
 							},

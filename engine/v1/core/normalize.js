@@ -752,12 +752,12 @@ function normalizeTubeOptions(rawOptions) {
 	};
 }
 
-const isRampShape = (shape) => shape === "ramp-simple" || shape === "ramp-complex";
-
-// Ramp angle is authored in degrees, like every other payload angle.
-function normalizeRampOptions(rawOptions) {
+function normalizeRampOptions(rawOptions, label) {
 	const options = normalizePayloadSchema(rawOptions, "rampOptions");
-	options.angle = new Unit(options.angle, "degrees").toRadians(true);
+	if (options.depth === null) {
+		warnLog(`${label}: ramp-complex missing 'depth', using fallback 0.5.`);
+		options.depth = 0.5;
+	}
 	return options;
 }
 
@@ -881,7 +881,7 @@ function normalizePart(rawPart, ctx) {
 	foldColorAlias(part, "color", part.texture.generated, "primary");
 	part.detail = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail);
 	if (part.shape === "tube") part.primitiveOptions = normalizeTubeOptions(part.primitiveOptions);
-	else if (isRampShape(part.shape)) part.primitiveOptions = normalizeRampOptions(part.primitiveOptions);
+	else if (part.shape === "ramp-complex") part.primitiveOptions = normalizeRampOptions(part.primitiveOptions, `levelPart.${part.id}`);
 	part.particle = normalizeParticle(part.particle, `levelPart.${part.id}.particle`);
 	if (part.label === null) delete part.label;
 	return part;
@@ -907,7 +907,7 @@ function normalizeLevelObject(rawObject, ctx, multipartFallbackShape = null) {
 	foldColorAlias(object, "color", object.texture.generated, "primary");
 	object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
 	if (object.shape === "tube") object.primitiveOptions = normalizeTubeOptions(object.primitiveOptions);
-	else if (isRampShape(object.shape)) object.primitiveOptions = normalizeRampOptions(object.primitiveOptions);
+	else if (object.shape === "ramp-complex") object.primitiveOptions = normalizeRampOptions(object.primitiveOptions, `levelObject.${object.id}`);
 	object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part, ctx));
 	if (object.mode === "void" && hasOpenPrimitive(object)) {
 		warnLog(`levelObject.${object.id}: mode 'void' requires a closed shape, dropping.`);
@@ -1077,7 +1077,6 @@ function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 				node.thickness     = new Unit(node.thickness.value,    "cnu");
 			});
 		}
-		else if (isRampShape(part.shape)) part.primitiveOptions.angle = new Unit(part.primitiveOptions.angle.value, "radians");
 		if (part.particle !== null) {
 			part.particle.position = toUnitVector3(part.particle.position, "cnu");
 			if (part.particle.overrides !== null && part.particle.overrides.velocity !== null) part.particle.overrides.velocity = toUnitVector3(part.particle.overrides.velocity, "cnu");
