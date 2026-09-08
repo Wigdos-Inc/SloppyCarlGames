@@ -913,99 +913,173 @@
 								"scale": {"x":18.75,"y":3,"z":3}
 							},
 							{
-								"id": "slope-fixed-ramp-15",
+								"id": "slope-ramp-a1",
 								"shape": "ramp-simple",
 								"complexity": "medium",
-								"dimensions": {"x":18,"y":5.359,"z":20},
-								"position": {"x":287.273,"y":36,"z":461.004},
+								"dimensions": {"x":10,"y":3,"z":12},
+								"position": {"x":280,"y":36,"z":464},
 								"texture": {"generated":{"id":"default-grid"}},
 								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
 							},
 							{
-								"id": "slope-fixed-cube-15",
-								"shape": "cube",
+								"id": "slope-ramp-a2",
+								"shape": "ramp-complex",
 								"complexity": "medium",
-								"dimensions": {"x":18,"y":2,"z":16},
-								"position": {"x":287.273,"y":41.464,"z":478.989},
-								"rotation": {"x":-15,"y":0,"z":0},
+								"dimensions": {"x":12,"y":5,"z":14},
+								"position": {"x":318,"y":36,"z":466},
+								"rotation": {"x":0,"y":12,"z":0},
+								"primitiveOptions": {
+									"depth": 0.35
+								},
 								"texture": {"generated":{"id":"default-grid"}},
-								"color": {"r":0.62,"g":0.44,"b":0.3,"a":1}
+								"color": {"r":0.4,"g":0.52,"b":0.47,"a":1}
 							},
 							{
-								"id": "slope-fixed-ramp-25",
+								"id": "slope-ramp-a3",
 								"shape": "ramp-simple",
 								"complexity": "medium",
-								"dimensions": {"x":18,"y":9.326,"z":20},
-								"position": {"x":328.182,"y":36,"z":461.082},
+								"dimensions": {"x":8,"y":4,"z":10},
+								"position": {"x":352,"y":36,"z":462},
+								"rotation": {"x":0,"y":180,"z":0},
 								"texture": {"generated":{"id":"default-grid"}},
 								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
 							},
 							{
-								"id": "slope-fixed-cube-25",
-								"shape": "cube",
-								"complexity": "medium",
-								"dimensions": {"x":18,"y":2,"z":16},
-								"position": {"x":328.182,"y":46.801,"z":478.755},
-								"rotation": {"x":-25,"y":0,"z":0},
+								"id": "slope-ramp-a4",
+								"shape": "ramp-complex",
+								"complexity": "high",
+								"dimensions": {"x":14,"y":6,"z":16},
+								"position": {"x":392,"y":36,"z":467},
+								"rotation": {"x":0,"y":-20,"z":0},
+								"primitiveOptions": {
+									"depth": 0.7
+								},
 								"texture": {"generated":{"id":"default-grid"}},
-								"color": {"r":0.62,"g":0.44,"b":0.3,"a":1}
+								"color": {"r":0.4,"g":0.52,"b":0.47,"a":1}
 							},
 							{
-								"id": "slope-fixed-ramp-35",
+								"id": "slope-ramp-a5",
 								"shape": "ramp-simple",
 								"complexity": "medium",
-								"dimensions": {"x":18,"y":14.004,"z":20},
-								"position": {"x":369.091,"y":36,"z":461.218},
+								"dimensions": {"x":10,"y":2.5,"z":12},
+								"position": {"x":432,"y":36,"z":463},
+								"rotation": {"x":0,"y":90,"z":0},
 								"texture": {"generated":{"id":"default-grid"}},
 								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
 							},
 							{
-								"id": "slope-fixed-cube-35",
-								"shape": "cube",
-								"complexity": "medium",
-								"dimensions": {"x":18,"y":2,"z":16},
-								"position": {"x":369.091,"y":52.774,"z":478.345},
-								"rotation": {"x":-35,"y":0,"z":0},
+								"id": "slope-ramp-b1",
+								"shape": "ramp-complex",
+								"complexity": "low",
+								"dimensions": {"x":10,"y":4,"z":12},
+								"position": {"x":272,"y":36,"z":486},
+								"rotation": {"x":0,"y":90,"z":0},
+								"primitiveOptions": {
+									"depth": 0.5
+								},
 								"texture": {"generated":{"id":"default-grid"}},
-								"color": {"r":0.62,"g":0.44,"b":0.3,"a":1}
+								"color": {"r":0.4,"g":0.52,"b":0.47,"a":1}
 							},
 							{
-								"id": "slope-fixed-ramp-45",
+								"id": "slope-ramp-b2",
 								"shape": "ramp-simple",
 								"complexity": "medium",
-								"dimensions": {"x":18,"y":20,"z":20},
-								"position": {"x":410,"y":36,"z":461.409},
+								"dimensions": {"x":9,"y":3.5,"z":9},
+								"position": {"x":305,"y":36,"z":483},
+								"rotation": {"x":0,"y":145,"z":0},
 								"texture": {"generated":{"id":"default-grid"}},
 								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
 							},
 							{
-								"id": "slope-fixed-cube-45",
-								"shape": "cube",
-								"complexity": "medium",
-								"dimensions": {"x":18,"y":2,"z":16},
-								"position": {"x":410,"y":59.95,"z":477.773},
-								"rotation": {"x":-45,"y":0,"z":0},
+								"id": "slope-ramp-b3",
+								"shape": "ramp-complex",
+								"complexity": "high",
+								"dimensions": {"x":12,"y":7,"z":14},
+								"position": {"x":345,"y":36,"z":488},
+								"rotation": {"x":0,"y":200,"z":0},
+								"primitiveOptions": {
+									"depth": 0.85
+								},
 								"texture": {"generated":{"id":"default-grid"}},
-								"color": {"r":0.62,"g":0.44,"b":0.3,"a":1}
+								"color": {"r":0.4,"g":0.52,"b":0.47,"a":1}
 							},
 							{
-								"id": "slope-fixed-ramp-55",
+								"id": "slope-ramp-b4",
 								"shape": "ramp-simple",
 								"complexity": "medium",
-								"dimensions": {"x":18,"y":28.563,"z":20},
-								"position": {"x":450.909,"y":36,"z":461.648},
+								"dimensions": {"x":8,"y":5,"z":8},
+								"position": {"x":382,"y":36,"z":484},
+								"rotation": {"x":0,"y":270,"z":0},
 								"texture": {"generated":{"id":"default-grid"}},
 								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
 							},
 							{
-								"id": "slope-fixed-cube-55",
-								"shape": "cube",
+								"id": "slope-ramp-b5",
+								"shape": "ramp-complex",
 								"complexity": "medium",
-								"dimensions": {"x":18,"y":2,"z":16},
-								"position": {"x":450.909,"y":69.543,"z":477.056},
-								"rotation": {"x":-55,"y":0,"z":0},
+								"dimensions": {"x":11,"y":4.5,"z":13},
+								"position": {"x":420,"y":36,"z":487},
+								"rotation": {"x":0,"y":35,"z":0},
+								"primitiveOptions": {
+									"depth": 0.2
+								},
 								"texture": {"generated":{"id":"default-grid"}},
-								"color": {"r":0.62,"g":0.44,"b":0.3,"a":1}
+								"color": {"r":0.4,"g":0.52,"b":0.47,"a":1}
+							},
+							{
+								"id": "slope-ramp-c1",
+								"shape": "ramp-simple",
+								"complexity": "medium",
+								"dimensions": {"x":12,"y":2,"z":16},
+								"position": {"x":288,"y":36,"z":507},
+								"rotation": {"x":0,"y":180,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
+							},
+							{
+								"id": "slope-ramp-c2",
+								"shape": "ramp-complex",
+								"complexity": "low",
+								"dimensions": {"x":10,"y":5.5,"z":12},
+								"position": {"x":330,"y":36,"z":510},
+								"primitiveOptions": {
+									"depth": 0.6
+								},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.4,"g":0.52,"b":0.47,"a":1}
+							},
+							{
+								"id": "slope-ramp-c3",
+								"shape": "ramp-simple",
+								"complexity": "medium",
+								"dimensions": {"x":10,"y":4,"z":10},
+								"position": {"x":372,"y":36,"z":506},
+								"rotation": {"x":0,"y":310,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
+							},
+							{
+								"id": "slope-ramp-c4",
+								"shape": "ramp-complex",
+								"complexity": "high",
+								"dimensions": {"x":13,"y":6,"z":15},
+								"position": {"x":415,"y":36,"z":509},
+								"rotation": {"x":0,"y":90,"z":0},
+								"primitiveOptions": {
+									"depth": 1
+								},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.4,"g":0.52,"b":0.47,"a":1}
+							},
+							{
+								"id": "slope-ramp-c5",
+								"shape": "ramp-simple",
+								"complexity": "medium",
+								"dimensions": {"x":9,"y":3,"z":11},
+								"position": {"x":447,"y":36,"z":505},
+								"rotation": {"x":0,"y":250,"z":0},
+								"texture": {"generated":{"id":"default-grid"}},
+								"color": {"r":0.58,"g":0.5,"b":0.34,"a":1}
 							},
 							{
 								"id": "aw-runway-descent-ramp",
@@ -3398,7 +3472,7 @@
 					],
 					"entities": [
 						{
-							"id": "slope-watcher-15",
+							"id": "slope-watcher-01",
 							"type": "entity",
 							"blueprintId": "entity.blocky-placeholder",
 							"spawnSurfaceId": "slope-field-platform",
@@ -3409,7 +3483,7 @@
 							}
 						},
 						{
-							"id": "slope-watcher-25",
+							"id": "slope-watcher-02",
 							"type": "entity",
 							"blueprintId": "entity.blocky-placeholder",
 							"spawnSurfaceId": "slope-field-platform",
@@ -3420,7 +3494,7 @@
 							}
 						},
 						{
-							"id": "slope-watcher-35",
+							"id": "slope-watcher-03",
 							"type": "entity",
 							"blueprintId": "entity.blocky-placeholder",
 							"spawnSurfaceId": "slope-field-platform",
@@ -3431,7 +3505,7 @@
 							}
 						},
 						{
-							"id": "slope-watcher-45",
+							"id": "slope-watcher-04",
 							"type": "entity",
 							"blueprintId": "entity.blocky-placeholder",
 							"spawnSurfaceId": "slope-field-platform",
@@ -3442,7 +3516,7 @@
 							}
 						},
 						{
-							"id": "slope-watcher-55",
+							"id": "slope-watcher-05",
 							"type": "entity",
 							"blueprintId": "entity.blocky-placeholder",
 							"spawnSurfaceId": "slope-field-platform",

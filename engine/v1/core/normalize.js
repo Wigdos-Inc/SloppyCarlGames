@@ -575,7 +575,6 @@ function markMutableDecals(animations, parts) {
 const defaultsByShape = {
 	cube         : "obb",
 	plane        : "obb",
-	"ramp-simple": "obb",
 	cylinder     : "capsule",
 	capsule      : "capsule",
 	sphere       : "sphere",
@@ -583,6 +582,7 @@ const defaultsByShape = {
 	cone         : "triangle-soup",
 	tube         : "triangle-soup",
 	torus        : "triangle-soup",
+	"ramp-simple" : "triangle-soup",
 	"ramp-complex": "triangle-soup",
 };
 
