@@ -1,5 +1,23 @@
 # Changelog (engine/v1/)
 
+## Ramp `angle` replaced by `ramp-complex` `depth`
+
+**What:** `rampOptions.angle` is deleted. Ramp incline is derived from `dimensions.y` and `dimensions.z`: `resolveRampShape` takes only `size`, returns `rise: size.y`, and also returns the `slopeNormal` both ramp builders use for their top face group. `ramp-simple` carries no primitive options and takes no `options` argument. `ramp-complex` gains a unitless 0–1 `depth` option that shapes its top surface as a quadratic Bézier whose control point slides from the chord midpoint toward the bottom-back corner — 0 is the straight chord, 1 is tangent to the bottom face at the toe and vertical at the crest. `normalizeRampOptions` takes a label and warns then defaults `depth` to 0.5 when absent. The quarter-cosine sampling is gone and one loop emits both vertex rows through a shared `curveZ(t)`. `isRampShape` is deleted, along with the ramp special cases in the template merge chain, `instanceModelPart` and `clonePrimitiveOptions`.
+
+**Where:**
+- `engine/v1/core/canonSchemas.json:1613-1615` — `rampOptions` holds `depth` (ranged 0–1, `fallback: null`).
+- `engine/v1/core/normalize.js:755-762` — `normalizeRampOptions`; `isRampShape` deleted above it.
+- `engine/v1/core/normalize.js:884`, `:910` — call sites narrowed to `ramp-complex`.
+- `engine/v1/core/normalize.js:1049` — `mergeBlueprintWithOverride`, ramp branch removed from the rehydration chain.
+- `engine/v1/builder/NewObject.js:871-877` — `resolveRampShape`, now returning `slopeNormal`.
+- `engine/v1/builder/NewObject.js:879-909` — `buildRampSimple`.
+- `engine/v1/builder/NewObject.js:913-940` — `buildRampComplex` Bézier sampling in a single vertex loop.
+- `engine/v1/builder/NewObject.js:1001-1002` — `BuildGeometry` ramp cases.
+- `engine/v1/builder/NewTemplate.js:30` — ramp cases dropped from `clonePrimitiveOptions`.
+- `engine/v1/builder/templates/Instance.js:52-62` — ramp branch dropped from `instanceModelPart`.
+- `engine/v1/builder/templates/terrain.json:40` — halfpipe `curve` part authors `depth: 0.5`.
+
+
 ## AABB accumulators instanced once in NewObject.js
 
 **What:** The three AABB sweeps in `NewObject.js` now instance their `min`/`max` accumulators as `UnitVector3` once at entry and grow them with the class's `.min()`/`.max()` methods, instead of tracking plain `{ x, y, z }` bags through inline per-axis comparisons and instancing the result at return. `computeBounds`, `computeWorldAabbFromGeometry` and `computeWorldAabbFromBounds` all return the accumulator object directly. Matches `MergeAabb` in `NewObstacle.js`, `computeEntityAabb` in `NewEntity.js` and `buildVoidCollision` in `NewVoid.js`. `CloneVector3` is no longer used in the file and is dropped from the `Vector3.js` import.
