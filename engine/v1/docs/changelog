@@ -201,3 +201,77 @@ noise host otherwise bakes only per-face canvases and the id has none. Dropped t
 
 **Where:** `engine/v1/builder/NewVoid.js`, `engine/v1/builder/NewTexture.js`,
 `engine/v1/builder/NewLevel.js`
+
+## Session storage log persistence removed
+
+**What:** `Log` no longer mirrors the accumulated log history into sessionStorage. The
+`PushToSession(SESSION_KEYS.Logs, logs)` call was removed from the caching block in `Log`, and
+the `Logs: "ENGINE_LOGS"` member was removed from `SESSION_KEYS`; the author had already changed
+the `logs` state object from `ReadFromSession(SESSION_KEYS.Logs) ?? {...}` to a plain literal.
+The in-memory `logs` object stays — `isDuplicateOfLatest` and `LogAll` both read it. Session
+storage itself is untouched: `ReadFromSession`, `PushToSession` and `clearSessionStorage` remain
+in use for `SESSION_KEYS.Cache` and `SESSION_KEYS.SplashPlayed`.
+
+**Where:** `engine/v1/core/meta.js`
+
+## Void suppression is per-contact, and void walls resolve under their source category
+
+**What:** `isVoidCancelled` no longer cancels every collision between an entity and a void's
+host when the body touches the void's bounds anywhere. It takes the contact as a fifth
+parameter and cancels when the entity AABB centre is inside the void solid, or when the
+contact point stepped `contactMaterialProbe` (0.05 cnu, new module local) back along the
+contact normal into the host is inside the void solid; contacts carrying no point keep the
+whole-body test. All three call sites pass their contact.
+
+Separately, `BroadphaseCollectCandidates` stamps `sourceType` ("terrain"/"obstacle") on void
+wall candidates, `fillSolidResult` and `DetectCurrentPhysicsOverlaps` carry it onto the pooled
+solid result, `sourceType` is added to the result pool item shape, and `ResolveCollisions`
+resolves `surfaceType` as `sourceType || type` for its `isSurfaceCandidate` test and passes it
+to `buildGroundContact`, which now reports that rather than the raw candidate type.
+
+**Where:** `engine/v1/physics/Collision.js`
+
+## AABB-vs-triangle-set narrowphase
+
+**What:** New non-exported `aabbTriangleSetContact` in `math/Collision.js` running SAT of an AABB
+against the triangles overlapping it taken as one hull, smallest overlap winning rather than
+`chooseDeepestContact`'s deepest. Candidate axes are the three world normals plus each cluster
+triangle normal, deduped by `Math.abs(dot) > axisDuplicateDot` (new module-scope coefficient) so
+anti-parallel faces collapse to one axis. Cluster gathering skips triangles whose normal is zeroed
+or NaN. Exported wrappers `AabbTriangleSoupContact` (two-sided) and `AabbVoidWallContact`
+(one-sided, front faces only, rejecting a push no front face backs).
+
+Registered as `aatr`/`traa`/`aavo`/`voaa` in `narrowphaseContact`. With those cases present
+`resolveAabbDetailedPushContact` drops its `"triangle-soup"` type guard and always takes the
+narrowphase path, keeping `projectAabbPushContact` as the genuine-miss fallback.
+
+**Where:** `engine/v1/math/Collision.js` (`aabbTriangleSetContact`, `AabbTriangleSoupContact`,
+`AabbVoidWallContact`, `axisDuplicateDot`, exports),
+`engine/v1/physics/Collision.js` (imports, `narrowphaseContact` switch,
+`resolveAabbDetailedPushContact`)
+
+## Sphere poles no longer emit degenerate triangles
+
+**What:** `buildSphere`'s index loop skips the half of each pole cell that has no area. A pole row
+is one point repeated across every slice, so the top cell's `(first, first + 1, second)` and the
+bottom cell's `(second, first + 1, second + 1)` were exactly zero-area; both are now guarded by a
+`stack` test. Removes `2 x slices` triangles per sphere with no visual change.
+
+Consequently the zero/NaN normal rejection added to `aabbTriangleSetContact`'s cluster gather was
+removed, and `windingNormal` stays unguarded — with the generator fixed, neither has a state to
+defend against.
+
+**Where:** `engine/v1/builder/NewObject.js` (`buildSphere`),
+`engine/v1/math/Collision.js` (`aabbTriangleSetContact`)
+
+## Void wall contacts respond on the geometric normal
+
+**What:** `sphereVoidWallTriangleContact` and `capsuleVoidWallTriangleContact` return the direction
+from the nearest point on the triangle to the nearest point on the query shape as their contact
+normal, instead of `triangle.normal`. Matches what `capsuleTriangleContact` already does for regular
+soups, so a contact on a lining edge or vertex tilts rather than reporting the face plane. The
+one-sided gate above each return still tests `triangle.normal` and is unchanged, and the embedded
+case (`distanceSq <= EPSILON`, no direction available) still returns `triangle.normal`.
+
+**Where:** `engine/v1/math/Collision.js` (`sphereVoidWallTriangleContact`,
+`capsuleVoidWallTriangleContact`)
