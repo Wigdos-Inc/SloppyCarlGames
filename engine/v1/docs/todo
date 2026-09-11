@@ -26,6 +26,7 @@ Entity AI:
 Player Abilities:
 - Pretty much have to be custom handlers. Optional use, game can choose to apply effects manually.
 - Maybe some standards? Like double jump? Boosting?
+Ledge balancing: partial rotation at an edge already reads as leaning — build it into an almost-falling state.
 Rework Collectible system into collections with built-in handling support.
 Build new trigger types:
 - Level Clear
