@@ -1,1 +1,94 @@
 # Changelog (engine/v1/)
+
+## Grounding unified and surface classification introduced
+
+**What**
+
+`CONFIG.PHYSICS.Correction` reshaped: `MinDeltaDegrees` → `FlatSnapDegrees`, `MaxDeltaDegrees` →
+`MaxAngleDelta: { Ground: 35, Sliding: 60 }`.
+
+Surfaces are now classified as `"walkable" | "sliding" | "wall"` by a pure `classifySurface`, from the
+angle between a persistent `referenceNormal` and the candidate normal plus the candidate's absolute
+incline. The result is published on `entity.surfaceContact`; `resetSurfaceState` writes `"none"` and
+takes the contact as an argument. `angleBetweenDegrees` replaces two inline degree conversions.
+
+`referenceNormal` holds the last walked surface normal. `frameStart` snapshots it for the frame, and it
+is written once after the correction loop — to the current `surfaceNormal` when the contact is
+`"walkable"` and position changed, to world up when the contact is `"none"`.
+
+Grounding is now derived rather than assigned: `ResolveGrounded(entity)` is the single authority and the
+six other `grounded` writers were deleted. `shouldSkipJumpGrounding` was removed. The ground-snap
+threshold derives from `MaxAngleDelta.Sliding` instead of a `0.5` literal. `ApplyPlayerSurfaceOrientation`
+gained the `Correction.Enabled` gate its siblings already had. `applySurfaceNormal` was inlined and
+`changedGrounded` renamed `changedContact`.
+
+`ProbeGroundContact` is gated on the `applyCorrection` physics flag rather than on entity type.
+`positionMatchesCachedPhysicsState` was extracted from `transformMatchesCachedPhysicsState`.
+
+The entity literal gained `action`, `grounded`, `surfaceContact`, `surfaceNormal`, `alignedUp` and
+`referenceNormal`; `createDefaultPlayerState` was de-duplicated against it. `jumpStartY` is now assigned
+at jump time.
+
+**Where**
+
+[core/config.js](engine/v1/core/config.js), [physics/Correction.js](engine/v1/physics/Correction.js),
+[physics/Master.js](engine/v1/physics/Master.js), [builder/NewEntity.js](engine/v1/builder/NewEntity.js),
+[player/Master.js](engine/v1/player/Master.js), [player/Movement.js](engine/v1/player/Movement.js),
+[handlers/game/Enemy.js](engine/v1/handlers/game/Enemy.js)
+
+## Surface-relative movement, support-scaled deceleration, and the `Sliding` action
+
+**What**
+
+`UpdateMovement` no longer splits velocity on world XZ. It decomposes against `playerState.alignedUp` —
+`normalVelocity = ScaleVector3(up, DotVector3(velocity, up))`, `tVel = SubtractVector3(velocity, normalVelocity)` —
+runs acceleration, deceleration and clamping on `tVel`, and recombines with
+`velocity.set(AddVector3(normalVelocity, tVel))`. `stoppingActive`, `getPrimaryOppositeHeld` and the
+yaw-follows-momentum computation read an explicit XZ shadow literal and stay in the flat frame.
+
+`getMovementDirection` takes an `up` parameter and returns a surface-projected `tangentDirection` alongside
+the flat `direction`, built with `ProjectOntoPlane` from [math/Collision.js](engine/v1/math/Collision.js) —
+its first importer. Its JSDoc was corrected to the real signature and conditional return shape.
+
+Deceleration magnitude is multiplied by `support = alignedUp.y` at both `ApplyDeceleration` call sites.
+
+The jump launches along the surface normal: `velocity.set(AddVector3(tVel, ScaleVector3(up, launchSpeed)))`,
+written before `SetPlayerAction("Jumping")`. The gate accepts `(grounded || onSlidingSurface)`, and
+`solveJumpLaunchVelocity`'s return value is halved on a sliding surface.
+
+`ResolvePlayerState` gained a `Sliding` branch between the underwater and airborne branches, keyed on
+`surfaceContact === "sliding"`, with no exit rule. `ApplyPlayerSurfaceOrientation` adds `Math.PI / 2` to a
+single `pitch` local consumed by both the change test and the rotation write.
+
+**Where**
+
+[player/Movement.js](engine/v1/player/Movement.js), [player/Master.js](engine/v1/player/Master.js),
+[physics/Correction.js](engine/v1/physics/Correction.js)
+
+## Sliding state unified on `surfaceContact`, and per-medium angle limits
+
+**What**
+
+`ApplyGroundSnap` compares `Math.abs(deltaY) * normal.y` against `groundSnapTolerance` rather than
+`Math.abs(deltaY)`, making the tolerance perpendicular instead of vertical. The resolved normal is hoisted
+into a local shared with the steepness gate.
+
+The sliding back-rotation in `ApplyPlayerSurfaceOrientation` keys on
+`playerState.surfaceContact === "sliding"` instead of `playerState.action === "Sliding"`, and its offset is
+`-Math.PI / 2` rather than `+Math.PI / 2`. In `ResolvePlayerState` the sliding branch moved above the
+underwater branch.
+
+`UpdateMovement` damps input that opposes the downslope direction while on a sliding surface, scaling
+acceleration by 0.15; `onSlidingSurface` moved above the decomposition so both it and the jump gate share
+one local. The downslope vector is `ProjectOntoPlane(WORLD_NORMALS.Down, up)`, left un-normalized. No-input
+deceleration is additionally scaled by `controlMultiplier`.
+
+`CONFIG.PHYSICS.Correction.MaxAngleDelta` split into `Air` and `Water` tables, each carrying `Ground`,
+`Sliding` and `Recover`. A non-exported `angleLimitsFor(underwater)` selects between them and is read by
+both `classifySurface` and the ground-snap steepness gate. `classifySurface` takes `underwater` as a
+parameter.
+
+**Where**
+
+[physics/Correction.js](engine/v1/physics/Correction.js), [player/Movement.js](engine/v1/player/Movement.js),
+[player/Master.js](engine/v1/player/Master.js), [core/config.js](engine/v1/core/config.js)
