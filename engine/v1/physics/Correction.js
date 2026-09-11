@@ -4,7 +4,7 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";
-import { DotVector3, SubtractVector3, ScaleVector3, ResolveVector3Axis, CloneVector3, Vector3Sq, WORLD_NORMALS } from "../math/Vector3.js";
+import { DotVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { Clamp } from "../math/Utilities.js";
 
 const hasMeaningfulDelta = (currentValue, nextValue) => Math.abs(nextValue - currentValue) > EPSILON;
@@ -35,7 +35,7 @@ function resetSurfaceState(playerState) {
 	};
 }
 
-const correctionDisabled = Object.freeze({
+const CORRECTION_DISABLED = Object.freeze({
 	changedGrounded: false,
 	changedOrientation: false,
 	changedPosition: false,
@@ -58,25 +58,37 @@ function applySurfaceNormal(playerState, normal) {
  *
  * @param {object} playerState — full mutable player state.
  * @param {{ hit: boolean, normal: { x, y, z } }} groundContact — from collision resolution.
+ * @param {{ surfaceNormal: { x, y, z } }} frameStart — orientation before this frame's corrections.
  */
-function ApplySurfaceCorrection(playerState, groundContact) {
-	if (CONFIG.PHYSICS.Correction.Enabled === false) return correctionDisabled;
+function ApplySurfaceCorrection(playerState, groundContact, frameStart) {
+	if (CONFIG.PHYSICS.Correction.Enabled === false) return CORRECTION_DISABLED;
 	if (shouldSkipJumpGrounding(playerState)) return resetSurfaceState(playerState);
 
 	if (!groundContact.hit) return resetSurfaceState(playerState);
 	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return resetSurfaceState(playerState);
 
 	const normal = ResolveVector3Axis(groundContact.normal);
-	const previousNormal = ResolveVector3Axis(playerState.surfaceNormal);
+	// One allowance per frame, from the frame's starting orientation.
+	const previousNormal = ResolveVector3Axis(frameStart.surfaceNormal);
 	if ((Math.acos(Clamp(DotVector3(previousNormal, normal), -1, 1)) * 180) / Math.PI > CONFIG.PHYSICS.Correction.MaxDeltaDegrees) return resetSurfaceState(playerState);
 
 	const changedGrounded = !playerState.grounded;
 	let changedOrientation = false;
 	let changedVelocity = false;
 
-	if (changedGrounded && playerState.velocity.y < 0) {
-		playerState.velocity.y = 0;
-		changedVelocity = true;
+	const vel = playerState.velocity;
+	const intoSurface = DotVector3(normal, vel);
+
+	if (intoSurface < 0) {
+		// Removes only the into-surface component.
+		const newVelocity = SubtractVector3(vel, ScaleVector3(normal, intoSurface));
+
+		changedVelocity =
+			hasMeaningfulDelta(vel.x, newVelocity.x) ||
+			hasMeaningfulDelta(vel.y, newVelocity.y) ||
+			hasMeaningfulDelta(vel.z, newVelocity.z);
+
+		vel.set(newVelocity);
 	}
 
 	if (((Math.acos(Clamp(normal.y, -1, 1)) * 180) / Math.PI) < CONFIG.PHYSICS.Correction.MinDeltaDegrees) {
@@ -88,26 +100,9 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 		playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
 	} 
 	else {
-		// Real slope: align to surface and project velocity onto slope plane.
+		// Real slope: align to the surface.
 		changedOrientation = hasMeaningfulVectorDelta(playerState.alignedUp, normal);
 		applySurfaceNormal(playerState, normal);
-
-		// Project forward velocity onto the surface plane to preserve movement speed on slopes.
-		// This creates the illusion of flat-speed movement regardless of incline.
-		const vel = playerState.velocity;
-
-		if (Math.sqrt(vel.x * vel.x + vel.z * vel.z) > 0.01 && Math.abs(normal.y) < 0.999) {
-			const forwardDir = ResolveVector3Axis({ x: vel.x, y: 0, z: vel.z });
-			const projected = ResolveVector3Axis(SubtractVector3(forwardDir, ScaleVector3(normal, DotVector3(forwardDir, normal))));
-			const newVelocity = ScaleVector3(projected, Math.sqrt(Vector3Sq(vel)));
-
-			changedVelocity = changedVelocity ||
-				hasMeaningfulDelta(vel.x, newVelocity.x) ||
-				hasMeaningfulDelta(vel.y, newVelocity.y) ||
-				hasMeaningfulDelta(vel.z, newVelocity.z);
-
-			vel.set(newVelocity);
-		}
 
 		if (changedOrientation || changedVelocity) {
 			Log(
@@ -124,19 +119,17 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 }
 
 function ApplyGroundSnap(playerState, groundContact, groundSnapTolerance) {
-	if (CONFIG.PHYSICS.Correction.Enabled === false || !playerState.grounded)  return correctionDisabled;
-	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return correctionDisabled;
-	if (ResolveVector3Axis(groundContact.normal).y <= 0.5) return correctionDisabled;
+	if (CONFIG.PHYSICS.Correction.Enabled === false || !playerState.grounded)  return CORRECTION_DISABLED;
+	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return CORRECTION_DISABLED;
+	if (ResolveVector3Axis(groundContact.normal).y <= 0.5) return CORRECTION_DISABLED;
 
-	// Offset from the transform origin down to the model's lowest point.
-	const desiredPosY = groundContact.supportPoint.y - (playerState.collision.aabb.min.y - playerState.transform.position.y);
-	const deltaY = desiredPosY - playerState.transform.position.y;
-
-	if (Math.abs(deltaY) > groundSnapTolerance) return correctionDisabled;
+	// Vertical offset that seats the capsule.
+	const deltaY = groundContact.restDeltaY;
+	if (Math.abs(deltaY) > groundSnapTolerance) return CORRECTION_DISABLED;
 
 	const changedPosition = Math.abs(deltaY) > EPSILON;
 	if (changedPosition) {
-		playerState.transform.position.y = desiredPosY;
+		playerState.transform.position.y += deltaY;
 		Log("ENGINE", `Ground snap: deltaY=${deltaY.toFixed(4)}`, "log", "Level");
 	}
 
@@ -147,28 +140,43 @@ function ApplyGroundSnap(playerState, groundContact, groundSnapTolerance) {
 }
 
 function ApplyPlayerSurfaceOrientation(playerState) {
-	const angles = computeAlignmentAngles(playerState.alignedUp);
+	const rotation = playerState.transform.rotation;
+	const angles = computeAlignmentAngles(playerState.alignedUp, rotation.y);
 	const changedOrientation =
-		hasMeaningfulDelta(playerState.transform.rotation.x, angles.pitch) ||
-		hasMeaningfulDelta(playerState.transform.rotation.z, angles.roll);
+		hasMeaningfulDelta(rotation.x, angles.pitch) ||
+		hasMeaningfulDelta(rotation.z, angles.roll);
 
-	playerState.transform.rotation.x = angles.pitch;
-	playerState.transform.rotation.z = angles.roll;
+	if (changedOrientation === false) return { changedOrientation, anyChanged: false };
+
+	// Pivot about the contact cap, not the transform origin.
+	const anchor = MultiplyVector3(playerState.collision.rest.groundCapsule.segmentStart, playerState.transform.scale);
+	const before = RotateByEuler(anchor, rotation);
+
+	rotation.x = angles.pitch;
+	rotation.z = angles.roll;
+
+	playerState.transform.position.add(SubtractVector3(before, RotateByEuler(anchor, rotation)));
 
 	return { changedOrientation, anyChanged: changedOrientation };
 }
 
 /**
  * Compute rotation values to orient an entity's up-vector toward a target normal.
- * Returns pitch (X) and roll (Z) in radians. Yaw is not affected.
+ * Returns pitch (X) and roll (Z) in radians, solved in the entity's yawed frame.
+ * Matches CreateModelMatrix's Ry·Rx·Rz composition. Yaw is not affected.
  * @param {{ x, y, z }} surfaceNormal
+ * @param {number} yaw — the entity's Y rotation in radians.
  * @returns {{ pitch: number, roll: number }}
  */
-function computeAlignmentAngles(surfaceNormal) {
+function computeAlignmentAngles(surfaceNormal, yaw) {
 	const n = ResolveVector3Axis(surfaceNormal);
-	return { pitch: Math.asin(-n.z), roll: Math.asin(n.x) };
+	const cosYaw = Math.cos(yaw);
+	const sinYaw = Math.sin(yaw);
+	const localX = (n.x * cosYaw) - (n.z * sinYaw);
+	const localZ = (n.x * sinYaw) + (n.z * cosYaw);
+	return { pitch: Math.atan2(localZ, n.y), roll: Math.asin(Clamp(-localX, -1, 1)) };
 }
 
 /* === EXPORTS === */
 
-export { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation };
+export { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, CORRECTION_DISABLED };

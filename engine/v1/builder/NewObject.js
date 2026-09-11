@@ -88,15 +88,20 @@ function computeTriangleSoupFromMesh(mesh) {
 	};
 
 	const triangles = [];
+	const floorTriangles = [];
 	const indices = mesh.geometry.indices;
 	for (let index = 0; index < indices.length; index += 3) {
 		const a = readVertex(indices[index]);
 		const b = readVertex(indices[index + 1]);
 		const c = readVertex(indices[index + 2]);
-		triangles.push({ a, b, c, normal: ResolveVector3Axis(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a))) });
+		const triangle = { a, b, c, normal: ResolveVector3Axis(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a))) };
+		triangles.push(triangle);
+		
+		// Up-facing subset, pre-split for the ground probe.
+		if (triangle.normal.y > 0) floorTriangles.push(triangle);
 	}
 
-	return { type: "triangle-soup", triangles };
+	return { type: "triangle-soup", triangles, floorBounds: { type: "triangle-soup", triangles: floorTriangles } };
 }
 
 function computeDetailedBounds(mesh) {
@@ -954,11 +959,12 @@ function buildRampComplex(size, complexity, options) {
 		indices.push(bottomLeft, bottomRight, nextBottomRight);
 		indices.push(bottomLeft, nextBottomRight, nextBottomLeft);
 
+		// Toe column has no thickness — one triangle closes each side wall.
 		indices.push(bottomLeft, nextBottomLeft, nextTopLeft);
-		indices.push(bottomLeft, nextTopLeft, topLeft);
+		if (index > 0) indices.push(bottomLeft, nextTopLeft, topLeft);
 
 		indices.push(bottomRight, nextTopRight, nextBottomRight);
-		indices.push(bottomRight, topRight, nextTopRight);
+		if (index > 0) indices.push(bottomRight, topRight, nextTopRight);
 	}
 
 	const backTopLeft = topLeftIndices[topLeftIndices.length - 1];

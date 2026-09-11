@@ -6,8 +6,7 @@
 
 import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
 import { EPSILON } from "../core/meta.js";
-import { Unit } from "../math/Utilities.js";
-import { ComputeCapsuleFromAabb } from "../builder/NewEntity.js";
+import { Clamp, Squared, Unit } from "../math/Utilities.js";
 import {
 	AddVector3,
 	SubtractVector3,
@@ -17,7 +16,11 @@ import {
 	Vector3Distance,
 	CloneVector3,
 	AbsoluteVector3,
+	MultiplyVector3,
+	RotateByEuler,
 	WORLD_NORMALS,
+	DivideVector3,
+	ToVector3,
 } from "../math/Vector3.js";
 import {
 	SweptAABB,
@@ -37,9 +40,8 @@ import {
 	CapsuleVoidWallContact,
 	AabbTriangleSoupContact,
 	AabbVoidWallContact,
+	ClosestPointOnTriangle,
 	PointInsideMesh,
-	RayOBBIntersect,
-	RayTriangleIntersect,
 	SweptSphereAABB,
 	SweptSphereOBB,
 	NoContact,
@@ -78,7 +80,6 @@ function poolPush(pool) {
 		pushDepth: 0,
 		pushNormal: null,
 		point: null,
-		supportPoint: null,
 		type: null,
 		sourceType: null,
 		trigger: null,
@@ -146,85 +147,6 @@ function buildContactFromCachedPair(entry) {
 		depth: entry.depth,
 		point: null,
 	};
-}
-
-function resolveBoundsSupportPoint(bounds, normal) {
-	switch (bounds.type) {
-		case "obb":
-			return AddVector3(bounds.center, AddVector3(
-				ScaleVector3(bounds.axes[0], DotVector3(normal, bounds.axes[0]) >= 0 ? bounds.halfExtents.x : -bounds.halfExtents.x),
-				AddVector3(
-					ScaleVector3(bounds.axes[1], DotVector3(normal, bounds.axes[1]) >= 0 ? bounds.halfExtents.y : -bounds.halfExtents.y),
-					ScaleVector3(bounds.axes[2], DotVector3(normal, bounds.axes[2]) >= 0 ? bounds.halfExtents.z : -bounds.halfExtents.z)
-				)
-			));
-		case "aabb":
-			return {
-				x: normal.x >= 0 ? bounds.max.x : bounds.min.x,
-				y: normal.y >= 0 ? bounds.max.y : bounds.min.y,
-				z: normal.z >= 0 ? bounds.max.z : bounds.min.z,
-			};
-		case "sphere": return AddVector3(bounds.center, ScaleVector3(normal, bounds.radius.value));
-		case "capsule":
-			const endpoint = DotVector3(bounds.segmentStart, normal) >= DotVector3(bounds.segmentEnd, normal) 
-				? bounds.segmentStart 
-				: bounds.segmentEnd;
-			return AddVector3(endpoint, ScaleVector3(normal, bounds.radius.value));
-		case "compound-sphere":
-			let bestSphere = bounds.spheres[0];
-			let bestProjection = DotVector3(bestSphere.center, normal) + bestSphere.radius.value;
-			for (let index = 1; index < bounds.spheres.length; index++) {
-				const projection = DotVector3(bounds.spheres[index].center, normal) + bounds.spheres[index].radius.value;
-				if (projection > bestProjection) {
-					bestProjection = projection;
-					bestSphere = bounds.spheres[index];
-				}
-			}
-			return AddVector3(bestSphere.center, ScaleVector3(normal, bestSphere.radius.value));
-		default: return null;
-	}
-}
-
-const resolveContactSupportPoint = (bounds, contact) => contact.point ? CloneVector3(contact.point) : resolveBoundsSupportPoint(bounds, contact.normal);
-
-function resolvePushSupportPoint(bounds, contact) {
-	if ((bounds.type === "triangle-soup" || bounds.type === "voidWall") && contact.point) return CloneVector3(contact.point);
-	const supportPoint = resolveBoundsSupportPoint(bounds, contact.normal);
-	if (supportPoint) return supportPoint;
-	if (contact.point) return CloneVector3(contact.point);
-	return null;
-}
-
-function projectAabbPushContact(entityAabb, candidateBounds, contact) {
-	if (!contact.hit) return { contact: NoContact(), supportPoint: null };
-
-	const supportPoint = resolvePushSupportPoint(candidateBounds, contact);
-	if (!supportPoint) return { contact: NoContact(), supportPoint: null };
-
-	const normal = ScaleVector3(contact.normal, -1);
-	const entitySupportPoint = {
-		x: normal.x >= 0 ? entityAabb.max.x : entityAabb.min.x,
-		y: normal.y >= 0 ? entityAabb.max.y : entityAabb.min.y,
-		z: normal.z >= 0 ? entityAabb.max.z : entityAabb.min.z,
-	};
-	const depth = DotVector3(SubtractVector3(supportPoint, entitySupportPoint), contact.normal);
-	if (depth <= EPSILON) return { contact: NoContact(), supportPoint };
-
-	return {
-		contact: { hit: true, normal: CloneVector3(contact.normal), depth, point: CloneVector3(supportPoint) },
-		supportPoint,
-	};
-}
-
-function resolveAabbDetailedPushContact(entityAabb, candidateBounds, contact) {
-	const pushContact = narrowphaseContact({
-		type: "aabb",
-		min: entityAabb.min,
-		max: entityAabb.max,
-	}, candidateBounds);
-	if (pushContact.hit) return { contact: pushContact, supportPoint: resolvePushSupportPoint(candidateBounds, pushContact) };
-
-	return projectAabbPushContact(entityAabb, candidateBounds, contact);
 }
 
 /* ========================================================================
@@ -580,18 +502,17 @@ function checkSweptSphereCandidatePair(position, displacement, radius, candidate
 	return checkSweptSpherePair(position, displacement, radius, candidate.aabb);
 }
 
-function fillSolidResult(candidate, swept, contact, candidateBounds) {
-	const item        = poolPush(solidResultPool);
-	item.target       = candidate;
-	item.tEntry       = swept.tEntry;
-	item.normal       = contact.normal;
-	item.depth        = contact.depth;
-	item.pushDepth    = 0;
-	item.pushNormal   = contact.normal;
-	item.point        = contact.point;
-	item.supportPoint = resolveContactSupportPoint(candidateBounds, contact);
-	item.type         = candidate.type;
-	item.sourceType   = candidate.sourceType || null;
+function fillSolidResult(candidate, swept, contact) {
+	const item      = poolPush(solidResultPool);
+	item.target     = candidate;
+	item.tEntry     = swept.tEntry;
+	item.normal     = contact.normal;
+	item.depth      = contact.depth;
+	item.pushDepth  = 0;
+	item.pushNormal = contact.normal;
+	item.point      = contact.point;
+	item.type       = candidate.type;
+	item.sourceType = candidate.sourceType || null;
 	return item;
 }
 
@@ -600,7 +521,6 @@ function createEmptyGroundContact() {
 		hit: false,
 		normal: CloneVector3(WORLD_NORMALS.Up),
 		type: null,
-		supportPoint: null,
 		supportY: -1,
 		tEntry: 1,
 	};
@@ -611,7 +531,6 @@ function buildGroundContact(collision, supportY, surfaceType) {
 		hit: true,
 		normal: CloneVector3(collision.pushNormal),
 		type: surfaceType,
-		supportPoint: CloneVector3(collision.supportPoint),
 		supportY: supportY,
 		tEntry: collision.tEntry,
 	};
@@ -722,7 +641,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 					continue;
 				}
 
-				fillSolidResult(candidate, swept, contact, candidate.detailedBounds).shape = entity.collision.physics.bounds.type;
+				fillSolidResult(candidate, swept, contact).shape = entity.collision.physics.bounds.type;
 				continue;
 			}
 
@@ -743,7 +662,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 				continue;
 			}
 
-			fillSolidResult(candidate, swept, contact, candidate.detailedBounds);
+			fillSolidResult(candidate, swept, contact);
 		}
 	}
 
@@ -803,18 +722,17 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 			removeActiveCollisionPair(entity, candidate);
 			continue;
 		}
-		const push = resolveAabbDetailedPushContact(entity.collision.aabb, candidate.detailedBounds, contact);
 		if (!isPlayer) cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
 
+		// pushNormal/pushDepth mirror the detected contact.
 		const item = poolPush(solidResultPool);
 		item.target = candidate;
 		item.tEntry = 0;
 		item.normal = contact.normal;
 		item.depth = contact.depth;
-		item.pushDepth = push.contact.depth;
-		item.pushNormal = push.contact.hit ? push.contact.normal : contact.normal;
+		item.pushDepth = contact.depth;
+		item.pushNormal = contact.normal;
 		item.point = contact.point;
-		item.supportPoint = push.supportPoint || resolveContactSupportPoint(candidate.detailedBounds, contact);
 		item.type = candidate.type;
 		item.sourceType = candidate.sourceType || null;
 		item.shape = entity.collision.physics.bounds.type;
@@ -990,63 +908,126 @@ function ResolveCollisions(velocity, displacement, solids) {
  * ======================================================================== */
 
 /**
- * Downward point probe from the capsule cylinder bottom.
- * Checks for flat-topped geometry directly below within capsule + snap range.
+ * Ground probe from the capsule cylinder bottom: downward ray vs box colliders,
+ * nearest up-facing triangle plane beneath the probe for soup colliders.
  * This is the sole authority on player grounding state and snap target.
  * Penetration pushout is unaffected — the capsule narrowphase handles that separately.
  *
- * @param {object} entity — player entity; the probe capsule is derived from its collision aabb.
+ * @param {object} entity — player entity; the probe capsule is its frozen rest capsule, placed and rotated.
  * @param {object} sceneGraph
- * @returns {{ hit: boolean, normal?: object, type?: string, supportPoint?: object }}
+ * @returns {{ hit: boolean, normal?: object, type?: string, restDeltaY?: number }}
  */
 function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates) {
 	if (CONFIG.PHYSICS.Collision.Enabled === false) return { hit: false };
 
-	// Grounding always uses an AABB-derived capsule, whatever narrowphase collider the entity declares.
-	const groundCapsule = ComputeCapsuleFromAabb(entity.collision.aabb);
-	const probe = groundCapsule.segmentStart;
-	const maxDist = groundCapsule.radius.value + groundSnapTolerance;
+	// Rest-pose capsule, placed scale-then-rotation like every other collider.
+	const groundCapsule = entity.collision.rest.groundCapsule;
+	const scale = entity.transform.scale;
+	const radius = groundCapsule.radius.value * Math.max(scale.x, scale.y, scale.z);
+	const capOffset = MultiplyVector3(groundCapsule.segmentStart, scale);
+	const probe = AddVector3(RotateByEuler(capOffset, entity.transform.rotation), entity.transform.position);
+	const maxDist = radius + groundSnapTolerance;
 
-	let bestT = Infinity;
-	let bestNormal = null;
-	let type = null;
+	// Coupled surface: held until it stops grounding.
+	const coupledId = entity.physicsRuntime.groundSurfaceId;
+	const hits = [];
 
 	// Downward ray vs axis-aligned box: returns entry t or Infinity if no hit.
-	const tryAABB = (bounds) => {
-		if (probe.x < bounds.min.x || probe.x > bounds.max.x) return Infinity;
-		if (probe.z < bounds.min.z || probe.z > bounds.max.z) return Infinity;
-		const t = probe.y - bounds.max.y;
+	const tryAABB = (from, bounds) => {
+		if (from.x < bounds.min.x || from.x > bounds.max.x) return Infinity;
+		if (from.z < bounds.min.z || from.z > bounds.max.z) return Infinity;
+		const t = from.y - bounds.max.y;
 		return (t < 0 || t > maxDist) ? Infinity : t;
 	};
 
-	// Downward ray (0,-1,0) vs oriented box via slab test in OBB local space.
-	// Returns { t, normal } if hit with upward-facing normal, null otherwise.
-	const tryOBB = (obb) => {
-		const hit = RayOBBIntersect(probe, WORLD_NORMALS.Down, obb, maxDist);
-		if (!hit.hit || hit.normal.y <= 0) return null;
-		return hit;
+	// Nearest point on the box — face interior, edge or corner.
+	const tryOBB = (from, obb) => {
+		const closest = obb.center.clone();
+		let faceAxis = 0;
+		let faceSign = 1;
+		let worstExcess = -Infinity;
+		for (let axis = 0; axis < 3; axis++) {
+			const edge = obb.axes[axis];
+			const extent = axis === 0 ? obb.halfExtents.x : axis === 1 ? obb.halfExtents.y : obb.halfExtents.z;
+			const along = ((from.x - obb.center.x) * edge.x) + ((from.y - obb.center.y) * edge.y) + ((from.z - obb.center.z) * edge.z);
+			closest.add(ScaleVector3(edge, Clamp(along, -extent, extent)));
+
+			const excess = Math.abs(along) - extent;
+			if (excess <= worstExcess) continue;
+			worstExcess = excess;
+			faceAxis = axis;
+			faceSign = along >= 0 ? 1 : -1;
+		}
+
+		// Inside the solid: embedded, not resting.
+		if (worstExcess < 0) return null;
+
+		const offset = SubtractVector3(from, closest);
+		const distanceSq = Vector3Sq(offset);
+		if (distanceSq > Squared(maxDist)) return null;
+
+		// Contact direction — box to probe.
+		const distance = Math.sqrt(distanceSq);
+		const normal = distance > EPSILON
+			? DivideVector3(offset, ToVector3(distance))
+			: ScaleVector3(obb.axes[faceAxis], faceSign);
+		if (normal.y <= 0) return null;
+		const t = from.y - (closest.y + ((((closest.x - from.x) * normal.x) + ((closest.z - from.z) * normal.z)) / normal.y));
+		return { t, normal };
 	};
+
+	// Front face within reach; behind it is a ceiling.
+	const reachesTriangle = (from, triangle) => {
+		const offset = SubtractVector3(from, ClosestPointOnTriangle(from, triangle.a, triangle.b, triangle.c));
+		return DotVector3(offset, triangle.normal) < 0 ? -1 : Vector3Sq(offset);
+	};
+
+	// Up-facing triangle closest to the probe by true distance.
+	const trySoup = (from, floorBounds) => {
+		let soupDistanceSq = Squared(maxDist);
+		let soupTriangle = null;
+		for (const triangle of floorBounds.triangles) {
+			if (from.x < Math.min(triangle.a.x, triangle.b.x, triangle.c.x) - maxDist || from.x > Math.max(triangle.a.x, triangle.b.x, triangle.c.x) + maxDist) continue;
+			if (from.z < Math.min(triangle.a.z, triangle.b.z, triangle.c.z) - maxDist || from.z > Math.max(triangle.a.z, triangle.b.z, triangle.c.z) + maxDist) continue;
+
+			const distanceSq = reachesTriangle(from, triangle);
+			if (distanceSq < 0 || distanceSq >= soupDistanceSq) continue;
+			soupDistanceSq = distanceSq;
+			soupTriangle = triangle;
+		}
+		if (soupTriangle === null) return null;
+
+		const normal = soupTriangle.normal;
+		const soupT = from.y - (soupTriangle.a.y + (((soupTriangle.a.x - from.x) * normal.x) + ((soupTriangle.a.z - from.z) * normal.z)) / normal.y);
+		return { t: soupT, normal: CloneVector3(normal), triangle: soupTriangle };
+	};
+
 
 	// Candidates are already simRadius-filtered by the broadphase, so no overlap test is repeated here.
 	for (const candidate of candidates) {
 		const isTerrain = candidate.type === "terrain";
 		if (!isTerrain && candidate.type !== "obstacle") continue;
-		let t, normal;
+		let t, normal, triangle = null;
 		if (candidate.detailedBounds.type === "aabb") {
-			t = tryAABB(candidate.detailedBounds);
+			t = tryAABB(probe, candidate.detailedBounds);
 			if (t === Infinity) continue; normal = WORLD_NORMALS.Up;
 		}
 		else if (candidate.detailedBounds.type === "obb") {
-			const hit = tryOBB(candidate.detailedBounds);
+			const hit = tryOBB(probe, candidate.detailedBounds);
 			if (!hit) continue; t = hit.t; normal = hit.normal;
 		}
+		else if (candidate.detailedBounds.type === "triangle-soup") {
+			if (probe.x < candidate.aabb.min.x - maxDist || probe.x > candidate.aabb.max.x + maxDist) continue;
+			if (probe.z < candidate.aabb.min.z - maxDist || probe.z > candidate.aabb.max.z + maxDist) continue;
+			const hit = trySoup(probe, candidate.detailedBounds.floorBounds);
+			if (!hit) continue; t = hit.t; normal = hit.normal; triangle = hit.triangle;
+		}
 		else continue;
-		if (t >= bestT) continue;
 		const source = candidate.ref;
 		const nullable = isTerrain ? source.meta.nullable : source.nullable;
 		const voids = isTerrain ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles;
 		if (nullable !== false && IsPointInSuppressingVoid({ x: probe.x, y: probe.y - t, z: probe.z }, source.id, voids)) continue;
-		bestT = t; bestNormal = normal; type = candidate.type;
+		hits.push({ t, normal, triangle, type: candidate.type, surfaceId: source.id, bounds: candidate.detailedBounds });
 	}
 
 	// Void-wall floors (upward normal) are standable ground; reported under their source category.
@@ -1054,12 +1035,11 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates)
 		for (const entry of entries) {
 			for (const id in entry.relations) {
 				for (const voidWall of entry.relations[id].voidWallMeshes) {
-					if (!AabbOverlap(entity.collision.simRadiusAabb, voidWall.worldAabb)) continue;
-					for (const triangle of voidWall.floorBounds.triangles) {
-						const hit = RayTriangleIntersect(probe, WORLD_NORMALS.Down, triangle, maxDist);
-						if (!hit.hit || hit.t >= bestT) continue;
-						bestT = hit.t; bestNormal = triangle.normal; type = sourceType;
-					}
+					if (probe.x < voidWall.worldAabb.min.x - maxDist || probe.x > voidWall.worldAabb.max.x + maxDist) continue;
+					if (probe.z < voidWall.worldAabb.min.z - maxDist || probe.z > voidWall.worldAabb.max.z + maxDist) continue;
+					const hit = trySoup(probe, voidWall.floorBounds);
+					if (!hit) continue;
+					hits.push({ t: hit.t, normal: hit.normal, triangle: hit.triangle, type: sourceType, surfaceId: id, bounds: voidWall.floorBounds });
 				}
 			}
 		}
@@ -1067,13 +1047,20 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates)
 	probeVoidWalls(sceneGraph.voids.terrain, "terrain");
 	probeVoidWalls(sceneGraph.voids.obstacles, "obstacle");
 
-	if (type === null) return { hit: false };
+	// Nearest first; coupled takes precedence.
+	hits.sort((a, b) => a.t - b.t);
+	const coupled = hits.find((hit) => hit.surfaceId === coupledId);
+	const chosen = coupled !== undefined ? coupled : hits[0];
 
+	if (chosen === undefined) return { hit: false, surfaceId: null };
+
+	// Cap centre rests radius / normal.y above the surface, vertically.
 	return {
 		hit: true,
-		normal: bestNormal === WORLD_NORMALS.Up ? CloneVector3(WORLD_NORMALS.Up) : bestNormal,
-		type,
-		supportPoint: { x: probe.x, y: probe.y - bestT, z: probe.z },
+		normal: chosen.normal === WORLD_NORMALS.Up ? CloneVector3(WORLD_NORMALS.Up) : chosen.normal,
+		type: chosen.type,
+		restDeltaY: (radius / chosen.normal.y) - chosen.t,
+		surfaceId: chosen.surfaceId,
 	};
 }
 

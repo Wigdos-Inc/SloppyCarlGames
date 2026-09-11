@@ -21,6 +21,7 @@ import {
 	Vector3Sq,
 	WORLD_NORMALS,
 } from "../math/Vector3.js";
+import { ComposeEulerRotations } from "../math/Matrix.js";
 import { Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
 
 /**
@@ -152,7 +153,7 @@ function ComposeTransform(parentTransform, localTransform) {
 	const rotatedChildPos = RotateByEuler(localPosition, parentTransform.rotation);
 	return {
 		position: localPosition.set(AddVector3(parentTransform.position, rotatedChildPos)),
-		rotation: localTransform.rotation.clone().add(parentTransform.rotation),
+		rotation: localTransform.rotation.clone().set(ComposeEulerRotations(parentTransform.rotation, localTransform.rotation)),
 		scale: MultiplyVector3(parentTransform.scale, localTransform.scale),
 	};
 }
@@ -387,7 +388,69 @@ function computeExpandedAabb(aabb, padding) {
 	};
 }
 
-function ComputeCapsuleFromAabb(aabb) {
+// sin/cos for one rotation, computed once.
+function computeRotationTrig(rotation) {
+	return {
+		cx: Math.cos(rotation.x), sx: Math.sin(rotation.x),
+		cy: Math.cos(rotation.y), sy: Math.sin(rotation.y),
+		cz: Math.cos(rotation.z), sz: Math.sin(rotation.z),
+	};
+}
+
+// RotateByEuler's composition (Z, X, Y) on precomputed trig.
+function rotateWithTrig(point, trig) {
+	const p1x = point.x * trig.cz - point.y * trig.sz;
+	const p1y = point.x * trig.sz + point.y * trig.cz;
+
+	const p2y = p1y * trig.cx - point.z * trig.sx;
+	const p2z = p1y * trig.sx + point.z * trig.cx;
+
+	return {
+		x: p1x * trig.cy + p2z * trig.sy,
+		y: p2y,
+		z: -p1x * trig.sy + p2z * trig.cy,
+	};
+}
+
+// Local offset through scale then rotation — CreateModelMatrix's R·S order.
+function transformOffset(point, scale, trig) {
+	const v = MultiplyVector3(point, scale);
+
+	const p1x = v.x * trig.cz - v.y * trig.sz;
+	const p1y = v.x * trig.sz + v.y * trig.cz;
+
+	const p2y = p1y * trig.cx - v.z * trig.sx;
+	const p2z = p1y * trig.sx + v.z * trig.cx;
+
+	return {
+		x: p1x * trig.cy + p2z * trig.sy,
+		y: p2y,
+		z: -p1x * trig.sy + p2z * trig.cy,
+	};
+}
+
+// A scaled clone of a Unit, preserving its type.
+const scaleUnit = (u, f) => new Unit(u.value * f, u.type);
+
+// World enclosure of a local box scaled and rotated by the transform.
+function placeAabbEnclosure(aabb, position, scale, trig) {
+	const min = aabb.min.clone().set(ToVector3(Infinity));
+	const max = aabb.max.clone().set(ToVector3(-Infinity));
+
+	for (let corner = 0; corner < 8; corner++) {
+		const placed = transformOffset({
+			x: (corner & 1) === 0 ? aabb.min.x : aabb.max.x,
+			y: (corner & 2) === 0 ? aabb.min.y : aabb.max.y,
+			z: (corner & 4) === 0 ? aabb.min.z : aabb.max.z,
+		}, scale, trig);
+		min.min(placed);
+		max.max(placed);
+	}
+
+	return { min: min.add(position), max: max.add(position) };
+}
+
+function computeCapsuleFromAabb(aabb) {
 	const dim = SubtractVector3(aabb.max, aabb.min);
 	const radius = Math.max(0.0001, Math.max(dim.x, dim.z) * 0.5);
 	const halfHeight = Math.max(0, (dim.y * 0.5) - radius);
@@ -493,8 +556,47 @@ function buildBoundsForShape(shape, aabb, model) {
 	switch (shape) {
 		case "sphere"         : return computeSphereFromAabb(aabb);
 		case "aabb"           : return { type: "aabb", min: aabb.min, max: aabb.max };
-		case "capsule"        : return ComputeCapsuleFromAabb(aabb);
+		case "capsule"        : return computeCapsuleFromAabb(aabb);
 		case "obb"            : return computeObbFromAabb(aabb);
+		case "compound-sphere": return computeCompoundSpheresFromModel(model);
+	}
+}
+
+/**
+ * Place a frozen rest-pose bounds object into world space. Offsets take the transform's
+ * scale and rotation (trig precomputed once by the caller), axes take rotation alone, and
+ * radii take the transform's largest scale component. compound-sphere rebuilds from the
+ * posed model.
+ */
+function placeBoundsForShape(bounds, transform, model, trig) {
+	const position = transform.position;
+	const scale = transform.scale;
+	const widest = Math.max(scale.x, scale.y, scale.z);
+
+	switch (bounds.type) {
+		case "sphere":
+			return {
+				type: "sphere",
+				center: bounds.center.clone().set(AddVector3(transformOffset(bounds.center, scale, trig), position)),
+				radius: scaleUnit(bounds.radius, widest),
+			};
+		case "aabb":
+			return { type: "aabb", ...placeAabbEnclosure(bounds, position, scale, trig) };
+		case "capsule":
+			return {
+				type: "capsule",
+				radius: scaleUnit(bounds.radius, widest),
+				halfHeight: scaleUnit(bounds.halfHeight, scale.y),
+				segmentStart: bounds.segmentStart.clone().set(AddVector3(transformOffset(bounds.segmentStart, scale, trig), position)),
+				segmentEnd: bounds.segmentEnd.clone().set(AddVector3(transformOffset(bounds.segmentEnd, scale, trig), position)),
+			};
+		case "obb":
+			return {
+				type: "obb",
+				center: bounds.center.clone().set(AddVector3(transformOffset(bounds.center, scale, trig), position)),
+				halfExtents: bounds.halfExtents.clone().set(MultiplyVector3(bounds.halfExtents, scale)),
+				axes: bounds.axes.map((axis) => rotateWithTrig(axis, trig)),
+			};
 		case "compound-sphere": return computeCompoundSpheresFromModel(model);
 	}
 }
@@ -556,6 +658,40 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverri
 	};
 }
 
+/**
+ * Freeze every collider from the rest pose, in local space. The model is posed at the origin
+ * with zero rotation and unit scale for the measurement, then restored. The frozen shape
+ * carries no transform of its own; placeBoundsForShape reapplies all three each frame.
+ */
+function captureRestCollision(definition, model) {
+	const rootTransform = model.rootTransform;
+	const position = rootTransform.position.clone();
+	const rotation = rootTransform.rotation.clone();
+	const scale = rootTransform.scale;
+
+	rootTransform.position.set(ToVector3(0));
+	rootTransform.rotation.set(ToVector3(0));
+	rootTransform.scale = ToVector3(1);
+	applyModelPose(model);
+
+	const aabb = computeEntityAabb(model);
+	const detailed = computeDetailedBoundsForEntity(definition.type, aabb, model, definition.collisionOverride);
+
+	rootTransform.position.set(position);
+	rootTransform.rotation.set(rotation);
+	rootTransform.scale = scale;
+	applyModelPose(model);
+
+	return {
+		aabb,
+		shape        : detailed.collisionShape,
+		physics      : detailed.physics,
+		hurtbox      : detailed.hurtbox,
+		hitbox       : detailed.hitbox,
+		groundCapsule: computeCapsuleFromAabb(aabb),
+	};
+}
+
 /* === PUBLIC API === */
 
 /**
@@ -582,8 +718,7 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		applyModelPose(model);
 	}
 
-	const aabb = computeEntityAabb(model);
-	const detailed = computeDetailedBoundsForEntity(definition.type, aabb, model, definition.collisionOverride);
+	const rest = captureRestCollision(definition, model);
 	const simRadiusPadding = new Unit(8, "cnu");
 
 	const entity = {
@@ -608,15 +743,16 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		model,
 		mesh: model.parts[0].mesh,
 		collision: {
-			aabb, simRadiusPadding,
-			simRadiusAabb : computeExpandedAabb(aabb, simRadiusPadding),
-			shape         : detailed.collisionShape,
-			detailedBounds: detailed.detailedBounds,
-			physics       : detailed.physics,
-			hurtbox       : detailed.hurtbox,
-			hitbox        : detailed.hitbox,
+			rest, simRadiusPadding,
+			aabb          : null,
+			simRadiusAabb : null,
+			shape         : null,
+			detailedBounds: null,
+			physics       : null,
+			hurtbox       : null,
+			hitbox        : null,
 		},
-		hitboxActive: detailed.hitbox !== null,
+		hitboxActive: rest.hitbox !== null,
 		performance: { physics: true, rendering: true },
 		animations: definition.animations,
 		particle: null,		// Particle groups replace this with their lifetime instance; null on every other entity.
@@ -632,34 +768,31 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 			hasUnresolvedPenetration: false,
 			cachePrimed: false,
 			lastPhysicsCollisionKey: "",
+			groundSurfaceId: null,
 		},
 	};
 
+	assignCollisionBounds(entity);
 	return { entity };
 }
 
-// Every collision layer but compound-sphere derives from the entity AABB alone.
+// Every collision layer: the frozen rest shape, placed by the transform.
 function assignCollisionBounds(entity) {
-	entity.collision.simRadiusAabb = computeExpandedAabb(
-		entity.collision.aabb,
-		entity.collision.simRadiusPadding
-	);
-	const detailed = computeDetailedBoundsForEntity(
-		entity.type,
-		entity.collision.aabb,
-		entity.model,
-		entity.collisionOverride
-	);
-	entity.collision.shape = detailed.collisionShape;
-	entity.collision.detailedBounds = detailed.detailedBounds;
-	entity.collision.physics = detailed.physics;
-	entity.collision.hurtbox = detailed.hurtbox;
-	entity.collision.hitbox = detailed.hitbox;
+	const rest = entity.collision.rest;
+	const transform = entity.transform;
+	const trig = computeRotationTrig(transform.rotation);
+
+	entity.collision.aabb = placeAabbEnclosure(rest.aabb, transform.position, transform.scale, trig);
+	entity.collision.simRadiusAabb = computeExpandedAabb(entity.collision.aabb, entity.collision.simRadiusPadding);
+	entity.collision.shape = rest.shape;
+	entity.collision.physics = { shape: rest.physics.shape, bounds: placeBoundsForShape(rest.physics.bounds, transform, entity.model, trig) };
+	entity.collision.detailedBounds = entity.collision.physics.bounds;
+	entity.collision.hurtbox = rest.hurtbox === null ? null : { shape: rest.hurtbox.shape, bounds: placeBoundsForShape(rest.hurtbox.bounds, transform, entity.model, trig) };
+	entity.collision.hitbox = rest.hitbox === null ? null : { shape: rest.hitbox.shape, bounds: placeBoundsForShape(rest.hitbox.bounds, transform, entity.model, trig) };
 }
 
 function refreshEntityDerivedState(entity) {
 	applyModelPose(entity.model);
-	entity.collision.aabb = computeEntityAabb(entity.model);
 	assignCollisionBounds(entity);
 }
 
@@ -671,8 +804,6 @@ function translateEntityDerivedState(entity, delta) {
 		part.mesh.worldAabb.max.add(delta);
 	});
 	entity.model.posedTransform.position.add(delta);
-	entity.collision.aabb.min.add(delta);
-	entity.collision.aabb.max.add(delta);
 	assignCollisionBounds(entity);
 }
 
@@ -718,5 +849,4 @@ export {
 	ResetEntityToDefaultPose,
 	SampleMovementPoint,
 	ComposeTransform,
-	ComputeCapsuleFromAabb,
 };

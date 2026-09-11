@@ -25,7 +25,7 @@ const CONFIG = {
         EntityPart  : false,
         Obstacle    : false,
         Void        : false,
-        Player      : false,
+        Player      : true,
         PlayerPart  : false,
         Boss        : false,
         BossPart    : false,
@@ -41,12 +41,12 @@ const CONFIG = {
         Obstacle: false,
         Void    : false,                     // Void volume + its void walls and open faces
         Entity  : false,
-        Player  : false,
+        Player  : true,
         Boss    : false,
         Particle: false,
       },
       Trails: {                              // Render Movement Trails
-        Player     : false,
+        Player     : true,
         Boss       : false,
         Enemies    : false,
         Collectible: false,

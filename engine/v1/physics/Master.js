@@ -8,7 +8,7 @@ import { Log, SendEvent, EPSILON } from "../core/meta.js";
 import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence } from "./Forces.js";
 import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, ResetCollisionPools, ProbeGroundContact, GetEntityPhysicsFlags, BroadphaseCollectCandidates } from "./Collision.js";
-import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation } from "./Correction.js";
+import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, CORRECTION_DISABLED } from "./Correction.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";
 import { UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
 
@@ -17,13 +17,7 @@ const noResult = Object.freeze({
 		changedOrientation: false,
 		anyChanged: false,
 	}),
-	correction: Object.freeze({
-		changedGrounded: false,
-		changedOrientation: false,
-		changedPosition: false,
-		changedVelocity: false,
-		anyChanged: false,
-	}),
+	correction: CORRECTION_DISABLED,
 });
 
 function storePlayerTriggers(playerState, triggers) {
@@ -75,7 +69,8 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	let iterations;
 	let hadMeaningfulWork = false;
 
-	if (applyCorrection) ApplyPlayerSurfaceOrientation(entity);
+	// Frame-start orientation for the per-frame allowance.
+	const frameStart = applyCorrection ? { surfaceNormal: CloneVector3(entity.surfaceNormal) } : null;
 	UpdateEntityModelFromTransform(entity);
 
 	ResetCollisionPools();
@@ -107,7 +102,6 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 		});
 	}
 
-	if (applyCorrection) ApplyPlayerSurfaceOrientation(entity);
 	UpdateEntityModelFromTransform(entity);
 
 	for (iterations = 0; iterations < 3; iterations++) {
@@ -128,15 +122,12 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 				? BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb, false, false)
 				: overlaps.candidates;
 			groundContact = ProbeGroundContact(entity, sceneGraph, physicsState.groundSnapTolerance, probeCandidates);
+			entity.physicsRuntime.groundSurfaceId = groundContact.surfaceId;
 		}
-		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact) : noResult.correction;
-		const orientation = applyCorrection ? ApplyPlayerSurfaceOrientation(entity) : noResult.orientation;
-		hadMeaningfulWork = hadMeaningfulWork || correction.anyChanged || orientation.anyChanged;
-		if (correction.changedPosition || correction.changedOrientation || orientation.changedOrientation) {
-			UpdateEntityModelFromTransform(entity);
-		}
+		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact, frameStart) : noResult.correction;
+		hadMeaningfulWork = hadMeaningfulWork || correction.anyChanged;
 
-		if (!overlapResolution.anyChanged && !correction.anyChanged && !orientation.anyChanged) break;
+		if (!overlapResolution.anyChanged && !correction.anyChanged) break;
 	}
 
 	if (isPlayer && entity.action !== "Jumping") {
@@ -144,13 +135,18 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	}
 
 	const snap = applyCorrection ? ApplyGroundSnap(entity, groundContact, physicsState.groundSnapTolerance) : noResult.correction;
-	const finalOrientation = applyCorrection ? ApplyPlayerSurfaceOrientation(entity) : noResult.orientation;
-	hadMeaningfulWork = hadMeaningfulWork || snap.anyChanged || finalOrientation.anyChanged;
-	if (snap.changedPosition || snap.changedOrientation || finalOrientation.changedOrientation) UpdateEntityModelFromTransform(entity);
+	hadMeaningfulWork = hadMeaningfulWork || snap.anyChanged;
+	if (snap.changedPosition) UpdateEntityModelFromTransform(entity);
 
 	ResetCollisionPools();
 	const finalOverlaps = DetectCurrentPhysicsOverlaps(entity, sceneGraph);
 	latestTriggers = finalOverlaps.triggers;
+
+	// The frame's single orientation write.
+	const finalOrientation = applyCorrection ? ApplyPlayerSurfaceOrientation(entity) : noResult.orientation;
+	hadMeaningfulWork = hadMeaningfulWork || finalOrientation.anyChanged;
+	if (finalOrientation.changedOrientation) UpdateEntityModelFromTransform(entity);
+
 	if (isPlayer && hadMeaningfulWork && iterations) {
 		Log(
 			"ENGINE",

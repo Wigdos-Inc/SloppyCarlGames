@@ -1,5 +1,5 @@
 import { CloneVector3, ScaleVector3 } from "./Vector3.js";
-import { CNU_SCALE } from "./Utilities.js";
+import { Clamp, CNU_SCALE } from "./Utilities.js";
 
 function CreateIdentityMatrix() {
 	return [
@@ -75,6 +75,44 @@ function createRotationZ(radians) {
 	];
 }
 
+// Row-major 3x3 of Ry·Rx·Rz for one Euler triple.
+function eulerRotationRows(rotation) {
+	const cx = Math.cos(rotation.x), sx = Math.sin(rotation.x);
+	const cy = Math.cos(rotation.y), sy = Math.sin(rotation.y);
+	const cz = Math.cos(rotation.z), sz = Math.sin(rotation.z);
+	return [
+		(cy * cz) + (sy * sx * sz), (sy * sx * cz) - (cy * sz), sy * cx,
+		cx * sz,                    cx * cz,                    -sx,
+		(cy * sx * sz) - (sy * cz), (sy * sz) + (cy * sx * cz), cy * cx,
+	];
+}
+
+/**
+ * Euler triple equivalent to applying parentRotation after localRotation.
+ * Adding the two triples is only correct while the parent is yaw-only.
+ * @param {{ x, y, z }} parentRotation — radians.
+ * @param {{ x, y, z }} localRotation — radians.
+ * @returns {{ x: number, y: number, z: number }}
+ */
+function ComposeEulerRotations(parentRotation, localRotation) {
+	const parent = eulerRotationRows(parentRotation);
+	const local = eulerRotationRows(localRotation);
+	const m = new Array(9);
+	for (let row = 0; row < 3; row++) {
+		for (let col = 0; col < 3; col++) {
+			m[(row * 3) + col] =
+				(parent[row * 3] * local[col]) +
+				(parent[(row * 3) + 1] * local[3 + col]) +
+				(parent[(row * 3) + 2] * local[6 + col]);
+		}
+	}
+
+	const pitch = Math.asin(Clamp(-m[5], -1, 1));
+	// Pitch at ±90° leaves yaw and roll on one axis; roll takes it.
+	if (Math.abs(m[5]) > 0.999999) return { x: pitch, y: Math.atan2(-m[6], m[0]), z: 0 };
+	return { x: pitch, y: Math.atan2(m[2], m[8]), z: Math.atan2(m[3], m[4]) };
+}
+
 function buildModelMatrix(position, pivotPost, rotation, scale, pivotPre) {
 	let matrix = CreateIdentityMatrix();
 	matrix = MultiplyMatrix4(matrix, createTranslationMatrix(position));
@@ -119,6 +157,7 @@ function CreateRenderMatrixCache(transform) {
 }
 
 export {
+	ComposeEulerRotations,
 	CreateIdentityMatrix,
 	CreateModelMatrix,
 	CreateRenderMatrix,

@@ -173,7 +173,7 @@ function closestPointsOnSegments(p1, q1, p2, q2) {
 	};
 }
 
-function closestPointOnTriangle(point, a, b, c) {
+function ClosestPointOnTriangle(point, a, b, c) {
 	const ab = SubtractVector3(b, a);
 	const ac = SubtractVector3(c, a);
 	const ap = SubtractVector3(point, a);
@@ -230,7 +230,7 @@ function closestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal)
 		const t = DotVector3(triangleNormal, SubtractVector3(a, segStart)) / denom;
 		if (t >= 0 && t <= 1) {
 			const segmentPoint = AddVector3(segStart, ScaleVector3(segment, t));
-			const trianglePoint = closestPointOnTriangle(segmentPoint, a, b, c);
+			const trianglePoint = ClosestPointOnTriangle(segmentPoint, a, b, c);
 			if (Vector3Sq(SubtractVector3(segmentPoint, trianglePoint)) <= EPSILON) {
 				return {
 					segmentPoint,
@@ -245,15 +245,15 @@ function closestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal)
 	const planePoint = AddVector3(segStart, ScaleVector3(segment, planeT));
 	candidates.push({
 		segmentPoint: CloneVector3(segStart),
-		trianglePoint: closestPointOnTriangle(segStart, a, b, c),
+		trianglePoint: ClosestPointOnTriangle(segStart, a, b, c),
 	});
 	candidates.push({
 		segmentPoint: CloneVector3(segEnd),
-		trianglePoint: closestPointOnTriangle(segEnd, a, b, c),
+		trianglePoint: ClosestPointOnTriangle(segEnd, a, b, c),
 	});
 	candidates.push({
 		segmentPoint: planePoint,
-		trianglePoint: closestPointOnTriangle(planePoint, a, b, c),
+		trianglePoint: ClosestPointOnTriangle(planePoint, a, b, c),
 	});
 
 	[[a, b], [b, c], [c, a]].forEach(edge => {
@@ -342,7 +342,7 @@ function SphereCapsuleContact(center, radius, capsule) {
 }
 
 function sphereTriangleContact(center, radius, triangle) {
-	const closest = closestPointOnTriangle(center, triangle.a, triangle.b, triangle.c);
+	const closest = ClosestPointOnTriangle(center, triangle.a, triangle.b, triangle.c);
 	const delta = SubtractVector3(center, closest);
 	const distSq = Vector3Sq(delta);
 	if (distSq > radius.value * radius.value) return NoContact();
@@ -490,7 +490,7 @@ function CapsuleTriangleSoupContact(capsule, triangleSoup) {
 
 // One-sided: only the cavity-facing approach blocks, and the authored normal is never flipped.
 function sphereVoidWallTriangleContact(center, radius, triangle) {
-	const closest = closestPointOnTriangle(center, triangle.a, triangle.b, triangle.c);
+	const closest = ClosestPointOnTriangle(center, triangle.a, triangle.b, triangle.c);
 	const delta = SubtractVector3(center, closest);
 	const distSq = Vector3Sq(delta);
 	if (distSq > radius.value * radius.value) return NoContact();
@@ -598,7 +598,7 @@ function aabbTriangleSetContact(aabb, soup, oneSided) {
 	// One-sided: reject a normal no front face backs.
 	if (oneSided && bestAlignment <= 0) return NoContact();
 
-	return makeContact(normal, best.depth, closestPointOnTriangle(center, contactTriangle.a, contactTriangle.b, contactTriangle.c));
+	return makeContact(normal, best.depth, ClosestPointOnTriangle(center, contactTriangle.a, contactTriangle.b, contactTriangle.c));
 }
 
 const AabbTriangleSoupContact = (aabb, triangleSoup) => aabbTriangleSetContact(aabb, triangleSoup, false);
@@ -1051,6 +1051,7 @@ export {
 	ReflectVector3,
 	AabbOverlap,
 	StrictAabbOverlap,
+	ClosestPointOnTriangle,
 	TriangleAabb,
 	PointInsideMesh,
 	SplitTriangleByPlane,
