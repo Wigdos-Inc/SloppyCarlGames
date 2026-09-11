@@ -6,7 +6,7 @@
 import { Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { Unit } from "../math/Utilities.js";
-import { CloneVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
+import { CloneVector3, ToVector3 } from "../math/Vector3.js";
 import { CharacterData, BuildPlayerModel, RefreshPlayerModel } from "./Model.js";
 import { UpdateMovement } from "./Movement.js";
 
@@ -38,14 +38,10 @@ function createDefaultPlayerState(baseEntity, playerData) {
 	return Object.assign(baseEntity, {
 		active             : true,
 		character          : playerData.character,
-		grounded           : false,
-		surfaceNormal      : CloneVector3(WORLD_NORMALS.Up),
-		alignedUp          : CloneVector3(WORLD_NORMALS.Up),
 		jumpStartY         : new Unit(playerData.spawnPosition.y, "cnu"),
 		jumpApexY          : new Unit(playerData.spawnPosition.y, "cnu"),
 		stoppingActive     : false,
 		primaryOppositeHeld: false,
-		action             : "Idle",
 		previousAction     : "Idle",
 		collectibles       : playerData.collectibles,
 		maxCollectibles    : 100,
@@ -202,7 +198,8 @@ function ResolvePlayerState() {
 	// Action transitions (priority order).
 	if (playerState.action === "Stunned") return;
 
-	if (playerState.underwater && playerState.action !== "Swimming") {
+	if (playerState.surfaceContact === "sliding") SetPlayerAction("Sliding");
+	else if (playerState.underwater && playerState.action !== "Swimming") {
 		// Sinking requires genuine ungrounded descent; grounded underwater = resting on floor = Floating.
 		SetPlayerAction(!playerState.grounded && playerState.velocity.y < 0 ? "Sinking" : "Floating");
 	}
@@ -252,7 +249,6 @@ function RespawnPlayer() {
 
 	playerState.transform.position.set(respawnPos);
 	playerState.velocity.set(ToVector3(0));
-	playerState.grounded = false;
 	SetPlayerAction("Idle");
 	playerState.jumpStartY.value = respawnPos.y;
 	playerState.jumpApexY.value = respawnPos.y;

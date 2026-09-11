@@ -118,10 +118,13 @@ const CONFIG = {
       Hurtbox: false, 
       Hitbox : false 
     },
-    Correction: { 
-      Enabled        : true, 
-      MinDeltaDegrees: 5, 
-      MaxDeltaDegrees: 35 
+    Correction: {
+      Enabled        : true,
+      FlatSnapDegrees: 5,
+      MaxAngleDelta  : {
+        Air  : { Ground: 35, Sliding: 60, Recover: 20 },
+        Water: { Ground: 60, Sliding: 60, Recover: 20 },
+      }
     },
   },
   CUSTOM_EVENTS: {

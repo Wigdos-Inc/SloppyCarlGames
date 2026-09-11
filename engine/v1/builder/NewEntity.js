@@ -740,6 +740,12 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		submergence: 0,
 		underwater: false,
 		buoyancyForce: 0,
+		action: "Idle",
+		grounded: false,
+		surfaceContact: "none",
+		surfaceNormal: CloneVector3(WORLD_NORMALS.Up),
+		alignedUp: CloneVector3(WORLD_NORMALS.Up),
+		referenceNormal: CloneVector3(WORLD_NORMALS.Up),
 		model,
 		mesh: model.parts[0].mesh,
 		collision: {

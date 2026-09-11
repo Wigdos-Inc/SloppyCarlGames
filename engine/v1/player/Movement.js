@@ -7,12 +7,14 @@ import { CONFIG } from "../core/config.js";
 import {
 	ResolveVector3Axis,
 	AddVector3,
+	SubtractVector3,
 	ScaleVector3,
 	DotVector3,
 	Vector3Length,
 	ToVector3,
+	WORLD_NORMALS,
 } from "../math/Vector3.js";
-import { ApplyAcceleration, ApplyDeceleration, ClampVelocity } from "../math/Collision.js";
+import { ApplyAcceleration, ApplyDeceleration, ClampVelocity, ProjectOntoPlane } from "../math/Collision.js";
 import { ComputeStepVelocity } from "../math/Forces.js";
 import { SetPlayerAction } from "./Master.js";
 
@@ -63,13 +65,13 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
 }
 
 /**
- * Compute a camera-relative movement direction on the XZ plane (or surface plane).
+ * Compute a camera-relative movement direction, both flat (XZ) and projected onto the surface plane.
  * @param {{ forward: number, right: number }} input — normalized -1..1 analog axes.
  * @param {{ forward: { x, y, z }, right: { x, y, z } }} cameraVectors
- * @param {{ x, y, z }} surfaceNormal — current ground normal for surface-projected movement.
- * @returns {{ direction: { x, y, z }, hasInput: boolean }}
+ * @param {{ x, y, z }} up — surface-aligned up.
+ * @returns {{ direction, hasInput: boolean, tangentDirection?, cameraForward?, cameraRight? }} — optional fields omitted when input is near-zero.
  */
-function getMovementDirection(input, cameraVectors) {
+function getMovementDirection(input, cameraVectors, up) {
 	if (Math.abs(input.forward) < 0.001 && Math.abs(input.right) < 0.001) return { direction: ToVector3(0), hasInput: false };
 
 	// Project camera vectors onto XZ plane so movement is always horizontal-relative.
@@ -80,15 +82,23 @@ function getMovementDirection(input, cameraVectors) {
 
 	if (Vector3Length(dir) < 0.001) {
 		return {
-			direction    : ToVector3(0),
-			hasInput     : false,
-			cameraForward: camFwd,
-			cameraRight  : camRight,
+			direction       : ToVector3(0),
+			tangentDirection: ToVector3(0),
+			hasInput        : false,
+			cameraForward   : camFwd,
+			cameraRight     : camRight,
 		};
 	}
 
 	dir = ResolveVector3Axis(dir);
-	return { direction: dir, hasInput: true, cameraForward: camFwd, cameraRight: camRight };
+
+	// Same blend on the surface plane — drives accel/decel.
+	const tangentDir = ResolveVector3Axis(AddVector3(
+		ScaleVector3(ProjectOntoPlane(camFwd,   up), input.forward),
+		ScaleVector3(ProjectOntoPlane(camRight, up), input.right),
+	));
+
+	return { direction: dir, tangentDirection: tangentDir, hasInput: true, cameraForward: camFwd, cameraRight: camRight };
 }
 
 function getPrimaryOppositeHeld(input, horizontalVelocity, cameraForward, cameraRight) {
@@ -128,15 +138,23 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 			: meta.airControl;
 	}
 
-	const { direction, hasInput, cameraForward, cameraRight } = getMovementDirection(input, cameraVectors);
+	const onSlidingSurface = playerState.surfaceContact === "sliding";
+	const up = playerState.alignedUp;
+	const support = up.y;
+
+	const { direction, tangentDirection, hasInput, cameraForward, cameraRight } = getMovementDirection(input, cameraVectors, up);
 
 	// Resolve effective stats.
 	const maxSpeed = meta.maxSpeed     * (playerState.boost.active ? playerState.boost.maxSpeedMultiplier : 1);
 	const accel    = meta.acceleration * (playerState.boost.active ? playerState.boost.accelMultiplier    : 1);
 	const stoppingThreshold = maxSpeed * meta.stoppingThresholdRatio;
 
-	// Separate horizontal and vertical velocity for movement calculations.
-	let hVel = playerState.velocity.clone(); hVel.y = 0;
+	// Normal/tangent split — movement acts on the tangent.
+	const normalVelocity = ScaleVector3(up, DotVector3(playerState.velocity, up));
+	let tVel = SubtractVector3(playerState.velocity, normalVelocity);
+
+	// XZ shadow — the latch thresholds and camera basis are flat.
+	const hVel = { x: tVel.x, y: 0, z: tVel.z };
 	const currentHSpeed = Vector3Length(hVel);
 	const velocityDirection = currentHSpeed > 0.001 ? ResolveVector3Axis(hVel) : ToVector3(0);
 	const reverseIntent = hasInput && currentHSpeed > 0.001 && DotVector3(velocityDirection, direction) < 0;
@@ -155,55 +173,58 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	playerState.primaryOppositeHeld = primaryOppositeHeld;
 
 	if (hasInput) {
-		const effectiveAcceleration = accel * controlMultiplier;
+		// Uphill input damped on a slide.
+		const along = DotVector3(tangentDirection, ProjectOntoPlane(WORLD_NORMALS.Down, up));
+		const slideScale = onSlidingSurface && along < 0 ? 0.15 : 1;
+		const effectiveAcceleration = accel * controlMultiplier * slideScale;
 		if (playerState.grounded && reverseIntent) {
-			hVel = ApplyDeceleration(hVel, meta.deceleration + (effectiveAcceleration * 0.75), deltaSeconds);
-			if (Vector3Length(hVel) <= stoppingThreshold || !playerState.stoppingActive) {
-				hVel = ApplyAcceleration(hVel, direction, effectiveAcceleration, deltaSeconds);
+			tVel = ApplyDeceleration(tVel, (meta.deceleration + (effectiveAcceleration * 0.75)) * support, deltaSeconds);
+			if (Vector3Length(tVel) <= stoppingThreshold || !playerState.stoppingActive) {
+				tVel = ApplyAcceleration(tVel, tangentDirection, effectiveAcceleration, deltaSeconds);
 			}
-		} 
-		else hVel = ApplyAcceleration(hVel, direction, effectiveAcceleration, deltaSeconds);
-	} 
+		}
+		else tVel = ApplyAcceleration(tVel, tangentDirection, effectiveAcceleration, deltaSeconds);
+	}
 	else {
-		// No input: apply deceleration.
-		hVel = ApplyDeceleration(hVel, meta.deceleration, deltaSeconds);
+		// No input: deceleration scaled by surface support and air control.
+		tVel = ApplyDeceleration(tVel, meta.deceleration * support * controlMultiplier, deltaSeconds);
 		playerState.stoppingActive = false;
 		playerState.primaryOppositeHeld = false;
 	}
 
-	// Clamp horizontal speed.
-	hVel = ClampVelocity(hVel, maxSpeed);
+	// Clamp tangent speed.
+	tVel = ClampVelocity(tVel, maxSpeed);
 
-	// Reassemble velocity.
-	playerState.velocity.x = hVel.x;
-	playerState.velocity.z = hVel.z;
-	// Vertical velocity is preserved (physics handles gravity).
+	// Reassemble; normal component preserved.
+	playerState.velocity.set(AddVector3(normalVelocity, tVel));
 
 	// === JUMP ===
 	if (
 		input.jump &&
-		playerState.grounded &&
+		(playerState.grounded || onSlidingSurface) &&
 		playerState.action !== "Stunned" &&
 		playerState.action !== "Dead"
 	) {
-		playerState.velocity.y = solveJumpLaunchVelocity(
+		// Launch along the surface normal; halved on a slide.
+		const launchSpeed = solveJumpLaunchVelocity(
 			meta.jumpHeight.value,
 			playerState.underwater ? "water" : "air",
 			playerState.underwater ? meta.waterFloatiness : meta.airFloatiness
-		);
-		playerState.grounded = false;
-
+		) * (onSlidingSurface ? 0.5 : 1);
+		playerState.velocity.set(AddVector3(tVel, ScaleVector3(up, launchSpeed)));
 		// Player jump Y values are Unit instances—mutate their `.value`.
+		playerState.jumpStartY.value = playerState.transform.position.y;
 		playerState.jumpApexY.value = playerState.transform.position.y;
 		SetPlayerAction("Jumping");
 	}
 
 	// === FACE MOMENTUM DIRECTION ===
 	// Yaw follows horizontal momentum so turn orientation feels fluid.
-	if (Vector3Length(hVel) > 0.05) {
+	const yawVel = { x: tVel.x, y: 0, z: tVel.z };
+	if (Vector3Length(yawVel) > 0.05) {
 		playerState.transform.rotation.y = moveAngleToward(
-			playerState.transform.rotation.y, 
-			Math.atan2(hVel.x, hVel.z), 
+			playerState.transform.rotation.y,
+			Math.atan2(yawVel.x, yawVel.z),
 			meta.momentumTurnRate * deltaSeconds
 		);
 	}

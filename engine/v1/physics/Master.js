@@ -8,7 +8,7 @@ import { Log, SendEvent, EPSILON } from "../core/meta.js";
 import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence } from "./Forces.js";
 import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, ResetCollisionPools, ProbeGroundContact, GetEntityPhysicsFlags, BroadphaseCollectCandidates } from "./Collision.js";
-import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, CORRECTION_DISABLED } from "./Correction.js";
+import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, CORRECTION_DISABLED } from "./Correction.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";
 import { UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
 
@@ -19,6 +19,14 @@ const noResult = Object.freeze({
 	}),
 	correction: CORRECTION_DISABLED,
 });
+
+function positionMatchesCachedPhysicsState(entity) {
+	return (
+		entity.transform.position.x === entity.physicsRuntime.previousPosition.x &&
+		entity.transform.position.y === entity.physicsRuntime.previousPosition.y &&
+		entity.transform.position.z === entity.physicsRuntime.previousPosition.z
+	);
+}
 
 function storePlayerTriggers(playerState, triggers) {
 	playerState.activeTriggers.length = 0;
@@ -35,9 +43,7 @@ function hasZeroDisplacement(displacement) {
 
 function transformMatchesCachedPhysicsState(entity) {
 	return (
-		entity.transform.position.x === entity.physicsRuntime.previousPosition.x &&
-		entity.transform.position.y === entity.physicsRuntime.previousPosition.y &&
-		entity.transform.position.z === entity.physicsRuntime.previousPosition.z &&
+		positionMatchesCachedPhysicsState(entity) &&
 		entity.transform.rotation.x === entity.physicsRuntime.previousRotation.x &&
 		entity.transform.rotation.y === entity.physicsRuntime.previousRotation.y &&
 		entity.transform.rotation.z === entity.physicsRuntime.previousRotation.z
@@ -69,8 +75,8 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	let iterations;
 	let hadMeaningfulWork = false;
 
-	// Frame-start orientation for the per-frame allowance.
-	const frameStart = applyCorrection ? { surfaceNormal: CloneVector3(entity.surfaceNormal) } : null;
+	// Frozen for the whole loop — no double-walking the reference mid-frame.
+	const frameStart = applyCorrection ? { referenceNormal: CloneVector3(entity.referenceNormal) } : null;
 	UpdateEntityModelFromTransform(entity);
 
 	ResetCollisionPools();
@@ -116,7 +122,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 
 		UpdateEntityModelFromTransform(entity);
 
-		if (isPlayer) {
+		if (applyCorrection) {
 			// Broadphase ran before this iteration's correction; only a move invalidates its candidates.
 			const probeCandidates = overlapResolution.changedPosition
 				? BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb, false, false)
@@ -124,14 +130,19 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 			groundContact = ProbeGroundContact(entity, sceneGraph, physicsState.groundSnapTolerance, probeCandidates);
 			entity.physicsRuntime.groundSurfaceId = groundContact.surfaceId;
 		}
+
 		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact, frameStart) : noResult.correction;
 		hadMeaningfulWork = hadMeaningfulWork || correction.anyChanged;
 
 		if (!overlapResolution.anyChanged && !correction.anyChanged) break;
 	}
 
-	if (isPlayer && entity.action !== "Jumping") {
-		entity.grounded = groundContact.hit && entity.buoyancyForce <= CONFIG.PHYSICS.Gravity.Strength.value;
+	entity.grounded = ResolveGrounded(entity);
+
+	// Once per frame, outside the loop.
+	if (applyCorrection) {
+		if (entity.surfaceContact === "none") entity.referenceNormal = CloneVector3(WORLD_NORMALS.Up);
+		else if (entity.surfaceContact === "walkable" && !positionMatchesCachedPhysicsState(entity)) entity.referenceNormal = CloneVector3(entity.surfaceNormal);
 	}
 
 	const snap = applyCorrection ? ApplyGroundSnap(entity, groundContact, physicsState.groundSnapTolerance) : noResult.correction;

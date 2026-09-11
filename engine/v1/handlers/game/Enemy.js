@@ -145,7 +145,6 @@ function applyPlayerDamage(playerState, damageSourcePosition) {
 
 	// Transition to stunned action.
 	SetPlayerAction("Stunned");
-	playerState.grounded = false;
 
 	if (CONFIG.CUSTOM_EVENTS.Entities.damageReceived && playerState.customEvents.damageReceived) {
 		SendEvent("PLAYER_DAMAGE_RECEIVED", {
