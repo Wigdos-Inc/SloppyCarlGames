@@ -106,6 +106,27 @@ function RotateByEuler(point, rotation) {
 	return { x: p2.x * cy + p2.z * sy, y: p2.y, z: -p2.x * sy + p2.z * cy };
 }
 
+/**
+ * Rotate unit `from` toward unit `to` by at most `maxStep` radians, in their shared plane.
+ * Snaps exactly on arrival, so convergence tests terminate.
+ */
+function RotateTowardVector3(from, to, maxStep) {
+	if (maxStep <= 0) return CloneVector3(from);
+
+	const cosAngle = Clamp(DotVector3(from, to), -1, 1);
+	if (Math.acos(cosAngle) <= maxStep) return CloneVector3(to);
+
+	const planar = SubtractVector3(to, ScaleVector3(from, cosAngle));
+	// Antiparallel: no shared plane, so any perpendicular is as valid as another.
+	const e2 = ResolveVector3Axis(
+		Vector3Length(planar) > EPSILON
+			? planar
+			: CrossVector3(from, Math.abs(from.y) < 0.9 ? WORLD_NORMALS.Up : WORLD_NORMALS.Right)
+	);
+
+	return AddVector3(ScaleVector3(from, Math.cos(maxStep)), ScaleVector3(e2, Math.sin(maxStep)));
+}
+
 /* === ENGINE VARIABLES === */
 
 const WORLD_NORMALS = Object.freeze({
@@ -138,6 +159,7 @@ export {
 	ResolveVector3Axis,
 	LerpVector3,
 	RotateByEuler,
+	RotateTowardVector3,
 	ToVector3,
 	WORLD_NORMALS,
 };

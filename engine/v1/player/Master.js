@@ -38,6 +38,10 @@ function createDefaultPlayerState(baseEntity, playerData) {
 	return Object.assign(baseEntity, {
 		active             : true,
 		character          : playerData.character,
+		orientationControl : {
+			air  : playerData.character.meta.airControl,
+			water: playerData.character.meta.underwaterAirControl,
+		},
 		jumpStartY         : new Unit(playerData.spawnPosition.y, "cnu"),
 		jumpApexY          : new Unit(playerData.spawnPosition.y, "cnu"),
 		stoppingActive     : false,
@@ -241,6 +245,14 @@ function TriggerPlayerRespawnSequence() {
 	setTimeout(() => RespawnPlayer(), 200);
 }
 
+// Teleports snap upright; an eased pose would hang mid-air.
+function snapOrientationUpright() {
+	playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
+	playerState.poseUp = CloneVector3(WORLD_NORMALS.Up);
+	playerState.referenceNormal = CloneVector3(WORLD_NORMALS.Up);
+	playerState.transform.rotation.set({ x: 0, y: playerState.transform.rotation.y, z: 0 });
+}
+
 /**
  * Respawn the player at checkpoint or spawn position.
  */
@@ -257,6 +269,7 @@ function RespawnPlayer() {
 	playerState.stoppingActive = false;
 	playerState.primaryOppositeHeld = false;
 	playerState.modelOpacity = 1.0;
+	snapOrientationUpright();
 	// Respawn keeps the body's yaw, so the heading has to keep it too.
 	playerState.facing = RotateByEuler(WORLD_NORMALS.Forward, playerState.transform.rotation);
 	playerState.inputFrame = {
@@ -286,6 +299,7 @@ const PlayerAPI = {
 		playerState.velocity.set(ToVector3(0));
 		playerState.jumpStartY.value = v.y;
 		playerState.jumpApexY.value = v.y;
+		snapOrientationUpright();
 		UpdatePlayerModel();
 	},
 };

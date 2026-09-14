@@ -5,10 +5,10 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log, SendEvent, EPSILON } from "../core/meta.js";
-import { CloneVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
+import { CloneVector3, RotateTowardVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence } from "./Forces.js";
 import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, ResetCollisionPools, ProbeGroundContact, GetEntityPhysicsFlags, BroadphaseCollectCandidates } from "./Collision.js";
-import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, CORRECTION_DISABLED } from "./Correction.js";
+import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, OrientationMaxStep, CORRECTION_DISABLED } from "./Correction.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";
 import { UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
 
@@ -77,6 +77,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 
 	// Frozen for the whole loop — no double-walking the reference mid-frame.
 	const frameStart = applyCorrection ? { referenceNormal: CloneVector3(entity.referenceNormal) } : null;
+	const orientationStep = applyCorrection ? OrientationMaxStep(entity, physicsState.deltaSeconds) : 0;
 	UpdateEntityModelFromTransform(entity);
 
 	ResetCollisionPools();
@@ -134,7 +135,9 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 			entity.physicsRuntime.groundSurfaceId = groundContact.surfaceId;
 		}
 
-		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact) : noResult.correction;
+		// One turn budget per frame — later iterations re-solve contact, they never re-turn.
+		const turnBudget = iterations === 0 ? orientationStep : 0;
+		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact, turnBudget) : noResult.correction;
 		hadMeaningfulWork = hadMeaningfulWork || correction.anyChanged;
 
 		if (!overlapResolution.anyChanged && !correction.anyChanged) break;
@@ -144,7 +147,8 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 
 	// Once per frame, outside the loop.
 	if (applyCorrection) {
-		if (entity.surfaceContact === "none") entity.referenceNormal = CloneVector3(WORLD_NORMALS.Up);
+		// Release eases; adoption stays instant, or the ratchet tightens with speed.
+		if (entity.surfaceContact === "none") entity.referenceNormal = RotateTowardVector3(entity.referenceNormal, WORLD_NORMALS.Up, orientationStep);
 		else if (entity.surfaceContact === "walkable" && !positionMatchesCachedPhysicsState(entity)) entity.referenceNormal = CloneVector3(entity.surfaceNormal);
 	}
 

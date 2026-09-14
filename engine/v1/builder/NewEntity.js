@@ -745,7 +745,9 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		surfaceContact: "none",
 		surfaceNormal: CloneVector3(WORLD_NORMALS.Up),
 		alignedUp: CloneVector3(WORLD_NORMALS.Up),
+		poseUp: CloneVector3(WORLD_NORMALS.Up),
 		referenceNormal: CloneVector3(WORLD_NORMALS.Up),
+		orientationControl: { air: 1, water: 1 },
 		facing: RotateByEuler(WORLD_NORMALS.Forward, rootTrans.rotation),
 		inputFrame: {
 			carriedForward   : CloneVector3(WORLD_NORMALS.Forward),

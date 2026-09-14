@@ -587,7 +587,7 @@ function handleEntityCollision(event) {
 	if (detail.id !== "cnu-fall-cube") return;
 
 	// Above the landed latch: sparks on every ground contact, not just the first.
-	if (detail.groundContact === true) ENGINE.Level.SpawnParticles({ id: "spark", position: detail.position, overrides: { count: 40, spread: "max" } }, false);
+	if (detail.collision.result.includes("floor")) ENGINE.Level.SpawnParticles({ id: "spark", position: detail.position, overrides: { count: 40, spread: "max" } }, false);
 
 	if (fallTestState.landed || fallTestState.startTime === null) return;
 

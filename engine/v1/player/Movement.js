@@ -12,6 +12,7 @@ import {
 	CrossVector3,
 	DotVector3,
 	RotateByEuler,
+	RotateTowardVector3,
 	Vector3Length,
 	ToVector3,
 	WORLD_NORMALS,
@@ -69,11 +70,14 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
 // Below this a projected tangent vector carries no usable heading.
 const minTangent = 0.05;
 
+// Friction floor. Engages past 75.5°, so no ordinary slope changes.
+const minSupport = 0.25;
+
 /**
  * Steers the carried tangent by camera yaw delta and re-projects; reseeds from the camera
  * on press, on a grounding change, and on collapse.
  * @param {object} frame — `playerState.inputFrame`.
- * @param {{ x, y, z }} camFwd — camera forward flattened to XZ, un-normalized.
+ * @param {{ x, y, z }} camFwd — camera forward flattened to XZ.
  * @param {number} cameraYaw — radians, `atan2(x, z)` convention.
  * @param {{ x, y, z }} up — surface-aligned up.
  * @returns {{ x: number, y: number, z: number }} — unit, in the surface plane.
@@ -126,11 +130,6 @@ function getPrimaryOppositeHeld(input, horizontalVelocity, cameraForward, camera
 		: rightComponent   >= 0 ? input.right   < -0.2  : input.right   > 0.25;
 }
 
-function moveAngleToward(currentAngle, targetAngle, maxStep) {
-	const delta = Math.atan2(Math.sin(targetAngle - currentAngle), Math.cos(targetAngle - currentAngle));
-	return Math.abs(delta) <= maxStep ? targetAngle : currentAngle + Math.sign(delta) * maxStep;
-}
-
 /**
  * Rate-limit the world-space heading toward `target` within the surface plane.
  * @param {{ x, y, z }} target — unit travel direction, already in the plane of `up`.
@@ -144,10 +143,7 @@ function turnFacingToward(playerState, target, maxStep) {
 		return;
 	}
 
-	const e1 = ResolveVector3Axis(planar);
-	const e2 = CrossVector3(e1, playerState.alignedUp);
-	const limited = moveAngleToward(0, Math.atan2(DotVector3(target, e2), DotVector3(target, e1)), maxStep);
-	playerState.facing = AddVector3(ScaleVector3(e1, Math.cos(limited)), ScaleVector3(e2, Math.sin(limited)));
+	playerState.facing = RotateTowardVector3(ResolveVector3Axis(planar), target, maxStep);
 }
 
 /**
@@ -172,10 +168,11 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 
 	const onSlidingSurface = playerState.surfaceContact === "sliding";
 	const up = playerState.alignedUp;
-	const support = up.y;
+	// cos(incline), floored: a wall must still brake, an overhang must not accelerate.
+	const support = Math.max(Math.abs(up.y), minSupport);
 
 	// Camera basis flattened to XZ; yaw is read here so it stays available with no input.
-	const camFwd   = { x: cameraVectors.forward.x, y: 0, z: cameraVectors.forward.z };
+	const camFwd   = ResolveVector3Axis({ x: cameraVectors.forward.x, y: 0, z: cameraVectors.forward.z });
 	const camRight = { x: cameraVectors.right.x,   y: 0, z: cameraVectors.right.z   };
 	const cameraYaw = Math.atan2(camFwd.x, camFwd.z);
 

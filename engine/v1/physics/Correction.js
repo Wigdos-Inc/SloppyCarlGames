@@ -4,7 +4,7 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";
-import { CrossVector3, DotVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
+import { CrossVector3, DotVector3, MultiplyVector3, RotateByEuler, RotateTowardVector3, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
 import { ProjectOntoPlane } from "../math/Collision.js";
 import { EulerFromBasis } from "../math/Matrix.js";
 import { Clamp } from "../math/Utilities.js";
@@ -20,15 +20,17 @@ function hasMeaningfulVectorDelta(currentVector, nextVector) {
 }
 
 // Contact-less orientation: world up, velocity untouched.
-function resetSurfaceState(playerState) {
+function resetSurfaceState(playerState, maxStep) {
+	const nextPose = RotateTowardVector3(playerState.poseUp, WORLD_NORMALS.Up, maxStep);
 	const changedOrientation =
-		hasMeaningfulVectorDelta(playerState.surfaceNormal, WORLD_NORMALS.Up) ||
-		hasMeaningfulVectorDelta(playerState.alignedUp, WORLD_NORMALS.Up);
+		hasMeaningfulVectorDelta(playerState.alignedUp, WORLD_NORMALS.Up) ||
+		hasMeaningfulVectorDelta(playerState.poseUp, nextPose);
 
 	const changedContact = playerState.surfaceContact !== "none";
 	playerState.surfaceContact = "none";
 	playerState.surfaceNormal = CloneVector3(WORLD_NORMALS.Up);
 	playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
+	playerState.poseUp = nextPose;
 
 	return {
 		changedContact, changedOrientation,
@@ -49,6 +51,12 @@ const CORRECTION_DISABLED = Object.freeze({
 const angleBetweenDegrees = (a, b) => (Math.acos(Clamp(DotVector3(a, b), -1, 1)) * 180) / Math.PI;
 
 const angleLimitsFor = (underwater) => CONFIG.PHYSICS.Correction.MaxAngleDelta[underwater ? "Water" : "Air"];
+
+// This frame's orientation turn budget, radians: engine baseline scaled by the entity's control fraction.
+const OrientationMaxStep = (entity, deltaSeconds) =>
+	CONFIG.PHYSICS.Correction.OrientationTurnRate *
+	(entity.underwater ? entity.orientationControl.water : entity.orientationControl.air) *
+	deltaSeconds;
 
 /**
  * Pure surface classification: `incline` gates standing, `delta` gates transitioning steeper.
@@ -77,19 +85,20 @@ function ClassifySurface(referenceNormal, candidate, currentContact, underwater)
  *
  * @param {object} playerState — full mutable player state.
  * @param {{ hit: boolean, normal: { x, y, z }, contact: string }} groundContact — from `ProbeGroundContact`.
+ * @param {number} maxStep — this frame's orientation turn budget, radians.
  */
-function ApplySurfaceCorrection(playerState, groundContact) {
+function ApplySurfaceCorrection(playerState, groundContact, maxStep) {
 	if (CONFIG.PHYSICS.Correction.Enabled === false) return CORRECTION_DISABLED;
 
-	if (!groundContact.hit) return resetSurfaceState(playerState);
+	if (!groundContact.hit) return resetSurfaceState(playerState, maxStep);
 
 	const normal = ResolveVector3Axis(groundContact.normal);
 	const incline = angleBetweenDegrees(normal, WORLD_NORMALS.Up);
 	const contact = groundContact.contact;
 
 	const changedContact = playerState.surfaceContact !== contact;
+	const acquiring = playerState.surfaceContact === "none";
 	playerState.surfaceContact = contact;
-	let changedOrientation = false;
 	let changedVelocity = false;
 
 	const vel = playerState.velocity;
@@ -107,26 +116,25 @@ function ApplySurfaceCorrection(playerState, groundContact) {
 		vel.set(newVelocity);
 	}
 
-	if (incline <= CONFIG.PHYSICS.Correction.FlatSnapDegrees) {
-		// Near-flat: real normal kept for tracking, alignedUp forced to world up.
-		changedOrientation = hasMeaningfulVectorDelta(playerState.alignedUp, WORLD_NORMALS.Up);
-		playerState.surfaceNormal = CloneVector3(normal);
-		playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
-	}
-	else {
-		// Real slope: align to the surface.
-		changedOrientation = hasMeaningfulVectorDelta(playerState.alignedUp, normal);
-		playerState.surfaceNormal = CloneVector3(normal);
-		playerState.alignedUp = CloneVector3(normal);
+	const isFlat = incline <= CONFIG.PHYSICS.Correction.FlatSnapDegrees;
+	// Near-flat stands upright; the real normal is still kept for tracking.
+	const targetUp = isFlat ? WORLD_NORMALS.Up : normal;
+	// Touchdown snaps: pivoting through an in-between pose walks the body off its own contact.
+	const nextPose = RotateTowardVector3(playerState.poseUp, targetUp, acquiring ? Math.PI : maxStep);
+	const changedOrientation =
+		hasMeaningfulVectorDelta(playerState.alignedUp, targetUp) ||
+		hasMeaningfulVectorDelta(playerState.poseUp, nextPose);
+	playerState.surfaceNormal = CloneVector3(normal);
+	playerState.alignedUp = CloneVector3(targetUp);
+	playerState.poseUp = nextPose;
 
-		if (changedOrientation || changedVelocity) {
-			Log(
-				"ENGINE",
-				`Slope correction applied: normal=(${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)}) orientationChanged=${changedOrientation} velocityChanged=${changedVelocity}`,
-				"log",
-				"Level"
-			);
-		}
+	if (!isFlat && (changedOrientation || changedVelocity)) {
+		Log(
+			"ENGINE",
+			`Slope correction applied: normal=(${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)}) orientationChanged=${changedOrientation} velocityChanged=${changedVelocity}`,
+			"log",
+			"Level"
+		);
 	}
 
 	const anyChanged = changedContact || changedOrientation || changedVelocity;
@@ -157,7 +165,8 @@ function ApplyPlayerSurfaceOrientation(playerState) {
 	if (CONFIG.PHYSICS.Correction.Enabled === false) return { changedOrientation: false, anyChanged: false };
 
 	const rotation = playerState.transform.rotation;
-	const solved = solveAlignmentRotation(playerState.alignedUp, playerState.facing, rotation, playerState.surfaceContact === "sliding");
+	// Pose only — movement decomposes against the exact `alignedUp`.
+	const solved = solveAlignmentRotation(playerState.poseUp, playerState.facing, rotation, playerState.surfaceContact === "sliding");
 	const changedOrientation = hasMeaningfulVectorDelta(rotation, solved);
 
 	if (changedOrientation === false) return { changedOrientation, anyChanged: false };
@@ -209,4 +218,4 @@ const ResolveGrounded = (entity) =>
 
 /* === EXPORTS === */
 
-export { ClassifySurface, ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, CORRECTION_DISABLED };
+export { ClassifySurface, ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, OrientationMaxStep, CORRECTION_DISABLED };
