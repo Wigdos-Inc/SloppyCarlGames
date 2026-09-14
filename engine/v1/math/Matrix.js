@@ -87,6 +87,32 @@ function eulerRotationRows(rotation) {
 	];
 }
 
+// Inverse of eulerRotationRows; at the ±90° pitch pole degenerateRoll seeds the free angle.
+function decomposeEulerRows(m, degenerateRoll) {
+	const pitch = Math.asin(Clamp(-m[5], -1, 1));
+	if (Math.abs(m[5]) > 0.999999) {
+		const free = Math.atan2(-m[6], m[0]);
+		return { x: pitch, y: m[5] < 0 ? free + degenerateRoll : free - degenerateRoll, z: degenerateRoll };
+	}
+	return { x: pitch, y: Math.atan2(m[2], m[8]), z: Math.atan2(m[3], m[4]) };
+}
+
+/**
+ * Euler triple for the orthonormal basis whose columns are (right, up, forward).
+ * @param {{ x, y, z }} right
+ * @param {{ x, y, z }} up
+ * @param {{ x, y, z }} forward
+ * @param {number} degenerateRoll — roll seed, used only at the pitch pole.
+ * @returns {{ x: number, y: number, z: number }}
+ */
+function EulerFromBasis(right, up, forward, degenerateRoll) {
+	return decomposeEulerRows([
+		right.x, up.x, forward.x,
+		right.y, up.y, forward.y,
+		right.z, up.z, forward.z,
+	], degenerateRoll);
+}
+
 /**
  * Euler triple equivalent to applying parentRotation after localRotation.
  * Adding the two triples is only correct while the parent is yaw-only.
@@ -107,10 +133,8 @@ function ComposeEulerRotations(parentRotation, localRotation) {
 		}
 	}
 
-	const pitch = Math.asin(Clamp(-m[5], -1, 1));
-	// Pitch at ±90° leaves yaw and roll on one axis; roll takes it.
-	if (Math.abs(m[5]) > 0.999999) return { x: pitch, y: Math.atan2(-m[6], m[0]), z: 0 };
-	return { x: pitch, y: Math.atan2(m[2], m[8]), z: Math.atan2(m[3], m[4]) };
+	// Yaw-only parent: no prior roll to carry at the pole.
+	return decomposeEulerRows(m, 0);
 }
 
 function buildModelMatrix(position, pivotPost, rotation, scale, pivotPre) {
@@ -158,6 +182,7 @@ function CreateRenderMatrixCache(transform) {
 
 export {
 	ComposeEulerRotations,
+	EulerFromBasis,
 	CreateIdentityMatrix,
 	CreateModelMatrix,
 	CreateRenderMatrix,

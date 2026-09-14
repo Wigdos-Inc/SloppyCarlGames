@@ -6,7 +6,7 @@
 import { Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { Unit } from "../math/Utilities.js";
-import { CloneVector3, ToVector3 } from "../math/Vector3.js";
+import { CloneVector3, RotateByEuler, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
 import { CharacterData, BuildPlayerModel, RefreshPlayerModel } from "./Model.js";
 import { UpdateMovement } from "./Movement.js";
 
@@ -257,6 +257,14 @@ function RespawnPlayer() {
 	playerState.stoppingActive = false;
 	playerState.primaryOppositeHeld = false;
 	playerState.modelOpacity = 1.0;
+	// Respawn keeps the body's yaw, so the heading has to keep it too.
+	playerState.facing = RotateByEuler(WORLD_NORMALS.Forward, playerState.transform.rotation);
+	playerState.inputFrame = {
+		carriedForward   : CloneVector3(WORLD_NORMALS.Forward),
+		previousCameraYaw: 0,
+		previousHasInput : false,
+		previousGrounded : false,
+	};
 	playerState.boost = { active: false, timer: 0, maxSpeedMultiplier: 1, accelMultiplier: 1 };
 	playerState.invulnerable = { active: false, timer: 0, flashTimer: 0 };
 

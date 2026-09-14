@@ -9,7 +9,9 @@ import {
 	AddVector3,
 	SubtractVector3,
 	ScaleVector3,
+	CrossVector3,
 	DotVector3,
+	RotateByEuler,
 	Vector3Length,
 	ToVector3,
 	WORLD_NORMALS,
@@ -64,41 +66,52 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
 	return v0;
 }
 
+// Below this a projected tangent vector carries no usable heading.
+const minTangent = 0.05;
+
 /**
- * Compute a camera-relative movement direction, both flat (XZ) and projected onto the surface plane.
- * @param {{ forward: number, right: number }} input — normalized -1..1 analog axes.
- * @param {{ forward: { x, y, z }, right: { x, y, z } }} cameraVectors
+ * Steers the carried tangent by camera yaw delta and re-projects; reseeds from the camera
+ * on press, on a grounding change, and on collapse.
+ * @param {object} frame — `playerState.inputFrame`.
+ * @param {{ x, y, z }} camFwd — camera forward flattened to XZ, un-normalized.
+ * @param {number} cameraYaw — radians, `atan2(x, z)` convention.
  * @param {{ x, y, z }} up — surface-aligned up.
- * @returns {{ direction, hasInput: boolean, tangentDirection?, cameraForward?, cameraRight? }} — optional fields omitted when input is near-zero.
+ * @returns {{ x: number, y: number, z: number }} — unit, in the surface plane.
  */
-function getMovementDirection(input, cameraVectors, up) {
-	if (Math.abs(input.forward) < 0.001 && Math.abs(input.right) < 0.001) return { direction: ToVector3(0), hasInput: false };
-
-	// Project camera vectors onto XZ plane so movement is always horizontal-relative.
-	const camFwd   = { x: cameraVectors.forward.x, y: 0, z: cameraVectors.forward.z };
-	const camRight = { x: cameraVectors.right.x,   y: 0, z: cameraVectors.right.z   };
-
-	let dir = AddVector3(ScaleVector3(camFwd, input.forward), ScaleVector3(camRight, input.right));
-
-	if (Vector3Length(dir) < 0.001) {
-		return {
-			direction       : ToVector3(0),
-			tangentDirection: ToVector3(0),
-			hasInput        : false,
-			cameraForward   : camFwd,
-			cameraRight     : camRight,
-		};
+function advanceCarriedForward(frame, camFwd, cameraYaw, up, grounded) {
+	if (frame.previousHasInput && grounded === frame.previousGrounded) {
+		const raw = cameraYaw - frame.previousCameraYaw;
+		const yawDelta = Math.atan2(Math.sin(raw), Math.cos(raw));
+		const transported = ProjectOntoPlane(RotateByEuler(frame.carriedForward, { x: 0, y: yawDelta, z: 0 }), up);
+		if (Vector3Length(transported) >= minTangent) return ResolveVector3Axis(transported);
 	}
 
-	dir = ResolveVector3Axis(dir);
+	// Seed: camera XZ on the surface plane, pulled uphill by incline and by how far the camera faces into it.
+	const uphill = ProjectOntoPlane(WORLD_NORMALS.Up, up);
+	const uphillWeight = (1 - Math.abs(up.y)) * -DotVector3(camFwd, up);
+	return ResolveVector3Axis(AddVector3(ProjectOntoPlane(camFwd, up), ScaleVector3(uphill, uphillWeight)));
+}
 
-	// Same blend on the surface plane — drives accel/decel.
-	const tangentDir = ResolveVector3Axis(AddVector3(
-		ScaleVector3(ProjectOntoPlane(camFwd,   up), input.forward),
-		ScaleVector3(ProjectOntoPlane(camRight, up), input.right),
+/**
+ * Movement direction from the carried tangent frame.
+ * @param {{ forward: number, right: number }} input — normalized -1..1 analog axes.
+ * @returns {{ direction, tangentDirection }} — `direction` is the XZ shadow the flat latch checks use.
+ */
+function getMovementDirection(playerState, input, camFwd, cameraYaw, up) {
+	const carried = advanceCarriedForward(playerState.inputFrame, camFwd, cameraYaw, up, playerState.grounded);
+	playerState.inputFrame.carriedForward = carried;
+
+	// Handedness matches Camera.js's cross(forward, up), NOT Correction.js's model basis.
+	const tangentDirection = ResolveVector3Axis(AddVector3(
+		ScaleVector3(carried, input.forward),
+		ScaleVector3(CrossVector3(carried, up), input.right),
 	));
 
-	return { direction: dir, tangentDirection: tangentDir, hasInput: true, cameraForward: camFwd, cameraRight: camRight };
+	const shadow = { x: tangentDirection.x, y: 0, z: tangentDirection.z };
+	return {
+		direction: Vector3Length(shadow) < 0.001 ? ToVector3(0) : ResolveVector3Axis(shadow),
+		tangentDirection,
+	};
 }
 
 function getPrimaryOppositeHeld(input, horizontalVelocity, cameraForward, cameraRight) {
@@ -116,6 +129,25 @@ function getPrimaryOppositeHeld(input, horizontalVelocity, cameraForward, camera
 function moveAngleToward(currentAngle, targetAngle, maxStep) {
 	const delta = Math.atan2(Math.sin(targetAngle - currentAngle), Math.cos(targetAngle - currentAngle));
 	return Math.abs(delta) <= maxStep ? targetAngle : currentAngle + Math.sign(delta) * maxStep;
+}
+
+/**
+ * Rate-limit the world-space heading toward `target` within the surface plane.
+ * @param {{ x, y, z }} target — unit travel direction, already in the plane of `up`.
+ */
+function turnFacingToward(playerState, target, maxStep) {
+	const planar = ProjectOntoPlane(playerState.facing, playerState.alignedUp);
+
+	// Facing collapsed onto the new normal — no angle left to limit against.
+	if (Vector3Length(planar) < minTangent) {
+		playerState.facing = target;
+		return;
+	}
+
+	const e1 = ResolveVector3Axis(planar);
+	const e2 = CrossVector3(e1, playerState.alignedUp);
+	const limited = moveAngleToward(0, Math.atan2(DotVector3(target, e2), DotVector3(target, e1)), maxStep);
+	playerState.facing = AddVector3(ScaleVector3(e1, Math.cos(limited)), ScaleVector3(e2, Math.sin(limited)));
 }
 
 /**
@@ -142,7 +174,15 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	const up = playerState.alignedUp;
 	const support = up.y;
 
-	const { direction, tangentDirection, hasInput, cameraForward, cameraRight } = getMovementDirection(input, cameraVectors, up);
+	// Camera basis flattened to XZ; yaw is read here so it stays available with no input.
+	const camFwd   = { x: cameraVectors.forward.x, y: 0, z: cameraVectors.forward.z };
+	const camRight = { x: cameraVectors.right.x,   y: 0, z: cameraVectors.right.z   };
+	const cameraYaw = Math.atan2(camFwd.x, camFwd.z);
+
+	const hasInput = Math.abs(input.forward) >= 0.001 || Math.abs(input.right) >= 0.001;
+	const { direction, tangentDirection } = hasInput
+		? getMovementDirection(playerState, input, camFwd, cameraYaw, up)
+		: { direction: ToVector3(0), tangentDirection: ToVector3(0) };
 
 	// Resolve effective stats.
 	const maxSpeed = meta.maxSpeed     * (playerState.boost.active ? playerState.boost.maxSpeedMultiplier : 1);
@@ -158,7 +198,7 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	const currentHSpeed = Vector3Length(hVel);
 	const velocityDirection = currentHSpeed > 0.001 ? ResolveVector3Axis(hVel) : ToVector3(0);
 	const reverseIntent = hasInput && currentHSpeed > 0.001 && DotVector3(velocityDirection, direction) < 0;
-	const primaryOppositeHeld = hasInput && getPrimaryOppositeHeld(input, hVel, cameraForward, cameraRight);
+	const primaryOppositeHeld = hasInput && getPrimaryOppositeHeld(input, hVel, camFwd, camRight);
 	
 	playerState.stoppingActive = 
 		(playerState.grounded && reverseIntent && primaryOppositeHeld && currentHSpeed > stoppingThreshold) ||
@@ -219,15 +259,14 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	}
 
 	// === FACE MOMENTUM DIRECTION ===
-	// Yaw follows horizontal momentum so turn orientation feels fluid.
-	const yawVel = { x: tVel.x, y: 0, z: tVel.z };
-	if (Vector3Length(yawVel) > 0.05) {
-		playerState.transform.rotation.y = moveAngleToward(
-			playerState.transform.rotation.y,
-			Math.atan2(yawVel.x, yawVel.z),
-			meta.momentumTurnRate * deltaSeconds
-		);
+	// Heading follows surface momentum.
+	if (Vector3Length(tVel) > minTangent) {
+		turnFacingToward(playerState, ResolveVector3Axis(tVel), meta.momentumTurnRate * deltaSeconds);
 	}
+
+	playerState.inputFrame.previousCameraYaw = cameraYaw;
+	playerState.inputFrame.previousHasInput = hasInput;
+	playerState.inputFrame.previousGrounded = playerState.grounded;
 }
 
 /* === EXPORTS === */

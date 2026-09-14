@@ -59,14 +59,12 @@ function MergeAabb(accumulator, bounds) {
 function CreateDetailedBoundsFromParts(source, parts, bounds) {
 	if (source.collisionShape === "triangle-soup") {
 		const triangles = [];
-		const floorTriangles = [];
 		for (let index = 0; index < parts.length; index++) {
 			const partBounds = parts[index].detailedBounds;
 			if (partBounds.type !== "triangle-soup") continue;
 			triangles.push(...partBounds.triangles);
-			floorTriangles.push(...partBounds.floorBounds.triangles);
 		}
-		return { type: "triangle-soup", triangles, floorBounds: { type: "triangle-soup", triangles: floorTriangles } };
+		return { type: "triangle-soup", triangles };
 	}
 
 	if (source.collisionShape === "aabb") return { type: "aabb", min: bounds.min.clone(), max: bounds.max.clone() };

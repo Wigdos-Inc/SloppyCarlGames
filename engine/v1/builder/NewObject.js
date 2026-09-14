@@ -88,20 +88,15 @@ function computeTriangleSoupFromMesh(mesh) {
 	};
 
 	const triangles = [];
-	const floorTriangles = [];
 	const indices = mesh.geometry.indices;
 	for (let index = 0; index < indices.length; index += 3) {
 		const a = readVertex(indices[index]);
 		const b = readVertex(indices[index + 1]);
 		const c = readVertex(indices[index + 2]);
-		const triangle = { a, b, c, normal: ResolveVector3Axis(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a))) };
-		triangles.push(triangle);
-		
-		// Up-facing subset, pre-split for the ground probe.
-		if (triangle.normal.y > 0) floorTriangles.push(triangle);
+		triangles.push({ a, b, c, normal: ResolveVector3Axis(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a))) });
 	}
 
-	return { type: "triangle-soup", triangles, floorBounds: { type: "triangle-soup", triangles: floorTriangles } };
+	return { type: "triangle-soup", triangles };
 }
 
 function computeDetailedBounds(mesh) {

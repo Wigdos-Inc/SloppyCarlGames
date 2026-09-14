@@ -122,8 +122,8 @@ const CONFIG = {
       Enabled        : true,
       FlatSnapDegrees: 5,
       MaxAngleDelta  : {
-        Air  : { Ground: 35, Sliding: 60, Recover: 20 },
-        Water: { Ground: 60, Sliding: 60, Recover: 20 },
+        Air  : { Ground: 35, Sliding: 75, Recover: 20 },
+        Water: { Ground: 45, Sliding: 85, Recover: 45 },
       }
     },
   },

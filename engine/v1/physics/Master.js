@@ -71,7 +71,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	const isPlayer = entity.type === "player";
 	const applyCorrection = GetEntityPhysicsFlags(entity).correction;
 	let latestTriggers;
-	let groundContact = { hit: false, normal: CloneVector3(WORLD_NORMALS.Up) };
+	let groundContact;
 	let iterations;
 	let hadMeaningfulWork = false;
 
@@ -84,27 +84,31 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	const sweptResolution = ResolveCollisions(entity.velocity, displacement, swept.solids);
 	entity.velocity.set(sweptResolution.resolvedVelocity);
 	entity.transform.position.add(sweptResolution.resolvedDisplacement);
-	if (sweptResolution.groundContact.hit) groundContact = sweptResolution.groundContact;
 	latestTriggers = swept.triggers;
 	hadMeaningfulWork = hadMeaningfulWork || sweptResolution.anyChanged;
 
-	const gc = sweptResolution.groundContact;
-	const wc = sweptResolution.wallContact;
-	const collisionKey = swept.solids.count > 0 ? (gc.hit && wc.hit ? "ground+wall" : gc.hit ? "ground" : wc.hit ? "wall" : "solid") : "";
+	const floorImpact = sweptResolution.floorImpact;
+	const wallImpact = sweptResolution.wallImpact;
+	const collisionKey = swept.solids.count > 0 ? (floorImpact.hit && wallImpact.hit ? "floor+wall" : floorImpact.hit ? "floor" : wallImpact.hit ? "wall" : "solid") : "";
 	const isNewContact = collisionKey !== "" && collisionKey !== entity.physicsRuntime.lastPhysicsCollisionKey;
 	if (collisionKey !== "") entity.physicsRuntime.lastPhysicsCollisionKey = collisionKey;
 	else if (!isPlayer || !entity.grounded) entity.physicsRuntime.lastPhysicsCollisionKey = "";
 
 	if (isNewContact && entity.customEvents.collision && CONFIG.CUSTOM_EVENTS.Entities.collision) {
+		// Floor wins the normal/surface; wall is the fallback.
+		const impact = floorImpact.hit ? floorImpact : wallImpact;
 		SendEvent(isPlayer ? "PLAYER_COLLISION" : "ENTITY_COLLISION", {
-			id           : entity.id,
-			type         : entity.type,
-			position     : CloneVector3(entity.transform.position),
-			velocity     : CloneVector3(entity.velocity),
-			contactType  : "physics",
-			groundContact: gc.hit,
-			wallContact  : wc.hit,
-			contactNormal: gc.hit ? CloneVector3(gc.normal) : wc.hit ? CloneVector3(wc.normal) : null,
+			id         : entity.id,
+			type       : entity.type,
+			position   : CloneVector3(entity.transform.position),
+			velocity   : CloneVector3(entity.velocity),
+			contactType: "physics",
+			collision  : {
+				result  : collisionKey,
+				normal  : impact.hit ? CloneVector3(impact.normal) : null,
+				approach: wallImpact.approach,
+				surface : impact.type,
+			},
 		});
 	}
 
@@ -114,7 +118,6 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 		ResetCollisionPools();
 		const overlaps = DetectCurrentPhysicsOverlaps(entity, sceneGraph);
 		const overlapResolution = ResolveCollisions(entity.velocity, ToVector3(0), overlaps.solids);
-		if (overlapResolution.groundContact.hit) groundContact = overlapResolution.groundContact;
 		entity.velocity.set(overlapResolution.resolvedVelocity);
 		if (overlapResolution.changedPosition) entity.transform.position.add(overlapResolution.resolvedDisplacement);
 		latestTriggers = overlaps.triggers;
@@ -127,11 +130,11 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 			const probeCandidates = overlapResolution.changedPosition
 				? BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb, false, false)
 				: overlaps.candidates;
-			groundContact = ProbeGroundContact(entity, sceneGraph, physicsState.groundSnapTolerance, probeCandidates);
+			groundContact = ProbeGroundContact(entity, sceneGraph, physicsState.groundSnapTolerance, probeCandidates, frameStart);
 			entity.physicsRuntime.groundSurfaceId = groundContact.surfaceId;
 		}
 
-		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact, frameStart) : noResult.correction;
+		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact) : noResult.correction;
 		hadMeaningfulWork = hadMeaningfulWork || correction.anyChanged;
 
 		if (!overlapResolution.anyChanged && !correction.anyChanged) break;
@@ -167,7 +170,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 		);
 	}
 
-	return { groundContact, triggers: latestTriggers, hasUnresolvedPenetration: finalOverlaps.solids.count > 0 };
+	return { triggers: latestTriggers, hasUnresolvedPenetration: finalOverlaps.solids.count > 0 };
 }
 
 /**

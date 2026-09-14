@@ -16,6 +16,7 @@ import {
 	Vector3Distance,
 	CloneVector3,
 	AbsoluteVector3,
+	ClampVector3,
 	MultiplyVector3,
 	RotateByEuler,
 	WORLD_NORMALS,
@@ -46,6 +47,7 @@ import {
 	SweptSphereOBB,
 	NoContact,
 } from "../math/Collision.js";
+import { ClassifySurface } from "./Correction.js";
 
 // Min approach cosine for a wall hit (~60° from head-on); below = graze, no wall contact.
 const wallFacingMinApproachDot = 0.5;
@@ -516,7 +518,7 @@ function fillSolidResult(candidate, swept, contact) {
 	return item;
 }
 
-function createEmptyGroundContact() {
+function createEmptyFloorImpact() {
 	return {
 		hit: false,
 		normal: CloneVector3(WORLD_NORMALS.Up),
@@ -526,7 +528,7 @@ function createEmptyGroundContact() {
 	};
 }
 
-function buildGroundContact(collision, supportY, surfaceType) {
+function buildFloorImpact(collision, supportY, surfaceType) {
 	return {
 		hit: true,
 		normal: CloneVector3(collision.pushNormal),
@@ -536,19 +538,21 @@ function buildGroundContact(collision, supportY, surfaceType) {
 	};
 }
 
-function createEmptyWallContact() {
+function createEmptyWallImpact() {
 	return {
 		hit: false,
 		normal: CloneVector3(WORLD_NORMALS.Forward),
+		type: null,
 		tEntry: 1,
 		approach: 0,
 	};
 }
 
-function buildWallContact(collision, approach) {
+function buildWallImpact(collision, approach, surfaceType) {
 	return {
 		hit: true,
 		normal: CloneVector3(collision.normal),
+		type: surfaceType,
 		tEntry: collision.tEntry,
 		approach,
 	};
@@ -813,13 +817,13 @@ function DetectCombatOverlaps(playerState, entities) {
  * @param {{ x, y, z }} velocity — per-second velocity.
  * @param {{ x, y, z }} displacement — velocity * dt.
  * @param {{ items, count }|Array} solids — sorted collision results.
- * @returns {{ resolvedVelocity, resolvedDisplacement, groundContact, wallContact, changedPosition, changedVelocity, anyChanged }}
+ * @returns {{ resolvedVelocity, resolvedDisplacement, floorImpact, wallImpact, changedPosition, changedVelocity, anyChanged }}
  */
 function ResolveCollisions(velocity, displacement, solids) {
 	let vel = CloneVector3(velocity);
 	let disp = CloneVector3(displacement);
-	let groundContact = createEmptyGroundContact();
-	let wallContact = createEmptyWallContact();
+	let floorImpact = createEmptyFloorImpact();
+	let wallImpact = createEmptyWallImpact();
 	let changedPosition = false;
 	let changedVelocity = false;
 
@@ -827,8 +831,8 @@ function ResolveCollisions(velocity, displacement, solids) {
 		return {
 			resolvedVelocity: vel,
 			resolvedDisplacement: disp,
-			groundContact,
-			wallContact,
+			floorImpact,
+			wallImpact,
 			changedPosition: false,
 			changedVelocity: false,
 			anyChanged: false,
@@ -844,19 +848,19 @@ function ResolveCollisions(velocity, displacement, solids) {
 
 		if (isSurfaceCandidate && collision.pushNormal.y > 0.5) {
 			if (
-				!groundContact.hit || collision.pushNormal.y > groundContact.supportY ||
-				(collision.pushNormal.y === groundContact.supportY && collision.tEntry < groundContact.tEntry)
+				!floorImpact.hit || collision.pushNormal.y > floorImpact.supportY ||
+				(collision.pushNormal.y === floorImpact.supportY && collision.tEntry < floorImpact.tEntry)
 			) {
-				groundContact = buildGroundContact(collision, collision.pushNormal.y, surfaceType);
+				floorImpact = buildFloorImpact(collision, collision.pushNormal.y, surfaceType);
 			}
 		}
 
 		if (isSurfaceCandidate && wallApproach >= wallFacingMinApproachDot) {
 			if (
-				!wallContact.hit || wallApproach > wallContact.approach ||
-				(wallApproach === wallContact.approach && collision.tEntry < wallContact.tEntry)
+				!wallImpact.hit || wallApproach > wallImpact.approach ||
+				(wallApproach === wallImpact.approach && collision.tEntry < wallImpact.tEntry)
 			) {
-				wallContact = buildWallContact(collision, wallApproach);
+				wallImpact = buildWallImpact(collision, wallApproach, surfaceType);
 			}
 		}
 
@@ -899,7 +903,7 @@ function ResolveCollisions(velocity, displacement, solids) {
 	return {
 		resolvedVelocity: vel,
 		resolvedDisplacement: disp,
-		groundContact, wallContact, changedPosition, changedVelocity, anyChanged,
+		floorImpact, wallImpact, changedPosition, changedVelocity, anyChanged,
 	};
 }
 
@@ -908,16 +912,17 @@ function ResolveCollisions(velocity, displacement, solids) {
  * ======================================================================== */
 
 /**
- * Ground probe from the capsule cylinder bottom: downward ray vs box colliders,
- * nearest up-facing triangle plane beneath the probe for soup colliders.
- * This is the sole authority on player grounding state and snap target.
+ * Ground probe from the capsule cylinder bottom: nearest point on each candidate collider,
+ * classified on arrival and ranked class-first.
+ * This is the sole authority on player grounding state, surface class and snap target.
  * Penetration pushout is unaffected — the capsule narrowphase handles that separately.
  *
  * @param {object} entity — player entity; the probe capsule is its frozen rest capsule, placed and rotated.
  * @param {object} sceneGraph
- * @returns {{ hit: boolean, normal?: object, type?: string, restDeltaY?: number }}
+ * @param {{ referenceNormal: { x, y, z } }} frameStart — last walked surface, frozen for this frame.
+ * @returns {{ hit: boolean, normal?: object, contact?: string, restDelta?: number, surfaceId: string | null }}
  */
-function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates) {
+function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates, frameStart) {
 	if (CONFIG.PHYSICS.Collision.Enabled === false) return { hit: false };
 
 	// Rest-pose capsule, placed scale-then-rotation like every other collider.
@@ -932,15 +937,19 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates)
 	const coupledId = entity.physicsRuntime.groundSurfaceId;
 	const hits = [];
 
-	// Downward ray vs axis-aligned box: returns entry t or Infinity if no hit.
+	// Nearest point on the axis-aligned box; normal is the contact direction, box to probe.
 	const tryAABB = (from, bounds) => {
-		if (from.x < bounds.min.x || from.x > bounds.max.x) return Infinity;
-		if (from.z < bounds.min.z || from.z > bounds.max.z) return Infinity;
-		const t = from.y - bounds.max.y;
-		return (t < 0 || t > maxDist) ? Infinity : t;
+		const closest = ClampVector3(from, bounds.min, bounds.max);
+		const offset = SubtractVector3(from, closest);
+		const distanceSq = Vector3Sq(offset);
+		// Embedded, or out of reach.
+		if (distanceSq === 0 || distanceSq > Squared(maxDist)) return null;
+
+		const t = Math.sqrt(distanceSq);
+		return { t, normal: DivideVector3(offset, ToVector3(t)), point: closest };
 	};
 
-	// Nearest point on the box — face interior, edge or corner.
+	// Nearest point on the oriented box — face interior, edge or corner.
 	const tryOBB = (from, obb) => {
 		const closest = obb.center.clone();
 		let faceAxis = 0;
@@ -971,95 +980,114 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates)
 		const normal = distance > EPSILON
 			? DivideVector3(offset, ToVector3(distance))
 			: ScaleVector3(obb.axes[faceAxis], faceSign);
-		if (normal.y <= 0) return null;
-		const t = from.y - (closest.y + ((((closest.x - from.x) * normal.x) + ((closest.z - from.z) * normal.z)) / normal.y));
-		return { t, normal };
+		return { t: distance, normal, point: closest };
 	};
 
-	// Front face within reach; behind it is a ceiling.
+	// Offset to the nearest point; null when behind the face.
 	const reachesTriangle = (from, triangle) => {
 		const offset = SubtractVector3(from, ClosestPointOnTriangle(from, triangle.a, triangle.b, triangle.c));
-		return DotVector3(offset, triangle.normal) < 0 ? -1 : Vector3Sq(offset);
+		return DotVector3(offset, triangle.normal) < 0 ? null : offset;
 	};
 
-	// Up-facing triangle closest to the probe by true distance.
-	const trySoup = (from, floorBounds) => {
+	// Triangle closest to the probe by true distance.
+	const trySoup = (from, soup) => {
 		let soupDistanceSq = Squared(maxDist);
 		let soupTriangle = null;
-		for (const triangle of floorBounds.triangles) {
+		let soupOffset = null;
+		for (const triangle of soup.triangles) {
 			if (from.x < Math.min(triangle.a.x, triangle.b.x, triangle.c.x) - maxDist || from.x > Math.max(triangle.a.x, triangle.b.x, triangle.c.x) + maxDist) continue;
 			if (from.z < Math.min(triangle.a.z, triangle.b.z, triangle.c.z) - maxDist || from.z > Math.max(triangle.a.z, triangle.b.z, triangle.c.z) + maxDist) continue;
+			if (from.y < Math.min(triangle.a.y, triangle.b.y, triangle.c.y) - maxDist || from.y > Math.max(triangle.a.y, triangle.b.y, triangle.c.y) + maxDist) continue;
 
-			const distanceSq = reachesTriangle(from, triangle);
-			if (distanceSq < 0 || distanceSq >= soupDistanceSq) continue;
+			const offset = reachesTriangle(from, triangle);
+			if (offset === null) continue;
+			const distanceSq = Vector3Sq(offset);
+			if (distanceSq >= soupDistanceSq) continue;
 			soupDistanceSq = distanceSq;
 			soupTriangle = triangle;
+			soupOffset = offset;
 		}
 		if (soupTriangle === null) return null;
 
-		const normal = soupTriangle.normal;
-		const soupT = from.y - (soupTriangle.a.y + (((soupTriangle.a.x - from.x) * normal.x) + ((soupTriangle.a.z - from.z) * normal.z)) / normal.y);
-		return { t: soupT, normal: CloneVector3(normal), triangle: soupTriangle };
+		return {
+			t: Math.sqrt(soupDistanceSq),
+			normal: CloneVector3(soupTriangle.normal),
+			point: SubtractVector3(from, soupOffset),
+		};
 	};
 
+
+	// Walls never ground.
+	const pushHit = (t, normal, surfaceId) => {
+		const contact = ClassifySurface(frameStart.referenceNormal, normal, entity.surfaceContact, entity.underwater);
+		if (contact !== "wall") hits.push({ t, normal, contact, surfaceId });
+	};
 
 	// Candidates are already simRadius-filtered by the broadphase, so no overlap test is repeated here.
 	for (const candidate of candidates) {
 		const isTerrain = candidate.type === "terrain";
 		if (!isTerrain && candidate.type !== "obstacle") continue;
-		let t, normal, triangle = null;
+		let t, normal, point;
 		if (candidate.detailedBounds.type === "aabb") {
-			t = tryAABB(probe, candidate.detailedBounds);
-			if (t === Infinity) continue; normal = WORLD_NORMALS.Up;
+			const hit = tryAABB(probe, candidate.detailedBounds);
+			if (!hit) continue; t = hit.t; normal = hit.normal; point = hit.point;
 		}
 		else if (candidate.detailedBounds.type === "obb") {
 			const hit = tryOBB(probe, candidate.detailedBounds);
-			if (!hit) continue; t = hit.t; normal = hit.normal;
+			if (!hit) continue; t = hit.t; normal = hit.normal; point = hit.point;
 		}
 		else if (candidate.detailedBounds.type === "triangle-soup") {
 			if (probe.x < candidate.aabb.min.x - maxDist || probe.x > candidate.aabb.max.x + maxDist) continue;
 			if (probe.z < candidate.aabb.min.z - maxDist || probe.z > candidate.aabb.max.z + maxDist) continue;
-			const hit = trySoup(probe, candidate.detailedBounds.floorBounds);
-			if (!hit) continue; t = hit.t; normal = hit.normal; triangle = hit.triangle;
+			const hit = trySoup(probe, candidate.detailedBounds);
+			if (!hit) continue; t = hit.t; normal = hit.normal; point = hit.point;
 		}
 		else continue;
 		const source = candidate.ref;
 		const nullable = isTerrain ? source.meta.nullable : source.nullable;
 		const voids = isTerrain ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles;
-		if (nullable !== false && IsPointInSuppressingVoid({ x: probe.x, y: probe.y - t, z: probe.z }, source.id, voids)) continue;
-		hits.push({ t, normal, triangle, type: candidate.type, surfaceId: source.id, bounds: candidate.detailedBounds });
+		if (nullable !== false && IsPointInSuppressingVoid(point, source.id, voids)) continue;
+		pushHit(t, normal, source.id);
 	}
 
-	// Void-wall floors (upward normal) are standable ground; reported under their source category.
-	const probeVoidWalls = (entries, sourceType) => {
+	// Void-wall lining, both soups.
+	const probeVoidWalls = (entries) => {
+		const pushSoupHit = (soup, surfaceId) => {
+			const hit = trySoup(probe, soup);
+			if (hit) pushHit(hit.t, hit.normal, surfaceId);
+		};
 		for (const entry of entries) {
 			for (const id in entry.relations) {
 				for (const voidWall of entry.relations[id].voidWallMeshes) {
 					if (probe.x < voidWall.worldAabb.min.x - maxDist || probe.x > voidWall.worldAabb.max.x + maxDist) continue;
 					if (probe.z < voidWall.worldAabb.min.z - maxDist || probe.z > voidWall.worldAabb.max.z + maxDist) continue;
-					const hit = trySoup(probe, voidWall.floorBounds);
-					if (!hit) continue;
-					hits.push({ t: hit.t, normal: hit.normal, triangle: hit.triangle, type: sourceType, surfaceId: id, bounds: voidWall.floorBounds });
+					pushSoupHit(voidWall.floorBounds, id);
+					pushSoupHit(voidWall.wallBounds, id);
 				}
 			}
 		}
 	};
-	probeVoidWalls(sceneGraph.voids.terrain, "terrain");
-	probeVoidWalls(sceneGraph.voids.obstacles, "obstacle");
+	probeVoidWalls(sceneGraph.voids.terrain);
+	probeVoidWalls(sceneGraph.voids.obstacles);
 
-	// Nearest first; coupled takes precedence.
-	hits.sort((a, b) => a.t - b.t);
-	const coupled = hits.find((hit) => hit.surfaceId === coupledId);
-	const chosen = coupled !== undefined ? coupled : hits[0];
+	// Class first: walkable over sliding, then the coupled surface, then nearest.
+	let chosen = null;
+	for (const hit of hits) {
+		if (chosen === null) { chosen = hit; continue; }
+		if (hit.contact !== chosen.contact) { if (hit.contact === "walkable") chosen = hit; continue; }
+		const hitCoupled = hit.surfaceId === coupledId;
+		if (hitCoupled !== (chosen.surfaceId === coupledId)) { if (hitCoupled) chosen = hit; continue; }
+		if (hit.t < chosen.t) chosen = hit;
+	}
 
-	if (chosen === undefined) return { hit: false, surfaceId: null };
+	if (chosen === null) return { hit: false, surfaceId: null };
 
-	// Cap centre rests radius / normal.y above the surface, vertically.
+	// Cap centre rests radius from the surface, along the normal.
 	return {
 		hit: true,
-		normal: chosen.normal === WORLD_NORMALS.Up ? CloneVector3(WORLD_NORMALS.Up) : chosen.normal,
-		type: chosen.type,
-		restDeltaY: (radius / chosen.normal.y) - chosen.t,
+		normal: chosen.normal,
+		contact: chosen.contact,
+		restDelta: radius - chosen.t,
 		surfaceId: chosen.surfaceId,
 	};
 }

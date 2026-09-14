@@ -746,6 +746,13 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		surfaceNormal: CloneVector3(WORLD_NORMALS.Up),
 		alignedUp: CloneVector3(WORLD_NORMALS.Up),
 		referenceNormal: CloneVector3(WORLD_NORMALS.Up),
+		facing: RotateByEuler(WORLD_NORMALS.Forward, rootTrans.rotation),
+		inputFrame: {
+			carriedForward   : CloneVector3(WORLD_NORMALS.Forward),
+			previousCameraYaw: 0,
+			previousHasInput : false,
+			previousGrounded : false,
+		},
 		model,
 		mesh: model.parts[0].mesh,
 		collision: {
@@ -761,7 +768,7 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		hitboxActive: rest.hitbox !== null,
 		performance: { physics: true, rendering: true },
 		animations: definition.animations,
-		particle: null,		// Particle groups replace this with their lifetime instance; null on every other entity.
+		particle: null,
 		state: {
 			movementProgress: initialMovementProgress,
 			direction: 1,

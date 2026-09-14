@@ -4,7 +4,9 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";
-import { DotVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, WORLD_NORMALS } from "../math/Vector3.js";
+import { CrossVector3, DotVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
+import { ProjectOntoPlane } from "../math/Collision.js";
+import { EulerFromBasis } from "../math/Matrix.js";
 import { Clamp } from "../math/Utilities.js";
 
 const hasMeaningfulDelta = (currentValue, nextValue) => Math.abs(nextValue - currentValue) > EPSILON;
@@ -17,14 +19,14 @@ function hasMeaningfulVectorDelta(currentVector, nextVector) {
 	);
 }
 
-// Contact-less orientation: world up, velocity untouched. `contact` is "none" or "wall".
-function resetSurfaceState(playerState, contact) {
+// Contact-less orientation: world up, velocity untouched.
+function resetSurfaceState(playerState) {
 	const changedOrientation =
 		hasMeaningfulVectorDelta(playerState.surfaceNormal, WORLD_NORMALS.Up) ||
 		hasMeaningfulVectorDelta(playerState.alignedUp, WORLD_NORMALS.Up);
 
-	const changedContact = playerState.surfaceContact !== contact;
-	playerState.surfaceContact = contact;
+	const changedContact = playerState.surfaceContact !== "none";
+	playerState.surfaceContact = "none";
 	playerState.surfaceNormal = CloneVector3(WORLD_NORMALS.Up);
 	playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
 
@@ -53,9 +55,10 @@ const angleLimitsFor = (underwater) => CONFIG.PHYSICS.Correction.MaxAngleDelta[u
  * `currentContact` tightens the walkable limit to `Recover` mid-slide — hysteresis.
  * @returns {"walkable" | "sliding" | "wall"}
  */
-function classifySurface(referenceNormal, candidate, incline, currentContact, underwater) {
+function ClassifySurface(referenceNormal, candidate, currentContact, underwater) {
 	const limits = angleLimitsFor(underwater);
 	const walkableLimit = currentContact === "sliding" ? limits.Recover : limits.Ground;
+	const incline = angleBetweenDegrees(candidate, WORLD_NORMALS.Up);
 
 	if (incline <= CONFIG.PHYSICS.Correction.FlatSnapDegrees) return "walkable";
 	// Not steeper than the reference: incline alone decides.
@@ -73,19 +76,16 @@ function classifySurface(referenceNormal, candidate, incline, currentContact, un
  * Position snap is handled separately after the collision/correction loop stabilizes.
  *
  * @param {object} playerState — full mutable player state.
- * @param {{ hit: boolean, normal: { x, y, z } }} groundContact — from collision resolution.
- * @param {{ referenceNormal: { x, y, z } }} frameStart — last walked surface, frozen for this frame.
+ * @param {{ hit: boolean, normal: { x, y, z }, contact: string }} groundContact — from `ProbeGroundContact`.
  */
-function ApplySurfaceCorrection(playerState, groundContact, frameStart) {
+function ApplySurfaceCorrection(playerState, groundContact) {
 	if (CONFIG.PHYSICS.Correction.Enabled === false) return CORRECTION_DISABLED;
 
-	if (!groundContact.hit) return resetSurfaceState(playerState, "none");
-	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return resetSurfaceState(playerState, "none");
+	if (!groundContact.hit) return resetSurfaceState(playerState);
 
 	const normal = ResolveVector3Axis(groundContact.normal);
 	const incline = angleBetweenDegrees(normal, WORLD_NORMALS.Up);
-	const contact = classifySurface(frameStart.referenceNormal, normal, incline, playerState.surfaceContact, playerState.underwater);
-	if (contact === "wall") return resetSurfaceState(playerState, "wall");
+	const contact = groundContact.contact;
 
 	const changedContact = playerState.surfaceContact !== contact;
 	playerState.surfaceContact = contact;
@@ -134,20 +134,17 @@ function ApplySurfaceCorrection(playerState, groundContact, frameStart) {
 }
 
 function ApplyGroundSnap(playerState, groundContact, groundSnapTolerance) {
-	if (CONFIG.PHYSICS.Correction.Enabled === false || !playerState.grounded)  return CORRECTION_DISABLED;
-	if (groundContact.type !== "terrain" && groundContact.type !== "obstacle") return CORRECTION_DISABLED;
+	if (CONFIG.PHYSICS.Correction.Enabled === false || !playerState.grounded) return CORRECTION_DISABLED;
 	const normal = ResolveVector3Axis(groundContact.normal);
-	// Steeper than the sliding band never snaps.
-	if (normal.y <= Math.cos((angleLimitsFor(playerState.underwater).Sliding * Math.PI) / 180)) return CORRECTION_DISABLED;
 
-	// Vertical offset that seats the capsule — tolerance is perpendicular.
-	const deltaY = groundContact.restDeltaY;
-	if (Math.abs(deltaY) * normal.y > groundSnapTolerance) return CORRECTION_DISABLED;
+	// Perpendicular offset that seats the capsule.
+	const delta = groundContact.restDelta;
+	if (Math.abs(delta) > groundSnapTolerance) return CORRECTION_DISABLED;
 
-	const changedPosition = Math.abs(deltaY) > EPSILON;
+	const changedPosition = Math.abs(delta) > EPSILON;
 	if (changedPosition) {
-		playerState.transform.position.y += deltaY;
-		Log("ENGINE", `Ground snap: deltaY=${deltaY.toFixed(4)}`, "log", "Level");
+		playerState.transform.position.add(ScaleVector3(normal, delta));
+		Log("ENGINE", `Ground snap: delta=${delta.toFixed(4)}`, "log", "Level");
 	}
 
 	return {
@@ -160,12 +157,8 @@ function ApplyPlayerSurfaceOrientation(playerState) {
 	if (CONFIG.PHYSICS.Correction.Enabled === false) return { changedOrientation: false, anyChanged: false };
 
 	const rotation = playerState.transform.rotation;
-	const angles = computeAlignmentAngles(playerState.alignedUp, rotation.y);
-	// Sliding lays the body on its back.
-	const pitch = angles.pitch + (playerState.surfaceContact === "sliding" ? -Math.PI / 2 : 0);
-	const changedOrientation =
-		hasMeaningfulDelta(rotation.x, pitch) ||
-		hasMeaningfulDelta(rotation.z, angles.roll);
+	const solved = solveAlignmentRotation(playerState.alignedUp, playerState.facing, rotation, playerState.surfaceContact === "sliding");
+	const changedOrientation = hasMeaningfulVectorDelta(rotation, solved);
 
 	if (changedOrientation === false) return { changedOrientation, anyChanged: false };
 
@@ -173,29 +166,39 @@ function ApplyPlayerSurfaceOrientation(playerState) {
 	const anchor = MultiplyVector3(playerState.collision.rest.groundCapsule.segmentStart, playerState.transform.scale);
 	const before = RotateByEuler(anchor, rotation);
 
-	rotation.x = pitch;
-	rotation.z = angles.roll;
+	rotation.set(solved);
 
 	playerState.transform.position.add(SubtractVector3(before, RotateByEuler(anchor, rotation)));
 
 	return { changedOrientation, anyChanged: changedOrientation };
 }
 
+// Below this the facing has collapsed onto the normal and carries no usable heading.
+const minPlanarFacing = 0.05;
+
 /**
- * Compute rotation values to orient an entity's up-vector toward a target normal.
- * Returns pitch (X) and roll (Z) in radians, solved in the entity's yawed frame.
- * Matches CreateModelMatrix's Ry·Rx·Rz composition. Yaw is not affected.
- * @param {{ x, y, z }} surfaceNormal
- * @param {number} yaw — the entity's Y rotation in radians.
- * @returns {{ pitch: number, roll: number }}
+ * Orientation whose local up matches `alignedUp`, steered by the entity's current heading.
+ * Yaw, pitch and roll all come out of one basis.
+ * @param {{ x, y, z }} alignedUp — unit target up-vector.
+ * @param {{ x, y, z }} facing — unit world-space heading, maintained by player/Movement.js.
+ * @param {{ x, y, z }} rotation — the entity's current rotation, radians; roll seed and last-resort heading.
+ * @param {boolean} onBack — sliding pose; lays the body on its back.
+ * @returns {{ x: number, y: number, z: number }}
  */
-function computeAlignmentAngles(surfaceNormal, yaw) {
-	const n = ResolveVector3Axis(surfaceNormal);
-	const cosYaw = Math.cos(yaw);
-	const sinYaw = Math.sin(yaw);
-	const localX = (n.x * cosYaw) - (n.z * sinYaw);
-	const localZ = (n.x * sinYaw) + (n.z * cosYaw);
-	return { pitch: Math.atan2(localZ, n.y), roll: Math.asin(Clamp(-localX, -1, 1)) };
+function solveAlignmentRotation(alignedUp, facing, rotation, onBack) {
+	let planar = ProjectOntoPlane(facing, alignedUp);
+	if (Vector3Length(planar) <= minPlanarFacing) {
+		// Aim uphill instead, or keep the flat heading when the surface has no uphill.
+		const uphill = ProjectOntoPlane(WORLD_NORMALS.Up, alignedUp);
+		planar = Vector3Length(uphill) > EPSILON ? uphill : { x: Math.sin(rotation.y), y: 0, z: Math.cos(rotation.y) };
+	}
+
+	const right = ResolveVector3Axis(CrossVector3(alignedUp, planar));
+	const forward = CrossVector3(right, alignedUp);
+
+	// Sliding turns the basis -90° about its own right axis.
+	if (onBack) return EulerFromBasis(right, ScaleVector3(forward, -1), alignedUp, rotation.z);
+	return EulerFromBasis(right, alignedUp, forward, rotation.z);
 }
 
 // Sole grounding authority; jump veto clears on descent, not on action alone.
@@ -206,4 +209,4 @@ const ResolveGrounded = (entity) =>
 
 /* === EXPORTS === */
 
-export { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, CORRECTION_DISABLED };
+export { ClassifySurface, ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, CORRECTION_DISABLED };
