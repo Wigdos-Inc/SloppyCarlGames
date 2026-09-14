@@ -107,3 +107,8 @@ Create a level interpreter that reads level json data and returns 2D representat
 - The output can be ASCII/data (for AI)
 - The output can be JPEGs
 - Output can be multiple. Things stacked on top of each other are hard to define, so each piece of output should reflect a height region based on the height differences in objects (aka dynamic)
+
+
+Allow special rotational control so Carl can rotate in water with Q and E
+- Line up to things you want to attach to.
+- A and D controls change direction.

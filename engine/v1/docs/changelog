@@ -92,3 +92,56 @@ parameter.
 
 [physics/Correction.js](engine/v1/physics/Correction.js), [player/Movement.js](engine/v1/player/Movement.js),
 [player/Master.js](engine/v1/player/Master.js), [core/config.js](engine/v1/core/config.js)
+
+## Surface orientation solved from a full basis instead of frozen yaw
+
+**What**
+
+`computeAlignmentAngles` was replaced by `solveAlignmentRotation`, which builds an orthonormal
+`(right, up, forward)` basis from `alignedUp` and the entity's heading and decomposes all three Euler
+angles at once. `ApplyPlayerSurfaceOrientation` now writes the full triple through `rotation.set(solved)`,
+and its pivot compensation spans yaw because both `before` and `after` are taken from the whole rotation.
+The sliding back-rotation became a −90° rotation of the basis about its own right axis rather than a
+constant added to a decomposed pitch.
+
+The YXZ decomposition formulas were extracted out of `ComposeEulerRotations` into a shared
+`decomposeEulerRows`, which gained a `degenerateRoll` parameter seeding the free angle at the pitch pole;
+`ComposeEulerRotations` passes `0`. `EulerFromBasis` is a new exported basis-to-Euler entry point.
+
+The forward axis fed to the basis is steered — heading from the entity's yaw, tilt carried from its
+current forward axis. Its fallback chain is the uphill direction, then the flat heading when the surface
+has no uphill.
+
+**Where**
+
+[math/Matrix.js](engine/v1/math/Matrix.js), [physics/Correction.js](engine/v1/physics/Correction.js)
+
+## Surface-relative input from a carried tangent frame
+
+**What**
+
+`getMovementDirection` no longer flattens the camera basis to world XZ and projects that onto the surface
+plane. Movement direction now comes from a carried tangent frame held per entity.
+
+The entity literal gained `facing` — a world-space unit heading, initialised from the authored rotation
+via `RotateByEuler(WORLD_NORMALS.Forward, rootTrans.rotation)` — and `inputFrame`, carrying
+`carriedForward`, `previousCameraYaw`, `previousHasInput` and `previousGrounded`.
+
+`player/Movement.js` gained `advanceCarriedForward`, which seeds the frame from the camera basis on a
+no-input-to-input transition, on a change in `grounded`, and when transport collapses, and otherwise
+composes the camera yaw delta with a re-projection onto the current surface plane. The seed is
+`ProjectOntoPlane(camFwd, up)` plus an un-normalized uphill term weighted by `1 − |up.y|` and
+`−dot(camFwd, up)`. `UpdateMovement` hoists the flattened camera basis and derives camera yaw as
+`atan2(camFwd.x, camFwd.z)`; `direction` became the XZ shadow of `tangentDirection`; the three
+previous-value fields are written unconditionally at the end of the function. A module constant
+`minTangent` gates the collapse tests.
+
+The `transform.rotation.y` write was removed. `turnFacingToward` rate-limits `facing` toward the
+surface-tangential velocity direction at `momentumTurnRate`, reusing `moveAngleToward` through a 2D angle
+taken in a basis built from `facing` itself. `solveAlignmentRotation` takes `facing` as a parameter,
+which removed its sliding readback. `RespawnPlayer` resets `facing` and `inputFrame`.
+
+**Where**
+
+[player/Movement.js](engine/v1/player/Movement.js), [physics/Correction.js](engine/v1/physics/Correction.js),
+[builder/NewEntity.js](engine/v1/builder/NewEntity.js), [player/Master.js](engine/v1/player/Master.js)
