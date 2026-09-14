@@ -145,3 +145,45 @@ which removed its sliding readback. `RespawnPlayer` resets `facing` and `inputFr
 
 [player/Movement.js](engine/v1/player/Movement.js), [physics/Correction.js](engine/v1/physics/Correction.js),
 [builder/NewEntity.js](engine/v1/builder/NewEntity.js), [player/Master.js](engine/v1/player/Master.js)
+
+## Deceleration support floored, and a normalized flat camera forward
+
+**What**
+
+`support` in `UpdateMovement` is `Math.max(Math.abs(up.y), minSupport)` rather than a raw `up.y`, against
+a new module constant `minSupport = 0.25`. It scales both `ApplyDeceleration` call sites — the
+reverse-intent braking burst and the no-input decay.
+
+The camera forward flattened to XZ is passed through `ResolveVector3Axis` at its hoist site, so it is unit
+length where it previously carried `cos(pitch)`. It reaches `advanceCarriedForward`, the `cameraYaw`
+derivation and `getPrimaryOppositeHeld` from there; `advanceCarriedForward`'s JSDoc dropped its
+`un-normalized` note.
+
+`handleEntityCollision` in testGame gates its spark burst on `detail.collision.result.includes("floor")`
+in place of the removed `detail.groundContact`.
+
+**Where**
+
+[player/Movement.js](engine/v1/player/Movement.js), [testGame/main.js](engine/v1/testGame/main.js)
+
+## Surface orientation split into an exact physics vector and an eased pose vector
+
+**What**
+
+The entity literal gained `poseUp` alongside `alignedUp`. `alignedUp` carries the exact target again —
+world up when near-flat or contact-less, the surface normal otherwise — and is what every physics and
+movement consumer reads. `poseUp` carries the rate-limited value and has a single reader:
+`ApplyPlayerSurfaceOrientation` passes it to `solveAlignmentRotation` in place of `alignedUp`.
+
+`resetSurfaceState` and `ApplySurfaceCorrection` write both vectors, and their `changedOrientation` tests
+the exact target and the eased pose together. `ApplySurfaceCorrection` captures `acquiring` from the
+pre-write `surfaceContact` and passes `Math.PI` as the pose step on that frame, so the pose snaps on
+contact acquisition and eases only between held contacts. `resetSurfaceState`'s release easing is
+unchanged. `snapOrientationUpright` resets `poseUp`.
+
+`CONFIG.PHYSICS.Correction.OrientationTurnRate` is 8, from 20.
+
+**Where**
+
+[physics/Correction.js](engine/v1/physics/Correction.js), [builder/NewEntity.js](engine/v1/builder/NewEntity.js),
+[player/Master.js](engine/v1/player/Master.js), [core/config.js](engine/v1/core/config.js)
