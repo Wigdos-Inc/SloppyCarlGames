@@ -187,3 +187,63 @@ unchanged. `snapOrientationUpright` resets `poseUp`.
 
 [physics/Correction.js](engine/v1/physics/Correction.js), [builder/NewEntity.js](engine/v1/builder/NewEntity.js),
 [player/Master.js](engine/v1/player/Master.js), [core/config.js](engine/v1/core/config.js)
+
+## Orientation easing moved from physics into a whole-model pose channel
+
+**What**
+
+`physics/` no longer eases. `poseUp` is gone from the entity literal and from `resetSurfaceState` and
+`ApplySurfaceCorrection`, which now write `alignedUp` alone; the `acquiring` touchdown snap is gone; and
+`ApplyPlayerSurfaceOrientation` solves `transform.rotation` from `alignedUp`. Its pivot compensation is
+gated on `surfaceContact !== "none"`. The exported `OrientationMaxStep` became
+`ReferenceReleaseStep(deltaSeconds)`, reading a new `CONFIG.PHYSICS.Correction.ReferenceReleaseRate`;
+`OrientationTurnRate` was removed. `physics/Master.js`'s `orientationStep` became `referenceStep` and
+now feeds only the `referenceNormal` release.
+
+`handlers/game/Animation.js` gained the model-pose channel: `buildModelPose`, `stepModelRotation`,
+`resolveModelPose` and `resolvePoseStep`, plus a `walkModelParts` traversal helper that
+`resolveAnimationStep` also uses. `resolveAnimationStep` takes a `root` parameter and seeds its walk with
+it. `ResolveEntityAnimation` resolves the model pose first, then branches three ways: animated (walk from
+the pose), idle-but-leaning (`clearDecorations`, then `resolvePoseStep`), idle and settled
+(`clearDisplay`). `clearDisplay` split into `clearDecorations` and `clearPartDisplay`. The runtime gained
+`modelPose`; `poseSettled` is an `EPSILON` comparison, not exact equality.
+
+The entity literal's `orientationControl` became `modelTurnRate: { air, water }` in resolved
+radians/second, against a module-private `defaultModelTurnRate`. `createDefaultPlayerState` scales it by
+the character's `airControl` / `underwaterAirControl`. `snapOrientationUpright` clears
+`animationRuntime` instead of resetting a pose vector.
+
+**Where**
+
+[handlers/game/Animation.js](engine/v1/handlers/game/Animation.js),
+[physics/Correction.js](engine/v1/physics/Correction.js), [physics/Master.js](engine/v1/physics/Master.js),
+[builder/NewEntity.js](engine/v1/builder/NewEntity.js), [player/Master.js](engine/v1/player/Master.js),
+[core/config.js](engine/v1/core/config.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js)
+
+## Model turn rate collapsed to one rate per entity
+
+**What**
+
+`modelTurnRate` on the entity literal is a single radians/second number rather than an
+`{ air, water }` pair. `createDefaultPlayerState` resolves it as the builder default scaled by the
+character's `airControl` alone. `resolveModelPose` reads `entity.modelTurnRate` directly, which removed
+its `entity.underwater` read.
+
+**Where**
+
+[builder/NewEntity.js](engine/v1/builder/NewEntity.js), [player/Master.js](engine/v1/player/Master.js),
+[handlers/game/Animation.js](engine/v1/handlers/game/Animation.js)
+
+## Model turn rate restored to a per-medium pair
+
+**What**
+
+Reverts the entry above; it does not describe the current source. `modelTurnRate` is again
+`{ air, water }` on the entity literal, `createDefaultPlayerState` again scales the two halves by
+`character.meta.airControl` and `character.meta.underwaterAirControl`, and `resolveModelPose` again
+selects between them on `entity.underwater`.
+
+**Where**
+
+[builder/NewEntity.js](engine/v1/builder/NewEntity.js), [player/Master.js](engine/v1/player/Master.js),
+[handlers/game/Animation.js](engine/v1/handlers/game/Animation.js)
