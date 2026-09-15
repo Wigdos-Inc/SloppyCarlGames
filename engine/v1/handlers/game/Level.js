@@ -402,7 +402,7 @@ function Update(deltaMilliseconds) {
 	);
 
 	// === ANIMATION (visual-only display transforms; player only this pass) ===
-	// Runs after true poses are settled and before render reads displayTransform.
+	// Model pose and animation, after true poses are settled and before render reads displayTransform.
 	if (playerState.active) ResolveEntityAnimation(playerState, deltaSeconds);
 
 	runFrameTail(sceneGraph, deltaMilliseconds);

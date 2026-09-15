@@ -38,9 +38,9 @@ function createDefaultPlayerState(baseEntity, playerData) {
 	return Object.assign(baseEntity, {
 		active             : true,
 		character          : playerData.character,
-		orientationControl : {
-			air  : playerData.character.meta.airControl,
-			water: playerData.character.meta.underwaterAirControl,
+		modelTurnRate      : {
+			air  : baseEntity.modelTurnRate.air   * playerData.character.meta.airControl,
+			water: baseEntity.modelTurnRate.water * playerData.character.meta.underwaterAirControl,
 		},
 		jumpStartY         : new Unit(playerData.spawnPosition.y, "cnu"),
 		jumpApexY          : new Unit(playerData.spawnPosition.y, "cnu"),
@@ -245,12 +245,13 @@ function TriggerPlayerRespawnSequence() {
 	setTimeout(() => RespawnPlayer(), 200);
 }
 
-// Teleports snap upright; an eased pose would hang mid-air.
+// Teleports snap upright; an eased pose would hang mid-air at the destination.
 function snapOrientationUpright() {
 	playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
-	playerState.poseUp = CloneVector3(WORLD_NORMALS.Up);
 	playerState.referenceNormal = CloneVector3(WORLD_NORMALS.Up);
 	playerState.transform.rotation.set({ x: 0, y: playerState.transform.rotation.y, z: 0 });
+	// Drops the model pose so it re-seeds upright instead of easing in from the old surface.
+	playerState.animationRuntime = undefined;
 }
 
 /**

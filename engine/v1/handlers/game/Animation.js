@@ -1,16 +1,15 @@
 // Shared, entity-agnostic animation runtime.
 //
-// Computes per-frame DISPLAY transforms and DISPLAY colors for an entity's parts and shape decals:
-// the rest pose composed with a sampled, soft-corrected, hierarchically-propagated animation offset.
-// Output is visual-only — it writes only mesh/decal `displayTransform` / `displayColor` and never
-// mutates true transforms, true colors, model values, or physics bounds. Driven per frame from the
-// handler layer (Level.js for the player); the same `ResolveEntityAnimation` serves any entity once
-// a driver wires it.
+// Per-frame DISPLAY transforms/colors: rest pose + sampled per-part offsets, composed under a
+// whole-model pose channel that eases toward the body's orientation independently of the part tracks.
+// Visual-only — writes displayTransform/displayColor, never true transforms/colors/model/physics bounds.
+// Driven per frame from the handler layer (Level.js for the player); ResolveEntityAnimation is entity-generic.
 
 import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
-import { Log } from "../../core/meta.js";
+import { Log, EPSILON } from "../../core/meta.js";
 import { ComposeTransform } from "../../builder/NewEntity.js";
-import { AddVector3, MultiplyVector3, LerpVector3, CloneVector3, ToVector3 } from "../../math/Vector3.js";
+import { AddVector3, MultiplyVector3, LerpVector3, CloneVector3, CrossVector3, ResolveVector3Axis, RotateByEuler, RotateTowardVector3, ToVector3, WORLD_NORMALS } from "../../math/Vector3.js";
+import { EulerFromBasis } from "../../math/Matrix.js";
 import { Lerp, Clamp } from "../../math/Utilities.js";
 import { ApplyEasing } from "../../math/Curves.js";
 
@@ -33,6 +32,64 @@ function buildDecalIndex(model) {
 	return decalIndex;
 }
 
+/* === MODEL POSE (whole-model transform, eased independently of per-part tracks) === */
+
+// Seeded from the body so a freshly built model starts already settled on its surface.
+function buildModelPose(entity) {
+	return {
+		position: entity.transform.position.clone(),
+		rotation: entity.transform.rotation.clone(),
+		scale   : entity.transform.scale,
+	};
+}
+
+// The basis round-trip lands an ulp off rather than bit-exact, so settling needs a tolerance.
+const poseSettled = (a, b) => Math.abs(a.x - b.x) <= EPSILON && Math.abs(a.y - b.y) <= EPSILON && Math.abs(a.z - b.z) <= EPSILON;
+
+// Eased in basis space; interpolating Euler triples tears at the pitch pole, which walls sit on.
+function stepModelRotation(current, target, maxStep) {
+	const up      = RotateTowardVector3(RotateByEuler(WORLD_NORMALS.Up,      current), RotateByEuler(WORLD_NORMALS.Up,      target), maxStep);
+	const forward = RotateTowardVector3(RotateByEuler(WORLD_NORMALS.Forward, current), RotateByEuler(WORLD_NORMALS.Forward, target), maxStep);
+	const right   = ResolveVector3Axis(CrossVector3(up, forward));
+	return EulerFromBasis(right, up, CrossVector3(right, up), current.z);
+}
+
+/**
+ * Advance the whole-model pose toward the body's orientation.
+ * @returns {object|null} — the display root, or null once the pose matches the body.
+ */
+function resolveModelPose(entity, runtime, deltaSeconds) {
+	const pose = runtime.modelPose;
+	const rate = entity.underwater ? entity.modelTurnRate.water : entity.modelTurnRate.air;
+	pose.rotation.set(stepModelRotation(pose.rotation, entity.transform.rotation, rate * deltaSeconds));
+
+	if (poseSettled(pose.rotation, entity.transform.rotation)) return null;
+
+	pose.position.set(entity.transform.position);
+	pose.scale = entity.transform.scale;
+	return pose;
+}
+
+// Shared hierarchy walk: visit() composes/writes each part's world transform, then recursion continues.
+// resolvePoseStep and resolveAnimationStep differ only in what visit() does per part.
+function walkModelParts(model, root, visit) {
+	const walk = (partId, parentWorld) => {
+		const part = model.index[partId];
+		const world = visit(partId, part, parentWorld);
+		part.children.forEach((childId) => walk(childId, world));
+	};
+	model.roots.forEach((rootId) => walk(rootId, root));
+}
+
+// Rest pose under a leaning root — the animated walk's counterpart when no set is playing.
+function resolvePoseStep(model, runtime, root) {
+	walkModelParts(model, root, (partId, part, parentWorld) => {
+		const world = ComposeTransform(parentWorld, applyPartLocal(runtime, partId, identityOffsetPart));
+		writePartDisplay(runtime, part.mesh, world);
+		return world;
+	});
+}
+
 function ensureAnimationRuntime(entity) {
 	let runtime = entity.animationRuntime;
 	if (runtime === undefined) {
@@ -52,6 +109,7 @@ function ensureAnimationRuntime(entity) {
 			colorDisplays    : new Map(),  // mesh|decalEntry → persistent {r,g,b,a} display color
 			restLocals       : buildRestLocals(entity.model),
 			decalIndex       : buildDecalIndex(entity.model),
+			modelPose        : buildModelPose(entity),
 		};
 		entity.animationRuntime = runtime;
 	}
@@ -190,18 +248,27 @@ function applyDisplayColor(runtime, target, color) {
 	else { d.r = color.r; d.g = color.g; d.b = color.b; d.a = color.a; }
 }
 
-// Restore every animated target's render source to its true transform/color (no active animation).
-function clearDisplay(runtime) {
-	runtime.partDisplays.forEach((_, mesh) => { mesh.displayTransform = mesh.transform; });
+// Decals and colors only — a model-pose lean keeps part displays alive after the set ends.
+function clearDecorations(runtime) {
 	runtime.decalDisplays.forEach((_, decalEntry) => { decalEntry.displayTransform = decalEntry.localTransform; });
-	runtime.partDisplays.clear();
 	runtime.decalDisplays.clear();
-	runtime.partLocals.clear();
 	runtime.displayedOffsets.clear();
 	runtime.colorDisplays.forEach((_, target) => { target.displayColor = null; });
 	runtime.colorDisplays.clear();
 	runtime.colorDisplayed.clear();
 	runtime.decalIndex.forEach((decalEntry) => { decalEntry.activeSourceKey = null; });
+}
+
+function clearPartDisplay(runtime) {
+	runtime.partDisplays.forEach((_, mesh) => { mesh.displayTransform = mesh.transform; });
+	runtime.partDisplays.clear();
+	runtime.partLocals.clear();
+}
+
+// Restore every animated target's render source to its true transform/color (no active animation).
+function clearDisplay(runtime) {
+	clearDecorations(runtime);
+	clearPartDisplay(runtime);
 }
 
 /* === PER-FRAME STEP === */
@@ -225,7 +292,7 @@ function resolveTargetOffset(runtime, track, t, targetKey, correctionActive, fac
 	return offset;
 }
 
-function resolveAnimationStep(model, runtime, set, deltaSeconds) {
+function resolveAnimationStep(model, runtime, set, deltaSeconds, root) {
 	runtime.elapsed += deltaSeconds;
 
 	let t = set.duration > 0 ? runtime.elapsed / set.duration : 1;
@@ -234,8 +301,7 @@ function resolveAnimationStep(model, runtime, set, deltaSeconds) {
 	const correctionActive = runtime.correctionCounter > 0;
 	const factor = correctionActive ? (runtime.correctionN - runtime.correctionCounter) / runtime.correctionN : 1;
 
-	const walk = (partId, parentWorld) => {
-		const part = model.index[partId];
+	walkModelParts(model, root, (partId, part, parentWorld) => {
 		const partTrack = set.parts[partId];
 
 		const offset = resolveTargetOffset(runtime, partTrack !== undefined ? partTrack.transform : undefined, t, partId, correctionActive, factor, false);
@@ -257,10 +323,8 @@ function resolveAnimationStep(model, runtime, set, deltaSeconds) {
 			}
 		}
 
-		part.children.forEach((childId) => walk(childId, world));
-	};
-
-	model.roots.forEach((rootId) => walk(rootId, model.rootTransform));
+		return world;
+	});
 
 	if (correctionActive) runtime.correctionCounter -= 1;
 }
@@ -290,12 +354,19 @@ function ResolveEntityAnimation(entity, deltaSeconds) {
 		if (setName === null) Log("ENGINE", `no set matches action '${entity.action}' on '${entity.id}', holding rest`, "warn", "Animation");
 	}
 
+	const leaning = resolveModelPose(entity, runtime, deltaSeconds);
+
 	if (runtime.currentSetName === null) {
-		clearDisplay(runtime);
+		// A lean outlives the set, so decals and colors reset while the part displays carry it.
+		if (leaning === null) clearDisplay(runtime);
+		else {
+			clearDecorations(runtime);
+			resolvePoseStep(entity.model, runtime, leaning);
+		}
 		return;
 	}
 
-	resolveAnimationStep(entity.model, runtime, entity.animations[runtime.currentSetName], deltaSeconds);
+	resolveAnimationStep(entity.model, runtime, entity.animations[runtime.currentSetName], deltaSeconds, leaning !== null ? leaning : entity.model.rootTransform);
 }
 
 export { ResolveEntityAnimation };

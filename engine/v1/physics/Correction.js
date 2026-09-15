@@ -4,7 +4,7 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";
-import { CrossVector3, DotVector3, MultiplyVector3, RotateByEuler, RotateTowardVector3, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
+import { CrossVector3, DotVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
 import { ProjectOntoPlane } from "../math/Collision.js";
 import { EulerFromBasis } from "../math/Matrix.js";
 import { Clamp } from "../math/Utilities.js";
@@ -20,17 +20,13 @@ function hasMeaningfulVectorDelta(currentVector, nextVector) {
 }
 
 // Contact-less orientation: world up, velocity untouched.
-function resetSurfaceState(playerState, maxStep) {
-	const nextPose = RotateTowardVector3(playerState.poseUp, WORLD_NORMALS.Up, maxStep);
-	const changedOrientation =
-		hasMeaningfulVectorDelta(playerState.alignedUp, WORLD_NORMALS.Up) ||
-		hasMeaningfulVectorDelta(playerState.poseUp, nextPose);
+function resetSurfaceState(playerState) {
+	const changedOrientation = hasMeaningfulVectorDelta(playerState.alignedUp, WORLD_NORMALS.Up);
 
 	const changedContact = playerState.surfaceContact !== "none";
 	playerState.surfaceContact = "none";
 	playerState.surfaceNormal = CloneVector3(WORLD_NORMALS.Up);
 	playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
-	playerState.poseUp = nextPose;
 
 	return {
 		changedContact, changedOrientation,
@@ -52,11 +48,8 @@ const angleBetweenDegrees = (a, b) => (Math.acos(Clamp(DotVector3(a, b), -1, 1))
 
 const angleLimitsFor = (underwater) => CONFIG.PHYSICS.Correction.MaxAngleDelta[underwater ? "Water" : "Air"];
 
-// This frame's orientation turn budget, radians: engine baseline scaled by the entity's control fraction.
-const OrientationMaxStep = (entity, deltaSeconds) =>
-	CONFIG.PHYSICS.Correction.OrientationTurnRate *
-	(entity.underwater ? entity.orientationControl.water : entity.orientationControl.air) *
-	deltaSeconds;
+// How far the grounding reference may decay toward world up this frame, radians.
+const ReferenceReleaseStep = (deltaSeconds) => CONFIG.PHYSICS.Correction.ReferenceReleaseRate * deltaSeconds;
 
 /**
  * Pure surface classification: `incline` gates standing, `delta` gates transitioning steeper.
@@ -85,19 +78,17 @@ function ClassifySurface(referenceNormal, candidate, currentContact, underwater)
  *
  * @param {object} playerState — full mutable player state.
  * @param {{ hit: boolean, normal: { x, y, z }, contact: string }} groundContact — from `ProbeGroundContact`.
- * @param {number} maxStep — this frame's orientation turn budget, radians.
  */
-function ApplySurfaceCorrection(playerState, groundContact, maxStep) {
+function ApplySurfaceCorrection(playerState, groundContact) {
 	if (CONFIG.PHYSICS.Correction.Enabled === false) return CORRECTION_DISABLED;
 
-	if (!groundContact.hit) return resetSurfaceState(playerState, maxStep);
+	if (!groundContact.hit) return resetSurfaceState(playerState);
 
 	const normal = ResolveVector3Axis(groundContact.normal);
 	const incline = angleBetweenDegrees(normal, WORLD_NORMALS.Up);
 	const contact = groundContact.contact;
 
 	const changedContact = playerState.surfaceContact !== contact;
-	const acquiring = playerState.surfaceContact === "none";
 	playerState.surfaceContact = contact;
 	let changedVelocity = false;
 
@@ -119,14 +110,9 @@ function ApplySurfaceCorrection(playerState, groundContact, maxStep) {
 	const isFlat = incline <= CONFIG.PHYSICS.Correction.FlatSnapDegrees;
 	// Near-flat stands upright; the real normal is still kept for tracking.
 	const targetUp = isFlat ? WORLD_NORMALS.Up : normal;
-	// Touchdown snaps: pivoting through an in-between pose walks the body off its own contact.
-	const nextPose = RotateTowardVector3(playerState.poseUp, targetUp, acquiring ? Math.PI : maxStep);
-	const changedOrientation =
-		hasMeaningfulVectorDelta(playerState.alignedUp, targetUp) ||
-		hasMeaningfulVectorDelta(playerState.poseUp, nextPose);
+	const changedOrientation = hasMeaningfulVectorDelta(playerState.alignedUp, targetUp);
 	playerState.surfaceNormal = CloneVector3(normal);
 	playerState.alignedUp = CloneVector3(targetUp);
-	playerState.poseUp = nextPose;
 
 	if (!isFlat && (changedOrientation || changedVelocity)) {
 		Log(
@@ -165,19 +151,19 @@ function ApplyPlayerSurfaceOrientation(playerState) {
 	if (CONFIG.PHYSICS.Correction.Enabled === false) return { changedOrientation: false, anyChanged: false };
 
 	const rotation = playerState.transform.rotation;
-	// Pose only — movement decomposes against the exact `alignedUp`.
-	const solved = solveAlignmentRotation(playerState.poseUp, playerState.facing, rotation, playerState.surfaceContact === "sliding");
+	// Exact: collider, ground probe and pivot all key off this. The model's ease is Animation's business.
+	const solved = solveAlignmentRotation(playerState.alignedUp, playerState.facing, rotation, playerState.surfaceContact === "sliding");
 	const changedOrientation = hasMeaningfulVectorDelta(rotation, solved);
 
 	if (changedOrientation === false) return { changedOrientation, anyChanged: false };
 
-	// Pivot about the contact cap, not the transform origin.
+	// Pivot about the contact cap, not the transform origin. Only meaningful while there is a contact.
 	const anchor = MultiplyVector3(playerState.collision.rest.groundCapsule.segmentStart, playerState.transform.scale);
 	const before = RotateByEuler(anchor, rotation);
 
 	rotation.set(solved);
 
-	playerState.transform.position.add(SubtractVector3(before, RotateByEuler(anchor, rotation)));
+	if (playerState.surfaceContact !== "none") playerState.transform.position.add(SubtractVector3(before, RotateByEuler(anchor, rotation)));
 
 	return { changedOrientation, anyChanged: changedOrientation };
 }
@@ -218,4 +204,4 @@ const ResolveGrounded = (entity) =>
 
 /* === EXPORTS === */
 
-export { ClassifySurface, ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, OrientationMaxStep, CORRECTION_DISABLED };
+export { ClassifySurface, ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, ReferenceReleaseStep, CORRECTION_DISABLED };

@@ -24,6 +24,9 @@ import {
 import { ComposeEulerRotations } from "../math/Matrix.js";
 import { Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
 
+// Default model-pose turn rate, radians/second. Characters scale it by their control values.
+const defaultModelTurnRate = 8;
+
 /**
  * Get the center position offset for a given face of a box with the given dimensions.
  * Returns {x,y,z} offset from the box center.
@@ -745,9 +748,9 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		surfaceContact: "none",
 		surfaceNormal: CloneVector3(WORLD_NORMALS.Up),
 		alignedUp: CloneVector3(WORLD_NORMALS.Up),
-		poseUp: CloneVector3(WORLD_NORMALS.Up),
 		referenceNormal: CloneVector3(WORLD_NORMALS.Up),
-		orientationControl: { air: 1, water: 1 },
+		// Radians/second the model's pose eases toward the body's orientation.
+		modelTurnRate: { air: defaultModelTurnRate, water: defaultModelTurnRate },
 		facing: RotateByEuler(WORLD_NORMALS.Forward, rootTrans.rotation),
 		inputFrame: {
 			carriedForward   : CloneVector3(WORLD_NORMALS.Forward),
