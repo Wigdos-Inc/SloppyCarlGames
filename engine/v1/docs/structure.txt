@@ -74,7 +74,7 @@ engine/
 
     physics/
       Collision.js // Collision detection utilities
-      Correction.js // Collision correction/response helpers (e.g. adjusting player angle on slopes)
+      Correction.js // Surface classification, grounding derivation, and position/orientation correction
       Current.js // Movement adjustments while in underwater currents
       Forces.js // Engine-shaped force assembly for gravity, buoyancy, resistance, and submergence
       Master.js // Physics pipeline manager and orchestrator for moving entities
