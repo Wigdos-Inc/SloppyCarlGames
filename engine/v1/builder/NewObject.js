@@ -12,13 +12,11 @@ import {
 	AbsoluteVector3,
 	AddVector3,
 	CrossVector3,
-	DivideVector3,
 	DotVector3,
 	ResolveVector3Axis,
 	ScaleVector3,
 	SubtractVector3,
 	ToVector3,
-	Vector3Length,
 	Vector3Sq,
 	WORLD_NORMALS
 } from "../math/Vector3.js";
@@ -439,7 +437,7 @@ function buildPlane(size) {
 }
 
 function buildCylinder(size, complexity) {
-	const radius = DivideVector3(size, ToVector3(2));
+	const radius = size.clone().divide(ToVector3(2));
 	const segments = resolveCylinderSegments(complexity);
 
 	const positions = [];
@@ -490,7 +488,7 @@ function buildCylinder(size, complexity) {
 }
 
 function buildSphere(size, complexity) {
-	const radius = DivideVector3(size, ToVector3(2));
+	const radius = size.clone().divide(ToVector3(2));
 	const resolution = resolveSphereResolution(complexity);
 
 	const positions = [];
@@ -525,7 +523,7 @@ function buildSphere(size, complexity) {
 }
 
 function buildCone(size, complexity) {
-	const radius = DivideVector3(size, ToVector3(2));
+	const radius = size.clone().divie(ToVector3(2));
 	const segments = resolveCylinderSegments(complexity);
 
 	const positions = [];
@@ -563,7 +561,7 @@ function buildCone(size, complexity) {
 }
 
 function buildCapsule(size, complexity) {
-	const radius = DivideVector3(size, ToVector3(2));
+	const radius = size.clone().divide(ToVector3(2));
 	const capRadius = Clamp(radius.z, 0.0001, radius.x);
 	const cylinderHalf = Math.max(0, radius.y - capRadius);
 	const segments = resolveCylinderSegments(complexity);
@@ -833,10 +831,8 @@ function buildTorus(size, complexity, options) {
 		const u = (major / majorSegments) * Math.PI * 2;
 		for (let minor = 0; minor <= minorSegments; minor++) {
 			const v = (minor / minorSegments) * Math.PI * 2;
-			const cosV = Math.cos(v);
-			const sinV = Math.sin(v);
-			const ringRadius = majorRadius + (minorRadius * cosV);
-			positions.push(ringRadius * Math.cos(u), minorRadius * sinV, ringRadius * Math.sin(u));
+			const ringRadius = majorRadius + (minorRadius * Math.cos(v));
+			positions.push(ringRadius * Math.cos(u), minorRadius * Math.sin(v), ringRadius * Math.sin(u));
 		}
 	}
 
@@ -1012,7 +1008,6 @@ function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 // User-authorized freeze, not a violation.
 function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiveOptions, texture) {
 	const geometry = BuildGeometry(shape, dimensions, complexity, primitiveOptions);
-	const bounds   = computeBounds(geometry.positions);
 
 	let uvs = GenerateUVs(geometry.positions, geometry);
 
@@ -1037,7 +1032,7 @@ function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiv
 		const frequencyConfigKey = textureBlueprint === undefined ? undefined : FREQUENCY_PATTERN_CONFIG[textureBlueprint.pattern];
 		if (frequencyConfigKey !== undefined) {
 			const uvScale = textureBlueprint.density * CONFIG.RENDERING.Texture[frequencyConfigKey].Density * texture.density;
-			for (let i = 0; i < uvs.length; i++) uvs[i] *= uvScale;
+			uvs.forEach(uv => uv *= uvScale);
 		}
 	}
 
@@ -1045,7 +1040,7 @@ function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiv
 		positions: new Float32Array(geometry.positions),
 		indices  : new Uint16Array(geometry.indices),
 		uvs      : new Float32Array(uvs),
-		bounds,
+		bounds   : computeBounds(geometry.positions),
 	};
 	// Omit the key when false so `if (mesh.geometry.triplanar)` matches the faceTextureGroups convention.
 	if (triplanar) template.triplanar = true;

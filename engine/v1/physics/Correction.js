@@ -197,9 +197,10 @@ function solveAlignmentRotation(alignedUp, facing, rotation, onBack) {
 }
 
 // Sole grounding authority; jump veto clears on descent, not on action alone.
+// Measured along the contact's up — world y is nonzero for pure tangent motion on a slope.
 const ResolveGrounded = (entity) =>
 	entity.surfaceContact === "walkable" &&
-	!(entity.action === "Jumping" && entity.velocity.y > EPSILON) &&
+	!(entity.action === "Jumping" && DotVector3(entity.velocity, entity.alignedUp) > EPSILON) &&
 	entity.buoyancyForce <= CONFIG.PHYSICS.Gravity.Strength.value;
 
 /* === EXPORTS === */

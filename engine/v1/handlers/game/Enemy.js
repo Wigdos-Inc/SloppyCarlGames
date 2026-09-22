@@ -5,11 +5,7 @@
 
 import { Log, SendEvent } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
-import {
-	SubtractVector3,
-	ResolveVector3Axis,
-	CloneVector3,
-} from "../../math/Vector3.js";
+import { SubtractVector3, ResolveVector3Axis, CloneVector3 } from "../../math/Vector3.js";
 import { DetectCombatOverlaps } from "../../physics/Collision.js";
 import { TriggerPlayerRespawnSequence, SetPlayerAction } from "../../player/Master.js";
 
@@ -26,7 +22,7 @@ const invulnerabilityDuration = 2.0;
  * @param {object} sceneGraph — active scene graph.
  * @param {number} deltaSeconds
  */
-function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
+function HandleEnemyCollisions(playerState, sceneGraph) {
 	if (playerState.action === "Dead") return;
 
 	// Use three-layer combat detection.
@@ -35,12 +31,12 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 	for (let i = combatResults.count - 1; i >= 0; i--) {
 		const result = combatResults.items[i];
 
-		if (CONFIG.CUSTOM_EVENTS.Entities.collision && playerState.customEvents.collision) {
+		if (CONFIG.CUSTOM_EVENTS.Entities.Collision && playerState.customEvents.collision) {
 			SendEvent("PLAYER_COLLISION", {
 				id         : playerState.id,
 				type       : playerState.type,
-				position   : { x: playerState.transform.position.x, y: playerState.transform.position.y, z: playerState.transform.position.z },
-				velocity   : { x: playerState.velocity.x, y: playerState.velocity.y, z: playerState.velocity.z },
+				position   : CloneVector3(playerState.transform.position),
+				velocity   : CloneVector3(playerState.velocity),
 				contactType: "combat",
 				otherId    : (result.type === "player-attacks" ? result.target : result.attacker).id,
 			});
@@ -54,7 +50,7 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 			entity.hp--;
 			Log("ENGINE", `Enemy "${entity.id}" hit by player. HP: ${entity.hp}`, "log", "Level");
 
-			if (CONFIG.CUSTOM_EVENTS.Entities.damageReceived && entity.customEvents.damageReceived) {
+			if (CONFIG.CUSTOM_EVENTS.Entities.DamageReceived && entity.customEvents.damageReceived) {
 				SendEvent("ENTITY_DAMAGE_RECEIVED", {
 					id      : entity.id,
 					type    : entity.type,
@@ -64,7 +60,7 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 					sourceId: playerState.id,
 				});
 			}
-			if (CONFIG.CUSTOM_EVENTS.Entities.damageInflicted && playerState.customEvents.damageInflicted) {
+			if (CONFIG.CUSTOM_EVENTS.Entities.DamageInflicted && playerState.customEvents.damageInflicted) {
 				SendEvent("PLAYER_DAMAGE_INFLICTED", {
 					id      : playerState.id,
 					type    : playerState.type,
@@ -78,7 +74,7 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 			if (entity.hp <= 0) {
 				const idx = sceneGraph.entities.indexOf(entity);
 				if (idx !== -1) {
-					if (entity.customEvents.despawn && CONFIG.CUSTOM_EVENTS.Entities.despawn) {
+					if (entity.customEvents.despawn && CONFIG.CUSTOM_EVENTS.Entities.Despawn) {
 						SendEvent("ENTITY_DESPAWN", {
 							id      : entity.id,
 							type    : entity.type,
@@ -97,7 +93,7 @@ function HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds) {
 			const entity = result.attacker;
 			if (entity.type !== "enemy") continue;
 
-			if (CONFIG.CUSTOM_EVENTS.Entities.damageInflicted && entity.customEvents.damageInflicted) {
+			if (CONFIG.CUSTOM_EVENTS.Entities.DamageInflicted && entity.customEvents.damageInflicted) {
 				SendEvent("ENTITY_DAMAGE_INFLICTED", {
 					id      : entity.id,
 					type    : entity.type,
@@ -146,7 +142,7 @@ function applyPlayerDamage(playerState, damageSourcePosition) {
 	// Transition to stunned action.
 	SetPlayerAction("Stunned");
 
-	if (CONFIG.CUSTOM_EVENTS.Entities.damageReceived && playerState.customEvents.damageReceived) {
+	if (CONFIG.CUSTOM_EVENTS.Entities.DamageReceived && playerState.customEvents.damageReceived) {
 		SendEvent("PLAYER_DAMAGE_RECEIVED", {
 			id          : playerState.id,
 			type        : playerState.type,

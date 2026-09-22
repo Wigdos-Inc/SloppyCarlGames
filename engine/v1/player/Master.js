@@ -177,7 +177,7 @@ function SetPlayerAction(newAction) {
 
 	Log("ENGINE", `Player action: ${oldAction} → ${newAction}`, "log", "Player");
 
-	if (playerState.customEvents.actionChange && CONFIG.CUSTOM_EVENTS.Entities.actionChange) {
+	if (playerState.customEvents.actionChange && CONFIG.CUSTOM_EVENTS.Entities.ActionChange) {
 		SendEvent("PLAYER_ACTION_CHANGE", {
 			id      : playerState.id,
 			type    : playerState.type,

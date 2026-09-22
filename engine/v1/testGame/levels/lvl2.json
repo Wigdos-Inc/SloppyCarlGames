@@ -3,6 +3,11 @@
 		{
 			"id": "level1",
 			"title": "Mechanical Test Range",
+			"music": {
+				"name": "LEVEL 2 THEME",
+                "src": "../audio/levelTheme2.mp3",
+                "loop": true
+			},
 			"stages": [
 				{
 					"id": "stage0",

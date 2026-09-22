@@ -1,4 +1,4 @@
-import { AddVector3, CloneVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "./Vector3.js";
+import { AddVector3, CloneVector3, DivideVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "./Vector3.js";
 
 // 1 CNU = CNU_SCALE World Units (WebGL coordinate space). Set once during development.
 export const CNU_SCALE = 1;
@@ -93,6 +93,9 @@ class UnitVector3 {
 	}
 	multiply(vector) {
 		return this.set(MultiplyVector3(this, vector));
+	}
+	divide(vector) {
+		return this.set(DivideVector3(this, vector));
 	}
 	scale(scalar) {
 		return this.set(ScaleVector3(this, scalar));

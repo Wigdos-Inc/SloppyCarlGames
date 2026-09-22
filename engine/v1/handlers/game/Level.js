@@ -304,7 +304,7 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 		title: payload.title,
 	});
 
-	if (CONFIG.CUSTOM_EVENTS.Entities.spawn) {
+	if (CONFIG.CUSTOM_EVENTS.Entities.Spawn) {
 		const localSendEvent = (definition, title) => {
 			if (definition.customEvents.spawn) SendEvent(title, {
 				id      : definition.id,

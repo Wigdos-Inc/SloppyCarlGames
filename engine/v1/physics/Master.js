@@ -95,7 +95,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	if (collisionKey !== "") entity.physicsRuntime.lastPhysicsCollisionKey = collisionKey;
 	else if (!isPlayer || !entity.grounded) entity.physicsRuntime.lastPhysicsCollisionKey = "";
 
-	if (isNewContact && entity.customEvents.collision && CONFIG.CUSTOM_EVENTS.Entities.collision) {
+	if (isNewContact && entity.customEvents.collision && CONFIG.CUSTOM_EVENTS.Entities.Collision) {
 		// Floor wins the normal/surface; wall is the fallback.
 		const impact = floorImpact.hit ? floorImpact : wallImpact;
 		SendEvent(isPlayer ? "PLAYER_COLLISION" : "ENTITY_COLLISION", {
@@ -262,7 +262,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 
 	updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration);
 
-	if (isPlayer && entity.grounded !== wasGrounded && entity.customEvents.groundedChange && CONFIG.CUSTOM_EVENTS.Entities.groundedChange) {
+	if (isPlayer && entity.grounded !== wasGrounded && entity.customEvents.groundedChange && CONFIG.CUSTOM_EVENTS.Entities.GroundedChange) {
 		SendEvent("PLAYER_GROUNDED_CHANGE", {
 			id      : entity.id,
 			type    : entity.type,

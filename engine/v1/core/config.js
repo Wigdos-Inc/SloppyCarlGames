@@ -6,7 +6,7 @@ import { Unit } from "../math/Utilities.js";
 
 const settings = JSON.parse(localStorage.getItem("settings")) ?? null;
 
-const CONFIG = {
+const API_CONFIG = {
   DEBUG: {
     ALL : settings?.debugMode ?? true,       // Global Debug Switch
     SKIP: {
@@ -130,21 +130,18 @@ const CONFIG = {
   },
   CUSTOM_EVENTS: {
     Entities: {
-      spawn          : false,
-      despawn        : false,
-      actionChange   : false,
-      collision      : false,
-      groundedChange : false,
-      damageReceived : false,
-      damageInflicted: false,
+      Spawn          : false,
+      Despawn        : false,
+      ActionChange   : false,
+      Collision      : false,
+      GroundedChange : false,
+      DamageReceived : false,
+      DamageInflicted: false,
     }
   },
   CAMERA: { 
     Fov: 60,
-    Sensitivity: { 
-      Mouse: 40, 
-      Keyboard: 50 
-    },
+    Sensitivity: { Mouse: 40, Keyboard: 50 },
   },
   RENDERING: {
     Texture: {
@@ -184,4 +181,4 @@ const PERFORMANCE_SCALING = {
 /* === EXPORTS === */
 // Public configuration surface for engine modules.
 
-export { CONFIG, PERFORMANCE_SCALING, SKY_STOP_LIMIT };
+export { API_CONFIG as CONFIG, PERFORMANCE_SCALING, SKY_STOP_LIMIT };

@@ -13,7 +13,7 @@ import { ApplyMenuUI, LoadScreen, ClearUI, ConvertHTML } from "../handlers/UI.js
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
 import { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes } from "../handlers/Sound.js";
 import { CreateLevel, ClearLevel, Update as UpdateLevel, GetActiveLevel, PauseLevelLoop as PauseLevel, ResumeLevelLoop as ResumeLevel, SpawnParticles } from "../handlers/game/Level.js";
-import { Start, Load, Cache as SimulatorCache, Clear, Exit, GetModelState, GetFullState } from "../handlers/game/Simulator.js";
+import { Start, Load, Cache as SimulatorCache, Clear, Exit, Download, GetModelState, GetFullState } from "../handlers/game/Simulator.js";
 import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
 import { PlayerAPI as Player } from "../player/Master.js";
@@ -46,7 +46,7 @@ function Initialize() {
     Meta: Object.freeze({
       LogAll, LogCache, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
       SessionKey, CNU_SCALE, 
-      Version: "0.31.4",
+      Version: "0.32",
     }),
     Controls,
     Input   : Object.freeze({ Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, }),
@@ -62,7 +62,7 @@ function Initialize() {
       Physics   : Object.freeze({ ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence }),
       Other     : Object.freeze({ Clamp, Clamp01, Sq })
     }),
-    Simulator : Object.freeze({ Start, Load, Cache: SimulatorCache, Clear, Exit, GetModelState, GetFullState }),
+    Simulator : Object.freeze({ Start, Load, Cache: SimulatorCache, Clear, Exit, Download, GetModelState, GetFullState }),
     Blueprints: InstanceEngineTemplates().raw,
   };
 }
