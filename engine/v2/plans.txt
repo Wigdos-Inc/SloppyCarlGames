@@ -9,3 +9,38 @@
   - Module groups need a master module that orchestrates.
   - Look into Add-on modules so not everything has to always be loaded.
   - Look into creating a smaller engine core or game template that each game can use instead of manually having to import the engine and start it
+  - At the core:
+    - Modularity must remain a central anchor. 
+    - Every major system must work primarily through global systems and their own subsystems.
+    - A game should be able to use any system without needing the other systems
+- Module groups will have API modules specifically creating and exposing functions under their group's name for the API.
+- 2D games support through vector2 functionality.
+- All units and vectors in the engine will be instanced at the first boundary, and then will be modified through methods.
+  - UnitVector3s are no longer worth anything as 1 WorldUnit = 1 CNU. So 1 will refer to 1 metre.
+  - The 3 classes will be: Unit, Vector2, Vector3. All will have variants of the methods:
+    - Any.add(other)
+    - Any.subtract(other)
+    - Any.multiply(other)
+    - Any.divide(other)
+    - Any.scale(other)
+    - Unit.toVec(y, z?)
+    - Unit.val()
+    - Vector2.toVec3(z)
+    - Vector2.break()
+    - Vector3.break(output)
+    - Any.abs()
+    - Any.clone()
+    - Any.radians(replace)
+    - Any.degrees(replace)
+    - Vector2/Vector3.aabb(type, other)
+    - Vector2/Vector3.normal(pure)
+    - Vector3.cross()
+    - Any.min(others)
+    - Any.max(others)
+- Even more "special" recurring datatypes will become classes:
+  - Matrix4
+  - AABB
+    - .expand(type, val)
+    - .shrink
+    - .move
+    - .overlap(other)
