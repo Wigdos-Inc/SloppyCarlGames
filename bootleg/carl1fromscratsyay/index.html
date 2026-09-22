@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Carl 1</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="frame">
+    <canvas id="game" width="512" height="288"></canvas>
+  </div>
+  <p id="hint">
+    <b>&larr; &rarr;</b> / <b>A D</b> move &nbsp;·&nbsp; <b>Space</b> / <b>W</b> jump &nbsp;·&nbsp;
+    <b>P</b> pause &nbsp;·&nbsp; <b>R</b> restart level &nbsp;·&nbsp; <b>M</b> mute
+  </p>
+
+  <!-- Loaded as classic scripts (in dependency order) so the game also runs
+       straight off the filesystem by double-clicking index.html. -->
+  <script src="src/util.js"></script>
+  <script src="src/audio.js"></script>
+  <script src="src/input.js"></script>
+  <script src="src/levels.js"></script>
+  <script src="src/particles.js"></script>
+  <script src="src/camera.js"></script>
+  <script src="src/entities.js"></script>
+  <script src="src/player.js"></script>
+  <script src="src/render.js"></script>
+  <script src="src/world.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
