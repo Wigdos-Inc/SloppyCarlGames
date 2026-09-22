@@ -11,6 +11,7 @@ COMBAT REWORK:
 - A seamless system of hit detection > damage/other effects
 - Configured SFX
 - "Weapons" & Attacks functionality
+- Fix normalizeAttacks in core/normalize.js: the .map callback has no return, so every entity's attacks array is the right length and entirely undefined
 Option to block scatter spawn on top of decals
 - Add spikes to Carl model
 Entity AI:
@@ -112,3 +113,9 @@ Create a level interpreter that reads level json data and returns 2D representat
 Allow special rotational control so Carl can rotate in water with Q and E
 - Line up to things you want to attach to.
 - A and D controls change direction.
+
+
+1.1 Goal: CarlNet Editor
+- Transform the Simulator App to a proper 3D editor.
+- It will be capable of adding, resizing and moving objects to build models.
+- This allows the building of entities, bosses, obstacles and terrain chunks.
