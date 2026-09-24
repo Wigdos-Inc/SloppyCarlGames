@@ -1125,17 +1125,17 @@ function BuildObject(source) {
 	const texture  = source.texture.generated;
 
 	// Entity-part geometry cache: (blueprintId::partId) builds once, shared by ref.
-	// textureScale null opts out (player model).
-	if (source.role === "entity-part" && source.textureScale !== null) {
+	// geometryCache null builds uncached (player model).
+	if (source.role === "entity-part") {
 		const materialTextureID = ComputeGeneratedTextureID(texture);
 
 		// Memoization gate (mirrors the face-texture dedup gate): undefined === genuine cache miss.
-		let geometryTemplate = source.geometryCache.get(source.geometryCacheKey);
+		let geometryTemplate = source.geometryCache === null ? undefined : source.geometryCache.get(source.geometryCacheKey);
 		if (geometryTemplate === undefined) {
 			geometryTemplate = buildEntityPartGeometryTemplate(
 				shape, source.dimensions, complexity, primitiveOptions, texture
 			);
-			source.geometryCache.set(source.geometryCacheKey, geometryTemplate);
+			if (source.geometryCache !== null) source.geometryCache.set(source.geometryCacheKey, geometryTemplate);
 		}
 
 		const partMesh = {

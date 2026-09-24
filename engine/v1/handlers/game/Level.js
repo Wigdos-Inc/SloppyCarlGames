@@ -499,6 +499,12 @@ function finalizeSpawn(result, objectType, sceneGraph) {
 	return result;
 }
 
+// Also takes entities built outside SpawnIntoScene, like the player model.
+function AddEntityToScene(entity, sceneGraph) {
+	sceneGraph.entities.push(entity);
+	return finalizeSpawn(entity, "entity", sceneGraph);
+}
+
 function SpawnIntoScene(definition, objectType, sceneGraph) {
 	// Reuse texture registry when applicable
 	const faceTextureStore = sceneGraph.visualResources.textureRegistry;
@@ -512,8 +518,7 @@ function SpawnIntoScene(definition, objectType, sceneGraph) {
 			faceTextureStore,
 			sceneGraph.partGeometryCache
 		);
-		sceneGraph.entities.push(built);
-		return finalizeSpawn(built, objectType, sceneGraph);
+		return AddEntityToScene(built, sceneGraph);
 	}
 
 	if (objectType === "obstacle") {
@@ -598,5 +603,5 @@ function SpawnParticleRequests(requests, sceneGraph) {
 export {
 	CreateLevel, ClearLevel, Update, GetActiveLevel,
 	StartLevelLoop, StopLevelLoop, PauseLevelLoop, ResumeLevelLoop, ToggleLevelLoopPause,
-	SpawnIntoScene, DespawnFromScene, SpawnParticles, SpawnParticleRequests,
+	SpawnIntoScene, AddEntityToScene, DespawnFromScene, SpawnParticles, SpawnParticleRequests,
 };

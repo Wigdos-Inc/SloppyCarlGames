@@ -705,7 +705,7 @@ function captureRestCollision(definition, model) {
  * @param {object} faceTextureStore — content-signature-keyed store the per-face bake dedups against
  *   (a build-scoped accumulator at level build, the live textureRegistry at runtime spawn).
  * @param {Map} geometryCache — (blueprintId::partId)-keyed store of frozen part geometry templates,
- *   shared by reference across all same-blueprint instances (level-scoped, persists for runtime spawns).
+ *   shared by reference across all same-blueprint instances (level-scoped, persists for runtime spawns); null builds uncached.
  */
 function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geometryCache) {
 	definition = ResolveEntitySource(definition);

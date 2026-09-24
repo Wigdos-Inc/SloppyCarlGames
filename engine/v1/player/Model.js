@@ -112,8 +112,7 @@ async function loadDecalBitmaps(parts) {
 async function BuildPlayerModel(character, playerData) {
 	if (playerData.hasCustomParts === false) await loadDecalBitmaps(character.model.parts);
 
-	// textureScale null opts the player out of the shared entity-part geometry/face-texture cache,
-	// matching how the player model has always been built.
+	// Null geometryCache: the player's parts build uncached, textured like any entity's.
 	const { entity } = BuildEntity(synthesizeDefinition(character, playerData), playerSurfaceMap, null, null, null);
 
 	Log(

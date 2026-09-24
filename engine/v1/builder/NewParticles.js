@@ -374,7 +374,7 @@ class burstParticleGroup extends particleGroup {
  * Generate the particle groups for one request.
  * @param {object} request — { templateId, position (absolute UnitVector3 cnu), offset (target-local, un-rotated), overrides, mode, target }.
  * @param {object} viewerPosition — camera/spawn reference for the sim-distance gate; null skips it.
- * @param {number} textureScale — world texture scale (px per CNU); opts into the geometry cache.
+ * @param {number} textureScale — world texture scale (px per CNU).
  * @param {object} faceTextureStore — content-signature-keyed store the per-face bake dedups against.
  * @param {Map} geometryCache — (blueprintId::partId)-keyed frozen part geometry templates.
  * @returns {object} — { groups } — built entities, one per group.

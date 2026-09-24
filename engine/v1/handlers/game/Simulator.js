@@ -1,7 +1,8 @@
 // Simulator handler — manages the two-phase simulator lifecycle:
 // Start() builds the disc environment; Load/Clear mutate the live sceneGraph directly.
 
-import { CreateLevel, ClearLevel, GetActiveLevel, StopLevelLoop, SpawnIntoScene, DespawnFromScene, SpawnParticleRequests } from "./Level.js";
+import { CreateLevel, ClearLevel, GetActiveLevel, StopLevelLoop, SpawnIntoScene, AddEntityToScene, DespawnFromScene, SpawnParticleRequests } from "./Level.js";
+import { CharacterData, BuildPlayerModel } from "../../player/Model.js";
 import { ParticleGeneratorRequests, WithParticleOverride } from "../../builder/NewParticles.js";
 import { UpdateCameraState, SetDefaultCamFraming } from "./Camera.js";
 import { ResolveEntityAnimation } from "./Animation.js";
@@ -12,8 +13,13 @@ import { ValidateSimulatorPayload, ValidateSimulatorBulkPayload } from "../../co
 import { MergeAabb, CreateDetailedBoundsFromParts } from "../../builder/NewObstacle.js";
 import { UpdateObjectWorldAabb } from "../../builder/NewObject.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
-import { Squared } from "../../math/Utilities.js";
+import { Squared, UnitVector3 } from "../../math/Utilities.js";
 import simulatorTemplates from "../../builder/templates/levels.json" with { type: "json" };
+import terrainTemplates from "../../builder/templates/terrain.json" with { type: "json" };
+import obstacleTemplates from "../../builder/templates/obstacles.json" with { type: "json" };
+import characterTemplates from "../../builder/templates/characters.json" with { type: "json" };
+import enemyTemplates from "../../builder/templates/enemies.json" with { type: "json" };
+import projectileTemplates from "../../builder/templates/projectiles.json" with { type: "json" };
 import { CloneVector3, SubtractVector3, AddVector3, ScaleVector3, CrossVector3, ResolveVector3Axis, WORLD_NORMALS, ToVector3, DivideVector3, MultiplyVector3 } from "../../math/Vector3.js";
 import { CreateModelMatrix } from "../../math/Matrix.js";
 
@@ -44,6 +50,11 @@ const simulatorRuntime = {
 };
 
 const simulatorCache = new Map();
+
+// Engine content any game can preview, cached on first Start.
+const objectTemplates = { terrain: terrainTemplates, obstacle: obstacleTemplates };
+const entityTemplates = { character: characterTemplates, enemy: enemyTemplates, projectile: projectileTemplates };
+let engineEntriesCached = false;
 
 function buildSimulatorHud() {
 	const panelStyles = {
@@ -161,6 +172,7 @@ async function Start() {
 		Log("ENGINE", "Simulator.Start: already active.", "error", "Simulator");
 		return;
 	}
+	if (!engineEntriesCached) await cacheEngineEntries();
 
 	simulatorRuntime.hadLevel = GetActiveLevel() !== null;
 	if (simulatorRuntime.hadLevel) ClearLevel(false);
@@ -269,13 +281,19 @@ async function Load(payload) {
 	else {
 		// Entities ground on the surface map, so a platform must exist before the object spawns.
 		if (simulatorRuntime.platformMesh === null) simulatorRuntime.platformMesh = spawnPlatform(sceneGraph, templateDisc.dimensions.x);
-		built = SpawnIntoScene(definition, objectType, sceneGraph);
-
 		const platformMesh = simulatorRuntime.platformMesh[0];
+		const platformTopY = platformMesh.transform.position.y + (platformMesh.dimensions.y * platformMesh.transform.scale.y * 0.5);
+
+		if (objectType === "player") {
+			// Built exactly as a level builds the player.
+			const playerData = { spawnPosition: new UnitVector3(0, platformTopY, 0, "cnu"), scale: ToVector3(1), animations: {}, customEvents: {}, hasCustomParts: false };
+			built      = AddEntityToScene(await BuildPlayerModel(definition, playerData), sceneGraph);
+			objectType = "entity";
+		}
+		else built = SpawnIntoScene(definition, objectType, sceneGraph);
 
 		if (objectType === "obstacle") {
 			// Obstacles have no self-grounding step; centre on the platform and snap onto it here.
-			const platformTopY = platformMesh.transform.position.y + (platformMesh.dimensions.y * platformMesh.transform.scale.y * 0.5);
 			const deltaY       = platformTopY - built.worldAabb.min.y;
 			const deltaX       = platformMesh.transform.position.x - (built.worldAabb.min.x + built.worldAabb.max.x) * 0.5;
 			const deltaZ       = platformMesh.transform.position.z - (built.worldAabb.min.z + built.worldAabb.max.z) * 0.5;
@@ -329,6 +347,20 @@ async function CacheEntries(bulkPayload) {
 	const validated = await ValidateSimulatorBulkPayload(bulkPayload);
 	for (const entry of validated) simulatorCache.set(entry.definition.id, { definition: entry.definition, objectType: entry.objectType });
 	Log("ENGINE", `Simulator caching complete: ${validated.length} entries.\n${validated.map(e => `- ${e.definition.id} (${e.objectType})`).join("\n")}`, "log", "Simulator");
+}
+
+async function cacheEngineEntries() {
+	for (const id in CharacterData) simulatorCache.set(`player.${id}`, { definition: { ...CharacterData[id], id: `player.${id}` }, objectType: "player" });
+
+	const refs = [];
+	for (const objectType in objectTemplates) for (const template in objectTemplates[objectType]) {
+		refs.push({ objectType, definition: { id: `template.${template}`, shape: "template", template } });
+	}
+	for (const type in entityTemplates) for (const template in entityTemplates[type]) {
+		refs.push({ objectType: entityTemplates[type][template].type, definition: { id: `template.${template}`, shape: "template", template, type } });
+	}
+	await CacheEntries(refs);
+	engineEntriesCached = true;
 }
 
 function Clear() {
