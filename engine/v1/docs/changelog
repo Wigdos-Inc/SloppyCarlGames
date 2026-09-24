@@ -1,1 +1,32 @@
 # Changelog (engine/v1/)
+
+## GLB export clips decals to their footprint
+
+**What:** `buildDecalVertices` no longer exports whole host facets. Each facet selected by
+`SelectDecalFacets` is clipped to the `[-0.5, 0.5]` uv square by the new `clipToDecalSquare`
+(positions interpolated with uv) and fan-triangulated. Before clipping, facets whose uv winding is
+opposite to that of the facet nearest the decal centre are dropped. `writeGlbBinary` writes
+`asset.version` `"2.0"` in place of `"1.0"`.
+
+**Where:** [Simulator.js](engine/v1/handlers/game/Simulator.js) — `decalClipPlanes` `:463`,
+`clipToDecalSquare` `:466`, `buildDecalVertices` `:485`, `writeGlbBinary` asset block `:636`.
+
+## GLB export subdivides decal facets with exact uv
+
+**What:** `buildDecalVertices` subdivides each kept facet into `n × n` barycentric sub-triangles on
+the facet plane before clipping. Sub-vertex uv comes from `DecalSurfaceUv`, with the facet's
+first-corner arc as `referenceArc`. `n` per facet is `ceil(sqrt(error / decalUvTolerance))`, clamped
+to `[1, decalMaxSubdivision]`, where `error` is the largest exact-vs-linear uv deviation at the edge
+midpoints and centroid. New constants `decalUvTolerance` (`0.01`, in decal widths) and
+`decalMaxSubdivision` (`16`). `Simulator.js` imports `DecalSurfaceUv` from `Render.js`.
+
+**Where:** [Simulator.js](engine/v1/handlers/game/Simulator.js) — Render imports `:10`,
+`decalUvTolerance` / `decalMaxSubdivision` `:373-374`, `buildDecalVertices` `:485`.
+
+## Bounding-box grid lines built by one axis-indexed loop
+
+**What:** `createGridLineVertices` replaces its 12 per-face loops with one nested loop over axis
+indices: sweep axis `s`, face axis `k` (both min and max sides), line axis `l = 3 - s - k`. It
+produces the same line segments in a different order.
+
+**Where:** [Render.js](engine/v1/handlers/Render.js) — `createGridLineVertices` `:1040`.

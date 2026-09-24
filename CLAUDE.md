@@ -86,7 +86,7 @@ Small visual changes are also handled by the user.
 
 ## Status Logging
 
-Three files track engine history outside of git: `engine/v1/docs/changelog` (completed changes, what/why/where), `engine/v1/docs/status/DEFERRED.md` (work raised or started and consciously postponed — not general backlog ideas, those go in `engine/v1/docs/todo`), and `engine/v1/docs/status/AGENT_LOG.md` (Short, concise summaries of the findings and work done by agents).
+Three files track engine history outside of git: `engine/v1/docs/changelog` (completed changes, what/why/where), `engine/v1/docs/status/DEFERRED.md` (work raised or started and consciously postponed — not general backlog ideas, those go in `engine/v1/docs/todo`), and `engine/v1/docs/status/AGENT_LOG.md` (Short, concise summaries of non-trivial findings and work done by agents).
 
 SAGE is the only agent that writes to these files. The main agent never edits them directly.
 
@@ -144,4 +144,4 @@ If you can't find evidence that supports a claim, don't make that claim. Just te
 
 Prefer asking questions about intended design or actions taken instead of assuming.
 
-Any time you run, and a conclusion about something is reached (regardless on if any code is actually changed), you must call SAGE to log it into AGENT_LOG. If you called any subagents in that pass, also make SAGE log their individual actions in AGENT_LOG.
+Any time you run, and a non-trivial conclusion about something is reached (regardless on if any code is actually changed), you must call SAGE to log it into AGENT_LOG. If you called any subagents in that pass, also make SAGE log their individual actions in AGENT_LOG.
