@@ -7,15 +7,15 @@ import { UpdateCameraState, SetDefaultCamFraming } from "./Camera.js";
 import { ResolveEntityAnimation } from "./Animation.js";
 import { Cache, Log, SendEvent, ENTITY_TYPES, EngineInitialized } from "../../core/meta.js";
 import { CreateUI, ClearUI, ApplyMenuUI } from "../UI.js";
-import { SetElementText, RemoveRoot } from "../Render.js";
+import { SetElementText, RemoveRoot, DECAL_SHAPE_CODES, DECAL_FACE_ROTATIONS, ResolveDecalShapeCode, SelectDecalFacets, DecalSurfaceUv, BuildDecalPlacementMatrix, CapsuleBand } from "../Render.js";
 import { ValidateSimulatorPayload, ValidateSimulatorBulkPayload } from "../../core/validate.js";
 import { MergeAabb, CreateDetailedBoundsFromParts } from "../../builder/NewObstacle.js";
-import { UpdateObjectWorldAabb, TransformPointByMatrix } from "../../builder/NewObject.js";
+import { UpdateObjectWorldAabb } from "../../builder/NewObject.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
-import { Clamp, Squared } from "../../math/Utilities.js";
+import { Squared } from "../../math/Utilities.js";
 import simulatorTemplates from "../../builder/templates/levels.json" with { type: "json" };
-import { CloneVector3, SubtractVector3, AddVector3, ScaleVector3, CrossVector3, DotVector3, ResolveVector3Axis, Vector3Length, WORLD_NORMALS, ToVector3, DivideVector3 } from "../../math/Vector3.js";
-import { CreateModelMatrix, MultiplyMatrix4 } from "../../math/Matrix.js";
+import { CloneVector3, SubtractVector3, AddVector3, ScaleVector3, CrossVector3, ResolveVector3Axis, WORLD_NORMALS, ToVector3, DivideVector3, MultiplyVector3 } from "../../math/Vector3.js";
+import { CreateModelMatrix } from "../../math/Matrix.js";
 
 // Platform padding and camera-fit factors relative to the loaded object's bounds.
 const platformPadFactor = 1.6;
@@ -368,24 +368,10 @@ const gltfLinear       = 9729;
 const gltfRepeat       = 10497;
 const gltfClampToEdge  = 33071;
 
-// Decal shape codes; mirrors shapeEnum/resolveDecalShapeCode in handlers/Render.js.
-const decalShapeFlat = 0, decalShapeSphere = 1, decalShapeCylinder = 2, decalShapeCapsule = 3;
-
-const decalExportSegments = 12;
-const decalMaxSegments    = 32;
-const decalDipTarget      = 0.0005;
 const decalSurfaceOffset  = 0.001;
 const decalLayerStep      = 0.0004;
-
-// Copied from handlers/Render.js — column-major, aligns quad +Z to the face normal.
-const decalFaceRotations = {
-	front : [1, 0,  0, 0,  0, 1,  0, 0,  0,  0, 1, 0,  0, 0, 0, 1],
-	back  : [-1, 0, 0, 0,  0, 1,  0, 0,  0,  0,-1, 0,  0, 0, 0, 1],
-	top   : [1, 0,  0, 0,  0, 0, -1, 0,  0,  1, 0, 0,  0, 0, 0, 1],
-	bottom: [1, 0,  0, 0,  0, 0,  1, 0,  0, -1, 0, 0,  0, 0, 0, 1],
-	right : [0, 0, -1, 0,  0, 1,  0, 0,  1,  0, 0, 0,  0, 0, 0, 1],
-	left  : [0, 0,  1, 0,  0, 1,  0, 0, -1,  0, 0, 0,  0, 0, 0, 1],
-};
+const decalUvTolerance    = 0.05; // in decal widths
+const decalMaxSubdivision = 16;
 
 const alignTo4 = (value) => (value + 3) & ~3;
 
@@ -462,141 +448,95 @@ function buildMeshVertices(mesh, span) {
 	return data;
 }
 
-// Cylinder caps are flat disks, so decals there skip radial projection.
-function decalShapeCode(shape, side) {
-	if (shape === "sphere")   return decalShapeSphere;
-	if (shape === "capsule")  return decalShapeCapsule;
-	if (shape === "cylinder") return side === "top" || side === "bottom" ? decalShapeFlat : decalShapeCylinder;
-	return decalShapeFlat;
-}
-
-// T(face centre + offset) × R_face × R_z × S; scale.z unused, part world lives on the node.
-function decalPlacementMatrix(dimensions, decalEntry) {
-	const local = decalEntry.localTransform;
-	const pos   = local.position;
-	const scale = local.scale;
-	const faceTranslations = {
-		front : [pos.x,                    pos.y,                    pos.z + dimensions.z / 2],
-		back  : [pos.x,                    pos.y,                    pos.z - dimensions.z / 2],
-		top   : [pos.x,                    pos.y + dimensions.y / 2, pos.z                   ],
-		bottom: [pos.x,                    pos.y - dimensions.y / 2, pos.z                   ],
-		right : [pos.x + dimensions.x / 2, pos.y,                    pos.z                   ],
-		left  : [pos.x - dimensions.x / 2, pos.y,                    pos.z                   ],
-	};
-
-	const [tx, ty, tz] = faceTranslations[decalEntry.side];
-	const c = Math.cos(local.rotation.value), s = Math.sin(local.rotation.value);
-	const tMatrix  = [1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  tx, ty, tz, 1];
-	const rzMatrix = [c, s, 0, 0,  -s, c, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
-	const sMatrix  = [scale.x, 0, 0, 0,  0, scale.y, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
-
-	return MultiplyMatrix4(tMatrix, MultiplyMatrix4(decalFaceRotations[decalEntry.side], MultiplyMatrix4(rzMatrix, sMatrix)));
-}
-
-function projectRadialXz(local, halfExtents) {
-	const nx = local.x / halfExtents.x, nz = local.z / halfExtents.z;
-	const d2 = nx * nx + nz * nz;
-	if (d2 <= 0) return local;
-	const inverse = 1 / Math.sqrt(d2);
-	return { x: local.x * inverse, y: local.y, z: local.z * inverse };
-}
-
-// CPU port of projectToSurface in handlers/Render.js.
-function projectDecalPoint(shapeCode, local, halfExtents) {
-	if (shapeCode === decalShapeSphere) {
-		const n  = { x: local.x / halfExtents.x, y: local.y / halfExtents.y, z: local.z / halfExtents.z };
-		const d2 = DotVector3(n, n);
-		return d2 <= 0 ? local : ScaleVector3(local, 1 / Math.sqrt(d2));
-	}
-	if (shapeCode === decalShapeCylinder) return projectRadialXz(local, halfExtents);
-	if (shapeCode === decalShapeCapsule) {
-		const capRadius    = Clamp(halfExtents.z, 0.0001, halfExtents.x);
-		const cylinderHalf = Math.max(0, halfExtents.y - capRadius);
-		if (Math.abs(local.y) <= cylinderHalf) return projectRadialXz(local, halfExtents);
-
-		const capCenterY = Math.sign(local.y) * cylinderHalf;
-		const capLocal   = { x: local.x, y: local.y - capCenterY, z: local.z };
-		const n          = { x: capLocal.x / halfExtents.x, y: capLocal.y / capRadius, z: capLocal.z / halfExtents.z };
-		const d2         = DotVector3(n, n);
-		if (d2 <= 0) return local;
-		const projected = ScaleVector3(capLocal, 1 / Math.sqrt(d2));
-		return { x: projected.x, y: projected.y + capCenterY, z: projected.z };
-	}
-	return local;
-}
-
-// Analytic surface normal, smooth across the grid so a whole-sheet lift cannot tear it.
+// Analytic, not per-facet: shared corners lift identically, so the sheet cannot tear.
 function decalSurfaceNormal(shapeCode, point, halfExtents, faceAxis) {
-	if (shapeCode === decalShapeFlat) return faceAxis;
-	if (shapeCode === decalShapeCylinder) return ResolveVector3Axis({ x: point.x / Squared(halfExtents.x), y: 0, z: point.z / Squared(halfExtents.z) });
-	if (shapeCode === decalShapeCapsule) {
-		const capRadius    = Clamp(halfExtents.z, 0.0001, halfExtents.x);
-		const cylinderHalf = Math.max(0, halfExtents.y - capRadius);
-		// Inside the band the cap centre tracks the point, zeroing y into the cylinder normal.
-		const capCenterY   = Math.abs(point.y) <= cylinderHalf ? point.y : Math.sign(point.y) * cylinderHalf;
-		return ResolveVector3Axis({ x: point.x / Squared(halfExtents.x), y: (point.y - capCenterY) / Squared(capRadius), z: point.z / Squared(halfExtents.z) });
+	switch (shapeCode) {
+		case DECAL_SHAPE_CODES.Flat    : return faceAxis;
+		case DECAL_SHAPE_CODES.Cylinder: return ResolveVector3Axis({ x: point.x / Squared(halfExtents.x), y: 0, z: point.z / Squared(halfExtents.z) });
+		case DECAL_SHAPE_CODES.Capsule :
+			const band = CapsuleBand(halfExtents, point.y);
+			return ResolveVector3Axis({ x: point.x / Squared(halfExtents.x), y: (point.y - band.originY) / Squared(band.capRadius), z: point.z / Squared(halfExtents.z) });
+		default: return  ResolveVector3Axis(DivideVector3(point, MultiplyVector3(halfExtents, halfExtents)));
 	}
-	return ResolveVector3Axis(DivideVector3(point, { x: Squared(halfExtents.x), y: Squared(halfExtents.y), z: Squared(halfExtents.z) }));
 }
 
-function forEachDecalCell(segments, visit) {
-	const stride = segments + 1;
-	segments.forEach(row => segments.forEach(col => {
-		const a = row * stride + col, b = a + 1, c = a + stride, d = c + 1;
-		visit(a, b, c);
-		visit(b, d, c);
-	}));
+// glTF has no discard: clip to the [-0.5, 0.5] square the fragment shader cuts at runtime.
+function clipToDecalSquare(polygon) {
+	for (const [axis, sign] of [["u", 1], ["u", -1], ["v", 1], ["v", -1]]) {
+		const kept = [];
+		polygon.forEach((a, index) => {
+			const b  = polygon[(index + 1) % polygon.length];
+			const da = 0.5 - sign * a[axis], db = 0.5 - sign * b[axis];
+			if (da >= 0) kept.push(a);
+			if ((da > 0 && db < 0) || (da < 0 && db > 0)) {
+				const t = da / (da - db);
+				kept.push({ point: AddVector3(a.point, ScaleVector3(SubtractVector3(b.point, a.point), t)), u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t });
+			}
+		});
+		if (kept.length < 3) return [];
+		polygon = kept;
+	}
+	return polygon;
 }
 
-// Projected grid plus its deepest chord dip. Host facets chord inside the true surface too, so a
-// finer decal is what stays above them — resolution climbs until the dip stops mattering.
-function buildDecalGrid(mesh, decalEntry) {
+// Host facets, lifted by a fixed epsilon since glTF has no polygon offset.
+function buildDecalVertices(mesh, decalEntry, lift) {
 	const halfExtents = mesh.dimensions.clone().divide(ToVector3(2));
-	const placement   = decalPlacementMatrix(mesh.dimensions, decalEntry);
-	const shapeCode   = decalShapeCode(mesh.shape, decalEntry.side);
-	const faceMatrix  = decalFaceRotations[decalEntry.side];
+	const shapeCode   = ResolveDecalShapeCode(mesh.shape, decalEntry.side);
+	const faceMatrix  = DECAL_FACE_ROTATIONS[decalEntry.side];
 	const faceAxis    = { x: faceMatrix[8], y: faceMatrix[9], z: faceMatrix[10] };
+	const placement   = BuildDecalPlacementMatrix(mesh.dimensions, decalEntry.localTransform, decalEntry.side);
+	const { positions, uvs } = SelectDecalFacets(mesh.geometry, placement, shapeCode, halfExtents, 1);
+	const corner    = (index) => ({ point: { x: positions[index * 3], y: positions[index * 3 + 1], z: positions[index * 3 + 2] }, u: uvs[index * 2], v: uvs[index * 2 + 1] });
+	const windingOf = (first) => Math.sign((uvs[first * 2 + 2] - uvs[first * 2]) * (uvs[first * 2 + 5] - uvs[first * 2 + 1]) - (uvs[first * 2 + 4] - uvs[first * 2]) * (uvs[first * 2 + 3] - uvs[first * 2 + 1]));
 
-	const build = (segments) => {
-		const stride  = segments + 1;
-		const points  = new Array(stride * stride);
-		const normals = new Array(stride * stride);
-		const gridUv  = new Float32Array(stride * stride * 2);
+	// Uv winding flips only across a sphere's antipodal fold; the facet nearest the centre sets the true one.
+	let winding = 0, nearest = Infinity;
+	for (let first = 0; first < positions.length / 3; first += 3) {
+		let distance = 0;
+		for (let slot = 0; slot < 9; slot++) distance += Squared(positions[first * 3 + slot] - placement[12 + slot % 3]);
+		if (distance < nearest && windingOf(first) !== 0) { nearest = distance; winding = windingOf(first); }
+	}
 
-		for (let row = 0; row <= segments; row++) {
-			const v = row / segments;
-			for (let col = 0; col <= segments; col++) {
-				const u     = col / segments;
-				const index = row * stride + col;
-				points[index]         = projectDecalPoint(shapeCode, TransformPointByMatrix({ x: u - 0.5, y: v - 0.5, z: 0 }, placement), halfExtents);
-				normals[index]        = decalSurfaceNormal(shapeCode, points[index], halfExtents, faceAxis);
-				gridUv[index * 2]     = u;
-				gridUv[index * 2 + 1] = 1 - v;
+	const corners = [];
+	const emit = (p, q, r) => {
+		const polygon = clipToDecalSquare([p, q, r]);
+		for (let fan = 1; fan + 1 < polygon.length; fan++) corners.push(polygon[0], polygon[fan], polygon[fan + 1]);
+	};
+	for (let first = 0; first < positions.length / 3; first += 3) {
+		if (windingOf(first) !== winding) continue;
+		const a = corner(first), b = corner(first + 1), c = corner(first + 2);
+		const baseArc = DecalSurfaceUv(a.point, placement, shapeCode, halfExtents, 0).arc;
+		const at = (i, j, n) => {
+			const point = AddVector3(a.point, AddVector3(ScaleVector3(SubtractVector3(b.point, a.point), i / n), ScaleVector3(SubtractVector3(c.point, a.point), j / n)));
+			const uv    = DecalSurfaceUv(point, placement, shapeCode, halfExtents, baseArc);
+			return { point, u: uv.u, v: uv.v };
+		};
+		const deviation = (i, j, n) => {
+			const exact = at(i, j, n);
+			return Math.hypot(exact.u - (a.u + (b.u - a.u) * i / n + (c.u - a.u) * j / n), exact.v - (a.v + (b.v - a.v) * i / n + (c.v - a.v) * j / n));
+		};
+
+		// glTF interpolates uv linearly; subdivide on the facet until that tracks the per-fragment map.
+		const error = Math.max(deviation(1, 0, 2), deviation(0, 1, 2), deviation(1, 1, 2), deviation(1, 1, 3));
+		const n     = Math.min(decalMaxSubdivision, Math.max(1, Math.ceil(Math.sqrt(error / decalUvTolerance))));
+		const grid  = [];
+		for (let i = 0; i <= n; i++) {
+			grid.push([]);
+			for (let j = 0; i + j <= n; j++) grid[i].push(at(i, j, n));
+		}
+		for (let i = 0; i < n; i++) {
+			for (let j = 0; i + j < n; j++) {
+				emit(grid[i][j], grid[i + 1][j], grid[i][j + 1]);
+				if (i + j < n - 1) emit(grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]);
 			}
 		}
+	}
 
-		let dip = 0;
-		forEachDecalCell(segments, (ia, ib, ic) => {
-			const centroid = ScaleVector3(AddVector3(AddVector3(points[ia], points[ib]), points[ic]), 1 / 3);
-			dip = Math.max(dip, Vector3Length(SubtractVector3(projectDecalPoint(shapeCode, centroid, halfExtents), centroid)));
-		});
-		return { segments, points, normals, gridUv, dip };
-	};
-
-	const base = build(decalExportSegments);
-	if (base.dip <= decalDipTarget) return base;
-
-	// Dip falls with the square of resolution.
-	const refined = Math.min(decalMaxSegments, Math.ceil(decalExportSegments * Math.sqrt(base.dip / decalDipTarget)));
-	return refined > decalExportSegments ? build(refined) : base;
-}
-
-// Lift is uniform across a host's decals so authored order decides layering, not chord depth.
-function buildDecalVertices(grid, lift) {
-	const data = createVertexData(grid.segments * grid.segments * 2);
-	forEachDecalCell(grid.segments, (ia, ib, ic) => {
-		const push = (index) => pushVertex(data, AddVector3(grid.points[index], ScaleVector3(grid.normals[index], lift)), grid.normals[index], grid.gridUv[index * 2], grid.gridUv[index * 2 + 1]);
-		push(ia); push(ib); push(ic);
+	const data = createVertexData(corners.length / 3);
+	corners.forEach(({ point, u, v }) => {
+		const normal = decalSurfaceNormal(shapeCode, point, halfExtents, faceAxis);
+		pushVertex(data, AddVector3(point, ScaleVector3(normal, lift)), normal, u + 0.5, 0.5 - v);
 	});
 	return data;
 }
@@ -691,7 +631,7 @@ function pushVertexPrimitive(writer, data, materialIndex) {
 // JSON pads 0x20, BIN pads 0x00 — spec-mandated.
 function writeGlbBinary(writer) {
 	const json = JSON.stringify({
-		asset      : { version: "1.0", generator: "CarlNet Engine v1 - Sloppy Carl Games" },
+		asset      : { version: "2.0", generator: "CarlNet Engine v1 - Sloppy Carl Games" },
 		scene      : 0,
 		scenes     : [{ nodes: writer.nodes.map((_, index) => index) }],
 		nodes      : writer.nodes,
@@ -787,12 +727,10 @@ async function Download() {
 
 	meshes.forEach((mesh) => {
 		const primitives = meshPrimitiveSpans(mesh).map((span) => pushVertexPrimitive(writer, buildMeshVertices(mesh, span), baseMaterialFor(span.textureID)));
-		const grids     = mesh.customTextures.map((decalEntry) => buildDecalGrid(mesh, decalEntry));
-		const clearance = grids.reduce((deepest, grid) => Math.max(deepest, grid.dip), 0) + decalSurfaceOffset;
-		grids.forEach((grid, index) => primitives.push(pushVertexPrimitive(
+		mesh.customTextures.forEach((decalEntry, index) => primitives.push(pushVertexPrimitive(
 			writer,
-			buildDecalVertices(grid, clearance + index * decalLayerStep),
-			decalMaterialFor(`${mesh.id}::customTexture::${index}`, mesh.customTextures[index])
+			buildDecalVertices(mesh, decalEntry, decalSurfaceOffset + index * decalLayerStep),
+			decalMaterialFor(`${mesh.id}::customTexture::${index}`, decalEntry)
 		)));
 		writer.meshes.push({ name: mesh.id, primitives });
 		writer.nodes.push({ name: mesh.id, mesh: writer.meshes.length - 1, matrix: CreateModelMatrix(mesh.transform) });

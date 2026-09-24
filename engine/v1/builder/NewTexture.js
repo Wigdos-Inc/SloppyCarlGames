@@ -429,37 +429,51 @@ function AddToVisualResources(built, objectType, sceneGraph) {
 	}
 }
 
+function createMaskCanvas(w, h) {
+	const canvas = document.createElement("canvas");
+	canvas.width = w; canvas.height = h;
+	const ctx = canvas.getContext("2d");
+	ctx.fillStyle = "white";
+	return { canvas, ctx };
+}
+
 // New shape: add method here + normalize.js shapeRequiredFields + canonSchemas.json allowedValues.
 const shapeMaskBuilders = {
 	square: (w, h) => {
-		const canvas = document.createElement("canvas");
-		canvas.width = w; canvas.height = h;
-		const ctx = canvas.getContext("2d");
-		ctx.fillStyle = "white";
+		const { canvas, ctx } = createMaskCanvas(w, h);
 		ctx.fillRect(0, 0, w, h);
 		return canvas;
 	},
 	circle: (w, h) => {
-		const canvas = document.createElement("canvas");
-		canvas.width = w; canvas.height = h;
-		const ctx = canvas.getContext("2d");
-		ctx.fillStyle = "white";
+		const { canvas, ctx } = createMaskCanvas(w, h);
 		ctx.beginPath();
 		ctx.ellipse(w * 0.5, h * 0.5, w * 0.5, h * 0.5, 0, 0, Math.PI * 2);
 		ctx.fill();
 		return canvas;
 	},
 	triangle: (w, h) => {
-		const canvas = document.createElement("canvas");
-		canvas.width = w; canvas.height = h;
-		const ctx = canvas.getContext("2d");
-		ctx.fillStyle = "white";
+		const { canvas, ctx } = createMaskCanvas(w, h);
 		ctx.beginPath();
 		ctx.moveTo(w * 0.5, 0);
 		ctx.lineTo(w, h);
 		ctx.lineTo(0, h);
 		ctx.closePath();
 		ctx.fill();
+		return canvas;
+	},
+	// Stadium mask: cap radii pre-divided by aspect.
+	pill: (w, h, aspect) => {
+		const { canvas, ctx } = createMaskCanvas(w, h);
+		const wide = aspect >= 1;
+		const rx = wide ? w / (2 * aspect) : w * 0.5;
+		const ry = wide ? h * 0.5 : h * aspect * 0.5;
+		(wide ? [[rx, h * 0.5], [w - rx, h * 0.5]] : [[w * 0.5, ry], [w * 0.5, h - ry]]).forEach(([cx, cy]) => {
+			ctx.beginPath();
+			ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+			ctx.fill();
+		});
+		if (wide) ctx.fillRect(rx, 0, w - 2 * rx, h);
+		else ctx.fillRect(0, ry, w, h - 2 * ry);
 		return canvas;
 	},
 };
@@ -501,7 +515,8 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 	// Mask last so per-pixel alpha from the pattern survives.
 	ctx.drawImage(buildTextureSurface(resolvedBlueprint, toPowerOfTwoSize(decalBlueprint.size), effectiveScale, periods), 0, 0, size, size);
 	ctx.globalCompositeOperation = "destination-in";
-	ctx.drawImage(shapeMaskBuilders[ct.shape](size, size), 0, 0);
+	// Aspect keeps pill caps round after the stretch.
+	ctx.drawImage(shapeMaskBuilders[ct.shape](size, size, ct.localTransform.scale.x / ct.localTransform.scale.y), 0, 0);
 	ctx.globalCompositeOperation = "source-over";
 
 	return canvas;

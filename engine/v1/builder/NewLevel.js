@@ -142,7 +142,7 @@ function buildWaterVisualMeshes(world, faceTextureStore) {
 	const { mesh: top } = BuildObject(
 		{
 			id: `water-top-${world.length.value}-${world.width.value}-${world.water.level.value}`,
-			shape: "plane", complexity: "medium",
+			shape: "plane", complexity: "",
 			dimensions      : new UnitVector3(world.length.value, 1, world.width.value, "cnu"),
 			position        : new UnitVector3( centerX, world.water.level.value + 0.02, centerZ, "cnu"),
 			rotation        : new UnitVector3(0, 0, 0, "radians"),

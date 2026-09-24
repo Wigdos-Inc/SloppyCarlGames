@@ -1,0 +1,1 @@
+// Contains all available different primitives and returns those to NewObject.js

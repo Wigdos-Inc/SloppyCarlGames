@@ -523,7 +523,7 @@ function buildSphere(size, complexity) {
 }
 
 function buildCone(size, complexity) {
-	const radius = size.clone().divie(ToVector3(2));
+	const radius = size.clone().divide(ToVector3(2));
 	const segments = resolveCylinderSegments(complexity);
 
 	const positions = [];

@@ -650,6 +650,7 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 		square:   () => true,
 		circle:   () => true,
 		triangle: () => true,
+		pill:     () => true,
 	};
 
 	const normalizeSources = (entry) => {

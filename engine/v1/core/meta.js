@@ -1,6 +1,6 @@
 // Actively tracks metadata and handles logging.
 
-// Accesible to all files for logging and metadata accesibility for debugging, math, positioning, etc
+// Accessible to all files for logging and metadata accesibility for debugging, math, positioning, etc
 
 /* === IMPORTS === */
 // Engine configuration access.

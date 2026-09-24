@@ -6,10 +6,12 @@
 // UI element builder.
 
 import { UIElement } from "../builder/NewUI.js";
+import { TransformPointByMatrix } from "../builder/NewObject.js";
 import { CONFIG, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateRenderMatrix, MultiplyMatrix4 } from "../math/Matrix.js";
-import { AddVector3, CloneVector3, CrossVector3, DotVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, Vector3Matches, Vector3Sq } from "../math/Vector3.js";
+import { AddVector3, CloneVector3, CrossVector3, DivideVector3, DotVector3, MultiplyVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3Length, Vector3Matches, Vector3Sq, Vector3ToArray } from "../math/Vector3.js";
+import { Clamp } from "../math/Utilities.js";
 import { GetSimDistanceValue } from "../physics/Collision.js";
 
 /* === INTERNALS === */
@@ -446,96 +448,261 @@ function createScatterProgram(gl) {
 	});
 }
 
-// Decal shape enum; keep in sync with the JS shapeEnum map below and builder/NewObject.js.
-const decalShapeFlat     = 0; // any non-curved primitive — no projection
-const decalShapeSphere   = 1; // buildSphere   (NewObject.js ~L495)
-const decalShapeCylinder = 2; // buildCylinder (NewObject.js ~L444)
-const decalShapeCapsule  = 3; // buildCapsule  (NewObject.js ~L567)
-
-function shapeEnum(shape) {
-	switch (shape) {
-		case "sphere"  : return decalShapeSphere;
-		case "cylinder": return decalShapeCylinder;
-		case "capsule" : return decalShapeCapsule;
-		default        : return decalShapeFlat;
-	}
-}
+// Decal shape enum; keep in sync with decalSurfaceUvGLSL and builder/NewObject.js.
+const DECAL_SHAPE_CODES = {
+	Flat    : 0, // any non-curved primitive — no projection
+	Sphere  : 1, // buildSphere   (NewObject.js ~L490)
+	Cylinder: 2, // buildCylinder (NewObject.js ~L439)
+	Capsule : 3, // buildCapsule  (NewObject.js ~L563)
+};
 
 // Cylinder caps are flat disks (unlike capsule ends) — decals there skip radial projection.
-function resolveDecalShapeCode(baseShapeCode, side) {
-	if (baseShapeCode === decalShapeCylinder && (side === "top" || side === "bottom")) return decalShapeFlat;
-	return baseShapeCode;
+function ResolveDecalShapeCode(shape, side) {
+	const key = shape.charAt(0).toUpperCase() + shape.slice(1), codes = DECAL_SHAPE_CODES;
+	if (key === "cylinder") return side === "top" || side === "bottom" ? codes.Flat : codes.Cylinder;
+	if (typeof codes[key] === "number") return codes[key];
+	return codes.Flat;
 }
 
-// Shared by both decal vertex shaders; mirrors the primitive builders in builder/NewObject.js.
-const decalSurfaceProjectionGLSL = `
+// Exact mirror of DecalSurfaceUv.
+const decalSurfaceUvGLSL = `
 	const int SHAPE_FLAT = 0;
 	const int SHAPE_SPHERE = 1;
 	const int SHAPE_CYLINDER = 2;
 	const int SHAPE_CAPSULE = 3;
 
-	vec3 projectToSurface(int shape, vec3 local, vec3 r) {
-		if (shape == SHAPE_SPHERE) {
-			vec3 n = local / r;
-			float d2 = dot(n, n);
-			if (d2 <= 0.0) return local;
-			return local * inversesqrt(d2);
+	// Orthonormal: right from u, up derived.
+	void decalSurfaceFrame(vec3 centreDir, vec3 u, vec3 v, out vec3 right, out vec3 up) {
+		right = normalize(u - centreDir * dot(u, centreDir));
+		up = cross(centreDir, right);
+		if (dot(up, v) < 0.0) up = -up;
+	}
+
+	// Tube height, continued onto the cap.
+	float decalMeridianArc(vec3 point, float capRadius, float cylinderHalf, int shape) {
+		if (shape == SHAPE_CYLINDER || abs(point.y) <= cylinderHalf) return point.y;
+		vec3 n = normalize(point - vec3(0.0, sign(point.y) * cylinderHalf, 0.0));
+		return sign(point.y) * cylinderHalf + capRadius * asin(clamp(n.y, -1.0, 1.0));
+	}
+
+	// Pole vertex: no azimuth, takes the fallback.
+	float decalAxisAngle(float z, float x, float fallback) {
+		return x == 0.0 && z == 0.0 ? fallback : atan(z, x);
+	}
+
+	vec2 decalSurfaceUv(int shape, vec3 point, mat4 placement, vec3 r) {
+		vec3 centre = placement[3].xyz;
+		// Floored: zero scale stays finite.
+		float width = max(length(placement[0].xyz), 1e-6), height = max(length(placement[1].xyz), 1e-6);
+		vec3 u = placement[0].xyz / width, v = placement[1].xyz / height;
+
+		if (shape == SHAPE_FLAT) {
+			vec3 offset = point - centre;
+			return vec2(dot(offset, u) / width, dot(offset, v) / height);
 		}
-		if (shape == SHAPE_CYLINDER) {
-			vec2 n = local.xz / r.xz;
-			float d2 = dot(n, n);
-			if (d2 <= 0.0) return local;
-			vec3 surf = local;
-			surf.xz = local.xz * inversesqrt(d2);
-			return surf;
+
+		float capRadius = clamp(r.z, 0.0001, r.x);
+		float cylinderHalf = max(0.0, r.y - capRadius);
+		bool onCap = shape == SHAPE_CAPSULE && abs(centre.y) > cylinderHalf;
+		vec3 right, up;
+
+		// Sphere or capsule cap: azimuthal equidistant, capped at one turn.
+		if (shape == SHAPE_SPHERE || onCap) {
+			vec3 origin = vec3(0.0, onCap ? clamp(centre.y, -cylinderHalf, cylinderHalf) : 0.0, 0.0);
+			float radius = onCap ? capRadius : length(centre);
+			vec3 centreDir = normalize(centre - origin), n = normalize(point - origin);
+			decalSurfaceFrame(centreDir, u, v, right, up);
+			vec2 bearing = vec2(dot(n, right), dot(n, up));
+			float span = length(bearing);
+			float turn = 6.283185307179586 * radius;
+			return (span > 1e-12 ? radius * acos(clamp(dot(n, centreDir), -1.0, 1.0)) * bearing / span : vec2(0.0))
+			     / vec2(min(width, turn), min(height, turn));
 		}
-		if (shape == SHAPE_CAPSULE) {
-			float capRadius = clamp(r.z, 0.0001, r.x);
-			float cylinderHalf = max(0.0, r.y - capRadius);
-			if (abs(local.y) <= cylinderHalf) {
-				vec2 n = local.xz / r.xz;
-				float d2 = dot(n, n);
-				if (d2 <= 0.0) return local;
-				vec3 surf = local;
-				surf.xz = local.xz * inversesqrt(d2);
-				return surf;
-			}
-			float capCenterY = sign(local.y) * cylinderHalf;
-			vec3 capLocal = vec3(local.x, local.y - capCenterY, local.z);
-			vec3 capR = vec3(r.x, capRadius, r.z);
-			vec3 n = capLocal / capR;
-			float d2 = dot(n, n);
-			if (d2 <= 0.0) return local;
-			vec3 projected = capLocal * inversesqrt(d2);
-			return vec3(projected.x, projected.y + capCenterY, projected.z);
-		}
-		return local;
+
+		// Axis-anchored unroll: (rho * dTheta, meridian arc).
+		vec3 centreDir = normalize(centre - vec3(0.0, centre.y, 0.0));
+		vec3 meridian = normalize(vec3(0.0, 1.0, 0.0) - centreDir * centreDir.y);
+		vec3 azimuth = cross(centreDir, meridian);
+		decalSurfaceFrame(centreDir, u, v, right, up);
+		float rho = max(length(vec2(centre.x, centre.z)), 1e-6);
+		float centreAngle = decalAxisAngle(centre.z, centre.x, 0.0);
+		float dTheta = decalAxisAngle(point.z, point.x, centreAngle) - centreAngle;
+		if (dTheta >  3.141592653589793) dTheta -= 6.283185307179586;
+		if (dTheta < -3.141592653589793) dTheta += 6.283185307179586;
+		float arc = rho * dTheta;
+		float rise = decalMeridianArc(point, capRadius, cylinderHalf, shape) - decalMeridianArc(centre, capRadius, cylinderHalf, shape);
+		return vec2((arc * dot(right, azimuth) + rise * dot(right, meridian)) / min(width, 6.283185307179586 * rho),
+		            (arc * dot(up, azimuth) + rise * dot(up, meridian)) / height);
 	}
 `;
 
-function createDecalProgram(gl) {
-	// Vertex shader: projects the placed quad onto the part surface, then applies u_partWorld.
-	const vertexShaderSource = `#version 300 es
-		in vec3 a_position;
-		in vec2 a_uv;
-		uniform mat4 u_projection;
-		uniform mat4 u_view;
+/* === DECAL GEOMETRY === */
+// Capsule ray origin: on the axis within the band, cap centre beyond it.
+function CapsuleBand(halfExtents, pointY) {
+	const capRadius    = Clamp(halfExtents.z, 0.0001, halfExtents.x);
+	const cylinderHalf = Math.max(0, halfExtents.y - capRadius);
+	return { capRadius, cylinderHalf, originY: Math.abs(pointY) <= cylinderHalf ? pointY : Math.sign(pointY) * cylinderHalf };
+}
+
+// Orthonormal: right from u, up derived.
+function decalSurfaceFrame(centreDir, u, v) {
+	const right = ResolveVector3Axis(SubtractVector3(u, ScaleVector3(centreDir, DotVector3(u, centreDir))));
+	const up    = CrossVector3(centreDir, right);
+	return { right, up: DotVector3(up, v) < 0 ? ScaleVector3(up, -1) : up };
+}
+
+// Pole vertex: no azimuth, takes the fallback.
+const decalAxisAngle = (z, x, fallback) => (x === 0 && z === 0 ? fallback : Math.atan2(z, x));
+
+// Tube height, continued onto the cap.
+function decalMeridianArc(point, capRadius, cylinderHalf, shapeCode) {
+	if (shapeCode === DECAL_SHAPE_CODES.Cylinder || Math.abs(point.y) <= cylinderHalf) return point.y;
+	const normal = ResolveVector3Axis(SubtractVector3(point, { x: 0, y: Math.sign(point.y) * cylinderHalf, z: 0 }));
+	return Math.sign(point.y) * cylinderHalf + capRadius * Math.asin(Clamp(normal.y, -1, 1));
+}
+
+// Mirrored by decalSurfaceUvGLSL. referenceArc: seam branch to unwrap into; 0 for none.
+function DecalSurfaceUv(point, placement, shapeCode, halfExtents, referenceArc) {
+	const centre = { x: placement[12], y: placement[13], z: placement[14] };
+	// Floored: zero scale stays finite.
+	const width = Math.max(Vector3Length({ x: placement[0], y: placement[1], z: placement[2] }), 1e-6);
+	const height = Math.max(Vector3Length({ x: placement[4], y: placement[5], z: placement[6] }), 1e-6);
+	const u = { x: placement[0] / width,  y: placement[1] / width,  z: placement[2] / width  };
+	const v = { x: placement[4] / height, y: placement[5] / height, z: placement[6] / height };
+
+	if (shapeCode === DECAL_SHAPE_CODES.Flat) {
+		const offset = SubtractVector3(point, centre);
+		const along  = DotVector3(offset, u);
+		return { u: along / width, v: DotVector3(offset, v) / height, arc: along };
+	}
+
+	const band  = CapsuleBand(halfExtents, centre.y);
+	const onCap = shapeCode === DECAL_SHAPE_CODES.Capsule && Math.abs(centre.y) > band.cylinderHalf;
+
+	// Sphere or capsule cap: azimuthal equidistant, capped at one turn.
+	if (shapeCode === DECAL_SHAPE_CODES.Sphere || onCap) {
+		const origin    = { x: 0, y: onCap ? band.originY : 0, z: 0 };
+		const radius    = onCap ? band.capRadius : Vector3Length(centre);
+		const centreDir = ResolveVector3Axis(SubtractVector3(centre, origin));
+		const normal    = ResolveVector3Axis(SubtractVector3(point, origin));
+		const frame     = decalSurfaceFrame(centreDir, u, v);
+		const bearingU  = DotVector3(normal, frame.right), bearingV = DotVector3(normal, frame.up);
+		const bearing   = Math.hypot(bearingU, bearingV);
+		const geodesic  = radius * Math.acos(Clamp(DotVector3(normal, centreDir), -1, 1));
+		const arc  = bearing > 1e-12 ? geodesic * bearingU / bearing : 0;
+		const turn = 2 * Math.PI * radius;
+		return { u: arc / Math.min(width, turn), v: (bearing > 1e-12 ? geodesic * bearingV / bearing : 0) / Math.min(height, turn), arc };
+	}
+
+	// Axis-anchored unroll: (rho * dTheta, meridian arc).
+	const centreDir = ResolveVector3Axis(SubtractVector3(centre, { x: 0, y: centre.y, z: 0 }));
+	const meridian  = ResolveVector3Axis(SubtractVector3({ x: 0, y: 1, z: 0 }, ScaleVector3(centreDir, centreDir.y)));
+	const azimuth   = CrossVector3(centreDir, meridian);
+	const frame     = decalSurfaceFrame(centreDir, u, v);
+	const rho  = Math.max(Math.hypot(centre.x, centre.z), 1e-6);
+	const centreAngle = decalAxisAngle(centre.z, centre.x, 0);
+	let dTheta = decalAxisAngle(point.z, point.x, centreAngle) - centreAngle;
+	if (dTheta >  Math.PI) dTheta -= 2 * Math.PI;
+	if (dTheta < -Math.PI) dTheta += 2 * Math.PI;
+	// Antipodal seam: shift into the reference branch.
+	const piArc = Math.PI * rho;
+	let arc = rho * dTheta;
+	while (arc - referenceArc >  piArc) arc -= 2 * piArc;
+	while (arc - referenceArc < -piArc) arc += 2 * piArc;
+	const rise = decalMeridianArc(point, band.capRadius, band.cylinderHalf, shapeCode) - decalMeridianArc(centre, band.capRadius, band.cylinderHalf, shapeCode);
+	return {
+		u: (arc * DotVector3(frame.right, azimuth) + rise * DotVector3(frame.right, meridian)) / Math.min(width, 2 * piArc),
+		v: (arc * DotVector3(frame.up, azimuth)    + rise * DotVector3(frame.up, meridian))    / height,
+		arc,
+	};
+}
+
+// Flat host: the placed quad is exact.
+const flatDecalCorners = [{ x: -0.5, y: -0.5, z: 0 }, { x: -0.5, y: 0.5, z: 0 }, { x: 0.5, y: -0.5, z: 0 }, { x: 0.5, y: 0.5, z: 0 }];
+const flatDecalOrder   = [0, 1, 2, 2, 1, 3];
+
+function flatDecalFacets(placement) {
+	const positions = new Float32Array(flatDecalOrder.length * 3);
+	const uvs       = new Float32Array(flatDecalOrder.length * 2);
+	flatDecalOrder.forEach((corner, slot) => {
+		const point = TransformPointByMatrix(flatDecalCorners[corner], placement);
+		positions[slot * 3] = point.x; positions[slot * 3 + 1] = point.y; positions[slot * 3 + 2] = point.z;
+		uvs[slot * 2] = flatDecalCorners[corner].x; uvs[slot * 2 + 1] = flatDecalCorners[corner].y;
+	});
+	return { positions, uvs };
+}
+
+// Whole facets, each padded by its own uv extent; the fragment shader does the exact cut.
+function SelectDecalFacets(geometry, placement, shapeCode, halfExtents, margin) {
+	if (shapeCode === DECAL_SHAPE_CODES.Flat) return flatDecalFacets(placement);
+
+	const half = 0.5 * margin;
+	const { positions, indices } = geometry;
+	const vertexCount = positions.length / 3;
+	const points  = new Array(vertexCount);
+	const baseUvs = new Array(vertexCount);
+	const pointAt = (index) => points[index] || (points[index] = { x: positions[index * 3], y: positions[index * 3 + 1], z: positions[index * 3 + 2] });
+	// First vertices map with referenceArc 0, so they cache per index.
+	const baseUvAt = (index) => baseUvs[index] || (baseUvs[index] = DecalSurfaceUv(pointAt(index), placement, shapeCode, halfExtents, 0));
+
+	const keptPoints = [], keptUvs = [];
+	const tri = [null, null, null], us = [0, 0, 0], vs = [0, 0, 0];
+	for (let offset = 0; offset < indices.length; offset += 3) {
+		tri[0] = pointAt(indices[offset]);
+		tri[1] = pointAt(indices[offset + 1]);
+		tri[2] = pointAt(indices[offset + 2]);
+		// Degenerate capsule pole triangles.
+		if (Vector3Length(CrossVector3(SubtractVector3(tri[1], tri[0]), SubtractVector3(tri[2], tri[0]))) < 1e-14) continue;
+
+		// Unwrap into the first vertex's branch.
+		const base = baseUvAt(indices[offset]);
+		us[0] = base.u; vs[0] = base.v;
+		for (let corner = 1; corner < 3; corner++) {
+			const mapped = DecalSurfaceUv(tri[corner], placement, shapeCode, halfExtents, base.arc);
+			us[corner] = mapped.u;
+			vs[corner] = mapped.v;
+		}
+
+		const minU = Math.min(us[0], us[1], us[2]), maxU = Math.max(us[0], us[1], us[2]);
+		const minV = Math.min(vs[0], vs[1], vs[2]), maxV = Math.max(vs[0], vs[1], vs[2]);
+		const extentU = maxU - minU, extentV = maxV - minV;
+		if (minU > half + extentU || maxU < -half - extentU) continue;
+		if (minV > half + extentV || maxV < -half - extentV) continue;
+
+		for (let corner = 0; corner < 3; corner++) {
+			keptPoints.push(tri[corner].x, tri[corner].y, tri[corner].z);
+			keptUvs.push(us[corner], vs[corner]);
+		}
+	}
+	return { positions: new Float32Array(keptPoints), uvs: new Float32Array(keptUvs) };
+}
+
+// Cut per fragment, so animation only moves u_placement.
+const decalFragmentDeclarations = `uniform vec4 u_tint;
 		uniform mat4 u_placement;
-		uniform mat4 u_partWorld;
 		uniform int u_shape;
 		uniform vec3 u_halfExtents;
-		out vec2 v_uv;
+		${decalSurfaceUvGLSL}`;
+
+// The exact [-0.5, 0.5] cut.
+const decalFragmentCut = `vec2 decalUv = decalSurfaceUv(u_shape, v_partLocal, u_placement, u_halfExtents);
+			if (abs(decalUv.x) > 0.5 || abs(decalUv.y) > 0.5) discard;
+			vec4 texel = texture(u_texture, vec2(decalUv.x + 0.5, 0.5 - decalUv.y));`;
+
+function createDecalProgram(gl) {
+	// Host facets in part-local space.
+	const vertexShaderSource = `#version 300 es
+		in vec3 a_position;
+		uniform mat4 u_projection;
+		uniform mat4 u_view;
+		uniform mat4 u_partWorld;
+		out vec3 v_partLocal;
 		out vec3 v_viewPos;
 
-		${decalSurfaceProjectionGLSL}
-
 		void main() {
-			vec3 local = (u_placement * vec4(a_position, 1.0)).xyz;
-			vec3 surf = projectToSurface(u_shape, local, u_halfExtents);
-			vec4 world = u_partWorld * vec4(surf, 1.0);
-			vec4 viewPos = u_view * world;
+			vec4 viewPos = u_view * u_partWorld * vec4(a_position, 1.0);
 			gl_Position = u_projection * viewPos;
-			v_uv = a_uv;
+			v_partLocal = a_position;
 			v_viewPos = viewPos.xyz;
 		}
 	`;
@@ -543,13 +710,14 @@ function createDecalProgram(gl) {
 	return createLinkedProgram(gl, {
 		vertexShaderSource: vertexShaderSource,
 		fragmentShaderSource: createFoggedTextureFragmentShader(
-			"uniform vec4 u_tint;",
+			decalFragmentDeclarations,
 			"vec4(texel.rgb * u_tint.rgb * u_tint.a, texel.a * u_tint.a)",
-			true
+			true,
+			"in vec3 v_partLocal;",
+			decalFragmentCut
 		),
 		attributeNames: {
 			position: "a_position",
-			uv      : "a_uv",
 		},
 		uniformNames: {
 			projection  : "u_projection",
@@ -576,32 +744,23 @@ function createScatterDecalProgram(gl) {
 	// Instanced variant of the decal shader: u_partWorld becomes per-instance row attributes.
 	const vertexShaderSource = `#version 300 es
 		layout(location = 0) in vec3 a_position;
-		layout(location = 1) in vec2 a_uv;
 		layout(location = 2) in vec4 a_instanceRow0;
 		layout(location = 3) in vec4 a_instanceRow1;
 		layout(location = 4) in vec4 a_instanceRow2;
 		layout(location = 5) in vec4 a_instanceRow3;
 		uniform mat4 u_projection;
 		uniform mat4 u_view;
-		uniform mat4 u_placement;
-		uniform int u_shape;
-		uniform vec3 u_halfExtents;
 		uniform float u_cullRadius;
-		out vec2 v_uv;
+		out vec3 v_partLocal;
 		out vec3 v_viewPos;
 		out float v_cullAlpha;
-
-		${decalSurfaceProjectionGLSL}
 
 		void main() {
 			mat4 instanceModel = mat4(a_instanceRow0, a_instanceRow1, a_instanceRow2, a_instanceRow3);
 			${scatterCullGLSL}
-			vec3 local = (u_placement * vec4(a_position, 1.0)).xyz;
-			vec3 surf = projectToSurface(u_shape, local, u_halfExtents);
-			vec4 world = instanceModel * vec4(surf, 1.0);
-			vec4 viewPos = u_view * world;
+			vec4 viewPos = u_view * instanceModel * vec4(a_position, 1.0);
 			gl_Position = u_projection * viewPos;
-			v_uv = a_uv;
+			v_partLocal = a_position;
 			v_viewPos = viewPos.xyz;
 			v_cullAlpha = instanceAlpha;
 		}
@@ -610,9 +769,11 @@ function createScatterDecalProgram(gl) {
 	return createLinkedProgram(gl, {
 		vertexShaderSource: vertexShaderSource,
 		fragmentShaderSource: createFoggedTextureFragmentShader(
-			"uniform vec4 u_tint;\n\t\tin float v_cullAlpha;",
+			`${decalFragmentDeclarations}\n\t\tin float v_cullAlpha;`,
 			"vec4(texel.rgb * u_tint.rgb * u_tint.a, texel.a * u_tint.a) * v_cullAlpha",
-			true
+			true,
+			"in vec3 v_partLocal;",
+			decalFragmentCut
 		),
 		uniformNames: {
 			projection  : "u_projection",
@@ -751,11 +912,13 @@ function buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBu
 	gl.enableVertexAttribArray(0);
 	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 
-	gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-	gl.enableVertexAttribArray(1);
-	gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);
-
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+	// Null for de-indexed decal geometry.
+	if (uvBuffer !== null) {
+		gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+		gl.enableVertexAttribArray(1);
+		gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);
+	}
+	if (indexBuffer !== null) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
 	const stride = 80;
@@ -782,7 +945,6 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 	const gl = renderer.gl;
 	const results = [];
 	let totalInstances = 0;
-	const decalQuadBuffer = ensureDecalQuadBuffer(renderer);
 
 	sceneGraph.scatterBatches.forEach((batch, batchKey) => {
 		if (batch.instanceCount === 0) return;
@@ -800,33 +962,39 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 		// Model matrix rows 0-3 + per-instance tint row 4.
 		const vao = buildInstancedVao(gl, geo.positionBuffer, geo.uvBuffer, geo.indexBuffer, instanceBuffer, true);
 
-		const decalVao = batch.customTextures.length > 0 && decalQuadBuffer
-			? buildInstancedVao(gl, decalQuadBuffer.position, decalQuadBuffer.uv, decalQuadBuffer.index, instanceBuffer, false)
-			: null;
+		// Scatter decals are static: built once, shared by every instance.
+		const primitiveGeometry = sceneGraph.visualResources.primitiveGeometry[batch.primitiveKey];
+		const dim = batch.dimensions;
+		const decalDraws = batch.customTextures.map((decalEntry, index) => {
+			const shapeCode = ResolveDecalShapeCode(batch.primitive, decalEntry.side);
+			const placement = BuildDecalPlacementMatrix(dim, decalEntry.displayTransform, decalEntry.side);
+			const facets    = SelectDecalFacets(primitiveGeometry, placement, shapeCode, DivideVector3(dim, ToVector3(2)), 1);
 
-		// Scatter decals don't animate at runtime, so placement/shape are static — built once here.
-		const baseShapeCode = shapeEnum(batch.primitive);
-		const decalDraws = decalVao ? batch.customTextures.map((decalEntry, index) => ({
-			shapeCode: resolveDecalShapeCode(baseShapeCode, decalEntry.side),
-			placement: buildDecalPlacementMatrix(batch.dimensions, decalEntry),
-			textureKey: `${batchKey}::customTexture::${index}`,
-		})) : null;
+			const positionBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, facets.positions, gl.STATIC_DRAW);
+			return {
+				shapeCode,
+				placement  : new Float32Array(placement),
+				vao        : buildInstancedVao(gl, positionBuffer, null, null, instanceBuffer, false),
+				vertexCount: facets.positions.length / 3,
+				textureKey : `${batchKey}::customTexture::${index}`,
+			};
+		});
 
 		totalInstances += instanceCount;
 		results.push({
-			key: batchKey,
-			vao: vao,
+			key: batchKey, vao,
 			indexCount: geo.indexCount,
-			instanceCount: instanceCount,
+			instanceCount,
 			textureID: batch.textureID,
-			decalVao,
 			decalDraws,
 			dimensions: batch.dimensions,
 		});
 	});
 
 	renderer.scatterInstances = results;
-	renderer.scatterDecalBatches = results.filter((batch) => batch.decalVao !== null);
+	renderer.scatterDecalBatches = results.filter((batch) => batch.decalDraws.length > 0);
 	renderer.scatterInstancesBuilt = true;
 	Log(
 		"ENGINE",
@@ -873,31 +1041,26 @@ function createGridLineVertices(bounds, step) {
 	const wMin = bounds.min.toWorldUnit();
 	const wMax = bounds.max.toWorldUnit();
 
+	const min = Vector3ToArray(wMin), max = Vector3ToArray(wMax);
+	const a = [0, 0, 0], b = [0, 0, 0];
 	const lines = [];
 
-	// --- Top face (Y = maxY) ---
-	for (let x = wMin.x; x <= wMax.x + step * 0.001; x += step) lines.push(x, wMax.y, wMin.z, x, wMax.y, wMax.z);
-	for (let z = wMin.z; z <= wMax.z + step * 0.001; z += step) lines.push(wMin.x, wMax.y, z, wMax.x, wMax.y, z);
-
-	// --- Bottom face (Y = minY) ---
-	for (let x = wMin.x; x <= wMax.x + step * 0.001; x += step) lines.push(x, wMin.y, wMin.z, x, wMin.y, wMax.z);
-	for (let z = wMin.z; z <= wMax.z + step * 0.001; z += step) lines.push(wMin.x, wMin.y, z, wMax.x, wMin.y, z);
-
-	// --- Front face (Z = maxZ) ---
-	for (let x = wMin.x; x <= wMax.x + step * 0.001; x += step) lines.push(x, wMin.y, wMax.z, x, wMax.y, wMax.z);
-	for (let y = wMin.y; y <= wMax.y + step * 0.001; y += step) lines.push(wMin.x, y, wMax.z, wMax.x, y, wMax.z);
-
-	// --- Back face (Z = minZ) ---
-	for (let x = wMin.x; x <= wMax.x + step * 0.001; x += step) lines.push(x, wMin.y, wMin.z, x, wMax.y, wMin.z);
-	for (let y = wMin.y; y <= wMax.y + step * 0.001; y += step) lines.push(wMin.x, y, wMin.z, wMax.x, y, wMin.z);
-
-	// --- Right face (X = maxX) ---
-	for (let z = wMin.z; z <= wMax.z + step * 0.001; z += step) lines.push(wMax.x, wMin.y, z, wMax.x, wMax.y, z);
-	for (let y = wMin.y; y <= wMax.y + step * 0.001; y += step) lines.push(wMax.x, y, wMin.z, wMax.x, y, wMax.z);
-
-	// --- Left face (X = minX) ---
-	for (let z = wMin.z; z <= wMax.z + step * 0.001; z += step) lines.push(wMin.x, wMin.y, z, wMin.x, wMax.y, z);
-	for (let y = wMin.y; y <= wMax.y + step * 0.001; y += step) lines.push(wMin.x, y, wMin.z, wMin.x, y, wMax.z);
+	// Sweep axis s over faces of axis k; lines run along axis l.
+	for (let s = 0; s < 3; s++) {
+		for (let k = 0; k < 3; k++) {
+			if (k === s) continue;
+			const l = 3 - s - k;
+			a[l] = min[l];
+			b[l] = max[l];
+			for (const side of [min[k], max[k]]) {
+				a[k] = b[k] = side;
+				for (let v = min[s]; v <= max[s] + step * 0.001; v += step) {
+					a[s] = b[s] = v;
+					lines.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+				}
+			}
+		}
+	}
 
 	if (lines.length === 0) return null;
 	return new Float32Array(lines);
@@ -949,31 +1112,15 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 }
 
 function createObbLineVertices(bounds) {
-	const center = bounds.center.toWorldUnit();
-	const half = bounds.halfExtents.toWorldUnit();
-	const axisX = bounds.axes[0];
-	const axisY = bounds.axes[1];
-	const axisZ = bounds.axes[2];
+	const c = bounds.center.toWorldUnit();
+	const s = MultiplyVector3({ x: bounds.axes[0], y: bounds.axes[1], z: bounds.axes[2] }, bounds.halfExtents.toWorldUnit());
 
-	const sx = ScaleVector3(axisX, half.x);
-	const sy = ScaleVector3(axisY, half.y);
-	const sz = ScaleVector3(axisZ, half.z);
+	const sign = (v, on) => on ? v : ScaleVector3(v, -1);
 
-	const add = (base, dx, dy, dz) => {
-		const vector = AddVector3(AddVector3(AddVector3(base, dx), dy), dz);
-		return [vector.x, vector.y, vector.z];
-	}
-
-	const p000 = add(center, ScaleVector3(sx, -1), ScaleVector3(sy, -1), ScaleVector3(sz, -1));
-	const p001 = add(center, ScaleVector3(sx, -1), ScaleVector3(sy, -1), sz);
-	const p010 = add(center, ScaleVector3(sx, -1), sy, ScaleVector3(sz, -1));
-	const p011 = add(center, ScaleVector3(sx, -1), sy, sz);
-	const p100 = add(center, sx, ScaleVector3(sy, -1), ScaleVector3(sz, -1));
-	const p101 = add(center, sx, ScaleVector3(sy, -1), sz);
-	const p110 = add(center, sx, sy, ScaleVector3(sz, -1));
-	const p111 = add(center, sx, sy, sz);
-
-	return buildBoxWireframe(p000, p001, p010, p011, p100, p101, p110, p111);
+	// Bits of i pick each axis side: 4 = x, 2 = y, 1 = z.
+	const corners = [];
+	for (let i = 0; i < 8; i++) corners.push(Vector3ToArray(AddVector3(AddVector3(AddVector3(c, sign(s.x, i & 4)), sign(s.y, i & 2)), sign(s.z, i & 1))));
+	return buildBoxWireframe(...corners);
 }
 
 function createCapsuleLineVertices(bounds, longitudinalSegments = 8) {
@@ -1470,7 +1617,7 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		loggedScatterSubmission: false,
 		debugLineShader: null,
 		debugLineBuffer: null,
-		decalQuadBuffer: null,
+		decalGeometry: new WeakMap(),
 	};
 
 	levelRendererCache.set(rootId, renderer);
@@ -1662,70 +1809,70 @@ function drawTranslucentPass(renderer, sceneGraph, meshes, passState, cameraPosi
 	drawSortedRuns(renderer, sceneGraph, underwater ? below : above, passState);
 }
 
-// Decal grid tessellation density; higher = smoother on curves, more vertices per draw.
-const decalGridSegments = 12;
+const decalMarginSafety = 1.15; // back/elastic easings overshoot their keyframe extremes
 
-function ensureDecalQuadBuffer(renderer) {
-	if (renderer.decalQuadBuffer) return renderer.decalQuadBuffer;
+// Widest animated footprint in rest-footprint units; 1 when untracked.
+function decalAnimationMargin(entity, partId, decalEntry) {
+	if (entity === null) return 1;
+
+	let scale = 1, offset = 0;
+	for (const setName in entity.animations) {
+		const partTrack = entity.animations[setName].parts[partId];
+		if (partTrack === undefined) continue;
+		const target = partTrack.decals[decalEntry.id];
+		if (target === undefined || target.transform === undefined) continue;
+		for (const keyframe of target.transform.keyframes) {
+			const value = keyframe.value;
+			if (value.scale !== undefined)    scale  = Math.max(scale, Math.abs(value.scale.x), Math.abs(value.scale.y));
+			if (value.position !== undefined) offset = Math.max(offset, Vector3Length(value.position));
+		}
+	}
+	if (scale === 1 && offset === 0) return 1;
+
+	// Position offset in rest half-extents.
+	const rest = decalEntry.localTransform.scale;
+	return (scale + offset / (Math.min(Math.abs(rest.x), Math.abs(rest.y)) / 2)) * decalMarginSafety;
+}
+
+// One VAO per (mesh, decal), never rebuilt.
+function ensureDecalGeometry(renderer, mesh, decalEntry, index, entity, partId) {
+	let meshDecals = renderer.decalGeometry.get(mesh);
+	if (meshDecals === undefined) {
+		meshDecals = [];
+		renderer.decalGeometry.set(mesh, meshDecals);
+	}
+	if (meshDecals[index] !== undefined) return meshDecals[index];
 
 	const gl = renderer.gl;
-
 	const positionBuffer = gl.createBuffer();
-	const uvBuffer = gl.createBuffer();
-	const indexBuffer = gl.createBuffer();
-	if (!positionBuffer || !uvBuffer || !indexBuffer) {
-		Log("ENGINE", "Decal quad buffer creation failed", "error", "Render");
+	if (!positionBuffer) {
+		Log("ENGINE", "Decal geometry buffer creation failed", "error", "Render");
 		return null;
 	}
 
-	// Generate an N×N grid over [-0.5, 0.5]² at z = 0 with grid-coordinate UVs in [0, 1].
-	const positions = [];
-	const uvs = [];
-	const indices = [];
-	for (let row = 0; row <= decalGridSegments; row++) {
-		const v = row / decalGridSegments;
-		for (let col = 0; col <= decalGridSegments; col++) {
-			const u = col / decalGridSegments;
-			positions.push(u - 0.5, v - 0.5, 0);
-			uvs.push(u, 1 - v);
-		}
-	}
-	const stride = decalGridSegments + 1;
-	for (let row = 0; row < decalGridSegments; row++) {
-		for (let col = 0; col < decalGridSegments; col++) {
-			const a = row * stride + col;
-			const b = a + 1;
-			const c = a + stride;
-			const d = c + 1;
-			indices.push(a, c, b);
-			indices.push(b, c, d);
-		}
-	}
+	const dim    = mesh.dimensions;
+	const facets = SelectDecalFacets(
+		mesh.geometry,
+		BuildDecalPlacementMatrix(dim, decalEntry.localTransform, decalEntry.side),
+		ResolveDecalShapeCode(mesh.shape, decalEntry.side),
+		{ x: dim.x / 2, y: dim.y / 2, z: dim.z / 2 },
+		decalAnimationMargin(entity, partId, decalEntry)
+	);
 
 	const vao = gl.createVertexArray();
 	gl.bindVertexArray(vao);
-
 	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, facets.positions, gl.STATIC_DRAW);
 	gl.enableVertexAttribArray(renderer.decalShader.attributes.position);
 	gl.vertexAttribPointer(renderer.decalShader.attributes.position, 3, gl.FLOAT, false, 0, 0);
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
-	gl.enableVertexAttribArray(renderer.decalShader.attributes.uv);
-	gl.vertexAttribPointer(renderer.decalShader.attributes.uv, 2, gl.FLOAT, false, 0, 0);
-
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-
 	gl.bindVertexArray(null);
 
-	renderer.decalQuadBuffer = { vao, position: positionBuffer, uv: uvBuffer, index: indexBuffer, indexCount: indices.length };
-	return renderer.decalQuadBuffer;
+	meshDecals[index] = { vao, position: positionBuffer, vertexCount: facets.positions.length / 3 };
+	return meshDecals[index];
 }
 
 // Face rotation matrices (column-major), aligning quad +Z to the face normal; exact trig at 0/90/180°.
-const decalFaceRotations = {
+const DECAL_FACE_ROTATIONS = {
 	front:  [1, 0,  0, 0,  0, 1,  0, 0,  0,  0, 1, 0,  0, 0, 0, 1], // identity
 	back:   [-1, 0, 0, 0,  0, 1,  0, 0,  0,  0,-1, 0,  0, 0, 0, 1], // 180° Y
 	top:    [1, 0,  0, 0,  0, 0, -1, 0,  0,  1, 0, 0,  0, 0, 0, 1], // −90° X
@@ -1749,10 +1896,10 @@ function endDecalState(gl) {
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); // restore frame-init straight-alpha blend
 }
 
-function buildDecalPlacementMatrix(dim, decalEntry) {
-	const lt = decalEntry.displayTransform;
-	const pos = lt.position;
-	const sc  = lt.scale;
+// displayTransform to render, localTransform to export.
+export function BuildDecalPlacementMatrix(dim, transform, side) {
+	const pos = transform.position;
+	const sc  = transform.scale;
 
 	// Face center + local offset combined into a single translation in part-local CNU space.
 	const faceTranslations = {
@@ -1764,26 +1911,23 @@ function buildDecalPlacementMatrix(dim, decalEntry) {
 		left:   [pos.x - dim.x / 2, pos.y,             pos.z            ],
 	};
 
-	const [tx, ty, tz] = faceTranslations[decalEntry.side];
-	const c = Math.cos(lt.rotation.value), s = Math.sin(lt.rotation.value);
+	const [tx, ty, tz] = faceTranslations[side];
+	const c = Math.cos(transform.rotation.value), s = Math.sin(transform.rotation.value);
 	// Part-local placement: T(face_center+local_offset) × R_face × R_z(rotation) × S(scale). Part world applied separately as u_partWorld.
 	const tMatrix  = [1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  tx, ty, tz, 1];
 	const rzMatrix = [c, s, 0, 0,  -s, c, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
 	const sMatrix  = [sc.x, 0, 0, 0,  0, sc.y, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
 
-	return new Float32Array(MultiplyMatrix4(tMatrix, MultiplyMatrix4(decalFaceRotations[decalEntry.side], MultiplyMatrix4(rzMatrix, sMatrix))));
+	return MultiplyMatrix4(tMatrix, MultiplyMatrix4(DECAL_FACE_ROTATIONS[side], MultiplyMatrix4(rzMatrix, sMatrix)));
 }
 
 function drawDecalPass(renderer, sceneGraph, passState) {
-	const quadBuffer = ensureDecalQuadBuffer(renderer);
-	if (!quadBuffer) return;
-
 	const gl = renderer.gl;
 	const decalShader = renderer.decalShader;
 
 	beginDecalState(gl, decalShader, passState);
 
-	const drawDecalsForMesh = (mesh) => {
+	const drawDecalsForMesh = (mesh, entity = null, partId = null) => {
 		if (mesh.customTextures.length === 0) return;
 
 		// Mesh-level uniforms: identical for every decal on this mesh — set once.
@@ -1791,11 +1935,12 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 		const dim = mesh.dimensions;
 		gl.uniform3f(decalShader.uniforms.halfExtents, dim.x / 2, dim.y / 2, dim.z / 2);
 		gl.uniform1i(decalShader.uniforms.texture, 0);
-		const baseShapeCode = shapeEnum(mesh.shape);
 
 		mesh.customTextures.forEach((decalEntry, index) => {
-			gl.uniform1i(decalShader.uniforms.shape, resolveDecalShapeCode(baseShapeCode, decalEntry.side));
-			gl.uniformMatrix4fv(decalShader.uniforms.placement, false, buildDecalPlacementMatrix(mesh.dimensions, decalEntry));
+			const geometry = ensureDecalGeometry(renderer, mesh, decalEntry, index, entity, partId);
+			gl.bindVertexArray(geometry.vao);
+			gl.uniform1i(decalShader.uniforms.shape, ResolveDecalShapeCode(mesh.shape, decalEntry.side));
+			gl.uniformMatrix4fv(decalShader.uniforms.placement, false, new Float32Array(BuildDecalPlacementMatrix(dim, decalEntry.displayTransform, decalEntry.side)));
 			if (decalEntry.mutable === true && decalEntry.activeSourceKey === null) {
 				const tint = decalEntry.displayColor !== null ? decalEntry.displayColor : decalEntry.texture.primary;
 				gl.uniform4f(decalShader.uniforms.tint, tint.r, tint.g, tint.b, tint.a);
@@ -1807,14 +1952,13 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 			const texture = ensureSceneTexture(renderer, sceneGraph, textureKey);
 			gl.activeTexture(gl.TEXTURE0);
 			gl.bindTexture(gl.TEXTURE_2D, texture);
-			gl.drawElements(gl.TRIANGLES, quadBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
+			gl.drawArrays(gl.TRIANGLES, 0, geometry.vertexCount);
 		});
 	};
 
-	gl.bindVertexArray(quadBuffer.vao);
 	sceneGraph.entities.forEach((entity) => {
 		if (!entity.model) return;
-		entity.model.parts.forEach((part) => drawDecalsForMesh(part.mesh));
+		entity.model.parts.forEach((part) => drawDecalsForMesh(part.mesh, entity, part.id));
 	});
 	sceneGraph.obstacles.forEach((obstacle) => {
 		if (!obstacle.performance.rendering) return;
@@ -1840,15 +1984,15 @@ function drawScatterDecalPass(renderer, sceneGraph, passState) {
 	gl.activeTexture(gl.TEXTURE0);
 
 	renderer.scatterDecalBatches.forEach((batch) => {
-		gl.bindVertexArray(batch.decalVao);
 		const dim = batch.dimensions;
 		gl.uniform3f(shader.uniforms.halfExtents, dim.x / 2, dim.y / 2, dim.z / 2);
 
 		batch.decalDraws.forEach((draw) => {
+			gl.bindVertexArray(draw.vao);
 			gl.uniform1i(shader.uniforms.shape, draw.shapeCode);
 			gl.uniformMatrix4fv(shader.uniforms.placement, false, draw.placement);
 			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, draw.textureKey));
-			gl.drawElementsInstanced(gl.TRIANGLES, renderer.decalQuadBuffer.indexCount, gl.UNSIGNED_SHORT, 0, batch.instanceCount);
+			gl.drawArraysInstanced(gl.TRIANGLES, 0, draw.vertexCount, batch.instanceCount);
 		});
 	});
 
@@ -2012,4 +2156,10 @@ export {
 	FadeElement,
 	RemoveRoot,
 	ClearLevelRenderer,
+	DECAL_SHAPE_CODES,
+	DECAL_FACE_ROTATIONS,
+	ResolveDecalShapeCode,
+	DecalSurfaceUv,
+	SelectDecalFacets,
+	CapsuleBand
 };

@@ -1618,7 +1618,7 @@
     "decalType":  { "__meta": { "description": "Decal kind",                 "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null,    "allowedValues": ["image","shape"], "deprecated": false } },
     "imagePath":  { "__meta": { "description": "Asset path or URL",          "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "deprecated": false } },
     "sourceType": { "__meta": { "description": "Source kind",                "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "allowedValues": ["local","url"], "deprecated": false } },
-    "shape":      { "__meta": { "description": "Decal shape",                "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "allowedValues": ["square","circle","triangle"], "deprecated": false } },
+    "shape":      { "__meta": { "description": "Decal shape",                "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "allowedValues": ["square","circle","triangle","pill"], "deprecated": false } },
     "color": {
       "__meta": { "description": "Decal fill color", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
       "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
@@ -1648,7 +1648,7 @@
   },
   "levelDecalSource": {
     "decalType":  { "__meta": { "description": "Source decal kind",        "aliases": [], "dataType": "string",  "isRequired": false, "isExpected": true,  "fallback": null, "allowedValues": ["image","shape"], "deprecated": false } },
-    "shape":      { "__meta": { "description": "Source shape",             "aliases": [], "dataType": "string",  "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["square","circle","triangle"], "deprecated": false } },
+    "shape":      { "__meta": { "description": "Source shape",             "aliases": [], "dataType": "string",  "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["square","circle","triangle","pill"], "deprecated": false } },
     "imagePath":  { "__meta": { "description": "Source asset path or URL", "aliases": [], "dataType": "string",  "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "sourceType": { "__meta": { "description": "Source kind",              "aliases": [], "dataType": "string",  "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["local","url"], "deprecated": false } },
     "color": {

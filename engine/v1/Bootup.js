@@ -234,7 +234,7 @@ export function StartEngine() {
   });
 
   Log("ENGINE", `Completed bootup of CarlNet Engine v${ENGINE.Meta.Version}.`, "log", "Startup");
-  Log("ENGINE", "'ENGINE' API is now globally accesible.", "log", "Startup");
+  Log("ENGINE", "'ENGINE' API is now globally accessible.", "log", "Startup");
   
   waitForUserStart();
 }

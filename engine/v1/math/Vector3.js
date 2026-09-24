@@ -7,6 +7,7 @@ import { Clamp, Clamp01 } from "./Utilities.js";
 // Perform math operations on canonized vectors.
 
 const ToVector3 = (value) => { return { x: value, y: value, z: value } };
+const Vector3ToArray = (vector) => [vector.x, vector.y, vector.z];
 
 function AddVector3(a, b) {
 	return {
@@ -161,5 +162,6 @@ export {
 	RotateByEuler,
 	RotateTowardVector3,
 	ToVector3,
+	Vector3ToArray,
 	WORLD_NORMALS,
 };

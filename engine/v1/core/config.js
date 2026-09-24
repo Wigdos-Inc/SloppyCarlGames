@@ -76,6 +76,7 @@ const API_CONFIG = {
           Key  : true,
         },
         Level: true,
+        Render: true,
         Simulator: true,
         Validation: true,
         Meta: true,
