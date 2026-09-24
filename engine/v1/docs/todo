@@ -3,8 +3,8 @@ This file contains current priorities.
 Add new characters to test multiple types of characters with intuitive physics
 - Jeff (in progress)
 - Latina
-Projectile Functionality
 COMBAT REWORK:
+- Projectile Functionality
 - Damage and destroy objects
 - Custom object destruction results & configurable particles
 - Entity damage
@@ -115,7 +115,42 @@ Allow special rotational control so Carl can rotate in water with Q and E
 - A and D controls change direction.
 
 
-1.1 Goal: CarlNet Editor
-- Transform the Simulator App to a proper 3D editor.
-- It will be capable of adding, resizing and moving objects to build models.
-- This allows the building of entities, bosses, obstacles and terrain chunks.
+Version Goals:
+- 0.32: Main Update Released
+- 0.33: Decal Rework 
+  1. Pre-load Simulator cache with player-characters and all templates.
+    - Move Render.js Shaders to new Shaders.js module.
+    - Move Object.js shape functions to new NewPrimitive.js module.
+  2. Jump Window Expansion (expand ground-snap probe so early presses can register early; tiny window after losing ground contact)
+    - Fix bug where you clip out of bounds in voids.
+  3. DEFERRED Performance Enhancements
+  4. Todo Performance Enhancements
+- 0.34: Entity AI
+  1. Add optional Q/W rotation controls.
+  2. Add custom player control option.
+  3. Add optional Swimming & Flying states.
+  x. Bug fixes.
+- 0.35: Combat Rework
+  x. Bug fixes.
+- 0.36: Collectible Rework
+  1. Bug fixes.
+  2. Increase game-side control in sub-systems.
+  3. Load Screen functionality.
+- 0.37: Moving Terrain & Obstacles.
+- 0.38: DEFERRED Backlog Cleanup
+  1. Optionally block scatter on decals.
+  2. Add scatter support to voids.
+  3. Block scatter inside objects.
+    - Block generation if cheaper than post-generation block.
+    - Mark for runtime culling for moving platforms.
+  x. Debug & finish testGame level 2.
+- 0.39: Populate Templates
+- 0.40: Add testGame boss level.
+  1. Debugging.
+  2. Add credits.
+- 1.0: Full API & Documentation
+- 1.1: CarlNet Editor
+  - Transform the Simulator App to a proper 3D editor.
+    - It will be capable of adding, resizing and moving objects to build models.
+    - This allows the building of entities, bosses, obstacles and terrain chunks.
+- 1.2: Jeff, Latina & Custom Character Support

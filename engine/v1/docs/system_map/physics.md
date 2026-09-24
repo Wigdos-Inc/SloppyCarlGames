@@ -22,7 +22,7 @@ Computes and applies physics for moving entities each frame: gravity, buoyancy, 
 
   `ReferenceReleaseStep(deltaSeconds)` is the radians the grounding reference may decay toward world up in one frame, from `CONFIG.PHYSICS.Correction.ReferenceReleaseRate`; `Master.js` is its sole caller.
 
-  **`ResolveGrounded(entity)` is the single grounding authority** — a pure derivation, not an assignment: `surfaceContact === "walkable"`, minus a jump veto that clears on descent (`action === "Jumping" && velocity.y > EPSILON`), minus buoyancy exceeding gravity. No other site writes `grounded`.
+  **`ResolveGrounded(entity)` is the single grounding authority** — a pure derivation, not an assignment: `surfaceContact === "walkable"`, minus a jump veto that clears once the entity stops moving away from its contact (`action === "Jumping" && DotVector3(velocity, alignedUp) > EPSILON` — measured along the contact's own up, not world `velocity.y`, since landing on an incline with forward momentum leaves velocity tangent to the surface yet positive in world y), minus buoyancy exceeding gravity. No other site writes `grounded`.
 
   `ApplySurfaceCorrection` no longer classifies or gates on an angle allowance — it consumes the probe's `contact` verbatim. It publishes `surfaceContact`, subtracts the into-surface velocity component when negative (leaving the remainder at its own magnitude, near-flat surfaces included), and writes `surfaceNormal` (always the real normal) alongside `alignedUp` (world up within `FlatSnapDegrees`, the normal otherwise). A miss returns `resetSurfaceState`: contact `"none"`, both vectors world up, velocity untouched.
 
