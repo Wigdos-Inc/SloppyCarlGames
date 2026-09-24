@@ -30,3 +30,33 @@ indices: sweep axis `s`, face axis `k` (both min and max sides), line axis `l = 
 produces the same line segments in a different order.
 
 **Where:** [Render.js](engine/v1/handlers/Render.js) — `createGridLineVertices` `:1040`.
+
+## Simulator cache pre-loads engine player characters and templates
+
+**What:** On the first `Simulator.Start`, the new `cacheEngineEntries` fills the Simulator cache with
+engine content. Each player character in `player/characters.json` is cached directly as
+`player.<id>` with `objectType: "player"`. Each terrain, obstacle, character, enemy and projectile
+template goes through `CacheEntries` as a minimal template-ref payload under `template.<id>`. `Load`
+builds a `player` entry through `BuildPlayerModel` on the disc top and inserts it with
+`AddEntityToScene`, then handles it as `objectType: "entity"`. The platform top Y in `Load` is now
+computed before spawning, and the obstacle snap uses that shared value. `Level.js` exports the new
+`AddEntityToScene(entity, sceneGraph)`, and `SpawnIntoScene`'s entity branch returns through it.
+
+**Where:** [Simulator.js](engine/v1/handlers/game/Simulator.js): player import `:5`,
+`objectTemplates` / `entityTemplates` / `engineEntriesCached` `:55-57`, Start call `:175`,
+`platformTopY` and player branch `:285-293`, `cacheEngineEntries` `:352`.
+[Level.js](engine/v1/handlers/game/Level.js): `AddEntityToScene` `:503`.
+
+## Player model parts take the entity-part texture path
+
+**What:** In `BuildObject`, the entity-part branch is now gated on `role === "entity-part"` alone,
+without the extra `textureScale !== null` condition. A `null` `geometryCache` now means the part is
+built uncached: the cache lookup and store are both skipped. `BuildPlayerModel` still passes `null`
+for all three cache arguments, so player parts now go through `buildEntityPartGeometryTemplate`
+(triplanar for noise textures, sphere UV pre-scale otherwise) without entering the shared cache.
+Doc comments on `BuildEntity` and `GenerateParticles` are updated to match.
+
+**Where:** [NewObject.js](engine/v1/builder/NewObject.js): entity-part gate `:1129-1139`.
+[Model.js](engine/v1/player/Model.js): `BuildPlayerModel` comment.
+[NewEntity.js](engine/v1/builder/NewEntity.js): `BuildEntity` JSDoc.
+[NewParticles.js](engine/v1/builder/NewParticles.js): `GenerateParticles` JSDoc.

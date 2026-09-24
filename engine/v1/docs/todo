@@ -118,7 +118,7 @@ Allow special rotational control so Carl can rotate in water with Q and E
 Version Goals:
 - 0.32: Main Update Released
 - 0.33: Decal Rework 
-  1. Pre-load Simulator cache with player-characters and all templates.
+  1. Pre-load Simulator Cache with player-characters and all templates.
     - Move Render.js Shaders to new Shaders.js module.
     - Move Object.js shape functions to new NewPrimitive.js module.
   2. Jump Window Expansion (expand ground-snap probe so early presses can register early; tiny window after losing ground contact)
@@ -129,6 +129,7 @@ Version Goals:
   1. Add optional Q/W rotation controls.
   2. Add custom player control option.
   3. Add optional Swimming & Flying states.
+  4. Add player/characters.json animation authoring support.
   x. Bug fixes.
 - 0.35: Combat Rework
   x. Bug fixes.
