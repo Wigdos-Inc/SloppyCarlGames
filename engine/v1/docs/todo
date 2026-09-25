@@ -116,15 +116,18 @@ Allow special rotational control so Carl can rotate in water with Q and E
 
 
 Version Goals:
-- 0.32: Main Update Released
-- 0.33: Decal Rework 
-  1. Pre-load Simulator Cache with player-characters and all templates.
+- 0.32: Main Update Released [FINISHED]
+- 0.33: Decal Rework [PATCHING]
+  1. Pre-load Simulator Cache with player-characters and all templates. [DONE]
+  2. Jump Window Expansion (ground probe so early presses can register early; tiny window after losing ground contact) [DONE]
+    - Make rendering obey FrameRate. [DONE]
+  3. Sticky Terrain: [CURRENT]
+    - Fix bug where you clip out of bounds in voids. [CURRENT]
+    - Add a "sticky" field to terrain. The player's grounding is no longer tied to a minimum speed while grounded on this part. [PENDING]
+  3. DEFERRED Performance Enhancements [PENDING]
     - Move Render.js Shaders to new Shaders.js module.
     - Move Object.js shape functions to new NewPrimitive.js module.
-  2. Jump Window Expansion (expand ground-snap probe so early presses can register early; tiny window after losing ground contact)
-    - Fix bug where you clip out of bounds in voids.
-  3. DEFERRED Performance Enhancements
-  4. Todo Performance Enhancements
+  4. Todo Performance Enhancements [PENDING]
 - 0.34: Entity AI
   1. Add optional Q/W rotation controls.
   2. Add custom player control option.
@@ -146,10 +149,17 @@ Version Goals:
     - Mark for runtime culling for moving platforms.
   x. Debug & finish testGame level 2.
 - 0.39: Populate Templates
-- 0.40: Add testGame boss level.
-  1. Debugging.
-  2. Add credits.
+- 0.40: Engine Cutscenes
+  1. Add credits builder.
+  2. Add dialogue system.
+- 0.41: Add testGame boss level.
+  x. Debugging.
 - 1.0: Full API & Documentation
+  - Add canonSchemas aliases.
+  - Improve validation errors and warnings.
+    - Errors only give the generic path, not the actual degenerate entry.
+    - Errors don't disclose how many sibling or child entries are affected/lost.
+  - Improve engine processes logging.
 - 1.1: CarlNet Editor
   - Transform the Simulator App to a proper 3D editor.
     - It will be capable of adding, resizing and moving objects to build models.
