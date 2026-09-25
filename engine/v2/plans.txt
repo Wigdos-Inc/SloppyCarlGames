@@ -6,7 +6,7 @@
 - True liquid objects like water, rather than just a simple water-level
 - Great Semantic Refactor:
   - Modules must be separated by function rather than just purpose
-  - Module groups need a master module that orchestrates.
+  - Module groups need a master module that orchestrates through a state (entityState, physicsState, etc).
   - Look into Add-on modules so not everything has to always be loaded.
   - Look into creating a smaller engine core or game template that each game can use instead of manually having to import the engine and start it
   - At the core:
@@ -44,3 +44,6 @@
     - .shrink
     - .move
     - .overlap(other)
+- For entity movement, collect every single movement source into the physicsState separately
+  - Each type of movement can be individually cancelled.
+  - Final velocity is calculated near the end of the physics engine.
