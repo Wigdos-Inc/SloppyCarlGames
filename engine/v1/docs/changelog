@@ -1,1 +1,113 @@
 # Changelog (engine/v1/)
+
+## Capsule `rounding` primitive option
+**What:** Capsules take `primitiveOptions.rounding`, the share of each half-height taken by its cap: cap height = `rounding × y/2`, straight section = the rest, horizontal radii `x/2`/`z/2`. The mesh always fits the authored `x × y × z` box (previously the cap height was `min(x, z)/2` regardless of `y`). Payload default `0.75`, range `0.05–0.95`. The decal surface map (JS and GLSL) takes `rounding` too, through a new `u_rounding` uniform on both decal programs and the new exported `DecalRounding(shape, primitiveOptions)` (returns `rounding` for capsules, `0` otherwise). Every existing capsule carries an explicit `rounding = min(x, z)/y`, reproducing its old shape; Jeff's shorts use `0.3`.
+**Where:** [NewObject.js](engine/v1/builder/NewObject.js) (`buildCapsule`, `BuildGeometry`), [Render.js](engine/v1/handlers/Render.js) (`decalSurfaceUvGLSL`, `CapsuleBand`, `DecalSurfaceUv`, `SelectDecalFacets`, `DecalRounding`, decal uniforms, scatter decal batches), [Simulator.js](engine/v1/handlers/game/Simulator.js) (`buildDecalVertices`, `decalSurfaceNormal`), [canonSchemas.json](engine/v1/core/canonSchemas.json) (`capsuleOptions`), [normalize.js](engine/v1/core/normalize.js) (`normalizePart`, `normalizeLevelObject`), [characters.json](engine/v1/player/characters.json), `carlGames/simulator/json/entities.json`.
+
+## Steep-surface grounding: launched flag, incline-scaled grip, contact grace, box face normals
+**What:**
+- New entity fields `launched` and `contactGrace`.
+  - `launched` is set on the jump launch and on knockback. It replaces the `action === "Jumping"` grounding veto in `ResolveGrounded`, and clears once velocity·alignedUp ≤ EPSILON. `RespawnPlayer` resets it.
+  - `contactGrace` is reset by `snapOrientationUpright`.
+- `ApplySurfaceCorrection` removes the full surface-normal velocity while grounded and not launched; otherwise, only the into-surface component.
+- New `CONFIG.PHYSICS.Correction.MinGripSpeed` (`Air`/`Water`, `0.8`). `ClassifySurface` takes a `speedRatio` (tangent speed / character `maxSpeed`; non-player entities pass `Infinity`). It demotes walkable to `"sliding"` when `speedRatio < MinGripSpeed × (cos(Ground) − normal.y) / (cos(Ground) + 1)`.
+- Contact grace, 0.05 s (hardcoded `contactGraceSeconds`).
+  - After an unforced contact loss, `alignedUp`, `surfaceNormal` and the whole rotation are held, and the reference-normal release waits.
+  - A launch skips the grace. It ticks once per step.
+- `ApplyPlayerSurfaceOrientation` always applies its pivot shift: about the ground capsule cap while in contact, about the rest-AABB centre when releasing.
+- Box ground probes (`tryAABB`/`tryOBB`) report the normal of the face the probe sits furthest outside of, not the interpolated edge direction.
+- Unused `DivideVector3`/`ToVector3` imports removed from Collision.js.
+
+**Where:**
+- [NewEntity.js](engine/v1/builder/NewEntity.js)
+- [Correction.js](engine/v1/physics/Correction.js) (`resetSurfaceState`, `ClassifySurface`, `ApplySurfaceCorrection`, `ApplyPlayerSurfaceOrientation`, `ResolveGrounded`)
+- [Collision.js](engine/v1/physics/Collision.js) (`ProbeGroundContact`)
+- [physics/Master.js](engine/v1/physics/Master.js) (`runPhysicsLoop`)
+- [player/Master.js](engine/v1/player/Master.js) (`RespawnPlayer`, `snapOrientationUpright`)
+- [Movement.js](engine/v1/player/Movement.js) (`UpdateMovement`)
+- [Enemy.js](engine/v1/handlers/game/Enemy.js)
+- [config.js](engine/v1/core/config.js)
+
+## Kept-footing pinning; void linings carry their void's id
+**What:**
+- `ApplySurfaceCorrection` takes `frameStart`, and removes off-surface velocity only with kept footing: grounded last step, or the contact's `surfaceId` equals the last surface stood on (`frameStart.surfaceId`).
+- `physicsRuntime.groundSurfaceId` now updates only when the probe hits, so it holds the last surface through misses. `frameStart` carries it.
+- Void-lining probe hits report the void's own id (e.g. `cave-tunnel`) instead of the host's.
+
+**Where:**
+- [Correction.js](engine/v1/physics/Correction.js) (`ApplySurfaceCorrection`)
+- [physics/Master.js](engine/v1/physics/Master.js) (`runPhysicsLoop`)
+- [Collision.js](engine/v1/physics/Collision.js) (`ProbeGroundContact` → `probeVoidWalls`)
+
+## Ramped grip demand
+**What:**
+- New entity field `gripDemand`, reset by `snapOrientationUpright`.
+- New `CONFIG.PHYSICS.Correction.GripRampSeconds` (`2`).
+- New exported `UpdateGripDemand(entity, groundContact, deltaSeconds)`, called once per step from `runPhysicsLoop`.
+  - While in contact it moves `gripDemand` toward the surface's target, `max(0, MinGripSpeed × (cos(Ground) − normal.y) / (cos(Ground) + 1))`, at `MinGripSpeed / GripRampSeconds` per second, both up and down.
+  - It holds while airborne.
+- `ClassifySurface` takes `(speedRatio, gripDemand)` and demotes walkable to `"sliding"` only when incline > `Ground` and `speedRatio < gripDemand`. The incline curve moved from `ClassifySurface` into `UpdateGripDemand`.
+- `ProbeGroundContact` passes `entity.gripDemand`.
+
+**Where:**
+- [Correction.js](engine/v1/physics/Correction.js) (`UpdateGripDemand`, `ClassifySurface`)
+- [physics/Master.js](engine/v1/physics/Master.js) (`runPhysicsLoop`)
+- [Collision.js](engine/v1/physics/Collision.js) (`ProbeGroundContact`)
+- [NewEntity.js](engine/v1/builder/NewEntity.js)
+- [player/Master.js](engine/v1/player/Master.js) (`snapOrientationUpright`)
+- [config.js](engine/v1/core/config.js)
+
+## Grip ramp moved out of CONFIG
+**What:** Removed `CONFIG.PHYSICS.Correction.GripRampSeconds`. `UpdateGripDemand` now uses a hardcoded `gripRampSeconds = 2`.
+**Where:** [config.js](engine/v1/core/config.js), [Correction.js](engine/v1/physics/Correction.js) (`UpdateGripDemand`).
+
+## Tuning constants move to config.js (`GROUNDING`)
+**What:**
+- New rule [ENGINE_SEMANTICS.md §3](engine/v1/docs/rules/ENGINE_SEMANTICS.md), "Tuning Constants" (old §3 renumbered to §4; summary row added).
+- New exported internal object `GROUNDING` (`JumpBufferSeconds`, `CoyoteSeconds`, `ContactGraceSeconds`, `GripRampSeconds`) in `config.js`, outside `API_CONFIG`. It replaces the module constants `jumpBufferSeconds`/`coyoteSeconds` and `contactGraceSeconds`/`gripRampSeconds`.
+
+**Where:**
+- [config.js](engine/v1/core/config.js)
+- [Movement.js](engine/v1/player/Movement.js)
+- [Correction.js](engine/v1/physics/Correction.js)
+- [ENGINE_SEMANTICS.md](engine/v1/docs/rules/ENGINE_SEMANTICS.md)
+
+## Default camera: pivot clipping and rotation-safe follow
+**What:**
+- The orbit pivot is now clipped by a cast from the player's body centre (the `collision.aabb` midpoint) up to it, using `checkCameraObstruction`. Skipped while the Simulator is active.
+- New `defaultCamRuntime.pivot`, a lagged orbit centre seeded from the initial `state.target`. The pivot lerps toward the target, the orbit direction lerps separately and is re-normalized, and the camera sits at `pivot + direction × currentDistance`. This replaces the straight-line position lerp.
+- Removed the unused `MultiplyVector3` import.
+
+**Where:** [Camera.js](engine/v1/handlers/game/Camera.js) (`updateDefaultCamState`, `InitializeCameraState`)
+
+## Default camera: obstruction on the eased direction, orbit-based input basis
+**What:**
+- The eased orbit direction is now computed before the obstruction check, and both the obstruction ray and the camera placement use it.
+- `cameraState.forward`/`right` now come from the eased orbit direction, not from the look vector. `cameraState.up` is still built from the real look vector.
+
+**Where:** [Camera.js](engine/v1/handlers/game/Camera.js) (`updateDefaultCamState`)
+
+## Carried heading: parallel transport between surfaces
+**What:**
+- New local helper `transportAcross(v, from, to)`, a minimal-rotation transport from the previous up to the current up. `advanceCarriedForward` now applies it before the yaw delta and the final projection. It reseeds instead when up flips by half a turn in one step.
+- `inputFrame.previousUp` is set each `UpdateMovement` and initialised to world up.
+- `Movement.js` imports `EPSILON`.
+
+**Where:**
+- [Movement.js](engine/v1/player/Movement.js) (`advanceCarriedForward`, `UpdateMovement`)
+- [NewEntity.js](engine/v1/builder/NewEntity.js)
+- [player/Master.js](engine/v1/player/Master.js) (`RespawnPlayer`)
+
+## Ground probe: boxes ground only through a face the probe is over
+**What:** `tryAABB` and `tryOBB` return a hit only when the probe is outside exactly one of the box's axes. Embedded probes (0 axes) and probes past an edge or corner (2+ axes) return null. `t` is that axis's excess, and the normal is that face's axis. This replaces the largest-excess face tiebreak.
+**Where:** [Collision.js](engine/v1/physics/Collision.js) (`ProbeGroundContact`)
+
+## Kept-footing ground reach
+**What:** `runPhysicsLoop` now computes a per-step `groundReach` and passes it to `ProbeGroundContact` and `ApplyGroundSnap` in place of `groundSnapTolerance`.
+- For an entity that is grounded and not `launched`: `groundSnapTolerance` + |displacement| × sin(`MaxAngleDelta[Water|Air].Ground`), with the medium chosen by `entity.underwater`.
+- Otherwise: `groundSnapTolerance` alone.
+- It applies to every entity that runs correction.
+
+`Master.js` now imports `Vector3Length`.
+
+**Where:** [physics/Master.js](engine/v1/physics/Master.js) (`runPhysicsLoop`)

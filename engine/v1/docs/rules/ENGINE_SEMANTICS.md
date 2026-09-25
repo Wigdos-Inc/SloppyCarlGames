@@ -154,7 +154,44 @@ Trust the rules and the review process to catch errors. Do not encode that distr
 
 ---
 
-## 3. Relationship to Other Rules
+## 3. Tuning Constants
+
+### 3.1 Core Rule
+
+A constant that exists so a value can be tuned is configuration. It lives in `core/config.js`, outside `API_CONFIG`, never scoped to the module that uses it.
+
+Inside a module, a tuning constant reads as a single-use variable. Tuning means configuring.
+
+### 3.2 Placement
+
+| Constant | Home |
+|---|---|
+| A game may author it | `API_CONFIG`, only with the author's explicit approval |
+| Internal tuning, standalone | An exported constant in `config.js`, like `SKY_STOP_LIMIT` |
+| Internal tuning, part of a theme or connected to other tuning values | An exported object in `config.js` grouping them, like `PERFORMANCE_SCALING`. Add to an existing object before creating a new one |
+
+Internal tuning values never reach the game. They are for the author, or an agent, to adjust while feel-testing.
+
+### 3.3 Bad vs Good
+
+Bad — tuning scoped to the module:
+
+```js
+// player/Movement.js
+const jumpBufferSeconds = 0.12;
+const coyoteSeconds = 0.1;
+```
+
+Good — a themed object in `config.js`, outside `API_CONFIG`:
+
+```js
+// core/config.js
+const JUMP_WINDOWS = { BufferSeconds: 0.12, CoyoteSeconds: 0.1 };
+```
+
+---
+
+## 4. Relationship to Other Rules
 
 - §2 is a design-level extension of `rules/FORBIDDEN_DEFENSIVE_CHECKS.md`. Read that first.
 - `rules/MODULE_GROUPS.md` governs *where* a justified helper belongs; §2 governs *whether* it should exist.
@@ -170,3 +207,4 @@ Trust the rules and the review process to catch errors. Do not encode that distr
 | Is this comment under the line limit but still prose? | Still a violation |
 | Why does this abstraction exist? | If the answer is "to prevent mistakes", remove it |
 | Is the current behavior wrong? | Then fixing it is not defensive |
+| Is this module constant there to be tuned? | Move it to `config.js`, outside `API_CONFIG` |

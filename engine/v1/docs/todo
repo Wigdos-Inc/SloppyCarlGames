@@ -86,6 +86,7 @@ Additions to Level API:
   - Kill
   - Heal
   - Damage
+  - Launch(velocity) — sets velocity and the `launched` flag together, so games can make the player lose their footing.
 - Spawn:
   - Terrain
   - Obstacle
@@ -122,12 +123,12 @@ Version Goals:
   2. Jump Window Expansion (ground probe so early presses can register early; tiny window after losing ground contact) [DONE]
     - Make rendering obey FrameRate. [DONE]
   3. Sticky Terrain: [CURRENT]
-    - Fix bug where you clip out of bounds in voids. [CURRENT]
+    - Fix bug where you clip out of bounds in voids. [DONE]
     - Add a "sticky" field to terrain. The player's grounding is no longer tied to a minimum speed while grounded on this part. [PENDING]
-  3. DEFERRED Performance Enhancements [PENDING]
+  4. DEFERRED Performance Enhancements [PENDING]
     - Move Render.js Shaders to new Shaders.js module.
     - Move Object.js shape functions to new NewPrimitive.js module.
-  4. Todo Performance Enhancements [PENDING]
+  5. Todo Performance Enhancements [PENDING]
 - 0.34: Entity AI
   1. Add optional Q/W rotation controls.
   2. Add custom player control option.
