@@ -19,7 +19,7 @@ import {
 } from "../math/Vector3.js";
 import { ApplyAcceleration, ApplyDeceleration, ClampVelocity, ProjectOntoPlane } from "../math/Collision.js";
 import { ComputeStepVelocity } from "../math/Forces.js";
-import { SetPlayerAction } from "./Master.js";
+import { SetPlayerAction, ConsumeJumpPress } from "./Master.js";
 
 const jumpVelocityCache = { jumpHeight: -1, medium: "", floatiness: -1, v0: 0 };
 
@@ -72,6 +72,11 @@ const minTangent = 0.05;
 
 // Friction floor. Engages past 75.5°, so no ordinary slope changes.
 const minSupport = 0.25;
+
+// Early press held until landing; late press honoured after walking off an edge.
+const jumpBufferSeconds = 0.12;
+const coyoteSeconds = 0.1;
+const noCoyoteActions = new Set(["Jumping", "Flying", "Swimming"]);
 
 /**
  * Steers the carried tangent by camera yaw delta and re-projects; reseeds from the camera
@@ -236,12 +241,22 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	playerState.velocity.set(AddVector3(normalVelocity, tVel));
 
 	// === JUMP ===
+	const jumpWindow = playerState.jumpWindow;
+	if (ConsumeJumpPress()) jumpWindow.buffer = jumpBufferSeconds;
+	else jumpWindow.buffer -= deltaSeconds;
+
+	const leftGround = playerState.inputFrame.previousGrounded && !playerState.grounded;
+	if (leftGround && !noCoyoteActions.has(playerState.action)) jumpWindow.coyote = coyoteSeconds;
+	else jumpWindow.coyote -= deltaSeconds;
+
 	if (
-		input.jump &&
-		(playerState.grounded || onSlidingSurface) &&
+		jumpWindow.buffer > 0 &&
+		(playerState.grounded || onSlidingSurface || jumpWindow.coyote > 0) &&
 		playerState.action !== "Stunned" &&
 		playerState.action !== "Dead"
 	) {
+		jumpWindow.buffer = 0;
+		jumpWindow.coyote = 0;
 		// Launch along the surface normal; halved on a slide.
 		const launchSpeed = solveJumpLaunchVelocity(
 			meta.jumpHeight.value,

@@ -5,6 +5,7 @@
 import { BuildScatter } from "./NewScatter.js";
 import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveTextureBlueprint, FREQUENCY_PATTERN_CONFIG, VISUAL_TEMPLATES, ComputeGeneratedTextureID, IsTextureTransparent, InitializeDecalDisplay } from "./NewTexture.js";
 import { CONFIG } from "../core/config.js";
+import { EPSILON } from "../core/meta.js";
 import { CreateModelMatrix, CreateIdentityMatrix, CreateRenderMatrixCache, MultiplyMatrix4 } from "../math/Matrix.js";
 import { SampleConnectorCenterline, ParallelTransportFrames } from "../math/Curves.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
@@ -17,6 +18,7 @@ import {
 	ScaleVector3,
 	SubtractVector3,
 	ToVector3,
+	Vector3Distance,
 	Vector3Sq,
 	WORLD_NORMALS
 } from "../math/Vector3.js";
@@ -782,7 +784,8 @@ function buildTube(size, complexity, options) {
 		const nodeB = nodes[i + 1];
 		const rings = [nodeRings[i]];
 
-		if (nodeA.curved) {
+		// Zero-length segments have no centerline to curve; their end rings stitch directly.
+		if (nodeA.curved && Vector3Distance(nodeA.center, nodeB.center) > EPSILON) {
 			const backward = ScaleVector3(nodeB.forward, -1);
 			const points = SampleConnectorCenterline(nodeA.center, nodeA.forward, nodeB.center, backward, nodeA.smoothness, segments);
 			const frames = orientConnectorFrames(points, nodeA.xAxis, nodeB.xAxis);

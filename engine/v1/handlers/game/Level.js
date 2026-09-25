@@ -162,7 +162,8 @@ function StartLevelLoop() {
 			}
 			else levelLoop.cappedStreak = 0;
 
-			RenderLevel(levelRuntimeState.sceneGraph, levelRuntimeState.renderOptions);
+			// Only render per-tick
+			if (steps > 0) RenderLevel(levelRuntimeState.sceneGraph, levelRuntimeState.renderOptions);
 		}
 
 		levelLoop.animationFrameId = requestAnimationFrame(frame);

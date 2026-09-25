@@ -14,11 +14,25 @@ import { UpdateMovement } from "./Movement.js";
 // Mutable object exposed as ENGINE.Level.Player.Input.
 // Game code writes to this directly each frame.
 
+let jumpHeld = false;
+let jumpPressed = false;
+
 const playerInputFlags = {
 	forward: 0,
 	right: 0,
-	jump: false,
+	// Latches the press at event time so taps between steps still register.
+	get jump() { return jumpHeld; },
+	set jump(held) {
+		if (held && !jumpHeld) jumpPressed = true;
+		jumpHeld = held;
+	},
 	boost: false,
+};
+
+const ConsumeJumpPress = () => {
+	const pressed = jumpPressed;
+	jumpPressed = false;
+	return pressed;
 };
 
 /* === PLAYER STATE === */
@@ -44,6 +58,7 @@ function createDefaultPlayerState(baseEntity, playerData) {
 		},
 		jumpStartY         : new Unit(playerData.spawnPosition.y, "cnu"),
 		jumpApexY          : new Unit(playerData.spawnPosition.y, "cnu"),
+		jumpWindow         : { buffer: 0, coyote: 0 },
 		stoppingActive     : false,
 		primaryOppositeHeld: false,
 		previousAction     : "Idle",
@@ -265,6 +280,8 @@ function RespawnPlayer() {
 	SetPlayerAction("Idle");
 	playerState.jumpStartY.value = respawnPos.y;
 	playerState.jumpApexY.value = respawnPos.y;
+	playerState.jumpWindow = { buffer: 0, coyote: 0 };
+	jumpPressed = false;
 	playerState.attackFlag = false;
 	playerState.hitboxActive = false;
 	playerState.stoppingActive = false;
@@ -314,6 +331,7 @@ export {
 	UpdatePlayerModel,
 	ResolvePlayerState,
 	SetPlayerAction,
+	ConsumeJumpPress,
 	TriggerPlayerDeath,
 	TriggerPlayerRespawnSequence,
 	RespawnPlayer,

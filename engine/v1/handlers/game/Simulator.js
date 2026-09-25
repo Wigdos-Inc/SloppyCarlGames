@@ -350,15 +350,18 @@ async function CacheEntries(bulkPayload) {
 }
 
 async function cacheEngineEntries() {
-	for (const id in CharacterData) simulatorCache.set(`player.${id}`, { definition: { ...CharacterData[id], id: `player.${id}` }, objectType: "player" });
+	for (const id in CharacterData) {
+		simulatorCache.set(`player.${id}`, { definition: { ...CharacterData[id], id: `player.${id}` }, objectType: "player" });
+	}
 
 	const refs = [];
 	for (const objectType in objectTemplates) for (const template in objectTemplates[objectType]) {
-		refs.push({ objectType, definition: { id: `template.${template}`, shape: "template", template } });
+		refs.push({ objectType, definition: { id: `template.${template}`, shape: "template", template, position: ToVector3(0) } });
 	}
 	for (const type in entityTemplates) for (const template in entityTemplates[type]) {
 		refs.push({ objectType: entityTemplates[type][template].type, definition: { id: `template.${template}`, shape: "template", template, type } });
 	}
+
 	await CacheEntries(refs);
 	engineEntriesCached = true;
 }
