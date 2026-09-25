@@ -478,7 +478,7 @@
           "localPosition": { "x": 0.1259, "y": -0.1959, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 113.7 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.48 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -537,7 +537,7 @@
           "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.36 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -596,7 +596,7 @@
           "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.24 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -655,7 +655,7 @@
           "localPosition": { "x": 0.08, "y": 0, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 90.0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.48 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -714,7 +714,7 @@
           "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.36 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -773,7 +773,7 @@
           "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.24 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -832,7 +832,7 @@
           "localPosition": { "x": 0.1259, "y": 0.1959, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 66.3 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.48 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -891,7 +891,7 @@
           "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.36 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -950,7 +950,7 @@
           "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.24 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1009,7 +1009,7 @@
           "localPosition": { "x": -0.1259, "y": -0.1959, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": -113.7 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.48 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1068,7 +1068,7 @@
           "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.36 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1127,7 +1127,7 @@
           "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.24 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1186,7 +1186,7 @@
           "localPosition": { "x": -0.08, "y": 0, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": -90.0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.48 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1245,7 +1245,7 @@
           "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.36 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1304,7 +1304,7 @@
           "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.24 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1363,7 +1363,7 @@
           "localPosition": { "x": -0.1259, "y": 0.1959, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": -66.3 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.48 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1422,7 +1422,7 @@
           "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.36 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1481,7 +1481,7 @@
           "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.24 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1540,7 +1540,7 @@
           "localPosition": { "x": -0.2416, "y": -0.1274, "z": 0.1947 },
           "localRotation": { "x": -112.6, "y": 0, "z": 36.2 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.48 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1599,7 +1599,7 @@
           "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.36 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1658,7 +1658,7 @@
           "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.24 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1717,7 +1717,7 @@
           "localPosition": { "x": 0, "y": 0.2068, "z": 0.1459 },
           "localRotation": { "x": -59.8, "y": 0, "z": 0.0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.48 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1776,7 +1776,7 @@
           "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.36 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1835,7 +1835,7 @@
           "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.24 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1894,7 +1894,7 @@
           "localPosition": { "x": 0.2416, "y": -0.1274, "z": 0.1947 },
           "localRotation": { "x": -112.6, "y": 0, "z": -36.2 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.48 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -1953,7 +1953,7 @@
           "localPosition": { "x": 0, "y": -0.045, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.36 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -2012,7 +2012,7 @@
           "localPosition": { "x": 0, "y": -0.03, "z": 0 },
           "localRotation": { "x": 0, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.24 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -2096,7 +2096,7 @@
           "localPosition": { "x": -0.035, "y": -0.065, "z": 0.1 },
           "localRotation": { "x": 90, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.3333 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -2122,7 +2122,7 @@
           "localPosition": { "x": 0, "y": -0.065, "z": 0.1 },
           "localRotation": { "x": 90, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.3333 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -2148,7 +2148,7 @@
           "localPosition": { "x": 0.035, "y": -0.065, "z": 0.1 },
           "localRotation": { "x": 90, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.3333 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -2200,7 +2200,7 @@
           "localPosition": { "x": -0.035, "y": -0.065, "z": 0.1 },
           "localRotation": { "x": 90, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.3333 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -2226,7 +2226,7 @@
           "localPosition": { "x": 0, "y": -0.065, "z": 0.1 },
           "localRotation": { "x": 90, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.3333 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
@@ -2252,7 +2252,7 @@
           "localPosition": { "x": 0.035, "y": -0.065, "z": 0.1 },
           "localRotation": { "x": 90, "y": 0, "z": 0 },
           "localScale": { "x": 1, "y": 1, "z": 1 },
-          "primitiveOptions": {},
+          "primitiveOptions": { "rounding": 0.3333 },
           "texture": {
             "generated": {
               "id": "rubber-skin",
