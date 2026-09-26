@@ -190,3 +190,23 @@ Examples:
     - The new reach covers exactly the gap a still-walkable fold can open in one step.
     - Gaps, box edges and larger drops still release.
   - **Verification.** Not yet runtime-verified. The earlier temporary 0.3-reach experiment kept the S-bends fully grounded. ARGUS has been offered to the author.
+- [2026-09-26] MAIN: the author confirmed the kept-footing reach works, and deferred movement and camera design in loops and tubes to finish 0.33.3. MAIN then implemented the `sticky` field, the final 0.33.3 item.
+  - **Source.** `sticky` is set per placement, like `particle`, not as a template shared field.
+  - **Effect.** A sticky surface skips the grip-speed check, the same way non-player entities already do. The `MaxAngleDelta` transition limits still apply.
+  - **Void linings.** A lining takes the void's own `sticky` flag, not the host's, because a lining is its own surface and carries the void's id.
+  - **Status.** Not runtime-tested: no lvl2 content sets `sticky` yet. The todo item stays [PENDING] until the author confirms.
+- [2026-09-26] MAIN: fixed kinked tube curves in `SampleConnectorCenterline` (author authorized). `node --check` passes; not yet seen in the browser.
+  - **Root cause.** Fixed `0.667 × chord` handles are about twice the circular-arc length (0.33–0.39 of the chord), so on gentle bends the two handles overshoot each other. On Jeff's first hair segment (8 rings), the turn per ring was −0.8, 1.4, 6.9, 11.2, 6.9, 1.4, −0.8°: it swung backward at both ends and kinked mid-segment. With circular-arc handles it is 3.1° at every ring, a true arc.
+  - **Corner kept.** The 0.667 length roughly put `cornerM` at the tangent intersection for ~90° turns, so it stays for the `smoothness < 1` corner.
+  - **Reach.** Every curved tube changes: 12 curved nodes in player/characters.json, 14 in carlGames/simulator/json/entities.json, 22 in testGame lvl2.json. The author expects it may also fix Carl's eyebrows.
+- [2026-09-26] RIGOR: continued the Jeff iteration in [characters.json](engine/v1/player/characters.json).
+  - **Shoes.** Added soles: cylinders half the shoe's height, filling each shoe's lower half, at `low` complexity so the sole's top edge sits on the sphere's equator ring. Then shortened the shoes 0.1203 → 0.09.
+  - **Arms.** The old arms pointed into the torso, because `left` is −x and +100° on z rotates inward. Rebuilt as shoulder → sleeve → upper arm → lower arm → hand, with the sleeve as its own part the upper arm hangs from, like the shorts legs. The author tuned the right arm and the left was mirrored from it.
+  - **Hair.** Re-authored with an even 25° per node and each node's position aimed at the half-angle, then shortened to 80%.
+- [2026-09-26] RIGOR: Jeff's texture stage in [characters.json](engine/v1/player/characters.json). The model and textures are essentially complete; checking his height against a target is still open, since the author hasn't given one.
+  - **Decals added.**
+    - `innerEar`: image decal from the new `ear_inner.png`. The author tuned the left ear; the right ear is mirrored from it (negative `scale.x`).
+    - `collar`: skin-coloured circle on the torso's `top` side, final size set by the author.
+    - `sock`: shoe-black square on both legs, 0.25 wide so it wraps the leg's full 0.22 circumference as one band. Its bottom edge sits below the shoe's dome behind the leg.
+  - **Collar sensitivity.** The size swings drastically at about 0.001 CNU on the low-`rounding` torso cap. The decal map treats a capsule cap as a sphere whose radius is the cap height (0.0516 at `rounding` 0.3), while the dome is 0.175 wide. The author concluded it has to be tuned by eye, not derived.
+  - **Author rulings.** Baked-lighting textures (highlights, shading) don't belong on a model. MAIN misread `ear_inner.png` as an outline and flipped it the wrong way for one iteration before correcting.

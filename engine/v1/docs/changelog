@@ -111,3 +111,22 @@
 `Master.js` now imports `Vector3Length`.
 
 **Where:** [physics/Master.js](engine/v1/physics/Master.js) (`runPhysicsLoop`)
+
+## Terrain/obstacle `sticky` field
+**What:**
+- New `levelObject.sticky` boolean (fallback `false`).
+- It is passed through template resolution, terrain parts, obstacle parts and the obstacle record.
+- In `ProbeGroundContact`, `pushHit` takes a `sticky` flag. A sticky hit skips the grip-speed check (`speedRatio` becomes `Infinity`).
+- The probe reads `nullable`/`sticky` from the mesh `meta` for terrain and from the record for obstacles.
+- Void linings use the void's own `sticky` flag.
+
+**Where:**
+- [canonSchemas.json](engine/v1/core/canonSchemas.json) (`levelObject`)
+- [NewTemplate.js](engine/v1/builder/NewTemplate.js) (`ResolveObjectSource`)
+- [NewTerrain.js](engine/v1/builder/NewTerrain.js) (`buildTerrainParts`)
+- [NewObstacle.js](engine/v1/builder/NewObstacle.js)
+- [Collision.js](engine/v1/physics/Collision.js) (`ProbeGroundContact`)
+
+## Tube connector arcs use circular-arc handles
+**What:** `SampleConnectorCenterline`'s smooth Bézier handles are sized from the connector's turn angle θ (between `forward` and `−backward`): `chord × (2/3)·tan(θ/4)/sin(θ/2)`, or `chord/3` when θ < 1e-6, replacing the fixed `0.667 × chord`. The hard-corner point `cornerM` (for `smoothness < 1`) still uses `0.667 × chord` handles. Imports `Clamp`.
+**Where:** [Curves.js](engine/v1/math/Curves.js) (`SampleConnectorCenterline`)

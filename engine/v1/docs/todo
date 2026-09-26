@@ -64,29 +64,33 @@ Per-entity render flags, set during the SimDistance check collision already runs
 
 Additions to Level API:
 - Entities:
-  - Get(entityId)
+  - GetState(entityId)
   - GetAll
   - Animate(entityId, ...)
-  - Action(entityId, ...)
   - Kill(entityId)
   - Delete(entityId)
   - Heal(entityId, amount)
-  - EnablePhysics(entityId)
-  - DisablePhysics(entityId)
+  - SetPhysics(entityId, ...)
   - SetMeta(entityId, ...)
-  - SetTransform(entityId)
-  - DamageEntity(entityId, amount)
-  - DamageObstacle(obstacleId)
-  - SetState(entityId)
+  - SetPosition(entityId)
+  - SetScale(entityId)
+  - Damage(objectType, id, amount)
+  - SetAction(entityId, ...)
+  - SetNpcBehavior(entityId, ...)
+  - NpcAccessories
 - Player:
   - Animate
   - CharacterSwitch
-  - SetTransform
+  - SetPosition
+  - SetScale
   - SetMeta
+  - SetAction
   - Kill
   - Heal
   - Damage
   - Launch(velocity) — sets velocity and the `launched` flag together, so games can make the player lose their footing.
+  - Accessories
+  - GetState
 - Spawn:
   - Terrain
   - Obstacle
@@ -94,12 +98,13 @@ Additions to Level API:
   - Trigger
 - Camera:
   - Switch
-  - PutPosition
+  - SetPosition
+  - GetPosition
   - Snapshot
 - Trigger(triggerId)
 - Do:
   - 
-- Snapshot
+- GetSnapshot
 
 
 Add full documentation API so devs can understand how to work the engine.
@@ -125,6 +130,10 @@ Version Goals:
   3. Sticky Terrain: [CURRENT]
     - Fix bug where you clip out of bounds in voids. [DONE]
     - Add a "sticky" field to terrain. The player's grounding is no longer tied to a minimum speed while grounded on this part. [PENDING]
+  4. Camera & Rendering Versatility
+    - Offset the camera at incline changes so it remains vertically stationary during loops. Ensure it doesn't influence movement.
+    - Backface Culling
+    - Toon-switch for outlines.
   4. DEFERRED Performance Enhancements [PENDING]
     - Move Render.js Shaders to new Shaders.js module.
     - Move Object.js shape functions to new NewPrimitive.js module.
@@ -148,12 +157,16 @@ Version Goals:
   3. Block scatter inside objects.
     - Block generation if cheaper than post-generation block.
     - Mark for runtime culling for moving platforms.
+  4. Add lighting.
   x. Debug & finish testGame level 2.
-- 0.39: Populate Templates
-- 0.40: Engine Cutscenes
+- 0.39: Add entity (player, npcs, bosses) accessories support.
+  - Pre-built, but not rendered (or zero-scaled).
+  - Accessories can be toggled individually through the API.
+- 0.40: Populate Templates, Scatter & Textures.
+- 0.41: Engine Cutscenes
   1. Add credits builder.
   2. Add dialogue system.
-- 0.41: Add testGame boss level.
+- 0.42: Add testGame boss level.
   x. Debugging.
 - 1.0: Full API & Documentation
   - Add canonSchemas aliases.
