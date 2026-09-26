@@ -18,7 +18,7 @@ function UpdatePerformanceFlags(sceneGraph) {
 	const cameraPosition = sceneGraph.cameraConfig.state.position;
 	const renderReachSq  = Squared(GetSimDistanceValue().value * PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances.Cull);
 
-	// Point-to-AABB — bounds, not centre.
+	// Point-to-AABB — bounds, not center.
 	const withinRender = (aabb) => Vector3SqDistanceToAabb(cameraPosition, aabb) <= renderReachSq;
 
 	sceneGraph.terrain.forEach((mesh) => mesh.performance.rendering = withinRender(mesh.worldAabb));

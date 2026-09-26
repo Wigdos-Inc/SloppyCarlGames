@@ -445,7 +445,7 @@ function isVoidCancelled(entity, candidate, sceneGraph, motionOffset, contact) {
 		if (ns.relations[candidate.ref.id]?.suppressed !== true) continue;
 		const entityAabb = motionOffset ? offsetAabb(entity.collision.aabb, motionOffset) : entity.collision.aabb;
 		if (!StrictAabbOverlap(entityAabb, expandAabbY(ns.worldAabb, voidBoundaryEpsilon.value))) continue;
-		// Centre inside the cavity cancels the host outright.
+		// Center inside the cavity cancels the host outright.
 		if (PointInsideMesh(getAabbCenter(entityAabb), ns.solidTriangles)) return true;
 
 		if (contact && contact.point) {
@@ -1073,7 +1073,7 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates,
 
 	if (chosen === null) return { hit: false, surfaceId: null };
 
-	// Cap centre rests radius from the surface, along the normal.
+	// Cap center rests radius from the surface, along the normal.
 	return {
 		hit: true,
 		normal: chosen.normal,

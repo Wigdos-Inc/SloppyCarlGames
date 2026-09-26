@@ -293,7 +293,7 @@ async function Load(payload) {
 		else built = SpawnIntoScene(definition, objectType, sceneGraph);
 
 		if (objectType === "obstacle") {
-			// Obstacles have no self-grounding step; centre on the platform and snap onto it here.
+			// Obstacles have no self-grounding step; center on the platform and snap onto it here.
 			const deltaY       = platformTopY - built.worldAabb.min.y;
 			const deltaX       = platformMesh.transform.position.x - (built.worldAabb.min.x + built.worldAabb.max.x) * 0.5;
 			const deltaZ       = platformMesh.transform.position.z - (built.worldAabb.min.z + built.worldAabb.max.z) * 0.5;
@@ -526,7 +526,7 @@ function buildDecalVertices(mesh, decalEntry, lift) {
 	const corner    = (index) => ({ point: { x: positions[index * 3], y: positions[index * 3 + 1], z: positions[index * 3 + 2] }, u: uvs[index * 2], v: uvs[index * 2 + 1] });
 	const windingOf = (first) => Math.sign((uvs[first * 2 + 2] - uvs[first * 2]) * (uvs[first * 2 + 5] - uvs[first * 2 + 1]) - (uvs[first * 2 + 4] - uvs[first * 2]) * (uvs[first * 2 + 3] - uvs[first * 2 + 1]));
 
-	// Uv winding flips only across a sphere's antipodal fold; the facet nearest the centre sets the true one.
+	// Uv winding flips only across a sphere's antipodal fold; the facet nearest the center sets the true one.
 	let winding = 0, nearest = Infinity;
 	for (let first = 0; first < positions.length / 3; first += 3) {
 		let distance = 0;
