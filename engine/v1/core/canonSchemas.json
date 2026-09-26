@@ -1613,6 +1613,9 @@
   "rampOptions": {
     "depth": { "__meta": { "description": "Curve sag between toe and crest (ramp-complex only, 0 = straight chord)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 0, "max": 1 }, "deprecated": false } }
   },
+  "capsuleOptions": {
+    "rounding": { "__meta": { "description": "Share of each half-height taken by its cap (capsule only)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0.75, "range": { "min": 0.05, "max": 0.95 }, "deprecated": false } }
+  },
   "levelCustomTexture": {
     "id":         { "__meta": { "description": "Decal id (animation targeting)", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "deprecated": false } },
     "decalType":  { "__meta": { "description": "Decal kind",                 "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null,    "allowedValues": ["image","shape"], "deprecated": false } },
@@ -1739,6 +1742,7 @@
         "deprecated": false
       }
     },
+    "sticky": { "__meta": { "description": "If true, grounding on this surface needs no minimum speed. A void's flag applies to its own lining.", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "particle": {
       "__meta": { "description": "Persistent particle generator (null = none)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
       "id": { "__meta": { "description": "Particle template id", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": null, "deprecated": false } },

@@ -15,7 +15,6 @@ import {
 	ToVector3,
 	WORLD_NORMALS,
 	LerpVector3,
-	MultiplyVector3,
 } from "../../math/Vector3.js";
 import { ClampVelocity, RayAABBIntersect, RayAABBDetailedBoundsIntersect, RayDetailedBoundsIntersect } from "../../math/Collision.js";
 import { BroadphaseCollectCandidates, IsPointInSuppressingVoid } from "../../physics/Collision.js";
@@ -76,6 +75,7 @@ const defaultCamRuntime = {
 	pitch          : -15,
 	currentDistance: distanceDefaults.defaultCamCurrentDistance.clone(),
 	targetDistance : distanceDefaults.defaultCamTargetDistance.clone(),
+	pivot          : new UnitVector3(0, 0, 0, "cnu"),   // Lagged orbit centre
 	lookDeltaX     : 0,
 	lookDeltaY     : 0,
 	arrowKeyState  : {
@@ -418,23 +418,27 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 	if (arrowKeys.ArrowUp)    defaultCamRuntime.pitch = Clamp(defaultCamRuntime.pitch - arrowSpeed, cfg.minPitch, cfg.maxPitch);
 	if (arrowKeys.ArrowDown)  defaultCamRuntime.pitch = Clamp(defaultCamRuntime.pitch + arrowSpeed, cfg.minPitch, cfg.maxPitch);
 
-	// Player position is a CNU UnitVector3 — access components directly.
-	const playerPos = playerState.transform.position;
-
-	// Camera target: player position + height offset.
-	const targetPoint = playerPos.clone();
+	// Camera target: player position + height offset, kept under any ceiling above the body.
+	const targetPoint = playerState.transform.position.clone();
 	targetPoint.y += cfg.heightOffset.value;
+	if (!IsSimulatorActive()) {
+		const bodyCentre = playerState.collision.aabb.min.clone().add(playerState.collision.aabb.max).scale(0.5);
+		const { clippedDistance: pivotReach } = checkCameraObstruction(bodyCentre, targetPoint, sceneGraph);
+		targetPoint.set(AddVector3(bodyCentre, ScaleVector3(ResolveVector3Axis(SubtractVector3(targetPoint, bodyCentre)), pivotReach)));
+	}
 
 	// Compute desired camera position using spherical coordinates.
 	const yawRad = (defaultCamRuntime.yaw * Math.PI) / 180;
 	const pitchRad = (defaultCamRuntime.pitch * Math.PI) / 180;
+	const orbitDirection = { x: Math.cos(pitchRad) * Math.sin(yawRad), y: Math.sin(pitchRad), z: Math.cos(pitchRad) * Math.cos(yawRad) };
+
+	// Eased orbit direction: rotation never shortens the arm, and obstruction is checked where the camera actually sits.
+	const follow = Math.min(1, 15 * deltaSeconds);
+	const previousDirection = ResolveVector3Axis(SubtractVector3(cameraState.position, defaultCamRuntime.pivot));
+	const direction = ResolveVector3Axis(LerpVector3(previousDirection, orbitDirection, follow));
 
 	const scaledDistance = cfg.distance.value * defaultCamRuntime.zoomMultiplier;
-	// Horizontal foreshortening — keeps desiredPos on finalPos's sphere.
-	const desiredPos = targetPoint.clone().add(MultiplyVector3(
-		ToVector3(scaledDistance),
-		{ x: Math.cos(pitchRad) * Math.sin(yawRad), y: Math.sin(pitchRad), z: Math.cos(pitchRad) * Math.cos(yawRad) }
-	));
+	const desiredPos = targetPoint.clone().add(ScaleVector3(direction, scaledDistance));
 
 	// Camera obstruction detection. Skipped while simulating — the target sits inside its own bounds.
 	const { obstructed, clippedDistance } = IsSimulatorActive()
@@ -460,24 +464,18 @@ function updateDefaultCamState(cameraState, playerState, sceneGraph, deltaSecond
 		Math.min(1, (obstructed ? 100 : 4) * deltaSeconds)
 	);
 
-	// Final camera position at current distance.
-	const finalPos = {
-		x: playerPos.x + defaultCamRuntime.currentDistance.value * Math.cos(pitchRad) * Math.sin(yawRad),
-		y: playerPos.y + cfg.heightOffset.value + defaultCamRuntime.currentDistance.value * Math.sin(pitchRad),
-		z: playerPos.z + defaultCamRuntime.currentDistance.value * Math.cos(pitchRad) * Math.cos(yawRad),
-	};
+	// Smooth follow (responsiveness > cinematic float): the pivot lags for velocity stretch.
+	defaultCamRuntime.pivot.set(LerpVector3(defaultCamRuntime.pivot, targetPoint, follow));
+	const smoothedPos = AddVector3(defaultCamRuntime.pivot, ScaleVector3(direction, defaultCamRuntime.currentDistance.value));
 
-	// Smooth camera position (responsiveness > cinematic float).
-	const smoothedPos = LerpVector3(cameraState.position, finalPos, Math.min(1, 15 * deltaSeconds));
-
-	// Compute forward/right/up from camera position looking at target.
-	const forward = ResolveVector3Axis(SubtractVector3(targetPoint, smoothedPos));
-	const right = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
+	// View up from the real look; the input basis follows the orbit, which follow lag never turns.
+	const look = ResolveVector3Axis(SubtractVector3(targetPoint, smoothedPos));
+	const forward = ScaleVector3(direction, -1);
 
 	cameraState.position.set(smoothedPos);
 	cameraState.forward = forward;
-	cameraState.right = right;
-	cameraState.up = ResolveVector3Axis(CrossVector3(right, forward));
+	cameraState.right = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
+	cameraState.up = ResolveVector3Axis(CrossVector3(ResolveVector3Axis(CrossVector3(look, WORLD_NORMALS.Up)), look));
 	cameraState.target.set(targetPoint);
 	cameraState.mode = "defaultcam";
 
@@ -532,6 +530,7 @@ function InitializeCameraState(sceneGraph, cameraConfig, payloadMeta, playerStat
 
 		const levelBase = resolveDefaultLevelCamera(sceneGraph, cameraConfig);
 		const state = playerState ? computeInitialDefaultCamPosition(playerState, levelBase) : { ...levelBase, mode: "defaultcam" };
+		defaultCamRuntime.pivot.set(state.target);
 		cacheCameraPosition(state);
 		cacheCameraVectors(state);
 		Log("ENGINE", "DefaultCam mode activated.", "log", "Level");

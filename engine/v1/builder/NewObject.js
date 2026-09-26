@@ -562,10 +562,11 @@ function buildCone(size, complexity) {
 	};
 }
 
-function buildCapsule(size, complexity) {
+// rounding: share of each half-height taken by its cap.
+function buildCapsule(size, complexity, options) {
 	const radius = size.clone().divide(ToVector3(2));
-	const capRadius = Clamp(radius.z, 0.0001, radius.x);
-	const cylinderHalf = Math.max(0, radius.y - capRadius);
+	const capHeight = radius.y * options.rounding;
+	const cylinderHalf = radius.y - capHeight;
 	const segments = resolveCylinderSegments(complexity);
 	const capStacks = resolveCapsuleCapStacks(complexity);
 
@@ -580,7 +581,7 @@ function buildCapsule(size, complexity) {
 	for (let stack = 0; stack <= capStacks; stack++) {
 		const angle = (stack / capStacks) * Math.PI * 0.5;
 		const ringScale = Math.sin(angle);
-		pushRing(cylinderHalf + Math.cos(angle) * capRadius, radius.x * ringScale, radius.z * ringScale, "top");
+		pushRing(cylinderHalf + Math.cos(angle) * capHeight, radius.x * ringScale, radius.z * ringScale, "top");
 	}
 
 	pushRing(-cylinderHalf, radius.x, radius.z, "body");
@@ -588,7 +589,7 @@ function buildCapsule(size, complexity) {
 	for (let stack = 1; stack <= capStacks; stack++) {
 		const angle = (stack / capStacks) * Math.PI * 0.5;
 		const ringScale = Math.cos(angle);
-		pushRing(-cylinderHalf - Math.sin(angle) * capRadius, radius.x * ringScale, radius.z * ringScale, "bottom");
+		pushRing(-cylinderHalf - Math.sin(angle) * capHeight, radius.x * ringScale, radius.z * ringScale, "bottom");
 	}
 
 	const topVertices = [];
@@ -996,7 +997,7 @@ function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 		case "cube"        : return buildCube(size);
 		case "cylinder"    : return buildCylinder(size, complexity);
 		case "sphere"      : return buildSphere(size, complexity);
-		case "capsule"     : return buildCapsule(size, complexity);
+		case "capsule"     : return buildCapsule(size, complexity, primitiveOptions);
 		case "cone"        : return buildCone(size, complexity);
 		case "ramp-simple" : return buildRampSimple(size);
 		case "ramp-complex": return buildRampComplex(size, complexity, primitiveOptions);

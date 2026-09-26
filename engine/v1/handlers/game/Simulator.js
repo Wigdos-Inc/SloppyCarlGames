@@ -8,7 +8,7 @@ import { UpdateCameraState, SetDefaultCamFraming } from "./Camera.js";
 import { ResolveEntityAnimation } from "./Animation.js";
 import { Cache, Log, SendEvent, ENTITY_TYPES, EngineInitialized } from "../../core/meta.js";
 import { CreateUI, ClearUI, ApplyMenuUI } from "../UI.js";
-import { SetElementText, RemoveRoot, DECAL_SHAPE_CODES, DECAL_FACE_ROTATIONS, ResolveDecalShapeCode, SelectDecalFacets, DecalSurfaceUv, BuildDecalPlacementMatrix, CapsuleBand } from "../Render.js";
+import { SetElementText, RemoveRoot, DECAL_SHAPE_CODES, DECAL_FACE_ROTATIONS, ResolveDecalShapeCode, SelectDecalFacets, DecalSurfaceUv, BuildDecalPlacementMatrix, CapsuleBand, DecalRounding } from "../Render.js";
 import { ValidateSimulatorPayload, ValidateSimulatorBulkPayload } from "../../core/validate.js";
 import { MergeAabb, CreateDetailedBoundsFromParts } from "../../builder/NewObstacle.js";
 import { UpdateObjectWorldAabb } from "../../builder/NewObject.js";
@@ -484,12 +484,12 @@ function buildMeshVertices(mesh, span) {
 }
 
 // Analytic, not per-facet: shared corners lift identically, so the sheet cannot tear.
-function decalSurfaceNormal(shapeCode, point, halfExtents, faceAxis) {
+function decalSurfaceNormal(shapeCode, point, halfExtents, rounding, faceAxis) {
 	switch (shapeCode) {
 		case DECAL_SHAPE_CODES.Flat    : return faceAxis;
 		case DECAL_SHAPE_CODES.Cylinder: return ResolveVector3Axis({ x: point.x / Squared(halfExtents.x), y: 0, z: point.z / Squared(halfExtents.z) });
 		case DECAL_SHAPE_CODES.Capsule :
-			const band = CapsuleBand(halfExtents, point.y);
+			const band = CapsuleBand(halfExtents, rounding, point.y);
 			return ResolveVector3Axis({ x: point.x / Squared(halfExtents.x), y: (point.y - band.originY) / Squared(band.capRadius), z: point.z / Squared(halfExtents.z) });
 		default: return  ResolveVector3Axis(DivideVector3(point, MultiplyVector3(halfExtents, halfExtents)));
 	}
@@ -517,11 +517,12 @@ function clipToDecalSquare(polygon) {
 // Host facets, lifted by a fixed epsilon since glTF has no polygon offset.
 function buildDecalVertices(mesh, decalEntry, lift) {
 	const halfExtents = mesh.dimensions.clone().divide(ToVector3(2));
+	const rounding    = DecalRounding(mesh.shape, mesh.detail.primitiveOptions);
 	const shapeCode   = ResolveDecalShapeCode(mesh.shape, decalEntry.side);
 	const faceMatrix  = DECAL_FACE_ROTATIONS[decalEntry.side];
 	const faceAxis    = { x: faceMatrix[8], y: faceMatrix[9], z: faceMatrix[10] };
 	const placement   = BuildDecalPlacementMatrix(mesh.dimensions, decalEntry.localTransform, decalEntry.side);
-	const { positions, uvs } = SelectDecalFacets(mesh.geometry, placement, shapeCode, halfExtents, 1);
+	const { positions, uvs } = SelectDecalFacets(mesh.geometry, placement, shapeCode, halfExtents, rounding, 1);
 	const corner    = (index) => ({ point: { x: positions[index * 3], y: positions[index * 3 + 1], z: positions[index * 3 + 2] }, u: uvs[index * 2], v: uvs[index * 2 + 1] });
 	const windingOf = (first) => Math.sign((uvs[first * 2 + 2] - uvs[first * 2]) * (uvs[first * 2 + 5] - uvs[first * 2 + 1]) - (uvs[first * 2 + 4] - uvs[first * 2]) * (uvs[first * 2 + 3] - uvs[first * 2 + 1]));
 
@@ -541,10 +542,10 @@ function buildDecalVertices(mesh, decalEntry, lift) {
 	for (let first = 0; first < positions.length / 3; first += 3) {
 		if (windingOf(first) !== winding) continue;
 		const a = corner(first), b = corner(first + 1), c = corner(first + 2);
-		const baseArc = DecalSurfaceUv(a.point, placement, shapeCode, halfExtents, 0).arc;
+		const baseArc = DecalSurfaceUv(a.point, placement, shapeCode, halfExtents, rounding, 0).arc;
 		const at = (i, j, n) => {
 			const point = AddVector3(a.point, AddVector3(ScaleVector3(SubtractVector3(b.point, a.point), i / n), ScaleVector3(SubtractVector3(c.point, a.point), j / n)));
-			const uv    = DecalSurfaceUv(point, placement, shapeCode, halfExtents, baseArc);
+			const uv    = DecalSurfaceUv(point, placement, shapeCode, halfExtents, rounding, baseArc);
 			return { point, u: uv.u, v: uv.v };
 		};
 		const deviation = (i, j, n) => {
@@ -570,7 +571,7 @@ function buildDecalVertices(mesh, decalEntry, lift) {
 
 	const data = createVertexData(corners.length / 3);
 	corners.forEach(({ point, u, v }) => {
-		const normal = decalSurfaceNormal(shapeCode, point, halfExtents, faceAxis);
+		const normal = decalSurfaceNormal(shapeCode, point, halfExtents, rounding, faceAxis);
 		pushVertex(data, AddVector3(point, ScaleVector3(normal, lift)), normal, u + 0.5, 0.5 - v);
 	});
 	return data;

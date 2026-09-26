@@ -91,13 +91,13 @@ function buildObstacleParts(source, index, options) {
 				scale: source.scale,
 				pivot: source.pivot,
 				primitiveOptions: source.primitiveOptions,
-				// Single-part obstacles render the base texture only; decals (texture.custom) are suppressed.
 				texture       : { generated: source.texture.generated, custom: [] },
 				detail        : source.detail,
 				role          : "obstacle",
 				collisionShape: source.collisionShape,
 				mode          : source.mode,
 				nullable      : source.nullable,
+				sticky        : source.sticky,
 				particle      : source.particle,
 				textureScale  : options.textureScale,
 				faceTextureStore: options.faceTextureStore,
@@ -132,6 +132,7 @@ function buildObstacleParts(source, index, options) {
 				collisionShape: source.collisionShape,
 				mode          : source.mode,
 				nullable      : source.nullable,
+				sticky        : source.sticky,
 				textureScale  : options.textureScale,
 				faceTextureStore: options.faceTextureStore,
 				scatterContext: options.scatterContext
@@ -165,6 +166,7 @@ function BuildObstacle(source, index, options) {
 		state         : { destroyed: false },
 		mode          : source.mode,
 		nullable      : source.nullable,
+		sticky        : source.sticky,
 		performance   : { rendering: true },
 	};
 }

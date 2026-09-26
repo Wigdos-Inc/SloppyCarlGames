@@ -5,10 +5,10 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log, SendEvent, EPSILON } from "../core/meta.js";
-import { CloneVector3, RotateTowardVector3, ScaleVector3, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
+import { CloneVector3, DotVector3, RotateTowardVector3, ScaleVector3, ToVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
 import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence } from "./Forces.js";
 import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, ResetCollisionPools, ProbeGroundContact, GetEntityPhysicsFlags, BroadphaseCollectCandidates } from "./Collision.js";
-import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, ReferenceReleaseStep, CORRECTION_DISABLED } from "./Correction.js";
+import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, ReferenceReleaseStep, UpdateGripDemand, CORRECTION_DISABLED } from "./Correction.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";
 import { UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
 
@@ -76,8 +76,14 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	let hadMeaningfulWork = false;
 
 	// Frozen for the whole loop — no double-walking the reference mid-frame.
-	const frameStart = applyCorrection ? { referenceNormal: CloneVector3(entity.referenceNormal) } : null;
+	const frameStart = applyCorrection ? { referenceNormal: CloneVector3(entity.referenceNormal), surfaceId: entity.physicsRuntime.groundSurfaceId } : null;
 	const referenceStep = applyCorrection ? ReferenceReleaseStep(physicsState.deltaSeconds) : 0;
+	// Kept footing reaches as far as a still-walkable fold can fall away in one step.
+	const groundLimit = CONFIG.PHYSICS.Correction.MaxAngleDelta[entity.underwater ? "Water" : "Air"].Ground;
+	const groundReach = physicsState.groundSnapTolerance + (entity.grounded && !entity.launched
+		? Vector3Length(displacement) * Math.sin((groundLimit * Math.PI) / 180)
+		: 0);
+	if (applyCorrection) entity.contactGrace = Math.max(0, entity.contactGrace - physicsState.deltaSeconds);
 	UpdateEntityModelFromTransform(entity);
 
 	ResetCollisionPools();
@@ -131,26 +137,29 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 			const probeCandidates = overlapResolution.changedPosition
 				? BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb, false, false)
 				: overlaps.candidates;
-			groundContact = ProbeGroundContact(entity, sceneGraph, physicsState.groundSnapTolerance, probeCandidates, frameStart);
-			entity.physicsRuntime.groundSurfaceId = groundContact.surfaceId;
+			groundContact = ProbeGroundContact(entity, sceneGraph, groundReach, probeCandidates, frameStart);
+			// The last surface stood on outlives a missed probe.
+			if (groundContact.hit) entity.physicsRuntime.groundSurfaceId = groundContact.surfaceId;
 		}
 
-		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact) : noResult.correction;
+		const correction = applyCorrection ? ApplySurfaceCorrection(entity, groundContact, frameStart) : noResult.correction;
 		hadMeaningfulWork = hadMeaningfulWork || correction.anyChanged;
 
 		if (!overlapResolution.anyChanged && !correction.anyChanged) break;
 	}
 
 	entity.grounded = ResolveGrounded(entity);
+	if (entity.launched && DotVector3(entity.velocity, entity.alignedUp) <= EPSILON) entity.launched = false;
 
 	// Once per frame, outside the loop.
 	if (applyCorrection) {
-		// Release eases; adoption stays instant, or the ratchet tightens with speed.
-		if (entity.surfaceContact === "none") entity.referenceNormal = RotateTowardVector3(entity.referenceNormal, WORLD_NORMALS.Up, referenceStep);
+		UpdateGripDemand(entity, groundContact, physicsState.deltaSeconds);
+		// Release eases once the contact grace is spent; adoption stays instant, or the ratchet tightens with speed.
+		if (entity.surfaceContact === "none" && entity.contactGrace <= EPSILON) entity.referenceNormal = RotateTowardVector3(entity.referenceNormal, WORLD_NORMALS.Up, referenceStep);
 		else if (entity.surfaceContact === "walkable" && !positionMatchesCachedPhysicsState(entity)) entity.referenceNormal = CloneVector3(entity.surfaceNormal);
 	}
 
-	const snap = applyCorrection ? ApplyGroundSnap(entity, groundContact, physicsState.groundSnapTolerance) : noResult.correction;
+	const snap = applyCorrection ? ApplyGroundSnap(entity, groundContact, groundReach) : noResult.correction;
 	hadMeaningfulWork = hadMeaningfulWork || snap.anyChanged;
 	if (snap.changedPosition) UpdateEntityModelFromTransform(entity);
 

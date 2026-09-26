@@ -127,17 +127,17 @@ Version Goals:
   1. Pre-load Simulator Cache with player-characters and all templates. [DONE]
   2. Jump Window Expansion (ground probe so early presses can register early; tiny window after losing ground contact) [DONE]
     - Make rendering obey FrameRate. [DONE]
-  3. Sticky Terrain: [CURRENT]
+  3. Sticky Terrain: [DONE]
     - Fix bug where you clip out of bounds in voids. [DONE]
-    - Add a "sticky" field to terrain. The player's grounding is no longer tied to a minimum speed while grounded on this part. [PENDING]
+    - Add a "sticky" field to terrain. The player's grounding is no longer tied to a minimum speed while grounded on this part. [DONE]
   4. Camera & Rendering Versatility
     - Offset the camera at incline changes so it remains vertically stationary during loops. Ensure it doesn't influence movement.
     - Backface Culling
     - Toon-switch for outlines.
-  4. DEFERRED Performance Enhancements [PENDING]
+  5. DEFERRED Performance Enhancements [PENDING]
     - Move Render.js Shaders to new Shaders.js module.
     - Move Object.js shape functions to new NewPrimitive.js module.
-  5. Todo Performance Enhancements [PENDING]
+  6. Todo Performance Enhancements [PENDING]
 - 0.34: Entity AI
   1. Add optional Q/W rotation controls.
   2. Add custom player control option.

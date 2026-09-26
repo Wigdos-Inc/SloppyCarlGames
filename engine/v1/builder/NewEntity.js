@@ -745,11 +745,13 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		buoyancyForce: 0,
 		action: "Idle",
 		grounded: false,
+		launched: false,
+		contactGrace: 0,
+		gripDemand: 0,
 		surfaceContact: "none",
 		surfaceNormal: CloneVector3(WORLD_NORMALS.Up),
 		alignedUp: CloneVector3(WORLD_NORMALS.Up),
 		referenceNormal: CloneVector3(WORLD_NORMALS.Up),
-		// Radians/second the model's pose eases toward the body's orientation.
 		modelTurnRate: { air: defaultModelTurnRate, water: defaultModelTurnRate },
 		facing: RotateByEuler(WORLD_NORMALS.Forward, rootTrans.rotation),
 		inputFrame: {
@@ -757,6 +759,7 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 			previousCameraYaw: 0,
 			previousHasInput : false,
 			previousGrounded : false,
+			previousUp       : CloneVector3(WORLD_NORMALS.Up),
 		},
 		model,
 		mesh: model.parts[0].mesh,

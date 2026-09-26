@@ -20,8 +20,6 @@ import {
 	MultiplyVector3,
 	RotateByEuler,
 	WORLD_NORMALS,
-	DivideVector3,
-	ToVector3,
 } from "../math/Vector3.js";
 import {
 	SweptAABB,
@@ -937,50 +935,38 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates,
 	const coupledId = entity.physicsRuntime.groundSurfaceId;
 	const hits = [];
 
-	// Nearest point on the axis-aligned box; normal is the contact direction, box to probe.
+	// Boxes ground only through a face the probe is directly over: inside is embedded, past an edge or corner is nothing underfoot.
 	const tryAABB = (from, bounds) => {
 		const closest = ClampVector3(from, bounds.min, bounds.max);
 		const offset = SubtractVector3(from, closest);
-		const distanceSq = Vector3Sq(offset);
-		// Embedded, or out of reach.
-		if (distanceSq === 0 || distanceSq > Squared(maxDist)) return null;
+		if ((offset.x !== 0) + (offset.y !== 0) + (offset.z !== 0) !== 1) return null;
 
-		const t = Math.sqrt(distanceSq);
-		return { t, normal: DivideVector3(offset, ToVector3(t)), point: closest };
+		const t = Math.abs(offset.x + offset.y + offset.z);
+		if (t > maxDist) return null;
+		return { t, normal: { x: Math.sign(offset.x), y: Math.sign(offset.y), z: Math.sign(offset.z) }, point: closest };
 	};
 
-	// Nearest point on the oriented box — face interior, edge or corner.
 	const tryOBB = (from, obb) => {
 		const closest = obb.center.clone();
 		let faceAxis = 0;
 		let faceSign = 1;
-		let worstExcess = -Infinity;
+		let t = 0;
+		let outsideAxes = 0;
 		for (let axis = 0; axis < 3; axis++) {
 			const edge = obb.axes[axis];
 			const extent = axis === 0 ? obb.halfExtents.x : axis === 1 ? obb.halfExtents.y : obb.halfExtents.z;
 			const along = ((from.x - obb.center.x) * edge.x) + ((from.y - obb.center.y) * edge.y) + ((from.z - obb.center.z) * edge.z);
 			closest.add(ScaleVector3(edge, Clamp(along, -extent, extent)));
 
-			const excess = Math.abs(along) - extent;
-			if (excess <= worstExcess) continue;
-			worstExcess = excess;
+			if (Math.abs(along) <= extent) continue;
+			outsideAxes++;
 			faceAxis = axis;
 			faceSign = along >= 0 ? 1 : -1;
+			t = Math.abs(along) - extent;
 		}
 
-		// Inside the solid: embedded, not resting.
-		if (worstExcess < 0) return null;
-
-		const offset = SubtractVector3(from, closest);
-		const distanceSq = Vector3Sq(offset);
-		if (distanceSq > Squared(maxDist)) return null;
-
-		// Contact direction — box to probe.
-		const distance = Math.sqrt(distanceSq);
-		const normal = distance > EPSILON
-			? DivideVector3(offset, ToVector3(distance))
-			: ScaleVector3(obb.axes[faceAxis], faceSign);
-		return { t: distance, normal, point: closest };
+		if (outsideAxes !== 1 || t > maxDist) return null;
+		return { t, normal: ScaleVector3(obb.axes[faceAxis], faceSign), point: closest };
 	};
 
 	// Offset to the nearest point; null when behind the face.
@@ -1017,9 +1003,11 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates,
 	};
 
 
-	// Walls never ground.
-	const pushHit = (t, normal, surfaceId) => {
-		const contact = ClassifySurface(frameStart.referenceNormal, normal, entity.surfaceContact, entity.underwater);
+	// Walls never ground. Grip is judged on speed along the surface, as a share of top speed; sticky surfaces and non-player entities always grip.
+	const pushHit = (t, normal, surfaceId, sticky) => {
+		const tangent = SubtractVector3(entity.velocity, ScaleVector3(normal, DotVector3(entity.velocity, normal)));
+		const speedRatio = entity.type === "player" && !sticky ? Math.sqrt(Vector3Sq(tangent)) / entity.character.meta.maxSpeed : Infinity;
+		const contact = ClassifySurface(frameStart.referenceNormal, normal, entity.surfaceContact, entity.underwater, speedRatio, entity.gripDemand);
 		if (contact !== "wall") hits.push({ t, normal, contact, surfaceId });
 	};
 
@@ -1043,32 +1031,35 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates,
 			if (!hit) continue; t = hit.t; normal = hit.normal; point = hit.point;
 		}
 		else continue;
+		// Terrain keeps its flags on the mesh meta, obstacles on the record.
 		const source = candidate.ref;
-		const nullable = isTerrain ? source.meta.nullable : source.nullable;
+		const flags = isTerrain ? source.meta : source;
 		const voids = isTerrain ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles;
-		if (nullable !== false && IsPointInSuppressingVoid(point, source.id, voids)) continue;
-		pushHit(t, normal, source.id);
+		if (flags.nullable !== false && IsPointInSuppressingVoid(point, source.id, voids)) continue;
+		pushHit(t, normal, source.id, flags.sticky);
 	}
 
 	// Void-wall lining, both soups.
-	const probeVoidWalls = (entries) => {
-		const pushSoupHit = (soup, surfaceId) => {
+	// A lining is its own surface: it carries the void's id and stickiness, not its host's.
+	const probeVoidWalls = (entries, isTerrain) => {
+		const pushSoupHit = (soup, surfaceId, sticky) => {
 			const hit = trySoup(probe, soup);
-			if (hit) pushHit(hit.t, hit.normal, surfaceId);
+			if (hit) pushHit(hit.t, hit.normal, surfaceId, sticky);
 		};
 		for (const entry of entries) {
+			const sticky = isTerrain ? entry.meta.sticky : entry.sticky;
 			for (const id in entry.relations) {
 				for (const voidWall of entry.relations[id].voidWallMeshes) {
 					if (probe.x < voidWall.worldAabb.min.x - maxDist || probe.x > voidWall.worldAabb.max.x + maxDist) continue;
 					if (probe.z < voidWall.worldAabb.min.z - maxDist || probe.z > voidWall.worldAabb.max.z + maxDist) continue;
-					pushSoupHit(voidWall.floorBounds, id);
-					pushSoupHit(voidWall.wallBounds, id);
+					pushSoupHit(voidWall.floorBounds, entry.id, sticky);
+					pushSoupHit(voidWall.wallBounds, entry.id, sticky);
 				}
 			}
 		}
 	};
-	probeVoidWalls(sceneGraph.voids.terrain);
-	probeVoidWalls(sceneGraph.voids.obstacles);
+	probeVoidWalls(sceneGraph.voids.terrain, true);
+	probeVoidWalls(sceneGraph.voids.obstacles, false);
 
 	// Class first: walkable over sliding, then the coupled surface, then nearest.
 	let chosen = null;

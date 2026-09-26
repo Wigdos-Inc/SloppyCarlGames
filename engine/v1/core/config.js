@@ -126,7 +126,8 @@ const API_CONFIG = {
       MaxAngleDelta       : {
         Air  : { Ground: 35, Sliding: 75, Recover: 20 },
         Water: { Ground: 45, Sliding: 85, Recover: 45 },
-      }
+      },
+      MinGripSpeed        : { Air: 0.8, Water: 0.8 },     // Share of maxSpeed needed to grip upside down; eases to 0 at Ground
     },
   },
   CUSTOM_EVENTS: {
@@ -151,7 +152,10 @@ const API_CONFIG = {
       Stripes: { Density: 1, SpeckSize: 1 },
       Grid   : { Density: 1, SpeckSize: 1 },
     },
-    Fog: { Air: 100, Water: 60 },            // Fog reach %, 20-100; >100 saturates past the cull radius and pops in
+    Fog    : { Air: 100, Water: 60 },            // Fog reach %, 20-100; >100 saturates past the cull radius and pops in
+    Filters: {
+      Outlines: false
+    }
   }
 };
 
@@ -178,8 +182,16 @@ const PERFORMANCE_SCALING = {
   Loop: { MaxSubsteps: 4 }                                            // Physics ticks per frame before time dilates
 }
 
+// Engine-internal footing feel: jump windows, contact grace, grip ramp.
+const GROUNDING = {
+  JumpBufferSeconds  : 0.12,   // Early press held until landing
+  CoyoteSeconds      : 0.1,    // Late press honoured after leaving the ground
+  ContactGraceSeconds: 0.05,   // Surface pose held after a missed probe
+  GripRampSeconds    : 2,      // Grip demand's crossing of 0 ↔ MinGripSpeed
+};
+
 
 /* === EXPORTS === */
 // Public configuration surface for engine modules.
 
-export { API_CONFIG as CONFIG, PERFORMANCE_SCALING, SKY_STOP_LIMIT };
+export { API_CONFIG as CONFIG, PERFORMANCE_SCALING, GROUNDING, SKY_STOP_LIMIT };

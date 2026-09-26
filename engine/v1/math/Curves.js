@@ -1,4 +1,5 @@
 import { AddVector3, SubtractVector3, ScaleVector3, DotVector3, CrossVector3, LerpVector3, ResolveVector3Axis, Vector3Distance } from "./Vector3.js";
+import { Clamp } from "./Utilities.js";
 
 const easings = {
 	linear:    (t) => t,
@@ -11,12 +12,15 @@ const ApplyEasing = (name, t) => easings[name](t);
 
 // Arcs the connector between two tube nodes into segments+1 centerline points {x,y,z} using a cubic
 // Bezier with forward-aligned handles (leaves along forward, arrives along -backward). smoothness 1
-// -> even cubic arc; 0 -> hard corner at the arc center M; collinear input -> straight.
+// -> circular arc; 0 -> hard corner at M; collinear input -> straight.
 function SampleConnectorCenterline(startCenter, forward, endCenter, backward, smoothness, segments) {
-	const d = Vector3Distance(endCenter, startCenter) * 0.667;
+	const chord = Vector3Distance(endCenter, startCenter);
+	const cornerM = ScaleVector3(AddVector3(AddVector3(startCenter, ScaleVector3(forward, chord * 0.667)), AddVector3(endCenter, ScaleVector3(backward, chord * 0.667))), 0.5);
+	// Circular-arc handles; 1/3 of the chord when straight.
+	const turn = Math.acos(Clamp(-DotVector3(forward, backward), -1, 1));
+	const d = chord * (turn < 1e-6 ? 1 / 3 : (2 / 3) * Math.tan(turn / 4) / Math.sin(turn / 2));
 	const p1 = AddVector3(startCenter, ScaleVector3(forward, d));
 	const p2 = AddVector3(endCenter, ScaleVector3(backward, d));
-	const cornerM = ScaleVector3(AddVector3(p1, p2), 0.5);
 
 	const points = [];
 	for (let index = 0; index <= segments; index++) {

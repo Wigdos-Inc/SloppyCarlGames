@@ -264,6 +264,8 @@ function TriggerPlayerRespawnSequence() {
 function snapOrientationUpright() {
 	playerState.alignedUp = CloneVector3(WORLD_NORMALS.Up);
 	playerState.referenceNormal = CloneVector3(WORLD_NORMALS.Up);
+	playerState.contactGrace = 0;
+	playerState.gripDemand = 0;
 	playerState.transform.rotation.set({ x: 0, y: playerState.transform.rotation.y, z: 0 });
 	// Drops the model pose so it re-seeds upright instead of easing in from the old surface.
 	playerState.animationRuntime = undefined;
@@ -281,6 +283,7 @@ function RespawnPlayer() {
 	playerState.jumpStartY.value = respawnPos.y;
 	playerState.jumpApexY.value = respawnPos.y;
 	playerState.jumpWindow = { buffer: 0, coyote: 0 };
+	playerState.launched = false;
 	jumpPressed = false;
 	playerState.attackFlag = false;
 	playerState.hitboxActive = false;
@@ -295,6 +298,7 @@ function RespawnPlayer() {
 		previousCameraYaw: 0,
 		previousHasInput : false,
 		previousGrounded : false,
+		previousUp       : CloneVector3(WORLD_NORMALS.Up),
 	};
 	playerState.boost = { active: false, timer: 0, maxSpeedMultiplier: 1, accelMultiplier: 1 };
 	playerState.invulnerable = { active: false, timer: 0, flashTimer: 0 };

@@ -46,6 +46,7 @@ function buildTerrainParts(source, world, faceTextureStore) {
 				collisionShape: source.collisionShape,
 				mode          : source.mode,
 				nullable      : source.nullable,
+				sticky        : source.sticky,
 				textureScale  : world.textureScale,
 				faceTextureStore,
 			}

@@ -133,6 +133,7 @@ function applyPlayerDamage(playerState, damageSourcePosition) {
 		y: Math.max(knockDir.y * knockbackForce, knockbackForce * 0.5),
 		z: knockDir.z * knockbackForce,
 	});
+	playerState.launched = true;
 
 	// Start invulnerability.
 	playerState.invulnerable.active = true;

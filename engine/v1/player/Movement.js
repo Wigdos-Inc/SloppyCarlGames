@@ -3,7 +3,8 @@
 // Used by player/Master.js to process movement intent each frame.
 // Returns modified velocity. Does NOT modify position directly.
 
-import { CONFIG } from "../core/config.js";
+import { CONFIG, GROUNDING } from "../core/config.js";
+import { EPSILON } from "../core/meta.js";
 import {
 	ResolveVector3Axis,
 	AddVector3,
@@ -73,10 +74,14 @@ const minTangent = 0.05;
 // Friction floor. Engages past 75.5°, so no ordinary slope changes.
 const minSupport = 0.25;
 
-// Early press held until landing; late press honoured after walking off an edge.
-const jumpBufferSeconds = 0.12;
-const coyoteSeconds = 0.1;
 const noCoyoteActions = new Set(["Jumping", "Flying", "Swimming"]);
+
+// Minimal rotation carrying `from` onto `to`, applied to `v`. Unlike projection, keeps the heading's angle to the fold.
+function transportAcross(v, from, to) {
+	const axis = CrossVector3(from, to);
+	const cos = DotVector3(from, to);
+	return AddVector3(AddVector3(ScaleVector3(v, cos), CrossVector3(axis, v)), ScaleVector3(axis, DotVector3(axis, v) / (1 + cos)));
+}
 
 /**
  * Steers the carried tangent by camera yaw delta and re-projects; reseeds from the camera
@@ -88,10 +93,12 @@ const noCoyoteActions = new Set(["Jumping", "Flying", "Swimming"]);
  * @returns {{ x: number, y: number, z: number }} — unit, in the surface plane.
  */
 function advanceCarriedForward(frame, camFwd, cameraYaw, up, grounded) {
-	if (frame.previousHasInput && grounded === frame.previousGrounded) {
+	// A half-turn flip of up has no unique transport; reseed instead.
+	if (frame.previousHasInput && grounded === frame.previousGrounded && DotVector3(frame.previousUp, up) > EPSILON - 1) {
 		const raw = cameraYaw - frame.previousCameraYaw;
 		const yawDelta = Math.atan2(Math.sin(raw), Math.cos(raw));
-		const transported = ProjectOntoPlane(RotateByEuler(frame.carriedForward, { x: 0, y: yawDelta, z: 0 }), up);
+		const carried = transportAcross(frame.carriedForward, frame.previousUp, up);
+		const transported = ProjectOntoPlane(RotateByEuler(carried, { x: 0, y: yawDelta, z: 0 }), up);
 		if (Vector3Length(transported) >= minTangent) return ResolveVector3Axis(transported);
 	}
 
@@ -242,11 +249,11 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 
 	// === JUMP ===
 	const jumpWindow = playerState.jumpWindow;
-	if (ConsumeJumpPress()) jumpWindow.buffer = jumpBufferSeconds;
+	if (ConsumeJumpPress()) jumpWindow.buffer = GROUNDING.JumpBufferSeconds;
 	else jumpWindow.buffer -= deltaSeconds;
 
 	const leftGround = playerState.inputFrame.previousGrounded && !playerState.grounded;
-	if (leftGround && !noCoyoteActions.has(playerState.action)) jumpWindow.coyote = coyoteSeconds;
+	if (leftGround && !noCoyoteActions.has(playerState.action)) jumpWindow.coyote = GROUNDING.CoyoteSeconds;
 	else jumpWindow.coyote -= deltaSeconds;
 
 	if (
@@ -264,6 +271,7 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 			playerState.underwater ? meta.waterFloatiness : meta.airFloatiness
 		) * (onSlidingSurface ? 0.5 : 1);
 		playerState.velocity.set(AddVector3(tVel, ScaleVector3(up, launchSpeed)));
+		playerState.launched = true;
 		// Player jump Y values are Unit instances—mutate their `.value`.
 		playerState.jumpStartY.value = playerState.transform.position.y;
 		playerState.jumpApexY.value = playerState.transform.position.y;
@@ -279,6 +287,7 @@ function UpdateMovement(playerState, input, cameraVectors, deltaSeconds) {
 	playerState.inputFrame.previousCameraYaw = cameraYaw;
 	playerState.inputFrame.previousHasInput = hasInput;
 	playerState.inputFrame.previousGrounded = playerState.grounded;
+	playerState.inputFrame.previousUp = up;
 }
 
 /* === EXPORTS === */

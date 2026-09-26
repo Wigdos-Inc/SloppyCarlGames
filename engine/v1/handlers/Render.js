@@ -490,7 +490,7 @@ const decalSurfaceUvGLSL = `
 		return x == 0.0 && z == 0.0 ? fallback : atan(z, x);
 	}
 
-	vec2 decalSurfaceUv(int shape, vec3 point, mat4 placement, vec3 r) {
+	vec2 decalSurfaceUv(int shape, vec3 point, mat4 placement, vec3 r, float rounding) {
 		vec3 centre = placement[3].xyz;
 		// Floored: zero scale stays finite.
 		float width = max(length(placement[0].xyz), 1e-6), height = max(length(placement[1].xyz), 1e-6);
@@ -501,8 +501,8 @@ const decalSurfaceUvGLSL = `
 			return vec2(dot(offset, u) / width, dot(offset, v) / height);
 		}
 
-		float capRadius = clamp(r.z, 0.0001, r.x);
-		float cylinderHalf = max(0.0, r.y - capRadius);
+		float capRadius = r.y * rounding;
+		float cylinderHalf = r.y - capRadius;
 		bool onCap = shape == SHAPE_CAPSULE && abs(centre.y) > cylinderHalf;
 		vec3 right, up;
 
@@ -537,10 +537,15 @@ const decalSurfaceUvGLSL = `
 `;
 
 /* === DECAL GEOMETRY === */
+// Capsule cap share; every other shape ignores it.
+function DecalRounding(shape, primitiveOptions) {
+	return shape === "capsule" ? primitiveOptions.rounding : 0;
+}
+
 // Capsule ray origin: on the axis within the band, cap centre beyond it.
-function CapsuleBand(halfExtents, pointY) {
-	const capRadius    = Clamp(halfExtents.z, 0.0001, halfExtents.x);
-	const cylinderHalf = Math.max(0, halfExtents.y - capRadius);
+function CapsuleBand(halfExtents, rounding, pointY) {
+	const capRadius    = halfExtents.y * rounding;
+	const cylinderHalf = halfExtents.y - capRadius;
 	return { capRadius, cylinderHalf, originY: Math.abs(pointY) <= cylinderHalf ? pointY : Math.sign(pointY) * cylinderHalf };
 }
 
@@ -562,7 +567,7 @@ function decalMeridianArc(point, capRadius, cylinderHalf, shapeCode) {
 }
 
 // Mirrored by decalSurfaceUvGLSL. referenceArc: seam branch to unwrap into; 0 for none.
-function DecalSurfaceUv(point, placement, shapeCode, halfExtents, referenceArc) {
+function DecalSurfaceUv(point, placement, shapeCode, halfExtents, rounding, referenceArc) {
 	const centre = { x: placement[12], y: placement[13], z: placement[14] };
 	// Floored: zero scale stays finite.
 	const width = Math.max(Vector3Length({ x: placement[0], y: placement[1], z: placement[2] }), 1e-6);
@@ -576,7 +581,7 @@ function DecalSurfaceUv(point, placement, shapeCode, halfExtents, referenceArc) 
 		return { u: along / width, v: DotVector3(offset, v) / height, arc: along };
 	}
 
-	const band  = CapsuleBand(halfExtents, centre.y);
+	const band  = CapsuleBand(halfExtents, rounding, centre.y);
 	const onCap = shapeCode === DECAL_SHAPE_CODES.Capsule && Math.abs(centre.y) > band.cylinderHalf;
 
 	// Sphere or capsule cap: azimuthal equidistant, capped at one turn.
@@ -633,7 +638,7 @@ function flatDecalFacets(placement) {
 }
 
 // Whole facets, each padded by its own uv extent; the fragment shader does the exact cut.
-function SelectDecalFacets(geometry, placement, shapeCode, halfExtents, margin) {
+function SelectDecalFacets(geometry, placement, shapeCode, halfExtents, rounding, margin) {
 	if (shapeCode === DECAL_SHAPE_CODES.Flat) return flatDecalFacets(placement);
 
 	const half = 0.5 * margin;
@@ -643,7 +648,7 @@ function SelectDecalFacets(geometry, placement, shapeCode, halfExtents, margin) 
 	const baseUvs = new Array(vertexCount);
 	const pointAt = (index) => points[index] || (points[index] = { x: positions[index * 3], y: positions[index * 3 + 1], z: positions[index * 3 + 2] });
 	// First vertices map with referenceArc 0, so they cache per index.
-	const baseUvAt = (index) => baseUvs[index] || (baseUvs[index] = DecalSurfaceUv(pointAt(index), placement, shapeCode, halfExtents, 0));
+	const baseUvAt = (index) => baseUvs[index] || (baseUvs[index] = DecalSurfaceUv(pointAt(index), placement, shapeCode, halfExtents, rounding, 0));
 
 	const keptPoints = [], keptUvs = [];
 	const tri = [null, null, null], us = [0, 0, 0], vs = [0, 0, 0];
@@ -658,7 +663,7 @@ function SelectDecalFacets(geometry, placement, shapeCode, halfExtents, margin) 
 		const base = baseUvAt(indices[offset]);
 		us[0] = base.u; vs[0] = base.v;
 		for (let corner = 1; corner < 3; corner++) {
-			const mapped = DecalSurfaceUv(tri[corner], placement, shapeCode, halfExtents, base.arc);
+			const mapped = DecalSurfaceUv(tri[corner], placement, shapeCode, halfExtents, rounding, base.arc);
 			us[corner] = mapped.u;
 			vs[corner] = mapped.v;
 		}
@@ -682,10 +687,11 @@ const decalFragmentDeclarations = `uniform vec4 u_tint;
 		uniform mat4 u_placement;
 		uniform int u_shape;
 		uniform vec3 u_halfExtents;
+		uniform float u_rounding;
 		${decalSurfaceUvGLSL}`;
 
 // The exact [-0.5, 0.5] cut.
-const decalFragmentCut = `vec2 decalUv = decalSurfaceUv(u_shape, v_partLocal, u_placement, u_halfExtents);
+const decalFragmentCut = `vec2 decalUv = decalSurfaceUv(u_shape, v_partLocal, u_placement, u_halfExtents, u_rounding);
 			if (abs(decalUv.x) > 0.5 || abs(decalUv.y) > 0.5) discard;
 			vec4 texel = texture(u_texture, vec2(decalUv.x + 0.5, 0.5 - decalUv.y));`;
 
@@ -726,6 +732,7 @@ function createDecalProgram(gl) {
 			partWorld   : "u_partWorld",
 			shape       : "u_shape",
 			halfExtents : "u_halfExtents",
+			rounding    : "u_rounding",
 			texture     : "u_texture",
 			tint        : "u_tint",
 			fogFull     : "u_fogFull",
@@ -781,6 +788,7 @@ function createScatterDecalProgram(gl) {
 			placement   : "u_placement",
 			shape       : "u_shape",
 			halfExtents : "u_halfExtents",
+			rounding    : "u_rounding",
 			texture     : "u_texture",
 			tint        : "u_tint",
 			fogFull     : "u_fogFull",
@@ -965,10 +973,11 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 		// Scatter decals are static: built once, shared by every instance.
 		const primitiveGeometry = sceneGraph.visualResources.primitiveGeometry[batch.primitiveKey];
 		const dim = batch.dimensions;
+		const rounding = DecalRounding(batch.primitive, batch.primitiveOptions);
 		const decalDraws = batch.customTextures.map((decalEntry, index) => {
 			const shapeCode = ResolveDecalShapeCode(batch.primitive, decalEntry.side);
 			const placement = BuildDecalPlacementMatrix(dim, decalEntry.displayTransform, decalEntry.side);
-			const facets    = SelectDecalFacets(primitiveGeometry, placement, shapeCode, DivideVector3(dim, ToVector3(2)), 1);
+			const facets    = SelectDecalFacets(primitiveGeometry, placement, shapeCode, DivideVector3(dim, ToVector3(2)), rounding, 1);
 
 			const positionBuffer = gl.createBuffer();
 			gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -990,6 +999,7 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 			textureID: batch.textureID,
 			decalDraws,
 			dimensions: batch.dimensions,
+			rounding,
 		});
 	});
 
@@ -1856,6 +1866,7 @@ function ensureDecalGeometry(renderer, mesh, decalEntry, index, entity, partId) 
 		BuildDecalPlacementMatrix(dim, decalEntry.localTransform, decalEntry.side),
 		ResolveDecalShapeCode(mesh.shape, decalEntry.side),
 		{ x: dim.x / 2, y: dim.y / 2, z: dim.z / 2 },
+		DecalRounding(mesh.shape, mesh.detail.primitiveOptions),
 		decalAnimationMargin(entity, partId, decalEntry)
 	);
 
@@ -1934,6 +1945,7 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 		gl.uniformMatrix4fv(decalShader.uniforms.partWorld, false, renderMatrixFor(mesh));
 		const dim = mesh.dimensions;
 		gl.uniform3f(decalShader.uniforms.halfExtents, dim.x / 2, dim.y / 2, dim.z / 2);
+		gl.uniform1f(decalShader.uniforms.rounding, DecalRounding(mesh.shape, mesh.detail.primitiveOptions));
 		gl.uniform1i(decalShader.uniforms.texture, 0);
 
 		mesh.customTextures.forEach((decalEntry, index) => {
@@ -1986,6 +1998,7 @@ function drawScatterDecalPass(renderer, sceneGraph, passState) {
 	renderer.scatterDecalBatches.forEach((batch) => {
 		const dim = batch.dimensions;
 		gl.uniform3f(shader.uniforms.halfExtents, dim.x / 2, dim.y / 2, dim.z / 2);
+		gl.uniform1f(shader.uniforms.rounding, batch.rounding);
 
 		batch.decalDraws.forEach((draw) => {
 			gl.bindVertexArray(draw.vao);
@@ -2161,5 +2174,6 @@ export {
 	ResolveDecalShapeCode,
 	DecalSurfaceUv,
 	SelectDecalFacets,
-	CapsuleBand
+	CapsuleBand,
+	DecalRounding
 };

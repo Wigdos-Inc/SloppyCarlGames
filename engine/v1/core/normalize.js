@@ -883,6 +883,7 @@ function normalizePart(rawPart, ctx) {
 	part.detail = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail);
 	if (part.shape === "tube") part.primitiveOptions = normalizeTubeOptions(part.primitiveOptions);
 	else if (part.shape === "ramp-complex") part.primitiveOptions = normalizeRampOptions(part.primitiveOptions, `levelPart.${part.id}`);
+	else if (part.shape === "capsule") part.primitiveOptions = normalizePayloadSchema(part.primitiveOptions, "capsuleOptions");
 	part.particle = normalizeParticle(part.particle, `levelPart.${part.id}.particle`);
 	if (part.label === null) delete part.label;
 	return part;
@@ -909,6 +910,7 @@ function normalizeLevelObject(rawObject, ctx, multipartFallbackShape = null) {
 	object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail);
 	if (object.shape === "tube") object.primitiveOptions = normalizeTubeOptions(object.primitiveOptions);
 	else if (object.shape === "ramp-complex") object.primitiveOptions = normalizeRampOptions(object.primitiveOptions, `levelObject.${object.id}`);
+	else if (object.shape === "capsule") object.primitiveOptions = normalizePayloadSchema(object.primitiveOptions, "capsuleOptions");
 	object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part, ctx));
 	if (object.mode === "void" && hasOpenPrimitive(object)) {
 		warnLog(`levelObject.${object.id}: mode 'void' requires a closed shape, dropping.`);

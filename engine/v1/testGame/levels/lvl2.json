@@ -131,6 +131,7 @@
 							},
 							{
 								"id": "main-slope-00",
+								"sticky": true,
 								"shape": "cube",
 								"complexity": "medium",
 								"dimensions": {"x":40,"y":3,"z":8},
@@ -142,6 +143,7 @@
 							},
 							{
 								"id": "main-slope-01",
+								"sticky": true,
 								"shape": "cube",
 								"complexity": "medium",
 								"dimensions": {"x":40,"y":3,"z":7.039},
@@ -153,6 +155,7 @@
 							},
 							{
 								"id": "main-slope-02",
+								"sticky": true,
 								"shape": "cube",
 								"complexity": "medium",
 								"dimensions": {"x":40,"y":3,"z":7.156},
@@ -164,6 +167,7 @@
 							},
 							{
 								"id": "main-slope-03",
+								"sticky": true,
 								"shape": "cube",
 								"complexity": "medium",
 								"dimensions": {"x":40,"y":3,"z":6.309},
@@ -175,6 +179,7 @@
 							},
 							{
 								"id": "main-slope-04",
+								"sticky": true,
 								"shape": "cube",
 								"complexity": "medium",
 								"dimensions": {"x":40,"y":3,"z":6.568},
@@ -186,6 +191,7 @@
 							},
 							{
 								"id": "main-slope-05",
+								"sticky": true,
 								"shape": "cube",
 								"complexity": "medium",
 								"dimensions": {"x":40,"y":3,"z":5.774},
@@ -197,6 +203,7 @@
 							},
 							{
 								"id": "main-slope-06",
+								"sticky": true,
 								"shape": "cube",
 								"complexity": "medium",
 								"dimensions": {"x":40,"y":3,"z":4.944},
@@ -208,6 +215,7 @@
 							},
 							{
 								"id": "main-slope-07",
+								"sticky": true,
 								"shape": "cube",
 								"complexity": "medium",
 								"dimensions": {"x":40,"y":3,"z":4.037},
@@ -219,6 +227,7 @@
 							},
 							{
 								"id": "main-slope-08",
+								"sticky": true,
 								"shape": "cube",
 								"complexity": "medium",
 								"dimensions": {"x":40,"y":3,"z":4.483},
@@ -230,6 +239,7 @@
 							},
 							{
 								"id": "main-slope-09",
+								"sticky": true,
 								"shape": "cube",
 								"complexity": "medium",
 								"dimensions": {"x":40,"y":3,"z":4.253},
@@ -241,6 +251,7 @@
 							},
 							{
 								"id": "main-slope-10",
+								"sticky": true,
 								"shape": "cube",
 								"complexity": "medium",
 								"dimensions": {"x":40,"y":3,"z":4.49},
@@ -1153,7 +1164,7 @@
 								"id": "cave-tunnel",
 								"shape": "tube",
 								"complexity": "medium",
-								"dimensions": {"x":13,"y":0,"z":13},
+								"dimensions": {"x":11,"y":0,"z":11},
 								"position": {"x":700,"y":42.6,"z":629.813},
 								"rotation": {"x":0,"y":0,"z":-90},
 								"primitiveOptions": {

@@ -157,6 +157,7 @@ function ResolveObjectSource(source, role) {
 		static        : shared.static,
 		mode          : source.mode !== null ? source.mode : shared.mode,
 		nullable      : shared.nullable,
+		sticky        : source.sticky,
 		particle      : source.particle,
 		parts         : resolveParts(template.parts, source.parts, source.color, source.texture),
 	};
