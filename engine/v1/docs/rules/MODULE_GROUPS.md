@@ -41,14 +41,15 @@ All math helper functions needed by multiple files.
 State managers. These orchestrate the behaviours of other module groups.
 
 - **Role**: Most pipelines start here. Handlers manage the lifecycle and update flow of their respective systems.
-- **Contains**: Level handler, camera handler, renderer, sound handler, UI handler, controls handler, physics handler, cutscene handler, entity animation handler, entity behaviour handlers.
-- **Calls into**: `player/`, `physics/`, `builder/`, `cutscene/`, `math/`, `core/`.
+- **Contains**: Level handler, renderer, sound handler, UI handler, controls handler, physics handler, cutscene handler, entity animation handler, entity behaviour handlers.
+- **Calls into**: `camera/`, `player/`, `physics/`, `builder/`, `cutscene/`, `math/`, `core/`.
 - **Does not**: Implement low-level logic directly. Handlers delegate to the appropriate module group and coordinate results.
 
 ### Sub-structure
 
-- `handlers/game/` — Handlers specific to in-game (level) state: `Level.js`, `Camera.js`, `Enemy.js`, `Collectible.js`, `Animation.js`, `Boss.js`, `Performance.js`, `Texture.js`, `Simulator.js`.
+- `handlers/game/` — Handlers specific to in-game (level) state: `Level.js`, `Enemy.js`, `Collectible.js`, `Animation.js`, `Boss.js`, `Performance.js`, `Texture.js`, `Simulator.js`.
 - `handlers/menu/` — Handlers for menu state: `Credits.js`, `LoadScreen.js`, `Splash.js`.
+- `handlers/utilities/` — Handler utilities: `Shaders.js`.
 - `handlers/` (root) — Cross-cutting handlers: `Render.js`, `Sound.js`, `UI.js`, `Controls.js`, `Cutscene.js`.
 
 ---
@@ -92,6 +93,18 @@ All logic for building anything visuals-related.
 
 ---
 
+## 8. `camera/`
+
+The level camera.
+
+- **Called by**: Handlers — `handlers/game/Level.js` and `Simulator.js` drive it each frame, `handlers/Controls.js` routes camera input to it. `core/ini.js` exposes `GetCameraPosition`.
+- **Managed by**: `Master.js` — picks the active mode from the level's camera set each frame, then places it.
+- **Contains**: Situation detection (loops, slopes, speed), camera sets and modes (`Sets.js`, `Sets.json`, `Modes.js`), camera triggers, obstruction, and the `modeData` that tells Movement how input executes.
+- **Calls into**: `physics/`, `player/`, `math/`, `core/`.
+- **Does not**: Import handlers, manage its own update loop, or move the player. Movement reads its output through an argument; nothing in `player/` or `physics/` imports `camera/`.
+
+---
+
 ## Dependency Direction
 
 ```
@@ -102,6 +115,7 @@ physics/       ← called by handlers
 player/        ← called by handlers
 cutscene/      ← called by handlers
 builder/       ← called by handlers
+camera/        ← called by handlers
   ↑
 handlers/      ← top-level orchestrators
 ```
@@ -115,7 +129,7 @@ Modules within the same tier may import from each other freely. The one-directio
 - `core/normalize.js` may import static template JSON from `builder/templates/` strictly for payload canonicalization at the boundary.
 - This exception applies only to normalization-time lookups of allowed IDs/defaults.
 - `core/normalize.js` must not call builder runtime functions or depend on builder execution flow.
-- This exception does not apply to any other `core/` module.
+- This exception does not apply to any other `core/` module, with one exception: `core/validate.js` and `core/normalize.js` may both import the static `camera/Sets.json` catalogue to check `level.camera` and camera triggers. The same limits apply: lookups of allowed names only, never camera runtime functions.
 
 ### Restricted Consumer: `core/normalize.js`
 
@@ -144,7 +158,8 @@ When adding new code, ask:
 4. Is it about the player character? → `player/`
 5. Is it about physical forces or collision? → `physics/`
 6. Is it about cutscene sequencing? → `cutscene/`
-7. Is it about anything else? → probably `handlers/`
+7. Is it about the level camera — its modes, placement, or how it shapes input? → `camera/`
+8. Is it about anything else? → probably `handlers/`
 
 ---
 

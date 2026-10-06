@@ -45,7 +45,6 @@ engine/
       game/
         Animation.js // Level entity animation handler based on entity states
         Boss.js // Boss behavior handler
-        Camera.js // Camera management for levels and cutscenes
         Collectible.js // Collectible item behavior
         Enemy.js // Enemy behavior handler
         Level.js // Level lifecycle and orchestration (entire level state manager)
@@ -56,6 +55,12 @@ engine/
         Splash.js // Manages splash screens on game startup
         LoadScreen.js // Loading screen logic
         Credits.js // Credits screen UI/behavior
+
+    camera/
+      Master.js // Level camera orchestrator: situation detection, set → mode, placement and obstruction
+      Modes.js // Camera modes: orbitCam, freeCam, chaseCam, sideCam
+      Sets.js // Resolves a level's camera config into its runtime set
+      Sets.json // Mode, situation and addon catalogue plus built-in sets (carlCamSet)
 
     cutscene/
       Actors.js // Cutscene actor definitions, manager and helpers

@@ -48,7 +48,7 @@ horizontal velocity for a non-player entity today.
 `speed` modifier "slow prowl" all presuppose an entity animation drive that is not wired.
 
 Related: [`Animation.js:354`](engine/v1/handlers/game/Animation.js#L354) logs on channel
-`"Animation"`, which is **not** in `CONFIG.DEBUG.LOGGING.Channel`
+`"Animation"`, which is **not** in `CONFIG.Debug.Logging.Channel`
 ([config.js:68-85](engine/v1/core/config.js#L68-L85)) — that warning is silently dropped today.
 Entity AI will want its own channel(s) added there regardless.
 
@@ -87,7 +87,7 @@ existing. It does not.
 
 Walkability today is a **runtime, per-contact** classification: `classifySurfaceContact`
 ([Correction.js:57-70](engine/v1/physics/Correction.js#L57-L70)) labels a *contact normal* as
-`"walkable" | "sliding" | "wall"` against `CONFIG.PHYSICS.Correction.MaxAngleDelta`
+`"walkable" | "sliding" | "wall"` against `CONFIG.Physics.Correction.MaxAngleDelta`
 ([config.js:125-128](engine/v1/core/config.js#L125-L128)), with `Recover` hysteresis while sliding.
 It needs a live contact and a reference normal.
 

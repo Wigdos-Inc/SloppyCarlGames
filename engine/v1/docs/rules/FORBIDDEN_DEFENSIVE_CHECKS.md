@@ -15,8 +15,8 @@ If a symbol is engine-owned and guaranteed by initialization/normalization, do n
 Forbidden examples:
 
 ```js
-if (!CONFIG || !CONFIG.DEBUG) { ... }
-const debug = CONFIG && CONFIG.DEBUG ? CONFIG.DEBUG : null;
+if (!CONFIG || !CONFIG.Debug) { ... }
+const debug = CONFIG && CONFIG.Debug ? CONFIG.Debug : null;
 const world = sceneGraph && sceneGraph.world ? sceneGraph.world : {};
 if (!playerState || !playerState.active) { return; }
 ```
@@ -24,7 +24,7 @@ if (!playerState || !playerState.active) { return; }
 Required behavior:
 
 ```js
-if (!CONFIG.DEBUG.ALL) { ... }
+if (!CONFIG.Debug.All) { ... }
 const world = sceneGraph.world;
 if (!playerState.active) { return; }
 ```
@@ -54,7 +54,7 @@ If one of these is missing, that is an upstream bug.
 ### A. Existence Chains on Guaranteed Symbols
 
 ```js
-CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.ALL
+CONFIG && CONFIG.Debug && CONFIG.Debug.All
 sceneGraph && sceneGraph.cameraConfig && sceneGraph.cameraConfig.state
 playerState && playerState.transform
 entity && entity.collision && entity.collision.aabb
@@ -64,14 +64,14 @@ entity && entity.collision && entity.collision.aabb
 
 ```js
 const world = sceneGraph && sceneGraph.world ? sceneGraph.world : {};
-const config = CONFIG && CONFIG.PHYSICS ? CONFIG.PHYSICS.Buoyancy : {};
+const config = CONFIG && CONFIG.Physics ? CONFIG.Physics.Buoyancy : {};
 const scatterBounds = sceneGraph.debug.scatterBounds ?? [];
 ```
 
 ### C. Defensive `typeof` on Guaranteed Internal Methods/Objects
 
 ```js
-typeof CONFIG.VOLUME.Cutscene === "number" // when Cutscene volume is a guaranteed config field
+typeof CONFIG.Volume.Cutscene === "number" // when Cutscene volume is a guaranteed config field
 typeof internalFn === "function" // when internalFn is guaranteed by module contract
 ```
 
@@ -97,6 +97,14 @@ function AddVector3(a, b) {
 Dedicated normalization helpers in `math/` may canonicalize raw vector-like input, but they must be purely for normalization and must not also perform arithmetic.
 
 All other math helpers must consume canonical inputs directly and must not normalize, default, or fallback their operands.
+
+### F. Circular-Reference Guards
+
+```js
+if (visited.has(value)) return;
+```
+
+Engine-owned inputs are acyclic by contract; a cycle is a bug and should surface as a stack overflow. Excluding JS-native objects from a walk (`globalThis`, live, native and binary objects) is not a guard — it's how JS works.
 
 ---
 
@@ -138,7 +146,7 @@ Validation of game-provided/raw input payloads is allowed in boundary modules:
 - `core/normalize.js`
 - other explicit entry-point validators
 
-This exception applies only to game-provided payload data.
+This exception applies only to game-provided payload data. Exposure on the ENGINE API does not make a function a boundary: a utility a game may call (e.g. `ENGINE.Meta.DeepFreeze`) gets this rule at full strictness, and misuse throws.
 
 Imported engine JSON, alias/schema maps, internal default objects, helper option objects, and any other engine-owned data consumed inside those same boundary modules are still canonical engine data and must be used directly without defensive guards or fallback substitution. Keeping that guarantee true as `canonSchemas.json` evolves is an authoring obligation, not a consumption-side exception — see §4.
 
@@ -174,17 +182,17 @@ This keeps bugs visible and forces fixes at the correct architectural boundary.
 Bad:
 
 ```js
-const freeCamEnabled = Boolean(CONFIG && CONFIG.DEBUG && CONFIG.DEBUG.LEVELS && CONFIG.DEBUG.LEVELS.FreeCam === true);
+const freeCamEnabled = Boolean(CONFIG && CONFIG.Debug && CONFIG.Debug.Levels && CONFIG.Debug.Levels.FreeCam === true);
 ```
 
 Good:
 
 ```js
-const freeCamEnabled = Boolean(CONFIG.DEBUG.LEVELS.FreeCam === true);
+const freeCamEnabled = Boolean(CONFIG.Debug.Levels.FreeCam === true);
 ```
 or
 ```js
-const freeCamEnabled = !!(CONFIG.DEBUG.LEVELS.FreeCam === true);
+const freeCamEnabled = !!(CONFIG.Debug.Levels.FreeCam === true);
 ```
 
 ### Scene graph access

@@ -123,35 +123,41 @@ Allow special rotational control so Carl can rotate in water with Q and E
 
 Version Goals:
 - 0.32: Main Update Released [FINISHED]
-- 0.33: Decal Rework [PATCHING]
+- 0.33: Decal Rework [FINISHED]
   1. Pre-load Simulator Cache with player-characters and all templates. [DONE]
   2. Jump Window Expansion (ground probe so early presses can register early; tiny window after losing ground contact) [DONE]
     - Make rendering obey FrameRate. [DONE]
   3. Sticky Terrain: [DONE]
     - Fix bug where you clip out of bounds in voids. [DONE]
     - Add a "sticky" field to terrain. The player's grounding is no longer tied to a minimum speed while grounded on this part. [DONE]
-  4. Camera & Rendering Versatility
-    - Offset the camera at incline changes so it remains vertically stationary during loops. Ensure it doesn't influence movement.
-    - Backface Culling
-    - Toon-switch for outlines.
-  5. DEFERRED Performance Enhancements [PENDING]
+- 0.34: Camera & Controls Stability [PATCHING]
+    - Offset the camera at incline changes so it remains vertically stationary during loops. Ensure it doesn't influence movement. [DONE]
+  1. Loop detection false positives [PENDING]
+    - The upward slope in the tunnel connecting underwater and above water counts as a loop, forcing a bad side-view camera angle.
+  2. Backface Culling [PENDING]
+  3.  Toon-switch for outlines. [PENDING]
+  4. DEFERRED Performance Enhancements [PENDING]
     - Move Render.js Shaders to new Shaders.js module.
     - Move Object.js shape functions to new NewPrimitive.js module.
-  6. Todo Performance Enhancements [PENDING]
-- 0.34: Entity AI
+  5. Todo Performance Enhancements [PENDING]
+  6. orbitCam Rework
+  7. Sprite/Bilboard Support (rotating images that resize based on distance)
+  8. Movement Bugfixes.
+    - 
+- 0.35: Entity AI
   1. Add optional Q/W rotation controls.
   2. Add custom player control option.
   3. Add optional Swimming & Flying states.
   4. Add player/characters.json animation authoring support.
   x. Bug fixes.
-- 0.35: Combat Rework
+- 0.36: Combat Expansion
   x. Bug fixes.
-- 0.36: Collectible Rework
+- 0.37: Collectible Rework
   1. Bug fixes.
   2. Increase game-side control in sub-systems.
   3. Load Screen functionality.
-- 0.37: Moving Terrain & Obstacles.
-- 0.38: DEFERRED Backlog Cleanup
+- 0.38: Moving Terrain & Obstacles.
+- 0.39: DEFERRED Backlog Cleanup
   1. Optionally block scatter on decals.
   2. Add scatter support to voids.
   3. Block scatter inside objects.
@@ -159,14 +165,15 @@ Version Goals:
     - Mark for runtime culling for moving platforms.
   4. Add lighting.
   x. Debug & finish testGame level 2.
-- 0.39: Add entity (player, npcs, bosses) accessories support.
+- 0.40: Add entity (player, npcs, bosses) accessories support.
   - Pre-built, but not rendered (or zero-scaled).
   - Accessories can be toggled individually through the API.
-- 0.40: Populate Templates, Scatter & Textures.
-- 0.41: Engine Cutscenes
+- 0.41: Populate Templates, Scatter & Textures.
+- 0.42: Engine Cutscenes
   1. Add credits builder.
   2. Add dialogue system.
-- 0.42: Add testGame boss level.
+- 0.43: Add testGame boss level.
+  1. Full optimization sweep.
   x. Debugging.
 - 1.0: Full API & Documentation
   - Add canonSchemas aliases.
@@ -178,4 +185,16 @@ Version Goals:
   - Transform the Simulator App to a proper 3D editor.
     - It will be capable of adding, resizing and moving objects to build models.
     - This allows the building of entities, bosses, obstacles and terrain chunks.
-- 1.2: Jeff, Latina & Custom Character Support
+  - Controls ideas:
+    - Click to select an object, an action wheel opens that lets you select what control scheme to use (positioning, scaling, etc)
+      - That same scheme opens for that object in the UI for data-driven editing, including access to the json.
+      - The different views are synced and highlight when updating together.
+    - Right-click to deselect the current object(s) so you can select a new one (or multiple)
+    - Drag to select multiple objects, the same action wheel opens, but greys out single-target options.
+    - 
+  1. Latina & Custom Character Support.
+  x. Bug fixes.
+- 1.2: Build levels progressively rather than at once.
+  - Build a level chunk only when its within simDistance*2.
+  1. Add billboards
+- 1.3: Mobile Support.

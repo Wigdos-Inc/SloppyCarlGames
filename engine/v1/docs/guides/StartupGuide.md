@@ -230,7 +230,7 @@ Here is what happens from the moment the browser loads your page to the moment y
 
 ## Skipping the Splash Sequence
 
-*Keywords: skip splash, SKIP.Splash, CONFIG.DEBUG.SKIP.Splash, sessionStorage, SplashPlayed, config.js, automatic skip*
+*Keywords: skip splash, SKIP.Splash, CONFIG.Debug.Skip.Splash, sessionStorage, SplashPlayed, config.js, automatic skip*
 
 The splash sequence skips in two situations:
 
@@ -249,9 +249,9 @@ When `Splash` is `true`, `runSplashSequence` logs "Splash screen sequence skippe
 
 ## Skipping the Intro Cinematic
 
-*Keywords: skip intro, SKIP.Intro, CONFIG.DEBUG.SKIP.Intro, skipIntro, localStorage, settings, programmatic skip, player toggle, default behavior*
+*Keywords: skip intro, SKIP.Intro, CONFIG.Debug.Skip.Intro, skipIntro, localStorage, settings, programmatic skip, player toggle, default behavior*
 
-The intro cinematic is controlled by `CONFIG.DEBUG.SKIP.Intro`. When this is `true`, the engine never fires `INTRO_CINEMATIC_REQUEST` and never calls `PlayIntroCinematic`, so no video plays.
+The intro cinematic is controlled by `CONFIG.Debug.Skip.Intro`. When this is `true`, the engine never fires `INTRO_CINEMATIC_REQUEST` and never calls `PlayIntroCinematic`, so no video plays.
 
 **Default behavior** — In the engine's default config, `SKIP.Intro` reads from `localStorage` under a `settings` key: `settings?.skipIntro ?? true`. This means if there is no saved settings object, intro is *skipped by default*. If the user has a `settings` object in localStorage (e.g. from a settings menu), `skipIntro` in that object controls it.
 
@@ -264,7 +264,7 @@ StartEngine();
 ENGINE.Config.DEBUG.SKIP.Intro = true;
 ```
 
-Because `runStartupSequence` reads `CONFIG.DEBUG.SKIP.Intro` at the moment the user clicks to start, setting this flag any time before that click takes effect.
+Because `runStartupSequence` reads `CONFIG.Debug.Skip.Intro` at the moment the user clicks to start, setting this flag any time before that click takes effect.
 
 **Via the settings menu pattern** — The testGame settings menu exposes a toggle that writes `skipIntro` to localStorage. On the next page load, `config.js` picks it up and sets `SKIP.Intro` accordingly. This is how a player-facing "skip intro" toggle would work.
 

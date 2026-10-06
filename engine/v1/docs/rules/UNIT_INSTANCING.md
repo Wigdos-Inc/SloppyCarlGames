@@ -182,7 +182,7 @@ NewLevel.js → BuildLevel()
     │  - Never re-instances
     │
     ▼
-Camera.js → InitializeCameraState()
+camera/Master.js → InitializeCameraState()
     │  - Camera defaults are cnu (declared locally)
     │  - Incoming cameraConfig values are CNU (from normalize)
     │  - Never re-instances
@@ -249,7 +249,7 @@ const worldPos = vector.toWorldUnit();       // returns plain {x, y, z}
 | `normalize.js`  | Instance raw payload values as Unit/UnitVector3 (CNU/degrees) |
 | `validate.js`   | Validate payload structure, call normalize, return instanced  |
 | `NewLevel.js`   | Build scene from pre-instanced data. Never instance.          |
-| `Camera.js`     | Instance default values as Unit/UnitVector3("cnu")            |
+| `camera/Master.js` | Instance default values as Unit/UnitVector3("cnu")        |
 | `NewObject.js`  | Instance geometry bounds as UnitVector3("cnu").               |
 | `Master.js`     | Instance player position as UnitVector3("cnu").               |
 | `Master.js`     | Update positions via .set(). Never re-instance.               |
