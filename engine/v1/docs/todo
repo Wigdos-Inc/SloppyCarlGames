@@ -132,7 +132,7 @@ Version Goals:
     - Add a "sticky" field to terrain. The player's grounding is no longer tied to a minimum speed while grounded on this part. [DONE]
 - 0.34: Camera & Controls Stability [PATCHING]
     - Offset the camera at incline changes so it remains vertically stationary during loops. Ensure it doesn't influence movement. [DONE]
-  1. Loop detection false positives [PENDING]
+  1. Loop detection false positives [DONE]
     - The upward slope in the tunnel connecting underwater and above water counts as a loop, forcing a bad side-view camera angle.
   2. Backface Culling [PENDING]
   3.  Toon-switch for outlines. [PENDING]
@@ -142,8 +142,9 @@ Version Goals:
   5. Todo Performance Enhancements [PENDING]
   6. orbitCam Rework
   7. Sprite/Bilboard Support (rotating images that resize based on distance)
-  8. Movement Bugfixes.
-    - 
+  8. Movement Enhancements.
+    - Release jump early for quicker falloff.
+    - Solve over-rotation in above-water tunnel.
 - 0.35: Entity AI
   1. Add optional Q/W rotation controls.
   2. Add custom player control option.

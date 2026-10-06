@@ -1,1 +1,15 @@
 # Changelog (engine/v1/)
+
+## Tube loops gated on the centerline direction
+**What:** A loop on a tube now engages only when its axis lies within 45° of the tube's centerline tangent nearest the player. Non-tube loop surfaces engage on any axis, as before. Only engagement is gated; a running loop is not released on a mismatch.
+- `buildTube` returns its centerline: node centers plus connector ring points.
+- `computeWorldCenterline` stores it in world space as `mesh.centerline` on the invisible, void and normal `BuildObject` paths (`null` for non-tubes).
+- `sceneGraph.tubeCenterlines` maps a surface id to its centerline lines, gathered from terrain, void terrain and obstacle parts.
+- `alongTube` is the last engage condition in `trackLoop`.
+
+**Where:** [builder/NewObject.js](engine/v1/builder/NewObject.js) (`buildTube`, `computeWorldCenterline`, `BuildObject`), [builder/NewLevel.js](engine/v1/builder/NewLevel.js) (`tubeCenterlines`), [camera/Master.js](engine/v1/camera/Master.js) (`alongTube`, `trackLoop`).
+
+## Small-loop roll exception limited to tube walls
+**What:** `frame.onSmallLoop` now also requires `alongTube` for the slope's tilt axis (`cross(world up, alignedUp)`). A tube's walls, which tilt around its centerline, still don't roll. A bend along the tube's length rolls like a regular slope. Non-tube small-loop surfaces are unchanged.
+
+**Where:** [camera/Master.js](engine/v1/camera/Master.js) (`detectSituation`).

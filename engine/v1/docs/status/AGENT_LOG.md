@@ -372,3 +372,33 @@ Examples:
   - No other `if (…) if (…)` nesting exists in the engine.
 - [2026-10-06] MAIN: testGame finding, not fixed. testGame/main.js reads `cfg.Debug.ALL` (line 185) and writes it (line 227), but the config key is `Debug.All`. So the debug-mode setting neither loads into the settings snapshot nor applies. The rest of main.js is migrated to `ENGINE.Config` with UpperCamel keys (the author's migration; this supersedes the 2026-10-05 note about `ENGINE.CONFIG`/`VOLUME`). Reported to the author.
 - [2026-10-06] SAGE: release sweep for 0.34. The [2026-09-26] DEFERRED entry "Movement and camera design inside loops and tubes" was deleted at the author's sign-off. carlCamSet ships it: smallLoop/largeLoop situation detection in camera/Master.js, the loop handling in camera/Modes.js, and the loop lock in player/Movement.js.
+- [2026-10-06] ARGUS: 0.34 patch 1, loop-detection false positives on the final climb of lvl2 `uw-tube-winding`, which two −45° z-roll nodes bend up to vertical before it exits above water. Measurement only, no code changed. `frame.loop` was read by wrapping `CAMERA_MODES[*].prepare` through a dynamic import, with no source edits.
+  - **Reproduced once in 7 runs.** A fresh run started mid-bend (startUpY 0.814) and engaged at turned 50.4° (EnterCurve 45°): radius 16.0, horizontal axis (−0.42, 0, −0.91), up.y 0.07. Situation largeLoop → chaseCam. It held until "lost ground" at the exit (y≈37). Turned peaked at 54.5° and up.y never went below 0.
+  - **Other runs:** two didn't engage on the climb. In three, a corkscrew lap around the tube wall had already engaged earlier (x≈490–517, turned 180–235°, radius 21–121, largeLoop) and carried through the climb to the exit. In the vertical shaft the player spiralled around the shaft wall: turned froze, because an azimuth turn counts as bend, and the loop stayed active.
+  - **sideCam was never seen on the climb.** It appeared only for a genuine tube-wall lap near the entrance (smallLoop, r 5.26–5.36, matching the builder's loopSurfaces radius of ~5.30 for this tube).
+  - **lvl2 has no vertical loop geometry.** Its loopSurfaces are the 3 tubes and the cave chambers; `sonic-loop-marker-sign` is only a sign.
+  - **Inference, not verified:** comparing the tracked radius with the surface's built loop radius (16–121 vs 5.3) separates the false positives from tube laps.
+  - No console errors. A stale MCP Chrome (PID 40176) was killed, with the author's approval, to unblock the browser.
+- [2026-10-06] MAIN: 0.34 patch 1, loop-detection false positives — fixed directly by MAIN (no ED/ERA/DRYAD).
+  - **Cause:** loop surfaces were judged per whole piece, so one tube was one loop surface. The bend up to vertical at the `uw-tube-winding` exit therefore engaged as a loop.
+  - **Author's view:** the climb is a wall run out of the tube, so it should get slope roll like a regular slope.
+  - **Author decision 1:** a tube's loop direction comes from its centerline. A per-triangle axis from fold geometry was rejected because it is approximate in tight bends.
+  - **Author decision 2:** only engagement is gated. Also releasing a running loop on a mismatch was rejected, so a corkscrew lap that engaged earlier can still carry through a climb.
+  - **Rule:** the loop axis must lie within 45° of the nearest centerline tangent. This reuses the existing fixed `Math.SQRT1_2` rule.
+  - **Browser-verified** with a runtime hook (no source edits):
+    - uw-tube-winding, 5 runs: the climb never engaged (0 active ticks) and its situation was slope. Two runs reached turned 54.5°, where it engaged before. One corkscrew lap engaged with its axis along the tube and released before the climb.
+    - uw-tube-uturn: tube-wall laps still engage as smallLoop/sideCam (r 5.0–5.23, axis along the tube) in 2 of 3 runs. The third (no boost) didn't engage, but the new gate passed on every eligible tick (dot 1.00), so an existing condition blocked it.
+  - No console errors. Slope roll on the climb was not visually verified; that sign-off is the author's. node --check passed on all 3 files, including as .mjs.
+- [2026-10-07] MAIN: 0.34 patch 1 follow-up, a regression the author reported after the centerline gate — fixed in camera/Master.js `detectSituation`.
+  - **Report:** getting out of the vertical exit of uw-tube-winding got harder at speed. The author saw worse wobble, a forced loss of all speed or forced horizontal circles (with no loop controls), and sliding at a crawl on the near-vertical wall.
+  - **How it was measured:** browser runtime hook, A/B by emptying `sceneGraph.tubeCenterlines` at runtime (no source edits for the A/B).
+  - **Gate on:** the climb stayed `slope` and the camera stayed upright. `frame.onSmallLoop` suppresses chaseCam slope roll, and it was true for the whole tube, since the tube's built radius is 5.3 against an 11.3 threshold. Free-control W (camera forward projected onto the wall) pointed mostly horizontal, so Carl circled the shaft and slid back into the tube.
+  - **Gate off, loop engaged:** largeLoop rolled the camera, W pointed straight up the wall (≈0,1,0), and Carl exited.
+  - **Gate off, not engaged:** the same failure as gate on. So the old code only exited when the climb happened to engage as a loop.
+  - **Fix:** the small-loop no-roll exception is the author's 2026-10-04 ruling (motion sickness), so it stays for tube walls. `onSmallLoop` now also requires `alongTube` with the slope's tilt axis, `cross(world up, alignedUp)`. Walls tilting around the centerline still don't roll; a bend along the tube's length rolls like a regular slope, as the author asked. Non-tube small-loop surfaces are unchanged.
+  - **Verified, 5 runs:** 4 exited, spending 0.7–1.1 s on the climb with speed held at 22–24.6; the camera rolled and W pointed up the wall. On the side walls `onSmallLoop` stayed true on ≥99% of ticks. The failed run reached the bend at a crawl (speed 1.7–4) and slid at its 56° base.
+  - **Crawl on the 90° wall (holding S), open:** below ~8–10 u/s the contact becomes `sliding` (grounded false), and Carl slides down the wall at 2–7 u/s rather than coming off it.
+    - Cause, by code reading: [`ClassifySurface`](engine/v1/physics/Correction.js#L79) judges wall vs sliding by the angle from the last walked normal. That normal follows the curve up, so the wall reads as sliding below grip speed.
+    - This is the existing grip design; neither camera fix changed it. What should happen at a crawl on a vertical wall was put to the author and is undecided.
+  - Circling the vertical shaft never triggers loop controls, by design: a vertical axis fails the fixed 45° engage rule.
+  - No console errors. node --check passed.
