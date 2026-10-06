@@ -74,7 +74,7 @@ const Vector3Length = (vector) => Math.hypot(vector.x, vector.y, vector.z);
 const Vector3Distance = (a, b) => Vector3Length(SubtractVector3(a, b));
 const Vector3Matches = (a, b) => a.x === b.x && a.y === b.y && a.z === b.z;
 
-// 0 inside the box, so a large volume never reads as distant from a point within it.
+// 0 when the point is inside the box, so you're never "far" from a box you're in.
 const Vector3SqDistanceToAabb = (point, aabb) => Vector3Sq(SubtractVector3(point, ClampVector3(point, aabb.min, aabb.max)));
 
 function ResolveVector3Axis(vector) {
@@ -84,12 +84,7 @@ function ResolveVector3Axis(vector) {
 
 const CloneVector3 = (vector) => { return { x: vector.x, y: vector.y, z: vector.z } };
 
-/**
- * Rotate a point by Euler angles, matching CreateModelMatrix's composition (Ry·Rx·Rz).
- * The point is rotated Z first, then X, then Y, so results agree with buildModelMatrix
- * (and the AABB/collision path) for compound rotations — single-axis rotations are unaffected.
- * All rotation values must be in radians.
- */
+// Rotates a point by Euler radians in CreateModelMatrix's order (Z, then X, then Y).
 function RotateByEuler(point, rotation) {
 	// Z rotation
 	const cz = Math.cos(rotation.z);
@@ -107,22 +102,37 @@ function RotateByEuler(point, rotation) {
 	return { x: p2.x * cy + p2.z * sy, y: p2.y, z: -p2.x * sy + p2.z * cy };
 }
 
-/**
- * Rotate unit `from` toward unit `to` by at most `maxStep` radians, in their shared plane.
- * Snaps exactly on arrival, so convergence tests terminate.
- */
+// Radians between unit vectors.
+const AngleBetweenVector3 = (a, b) => Math.acos(Clamp(DotVector3(a, b), -1, 1));
+
+// Minimal rotation carrying unit `from` onto unit `to`, applied to `v`. Undefined for a half-turn.
+function TransportVector3(v, from, to) {
+	const axis = CrossVector3(from, to);
+	const cos = DotVector3(from, to);
+	return AddVector3(
+		AddVector3(ScaleVector3(v, cos), CrossVector3(axis, v)), 
+		ScaleVector3(axis, DotVector3(axis, v) / (1 + cos))
+	);
+}
+
+// How far to turn left/right to go from `from`'s heading to `to`'s. No turn past a quarter turn (e.g. wall to ceiling).
+function AzimuthTurnVector3(from, to) {
+	const raw = Math.atan2(to.x, to.z) - Math.atan2(from.x, from.z);
+	const turn = Math.atan2(Math.sin(raw), Math.cos(raw));
+	return { x: 0, y: Math.abs(turn) > Math.PI / 2 ? 0 : turn, z: 0 };
+}
+
+// Turns unit `from` toward unit `to` by at most `maxStep` radians; lands exactly on `to` once in reach, so callers can detect arrival.
 function RotateTowardVector3(from, to, maxStep) {
 	if (maxStep <= 0) return CloneVector3(from);
 
 	const cosAngle = Clamp(DotVector3(from, to), -1, 1);
 	if (Math.acos(cosAngle) <= maxStep) return CloneVector3(to);
 
+	// When `from` and `to` point exactly opposite ways, turn through any sideways direction.
 	const planar = SubtractVector3(to, ScaleVector3(from, cosAngle));
-	// Antiparallel: no shared plane, so any perpendicular is as valid as another.
 	const e2 = ResolveVector3Axis(
-		Vector3Length(planar) > EPSILON
-			? planar
-			: CrossVector3(from, Math.abs(from.y) < 0.9 ? WORLD_NORMALS.Up : WORLD_NORMALS.Right)
+		Vector3Length(planar) > EPSILON ? planar : CrossVector3(from, Math.abs(from.y) < 0.9 ? WORLD_NORMALS.Up : WORLD_NORMALS.Right)
 	);
 
 	return AddVector3(ScaleVector3(from, Math.cos(maxStep)), ScaleVector3(e2, Math.sin(maxStep)));
@@ -159,8 +169,11 @@ export {
 	Vector3SqDistanceToAabb,
 	ResolveVector3Axis,
 	LerpVector3,
+	AngleBetweenVector3,
 	RotateByEuler,
 	RotateTowardVector3,
+	TransportVector3,
+	AzimuthTurnVector3,
 	ToVector3,
 	Vector3ToArray,
 	WORLD_NORMALS,

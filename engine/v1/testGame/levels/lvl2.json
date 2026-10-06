@@ -32,9 +32,11 @@
 						"scatterScale": 1
 					},
 					"camera": {
-						"distance": 6,
+						"activeSet": "carlCamSet",
+						"distance": {"min":3,"default":6,"max":12},
 						"sensitivity": 0.12,
 						"heightOffset": 1.5,
+						"aimHeight": 1.2,
 						"levelOpening": {
 							"startPosition": {"x":650,"y":30,"z":561.127},
 							"endPosition": {"x":650,"y":30,"z":561.127}
@@ -1263,22 +1265,22 @@
 						],
 						"triggers": [
 							{
-								"id": "trigger-placeholder-00",
-								"type": "custom",
+								"id": "camera-orbit",
+								"type": "camera",
 								"start": {"x":550.96,"y":36,"z":567.071},
 								"end": {"x":564.96,"y":36,"z":581.071},
 								"payload": {
-									"slot": 0
+									"mode": "orbitCam"
 								},
 								"activateOnce": false
 							},
 							{
-								"id": "trigger-placeholder-01",
-								"type": "custom",
+								"id": "camera-release",
+								"type": "camera",
 								"start": {"x":566.8,"y":36,"z":567.071},
 								"end": {"x":580.8,"y":36,"z":581.071},
 								"payload": {
-									"slot": 1
+									"mode": "release"
 								},
 								"activateOnce": false
 							},

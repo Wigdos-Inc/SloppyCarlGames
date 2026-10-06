@@ -27,10 +27,7 @@ import { Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
 // Default model-pose turn rate, radians/second. Characters scale it by their control values.
 const defaultModelTurnRate = 8;
 
-/**
- * Get the center position offset for a given face of a box with the given dimensions.
- * Returns {x,y,z} offset from the box center.
- */
+// Returns the {x,y,z} offset from the box center to the center of the given face.
 function getFaceCenterOffset(dimensions, faceType) {
 	switch (faceType) {
 		case "top":    return { x: 0, y:  dimensions.y * 0.5, z: 0 };
@@ -43,13 +40,7 @@ function getFaceCenterOffset(dimensions, faceType) {
 	}
 }
 
-/**
- * After applying a rotation to a part, the logical face labels may no longer match
- * their original axes. This function rotates each canonical face normal by the given
- * euler rotation (radians), then reassigns face labels based on which world-axis
- * direction each rotated normal most closely aligns with.
- * Returns an object mapping original face names to new face names.
- */
+// After a rotation, relabels each face by the world axis its normal lands nearest. Returns { original: new }.
 function remapFacesAfterRotation(rotation) {
 	const isNearZero = Math.abs(rotation.x) < 1e-6 && Math.abs(rotation.y) < 1e-6 && Math.abs(rotation.z) < 1e-6;
 	if (isNearZero) {
@@ -102,12 +93,12 @@ function remapFacesAfterRotation(rotation) {
 			claimed.add(a.bestLabel);
 		} 
 		else {
-			// Fallback: assign first unclaimed axis by dot product.
+			// Fallback: assign first unclaimed axis by dot product (approximate).
 			let fallbackLabel = a.name;
 			let fallbackDot = -Infinity;
 			for (const axis of worldAxes) {
 				if (!claimed.has(axis.label)) {
-					const d = a.bestDot; // approximate
+					const d = a.bestDot;
 					if (d > fallbackDot) {
 						fallbackDot = d;
 						fallbackLabel = axis.label;
@@ -552,9 +543,7 @@ function resolvePhysicsShape(shape, aabb) {
 	return dim.y > Math.max(dim.x, dim.z) ? "capsule" : "sphere";
 }
 
-/**
- * Build the bounds object for a given shape type from entity AABB/model.
- */
+// Builds the bounds for a shape type from the entity AABB or model.
 function buildBoundsForShape(shape, aabb, model) {
 	switch (shape) {
 		case "sphere"         : return computeSphereFromAabb(aabb);
@@ -565,12 +554,7 @@ function buildBoundsForShape(shape, aabb, model) {
 	}
 }
 
-/**
- * Place a frozen rest-pose bounds object into world space. Offsets take the transform's
- * scale and rotation (trig precomputed once by the caller), axes take rotation alone, and
- * radii take the transform's largest scale component. compound-sphere rebuilds from the
- * posed model.
- */
+// Places frozen rest-pose bounds into world space. Compound-sphere is rebuilt from the posed model instead.
 function placeBoundsForShape(bounds, transform, model, trig) {
 	const position = transform.position;
 	const scale = transform.scale;
@@ -617,11 +601,7 @@ function computeObbFromAabb(aabb) {
 	};
 }
 
-/**
- * Compute three-layer collision data for an entity.
- * Returns { physics, hurtbox, hitbox, collisionShape, detailedBounds } where
- * detailedBounds is the physics bounds (backward compat).
- */
+// Builds the physics, hurtbox and hitbox bounds for an entity. detailedBounds is the physics bounds.
 function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverride) {
 
 	// "auto" resolves to a concrete shape here.
@@ -661,11 +641,7 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverri
 	};
 }
 
-/**
- * Freeze every collider from the rest pose, in local space. The model is posed at the origin
- * with zero rotation and unit scale for the measurement, then restored. The frozen shape
- * carries no transform of its own; placeBoundsForShape reapplies all three each frame.
- */
+// Freezes every collider in local space, measured with the model posed at the origin, then restored.
 function captureRestCollision(definition, model) {
 	const rootTransform = model.rootTransform;
 	const position = rootTransform.position.clone();
@@ -696,6 +672,24 @@ function captureRestCollision(definition, model) {
 }
 
 /* === PUBLIC API === */
+
+// Fresh movement input memory, read by player/Movement.js.
+const NewInputFrame = () => ({
+	carriedForward   : CloneVector3(WORLD_NORMALS.Forward),
+	previousCameraYaw: 0,
+	previousHasInput : false,
+	previousGrounded : false,
+	previousUp       : CloneVector3(WORLD_NORMALS.Up),
+	previousHeld     : false,
+	previousKeys     : { forward: 0, right: 0 },
+	previousControl  : "free",
+	remapPending     : false,
+	holding          : false,
+	locked           : false,
+	lockAngle        : 0,
+	lockSign         : 1,
+	lockThrottle     : 0,
+});
 
 /**
  * Build an entity from a merged definition.
@@ -748,19 +742,16 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		launched: false,
 		contactGrace: 0,
 		gripDemand: 0,
+		gravityScale: 1,
+		dragFree: false,
+		staticFriction: 0,
 		surfaceContact: "none",
 		surfaceNormal: CloneVector3(WORLD_NORMALS.Up),
 		alignedUp: CloneVector3(WORLD_NORMALS.Up),
 		referenceNormal: CloneVector3(WORLD_NORMALS.Up),
 		modelTurnRate: { air: defaultModelTurnRate, water: defaultModelTurnRate },
 		facing: RotateByEuler(WORLD_NORMALS.Forward, rootTrans.rotation),
-		inputFrame: {
-			carriedForward   : CloneVector3(WORLD_NORMALS.Forward),
-			previousCameraYaw: 0,
-			previousHasInput : false,
-			previousGrounded : false,
-			previousUp       : CloneVector3(WORLD_NORMALS.Up),
-		},
+		inputFrame: NewInputFrame(),
 		model,
 		mesh: model.parts[0].mesh,
 		collision: {
@@ -865,6 +856,7 @@ function ResetEntityToDefaultPose(entity) {
 const SampleMovementPoint = (entity, normalizedTime) => LerpVector3(entity.movement.start, entity.movement.end, normalizedTime);
 
 export {
+	NewInputFrame,
 	BuildEntity,
 	UpdateEntityModelFromTransform,
 	ResetEntityToDefaultPose,

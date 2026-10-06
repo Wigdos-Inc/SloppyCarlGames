@@ -923,21 +923,206 @@
         "description": "Camera config",
         "aliases": [],
         "dataType": "object",
-        "isRequired": false,
+        "isRequired": true,
         "isExpected": false,
         "fallback": {},
         "deprecated": false
       },
+      "activeSet": {
+        "__meta": {
+          "description": "Built-in set name from camera/Sets.json, or \"custom\"",
+          "aliases": [],
+          "dataType": "string",
+          "isRequired": true,
+          "isExpected": true,
+          "fallback": null,
+          "deprecated": false
+        }
+      },
+      "situations": {
+        "__meta": {
+          "description": "Situation to mode map (overrides a built-in set, or defines a custom set)",
+          "aliases": [],
+          "dataType": "object",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": {},
+          "deprecated": false
+        }
+      },
+      "modeAddons": {
+        "__meta": {
+          "description": "Mode to array of addon keys",
+          "aliases": [],
+          "dataType": "object",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": {},
+          "deprecated": false
+        }
+      },
       "distance": {
         "__meta": {
-          "description": "Camera distance",
+          "description": "Arm length range and start, cnu",
           "aliases": [],
-          "dataType": "number",
+          "dataType": "object",
           "isRequired": false,
           "isExpected": true,
-          "fallback": 5,
-          "range": { "min": 0.1, "max": 10000 },
+          "fallback": { "min": 2.5, "default": 5, "max": 10 },
           "deprecated": false
+        },
+        "min": {
+          "__meta": {
+            "description": "Closest wheel zoom",
+            "aliases": [],
+            "dataType": "number",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": 2.5,
+            "range": { "min": 0.1, "max": 10000 },
+            "deprecated": false
+          }
+        },
+        "default": {
+          "__meta": {
+            "description": "Arm length at level start",
+            "aliases": [],
+            "dataType": "number",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": 5,
+            "range": { "min": 0.1, "max": 10000 },
+            "deprecated": false
+          }
+        },
+        "max": {
+          "__meta": {
+            "description": "Furthest wheel zoom",
+            "aliases": [],
+            "dataType": "number",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": 10,
+            "range": { "min": 0.1, "max": 10000 },
+            "deprecated": false
+          }
+        }
+      },
+      "pitchLimit": {
+        "__meta": {
+          "description": "Look tilt allowed above / below the settled pitch, degrees; 0 = none, over 90 = unlimited",
+          "aliases": [],
+          "dataType": "object",
+          "isRequired": false,
+          "isExpected": true,
+          "fallback": { "top": 60, "bottom": 60 },
+          "deprecated": false
+        },
+        "top": {
+          "__meta": {
+            "description": "Tilt allowed above the settled pitch",
+            "aliases": [],
+            "dataType": "number",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": 60,
+            "range": { "min": 0, "max": 180 },
+            "deprecated": false
+          }
+        },
+        "bottom": {
+          "__meta": {
+            "description": "Tilt allowed below the settled pitch",
+            "aliases": [],
+            "dataType": "number",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": 60,
+            "range": { "min": 0, "max": 180 },
+            "deprecated": false
+          }
+        }
+      },
+      "freeCam": {
+        "__meta": {
+          "description": "Debug freeCam flight, cnu",
+          "aliases": [],
+          "dataType": "object",
+          "isRequired": false,
+          "isExpected": true,
+          "fallback": { "speed": { "min": 3, "default": 14, "max": 80 }, "acceleration": 44, "speedStep": 2.5 },
+          "deprecated": false
+        },
+        "speed": {
+          "__meta": {
+            "description": "Top speed range and start, cnu per second",
+            "aliases": [],
+            "dataType": "object",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": { "min": 3, "default": 14, "max": 80 },
+            "deprecated": false
+          },
+          "min": {
+            "__meta": {
+              "description": "Slowest wheel-tuned top speed",
+              "aliases": [],
+              "dataType": "number",
+              "isRequired": false,
+              "isExpected": true,
+              "fallback": 3,
+              "range": { "min": 0.1, "max": 10000 },
+              "deprecated": false
+            }
+          },
+          "default": {
+            "__meta": {
+              "description": "Top speed at level start",
+              "aliases": [],
+              "dataType": "number",
+              "isRequired": false,
+              "isExpected": true,
+              "fallback": 14,
+              "range": { "min": 0.1, "max": 10000 },
+              "deprecated": false
+            }
+          },
+          "max": {
+            "__meta": {
+              "description": "Fastest wheel-tuned top speed",
+              "aliases": [],
+              "dataType": "number",
+              "isRequired": false,
+              "isExpected": true,
+              "fallback": 80,
+              "range": { "min": 0.1, "max": 10000 },
+              "deprecated": false
+            }
+          }
+        },
+        "acceleration": {
+          "__meta": {
+            "description": "Speed-up and braking, cnu per second squared",
+            "aliases": [],
+            "dataType": "number",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": 44,
+            "range": { "min": 0.1, "max": 10000 },
+            "deprecated": false
+          }
+        },
+        "speedStep": {
+          "__meta": {
+            "description": "Top speed change per wheel notch, cnu per second",
+            "aliases": [],
+            "dataType": "number",
+            "isRequired": false,
+            "isExpected": true,
+            "fallback": 2.5,
+            "range": { "min": 0, "max": 10000 },
+            "deprecated": false
+          }
         }
       },
       "sensitivity": {
@@ -961,6 +1146,18 @@
           "isExpected": true,
           "fallback": 1.5,
           "range": { "min": -1000, "max": 1000 },
+          "deprecated": false
+        }
+      },
+      "aimHeight": {
+        "__meta": {
+          "description": "Look point in character heights above the feet; 0 = bottom, 1 = top. Body center in loops",
+          "aliases": [],
+          "dataType": "number",
+          "isRequired": false,
+          "isExpected": false,
+          "fallback": 1,
+          "range": { "min": -10, "max": 10 },
           "deprecated": false
         }
       },

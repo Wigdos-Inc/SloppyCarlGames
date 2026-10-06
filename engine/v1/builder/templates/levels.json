@@ -3,9 +3,9 @@
         "id": "simulator-level",
         "title": "Simulator",
         "world": {
-            "length": 20,
-            "width": 20,
-            "height": 20,
+            "length": 500,
+            "width": 500,
+            "height": 500,
             "deathBarrierY": -50,
             "water": {
                 "level": null,
@@ -19,12 +19,28 @@
             "scatterScale": 0
         },
         "camera": {
-            "distance": 7,
+            "activeSet": "custom",
+            "situations": {
+                "slowMovement": "orbitCam",
+                "fastMovement": "orbitCam",
+                "slope": "orbitCam",
+                "smallLoop": "orbitCam",
+                "largeLoop": "orbitCam"
+            },
+            "modeAddons": {},
+            "distance": { "min": 3.5, "default": 7, "max": 14 },
+            "pitchLimit": { "top": 60, "bottom": 60 },
+            "freeCam": {
+                "speed": { "min": 3, "default": 14, "max": 80 },
+                "acceleration": 44,
+                "speedStep": 2.5
+            },
             "sensitivity": 0.12,
             "heightOffset": 1.5,
+            "aimHeight": 0.5,
             "levelOpening": {
-                "startPosition": { "x": 10, "y": 8, "z": 18 },
-                "endPosition":   { "x": 10, "y": 8, "z": 18 }
+                "startPosition": { "x": 250, "y": 8, "z": 258 },
+                "endPosition":   { "x": 250, "y": 8, "z": 258 }
             }
         },
         "terrain": {
@@ -34,7 +50,7 @@
                     "shape": "cylinder",
                     "complexity": "medium",
                     "dimensions": { "x": 8, "y": 0.5, "z": 8 },
-                    "position": { "x": 10, "y": 0, "z": 10 },
+                    "position": { "x": 250, "y": 0, "z": 250 },
                     "rotation": { "x": 0, "y": 0, "z": 0 },
                     "scale": { "x": 1, "y": 1, "z": 1 },
                     "pivot": { "x": 0, "y": 0, "z": 0 },

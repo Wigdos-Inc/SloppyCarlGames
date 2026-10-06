@@ -135,7 +135,7 @@ async function runStartupSequence() {
   clearIntroCinematicBuffer();
   const context = await ApplySplashScreenSequence({
     onSequenceStart: () => {
-      if (CONFIG.DEBUG.SKIP.Intro === true) {
+      if (CONFIG.Debug.Skip.Intro === true) {
         Log("ENGINE", "Intro cinematic skipped by settings.", "log", "Startup");
         return;
       }
@@ -151,7 +151,7 @@ async function runStartupSequence() {
 
   const overlayId = context.overlayId;
 
-  if (CONFIG.DEBUG.SKIP.Intro !== true && requestedPayload !== null) {
+  if (CONFIG.Debug.Skip.Intro !== true && requestedPayload !== null) {
     const options = { rootId: overlayId, videoId: "engine-intro-video" };
     if (requestedType === "rendered") await PlayRenderedCutscene(requestedPayload, options);
     else await PlayEngineCutscene(requestedPayload, options);

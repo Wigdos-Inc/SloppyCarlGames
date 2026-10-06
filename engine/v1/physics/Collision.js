@@ -19,6 +19,7 @@ import {
 	ClampVector3,
 	MultiplyVector3,
 	RotateByEuler,
+	TransportVector3,
 	WORLD_NORMALS,
 } from "../math/Vector3.js";
 import {
@@ -51,16 +52,13 @@ import { ClassifySurface } from "./Correction.js";
 const wallFacingMinApproachDot = 0.5;
 
 // Tiny sphere radius used for ground-support point void narrowphase tests.
-// Instanced once at module scope per UNIT_INSTANCING.md.
 const groundProbeRadius = new Unit(0.001, "cnu");
 
-// Vertical-only tolerance (CNU) for void boundary overlap tests. Absorbs the
-// float-precision error from OBB ray-casts landing on a coincident boundary plane
-// (support point at y == void.min.y). Applied to the y axis only — x/z stay exact.
+// Extra height on void bounds, so a ground point sitting exactly on a void's bottom still counts.
 const voidBoundaryEpsilon = new Unit(0.001, "cnu");
 
 // Depth (CNU) a contact point is pushed back into the host to sample the material it touched.
-// Same depth as NewVoid.js's aperture probe.
+// Note: Same depth as NewVoid.js's aperture probe.
 const contactMaterialProbe = new Unit(0.05, "cnu");
 
 /* ========================================================================
@@ -293,7 +291,7 @@ const NarrowphaseTest = (bA, bB) => narrowphaseContact(bA, bB).hit;
  * BROADPHASE
  * ======================================================================== */
 
-const GetSimDistanceValue = () => PERFORMANCE_SCALING.SimDistance.Tiers[CONFIG.PERFORMANCE.SimDistance];
+const GetSimDistanceValue = () => PERFORMANCE_SCALING.SimDistance.Tiers[CONFIG.Performance.SimDistance];
 
 // A null viewer opts out of the gate entirely (payloads may carry no player).
 const IsBeyondSimDistance = (viewerPos, tgtPos) => viewerPos !== null && Vector3Distance(viewerPos, tgtPos) > GetSimDistanceValue().value;
@@ -396,8 +394,7 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 		});
 	}
 
-	// Physics-enabled entities (for N-body physics). Particles neither obstruct nor are obstructed:
-	// a burst spawns at its emitter's origin, so the emitter would strip its own launch velocity.
+	// Physics-enabled entities (for N-body physics). Particles are skipped so an emitter can't cancel its own burst.
 	if (includeEntities) {
 		sceneGraph.entities.forEach(ent => {
 			if (ent.type === "player" || ent.type === "particle" || !ent.collision.detailedBounds) return;
@@ -582,7 +579,7 @@ const GetEntityPhysicsFlags = (e) => e.type === "player" ? e.character.physics :
  */
 function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 	const isPlayer = entity.type === "player";
-	if (CONFIG.PHYSICS.Collision.Enabled === false || !GetEntityPhysicsFlags(entity).collision) {
+	if (CONFIG.Physics.Collision.Enabled === false || !GetEntityPhysicsFlags(entity).collision) {
 		ResetCollisionPools();
 		return { solids: solidResultPool, triggers: triggerResultPool };
 	}
@@ -686,7 +683,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 
 function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 	const isPlayer = entity.type === "player";
-	if (CONFIG.PHYSICS.Collision.Enabled === false || !GetEntityPhysicsFlags(entity).collision) {
+	if (CONFIG.Physics.Collision.Enabled === false || !GetEntityPhysicsFlags(entity).collision) {
 		ResetCollisionPools();
 		return { solids: solidResultPool, triggers: triggerResultPool, candidates: [] };
 	}
@@ -757,10 +754,10 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
  */
 function DetectCombatOverlaps(playerState, entities) {
 	if (
-		CONFIG.PHYSICS.Collision.Enabled === false || 
+		CONFIG.Physics.Collision.Enabled === false || 
 		(
-			CONFIG.PHYSICS.Collision.Hurtbox === false && 
-			CONFIG.PHYSICS.Collision.Hitbox === false
+			CONFIG.Physics.Collision.Hurtbox === false && 
+			CONFIG.Physics.Collision.Hitbox === false
 		)
 	) {
 		poolReset(hurtboxResultPool);
@@ -778,7 +775,7 @@ function DetectCombatOverlaps(playerState, entities) {
 		if (!AabbOverlap(playerState.collision.aabb, entity.collision.aabb)) continue;
 
 		// Player hitbox active → player attacks entity.
-		if (playerState.hitboxActive && CONFIG.PHYSICS.Collision.Hitbox) {
+		if (playerState.hitboxActive && CONFIG.Physics.Collision.Hitbox) {
 			if (playerState.collision.hitbox && entity.collision.hurtbox) {
 				if (NarrowphaseTest(playerState.collision.hitbox.bounds, entity.collision.hurtbox.bounds)) {
 					const item = poolPush(hurtboxResultPool);
@@ -790,7 +787,7 @@ function DetectCombatOverlaps(playerState, entities) {
 		}
 
 		// Entity hitbox active → entity attacks player.
-		if (entity.hitboxActive && CONFIG.PHYSICS.Collision.Hurtbox) {
+		if (entity.hitboxActive && CONFIG.Physics.Collision.Hurtbox) {
 			if (entity.collision.hitbox && playerState.collision.hurtbox) {
 				if (NarrowphaseTest(entity.collision.hitbox.bounds, playerState.collision.hurtbox.bounds)) {
 					const item = poolPush(hurtboxResultPool);
@@ -815,10 +812,12 @@ function DetectCombatOverlaps(playerState, entities) {
  * @param {{ x, y, z }} velocity — per-second velocity.
  * @param {{ x, y, z }} displacement — velocity * dt.
  * @param {{ items, count }|Array} solids — sorted collision results.
+ * @param {{ normal, minCos }|null} fold — kept footing's surface and walkable fold limit; null slides plainly.
  * @returns {{ resolvedVelocity, resolvedDisplacement, floorImpact, wallImpact, changedPosition, changedVelocity, anyChanged }}
  */
-function ResolveCollisions(velocity, displacement, solids) {
+function ResolveCollisions(velocity, displacement, solids, fold) {
 	let vel = CloneVector3(velocity);
+	let footing = fold === null ? null : fold.normal;
 	let disp = CloneVector3(displacement);
 	let floorImpact = createEmptyFloorImpact();
 	let wallImpact = createEmptyWallImpact();
@@ -867,15 +866,20 @@ function ResolveCollisions(velocity, displacement, solids) {
 			changedPosition = changedPosition || collision.pushDepth > EPSILON;
 		}
 
-		// Slide: remove velocity component along collision normal.
-		const velDotN = DotVector3(vel, collision.normal);
+		// Slide: remove velocity component along collision normal. Across a walkable fold, turn onto it instead, keeping speed.
+		let velDotN = DotVector3(vel, collision.normal);
+		if (velDotN < -EPSILON && footing !== null && DotVector3(footing, collision.normal) >= fold.minCos) {
+			vel = TransportVector3(vel, footing, collision.normal);
+			footing = collision.normal;
+			velDotN = DotVector3(vel, collision.normal);
+			changedVelocity = true;
+		}
 		if (velDotN < 0) {
 			vel = SubtractVector3(vel, ScaleVector3(collision.normal, velDotN));
 			changedVelocity = changedVelocity || Math.abs(velDotN) > EPSILON;
 		}
 
-		// Swept contacts should move to the impact point first, then only clip the
-		// remaining into-surface travel. Overlap recovery keeps the existing push-out path.
+		// Swept hits move to the impact point first, then clip only the travel left over. Overlap hits keep the existing push-out.
 		if (collision.pushDepth <= EPSILON && collision.tEntry > 0) {
 			const entryDisplacement = ScaleVector3(disp, collision.tEntry);
 			let remainingDisplacement = SubtractVector3(disp, entryDisplacement);
@@ -921,7 +925,7 @@ function ResolveCollisions(velocity, displacement, solids) {
  * @returns {{ hit: boolean, normal?: object, contact?: string, restDelta?: number, surfaceId: string | null }}
  */
 function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates, frameStart) {
-	if (CONFIG.PHYSICS.Collision.Enabled === false) return { hit: false };
+	if (CONFIG.Physics.Collision.Enabled === false) return { hit: false };
 
 	// Rest-pose capsule, placed scale-then-rotation like every other collider.
 	const groundCapsule = entity.collision.rest.groundCapsule;
@@ -931,7 +935,7 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates,
 	const probe = AddVector3(RotateByEuler(capOffset, entity.transform.rotation), entity.transform.position);
 	const maxDist = radius + groundSnapTolerance;
 
-	// Coupled surface: held until it stops grounding.
+	// Coupled surface: kept across ties, such as a seam.
 	const coupledId = entity.physicsRuntime.groundSurfaceId;
 	const hits = [];
 
@@ -1061,14 +1065,13 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates,
 	probeVoidWalls(sceneGraph.voids.terrain, true);
 	probeVoidWalls(sceneGraph.voids.obstacles, false);
 
-	// Class first: walkable over sliding, then the coupled surface, then nearest.
+	// Class first: walkable over sliding, then nearest; the coupled surface only breaks ties.
 	let chosen = null;
 	for (const hit of hits) {
 		if (chosen === null) { chosen = hit; continue; }
 		if (hit.contact !== chosen.contact) { if (hit.contact === "walkable") chosen = hit; continue; }
-		const hitCoupled = hit.surfaceId === coupledId;
-		if (hitCoupled !== (chosen.surfaceId === coupledId)) { if (hitCoupled) chosen = hit; continue; }
-		if (hit.t < chosen.t) chosen = hit;
+		if (Math.abs(hit.t - chosen.t) > EPSILON) { if (hit.t < chosen.t) chosen = hit; continue; }
+		if (hit.surfaceId === coupledId) chosen = hit;
 	}
 
 	if (chosen === null) return { hit: false, surfaceId: null };

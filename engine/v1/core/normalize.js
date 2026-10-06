@@ -15,6 +15,7 @@ import characterTemplates from "../builder/templates/characters.json" with { typ
 import enemyTemplates from "../builder/templates/enemies.json" with { type: "json" };
 import projectileTemplates from "../builder/templates/projectiles.json" with { type: "json" };
 import particleTemplates from "../builder/templates/particles.json" with { type: "json" };
+import cameraSets from "../camera/Sets.json" with { type: "json" };
 import { Log, ENTITY_TYPES } from "./meta.js";
 import { SKY_STOP_LIMIT } from "./config.js";
 import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
@@ -369,8 +370,8 @@ export async function NormalizeImage(path, sourceType, renderType) {
 	try {
 		const response = await fetch(path);
 		if (!response.ok) throw new Error(`HTTP ${response.status}`);
-		// webgl decals blend premultiplied; premultiply the bitmap at creation. UNPACK_PREMULTIPLY_ALPHA_WEBGL
-		// is ignored for ImageBitmap sources, so the upload-time flag cannot do this for us.
+		
+		// Premultiply alpha at load to match how WebGL blends decals.
 		const bitmap = await createImageBitmap(await response.blob(), renderType === "html" ? {} : { premultiplyAlpha: "premultiply" });
 		return renderType === "html" ? { bool: true, value: { image: bitmap, url: path } } : { bool: true, value: bitmap };
 	} catch (e) {
@@ -520,8 +521,7 @@ function instanceTargetTracks(target, isDecal) {
 	}
 }
 
-// Walk resolved animations and instance every keyframe value exactly once. Only ever called on
-// raw resolved data (never on already-instanced values), so it never re-instances.
+// Instances every resolved keyframe value once; only called on raw data.
 function instanceAnimationTracks(animations) {
 	for (const animName in animations) {
 		const parts = animations[animName].parts;
@@ -598,8 +598,7 @@ function foldColorAlias(source, sourceKey, dest, destKey) {
 	delete source[sourceKey];
 }
 
-// Decal counterpart of normalizeTexture's generated branch. `texture` is always materialized;
-// an authored null survives the schema pass, so normalizeObject absorbs it first.
+// Decal counterpart of normalizeTexture's generated branch; `texture` is always filled in.
 function normalizeDecalTexture(entry, rootKey) {
 	entry.texture = normalizePayloadSchema(normalizeObject(entry.texture).value, "decalTexture");
 	foldColorAlias(entry.texture, "color", entry.texture, "secondary");
@@ -644,8 +643,7 @@ function normalizeDetail(rawDetail) {
 function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 	const entries = [];
 
-	// Adding a shape: register its key here AND in NewTexture.js shapeMaskBuilders AND in
-	// canonSchemas.json levelCustomTexture.shape.allowedValues.
+	// Note: When registering a shape, add it in NewTexture.js (shapeMaskBuilders) and canonSchemas.json (levelCustomTexture.shape.allowedValues) as well.
 	const shapeRequiredFields = {
 		square:   () => true,
 		circle:   () => true,
@@ -705,7 +703,6 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 					warnLog(`normalizeCustomTextures: image decal missing required fields (imagePath=${entry.imagePath}, sourceType=${entry.sourceType}), dropping entry.`);
 					return;
 				}
-				// opacity is optional and off-schema; normalizeNumber's default absorbs the missing/invalid case.
 				entry.opacity = Math.min(1, Math.max(0, normalizeNumber(entrySource.value.opacity, 1).value));
 				normalizeSources(entry);
 				entries.push(entry);
@@ -803,7 +800,7 @@ function normalizeParticle(particle, label) {
 	return particle;
 }
 
-// Parts carry their own generators, so a root one has nowhere to sit and the builder would drop it.
+// Drop root-authored and keep part-authored particle generators.
 function normalizeRootParticle(particle, partCount, label) {
 	if (particle !== null && partCount > 0) {
 		warnLog(`${label}.particle: generators are per-part on an object with parts, dropping root generator.`);
@@ -889,7 +886,7 @@ function normalizePart(rawPart, ctx) {
 	return part;
 }
 
-// Void classification is ray-parity based, so a void must be a closed solid. `plane` is the only open primitive.
+// Shapes that can't be voids, since a void must be a closed solid.
 const openPrimitiveShapes = new Set(["plane"]);
 const hasOpenPrimitive = (object) => {
 	return object.parts.length === 0
@@ -1057,7 +1054,7 @@ function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 
 	const merged = structuredClone(blueprint);
 
-	// structuredClone strips UnitVector3/Unit class prototypes — rehydrate before use.
+	// structuredClone turns Unit/UnitVector3 into plain objects; rebuild them before use.
 	const rt = merged.model.rootTransform;
 	merged.model.rootTransform = {
 		position: toUnitVector3(rt.position, "cnu"),
@@ -1182,6 +1179,45 @@ function resolveSkyStops(rawSkybox, mode) {
 	return stops;
 }
 
+// Drops situation/mode/addon keys that camera/Sets.json does not define; every mode gets an addon array.
+function normalizeCameraMaps(camera) {
+	const path = "level.camera";
+
+	const situations = {};
+	for (const situation in camera.situations) {
+		const mode = camera.situations[situation];
+		if (!cameraSets.situations.includes(situation) || !cameraSets.modes.includes(mode)) {
+			warnLog(`${path}.situations: '${situation}: ${mode}' invalid, dropping.`);
+			continue;
+		}
+		situations[situation] = mode;
+	}
+	camera.situations = situations;
+
+	const modeAddons = Object.fromEntries(cameraSets.modes.map((mode) => [mode, []]));
+	for (const mode in camera.modeAddons) {
+		const addons = normalizeArray(camera.modeAddons[mode]);
+		if (!cameraSets.modes.includes(mode) || !addons.bool) {
+			warnLog(`${path}.modeAddons: '${mode}' is not a mode with an addon array, dropping.`);
+			continue;
+		}
+		modeAddons[mode] = addons.value.filter((addon) => {
+			if (cameraSets.addons[mode].includes(addon)) return true;
+			warnLog(`${path}.modeAddons.${mode}: '${addon}' not available, removed.`);
+			return false;
+		});
+	}
+	camera.modeAddons = modeAddons;
+}
+
+// A { min, default, max } range out of order falls back whole; instanced as cnu.
+function normalizeCnuRange(range, path, fallback) {
+	const ordered = range.min <= range.default && range.default <= range.max;
+	if (!ordered) warnLog(`${path}: expected min <= default <= max, using fallback ${JSON.stringify(fallback)}.`);
+	const source = ordered ? range : fallback;
+	return { min: new Unit(source.min, "cnu"), default: new Unit(source.default, "cnu"), max: new Unit(source.max, "cnu") };
+}
+
 async function LevelPayload(payload) {
 	const ctx = {
 		pendingImageLoads   : [],
@@ -1212,10 +1248,18 @@ async function LevelPayload(payload) {
 	}
 	normalized.world.skybox.stops = resolveSkyStops(normalizeObject(rawPayload.world).value.skybox, normalized.world.skybox.mode);
 
-	normalized.camera.distance = new Unit(normalized.camera.distance, "cnu");
+	const cameraSchema = canonSchemas.level.camera;
+	const freeCam = normalized.camera.freeCam;
+	normalized.camera.distance = normalizeCnuRange(normalized.camera.distance, "level.camera.distance", cameraSchema.distance.__meta.fallback);
+	normalized.camera.pitchLimit.top = new Unit(normalized.camera.pitchLimit.top, "degrees");
+	normalized.camera.pitchLimit.bottom = new Unit(normalized.camera.pitchLimit.bottom, "degrees");
+	freeCam.speed = normalizeCnuRange(freeCam.speed, "level.camera.freeCam.speed", cameraSchema.freeCam.speed.__meta.fallback);
+	freeCam.acceleration = new Unit(freeCam.acceleration, "cnu");
+	freeCam.speedStep = new Unit(freeCam.speedStep, "cnu");
 	normalized.camera.heightOffset = new Unit(normalized.camera.heightOffset, "cnu");
 	normalized.camera.levelOpening.startPosition = toUnitVector3(normalized.camera.levelOpening.startPosition, "cnu");
 	normalized.camera.levelOpening.endPosition = toUnitVector3(normalized.camera.levelOpening.endPosition, "cnu");
+	normalizeCameraMaps(normalized.camera);
 
 	normalized.terrain.objects = normalizeArray(rawPayload.terrain?.objects).value.map((entry) =>
 		isTemplateRef(entry)
@@ -1347,12 +1391,10 @@ const Runtime = {
 		return {
 			templateId: request.id,
 			position  : request.position,
-			// Absolute until a generator resolves against its target, which fills the target-local offset.
-			offset    : null,
+			offset    : null, // Filled when a generator resolves against its target
 			overrides : request.overrides,
 			mode      : generator === true ? "generator" : "burst",
-			// Mode owns the target: a burst never tracks one, however the caller filled the field.
-			target    : generator === true ? request.target : null,
+			target    : generator === true ? request.target : null, // Bursts never track a target
 		};
 	},
 

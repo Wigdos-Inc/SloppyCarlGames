@@ -17,7 +17,7 @@ import { Log } from "../core/meta.js";
 
 /* === SPAWN SURFACE === */
 
-// Particle spawn is absolute, so hand the builder a zero-origin surface (world pos = rootTransform pos).
+// Particles spawn at absolute positions, using a builder surface at the world origin.
 
 const particleSurfaceId = "particle-origin";
 
@@ -79,7 +79,7 @@ function minGroupSizeFor(count) {
 const randomRange = (min, max) => min + Math.random() * (max - min);
 const randomInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 
-// One offset shared by r/g/b — a per-channel roll would drift the hue, so grey could never stay grey.
+// One offset shared by r/g/b, keeping the hue (grey stays grey).
 const randomVariance = (variance) => randomRange(-variance, variance);
 
 // RGB only; duration.mode owns alpha. Writes in place — recycle runs every interval and must not allocate.
@@ -273,10 +273,14 @@ class particleGroup {
 	// Re-seats the origin on the live target each frame; `targets` is rebuilt by the driver.
 	follow(targets) {
 		const transform = targets[this.targetKey];
-		// Existence check in case of target death/deletion.
-		if (transform === undefined) { this.orphan(); return; }
 
-		// The stored request seeds siblings, so it tracks too — they spawn where the target is now.
+		// The target died or was removed.
+		if (transform === undefined) { 
+			this.orphan(); 
+			return; 
+		}
+
+		// Moves the stored request too, so new siblings spawn where the target is now.
 		this.request.position.set(transform.position).add(RotateByEuler(this.offset, transform.rotation));
 		this.spawnOrigin.set(this.request.position).add(this.originCorrection);
 	}
@@ -290,7 +294,7 @@ class particleGroup {
 	advance(deltaMs, deltaSeconds) {
 		this.total += deltaMs;
 
-		// "none" never enters the pipeline, so the tick integrates it; "simple" only bends the arc.
+		// "none" moves by its velocity alone; "simple" adds a light gravity arc.
 		if (this.physicsMode === "none")   this.entity.transform.position.add(ScaleVector3(this.entity.velocity, deltaSeconds));
 		if (this.physicsMode === "simple") this.entity.velocity.y -= arcRate.value * deltaSeconds;
 
@@ -300,13 +304,13 @@ class particleGroup {
 		if (this.decayStart === null) this.decayStart = this.total;
 		const decay = 1 - Clamp01((this.total - this.decayStart) / (this.duration.endTimeMs - this.decayStart));
 
-		// Always resolved from the stored start — multiplying compounds and never recovers on recycle.
+		// Fades from the starting alpha each frame (multiplying would compound).
 		const fadeAlpha = this.duration.mode === "fade" ? this.startColor.a * decay : this.startColor.a;
 		this.entity.model.parts.forEach((part, index) => {
 			writeParticleRgb(part.mesh.displayColor, this.startColor, this.endColor, 1 - decay, this.offsets[index]).a = fadeAlpha;
 		});
 
-		// Group scale shrinks each particle in place; local offsets are unscaled, so spread holds.
+		// Shrinks each particle in place; the spread between them stays the same.
 		if (this.duration.mode === "shrink") this.entity.transform.scale = ToVector3(Math.max(0.05, decay));
 	}
 
@@ -380,7 +384,7 @@ class burstParticleGroup extends particleGroup {
  * @returns {object} — { groups } — built entities, one per group.
  */
 function GenerateParticles(request, viewerPosition, textureScale, faceTextureStore, geometryCache) {
-	const multiplier = PERFORMANCE_SCALING.Density.Particles[CONFIG.PERFORMANCE.Particles];
+	const multiplier = PERFORMANCE_SCALING.Density.Particles[CONFIG.Performance.Particles];
 	if (multiplier === 0) {
 		Log("ENGINE", "Particles disabled: PERFORMANCE.Particles is Disabled.", "warn", "Level");
 		return { groups: [] };

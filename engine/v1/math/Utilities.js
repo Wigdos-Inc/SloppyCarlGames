@@ -2,8 +2,6 @@ import { AddVector3, CloneVector3, DivideVector3, MultiplyVector3, ScaleVector3,
 
 // 1 CNU = CNU_SCALE World Units (WebGL coordinate space). Set once during development.
 export const CNU_SCALE = 1;
-// Visual testing showed 0.7 as ideal.
-// Gravity testing showed 1 as close.
 
 class Unit {
 	constructor(value, type) {
@@ -189,7 +187,7 @@ const Squared = (value) => value * value;
 // Hermite smoothstep interpolation between two scalar values
 function SmoothStep(a, b, t) {
 	const clamped = Clamp01((t - a) / (b - a));
-	return clamped * clamped * (3 - 2 * clamped);
+	return Squared(clamped) * (3 - 2 * clamped);
 }
 
 export { 
@@ -202,7 +200,7 @@ export {
 	Clamp01,
 	Lerp, 
 	Squared,
-	SmoothStep, 
+	SmoothStep,
 	Unit, 
 	UnitVector3 
 };

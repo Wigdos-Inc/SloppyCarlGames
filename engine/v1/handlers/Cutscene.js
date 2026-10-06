@@ -32,8 +32,7 @@ async function playRenderedCutsceneInternal(payload, options) {
 	video.style.objectFit = payload.fit;
 	video.style.opacity = "1";
 
-	if (video.muted) video.volume = 0;
-	else video.volume = Clamp01(CONFIG.VOLUME.Master * CONFIG.VOLUME.Cutscene);
+	video.volume = video.muted ? 0 : Clamp01(CONFIG.Volume.Master * CONFIG.Volume.Cutscene);
 
 	const fragment = document.createDocumentFragment();
 	fragment.appendChild(video);
@@ -128,7 +127,7 @@ async function PlayRenderedCutscene(payload, options = defaultCutsceneConfig) {
 	const resolved = ValidateCutscenePayload(payload, "rendered");
 	if (resolved === null) return false;
 
-	if (CONFIG.DEBUG.SKIP.Cutscene === true) {
+	if (CONFIG.Debug.Skip.Cutscene === true) {
 		Log("ENGINE", "Rendered cutscene skipped by settings.", "log", "Cutscene");
 		return false;
 	}
@@ -141,7 +140,7 @@ async function PlayEngineCutscene(payload, options = defaultCutsceneConfig) {
 	const resolved = ValidateCutscenePayload(payload, "engine");
 	if (resolved === null) return false;
 
-	if (CONFIG.DEBUG.SKIP.Cutscene === true) {
+	if (CONFIG.Debug.Skip.Cutscene === true) {
 		Log("ENGINE", "Engine cutscene skipped by settings.", "log", "Cutscene");
 		return false;
 	}

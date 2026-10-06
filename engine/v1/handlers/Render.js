@@ -10,7 +10,7 @@ import { TransformPointByMatrix } from "../builder/NewObject.js";
 import { CONFIG, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateRenderMatrix, MultiplyMatrix4 } from "../math/Matrix.js";
-import { AddVector3, CloneVector3, CrossVector3, DivideVector3, DotVector3, MultiplyVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3Length, Vector3Matches, Vector3Sq, Vector3ToArray } from "../math/Vector3.js";
+import { AddVector3, AngleBetweenVector3, CloneVector3, CrossVector3, DivideVector3, DotVector3, MultiplyVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3Length, Vector3Matches, Vector3Sq, Vector3ToArray } from "../math/Vector3.js";
 import { Clamp } from "../math/Utilities.js";
 import { GetSimDistanceValue } from "../physics/Collision.js";
 
@@ -58,9 +58,10 @@ function ApplyRootStylesheet(rootId, stylesheet) {
 // Renders payloads built by the UI builder.
 
 function RenderPayload(payload) {
+	// Replace existing contents by default, then append the pre-built elements.
 	const root = ensureRoot(payload.rootId, payload.rootStyles);
-	if (payload.replace !== false) root.innerHTML = "";      // Replace existing contents by default.
-	root.appendChild(payload.elements);                      // Append pre-built elements when provided.
+	if (payload.replace !== false) root.innerHTML = "";
+	root.appendChild(payload.elements);
 }
 
 /* === LEVEL === */
@@ -192,7 +193,7 @@ const skySampleGLSL = `
 		return dot(normalize(viewRay), u_view[1].xyz);
 	}
 
-	// Callers holding the ray length already reuse it instead of normalizing again.
+	// Same, for callers that already have the ray length.
 	float viewRayElevation(vec3 viewRay, float viewDist) {
 		return dot(viewRay, u_view[1].xyz) / viewDist;
 	}
@@ -203,7 +204,7 @@ function createFoggedTextureFragmentShader(
 	varyings = "in vec2 v_uv;",
 	texelComputation = "vec4 texel = texture(u_texture, v_uv);"
 ) {
-	// premultiplied path: scale colorShift and fog by alpha to stay in premultiplied space.
+	// Premultiplied textures: color shift and fog are scaled by alpha as well.
 	const shiftExpr    = premultiplied ? "shaded.rgb + u_colorShift * shaded.a" : "shaded.rgb + u_colorShift";
 	const fogColorExpr = premultiplied ? "fogColor * shaded.a"                  : "fogColor";
 	return `#version 300 es
@@ -224,7 +225,7 @@ function createFoggedTextureFragmentShader(
 			}
 
 			float viewDist = length(v_viewPos);
-			// Cubed ramp; near geometry stays clear, fog still saturates at the reach.
+			// Fog grows with distance cubed: nearby stays clear, full fog at the fog reach.
 			float fog = clamp(viewDist / u_fogFull, 0.0, 1.0);
 			fog *= fog * fog;
 			vec3 shifted = ${shiftExpr};
@@ -451,9 +452,9 @@ function createScatterProgram(gl) {
 // Decal shape enum; keep in sync with decalSurfaceUvGLSL and builder/NewObject.js.
 const DECAL_SHAPE_CODES = {
 	Flat    : 0, // any non-curved primitive — no projection
-	Sphere  : 1, // buildSphere   (NewObject.js ~L490)
-	Cylinder: 2, // buildCylinder (NewObject.js ~L439)
-	Capsule : 3, // buildCapsule  (NewObject.js ~L563)
+	Sphere  : 1, // buildSphere
+	Cylinder: 2, // buildCylinder
+	Capsule : 3, // buildCapsule
 };
 
 // Cylinder caps are flat disks (unlike capsule ends) — decals there skip radial projection.
@@ -471,10 +472,10 @@ const decalSurfaceUvGLSL = `
 	const int SHAPE_CYLINDER = 2;
 	const int SHAPE_CAPSULE = 3;
 
-	// Orthonormal: right from u, up derived.
-	void decalSurfaceFrame(vec3 centreDir, vec3 u, vec3 v, out vec3 right, out vec3 up) {
-		right = normalize(u - centreDir * dot(u, centreDir));
-		up = cross(centreDir, right);
+	// The decal's right and up directions, laid flat on the surface at its center.
+	void decalSurfaceFrame(vec3 centerDir, vec3 u, vec3 v, out vec3 right, out vec3 up) {
+		right = normalize(u - centerDir * dot(u, centerDir));
+		up = cross(centerDir, right);
 		if (dot(up, v) < 0.0) up = -up;
 	}
 
@@ -485,52 +486,52 @@ const decalSurfaceUvGLSL = `
 		return sign(point.y) * cylinderHalf + capRadius * asin(clamp(n.y, -1.0, 1.0));
 	}
 
-	// Pole vertex: no azimuth, takes the fallback.
+	// Angle around the vertical axis. A point on the axis itself uses the fallback angle.
 	float decalAxisAngle(float z, float x, float fallback) {
 		return x == 0.0 && z == 0.0 ? fallback : atan(z, x);
 	}
 
 	vec2 decalSurfaceUv(int shape, vec3 point, mat4 placement, vec3 r, float rounding) {
-		vec3 centre = placement[3].xyz;
+		vec3 center = placement[3].xyz;
 		// Floored: zero scale stays finite.
 		float width = max(length(placement[0].xyz), 1e-6), height = max(length(placement[1].xyz), 1e-6);
 		vec3 u = placement[0].xyz / width, v = placement[1].xyz / height;
 
 		if (shape == SHAPE_FLAT) {
-			vec3 offset = point - centre;
+			vec3 offset = point - center;
 			return vec2(dot(offset, u) / width, dot(offset, v) / height);
 		}
 
 		float capRadius = r.y * rounding;
 		float cylinderHalf = r.y - capRadius;
-		bool onCap = shape == SHAPE_CAPSULE && abs(centre.y) > cylinderHalf;
+		bool onCap = shape == SHAPE_CAPSULE && abs(center.y) > cylinderHalf;
 		vec3 right, up;
 
-		// Sphere or capsule cap: azimuthal equidistant, capped at one turn.
+		// Sphere or capsule cap: unrolls the surface outward from the decal's center.
 		if (shape == SHAPE_SPHERE || onCap) {
-			vec3 origin = vec3(0.0, onCap ? clamp(centre.y, -cylinderHalf, cylinderHalf) : 0.0, 0.0);
-			float radius = onCap ? capRadius : length(centre);
-			vec3 centreDir = normalize(centre - origin), n = normalize(point - origin);
-			decalSurfaceFrame(centreDir, u, v, right, up);
+			vec3 origin = vec3(0.0, onCap ? clamp(center.y, -cylinderHalf, cylinderHalf) : 0.0, 0.0);
+			float radius = onCap ? capRadius : length(center);
+			vec3 centerDir = normalize(center - origin), n = normalize(point - origin);
+			decalSurfaceFrame(centerDir, u, v, right, up);
 			vec2 bearing = vec2(dot(n, right), dot(n, up));
 			float span = length(bearing);
 			float turn = 6.283185307179586 * radius;
-			return (span > 1e-12 ? radius * acos(clamp(dot(n, centreDir), -1.0, 1.0)) * bearing / span : vec2(0.0))
+			return (span > 1e-12 ? radius * acos(clamp(dot(n, centerDir), -1.0, 1.0)) * bearing / span : vec2(0.0))
 			     / vec2(min(width, turn), min(height, turn));
 		}
 
-		// Axis-anchored unroll: (rho * dTheta, meridian arc).
-		vec3 centreDir = normalize(centre - vec3(0.0, centre.y, 0.0));
-		vec3 meridian = normalize(vec3(0.0, 1.0, 0.0) - centreDir * centreDir.y);
-		vec3 azimuth = cross(centreDir, meridian);
-		decalSurfaceFrame(centreDir, u, v, right, up);
-		float rho = max(length(vec2(centre.x, centre.z)), 1e-6);
-		float centreAngle = decalAxisAngle(centre.z, centre.x, 0.0);
-		float dTheta = decalAxisAngle(point.z, point.x, centreAngle) - centreAngle;
+		// Tube side: unrolls the surface flat, distance around by distance along.
+		vec3 centerDir = normalize(center - vec3(0.0, center.y, 0.0));
+		vec3 meridian = normalize(vec3(0.0, 1.0, 0.0) - centerDir * centerDir.y);
+		vec3 azimuth = cross(centerDir, meridian);
+		decalSurfaceFrame(centerDir, u, v, right, up);
+		float rho = max(length(vec2(center.x, center.z)), 1e-6);
+		float centerAngle = decalAxisAngle(center.z, center.x, 0.0);
+		float dTheta = decalAxisAngle(point.z, point.x, centerAngle) - centerAngle;
 		if (dTheta >  3.141592653589793) dTheta -= 6.283185307179586;
 		if (dTheta < -3.141592653589793) dTheta += 6.283185307179586;
 		float arc = rho * dTheta;
-		float rise = decalMeridianArc(point, capRadius, cylinderHalf, shape) - decalMeridianArc(centre, capRadius, cylinderHalf, shape);
+		float rise = decalMeridianArc(point, capRadius, cylinderHalf, shape) - decalMeridianArc(center, capRadius, cylinderHalf, shape);
 		return vec2((arc * dot(right, azimuth) + rise * dot(right, meridian)) / min(width, 6.283185307179586 * rho),
 		            (arc * dot(up, azimuth) + rise * dot(up, meridian)) / height);
 	}
@@ -542,21 +543,21 @@ function DecalRounding(shape, primitiveOptions) {
 	return shape === "capsule" ? primitiveOptions.rounding : 0;
 }
 
-// Capsule ray origin: on the axis within the band, cap centre beyond it.
+// Capsule ray origin: on the axis within the band, cap center beyond it.
 function CapsuleBand(halfExtents, rounding, pointY) {
 	const capRadius    = halfExtents.y * rounding;
 	const cylinderHalf = halfExtents.y - capRadius;
 	return { capRadius, cylinderHalf, originY: Math.abs(pointY) <= cylinderHalf ? pointY : Math.sign(pointY) * cylinderHalf };
 }
 
-// Orthonormal: right from u, up derived.
-function decalSurfaceFrame(centreDir, u, v) {
-	const right = ResolveVector3Axis(SubtractVector3(u, ScaleVector3(centreDir, DotVector3(u, centreDir))));
-	const up    = CrossVector3(centreDir, right);
+// The decal's right and up directions, laid flat on the surface at its center.
+function decalSurfaceFrame(centerDir, u, v) {
+	const right = ResolveVector3Axis(SubtractVector3(u, ScaleVector3(centerDir, DotVector3(u, centerDir))));
+	const up    = CrossVector3(centerDir, right);
 	return { right, up: DotVector3(up, v) < 0 ? ScaleVector3(up, -1) : up };
 }
 
-// Pole vertex: no azimuth, takes the fallback.
+// Angle around the vertical axis. A point on the axis itself uses the fallback angle.
 const decalAxisAngle = (z, x, fallback) => (x === 0 && z === 0 ? fallback : Math.atan2(z, x));
 
 // Tube height, continued onto the cap.
@@ -568,7 +569,7 @@ function decalMeridianArc(point, capRadius, cylinderHalf, shapeCode) {
 
 // Mirrored by decalSurfaceUvGLSL. referenceArc: seam branch to unwrap into; 0 for none.
 function DecalSurfaceUv(point, placement, shapeCode, halfExtents, rounding, referenceArc) {
-	const centre = { x: placement[12], y: placement[13], z: placement[14] };
+	const center = { x: placement[12], y: placement[13], z: placement[14] };
 	// Floored: zero scale stays finite.
 	const width = Math.max(Vector3Length({ x: placement[0], y: placement[1], z: placement[2] }), 1e-6);
 	const height = Math.max(Vector3Length({ x: placement[4], y: placement[5], z: placement[6] }), 1e-6);
@@ -576,45 +577,46 @@ function DecalSurfaceUv(point, placement, shapeCode, halfExtents, rounding, refe
 	const v = { x: placement[4] / height, y: placement[5] / height, z: placement[6] / height };
 
 	if (shapeCode === DECAL_SHAPE_CODES.Flat) {
-		const offset = SubtractVector3(point, centre);
+		const offset = SubtractVector3(point, center);
 		const along  = DotVector3(offset, u);
 		return { u: along / width, v: DotVector3(offset, v) / height, arc: along };
 	}
 
-	const band  = CapsuleBand(halfExtents, rounding, centre.y);
-	const onCap = shapeCode === DECAL_SHAPE_CODES.Capsule && Math.abs(centre.y) > band.cylinderHalf;
+	const band  = CapsuleBand(halfExtents, rounding, center.y);
+	const onCap = shapeCode === DECAL_SHAPE_CODES.Capsule && Math.abs(center.y) > band.cylinderHalf;
 
-	// Sphere or capsule cap: azimuthal equidistant, capped at one turn.
+	// Sphere or capsule cap: unrolls the surface outward from the decal's center.
 	if (shapeCode === DECAL_SHAPE_CODES.Sphere || onCap) {
 		const origin    = { x: 0, y: onCap ? band.originY : 0, z: 0 };
-		const radius    = onCap ? band.capRadius : Vector3Length(centre);
-		const centreDir = ResolveVector3Axis(SubtractVector3(centre, origin));
+		const radius    = onCap ? band.capRadius : Vector3Length(center);
+		const centerDir = ResolveVector3Axis(SubtractVector3(center, origin));
 		const normal    = ResolveVector3Axis(SubtractVector3(point, origin));
-		const frame     = decalSurfaceFrame(centreDir, u, v);
+		const frame     = decalSurfaceFrame(centerDir, u, v);
 		const bearingU  = DotVector3(normal, frame.right), bearingV = DotVector3(normal, frame.up);
 		const bearing   = Math.hypot(bearingU, bearingV);
-		const geodesic  = radius * Math.acos(Clamp(DotVector3(normal, centreDir), -1, 1));
+		const geodesic  = radius * AngleBetweenVector3(normal, centerDir);
 		const arc  = bearing > 1e-12 ? geodesic * bearingU / bearing : 0;
 		const turn = 2 * Math.PI * radius;
 		return { u: arc / Math.min(width, turn), v: (bearing > 1e-12 ? geodesic * bearingV / bearing : 0) / Math.min(height, turn), arc };
 	}
 
-	// Axis-anchored unroll: (rho * dTheta, meridian arc).
-	const centreDir = ResolveVector3Axis(SubtractVector3(centre, { x: 0, y: centre.y, z: 0 }));
-	const meridian  = ResolveVector3Axis(SubtractVector3({ x: 0, y: 1, z: 0 }, ScaleVector3(centreDir, centreDir.y)));
-	const azimuth   = CrossVector3(centreDir, meridian);
-	const frame     = decalSurfaceFrame(centreDir, u, v);
-	const rho  = Math.max(Math.hypot(centre.x, centre.z), 1e-6);
-	const centreAngle = decalAxisAngle(centre.z, centre.x, 0);
-	let dTheta = decalAxisAngle(point.z, point.x, centreAngle) - centreAngle;
+	// Tube side: unrolls the surface flat, distance around by distance along.
+	const centerDir   = ResolveVector3Axis(SubtractVector3(center, { x: 0, y: center.y, z: 0 }));
+	const meridian    = ResolveVector3Axis(SubtractVector3({ x: 0, y: 1, z: 0 }, ScaleVector3(centerDir, centerDir.y)));
+	const azimuth     = CrossVector3(centerDir, meridian);
+	const frame       = decalSurfaceFrame(centerDir, u, v);
+	const rho         = Math.max(Math.hypot(center.x, center.z), 1e-6);
+	const centerAngle = decalAxisAngle(center.z, center.x, 0);
+	let dTheta = decalAxisAngle(point.z, point.x, centerAngle) - centerAngle;
 	if (dTheta >  Math.PI) dTheta -= 2 * Math.PI;
 	if (dTheta < -Math.PI) dTheta += 2 * Math.PI;
-	// Antipodal seam: shift into the reference branch.
+	
+	// Points behind the tube wrap to stay next to referenceArc instead of jumping across the seam.
 	const piArc = Math.PI * rho;
 	let arc = rho * dTheta;
 	while (arc - referenceArc >  piArc) arc -= 2 * piArc;
 	while (arc - referenceArc < -piArc) arc += 2 * piArc;
-	const rise = decalMeridianArc(point, band.capRadius, band.cylinderHalf, shapeCode) - decalMeridianArc(centre, band.capRadius, band.cylinderHalf, shapeCode);
+	const rise = decalMeridianArc(point, band.capRadius, band.cylinderHalf, shapeCode) - decalMeridianArc(center, band.capRadius, band.cylinderHalf, shapeCode);
 	return {
 		u: (arc * DotVector3(frame.right, azimuth) + rise * DotVector3(frame.right, meridian)) / Math.min(width, 2 * piArc),
 		v: (arc * DotVector3(frame.up, azimuth)    + rise * DotVector3(frame.up, meridian))    / height,
@@ -1014,9 +1016,9 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 	);
 }
 
-const isBoundingBoxDebugEnabled = (type) => !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox[type]);
-const isGridDebugEnabled = () => !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible);
-const isDetailedBoundsDebugEnabled = (type) => !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.DetailedBounds[type]);
+const isBoundingBoxDebugEnabled = (type) => !!(CONFIG.Debug.All && CONFIG.Debug.Levels.BoundingBox[type]);
+const isGridDebugEnabled = () => !!(CONFIG.Debug.All && CONFIG.Debug.Levels.BoundingBox.Grid.Visible);
+const isDetailedBoundsDebugEnabled = (type) => !!(CONFIG.Debug.All && CONFIG.Debug.Levels.DetailedBounds[type]);
 
 function bindDebugLinePass(renderer, gl, projection, view) {
 	gl.useProgram(renderer.debugLineShader.program);
@@ -1113,7 +1115,7 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 	sceneGraph.debugBoundingBoxes.forEach((record) => {
 		if (!isBoundingBoxDebugEnabled(record.type)) return;
 
-		const vertices = createGridLineVertices(record, CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Scale.toWorldUnit());
+		const vertices = createGridLineVertices(record, CONFIG.Debug.Levels.BoundingBox.Grid.Size.toWorldUnit());
 		if (!vertices) return;
 
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
@@ -1260,7 +1262,7 @@ const trailTypeColors = {
 	Particle: { r: 0.7, g: 0.4, b: 1, a: 1 },
 };
 
-const isTrailDebugEnabled = (type) => !!(CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.Trails[type]);
+const isTrailDebugEnabled = (type) => !!(CONFIG.Debug.All && CONFIG.Debug.Levels.Trails[type]);
 
 function classifyEntityTrailType(entity) {
 	if (entity.type.includes("player"))      return "Player";
@@ -1272,8 +1274,8 @@ function classifyEntityTrailType(entity) {
 }
 
 function drawVelocityTrails(renderer, sceneGraph, projection, view) {
-	if (!CONFIG.DEBUG.ALL) return;
-	if (!Object.values(CONFIG.DEBUG.LEVELS.Trails).some(Boolean)) return;
+	if (!CONFIG.Debug.All) return;
+	if (!Object.values(CONFIG.Debug.Levels.Trails).some(Boolean)) return;
 	if (sceneGraph.entities.length === 0) return;
 
 	const gl = renderer.gl;
@@ -1489,11 +1491,11 @@ function blendAnimatedTextures(renderer, sceneGraph) {
 	gl.bindVertexArray(quad.vao);
 
 	for (const textureID in byTextureID) {
-		// Absent from cache = never drawn, so nothing samples its target.
+		// Skip textures that were never drawn (not in the cache).
 		const target = renderer.textures.get(textureID);
 		if (target === undefined) continue;
 
-		// In the cache but not last frame's draws = currently hidden.
+		// Skip textures that weren't on screen last frame.
 		if (!renderer.drawnTextures.has(textureID)) continue;
 
 		const stateEntry = byTextureID[textureID];
@@ -1636,7 +1638,7 @@ function ensureLevelRenderer(rootId, rootStyles) {
 
 // Scaled target, not client size to prevent per-frame re-allocation.
 function syncCanvasSize(renderer) {
-	const scale = CONFIG.PERFORMANCE.Resolution / 100;
+	const scale = CONFIG.Performance.Resolution / 100;
 	const width  = Math.round(renderer.canvas.clientWidth  * scale);
 	const height = Math.round(renderer.canvas.clientHeight * scale);
 
@@ -1648,7 +1650,7 @@ function syncCanvasSize(renderer) {
 // displayColor.a is authoritative when present — particle texture opacity is always 1.
 const isTranslucentMesh = (mesh) => mesh.displayColor !== null ? mesh.displayColor.a < 1 : mesh.material.transparent;
 
-// The key is omitted rather than set false, so absence means UV.
+// Triplanar only when the mesh is flagged. Unflagged meshes use UVs.
 const meshUsesTriplanar = (mesh) => mesh.geometry.triplanar === true;
 
 function collectRenderableMeshes(sceneGraph) {
@@ -1683,12 +1685,10 @@ function collectRenderableMeshes(sceneGraph) {
 	return { terrain, obstacles, entitiesUv, entitiesTriplanar, entitiesTranslucent };
 }
 
-// Decorated in a side table so the O(n log n) comparator never allocates.
+// Sorts meshes far-to-near from the camera, measuring each distance only once.
 function sortBackToFront(meshes, cameraPosition) {
 	const distancesSq = new Map();
-	for (const mesh of meshes) {
-		distancesSq.set(mesh, Vector3Sq(SubtractVector3(mesh.displayTransform.position, cameraPosition)));
-	}
+	for (const mesh of meshes) distancesSq.set(mesh, Vector3Sq(SubtractVector3(mesh.displayTransform.position, cameraPosition)));
 	meshes.sort((a, b) => distancesSq.get(b) - distancesSq.get(a));
 }
 
@@ -1708,7 +1708,7 @@ function configureTexturedMeshPass(gl, shader, passState) {
 	applySkyUniforms(gl, shader, passState);
 }
 
-// Depth-neutral: with DEPTH_TEST off nothing writes depth, so the pass never occludes later geometry.
+// Draws the sky with depth test off so it never blocks later geometry.
 function drawSkyPass(renderer, passState) {
 	const gl = renderer.gl;
 	const quad = ensureSkyQuad(renderer);
@@ -1882,7 +1882,7 @@ function ensureDecalGeometry(renderer, mesh, decalEntry, index, entity, partId) 
 	return meshDecals[index];
 }
 
-// Face rotation matrices (column-major), aligning quad +Z to the face normal; exact trig at 0/90/180°.
+// Rotations that turn a decal to face each side of a part.
 const DECAL_FACE_ROTATIONS = {
 	front:  [1, 0,  0, 0,  0, 1,  0, 0,  0,  0, 1, 0,  0, 0, 0, 1], // identity
 	back:   [-1, 0, 0, 0,  0, 1,  0, 0,  0,  0,-1, 0,  0, 0, 0, 1], // 180° Y
@@ -1892,7 +1892,7 @@ const DECAL_FACE_ROTATIONS = {
 	left:   [0, 0,  1, 0,  0, 1,  0, 0, -1,  0, 0, 0,  0, 0, 0, 1], // −90° Y
 };
 
-// Shared decal blend/depth state: additive-over-straight blend + polygon offset to avoid z-fighting.
+// Decal drawing state: blends over the surface and is pulled toward the camera to avoid flicker.
 function beginDecalState(gl, shader, passState) {
 	configureTexturedMeshPass(gl, shader, passState);
 	gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -1904,7 +1904,9 @@ function beginDecalState(gl, shader, passState) {
 function endDecalState(gl) {
 	gl.depthMask(true);
 	gl.disable(gl.POLYGON_OFFSET_FILL);
-	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); // restore frame-init straight-alpha blend
+	
+	// Restore the frame-init straight-alpha blend.
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 }
 
 // displayTransform to render, localTransform to export.
@@ -1922,9 +1924,10 @@ export function BuildDecalPlacementMatrix(dim, transform, side) {
 		left:   [pos.x - dim.x / 2, pos.y,             pos.z            ],
 	};
 
+
+	// Moves the decal onto its face, turns it outward, spins and scales it. The part's transform is applied later in the shader.
 	const [tx, ty, tz] = faceTranslations[side];
 	const c = Math.cos(transform.rotation.value), s = Math.sin(transform.rotation.value);
-	// Part-local placement: T(face_center+local_offset) × R_face × R_z(rotation) × S(scale). Part world applied separately as u_partWorld.
 	const tMatrix  = [1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  tx, ty, tz, 1];
 	const rzMatrix = [c, s, 0, 0,  -s, c, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
 	const sMatrix  = [sc.x, 0, 0, 0,  0, sc.y, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
@@ -2045,12 +2048,15 @@ function drawScene(renderer, sceneGraph) {
 	
 	// Writes animated textures off-screen; viewport/depth/blend below restore what it touched.
 	blendAnimatedTextures(renderer, sceneGraph);
-	renderer.drawnTextures.clear(); // Cleared after the blend, so this frame's binds feed the next one.
+
+	// Reset after the blend: it only updates animated textures drawn last frame.
+	renderer.drawnTextures.clear();
+
 	gl.viewport(0, 0, renderer.canvas.width, renderer.canvas.height);
 	gl.enable(gl.DEPTH_TEST);
 	gl.enable(gl.BLEND);
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-	if (CONFIG.DEBUG.LEVELS.BackfaceCulling) gl.enable(gl.CULL_FACE);
+	if (CONFIG.Debug.Levels.BackfaceCulling) gl.enable(gl.CULL_FACE);
 	else gl.disable(gl.CULL_FACE);
 	gl.clearColor(0.04, 0.05, 0.08, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -2071,7 +2077,7 @@ function drawScene(renderer, sceneGraph) {
 	const underwaterValue = underwater ? 1 : 0;
 	const simDistance = GetSimDistanceValue().toWorldUnit();
 	const worldInstances = PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances;
-	const fogPercent = underwater ? CONFIG.RENDERING.Fog.Water : CONFIG.RENDERING.Fog.Air;
+	const fogPercent = underwater ? CONFIG.Rendering.Fog.Water : CONFIG.Rendering.Fog.Air;
 	const fogFull = simDistance * worldInstances.Cull * worldInstances.Fog * (fogPercent / 100);
 	const cullRadius = simDistance * PERFORMANCE_SCALING.SimDistance.Fractions.Scatter.Cull;
 	const skyStops = sceneGraph.world.skybox.stops;

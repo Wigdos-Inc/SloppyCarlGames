@@ -232,11 +232,7 @@ function closestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal)
 			const segmentPoint = AddVector3(segStart, ScaleVector3(segment, t));
 			const trianglePoint = ClosestPointOnTriangle(segmentPoint, a, b, c);
 			if (Vector3Sq(SubtractVector3(segmentPoint, trianglePoint)) <= EPSILON) {
-				return {
-					segmentPoint,
-					trianglePoint,
-					distanceSq: 0,
-				};
+				return { segmentPoint, trianglePoint, distanceSq: 0 };
 			}
 		}
 	}
@@ -367,11 +363,12 @@ const segmentQueryBox = (start, end, radius) => ({
 const sphereQueryBox  = (center, radius) => segmentQueryBox(center, center, radius.value);
 const capsuleQueryBox = (capsule) => segmentQueryBox(capsule.segmentStart, capsule.segmentEnd, capsule.radius.value);
 
-// Inlined rather than TriangleAabb + AabbOverlap — that allocates three objects per triangle.
-const triangleInQueryBox = (t, box) =>
-	Math.max(t.a.x, t.b.x, t.c.x) >= box.min.x && Math.min(t.a.x, t.b.x, t.c.x) <= box.max.x &&
-	Math.max(t.a.y, t.b.y, t.c.y) >= box.min.y && Math.min(t.a.y, t.b.y, t.c.y) <= box.max.y &&
-	Math.max(t.a.z, t.b.z, t.c.z) >= box.min.z && Math.min(t.a.z, t.b.z, t.c.z) <= box.max.z;
+// Note: Inlined to prevent over-allocation per triangle.
+function triangleInQueryBox (t, box) {
+	return Math.max(t.a.x, t.b.x, t.c.x) >= box.min.x && Math.min(t.a.x, t.b.x, t.c.x) <= box.max.x &&
+		Math.max(t.a.y, t.b.y, t.c.y) >= box.min.y && Math.min(t.a.y, t.b.y, t.c.y) <= box.max.y &&
+		Math.max(t.a.z, t.b.z, t.c.z) >= box.min.z && Math.min(t.a.z, t.b.z, t.c.z) <= box.max.z;
+}
 
 function SphereTriangleSoupContact(center, radius, triangleSoup) {
 	let best = NoContact();
@@ -551,7 +548,7 @@ function aabbTriangleSetContact(aabb, soup, oneSided) {
 	const cluster = [];
 	for (const triangle of soup.triangles) {
 		if (!triangleInQueryBox(triangle, aabb)) continue;
-		// One-sided: only front faces that see the centre participate.
+		// One-sided: only front faces that see the center participate.
 		if (oneSided && DotVector3(triangle.normal, SubtractVector3(center, triangle.a)) < 0) continue;
 		cluster.push(triangle);
 	}
@@ -645,9 +642,9 @@ function StrictAabbOverlap(aabbA, aabbB) {
 }
 
 /* === SOLID QUERIES === */
-// Build-time predicates over closed triangle meshes. Convexity-independent.
+// Build-time inside/outside checks for closed meshes of any shape.
 
-// Off-axis on purpose — this geometry is dominated by axis-aligned faces and an exact edge hit breaks parity.
+// Note: Tilted ray direction for inside/outside tests. Straight rays can run along box edges and miscount.
 const parityRayDirection = ResolveVector3Axis({ x: 0.4371383, y: 0.7218935, z: 0.5364271 });
 const planeCrossEpsilon  = 0.000001;
 
@@ -664,6 +661,17 @@ function TriangleAabb(triangle) {
 			z: Math.max(triangle.a.z, triangle.b.z, triangle.c.z),
 		},
 	};
+}
+
+// Min over each triangle's edges against the other; 0 when they cross.
+function TriangleDistanceSq(t1, t2) {
+	let best = Infinity;
+	for (const [from, to] of [[t1, t2], [t2, t1]]) {
+		for (const [start, end] of [[from.a, from.b], [from.b, from.c], [from.c, from.a]]) {
+			best = Math.min(best, closestPointsSegmentTriangle(start, end, to.a, to.b, to.c, to.normal).distanceSq);
+		}
+	}
+	return best;
 }
 
 // Odd crossing count along a fixed ray means the point is enclosed.
@@ -755,7 +763,7 @@ function SweptAABB(position, velocity, halfExtents, staticAabb) {
 
 	let tEntryMax = -Infinity;
 	let tExitMin = Infinity;
-	const entryNormal = ToVector3(0);
+	let entryNormal = ToVector3(0);
 
 	for (let i = 0; i < 3; i++) {
 		const axis = ["x", "y", "z"][i];
@@ -765,8 +773,8 @@ function SweptAABB(position, velocity, halfExtents, staticAabb) {
 		const bMax = AddVector3(staticAabb.max, halfExtents)[axis];
 
 		if (Math.abs(v) < EPSILON) {
-			// Ray is parallel to slab — check if inside.
-			if (p < bMin || p > bMax) return result; // No collision possible.
+			// Ray is parallel to slab — no collision possible unless already inside.
+			if (p < bMin || p > bMax) return result;
 			continue;
 		}
 
@@ -783,9 +791,7 @@ function SweptAABB(position, velocity, halfExtents, staticAabb) {
 
 		if (tNear > tEntryMax) {
 			tEntryMax = tNear;
-			entryNormal.x = 0;
-			entryNormal.y = 0;
-			entryNormal.z = 0;
+			entryNormal = ToVector3(0);
 			entryNormal[axis] = nearNormalValue;
 		}
 		if (tFar < tExitMin) tExitMin = tFar;
@@ -1053,6 +1059,7 @@ export {
 	StrictAabbOverlap,
 	ClosestPointOnTriangle,
 	TriangleAabb,
+	TriangleDistanceSq,
 	PointInsideMesh,
 	SplitTriangleByPlane,
 	MeshesIntersect,

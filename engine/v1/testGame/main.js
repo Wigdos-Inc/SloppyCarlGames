@@ -173,25 +173,25 @@ function getSettingsSnapshot() {
 	const stored = loadSettings();
 	if (stored) return stored;
 
-	const cfg = ENGINE.CONFIG;
+	const cfg = ENGINE.Config;
 	const snapshot = {
-		master: cfg.VOLUME.Master,
-		music: cfg.VOLUME.Music,
-		voice: cfg.VOLUME.Voice,
-		menuSfx: cfg.VOLUME.MenuSfx,
-		gameSfx: cfg.VOLUME.GameSfx,
-		cutscene: cfg.VOLUME.Cutscene,
-		skipIntro: cfg.DEBUG.SKIP.Intro,
-		debugMode: cfg.DEBUG.ALL,
-		mouseSensitivity: cfg.CAMERA.Sensitivity.Mouse,
-		keyboardSensitivity: cfg.CAMERA.Sensitivity.Keyboard,
-		scatterDensity: cfg.PERFORMANCE.Scatter.Density,
-		scatterQuality: cfg.PERFORMANCE.Scatter.Quality,
-		particles: cfg.PERFORMANCE.Particles,
-		simDistance: cfg.PERFORMANCE.SimDistance,
-		animations: cfg.PERFORMANCE.Animations,
-		frameRate: cfg.PERFORMANCE.FrameRate,
-		resolution: cfg.PERFORMANCE.Resolution,
+		master             : cfg.Volume.Master,
+		music              : cfg.Volume.Music,
+		voice              : cfg.Volume.Voice,
+		menuSfx            : cfg.Volume.MenuSfx,
+		gameSfx            : cfg.Volume.GameSfx,
+		cutscene           : cfg.Volume.Cutscene,
+		skipIntro          : cfg.Debug.Skip.Intro,
+		debugMode          : cfg.Debug.ALL,
+		mouseSensitivity   : cfg.Camera.Sensitivity.Mouse,
+		keyboardSensitivity: cfg.Camera.Sensitivity.Keyboard,
+		scatterDensity     : cfg.Performance.Scatter.Density,
+		scatterQuality     : cfg.Performance.Scatter.Quality,
+		particles          : cfg.Performance.Particles,
+		simDistance        : cfg.Performance.SimDistance,
+		animations         : cfg.Performance.Animations,
+		frameRate          : cfg.Performance.FrameRate,
+		resolution         : cfg.Performance.Resolution,
 	};
 	snapshot.performancePreset = derivePerformancePreset(snapshot);
 	return snapshot;
@@ -216,24 +216,24 @@ function syncSettingsUi(settings) {
 }
 
 function applySettings(settings) {
-	const cfg = ENGINE.CONFIG;
-	cfg.VOLUME.Master = settings.master;
-	cfg.VOLUME.Music = settings.music;
-	cfg.VOLUME.Voice = settings.voice;
-	cfg.VOLUME.MenuSfx = settings.menuSfx;
-	cfg.VOLUME.GameSfx = settings.gameSfx;
-	cfg.VOLUME.Cutscene = settings.cutscene;
-	cfg.DEBUG.SKIP.Intro = settings.skipIntro;
-	cfg.DEBUG.ALL = settings.debugMode;
-	cfg.CAMERA.Sensitivity.Mouse = settings.mouseSensitivity;
-	cfg.CAMERA.Sensitivity.Keyboard = settings.keyboardSensitivity;
-	cfg.PERFORMANCE.Scatter.Density = settings.scatterDensity;
-	cfg.PERFORMANCE.Scatter.Quality = settings.scatterQuality;
-	cfg.PERFORMANCE.Particles = settings.particles;
-	cfg.PERFORMANCE.SimDistance = settings.simDistance;
-	cfg.PERFORMANCE.Animations = settings.animations;
-	cfg.PERFORMANCE.FrameRate = settings.frameRate;
-	cfg.PERFORMANCE.Resolution = settings.resolution;
+	const cfg = ENGINE.Config;
+	cfg.Volume.Master = settings.master;
+	cfg.Volume.Music = settings.music;
+	cfg.Volume.Voice = settings.voice;
+	cfg.Volume.MenuSfx = settings.menuSfx;
+	cfg.Volume.GameSfx = settings.gameSfx;
+	cfg.Volume.Cutscene = settings.cutscene;
+	cfg.Debug.Skip.Intro = settings.skipIntro;
+	cfg.Debug.ALL = settings.debugMode;
+	cfg.Camera.Sensitivity.Mouse = settings.mouseSensitivity;
+	cfg.Camera.Sensitivity.Keyboard = settings.keyboardSensitivity;
+	cfg.Performance.Scatter.Density = settings.scatterDensity;
+	cfg.Performance.Scatter.Quality = settings.scatterQuality;
+	cfg.Performance.Particles = settings.particles;
+	cfg.Performance.SimDistance = settings.simDistance;
+	cfg.Performance.Animations = settings.animations;
+	cfg.Performance.FrameRate = settings.frameRate;
+	cfg.Performance.Resolution = settings.resolution;
 
 	ENGINE.Audio.UpdateActiveAudioVolumes();
 
@@ -595,7 +595,6 @@ function handleEntityCollision(event) {
 	const endTime = performance.now();
 	const elapsedSeconds = (endTime - fallTestState.startTime) / 1000;
 	const deltaHeight = fallTestState.startPosition.y - detail.position.y;
-	const gravityStrength = ENGINE.CONFIG.PHYSICS.Gravity.Strength;
 
 	ENGINE.Log(
 		"GAME",
@@ -613,7 +612,7 @@ function handleEntityCollision(event) {
 			"CNU fall test: summary",
 			`- deltaHeight: ${deltaHeight.toFixed(4)} CNU`,
 			`- elapsedTime: ${elapsedSeconds.toFixed(4)} s`,
-			`- gravityStrength: ${gravityStrength} CNU/s²`,
+			`- gravityStrength: ${ENGINE.Config.Physics.Gravity.Strength} CNU/s²`,
 		].join("\n"),
 		"log",
 		"Level"

@@ -37,12 +37,12 @@ const oneShotChannels = {
 
 // Pull channel-specific volume from config.
 function resolveVolume(channel, options) {
-	const applyMaster = (value) => Clamp01(CONFIG.VOLUME.Master * value);
+	const applyMaster = (value) => Clamp01(CONFIG.Volume.Master * value);
 	switch (channel) {
-		case "Music"   : return applyMaster(CONFIG.VOLUME.Music);
-		case "Sfx"     : return applyMaster(options.category === "Menu" ? CONFIG.VOLUME.MenuSfx : CONFIG.VOLUME.GameSfx);
-		case "Voice"   : return applyMaster(CONFIG.VOLUME.Voice);
-		case "Cutscene": return applyMaster(CONFIG.VOLUME.Cutscene);
+		case "Music"   : return applyMaster(CONFIG.Volume.Music);
+		case "Sfx"     : return applyMaster(options.category === "Menu" ? CONFIG.Volume.MenuSfx : CONFIG.Volume.GameSfx);
+		case "Voice"   : return applyMaster(CONFIG.Volume.Voice);
+		case "Cutscene": return applyMaster(CONFIG.Volume.Cutscene);
 		default        : return applyMaster(1);
 	}
 }

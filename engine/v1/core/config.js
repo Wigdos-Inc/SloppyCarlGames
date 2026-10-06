@@ -1,20 +1,20 @@
 import { Unit } from "../math/Utilities.js";
+import { DeepFreeze, ReadFromSession } from "./meta.js";
 
 /* === CONFIG === */
 // Base values and rule switches for the engine and game-facing API.
 
-
-const settings = JSON.parse(localStorage.getItem("settings")) ?? null;
+const settings = ReadFromSession("settings") ?? null;
 
 const API_CONFIG = {
-  DEBUG: {
-    ALL : settings?.debugMode ?? true,       // Global Debug Switch
-    SKIP: {
+  Debug: {
+    All : settings?.debugMode ?? true,       // Global Debug Switch
+    Skip: {
       Splash  : false,                       // Skip Splash Screens
       Intro   : settings?.skipIntro ?? true, // SKip Intro Cutscene
       Cutscene: false,                       // Skip All Cutscenes
     },
-    LEVELS: {
+    Levels: {
       Triggers: true,                        // Render Trigger Meshes
       FreeCam : false,                       // Free Camera Mode
       BackfaceCulling: false,                // Cull back faces — wrongly wound geometry vanishes
@@ -33,7 +33,7 @@ const API_CONFIG = {
         ParticlePart: false,
         Grid        : {                      // Render Debug Grid
           Visible: false,
-          Scale  : new Unit(1, "cnu"),
+          Size   : new Unit(1, "cnu"),
         }
       },
       DetailedBounds: {                      // Render Detailed Bounds
@@ -54,7 +54,7 @@ const API_CONFIG = {
         Particle   : false,
       },
     },
-    LOGGING: {                               // Logging Flags
+    Logging: {                               // Logging Flags
       All: true,
       Type: {
         Log  : true,
@@ -86,7 +86,7 @@ const API_CONFIG = {
       },
     },
   },
-  VOLUME: {
+  Volume: {
     Master  : settings?.master ?? 0.5,
     Music   : settings?.music ?? 1,
     Voice   : settings?.voice ?? 1,
@@ -94,7 +94,7 @@ const API_CONFIG = {
     GameSfx : settings?.gameSfx ?? 1,
     Cutscene: settings?.cutscene ?? 1
   },
-  PERFORMANCE: {
+  Performance: {
     Scatter    : { Density: "High", Quality: "High" },
     Particles  : "High",
     SimDistance: "High",
@@ -102,7 +102,7 @@ const API_CONFIG = {
     FrameRate  : 60,
     Resolution : 100
   },
-  PHYSICS: {
+  Physics: {
     Gravity   : { 
       Enabled         : true, 
       Strength        : new Unit(10, "cnu"), 
@@ -130,7 +130,7 @@ const API_CONFIG = {
       MinGripSpeed        : { Air: 0.8, Water: 0.8 },     // Share of maxSpeed needed to grip upside down; eases to 0 at Ground
     },
   },
-  CUSTOM_EVENTS: {
+  CustomEvents: {
     Entities: {
       Spawn          : false,
       Despawn        : false,
@@ -141,11 +141,12 @@ const API_CONFIG = {
       DamageInflicted: false,
     }
   },
-  CAMERA: { 
+  Camera: {
     Fov: 60,
     Sensitivity: { Mouse: 40, Keyboard: 50 },
+    ZoomStep: new Unit(0.5, "cnu"),          // Arm length change per wheel notch
   },
-  RENDERING: {
+  Rendering: {
     Texture: {
       Noise  : { Density: 1, SpeckSize: 2 },
       Tiles  : { Density: 1, SpeckSize: 1 },
@@ -162,8 +163,8 @@ const API_CONFIG = {
 // Max authorable skybox gradient stops.
 const SKY_STOP_LIMIT = 10;
 
-// Engine-internal performance-related scaling.
-const PERFORMANCE_SCALING = {
+// Performance-related scaling.
+const PERFORMANCE_SCALING = DeepFreeze({
   SimDistance: {
     Tiers    : { Low: new Unit(50, "cnu"), Medium: new Unit(100, "cnu"), High: new Unit(150, "cnu"), Ultra: new Unit(250, "cnu") },
     Fractions: {
@@ -180,18 +181,66 @@ const PERFORMANCE_SCALING = {
     Entities: { Disabled: 0, Low: 0.25, Medium: 0.50, High: 1 }       // Frame correction budget
   },
   Loop: { MaxSubsteps: 4 }                                            // Physics ticks per frame before time dilates
-}
+});
 
-// Engine-internal footing feel: jump windows, contact grace, grip ramp.
-const GROUNDING = {
-  JumpBufferSeconds  : 0.12,   // Early press held until landing
-  CoyoteSeconds      : 0.1,    // Late press honoured after leaving the ground
-  ContactGraceSeconds: 0.05,   // Surface pose held after a missed probe
-  GripRampSeconds    : 2,      // Grip demand's crossing of 0 ↔ MinGripSpeed
-};
+// Footing feel: jump windows, contact grace, grip ramp.
+const GROUNDING = DeepFreeze({
+  JumpBufferMs  : 120,    // Early press held until landing
+  CoyoteMs      : 100,    // Late press honoured after leaving the ground
+  ContactGraceMs: 50,     // Surface pose held after a missed probe
+  GripRampMs    : 2000,   // Grip demand's crossing of 0 ↔ MinGripSpeed
+});
 
+// Movement feel: friction floor, slide damping, reversal braking.
+const MOVEMENT_TUNING = DeepFreeze({
+  MinSupport        : 0.25,                         // Friction floor; engages past 75.5°
+  SlideUphillScale  : 0.15,                         // Acceleration kept pressing uphill on a slide
+  ReversalBrakeScale: 0.75,                         // Share of acceleration added to braking on a reversal
+  OppositeInput     : { Forward: 0.25, Left: 0.2, Right: 0.25 },  // Input past which a reversal counts as held
+});
+
+// Default camera feel.
+const CAMERA_TUNING = DeepFreeze({
+  Body: {
+    Radius      : new Unit(0.3, "cnu"),     // Camera's size; walls and the target keep it this far off
+    LagStrength : 1,                        // How tightly the camera keeps up with its target
+    RollStrength: 1,                        // How quickly it rolls to the surface
+  },
+  Look: { ReturnDelayMs: 500 },             // Wait after looking before the camera drifts back
+  Walls: {
+    ReturnDelayMs : 250,                    // Wait after a wall clears before moving back out
+    ZoomStrength  : 1,                      // How sharply it pulls in to a wall
+    ReturnStrength: 1,                      // How quickly it moves back out
+  },
+  Loops: {
+    MinCurveThreshold: new Unit(120, "degrees"),   // Least surface curve that counts as loop-like
+    Player: {
+      EnterCurve: new Unit(45, "degrees"),         // Curve through a loop before it engages
+      EnterLean : new Unit(40, "degrees"),         // Lean along the axis that still enters a loop
+      ExitLean  : new Unit(60, "degrees"),         // Lean along the axis that still holds a loop
+    },
+    ExitLeanGrace: 1,                              // Loop radii travelled without progress before a loop ends
+    TightFraming : 0.75,                           // Share of a tight loop's height kept in view
+    LargeLoopZoom: 1.5,                            // Arm length multiplier in large loops
+    SpeedZoom    : 1.25,                           // Arm length multiplier in tight loops at top speed
+    CoastGravity : 0.5,                            // Share of gravity while coasting a lock
+  },
+  Modes: {
+    Triggers: {
+      FastSpeedFraction: 0.5,                      // Fraction of the character's top speed that counts as fast
+      LargeLoopScale   : 10,                       // Loop radius, in character heights, from which a loop is large
+    },
+    Chase: {
+      TrailStrength : 1,                           // How tightly it trails behind the facing
+      FollowRampMs  : 1500,                        // From a look or a fresh start to full follow
+      MaxNarrowedYaw: new Unit(45, "degrees"),     // Look yaw range off the trail at top speed
+      LookResistance: 1,                           // Resistance curve toward the look limits; 1 = even
+    },
+    Orbit: { SideSwingSpeed: new Unit(120, "degrees") },  // Degrees per second orbitCam swings to a loop's side
+  },
+});
 
 /* === EXPORTS === */
 // Public configuration surface for engine modules.
 
-export { API_CONFIG as CONFIG, PERFORMANCE_SCALING, GROUNDING, SKY_STOP_LIMIT };
+export { API_CONFIG as CONFIG, PERFORMANCE_SCALING, GROUNDING, MOVEMENT_TUNING, CAMERA_TUNING, SKY_STOP_LIMIT };

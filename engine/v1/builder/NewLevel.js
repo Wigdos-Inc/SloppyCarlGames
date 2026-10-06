@@ -15,10 +15,12 @@ import { BuildTerrain } from "./NewTerrain.js";
 import { ResolveObjectSource } from "./NewTemplate.js";
 import { BuildScatterBatches, BuildScatterVisualResources } from "./NewScatter.js";
 import { BuildVoidWalls } from "./NewVoid.js";
-import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
-import { Log } from "../core/meta.js";
-import { Clamp, UnitVector3 } from "../math/Utilities.js";
-import { ToVector3 } from "../math/Vector3.js";
+import { CONFIG, PERFORMANCE_SCALING, CAMERA_TUNING } from "../core/config.js";
+import { EPSILON, Log } from "../core/meta.js";
+import { Clamp, DegreesToRadians, UnitVector3 } from "../math/Utilities.js";
+import { AddVector3, AngleBetweenVector3, CrossVector3, DotVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3ToArray, WORLD_NORMALS } from "../math/Vector3.js";
+import { AabbOverlap, TriangleAabb, TriangleDistanceSq } from "../math/Collision.js";
+import { IsPointInSuppressingVoid } from "../physics/Collision.js";
 
 function resolveEntityBlueprintMap(payload) {
 	const map = {};
@@ -234,7 +236,7 @@ function buildSceneDetailedBounds(sceneGraph) {
 		return "Entity";
 	};
 
-	// `toggle` selects the CONFIG.DEBUG.LEVELS.DetailedBounds key; `type` selects the wireframe colour.
+	// `toggle` selects the CONFIG.Debug.Levels.DetailedBounds key; `type` selects the wireframe colour.
 	const push = (type, id, bounds, toggle = type) => {
 		if (!bounds) return;
 		detailed.push({ type: type, id: id, bounds: bounds, toggle: toggle });
@@ -279,6 +281,178 @@ function buildSceneDetailedBounds(sceneGraph) {
 	return detailed;
 }
 
+/* === SURFACE CHUNKS === */
+
+// 12 triangles, outward normals.
+function boxFacets(center, axes, half) {
+	const facets = [];
+	const extents = Vector3ToArray(half);
+	for (let axis = 0; axis < 3; axis++) {
+		const u = (axis + 1) % 3;
+		const v = (axis + 2) % 3;
+		for (const sign of [-1, 1]) {
+			const normal = ScaleVector3(axes[axis], sign);
+			const faceCenter = AddVector3(center, ScaleVector3(normal, extents[axis]));
+			const [p0, p1, p2, p3] = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([su, sv]) => AddVector3(faceCenter, AddVector3(
+				ScaleVector3(axes[u], su * extents[u]),
+				ScaleVector3(axes[v], sv * extents[v])
+			)));
+			facets.push({ a: p0, b: p1, c: p2, normal }, { a: p0, b: p2, c: p3, normal });
+		}
+	}
+	return facets;
+}
+
+// Sphere, capsule and "none" bounds have no facets.
+function boundsFacets(bounds) {
+	if (bounds === null) return [];
+	switch (bounds.type) {
+		case "triangle-soup": return bounds.triangles;
+		case "obb"          : return boxFacets(bounds.center, bounds.axes, bounds.halfExtents);
+		case "aabb"         : return boxFacets(
+			bounds.min.clone().add(bounds.max).scale(0.5),
+			[WORLD_NORMALS.Right, WORLD_NORMALS.Up, WORLD_NORMALS.Forward],
+			bounds.max.clone().subtract(bounds.min).scale(0.5)
+		);
+		default: return [];
+	}
+}
+
+const makeRoots = (count) => Array.from({ length: count }, (_, index) => index);
+function findRoot(roots, index) {
+	while (roots[index] !== index) index = roots[index] = roots[roots[index]];
+	return index;
+}
+const joinRoots = (roots, a, b) => { roots[findRoot(roots, a)] = findRoot(roots, b); };
+
+// A fold's loop radius: the facets' width across it over its turn.
+function foldRadius(a, b, fold) {
+	const edge = ResolveVector3Axis(CrossVector3(a.normal, b.normal));
+	const width = (facet) => {
+		const reach = [facet.a, facet.b, facet.c].map((point) => DotVector3(point, CrossVector3(edge, facet.normal)));
+		return Math.max(...reach) - Math.min(...reach);
+	};
+	return (width(a) + width(b)) / (4 * Math.tan(fold / 2));
+}
+
+// Chunks join touching pieces; loop surfaces are picked per medium.
+function buildSurfaceChunks(terrain, obstacles, voids) {
+	const started = performance.now();
+	const pieces = [];
+	const centroid = (f) => ScaleVector3(AddVector3(AddVector3(f.a, f.b), f.c), 1 / 3);
+	const addHost = (id, aabb, bounds, flags, hostVoids) => pieces.push({
+		id, aabb,
+		facets: boundsFacets(bounds).filter((facet) => !(flags.nullable !== false && IsPointInSuppressingVoid(centroid(facet), id, hostVoids))),
+	});
+	terrain.forEach((mesh) => addHost(mesh.id, mesh.worldAabb, mesh.detailedBounds, mesh.meta, voids.terrain));
+	obstacles.forEach((record) => addHost(record.id, record.worldAabb, record.detailedBounds, record, voids.obstacles));
+	for (const entry of [...voids.terrain, ...voids.obstacles]) {
+		const lining = [];
+		for (const hostId in entry.relations) {
+			entry.relations[hostId].voidWallMeshes.forEach((wall) => lining.push(...wall.floorBounds.triangles, ...wall.wallBounds.triangles));
+		}
+		if (lining.length > 0) pieces.push({ id: entry.id, aabb: entry.worldAabb, facets: lining });
+	}
+
+	// Touching means no gap beyond float noise.
+	const expand = (aabb) => ({ min: SubtractVector3(aabb.min, ToVector3(EPSILON)), max: AddVector3(aabb.max, ToVector3(EPSILON)) });
+	const facets = [], owner = [], incline = [], links = [];
+	// Concave: each facet rises toward the other, as inside a loop; a crest falls away.
+	const link = (a, b) => {
+		const across = SubtractVector3(centroid(facets[b]), centroid(facets[a]));
+		const concave = DotVector3(facets[a].normal, across) - DotVector3(facets[b].normal, across) >= -EPSILON;
+		links.push({ a, b, concave, fold: AngleBetweenVector3(facets[a].normal, facets[b].normal) });
+	};
+
+	// Within a piece: shared edges.
+	const vertexKey = (p) => `${p.x},${p.y},${p.z}`;
+	pieces.forEach((piece, pieceIndex) => {
+		const edgeOwners = new Map();
+		piece.first = facets.length;
+		for (const facet of piece.facets) {
+			const index = facets.length;
+			facets.push(facet);
+			owner.push(pieceIndex);
+			incline.push(AngleBetweenVector3(facet.normal, WORLD_NORMALS.Up));
+			const keys = [vertexKey(facet.a), vertexKey(facet.b), vertexKey(facet.c)];
+			for (let edge = 0; edge < 3; edge++) {
+				const [k1, k2] = [keys[edge], keys[(edge + 1) % 3]].sort();
+				if (k1 === k2) continue;
+				const shared = edgeOwners.get(`${k1}|${k2}`);
+				if (!shared) { edgeOwners.set(`${k1}|${k2}`, [index]); continue; }
+				shared.forEach((other) => link(other, index));
+				shared.push(index);
+			}
+		}
+	});
+
+	// Across pieces: touching facets, for pieces whose bounds touch.
+	const pieceRoots = makeRoots(pieces.length);
+	const reach = pieces.map((piece) => expand(piece.aabb));
+	const facetReach = facets.map((facet) => expand(TriangleAabb(facet)));
+	const nearFacets = (piece, bounds) => piece.facets.map((_, offset) => piece.first + offset).filter((index) => AabbOverlap(facetReach[index], bounds));
+	for (let i = 0; i < pieces.length; i++) for (let j = i + 1; j < pieces.length; j++) {
+		if (!AabbOverlap(reach[i], reach[j])) continue;
+		if (pieces[i].facets.length === 0 || pieces[j].facets.length === 0) { joinRoots(pieceRoots, i, j); continue; }
+		const nearJ = nearFacets(pieces[j], reach[i]);
+		for (const a of nearFacets(pieces[i], reach[j])) for (const b of nearJ) {
+			if (AabbOverlap(facetReach[a], facetReach[b]) && TriangleDistanceSq(facets[a], facets[b]) <= EPSILON * EPSILON) link(a, b);
+		}
+	}
+
+	// Chunks: pieces joined by any adjacency.
+	links.forEach(({ a, b }) => joinRoots(pieceRoots, owner[a], owner[b]));
+	const chunkByRoot = new Map();
+	pieces.forEach((piece, index) => {
+		const root = findRoot(pieceRoots, index);
+		if (!chunkByRoot.has(root)) chunkByRoot.set(root, { id: `chunk-${chunkByRoot.size}`, surfaceIds: [] });
+		chunkByRoot.get(root).surfaceIds.push(piece.id);
+	});
+
+	// Loop surfaces: smooth components with floor and ceiling, then their steeper-than-ground sub-components reaching the ceiling. Each keeps its loop radius.
+	const loopSurfaces = { Air: new Map(), Water: new Map() };
+	const loopIncline = CAMERA_TUNING.Loops.MinCurveThreshold.toRadians();
+	for (const medium in loopSurfaces) {
+		const limit = DegreesToRadians(CONFIG.Physics.Correction.MaxAngleDelta[medium].Ground);
+		const smooth = links.filter((l) => l.concave && l.fold <= limit);
+		const roots = makeRoots(facets.length);
+		smooth.forEach(({ a, b }) => joinRoots(roots, a, b));
+		const floors = new Set(), ceilings = new Set();
+		incline.forEach((angle, index) => {
+			if (angle <= limit) floors.add(findRoot(roots, index));
+			if (angle >= loopIncline) ceilings.add(findRoot(roots, index));
+		});
+		const steep = (index) => incline[index] > limit && floors.has(findRoot(roots, index)) && ceilings.has(findRoot(roots, index));
+
+		const steepRoots = makeRoots(facets.length);
+		smooth.forEach(({ a, b }) => { if (steep(a) && steep(b)) joinRoots(steepRoots, a, b); });
+		const loopRoots = new Set();
+		incline.forEach((angle, index) => { if (angle >= loopIncline && steep(index)) loopRoots.add(findRoot(steepRoots, index)); });
+		// Median fold radius per loop; one without folds has no size.
+		const foldRadii = new Map();
+		smooth.forEach(({ a, b, fold }) => {
+			if (fold <= EPSILON || !steep(a) || !steep(b)) return;
+			const root = findRoot(steepRoots, a);
+			if (!foldRadii.has(root)) foldRadii.set(root, []);
+			foldRadii.get(root).push(foldRadius(facets[a], facets[b], fold));
+		});
+		const loopRadius = (root) => {
+			const radii = (foldRadii.get(root) || [Infinity]).sort((x, y) => x - y);
+			return radii[radii.length >> 1];
+		};
+		incline.forEach((_, index) => {
+			const root = findRoot(steepRoots, index);
+			if (!steep(index) || !loopRoots.has(root)) return;
+			const id = pieces[owner[index]].id;
+			loopSurfaces[medium].set(id, Math.min(loopSurfaces[medium].get(id) ?? Infinity, loopRadius(root)));
+		});
+	}
+
+	const chunks = [...chunkByRoot.values()];
+	Log("ENGINE", `Surface chunks: chunks=${chunks.length}, loopAir=${loopSurfaces.Air.size}, loopWater=${loopSurfaces.Water.size}, ms=${(performance.now() - started).toFixed(1)}`, "log", "Level");
+	return { chunks, loopSurfaces };
+}
+
 function RefreshSceneBoundingBoxes(sceneGraph) {
 	sceneGraph.debugBoundingBoxes = buildSceneBoundingBoxes(sceneGraph);
 	sceneGraph.debug.detailedBounds = buildSceneDetailedBounds(sceneGraph);
@@ -292,7 +466,7 @@ async function BuildLevel(payload) {
 		if (objectMesh.detail.scatter.length === 0) return;
 		BuildScatterBatches({
 			objectMesh, indexSeed, openFaces,
-			scatterMultiplier   : PERFORMANCE_SCALING.Density.Scatter[CONFIG.PERFORMANCE.Scatter.Density],
+			scatterMultiplier   : PERFORMANCE_SCALING.Density.Scatter[CONFIG.Performance.Scatter.Density],
 			world               : payload.world,
 			explicitScatter     : objectMesh.detail.scatter,
 			batchMap            : scatterBatches,
@@ -316,13 +490,12 @@ async function BuildLevel(payload) {
 	const obstacleRecords          = allObstacleRecords.filter((r) => r.mode !== "void");
 	const voidObstacleRecords = allObstacleRecords.filter((r) => r.mode === "void");
 
-	// Void walls run before scatter: classification attaches a `relations` map (with openFaces)
-	// onto each void entry, which scatter then reads to reject samples over openings.
+	// Void walls run before scatter so scatter may avoid openings.
 	const voids = { terrain: voidTerrain, obstacles: voidObstacleRecords };
 	BuildVoidWalls({ terrain, obstacles: obstacleRecords, voids }, payload.world.textureScale);
+	const { chunks, loopSurfaces } = buildSurfaceChunks(terrain, obstacleRecords, voids);
 
-	// Open faces lookup: per default object id, the concatenated world-space open boundary faces
-	// across every void relation that references it.
+	// Open faces per default object id, gathered from every void relation that references it.
 	const openFacesByObjectId = new Map();
 	const collectOpenFaces = (entries) => {
 		for (const entry of entries) {
@@ -399,10 +572,10 @@ async function BuildLevel(payload) {
 		world: payload.world,
 		terrain, entities, triggers, scatter: [], scatterBatches,
 		obstacles               : obstacleRecords,
-		voids, waterVisual,
+		voids, waterVisual, chunks, loopSurfaces,
 		scatterPrimitiveGeometry: BuildScatterVisualResources(scatterBatches),
 		debug                   : {
-			showTriggerVolumes: !!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.Triggers === true),
+			showTriggerVolumes: !!(CONFIG.Debug.All === true && CONFIG.Debug.Levels.Triggers === true),
 			detailedBounds    : [],
 			scatterBounds     : scatterDebugBounds,
 		},

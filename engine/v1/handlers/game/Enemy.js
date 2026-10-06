@@ -12,16 +12,7 @@ import { TriggerPlayerRespawnSequence, SetPlayerAction } from "../../player/Mast
 const knockbackForce = 12;
 const invulnerabilityDuration = 2.0;
 
-/**
- * Handle collisions between the player and all enemy entities.
- * Uses the three-layer combat overlap system:
- *   - playerState.hitboxActive → player attacks enemies (hitbox vs hurtbox).
- *   - Otherwise enemies attack player (entity hitbox vs player hurtbox).
- *
- * @param {object} playerState — mutable player state.
- * @param {object} sceneGraph — active scene graph.
- * @param {number} deltaSeconds
- */
+// Player-vs-enemy combat: the player hits enemies while attacking, otherwise enemies hit the player.
 function HandleEnemyCollisions(playerState, sceneGraph) {
 	if (playerState.action === "Dead") return;
 
@@ -31,7 +22,7 @@ function HandleEnemyCollisions(playerState, sceneGraph) {
 	for (let i = combatResults.count - 1; i >= 0; i--) {
 		const result = combatResults.items[i];
 
-		if (CONFIG.CUSTOM_EVENTS.Entities.Collision && playerState.customEvents.collision) {
+		if (CONFIG.CustomEvents.Entities.Collision && playerState.customEvents.collision) {
 			SendEvent("PLAYER_COLLISION", {
 				id         : playerState.id,
 				type       : playerState.type,
@@ -50,7 +41,7 @@ function HandleEnemyCollisions(playerState, sceneGraph) {
 			entity.hp--;
 			Log("ENGINE", `Enemy "${entity.id}" hit by player. HP: ${entity.hp}`, "log", "Level");
 
-			if (CONFIG.CUSTOM_EVENTS.Entities.DamageReceived && entity.customEvents.damageReceived) {
+			if (CONFIG.CustomEvents.Entities.DamageReceived && entity.customEvents.damageReceived) {
 				SendEvent("ENTITY_DAMAGE_RECEIVED", {
 					id      : entity.id,
 					type    : entity.type,
@@ -60,7 +51,7 @@ function HandleEnemyCollisions(playerState, sceneGraph) {
 					sourceId: playerState.id,
 				});
 			}
-			if (CONFIG.CUSTOM_EVENTS.Entities.DamageInflicted && playerState.customEvents.damageInflicted) {
+			if (CONFIG.CustomEvents.Entities.DamageInflicted && playerState.customEvents.damageInflicted) {
 				SendEvent("PLAYER_DAMAGE_INFLICTED", {
 					id      : playerState.id,
 					type    : playerState.type,
@@ -74,7 +65,7 @@ function HandleEnemyCollisions(playerState, sceneGraph) {
 			if (entity.hp <= 0) {
 				const idx = sceneGraph.entities.indexOf(entity);
 				if (idx !== -1) {
-					if (entity.customEvents.despawn && CONFIG.CUSTOM_EVENTS.Entities.Despawn) {
+					if (entity.customEvents.despawn && CONFIG.CustomEvents.Entities.Despawn) {
 						SendEvent("ENTITY_DESPAWN", {
 							id      : entity.id,
 							type    : entity.type,
@@ -93,7 +84,7 @@ function HandleEnemyCollisions(playerState, sceneGraph) {
 			const entity = result.attacker;
 			if (entity.type !== "enemy") continue;
 
-			if (CONFIG.CUSTOM_EVENTS.Entities.DamageInflicted && entity.customEvents.damageInflicted) {
+			if (CONFIG.CustomEvents.Entities.DamageInflicted && entity.customEvents.damageInflicted) {
 				SendEvent("ENTITY_DAMAGE_INFLICTED", {
 					id      : entity.id,
 					type    : entity.type,
@@ -105,7 +96,7 @@ function HandleEnemyCollisions(playerState, sceneGraph) {
 			}
 
 			applyPlayerDamage(playerState, entity.transform.position);
-			break; // Only process one damage event per frame.
+			break;
 		}
 	}
 }
@@ -117,7 +108,6 @@ function applyPlayerDamage(playerState, damageSourcePosition) {
 
 	Log("ENGINE", `Player damaged! Lost ${dropCount} collectibles. Remaining: ${playerState.collectibles}`, "log", "Level");
 
-	// TODO: Spawn collectible entities from stored count (placeholder — just log).
 	if (dropCount > 0) Log("ENGINE", `[Placeholder] Would spawn ${dropCount} collectible entities.`, "log", "Level");
 
 	// Check for death when no collectibles were available at hit time.
@@ -143,7 +133,7 @@ function applyPlayerDamage(playerState, damageSourcePosition) {
 	// Transition to stunned action.
 	SetPlayerAction("Stunned");
 
-	if (CONFIG.CUSTOM_EVENTS.Entities.DamageReceived && playerState.customEvents.damageReceived) {
+	if (CONFIG.CustomEvents.Entities.DamageReceived && playerState.customEvents.damageReceived) {
 		SendEvent("PLAYER_DAMAGE_RECEIVED", {
 			id          : playerState.id,
 			type        : playerState.type,

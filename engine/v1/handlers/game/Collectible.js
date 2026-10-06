@@ -7,13 +7,7 @@ import { CONFIG } from "../../core/config.js";
 import { Log, SendEvent } from "../../core/meta.js";
 import { CheckEntityAabbOverlap } from "../../physics/Collision.js";
 
-/**
- * Check for collectible pickups — player AABB overlapping collectible entities.
- * On overlap: increment counter, remove entity, emit event.
- *
- * @param {object} playerState — mutable player state.
- * @param {object} sceneGraph — active scene graph.
- */
+// Collectible pickup & removal from the scene.
 function HandleCollectiblePickups(playerState, sceneGraph) {
 	if (playerState.action === "Dead") return;
 
@@ -34,7 +28,7 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 		Log("ENGINE", `Collectible "${entity.id}" picked up. Total: ${playerState.collectibles}`, "log", "Level");
 
 		// Remove from scene.
-		if (entity.customEvents.despawn && CONFIG.CUSTOM_EVENTS.Entities.Despawn) {
+		if (entity.customEvents.despawn && CONFIG.CustomEvents.Entities.Despawn) {
 			SendEvent("ENTITY_DESPAWN", {
 				id      : entity.id,
 				type    : entity.type,

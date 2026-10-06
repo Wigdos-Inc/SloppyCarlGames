@@ -64,7 +64,7 @@ function ComputeCustomTextureSignature(customTextures) {
 	return customTextures.map(formatCustomTextureEntry).join(";;");
 }
 
-// Map frequency patterns to CONFIG.RENDERING.Texture blocks. Absent = not a frequency pattern.
+// Map frequency patterns to CONFIG.Rendering.Texture blocks. Absent = not a frequency pattern.
 const FREQUENCY_PATTERN_CONFIG = {
 	tiles  : "Tiles",
 	stripes: "Stripes",
@@ -83,7 +83,8 @@ function fillReplacing(ctx, replace, drawFn) {
 	drawFn();
 }
 
-// null = derive from alpha (legacy default). New mode: also add to canonSchemas.json allowedValues.
+// null = derive from alpha (legacy default).
+// Note: When adding a mode, also add it in canonSchemas.json (allowedValues).
 const resolveReplace = (definition) =>
 	definition.compositeMode !== null ? definition.compositeMode === "replace" : definition.secondary.a < 1;
 
@@ -130,7 +131,7 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 
 	switch (textureDefinition.pattern) {
 		case "tiles": {
-			const cfg       = CONFIG.RENDERING.Texture.Tiles;
+			const cfg       = CONFIG.Rendering.Texture.Tiles;
 			const cellCount = periods;
 			if (cellCount === 0) return;
 			const cellSize  = size / cellCount;
@@ -143,7 +144,7 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			return;
 		}
 		case "stripes": {
-			const cfg            = CONFIG.RENDERING.Texture.Stripes;
+			const cfg            = CONFIG.Rendering.Texture.Stripes;
 			const stripeCount    = periods;
 			if (stripeCount === 0) return;
 			const pitch          = size / stripeCount;
@@ -161,7 +162,7 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			ctx.fillRect(0, 0, size, size);
 			return;
 		}
-		// REPEAT-wrapped raw UVs sample only near y=0/size (see grass-blade); stops meet at the wrap so it's seamless.
+		// Note: Raw UVs repeat, so the gradient's two ends are matched to hide the seam.
 		case "linear": {
 			const mid = rgbaToCss({
 				r: (textureDefinition.primary.r + textureDefinition.secondary.r) / 2,
@@ -179,8 +180,8 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			return;
 		}
 		case "noise": {
-			const effSpeckSize = textureDefinition.speckSize * CONFIG.RENDERING.Texture.Noise.SpeckSize;
-			const effDensity   = textureDefinition.density   * CONFIG.RENDERING.Texture.Noise.Density;
+			const effSpeckSize = textureDefinition.speckSize * CONFIG.Rendering.Texture.Noise.SpeckSize;
+			const effDensity   = textureDefinition.density   * CONFIG.Rendering.Texture.Noise.Density;
 			const speck = Math.max(1, Math.floor(effSpeckSize * textureScale));
 			const speckCount = Math.min(16000, Math.floor((size * size * effDensity) / (speck * speck)));
 			const drawWrapped = (x, y) => {
@@ -197,7 +198,7 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 		}
 		case "grid": {
 			// Checker lattice, cell = pitch/2. speckSize 1 = clean 50/50, >1 overlaps.
-			const cfg         = CONFIG.RENDERING.Texture.Grid;
+			const cfg         = CONFIG.Rendering.Texture.Grid;
 			const cellsPerRow = periods;
 			if (cellsPerRow === 0) return;
 			const cell      = size / (cellsPerRow * 2);
@@ -342,9 +343,7 @@ function collectCustomTextures(mesh, customTextureUsage) {
 	});
 }
 
-// The one enumeration of meshes that can contribute a texture id. Texture.js walks it to resolve
-// animation owners, so a collection added here reaches both and the two cannot drift apart.
-// Kinds: "terrain" spans its own texture, "plain" carries no decals, "detailed" does.
+// Visits every textured mesh with its kind: terrain, plain (no decals) or detailed (decals).
 function ForEachTexturedMesh(sceneGraph, visit) {
 	sceneGraph.terrain.forEach((mesh) => { if (mesh.meta.mode === "default") visit(mesh, "terrain"); });
 	sceneGraph.triggers.forEach((mesh) => visit(mesh, "plain"));
@@ -375,8 +374,7 @@ function collectTextureUsage(sceneGraph) {
 		if (kind !== "plain") collectCustomTextures(mesh, customTextureUsage);
 	});
 
-	// Collect texture IDs from instanced scatter batches. Decal texture(s) bake once per batch
-	// (keyed by batchKey), not once per instance — batchKey already guarantees identical authoring.
+	// Collect texture IDs from scatter batches. Decals bake once per batch (by batchKey), not per instance.
 	sceneGraph.scatterBatches.forEach((batch, batchKey) => {
 		registerTextureUsage(batch.textureID, textureRegistrationOptions(batch.texture, false, 1), usage);
 		if (batch.customTextures.length > 0) {
@@ -437,7 +435,7 @@ function createMaskCanvas(w, h) {
 	return { canvas, ctx };
 }
 
-// New shape: add method here + normalize.js shapeRequiredFields + canonSchemas.json allowedValues.
+// Note: When adding a shape, also add it in normalize.js (shapeRequiredFields) and canonSchemas.json (allowedValues).
 const shapeMaskBuilders = {
 	square: (w, h) => {
 		const { canvas, ctx } = createMaskCanvas(w, h);
@@ -510,7 +508,7 @@ function compositeShapeDecal(ct, mesh, textureScale) {
 
 	// Frequency patterns bake period count directly; others ignore periods (default 1).
 	const decalConfigKey = FREQUENCY_PATTERN_CONFIG[resolvedBlueprint.pattern];
-	const periods = decalConfigKey ? Math.round(resolvedBlueprint.density * CONFIG.RENDERING.Texture[decalConfigKey].Density) : 1;
+	const periods = decalConfigKey ? Math.round(resolvedBlueprint.density * CONFIG.Rendering.Texture[decalConfigKey].Density) : 1;
 
 	// Mask last so per-pixel alpha from the pattern survives.
 	ctx.drawImage(buildTextureSurface(resolvedBlueprint, toPowerOfTwoSize(decalBlueprint.size), effectiveScale, periods), 0, 0, size, size);
@@ -610,7 +608,7 @@ async function PrepareLevelVisualResources(sceneGraph) {
 	const { usage, customTextureUsage } = collectTextureUsage(sceneGraph);
 	const textureRegistry = createTextureRegistry(usage, customTextureUsage, { textureScale: sceneGraph.world.textureScale });
 
-	// pendingFaceTextures is signature-keyed; identical faces already collapsed, so merge is idempotent.
+	// Add the face textures built during the level build; duplicates were already merged.
 	for (const id in sceneGraph.pendingFaceTextures) textureRegistry[id] = sceneGraph.pendingFaceTextures[id];
 	sceneGraph.pendingFaceTextures = {};
 
@@ -656,8 +654,8 @@ function BeginNoiseBake(blueprint, pixelW, pixelH, textureScale) {
 	ctx.fillStyle = rgbaToCss(blueprint.primary);
 	ctx.fillRect(0, 0, pixelW, pixelH);
 
-	const effSpeckSize = blueprint.speckSize * CONFIG.RENDERING.Texture.Noise.SpeckSize;
-	const effDensity   = blueprint.density   * CONFIG.RENDERING.Texture.Noise.Density;
+	const effSpeckSize = blueprint.speckSize * CONFIG.Rendering.Texture.Noise.SpeckSize;
+	const effDensity   = blueprint.density   * CONFIG.Rendering.Texture.Noise.Density;
 	const speck = Math.max(1, Math.floor(effSpeckSize * textureScale));
 
 	const drawWrapped = (x, y) => {
@@ -721,7 +719,7 @@ function getOrBuildFaceTexture(store, id, buildFn) {
 	return entry;
 }
 
-// Content signature; ::face= marker is read by Render.js CLAMP_TO_EDGE.
+// Content signature for a face texture; Render.js reads the ::face= marker to clamp its edges.
 function buildFaceTextureSignature(baseTextureID, resolvedBlueprint, pixelW, pixelH, textureScale, animationOptions) {
 	const colorKey = `${formatColorKey(resolvedBlueprint.primary)}|${formatColorKey(resolvedBlueprint.secondary)}|${resolvedBlueprint.shape}|${resolvedBlueprint.compositeMode}`;
 	const shapeKey = `d=${resolvedBlueprint.density}|s=${resolvedBlueprint.speckSize}`;
@@ -766,9 +764,8 @@ export {
 	BuildFaceTextureData, 
 	ResolveTextureBlueprint,
 	BuildNoiseAnimationOptions, 
-	FREQUENCY_PATTERN_CONFIG, 
-	VISUAL_TEMPLATES, 
-	ComputeGeneratedTextureID, 
+	FREQUENCY_PATTERN_CONFIG,
+	ComputeGeneratedTextureID,
 	ComputeCustomTextureSignature, 
 	IsTextureTransparent, 
 	InitializeDecalDisplay 

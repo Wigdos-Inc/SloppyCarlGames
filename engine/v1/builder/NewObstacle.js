@@ -110,14 +110,12 @@ function buildObstacleParts(source, index, options) {
 	}
 
 	// Compose world-space transforms by cloning and mutating UnitVector3 instances.
-	const rootScale = source.scale; // Vector3
-
 	const parts = source.parts.map((part, partIndex) => {
-		const combinedScale = MultiplyVector3(rootScale, part.localScale);
+		const combinedScale = MultiplyVector3(source.scale, part.localScale);
 
 		// Compute world-space position
 		const worldPos = source.position.clone();
-		worldPos.add(MultiplyVector3(part.localPosition, rootScale));
+		worldPos.add(MultiplyVector3(part.localPosition, source.scale));
 		worldPos.y += part.dimensions.y * combinedScale.y * 0.5;
 
 		const { mesh: partMesh } = BuildObject(

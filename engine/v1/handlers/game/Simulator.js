@@ -2,9 +2,11 @@
 // Start() builds the disc environment; Load/Clear mutate the live sceneGraph directly.
 
 import { CreateLevel, ClearLevel, GetActiveLevel, StopLevelLoop, SpawnIntoScene, AddEntityToScene, DespawnFromScene, SpawnParticleRequests } from "./Level.js";
-import { CharacterData, BuildPlayerModel } from "../../player/Model.js";
+import { BuildPlayerModel } from "../../player/Model.js";
+import CharacterData from "../../player/characters.json" with { type: "json" };
 import { ParticleGeneratorRequests, WithParticleOverride } from "../../builder/NewParticles.js";
-import { UpdateCameraState, SetDefaultCamFraming } from "./Camera.js";
+import { PrepareCamera, UpdateCamera } from "../../camera/Master.js";
+import { SetOrbitCamFraming } from "../../camera/Modes.js";
 import { ResolveEntityAnimation } from "./Animation.js";
 import { Cache, Log, SendEvent, ENTITY_TYPES, EngineInitialized } from "../../core/meta.js";
 import { CreateUI, ClearUI, ApplyMenuUI } from "../UI.js";
@@ -218,19 +220,19 @@ function spawnPlatform(sceneGraph, footprintXZ) {
 	return SpawnIntoScene(disc, "terrain", sceneGraph);
 }
 
-// Fits DefaultCam framing and follow target to the loaded object's bounds; returns its extent.
+// Fits OrbitCam framing and follow target to the loaded object's bounds; returns its extent.
 function frameLoadedObject(aabb) {
 	const ext = SubtractVector3(aabb.max, aabb.min);
-	const distance     = Math.max(templateCamera.distance, framingFactor * Math.max(ext.x, ext.z, ext.y));
+	const distance     = Math.max(templateCamera.distance.default, framingFactor * Math.max(ext.x, ext.z, ext.y));
 	const heightOffset = Math.max(templateCamera.heightOffset, ext.y * heightFraction);
-	SetDefaultCamFraming({ distance, heightOffset });
+	SetOrbitCamFraming({ distance, heightOffset });
 
-	const center = aabb.max.clone().add(aabb.min).scale(0.5); center.y = aabb.min.y;
+	const center = aabb.max.clone().add(aabb.min).scale(0.5); center.y = aabb.min.y + ext.y * templateCamera.aimHeight;
 	simulatorRuntime.followTarget = { transform: { position: center } };
 	return ext;
 }
 
-// Only the loaded object can emit here, so every live group belongs to the object being replaced.
+// Despawns every live particle group; only the loaded object can emit here.
 const clearParticles = (sceneGraph) => DespawnFromScene(sceneGraph.entities.filter((entity) => entity.particle !== null), "entity", sceneGraph);
 
 async function Load(payload) {
@@ -335,7 +337,7 @@ async function Load(payload) {
 	const carriers = objectType === "terrain" ? built : [built];
 	const requests = carriers.flatMap((carrier) => ParticleGeneratorRequests(carrier, ENTITY_TYPES.includes(objectType) ? "entity" : objectType));
 
-	// No physics pipeline runs here, so anything but "none" would emit and never move.
+	// Force-disable physics in the Simulator
 	requests.forEach((request) => { request.overrides = WithParticleOverride(request.overrides, "physics", "none"); });
 	SpawnParticleRequests(requests, sceneGraph);
 
@@ -430,7 +432,7 @@ function triangleNormal(pa, pb, pc) {
 	return normal.x === 0 && normal.y === 0 && normal.z === 0 ? WORLD_NORMALS.Up : normal;
 }
 
-// Dominant axis instead of the shader's pow(w,4) blend; diverges only near 45° faces.
+// UVs from the face's main axis (the shader blends all three; they differ only near 45° faces).
 function triplanarTriangleUvs(pa, pb, pc, normal, textureScale) {
 	const ax = Math.abs(normal.x), ay = Math.abs(normal.y), az = Math.abs(normal.z);
 	if (ax >= ay && ax >= az) return [pa.z, pa.y, pb.z, pb.y, pc.z, pc.y].map((v) => v * textureScale);
@@ -483,14 +485,18 @@ function buildMeshVertices(mesh, span) {
 	return data;
 }
 
-// Analytic, not per-facet: shared corners lift identically, so the sheet cannot tear.
+// Outward direction of the decal's shape at a point. Used to lift the decal sheet without gaps at corners.
 function decalSurfaceNormal(shapeCode, point, halfExtents, rounding, faceAxis) {
 	switch (shapeCode) {
 		case DECAL_SHAPE_CODES.Flat    : return faceAxis;
 		case DECAL_SHAPE_CODES.Cylinder: return ResolveVector3Axis({ x: point.x / Squared(halfExtents.x), y: 0, z: point.z / Squared(halfExtents.z) });
 		case DECAL_SHAPE_CODES.Capsule :
 			const band = CapsuleBand(halfExtents, rounding, point.y);
-			return ResolveVector3Axis({ x: point.x / Squared(halfExtents.x), y: (point.y - band.originY) / Squared(band.capRadius), z: point.z / Squared(halfExtents.z) });
+			return ResolveVector3Axis({ 
+				x: point.x / Squared(halfExtents.x), 
+				y: (point.y - band.originY) / Squared(band.capRadius), 
+				z: point.z / Squared(halfExtents.z) 
+			});
 		default: return  ResolveVector3Axis(DivideVector3(point, MultiplyVector3(halfExtents, halfExtents)));
 	}
 }
@@ -577,7 +583,7 @@ function buildDecalVertices(mesh, decalEntry, lift) {
 	return data;
 }
 
-// Canvas or ImageBitmap — both CanvasImageSource. toBlob un-premultiplies; don't correct twice.
+// Note: toBlob already undoes premultiplied alpha; don't undo it again.
 async function encodeTextureImage(source) {
 	const canvas  = document.createElement("canvas");
 	canvas.width  = source.width;
@@ -610,10 +616,11 @@ function collectTextureIds(meshes) {
 	return ids;
 }
 
-// 4-align every piece; PNG payloads do not self-align.
+// Pad every piece to a 4-byte boundary; PNG data isn't padded.
 function pushBinaryView(writer, bytes, target) {
 	const byteOffset = writer.binaryLength;
 	const view       = { buffer: 0, byteOffset, byteLength: bytes.byteLength };
+	
 	if (target !== null) view.target = target;
 	writer.binaryParts.push({ bytes, byteOffset });
 	writer.binaryLength = alignTo4(byteOffset + bytes.byteLength);
@@ -664,7 +671,7 @@ function pushVertexPrimitive(writer, data, materialIndex) {
 	};
 }
 
-// JSON pads 0x20, BIN pads 0x00 — spec-mandated.
+// glTF requires JSON padded with spaces and binary padded with zeros.
 function writeGlbBinary(writer) {
 	const json = JSON.stringify({
 		asset      : { version: "2.0", generator: "CarlNet Engine v1 - Sloppy Carl Games" },
@@ -809,9 +816,7 @@ function HandleSimulatorInput(event) {
 	return false;
 }
 
-function UpdateSimulator(deltaMilliseconds, sceneGraph) {
-	const deltaSeconds = Math.max(0, deltaMilliseconds) / 1000;
-
+function UpdateSimulator(deltaSeconds, sceneGraph) {
 	if (simulatorRuntime.isHolding) {
 		simulatorRuntime.holdTimer -= deltaSeconds;
 		if (simulatorRuntime.holdTimer <= 0) {
@@ -821,13 +826,8 @@ function UpdateSimulator(deltaMilliseconds, sceneGraph) {
 		}
 	}
 
-	sceneGraph.cameraConfig.state = UpdateCameraState(
-		sceneGraph.cameraConfig.state,
-		sceneGraph,
-		sceneGraph.cameraConfig,
-		deltaSeconds,
-		simulatorRuntime.followTarget
-	);
+	PrepareCamera(sceneGraph, deltaSeconds, simulatorRuntime.followTarget, true);
+	UpdateCamera(sceneGraph, deltaSeconds, simulatorRuntime.followTarget, true);
 
 	if (simulatorRuntime.entity !== null) {
 		if (!simulatorRuntime.isHolding) ResolveEntityAnimation(simulatorRuntime.entity, deltaSeconds);

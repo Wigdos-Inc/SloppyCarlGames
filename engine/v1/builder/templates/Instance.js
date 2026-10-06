@@ -11,6 +11,7 @@ import projectileImport from "./projectiles.json" with { type: "json" };
 import particleImport from "./particles.json" with { type: "json" };
 import simulatorLevelsImport from "./levels.json" with { type: "json" };
 import { Unit, UnitVector3 } from "../../math/Utilities.js";
+import { NormalizeImage } from "../../core/normalize.js";
 
 const toUnitVector3 = (vector, type) => new UnitVector3(vector.x, vector.y, vector.z, type);
 
@@ -149,6 +150,26 @@ function instanceSimulatorTemplates() {
 	disc.pivot      = toUnitVector3(disc.pivot,      "cnu");
 }
 
+// Image decal paths resolve relative to templates/.
+function loadTemplateDecalBitmaps() {
+	const textures = new Set();
+	[characterImport, enemyImport, projectileImport].forEach((collection) => {
+		for (const templateId in collection) collection[templateId].model.parts.forEach((part) => textures.add(part.texture));
+	});
+	[terrainImport, obstacleImport].forEach((collection) => {
+		for (const templateId in collection) collection[templateId].parts.forEach((part) => textures.add(part.texture));
+	});
+	for (const templateId in particleImport) textures.add(particleImport[templateId].part.texture);
+	for (const key in texturesImport.scatterTypes) texturesImport.scatterTypes[key].parts.forEach((part) => textures.add(part.texture));
+
+	textures.forEach((texture) => texture.custom.forEach((decal) => {
+		if (decal.decalType !== "image") return;
+		NormalizeImage(new URL(decal.imagePath, import.meta.url).href, decal.sourceType, "webgl").then((result) => {
+			decal.bitmap = result.value;
+		});
+	}));
+}
+
 // Clone authored singletons for the API, then instance them in place for engine use.
 function InstanceEngineTemplates() {
 	const raw = {
@@ -168,6 +189,7 @@ function InstanceEngineTemplates() {
 	instanceEntityTemplates();
 	instanceParticleTemplates();
 	instanceSimulatorTemplates();
+	loadTemplateDecalBitmaps();
 
 	const instanced = {
 		PlayerCharacters: playerCharactersImport,

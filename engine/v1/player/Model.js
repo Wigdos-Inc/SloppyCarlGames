@@ -26,11 +26,7 @@ const playerSurfaceMap = {
 
 /* === DEFINITION SYNTHESIS === */
 
-/**
- * Drop image decals that failed to load, without mutating the shared character template. Each part
- * is shallow-copied only when it actually carries a dead decal, so the template's `texture.custom`
- * stays intact and a transient load failure retries on the next level.
- */
+// Drops image decals that failed to load; copies affected parts instead of mutating the shared template.
 function filterDeadDecals(parts) {
 	return parts.map((part) => {
 		const alive = part.texture.custom.filter((decal) => decal.decalType !== "image" || decal.bitmap !== null);
@@ -59,8 +55,7 @@ function synthesizeDefinition(character, playerData) {
 		animations       : playerData.animations,
 		velocity         : new UnitVector3(0, 0, 0, "cnu"),
 
-		// The player is driven by input, not by the builder's movement track. A zero speed keeps
-		// the builder's movement lerp inert so the spawn position is left untouched.
+		// Zero speed keeps the builder's movement track from moving the player; input does that.
 		movement: {
 			speed: new Unit(0, "cnu"),
 			start: playerData.spawnPosition.clone(),
@@ -82,8 +77,7 @@ function synthesizeDefinition(character, playerData) {
 
 /* === DECALS === */
 
-// Loads image decals to bitmaps, cached on the shared template. Failed decals are dropped later in
-// the definition (filterDeadDecals), never off the template. Paths resolve relative to player/.
+// Loads image decals to bitmaps on the shared template; relative paths resolve from player/.
 async function loadDecalBitmaps(parts) {
 	const imageLoads = [];
 
@@ -137,7 +131,6 @@ function RefreshPlayerModel(playerState) {
 /* === EXPORTS === */
 
 export {
-	CharacterData,
 	BuildPlayerModel,
 	RefreshPlayerModel,
 };

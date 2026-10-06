@@ -3,7 +3,8 @@
 // Called by anything that wants any 3D object or wants to build models.
 
 import { BuildScatter } from "./NewScatter.js";
-import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveTextureBlueprint, FREQUENCY_PATTERN_CONFIG, VISUAL_TEMPLATES, ComputeGeneratedTextureID, IsTextureTransparent, InitializeDecalDisplay } from "./NewTexture.js";
+import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveTextureBlueprint, FREQUENCY_PATTERN_CONFIG, ComputeGeneratedTextureID, IsTextureTransparent, InitializeDecalDisplay } from "./NewTexture.js";
+import VISUAL_TEMPLATES from "./templates/textures.json" with { type: "json" };
 import { CONFIG } from "../core/config.js";
 import { EPSILON } from "../core/meta.js";
 import { CreateModelMatrix, CreateIdentityMatrix, CreateRenderMatrixCache, MultiplyMatrix4 } from "../math/Matrix.js";
@@ -622,8 +623,7 @@ function buildCapsule(size, complexity, options) {
 	};
 }
 
-// Extract a node's center + orientation basis (Y = forward/extrusion axis) and its ring radii
-// from an accumulated frame matrix. All node fields are canonical/pre-instanced post-normalize.
+// Reads a tube node's center, axes and ring radii from its frame matrix (Y is the forward axis).
 function makeTubeNode(frame, dimensionX, dimensionZ, thickness, curved, smoothness) {
 	return {
 		frame,
@@ -639,8 +639,7 @@ function makeTubeNode(frame, dimensionX, dimensionZ, thickness, curved, smoothne
 	};
 }
 
-// Bone-chain walk: the root frame is identity (object-local space); each node composes its own
-// transform onto the previous node's accumulated frame.
+// Walks the bone chain from an identity root frame, applying each node's transform on top of the previous frame.
 function resolveTubeNodes(size, options) {
 	const nodes = [makeTubeNode(CreateIdentityMatrix(), size.x, size.z, options.thickness.value, options.curved, options.smoothness)];
 	let frame = nodes[0].frame;
@@ -693,8 +692,7 @@ function rollTubeFrame(frame, angle) {
 	return { tangent: frame.tangent, normal, binormal: CrossVector3(frame.tangent, normal) };
 }
 
-// Parallel-transport the cross-section along the connector, then distribute a residual roll so the
-// final frame's normal lands on the target node's authored axis — a seamless join at the shared node.
+// Carries the cross-section along the connector, then spreads a roll so the end lines up with the target node's axis.
 function orientConnectorFrames(points, startAxis, targetAxis) {
 	const frames = ParallelTransportFrames(points, startAxis);
 	const last = frames.length - 1;
@@ -748,8 +746,7 @@ function capTubeRing(indices, ring, segments, forward, solid) {
 	}
 }
 
-// Per-connector face groups: angular sectors with radial normals (like buildTorus), replacing the
-// old single outer/inner/top/bottom split which has no meaning for a multi-node tube.
+// Face groups per connector: angular sectors with radial normals, like buildTorus.
 function appendTubeConnectorFaceGroups(faceGroups, rings, node, segments, solid) {
 	const sectorCount = Math.min(8, segments);
 	for (let sector = 0; sector < sectorCount; sector++) {
@@ -1009,7 +1006,6 @@ function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 }
 
 // Builds+Freezes the geometry template for (blueprintId::partId), shared by ref across same-blueprint instances.
-// User-authorized freeze, not a violation.
 function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiveOptions, texture) {
 	const geometry = BuildGeometry(shape, dimensions, complexity, primitiveOptions);
 
@@ -1017,8 +1013,7 @@ function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiv
 
 	const textureBlueprint = VISUAL_TEMPLATES.textures[texture.id];
 
-	// Noise entity parts: object-space triplanar of the shared baked canvas. Keep default UVs (unused by
-	// triplanar but must remain a valid array so the VAO uv-buffer layout is unchanged).
+	// Noise parts use triplanar mapping. Default UVs stay so the UV buffer layout is unchanged.
 	const triplanar = textureBlueprint !== undefined && textureBlueprint.pattern === "noise";
 
 	if (!triplanar) {
@@ -1035,7 +1030,7 @@ function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiv
 		// Frequency patterns: scale UVs by composed frequency. textureBlueprint absent for material-only parts.
 		const frequencyConfigKey = textureBlueprint === undefined ? undefined : FREQUENCY_PATTERN_CONFIG[textureBlueprint.pattern];
 		if (frequencyConfigKey !== undefined) {
-			const uvScale = textureBlueprint.density * CONFIG.RENDERING.Texture[frequencyConfigKey].Density * texture.density;
+			const uvScale = textureBlueprint.density * CONFIG.Rendering.Texture[frequencyConfigKey].Density * texture.density;
 			uvs.forEach(uv => uv *= uvScale);
 		}
 	}
@@ -1046,7 +1041,7 @@ function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiv
 		uvs      : new Float32Array(uvs),
 		bounds   : computeBounds(geometry.positions),
 	};
-	// Omit the key when false so `if (mesh.geometry.triplanar)` matches the faceTextureGroups convention.
+	// Only set the triplanar flag when true. Unflagged meshes use UVs.
 	if (triplanar) template.triplanar = true;
 
 	// Typed arrays NOT frozen — Object.freeze throws on non-empty Float32Array/Uint16Array.
@@ -1059,13 +1054,9 @@ function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiv
 }
 
 function BuildObject(source) {
-	// Upstream must supply normalized/canonical objects (UnitVector3 for world-space values).
-	// Mandatory fields are used directly; optional fields are assumed normalized.
 	const shape = source.shape.toLowerCase();
 	const complexity = source.complexity;
 
-	// Upstream must provide normalized texture, scatter and primitive option objects.
-	// Expect world-space values to be provided as UnitVector3 instances already.
 	const primitiveOptions = source.primitiveOptions;
 	const transform = {
 		position: source.position,         // UnitVector3
@@ -1124,12 +1115,10 @@ function BuildObject(source) {
 		};
 	}
 
-	// Authored shape is { generated, custom }. The runtime mesh keeps the historical fields:
-	// material/detail read from the generated base texture; mesh.customTextures holds the decals.
+	// Material and detail read from the generated base texture. Decals go in mesh.customTextures.
 	const texture  = source.texture.generated;
 
-	// Entity-part geometry cache: (blueprintId::partId) builds once, shared by ref.
-	// geometryCache null builds uncached (player model).
+	// Entity parts share one geometry per (blueprintId::partId). A null cache builds uncached (player model).
 	if (source.role === "entity-part") {
 		const materialTextureID = ComputeGeneratedTextureID(texture);
 
@@ -1178,10 +1167,9 @@ function BuildObject(source) {
 			detailedBounds : null,
 			performance    : { rendering: true },
 		};
-		// Triplanar sampling scale, computed per-mesh so per-instance texture.density is honored across shared
-		// geometryCacheKeys. Mirrors the frequency-pattern UV-scale formula in buildEntityPartGeometryTemplate.
+		// Triplanar scale is set per mesh, so each instance's texture.density applies even on shared geometry.
 		if (geometryTemplate.triplanar) {
-			partMesh.material.textureScale = VISUAL_TEMPLATES.textures[texture.id].density * CONFIG.RENDERING.Texture.Noise.Density * texture.density;
+			partMesh.material.textureScale = VISUAL_TEMPLATES.textures[texture.id].density * CONFIG.Rendering.Texture.Noise.Density * texture.density;
 		}
 		partMesh.detailedBounds = computeDetailedBounds(partMesh);
 
@@ -1299,7 +1287,7 @@ function BuildObject(source) {
 	const frequencyConfigKey = textureBlueprint === undefined ? undefined : FREQUENCY_PATTERN_CONFIG[textureBlueprint.pattern];
 	if (frequencyConfigKey !== undefined) {
 		// visible periods per CNU = blueprint.density × cfg.Density × part.density
-		const uvScale = textureBlueprint.density * CONFIG.RENDERING.Texture[frequencyConfigKey].Density * texture.density;
+		const uvScale = textureBlueprint.density * CONFIG.Rendering.Texture[frequencyConfigKey].Density * texture.density;
 		for (let i = 0; i < mesh.geometry.uvs.length; i++) mesh.geometry.uvs[i] *= uvScale;
 	}
 

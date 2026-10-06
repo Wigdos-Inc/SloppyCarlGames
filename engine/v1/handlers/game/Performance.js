@@ -8,12 +8,7 @@ import { GetSimDistanceValue, IsBeyondSimDistance } from "../../physics/Collisio
 import { Vector3SqDistanceToAabb } from "../../math/Vector3.js";
 import { Squared } from "../../math/Utilities.js";
 
-/**
- * Writes `performance.physics` (entities) and `performance.rendering` (all world instances).
- * Builders attach the flag block, so every instance here carries it from construction.
- *
- * @param {object} sceneGraph — active scene graph.
- */
+// Updates each instance's physics and rendering flags by distance from the camera.
 function UpdatePerformanceFlags(sceneGraph) {
 	const cameraPosition = sceneGraph.cameraConfig.state.position;
 	const renderReachSq  = Squared(GetSimDistanceValue().value * PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances.Cull);

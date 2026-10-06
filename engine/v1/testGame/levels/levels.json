@@ -29,7 +29,9 @@
                         "scatterScale": 1
                     },
                     "camera": {
-                        "distance": 5,
+                        "activeSet": "custom",
+                        "situations": { "slowMovement": "orbitCam" },
+                        "distance": { "min": 2.5, "default": 5, "max": 10 },
                         "sensitivity": 0.12,
                         "heightOffset": 1.5,
                         "levelOpening": {
@@ -808,7 +810,9 @@
                         "loop": true
                     },
                     "camera": {
-                        "distance": 5,
+                        "activeSet": "custom",
+                        "situations": { "slowMovement": "orbitCam" },
+                        "distance": { "min": 2.5, "default": 5, "max": 10 },
                         "sensitivity": 0.12,
                         "heightOffset": 2,
                         "levelOpening": {

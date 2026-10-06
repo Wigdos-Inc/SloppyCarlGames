@@ -10,8 +10,7 @@ import { Vector3SqDistanceToAabb } from "../../math/Vector3.js";
 import { GetSimDistanceValue } from "../../physics/Collision.js";
 import { PERFORMANCE_SCALING } from "../../core/config.js";
 
-// Shares NewTexture's enumeration, so a collection added there reaches owners too.
-// Face ids are signature-shared, so owners accumulate.
+// Collects the meshes that use each pending texture.
 function assignOwnerMeshes(sceneGraph, pending) {
 	ForEachTexturedMesh(sceneGraph, (mesh) => {
 		const materialEntry = pending[mesh.material.textureID];

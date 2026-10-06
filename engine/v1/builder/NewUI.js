@@ -113,7 +113,7 @@ const droppedTags = new Set(["script", "style", "link"]);
 const toCamelCase = (name) => name.replace(/-([a-z])/g, (match, letter) => letter.toUpperCase());
 
 function readInlineStyles(node) {
-	// Object.assign onto a CSSStyleDeclaration ignores kebab keys, so camelCase them here.
+	// camelCase so kebab keys aren't ignored
 	const styles = {};
 	node.style.forEach(name, styles[toCamelCase(name)] = node.style.getPropertyValue(name));
 	return styles;

@@ -213,7 +213,7 @@ async function runSplashSequence(requestedSplashPayload) {
 		supplementalElementIds: [],
 	};
 
-	if (CONFIG.DEBUG.SKIP.Splash === true || ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true) {
+	if (CONFIG.Debug.Skip.Splash === true || ReadFromSession(SESSION_KEYS.SplashPlayed, false) === true) {
 		Log("ENGINE", "Splash screen sequence skipped.", "log", "Startup");
 		return context;
 	}
@@ -267,7 +267,7 @@ async function ApplySplashScreenSequence(options) {
 
 	// Validate (and normalize) buffered splash payload.
 	let payload;
-	if (!CONFIG.DEBUG.SKIP.Splash) {
+	if (!CONFIG.Debug.Skip.Splash) {
 		payload = ValidateSplashPayload(bufferedSplashPayload);
 		if (payload === null) {
 			Log("ENGINE", "Splash.ApplySplashScreenSequence falling back to default sequence after validation failure.", "error", "Startup");

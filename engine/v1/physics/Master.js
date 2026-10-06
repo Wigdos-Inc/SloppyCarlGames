@@ -5,7 +5,8 @@
 
 import { CONFIG } from "../core/config.js";
 import { Log, SendEvent, EPSILON } from "../core/meta.js";
-import { CloneVector3, DotVector3, RotateTowardVector3, ScaleVector3, ToVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
+import { CloneVector3, DotVector3, RotateTowardVector3, ScaleVector3, SubtractVector3, ToVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
+import { ApplyDeceleration, ProjectOntoPlane } from "../math/Collision.js";
 import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence } from "./Forces.js";
 import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, ResetCollisionPools, ProbeGroundContact, GetEntityPhysicsFlags, BroadphaseCollectCandidates } from "./Collision.js";
 import { ApplySurfaceCorrection, ApplyGroundSnap, ApplyPlayerSurfaceOrientation, ResolveGrounded, ReferenceReleaseStep, UpdateGripDemand, CORRECTION_DISABLED } from "./Correction.js";
@@ -79,16 +80,20 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	const frameStart = applyCorrection ? { referenceNormal: CloneVector3(entity.referenceNormal), surfaceId: entity.physicsRuntime.groundSurfaceId } : null;
 	const referenceStep = applyCorrection ? ReferenceReleaseStep(physicsState.deltaSeconds) : 0;
 	// Kept footing reaches as far as a still-walkable fold can fall away in one step.
-	const groundLimit = CONFIG.PHYSICS.Correction.MaxAngleDelta[entity.underwater ? "Water" : "Air"].Ground;
+	const groundLimit = CONFIG.Physics.Correction.MaxAngleDelta[entity.underwater ? "Water" : "Air"].Ground;
 	const groundReach = physicsState.groundSnapTolerance + (entity.grounded && !entity.launched
 		? Vector3Length(displacement) * Math.sin((groundLimit * Math.PI) / 180)
 		: 0);
+	// Kept footing turns velocity across walkable folds instead of cutting it.
+	const fold = applyCorrection && entity.grounded && !entity.launched
+		? { normal: entity.surfaceNormal, minCos: Math.cos((groundLimit * Math.PI) / 180) }
+		: null;
 	if (applyCorrection) entity.contactGrace = Math.max(0, entity.contactGrace - physicsState.deltaSeconds);
 	UpdateEntityModelFromTransform(entity);
 
 	ResetCollisionPools();
 	const swept = DetectPhysicsCollisions(entity, displacement, sceneGraph);
-	const sweptResolution = ResolveCollisions(entity.velocity, displacement, swept.solids);
+	const sweptResolution = ResolveCollisions(entity.velocity, displacement, swept.solids, fold);
 	entity.velocity.set(sweptResolution.resolvedVelocity);
 	entity.transform.position.add(sweptResolution.resolvedDisplacement);
 	latestTriggers = swept.triggers;
@@ -101,7 +106,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	if (collisionKey !== "") entity.physicsRuntime.lastPhysicsCollisionKey = collisionKey;
 	else if (!isPlayer || !entity.grounded) entity.physicsRuntime.lastPhysicsCollisionKey = "";
 
-	if (isNewContact && entity.customEvents.collision && CONFIG.CUSTOM_EVENTS.Entities.Collision) {
+	if (isNewContact && entity.customEvents.collision && CONFIG.CustomEvents.Entities.Collision) {
 		// Floor wins the normal/surface; wall is the fallback.
 		const impact = floorImpact.hit ? floorImpact : wallImpact;
 		SendEvent(isPlayer ? "PLAYER_COLLISION" : "ENTITY_COLLISION", {
@@ -124,7 +129,7 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 	for (iterations = 0; iterations < 3; iterations++) {
 		ResetCollisionPools();
 		const overlaps = DetectCurrentPhysicsOverlaps(entity, sceneGraph);
-		const overlapResolution = ResolveCollisions(entity.velocity, ToVector3(0), overlaps.solids);
+		const overlapResolution = ResolveCollisions(entity.velocity, ToVector3(0), overlaps.solids, fold);
 		entity.velocity.set(overlapResolution.resolvedVelocity);
 		if (overlapResolution.changedPosition) entity.transform.position.add(overlapResolution.resolvedDisplacement);
 		latestTriggers = overlaps.triggers;
@@ -153,10 +158,14 @@ function runPhysicsLoop(entity, sceneGraph, displacement, physicsState) {
 
 	// Once per frame, outside the loop.
 	if (applyCorrection) {
+		// Update how much speed the player needs to stick to steep surfaces.
 		UpdateGripDemand(entity, groundContact, physicsState.deltaSeconds);
-		// Release eases once the contact grace is spent; adoption stays instant, or the ratchet tightens with speed.
-		if (entity.surfaceContact === "none" && entity.contactGrace <= EPSILON) entity.referenceNormal = RotateTowardVector3(entity.referenceNormal, WORLD_NORMALS.Up, referenceStep);
-		else if (entity.surfaceContact === "walkable" && !positionMatchesCachedPhysicsState(entity)) entity.referenceNormal = CloneVector3(entity.surfaceNormal);
+		if (entity.surfaceContact === "none" && entity.contactGrace <= EPSILON) {
+			entity.referenceNormal = RotateTowardVector3(entity.referenceNormal, WORLD_NORMALS.Up, referenceStep);
+		}
+		else if (entity.surfaceContact === "walkable" && !positionMatchesCachedPhysicsState(entity)) {
+			entity.referenceNormal = CloneVector3(entity.surfaceNormal);
+		}
 	}
 
 	const snap = applyCorrection ? ApplyGroundSnap(entity, groundContact, groundReach) : noResult.correction;
@@ -207,21 +216,21 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 		// Anti-phasing tolerance (CNU), owned here and consumed by ground probe/snap.
 		groundSnapTolerance: 0.01,
 		gravity: {
-			enabled:               CONFIG.PHYSICS.Gravity.Enabled    && entityPhysics.gravity,
-			strength:              CONFIG.PHYSICS.Gravity.Strength.value,
-			airTerminalVelocity:   CONFIG.PHYSICS.Gravity.TerminalVelocity.Air.value,
-			waterTerminalVelocity: CONFIG.PHYSICS.Gravity.TerminalVelocity.Water.value,
+			enabled:               CONFIG.Physics.Gravity.Enabled    && entityPhysics.gravity,
+			strength:              CONFIG.Physics.Gravity.Strength.value,
+			airTerminalVelocity:   CONFIG.Physics.Gravity.TerminalVelocity.Air.value,
+			waterTerminalVelocity: CONFIG.Physics.Gravity.TerminalVelocity.Water.value,
 			result:                null,
 		},
 		buoyancy: {
-			enabled:       CONFIG.PHYSICS.Buoyancy.Enabled   && entityPhysics.buoyancy,
-			gradientDepth: CONFIG.PHYSICS.Buoyancy.GradientDepth.value,
-			forceMin:      CONFIG.PHYSICS.Buoyancy.Force.Min.value,
-			forceMax:      CONFIG.PHYSICS.Buoyancy.Force.Max.value,
+			enabled:       CONFIG.Physics.Buoyancy.Enabled   && entityPhysics.buoyancy,
+			gradientDepth: CONFIG.Physics.Buoyancy.GradientDepth.value,
+			forceMin:      CONFIG.Physics.Buoyancy.Force.Min.value,
+			forceMax:      CONFIG.Physics.Buoyancy.Force.Max.value,
 			result:        null,
 		},
 		resistance: {
-			enabled: CONFIG.PHYSICS.Resistance.Enabled && entityPhysics.resistance,
+			enabled: CONFIG.Physics.Resistance.Enabled && entityPhysics.resistance && !entity.dragFree,
 			result:  null,
 		},
 	};
@@ -235,7 +244,12 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 
 	const yBefore = entity.velocity.y;
 
-	if (physicsState.gravity.enabled) physicsState.gravity.result = entity.velocity.set(GetGravity(entity, physicsState));
+	if (physicsState.gravity.enabled) {
+		physicsState.gravity.result = entity.velocity.set(GetGravity(entity, physicsState));
+		
+		// The entity's share of gravity.
+		entity.velocity.y = yBefore + (entity.velocity.y - yBefore) * entity.gravityScale;
+	}
 
 	if (physicsState.buoyancy.enabled) {
 		physicsState.buoyancy.result = GetBuoyancy(entity, physicsState);
@@ -248,6 +262,12 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 	if (isPlayer) {
 		const activeFloatiness = entity.underwater ? entity.character.meta.waterFloatiness : entity.character.meta.airFloatiness;
 		entity.velocity.y = yBefore + (entity.velocity.y - yBefore) / activeFloatiness;
+	}
+
+	// Static friction cancels the pull along the footing.
+	if (entity.staticFriction > 0) {
+		const pull = ProjectOntoPlane(ScaleVector3(WORLD_NORMALS.Up, entity.velocity.y - yBefore), entity.alignedUp);
+		entity.velocity.set(SubtractVector3(entity.velocity, SubtractVector3(pull, ApplyDeceleration(pull, entity.staticFriction, deltaSeconds))));
 	}
 
 	const displacement = ScaleVector3(entity.velocity, deltaSeconds);
@@ -271,7 +291,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 
 	updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration);
 
-	if (isPlayer && entity.grounded !== wasGrounded && entity.customEvents.groundedChange && CONFIG.CUSTOM_EVENTS.Entities.GroundedChange) {
+	if (isPlayer && entity.grounded !== wasGrounded && entity.customEvents.groundedChange && CONFIG.CustomEvents.Entities.GroundedChange) {
 		SendEvent("PLAYER_GROUNDED_CHANGE", {
 			id      : entity.id,
 			type    : entity.type,
@@ -284,4 +304,4 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 
 /* === EXPORTS === */
 
-export { ApplyPhysicsPipeline, ResetCollisionPools };
+export { ApplyPhysicsPipeline };

@@ -92,13 +92,9 @@ function processScatterModels(params, handlers) {
 	);
 }
 
-// Use shared RotateByEuler from math/Vector3.js for Euler rotation (Y -> X -> Z)
-
-// Compute the half-height (vertical extent / 2) of the part after localRotation is applied.
-// Returns value in the same units as `part.dimensions` (CNU) so callers can multiply by uniformScale
+// Half the part's height after localRotation, scaled by uniformScale.
 function getPartHalfHeight(part, uniformScale) {
-	// Columns of rotation matrix = R * basis vectors. We want the Y-row contributions, which
-	// are the y components of those columns. Use shared RotateByEuler (Y->X->Z) to rotate basis.
+	// How much each rotated axis points up.
 	const col = {
 		x: RotateByEuler(WORLD_NORMALS.Right, part.localRotation).y,
 		y: RotateByEuler(WORLD_NORMALS.Up, part.localRotation).y,
@@ -124,8 +120,7 @@ function resolveRootPart(parts, uniformScale) {
 	return selected;
 }
 
-// Computes hierarchical stack positions independently from authored localPosition.
-// localPosition is applied later as a final per-part post-offset.
+// Computes stack positions from part levels. localPosition is added afterwards as a per-part offset.
 function applyHierarchicalOffsets(parts, uniformScale) {
 	if (parts.length === 0) return parts;
 
@@ -161,8 +156,7 @@ function applyHierarchicalOffsets(parts, uniformScale) {
 	return levels.flatMap((level) => adjustedByLevel.get(level));
 }
 
-// Rotated XZ footprint AABB for a single root part (half-width/half-depth swept around the
-// sample center). Shared between the parent-bounds check and the opening-rejection check.
+// Rotated XZ footprint box of a root part around the sample center. Shared by the parent-bounds and opening checks.
 function rootPartFootprintAabbXZ(part, worldX, worldZ, uniformScale, yaw) {
 	const cosYaw = Math.abs(Math.cos(yaw));
 	const sinYaw = Math.abs(Math.sin(yaw));
@@ -196,9 +190,7 @@ function areRootPartsWithinParentBounds(parts, worldX, worldZ, uniformScale, see
 	return true;
 }
 
-// Rejects a scatter sample whose root-part XZ footprint overlaps any opening's XZ footprint.
-// openingAabbsXZ: pre-filtered top-relevant open faces, each projected to an XZ AABB.
-// Conservative AABB-vs-AABB (over-exclusion at a rim is barely visible; under-exclusion shows).
+// Reject scatter samples that intersect an opening.
 function isFootprintOverOpening(parts, worldX, worldZ, uniformScale, seed, openingAabbsXZ) {
 	if (openingAabbsXZ.length === 0) return false;
 
@@ -226,7 +218,7 @@ function iterateScatterInstances(params, handler) {
 	// Choose explicit requests if provided, otherwise use the canonicalized scatter list
 	const scatterRequests = explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter;
 	
-    // If there are no requests, nothing to do
+	// If there are no requests, nothing to do
 	if (scatterRequests.length === 0) return { totalParts: 0, typeCounts: 0, modelCounts: 0 };
 
 	const minX = objectMesh.worldAabb.min.x;
@@ -256,7 +248,7 @@ function iterateScatterInstances(params, handler) {
 	let globalTypeCount = 0;
 	let globalModelCount = 0;
 
-	const qualityTier = CONFIG.PERFORMANCE.Scatter.Quality.toLowerCase();
+	const qualityTier = CONFIG.Performance.Scatter.Quality.toLowerCase();
 
 	scatterRequests.forEach((request, scatterTypeIndex) => {
 		const scatterType = visualTemplates.scatterTypes[request.typeID];

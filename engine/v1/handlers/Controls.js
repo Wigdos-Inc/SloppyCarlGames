@@ -6,7 +6,7 @@ import { Cache, Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { GetActiveLevel, ToggleLevelLoopPause } from "./game/Level.js";
 import { IsSimulatorActive, HandleSimulatorInput } from "./game/Simulator.js";
-import { HandleFreeCamInput, HandleDefaultCamInput } from "./game/Camera.js";
+import { HandleCameraInput } from "../camera/Master.js";
 import { HandleUiAction, ResolvePrecomputedAction } from "./UI.js";
 import { TriggerPlayerRespawnSequence } from "../player/Master.js";
 
@@ -136,7 +136,7 @@ function buildInteractionPayload(event) {
 }
 
 function handleDebugLevelInput(event, activeLevel) {
-	if (CONFIG.DEBUG.ALL !== true) return false;
+	if (CONFIG.Debug.All !== true) return false;
 	if (event.type !== "keydown") return false;
 	if (event.code !== "KeyR") return false;
 	if (!activeLevel.player) return false;
@@ -174,12 +174,11 @@ function StartInputRouter(target) {
 			else if (levelIsLoaded && IsSimulatorActive()) consumed = HandleSimulatorInput(event);
 
 			if (!consumed && levelIsLoaded) {
-				if (!!(CONFIG.DEBUG.ALL === true && CONFIG.DEBUG.LEVELS.FreeCam === true)) consumed = HandleFreeCamInput(event, activeLevel);
-				else consumed = HandleDefaultCamInput(event);
+				consumed = HandleCameraInput(event);
 			}
 		}
 
-		// Fallback: reached only if nothing above consumed the key, so it works even with eventTypes.keydown off.
+		// Fallback pause toggle (P / Esc): runs when nothing above used the key, even with keydown events off.
 		if (!consumed && levelIsLoaded && event.type === "keydown" && (event.code === "KeyP" || event.code === "Escape")) {
 			ToggleLevelLoopPause(event.code === "Escape");
 			consumed = true;

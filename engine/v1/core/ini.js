@@ -7,8 +7,8 @@
 // Core diagnostics and logging support.
 
 // Engine API function imports.
-import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey, ReleasePointerLock } from "./meta.js";
-import { CONFIG } from "./config.js";
+import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey, ReleasePointerLock, DeepFreeze } from "./meta.js";
+import { CONFIG as Config } from "./config.js";
 import { ApplyMenuUI, LoadScreen, ClearUI, ConvertHTML } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
 import { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes } from "../handlers/Sound.js";
@@ -23,6 +23,7 @@ import { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity
 
 // Boot-time engine template instancing (owns the blueprint/template JSON imports).
 import { InstanceEngineTemplates } from "../builder/templates/Instance.js";
+import { GetCameraPosition } from "../camera/Master.js";
 /* === INITIALIZATION === */
 // Bootstraps engine subsystems and returns the public API.
 
@@ -39,32 +40,32 @@ function Initialize() {
   const Router = StartInputRouter();
 
   // Create, freeze and expose the engine public API surface.
-  return {
+  return DeepFreeze({
     Log,
-    CONFIG,
+    Config,
     Cache,
-    Meta: Object.freeze({
+    Meta: {
       LogAll, LogCache, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
-      SessionKey, CNU_SCALE, 
-      Version: "0.33.2",
-    }),
+      SessionKey, CNU_SCALE, DeepFreeze,
+      Version: "0.34",
+    },
     Controls,
     Input   : Object.freeze({ Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, }),
-    Cutscene: Object.freeze({ PlayEngineCutscene, PlayRenderedCutscene }),
+    Cutscene: { PlayEngineCutscene, PlayRenderedCutscene },
     Startup : { ProvideSplashScreenPayload },
-    UI      : Object.freeze({ ApplyMenuUI, LoadScreen, ClearUI, ConvertHTML }),
-    Audio   : Object.freeze({ PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes }),
-    Level   : Object.freeze({ CreateLevel, ClearLevel, UpdateLevel, GetActiveLevel, PauseLevel, ResumeLevel, SpawnParticles, Player }),
-    Math    : Object.freeze({
-      Convert   : Object.freeze({ DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU }),
-      Vector3   : Object.freeze({ AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3 }),
-      Instancing: Object.freeze({ Unit, UnitVector3 }),
-      Physics   : Object.freeze({ ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence }),
-      Other     : Object.freeze({ Clamp, Clamp01, Sq })
-    }),
-    Simulator : Object.freeze({ Start, Load, Cache: SimulatorCache, Clear, Exit, Download, GetModelState, GetFullState }),
+    UI      : { ApplyMenuUI, LoadScreen, ClearUI, ConvertHTML },
+    Audio   : { PlayAudio, PlayMusic, PauseMusic, ResumeMusic, StopMusic, StopSfx, StopAllAudio, UpdateActiveAudioVolumes },
+    Level   : { CreateLevel, ClearLevel, UpdateLevel, GetActiveLevel, PauseLevel, ResumeLevel, SpawnParticles, Player, GetCameraPosition },
+    Math    : {
+      Convert   : { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU },
+      Vector3   : { AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3 },
+      Instancing: { Unit, UnitVector3 },
+      Physics   : { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence },
+      Other     : { Clamp, Clamp01, Sq }
+    },
+    Simulator : { Start, Load, Cache: SimulatorCache, Clear, Exit, Download, GetModelState, GetFullState },
     Blueprints: InstanceEngineTemplates().raw,
-  };
+  }, ["Config", "Cache", "Input", "Startup"]);
 }
 
 /* === EXPORTS === */

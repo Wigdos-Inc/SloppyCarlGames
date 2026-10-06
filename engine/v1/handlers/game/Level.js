@@ -10,7 +10,7 @@ import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js
 import { RenderLevel, RemoveRoot, ClearLevelRenderer } from "../Render.js";
 import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS, ENTITY_TYPES, ReleasePointerLock, IsPointerLocked } from "../../core/meta.js";
 import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
-import { InitializeCameraState, UpdateCameraState, GetCameraVectors } from "./Camera.js";
+import { InitializeCameraState, PrepareCamera, UpdateCamera } from "../../camera/Master.js";
 import { Vector3Distance, LerpVector3, CloneVector3, RotateByEuler } from "../../math/Vector3.js";
 import { BuildEntity, UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { GenerateParticles } from "../../builder/NewParticles.js";
@@ -28,7 +28,7 @@ import {
 import { ApplyPhysicsPipeline } from "../../physics/Master.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
-import { ResolveEntityAnimation } from "./Animation.js";
+import { EnsureAnimationRuntime, ResolveEntityAnimation } from "./Animation.js";
 import { UpdatePerformanceFlags } from "./Performance.js";
 import { InitializeTextureAnimation, UpdateTextureAnimation, AddTextureAnimationEntries } from "./Texture.js";
 import { PrepareLevelVisualResources, AddToVisualResources } from "../../builder/NewTexture.js";
@@ -77,12 +77,12 @@ function buildIncomingPayloadSummary(payload) {
 
 // Gates RefreshSceneBoundingBoxes, which rebuilds debugBoundingBoxes and debug.detailedBounds.
 function shouldRefreshBoundingBoxes() {
-	if (CONFIG.DEBUG.ALL !== true) return false;
-	if (CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible === true) return true;
-	if (Object.values(CONFIG.DEBUG.LEVELS.DetailedBounds).some(Boolean)) return true;
+	if (CONFIG.Debug.All !== true) return false;
+	if (CONFIG.Debug.Levels.BoundingBox.Grid.Visible === true) return true;
+	if (Object.values(CONFIG.Debug.Levels.DetailedBounds).some(Boolean)) return true;
 
 	// Grid is a nested config object, not a flag.
-	return Object.entries(CONFIG.DEBUG.LEVELS.BoundingBox).some(([type, enabled]) => type !== "Grid" && enabled === true);
+	return Object.entries(CONFIG.Debug.Levels.BoundingBox).some(([type, enabled]) => type !== "Grid" && enabled === true);
 }
 
 function updateEntityMovement(entity, deltaSeconds) {
@@ -128,7 +128,7 @@ function StartLevelLoop() {
 	levelLoop.lastFrameTime = performance.now();
 	levelLoop.accumulator = 0;
 	levelLoop.cappedStreak = 0;
-	levelLoop.fixedTimeStep = 1000 / CONFIG.PERFORMANCE.FrameRate;
+	levelLoop.fixedTimeStep = 1000 / CONFIG.Performance.FrameRate;
 	document.addEventListener("pointerlockchange", onPointerLockChange);
 
 	const frame = () => {
@@ -150,7 +150,7 @@ function StartLevelLoop() {
 			}
 
 			if (levelLoop.accumulator >= levelLoop.fixedTimeStep) {
-				// Debt is dropped so time dilates instead of compounding into a spiral.
+				// Drops leftover time debt instead of carrying it to the next frame.
 				levelLoop.accumulator = levelLoop.fixedTimeStep;
 				levelLoop.cappedStreak++;
 				if (levelLoop.cappedStreak === 1) {
@@ -238,7 +238,7 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 	// Update Input Events Engine Listens for
 	UpdateInputEventTypes({ payloadType: "level", payload });
 
-	// Cache raw (pre-normalization) payload so Exit() can restore without re-validation failing on Unit objects.
+	// Cache the raw payload so Exit() can restore it without re-validating Unit objects.
 	if (!simulatorOverride) cacheLevelPayload(rawPayload);
 
 	// Delete Menu UI Cache (if not simulator)
@@ -267,6 +267,7 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 	// Initialize player if payload defines one.
 	if (sceneGraph.playerConfig) {
 		await InitializePlayer(sceneGraph.playerConfig, sceneGraph);
+		EnsureAnimationRuntime(GetPlayerState());
 		Log("ENGINE", `Player initialized: character=${sceneGraph.playerConfig.character}`, "log", "Level");
 	}
 
@@ -274,9 +275,9 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 
 	sceneGraph.cameraConfig.state = InitializeCameraState(
 		sceneGraph,
-		sceneGraph.cameraConfig,
 		payload.meta,
-		sceneGraph.playerConfig ? GetPlayerState() : null
+		sceneGraph.playerConfig ? GetPlayerState() : null,
+		IsSimulatorActive()
 	);
 
 	InitializeTextureAnimation(sceneGraph);
@@ -284,10 +285,10 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 	levelRuntimeState.sceneGraph = sceneGraph;
 	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
 
-	if (CONFIG.DEBUG.ALL && CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Visible) {
+	if (CONFIG.Debug.All && CONFIG.Debug.Levels.BoundingBox.Grid.Visible) {
 		Log(
 			"ENGINE",
-			`Debug Grid Enabled — scale: ${CONFIG.DEBUG.LEVELS.BoundingBox.Grid.Scale.value} units`,
+			`Debug Grid Enabled — scale: ${CONFIG.Debug.Levels.BoundingBox.Grid.Size.value} units`,
 			"log",
 			"Level"
 		);
@@ -305,7 +306,7 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 		title: payload.title,
 	});
 
-	if (CONFIG.CUSTOM_EVENTS.Entities.Spawn) {
+	if (CONFIG.CustomEvents.Entities.Spawn) {
 		const localSendEvent = (definition, title) => {
 			if (definition.customEvents.spawn) SendEvent(title, {
 				id      : definition.id,
@@ -327,7 +328,7 @@ const generateForScene = (request, viewerPosition, sceneGraph) => GeneratePartic
 );
 
 // Drives every group's lifetime and emits the siblings a seeding group asks for.
-// Reverse-index because seeding appends: new entries wait for the next frame.
+// Note: Loops backwards so finished groups can be removed mid-loop.
 function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
 	const seedRequests = [];
 	const targets = resolveGeneratorTargets(sceneGraph);
@@ -339,7 +340,7 @@ function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
 		if (group.targetKey !== null) group.follow(targets);
 		group.advance(deltaMilliseconds, deltaSeconds);
 
-		// Splice-safe: `i` counts down, and seeding drains after the loop.
+		// Remove finished groups.
 		if (group.finished) {
 			sceneGraph.entities.splice(i, 1);
 			continue;
@@ -347,7 +348,7 @@ function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
 		if (group.seedDue(deltaMilliseconds)) seedRequests.push(group.request);
 	}
 
-	// Siblings reuse the level-built group's geometry key and texture id, so a plain push is complete.
+	// Push siblings straight in; they reuse the level-built group's geometry key and texture id.
 	seedRequests.forEach((request) => {
 		const { groups } = generateForScene(request, sceneGraph.cameraConfig.state.position, sceneGraph);
 		sceneGraph.entities.push(...groups);
@@ -367,7 +368,7 @@ function Update(deltaMilliseconds) {
 	UpdatePerformanceFlags(sceneGraph);
 
 	if (IsSimulatorActive()) {
-		UpdateSimulator(deltaMilliseconds, sceneGraph);
+		UpdateSimulator(deltaSeconds, sceneGraph);
 		updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds);
 		runFrameTail(sceneGraph, deltaMilliseconds);
 		return;
@@ -375,8 +376,9 @@ function Update(deltaMilliseconds) {
 
 	// === PLAYER PIPELINE ===
 	const playerState = GetPlayerState();
+	PrepareCamera(sceneGraph, deltaSeconds, playerState, false);        // 0. Camera situation, mode & look input
 	if (playerState.active) {
-		UpdatePlayer(deltaSeconds, GetCameraVectors());                 // 1. Input → Movement & Abilities
+		UpdatePlayer(deltaSeconds, sceneGraph.cameraConfig.state.modeData); // 1. Input → Movement & Abilities
 		ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds);    // 2. Forces, Collision, Correction.
 		HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds);   // 3. Combat Collisions (damage / attack)
 		HandleCollectiblePickups(playerState, sceneGraph);              // 4. Collectible Pickups
@@ -384,8 +386,8 @@ function Update(deltaMilliseconds) {
 	}
 
 	// === NON-PLAYER ENTITY UPDATE ===
+		// Skip physics-free particles (their group moves them), the player, and entities with physics off.
 	sceneGraph.entities.forEach(entity => {
-		// "none" particles are integrated by the tick instead, ahead of any distance math.
 		if (entity.particle !== null && entity.particle.physicsMode === "none") return;
 		if (entity.type === "player") return;
 		if (!entity.performance.physics) return;
@@ -398,9 +400,7 @@ function Update(deltaMilliseconds) {
 	updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds);
 
 	// === CAMERA ===
-	sceneGraph.cameraConfig.state = UpdateCameraState(
-		sceneGraph.cameraConfig.state, sceneGraph, sceneGraph.cameraConfig, deltaSeconds, playerState
-	);
+	UpdateCamera(sceneGraph, deltaSeconds, playerState, false);
 
 	// === ANIMATION (visual-only display transforms; player only this pass) ===
 	// Model pose and animation, after true poses are settled and before render reads displayTransform.
@@ -456,7 +456,7 @@ function targetTransform(owner, partId, collection) {
 	return partId === null ? owner.transform : owner.model.parts.find((part) => part.id === partId)?.mesh.transform;
 }
 
-// One shared build per frame, so it cannot desync; null when no group follows anything.
+// Builds the followed transforms once per frame so every group sees the same ones; null when no group follows anything.
 // Values are live transform references — the map is discarded at the end of the frame.
 function resolveGeneratorTargets(sceneGraph) {
 	const wanted = new Map();
@@ -471,11 +471,12 @@ function resolveGeneratorTargets(sceneGraph) {
 	const targets = {};
 	wanted.forEach((target, key) => {
 		const collection = generatorCollectionOf(target.type);
-		// Memoization gate: each wanted collection is walked once per frame, whatever the group count.
+
+		// Index each collection once per frame.
 		if (indexes[collection] === undefined) indexes[collection] = indexById(generatorCollections[collection](sceneGraph));
 
+		// A dead object has no entry, which orphans the group following it.
 		const owner = indexes[collection].get(target.id);
-		// A dead object leaves its key undefined, which is what orphans the group that follows it.
 		targets[key] = owner === undefined ? undefined : targetTransform(owner, target.partId, collection);
 	});
 	return targets;
@@ -555,7 +556,7 @@ function DespawnFromScene(target, objectType, sceneGraph) {
 }
 
 // Game-facing particle request. Fire-and-forget: nothing is returned, everything is logged.
-// Push-only: a game's event handler re-enters this mid-forEach, which skips appends but not splices.
+// Note: Only appends to entities. A game's event handler can call this mid-loop.
 function SpawnParticles(request, generator) {
 	const sceneGraph = GetActiveLevel();
 	if (sceneGraph === null) {
@@ -571,7 +572,6 @@ function SpawnParticles(request, generator) {
 	const normalized = ValidateRuntime.Particles(request, generator, resolveTarget);
 	if (normalized === null) return;
 
-	// Validation already proved the target resolves; re-checking it here would be a defensive guard.
 	if (normalized.mode === "generator") {
 		const { transform } = resolveTarget(normalized.target.id, normalized.target.partId);
 		normalized.offset   = normalized.position;
@@ -584,7 +584,7 @@ function SpawnParticles(request, generator) {
 		return;
 	}
 
-	// "entity", not "particle": ENTITY_TYPES has none, and the fallback branch assumes terrain.
+	// Added as plain entities; "particle" isn't one of the standard entity types.
 	sceneGraph.entities.push(...groups);
 	finalizeSpawn(groups, "entity", sceneGraph);
 	Log("ENGINE", `Particles spawned: id=${normalized.templateId}, mode=${normalized.mode}, groups=${groups.length}`, "log", "Level");

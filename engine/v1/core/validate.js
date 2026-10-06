@@ -1,4 +1,5 @@
 import canonSchemas from "./canonSchemas.json" with { type: "json" };
+import cameraSets from "../camera/Sets.json" with { type: "json" };
 import Normalize, { isTemplateRef } from "./normalize.js";
 import { Log, ENTITY_TYPES } from "./meta.js";
 
@@ -252,6 +253,24 @@ function ValidateLevelPayload(payload) {
 		if (!isPlainObject(skybox.color)) errors.push(`${path}.color: expected object in 'fill' mode.`);
 	}
 
+	// A custom set must author its starting mode.
+	function validateCamera(rawCamera, path) {
+		const activeSet = rawCamera?.activeSet;
+		if (activeSet === "custom") {
+			if (!cameraSets.modes.includes(rawCamera.situations?.slowMovement)) errors.push(`${path}.situations.slowMovement: required mode when activeSet is 'custom'.`);
+			return;
+		}
+		if (typeof activeSet === "string" && !Object.hasOwn(cameraSets.sets, activeSet)) errors.push(`${path}.activeSet: '${activeSet}' not allowed.`);
+	}
+
+	function validateTrigger(rawTrigger, path) {
+		errors.push(...validatePayloadSchema(rawTrigger, "levelTrigger", path));
+		if (rawTrigger?.type !== "camera") return;
+
+		const mode = rawTrigger.payload?.mode;
+		if (mode !== "release" && !cameraSets.modes.includes(mode)) errors.push(`${path}.payload.mode: '${mode}' is not a camera mode or 'release'.`);
+	}
+
 	function validatePlayer(rawPlayer, path) {
 		errors.push(...validatePayloadSchema(rawPlayer, "levelPlayer", path));
 
@@ -265,11 +284,10 @@ function ValidateLevelPayload(payload) {
 
 	const rawPayload = isPlainObject(payload) ? payload : {};
 	validateSkybox(rawPayload.world, "level.world.skybox");
+	validateCamera(rawPayload.camera, "level.camera");
 	validateObjectList(rawPayload.terrain?.objects, "level.terrain.objects");
 	if (Array.isArray(rawPayload.terrain?.triggers)) {
-		rawPayload.terrain.triggers.forEach((rawTrigger, index) => {
-			errors.push(...validatePayloadSchema(rawTrigger, "levelTrigger", `level.terrain.triggers[${index}]`));
-		});
+		rawPayload.terrain.triggers.forEach((rawTrigger, index) => validateTrigger(rawTrigger, `level.terrain.triggers[${index}]`));
 	}
 	validateObjectList(rawPayload.obstacles, "level.obstacles");
 
@@ -362,7 +380,7 @@ async function ValidateSimulatorBulkPayload(bulkPayload) {
 /* === RUNTIME REQUESTS === */
 
 // Small fire-and-forget requests from the running game: validate → normalize → build → insert.
-// Scene access is an (id, partId) → { type, transform } resolver; core/ cannot import handlers/.
+// Note: core/ can't import handlers/, so scene lookups are passed in as a resolver function.
 const ValidateRuntime = {
 	Particles: (request, generator, resolveTarget) => {
 		const errors = validatePayloadSchema(request, "particleRequest");

@@ -10,9 +10,8 @@ const easings = {
 
 const ApplyEasing = (name, t) => easings[name](t);
 
-// Arcs the connector between two tube nodes into segments+1 centerline points {x,y,z} using a cubic
-// Bezier with forward-aligned handles (leaves along forward, arrives along -backward). smoothness 1
-// -> circular arc; 0 -> hard corner at M; collinear input -> straight.
+// Arcs the connector between two tube nodes into segments+1 centerline points (cubic Bezier).
+// smoothness 1 -> circular arc; 0 -> hard corner at M; collinear -> straight.
 function SampleConnectorCenterline(startCenter, forward, endCenter, backward, smoothness, segments) {
 	const chord = Vector3Distance(endCenter, startCenter);
 	const cornerM = ScaleVector3(AddVector3(AddVector3(startCenter, ScaleVector3(forward, chord * 0.667)), AddVector3(endCenter, ScaleVector3(backward, chord * 0.667))), 0.5);

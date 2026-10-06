@@ -5,6 +5,7 @@
 /* === IMPORTS === */
 // Engine configuration access.
 
+import { StopAllAudio } from "../handlers/Sound.js";
 import { CONFIG } from "./config.js";
 
 /* === SESSION === */
@@ -121,23 +122,18 @@ function resolveControlsSubtypeFromMessage(message) {
 
 function shouldLog(source, channel, level, message) {
   // Is Logging allowed?
-  const logging = CONFIG.DEBUG.LOGGING;
-  if (CONFIG.DEBUG.ALL !== true || logging.All !== true) return false;
+  const { All, Type, Source, Channel } = CONFIG.Debug.Logging;
+  if (CONFIG.Debug.All !== true || All !== true) return false;
 
   // Is the Logging Type allowed?
-  const type = logging.Type;
   if (
-    (level === "log" && type.Log === false) ||
-    (level === "warn" && type.Warn === false) ||
-    (level === "error" && type.Error === false)
+    (level === "log" && Type.Log === false) || (level === "warn" && Type.Warn === false) || (level === "error" && Type.Error === false)
   ) {
     return false;
   }
 
   // Is the Logging Source allowed?
-  if ((source === "engine" && logging.Source.Engine === false) || (source === "game" && logging.Source.Game === false)) {
-    return false;
-  }
+  if ((source === "engine" && Source.Engine === false) || (source === "game" && Source.Game === false)) return false;
 
   if (channel.startsWith("Controls")) {
     // Is the Controls Logging Subchannel allowed?
@@ -145,10 +141,11 @@ function shouldLog(source, channel, level, message) {
     let subChannel = segments.length > 1 ? segments[1] : null;
     if (!subChannel && channel === "Controls") subChannel = resolveControlsSubtypeFromMessage(message);
 
-    if (subChannel && logging.Channel.Controls[subChannel] === false) return false;
-    if (subChannel && logging.Channel.Controls[subChannel] === true) return true;
+    if (subChannel && Channel.Controls[subChannel] === false) return false;
+    if (subChannel && Channel.Controls[subChannel] === true) return true;
   }
-  return logging.Channel[channel];    // Is the Logging Channel allowed?
+  // Is the Logging Channel allowed?
+  return Channel[channel];
 }
 
 function resolveLevel(level) {
@@ -193,7 +190,7 @@ function isDuplicateOfLatest(entry) {
 }
 
 function Log(source, message, level, channel) {
-  // Normlize payload
+  // Normalize payload
   [level, message] = [level, message].map(v => v.toLowerCase());
   source = source.toUpperCase();
 
@@ -301,9 +298,12 @@ const Cursor = {
 function ExitGame() {
   Log("ENGINE", "Exit requested.", "log", "Meta");
   clearSessionStorage();
+
   Cursor.changeState("hidden");
   document.body.style.background = "black";
   while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
+  StopAllAudio();
+
   window.close();
 }
 
@@ -324,10 +324,26 @@ const ENTITY_TYPES = ["entity", "enemy", "npc", "collectible", "projectile"];
 let EngineInitialized = false;
 const SetEngineInitialized = () => EngineInitialized = true;
 
+/* === FREEZING === */
+
+// Recursive freezing of objects (with exclusions).
+function DeepFreeze(object, exclusions = []) {
+  const unfreezable = [EventTarget, Map, Set, WeakMap, WeakSet, Date, Promise, RegExp, ArrayBuffer];
+  const freeze = (value) => {
+    if (value === null || typeof value !== "object") return;
+    if (value === globalThis || ArrayBuffer.isView(value) || unfreezable.some((type) => value instanceof type)) return;
+    for (const key of Object.keys(value)) if (!exclusions.includes(key)) freeze(value[key]);
+    Object.freeze(value);
+  };
+  freeze(object);
+  return object;
+}
+
 /* === EXPORTS === */
 // Public metadata API for engine modules.
 
 export {
+  DeepFreeze,
   EPSILON,
   ENTITY_TYPES,
   EngineInitialized,

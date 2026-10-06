@@ -7,7 +7,9 @@ import { Log, SendEvent } from "../core/meta.js";
 import { CONFIG } from "../core/config.js";
 import { Unit } from "../math/Utilities.js";
 import { CloneVector3, RotateByEuler, ToVector3, WORLD_NORMALS } from "../math/Vector3.js";
-import { CharacterData, BuildPlayerModel, RefreshPlayerModel } from "./Model.js";
+import { NewInputFrame } from "../builder/NewEntity.js";
+import { BuildPlayerModel, RefreshPlayerModel } from "./Model.js";
+import CharacterData from "./characters.json" with { type: "json" };
 import { UpdateMovement } from "./Movement.js";
 
 /* === PLAYER INPUT FLAGS === */
@@ -40,13 +42,12 @@ const ConsumeJumpPress = () => {
 let playerState = null;
 
 /**
- * Prompte an entity into a player by adding player-specific flags and fields.
+ * Promote an entity into a player by adding player-specific flags and fields.
  * @param {object} baseEntity — the entity assembled by Model.js.
  * @param {object} playerData — { character, spawnPosition, collectibles }.
  */
 function createDefaultPlayerState(baseEntity, playerData) {
-	// The player outruns every other entity, so it broadphases against a wider radius than the
-	// builder's entity default.
+	// Increased simRadius for the player compared to other entities.
 	baseEntity.collision.simRadiusPadding.value = 24;
 
 	return Object.assign(baseEntity, {
@@ -142,30 +143,13 @@ async function InitializePlayer(payload, sceneGraph) {
 	return playerState;
 }
 
-/**
- * Per-frame player update orchestrator. Called from Level.js Update().
- * Runs the full player pipeline in order:
- *   1. Read input flags
- *   2. Movement (input → velocity intent)
- *   3. Abilities (boost, invulnerability timers)
- *   — Physics, collision, correction, enemy, collectible are handled by their respective handlers
- *     called from Level.js after this returns.
- *
- * @param {number} deltaSeconds
- * @param {{ forward, right }} cameraVectors — camera orientation for relative movement.
- * @returns {object|null} — updated playerState, or null if no player.
- */
-function UpdatePlayer(deltaSeconds, cameraVectors) {
+// Per-frame player update: movement now, abilities once they exist.
+function UpdatePlayer(deltaSeconds, modeData) {
 	if (!playerState.active) return null;
 	if (playerState.action === "Dead") return playerState;
 
-	// Step 1–2: Movement (reads input, modifies velocity).
-	UpdateMovement(playerState, playerInputFlags, cameraVectors, deltaSeconds);
-
-	// Step 3: Ability updates (not implemented).
-
-	// Steps 4–8 run from Level.js after this returns:
-	// Physics.ApplyPhysicsPipeline → Enemy → Collectible → state machine → model sync.
+	// Movement (reads input, modifies velocity).
+	UpdateMovement(playerState, playerInputFlags, modeData, deltaSeconds);
 
 	return playerState;
 }
@@ -178,11 +162,7 @@ function UpdatePlayerModel() {
 	return playerState;
 }
 
-/**
- * Central authority for player action transitions. All writes to playerState.action must go
- * through this so the log and (optional) event are guaranteed to fire consistently.
- * No-ops if newAction matches the current action.
- */
+// Updates & logs playerState.action
 function SetPlayerAction(newAction) {
 	const oldAction = playerState.action;
 	if (newAction === oldAction) return;
@@ -192,7 +172,7 @@ function SetPlayerAction(newAction) {
 
 	Log("ENGINE", `Player action: ${oldAction} → ${newAction}`, "log", "Player");
 
-	if (playerState.customEvents.actionChange && CONFIG.CUSTOM_EVENTS.Entities.ActionChange) {
+	if (playerState.customEvents.actionChange && CONFIG.CustomEvents.Entities.ActionChange) {
 		SendEvent("PLAYER_ACTION_CHANGE", {
 			id      : playerState.id,
 			type    : playerState.type,
@@ -267,8 +247,7 @@ function snapOrientationUpright() {
 	playerState.contactGrace = 0;
 	playerState.gripDemand = 0;
 	playerState.transform.rotation.set({ x: 0, y: playerState.transform.rotation.y, z: 0 });
-	// Drops the model pose so it re-seeds upright instead of easing in from the old surface.
-	playerState.animationRuntime = undefined;
+	playerState.animationRuntime.modelPose.rotation.set(playerState.transform.rotation);
 }
 
 /**
@@ -293,13 +272,10 @@ function RespawnPlayer() {
 	snapOrientationUpright();
 	// Respawn keeps the body's yaw, so the heading has to keep it too.
 	playerState.facing = RotateByEuler(WORLD_NORMALS.Forward, playerState.transform.rotation);
-	playerState.inputFrame = {
-		carriedForward   : CloneVector3(WORLD_NORMALS.Forward),
-		previousCameraYaw: 0,
-		previousHasInput : false,
-		previousGrounded : false,
-		previousUp       : CloneVector3(WORLD_NORMALS.Up),
-	};
+	playerState.gravityScale = 1;
+	playerState.dragFree = false;
+	playerState.staticFriction = 0;
+	playerState.inputFrame = NewInputFrame();
 	playerState.boost = { active: false, timer: 0, maxSpeedMultiplier: 1, accelMultiplier: 1 };
 	playerState.invulnerable = { active: false, timer: 0, flashTimer: 0 };
 
@@ -309,6 +285,7 @@ function RespawnPlayer() {
 
 const GetPlayerState = () => playerState;
 const GetPlayerInput = () => playerInputFlags;
+const PlayerHeight = (playerState) => (playerState.collision.rest.aabb.max.y - playerState.collision.rest.aabb.min.y) * playerState.transform.scale.y;
 
 /* === ENGINE API === */
 // Attached to ENGINE.Level.Player by ini.js.
@@ -341,4 +318,5 @@ export {
 	RespawnPlayer,
 	GetPlayerState,
 	GetPlayerInput,
+	PlayerHeight,
 };

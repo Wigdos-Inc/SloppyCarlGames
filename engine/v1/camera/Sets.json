@@ -1,0 +1,27 @@
+{
+  "modes": ["orbitCam", "freeCam", "chaseCam", "sideCam"],
+  "situations": ["slowMovement", "fastMovement", "slope", "smallLoop", "largeLoop"],
+  "addons": {
+    "orbitCam": [],
+    "freeCam": [],
+    "chaseCam": ["noLoopRoll", "noSlopeRoll", "noRampRoll"],
+    "sideCam": ["loopControls", "loopCam", "noLoopRoll", "noSlopeRoll", "noRampRoll"]
+  },
+  "sets": {
+    "carlCamSet": {
+      "situations": {
+        "slowMovement": "chaseCam",
+        "fastMovement": "chaseCam",
+        "slope": "chaseCam",
+        "smallLoop": "sideCam",
+        "largeLoop": "chaseCam"
+      },
+      "addons": {
+        "orbitCam": [],
+        "freeCam": [],
+        "chaseCam": ["noRampRoll"],
+        "sideCam": ["loopControls", "loopCam"]
+      }
+    }
+  }
+}

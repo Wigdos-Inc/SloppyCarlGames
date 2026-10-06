@@ -5,20 +5,20 @@ import { Log } from "../core/meta.js";
 import { Clamp01 } from "./Utilities.js";
 import { CloneVector3 } from "./Vector3.js";
 
-const airDragCoefficient = CONFIG.PHYSICS.Gravity.Strength.value / CONFIG.PHYSICS.Gravity.TerminalVelocity.Air.value;
-const waterDragCoefficient = CONFIG.PHYSICS.Gravity.Strength.value / CONFIG.PHYSICS.Gravity.TerminalVelocity.Water.value;
+const airDragCoefficient = CONFIG.Physics.Gravity.Strength.value / CONFIG.Physics.Gravity.TerminalVelocity.Air.value;
+const waterDragCoefficient = CONFIG.Physics.Gravity.Strength.value / CONFIG.Physics.Gravity.TerminalVelocity.Water.value;
 
 const logFlags = { gravity: false, resistance: false, buoyancy: false };
 
 // --- Scalar helpers (axis-agnostic, pure arithmetic, no Enabled checks) ---
 
-const gravityScalar = (v, dt) => v - CONFIG.PHYSICS.Gravity.Strength.value * dt;
+const gravityScalar = (v, dt) => v - CONFIG.Physics.Gravity.Strength.value * dt;
 const resistanceScalar = (v, sub, dt) => v * (1 - (airDragCoefficient + (waterDragCoefficient - airDragCoefficient) * sub) * dt);
 
 // buoyancy legitimately takes more inputs than the others; returns per-frame ΔV (not force).
 function buoyancyScalar(position, waterLevel, submergence, dt) {
 	if (submergence <= 0) return 0;
-	const config = CONFIG.PHYSICS.Buoyancy;
+	const config = CONFIG.Physics.Buoyancy;
 	let gradientForce;
 	if (config.GradientDepth.value === 0) gradientForce = config.Force.Max.value;
 	else {
@@ -37,7 +37,7 @@ function buoyancyScalar(position, waterLevel, submergence, dt) {
  * @returns {{ x: number, y: number, z: number }} — new vector with gravity applied to y; x/z unchanged.
  */
 function ComputeGravity(velocity, deltaSeconds) {
-	if (CONFIG.PHYSICS.Gravity.Enabled === false) {
+	if (CONFIG.Physics.Gravity.Enabled === false) {
 		if (!logFlags.gravity) { Log("ENGINE", "Gravity disabled — ComputeGravity is a no-op", "warn", "Physics"); logFlags.gravity = true; }
 		return CloneVector3(velocity);
 	}
@@ -52,7 +52,7 @@ function ComputeGravity(velocity, deltaSeconds) {
  * @returns {{ x: number, y: number, z: number }} — new vector with resistance applied to all axes.
  */
 function ComputeResistance(velocity, deltaSeconds, submergence) {
-	if (CONFIG.PHYSICS.Resistance.Enabled === false) {
+	if (CONFIG.Physics.Resistance.Enabled === false) {
 		if (!logFlags.resistance) { Log("ENGINE", "Resistance disabled — ComputeResistance is a no-op", "warn", "Physics"); logFlags.resistance = true; }
 		return CloneVector3(velocity);
 	}
@@ -73,24 +73,25 @@ function ComputeResistance(velocity, deltaSeconds, submergence) {
  * @returns {{ velocityChange: number, buoyancyForce: number }}
  */
 function ComputeBuoyancy(position, waterLevel, submergence, deltaSeconds) {
-	if (CONFIG.PHYSICS.Buoyancy.Enabled === false || submergence <= 0) {
+	const { Force, Enabled, GradientDepth } = CONFIG.Physics.Buoyancy;
+	if (Enabled === false || submergence <= 0) {
 		if (!logFlags.buoyancy) { 
 			Log("ENGINE", "Buoyancy disabled or no submergence — ComputeBuoyancy is a no-op", "warn", "Physics"); 
 			logFlags.buoyancy = true; 
 		}
 		return { velocityChange: 0, buoyancyForce: 0 };
 	}
-	const config = CONFIG.PHYSICS.Buoyancy;
-	const gradientForce = config.GradientDepth === 0
-		? config.Force.Max.value
-		: config.Force.Min.value + (config.Force.Max.value - config.Force.Min.value) * Math.min(1, (waterLevel.value - position.y) / config.GradientDepth.value);
+	
+	const gradientForce = GradientDepth.value === 0
+		? Force.Max.value
+		: Force.Min.value + (Force.Max.value - Force.Min.value) * Math.min(1, (waterLevel.value - position.y) / GradientDepth.value);
 	return { velocityChange: buoyancyScalar(position, waterLevel, submergence, deltaSeconds), buoyancyForce: gradientForce * submergence };
 }
 
 /**
  * Composable step-velocity computer. Two entry points:
  *   scalar — one velocity component, configurable forces, optional floatiness.
- *   vector — all three axes in one call; standard force axes (gravity/buoyancy → y, resistance → all).
+ *   sim — all three axes in one call; standard force axes (gravity/buoyancy → y, resistance → all).
  *
  * forces shape for scalar:
  *   { gravity?: true, buoyancy?: { position, waterLevel, submergence }, resistance?: { submergence } }
@@ -111,31 +112,27 @@ const ComputeStepVelocity = {
 	scalar(v, forces, dt, vertical) {
 		const vBefore = v;
 		if (forces.gravity) {
-			if (CONFIG.PHYSICS.Gravity.Enabled === false) {
-				if (!logFlags.gravity) { 
-					Log("ENGINE", "Gravity disabled — scalar gravity skipped", "warn", "Physics"); 
-					logFlags.gravity = true; 
-				}
-			} 
-			else v = gravityScalar(v, dt);
+			if (CONFIG.Physics.Gravity.Enabled !== false) v = gravityScalar(v, dt);
+			else if (!logFlags.gravity) {
+				Log("ENGINE", "Gravity disabled — scalar gravity skipped", "warn", "Physics");
+				logFlags.gravity = true;
+			}
 		}
 		if (forces.buoyancy) {
-			if (CONFIG.PHYSICS.Buoyancy.Enabled === false) {
-				if (!logFlags.buoyancy) { 
-					Log("ENGINE", "Buoyancy disabled — scalar buoyancy skipped", "warn", "Physics"); 
-					logFlags.buoyancy = true; 
-				}
-			} 
-			else v += buoyancyScalar(forces.buoyancy.position, forces.buoyancy.waterLevel, forces.buoyancy.submergence, dt);
+			if (CONFIG.Physics.Buoyancy.Enabled !== false) {
+				v += buoyancyScalar(forces.buoyancy.position, forces.buoyancy.waterLevel, forces.buoyancy.submergence, dt);
+			}
+			else if (!logFlags.buoyancy) {
+				Log("ENGINE", "Buoyancy disabled — scalar buoyancy skipped", "warn", "Physics");
+				logFlags.buoyancy = true;
+			}
 		}
 		if (forces.resistance) {
-			if (CONFIG.PHYSICS.Resistance.Enabled === false) {
-				if (!logFlags.resistance) { 
-					Log("ENGINE", "Resistance disabled — scalar resistance skipped", "warn", "Physics"); 
-					logFlags.resistance = true; 
-				}
-			} 
-			else v = resistanceScalar(v, forces.resistance.submergence, dt);
+			if (CONFIG.Physics.Resistance.Enabled !== false) v = resistanceScalar(v, forces.resistance.submergence, dt);
+			else if (!logFlags.resistance) {
+				Log("ENGINE", "Resistance disabled — scalar resistance skipped", "warn", "Physics");
+				logFlags.resistance = true;
+			}
 		}
 		if (vertical.flag) return vBefore + (v - vBefore) / vertical.floatiness;
 		return v;

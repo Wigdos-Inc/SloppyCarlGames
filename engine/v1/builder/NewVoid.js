@@ -8,7 +8,7 @@ import { CreateModelMatrix, CreateRenderMatrixCache } from "../math/Matrix.js";
 import { AabbOverlap, MeshesIntersect, PointInsideMesh, SplitTriangleByPlane, StrictAabbOverlap, TriangleAabb } from "../math/Collision.js";
 import { Log } from "../core/meta.js";
 import { GenerateUVs, GenerateFaceProjectedUvs, TransformPointByMatrix } from "./NewObject.js";
-import { VISUAL_TEMPLATES } from "./NewTexture.js";
+import VISUAL_TEMPLATES from "./templates/textures.json" with { type: "json" };
 import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { AddVector3, CrossVector3, DivideVector3, DotVector3, ScaleVector3, SubtractVector3, ToVector3, Vector3Sq, WORLD_NORMALS } from "../math/Vector3.js";
 
@@ -85,7 +85,7 @@ function groupCoplanarPieces(triples, normals) {
 	return normalGroups;
 }
 
-// Sampled majority, not per-triangle parity — that would be O(n²) on a ~2000-triangle tube.
+// Checks a sample of triangles and takes the majority vote, instead of testing every one (too slow on big tubes).
 function resolveCavitySign(triangles) {
 	const step = Math.max(1, Math.floor(triangles.length / cavitySampleCount));
 	let inside = 0, sampled = 0;
@@ -238,7 +238,7 @@ function carveTriangleByVoid(hostTriangle, voidSolid, output) {
 			const offset = voidSolid.planeOffsets[index];
 			if (!planeCrossesTriangle(normal, offset, piece)) continue;
 
-			// `> 1` is the progress guarantee — the splitter's epsilon is stricter than the predicate's.
+			// Only accept a split that actually cuts the piece in two; otherwise the loop could repeat forever.
 			const split = SplitTriangleByPlane(piece, normal, offset);
 			if (split.length > 1) { parts = split; break; }
 		}
@@ -253,7 +253,7 @@ function carveTriangleByVoid(hostTriangle, voidSolid, output) {
 	}
 }
 
-// Affine basis for reconstructing a split vertex from its source corners. denominator = 4·area².
+// Precomputed values for locating a point within a triangle, used to rebuild split vertices.
 function barycentricBasis(a, b, c) {
 	const edge0 = SubtractVector3(b, a);
 	const edge1 = SubtractVector3(c, a);
@@ -273,7 +273,7 @@ function barycentricWeights(basis, point) {
 	};
 }
 
-// Clamped to the source corners — a blended vertex must never widen bounds read off `positions`.
+// Kept within the source corners, so a blended vertex never grows the bounds.
 function blendAxis(a0, a1, a2, v, w) {
 	return Math.min(Math.max(a0 + v * (a1 - a0) + w * (a2 - a0), Math.min(a0, a1, a2)), Math.max(a0, a1, a2));
 }
@@ -347,8 +347,7 @@ function buildHostLining(voidFaces, hostSolid, neighbours) {
 	return lining;
 }
 
-// Rewrites the host index buffer around its voids. Vertices are appended only, so bounds derived
-// from `positions` stay bit-identical.
+// Rewrites the host index buffer around its voids. Vertices are only appended, so bounds from `positions` don't change.
 function carveHostGeometry(hostMesh, voidSolids) {
 	const geometry    = hostMesh.geometry;
 	const positions   = geometry.positions.slice();

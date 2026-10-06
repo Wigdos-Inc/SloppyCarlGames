@@ -8,7 +8,8 @@
 import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
 import { Log, EPSILON } from "../../core/meta.js";
 import { ComposeTransform } from "../../builder/NewEntity.js";
-import { AddVector3, MultiplyVector3, LerpVector3, CloneVector3, CrossVector3, ResolveVector3Axis, RotateByEuler, RotateTowardVector3, ToVector3, WORLD_NORMALS } from "../../math/Vector3.js";
+import { PoseAnchor } from "../../physics/Correction.js";
+import { AddVector3, SubtractVector3, MultiplyVector3, LerpVector3, CloneVector3, CrossVector3, ResolveVector3Axis, RotateByEuler, RotateTowardVector3, ToVector3, WORLD_NORMALS } from "../../math/Vector3.js";
 import { EulerFromBasis } from "../../math/Matrix.js";
 import { Lerp, Clamp } from "../../math/Utilities.js";
 import { ApplyEasing } from "../../math/Curves.js";
@@ -43,10 +44,10 @@ function buildModelPose(entity) {
 	};
 }
 
-// The basis round-trip lands an ulp off rather than bit-exact, so settling needs a tolerance.
+// Settles within a tolerance; converting through the basis and back adds tiny float rounding errors.
 const poseSettled = (a, b) => Math.abs(a.x - b.x) <= EPSILON && Math.abs(a.y - b.y) <= EPSILON && Math.abs(a.z - b.z) <= EPSILON;
 
-// Eased in basis space; interpolating Euler triples tears at the pitch pole, which walls sit on.
+// Turns the model toward the target rotation by up to maxStep, easing its up and forward directions (raw angles tear on walls).
 function stepModelRotation(current, target, maxStep) {
 	const up      = RotateTowardVector3(RotateByEuler(WORLD_NORMALS.Up,      current), RotateByEuler(WORLD_NORMALS.Up,      target), maxStep);
 	const forward = RotateTowardVector3(RotateByEuler(WORLD_NORMALS.Forward, current), RotateByEuler(WORLD_NORMALS.Forward, target), maxStep);
@@ -65,7 +66,9 @@ function resolveModelPose(entity, runtime, deltaSeconds) {
 
 	if (poseSettled(pose.rotation, entity.transform.rotation)) return null;
 
-	pose.position.set(entity.transform.position);
+	// Turns about physics' pivot, so a snapped body doesn't pop the model.
+	const anchor = PoseAnchor(entity);
+	pose.position.set(AddVector3(entity.transform.position, SubtractVector3(RotateByEuler(anchor, entity.transform.rotation), RotateByEuler(anchor, pose.rotation))));
 	pose.scale = entity.transform.scale;
 	return pose;
 }
@@ -90,7 +93,8 @@ function resolvePoseStep(model, runtime, root) {
 	});
 }
 
-function ensureAnimationRuntime(entity) {
+// Built on first use; level setup builds the player's early so the camera can read its pose.
+function EnsureAnimationRuntime(entity) {
 	let runtime = entity.animationRuntime;
 	if (runtime === undefined) {
 		runtime = {
@@ -120,7 +124,7 @@ function ensureAnimationRuntime(entity) {
 
 function resolveCorrectionFrames(entityType) {
 	const isPlayer = entityType === "player";
-	const scaled = Math.round((isPlayer ? 8 : 4) * PERFORMANCE_SCALING.Animation.Entities[CONFIG.PERFORMANCE.Animations]);
+	const scaled = Math.round((isPlayer ? 8 : 4) * PERFORMANCE_SCALING.Animation.Entities[CONFIG.Performance.Animations]);
 	return isPlayer ? Clamp(scaled, 4, 8) : Clamp(scaled, 0, 4);
 }
 
@@ -338,9 +342,9 @@ function resolveSetName(animations, currentAction) {
 }
 
 function ResolveEntityAnimation(entity, deltaSeconds) {
-	if (CONFIG.PERFORMANCE.Animations === "Disabled") return;
+	if (CONFIG.Performance.Animations === "Disabled") return;
 
-	const runtime = ensureAnimationRuntime(entity);
+	const runtime = EnsureAnimationRuntime(entity);
 	if (entity.action !== runtime.lastAction) {
 		const setName = resolveSetName(entity.animations, entity.action);
 		runtime.snapshots = new Map(runtime.displayedOffsets);
@@ -369,4 +373,4 @@ function ResolveEntityAnimation(entity, deltaSeconds) {
 	resolveAnimationStep(entity.model, runtime, entity.animations[runtime.currentSetName], deltaSeconds, leaning !== null ? leaning : entity.model.rootTransform);
 }
 
-export { ResolveEntityAnimation };
+export { EnsureAnimationRuntime, ResolveEntityAnimation };
