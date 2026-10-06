@@ -145,6 +145,7 @@ Version Goals:
   8. Movement Enhancements.
     - Release jump early for quicker falloff.
     - Solve over-rotation in above-water tunnel.
+    - Store medium (Water/Air) on entity definition (e.g. playerState)
 - 0.35: Entity AI
   1. Add optional Q/W rotation controls.
   2. Add custom player control option.

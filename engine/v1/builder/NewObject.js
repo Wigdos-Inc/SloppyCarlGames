@@ -317,6 +317,18 @@ function computeWorldAabbFromGeometry(positions, transform) {
 	return bounds;
 }
 
+// A tube's centerline in world space.
+function computeWorldCenterline(shape, geometry, transform) {
+	// Early return on non-tubes.
+	if (shape !== "tube") return null;
+
+	const matrix = CreateModelMatrix(transform);
+	return geometry.centerline.map((point) => {
+		const world = TransformPointByMatrix(point, matrix);
+		return new UnitVector3(world.x, world.y, world.z, "cnu");
+	});
+}
+
 function computeWorldAabbFromBounds(localBounds, transform) {
 	const mn = localBounds.min, mx = localBounds.max;
 	const corners = [
@@ -775,6 +787,7 @@ function buildTube(size, complexity, options) {
 	const faceGroups = [];
 
 	const nodeRings = nodes.map((node) => appendTubeRing(positions, node.frame, node.radiusX, node.radiusZ, node.thickness, segments, solid));
+	const centerline = [nodes[0].center];
 	const lerp = (a, b, t) => a + ((b - a) * t);
 
 	for (let i = 0; i < nodes.length - 1; i++) {
@@ -789,6 +802,7 @@ function buildTube(size, complexity, options) {
 			const frames = orientConnectorFrames(points, nodeA.xAxis, nodeB.xAxis);
 			for (let j = 1; j < points.length - 1; j++) {
 				const t = j / (points.length - 1);
+				centerline.push(points[j]);
 				rings.push(appendTubeRing(
 					positions,
 					frameToTubeMatrix(frames[j], points[j]),
@@ -802,6 +816,7 @@ function buildTube(size, complexity, options) {
 		}
 
 		rings.push(nodeRings[i + 1]);
+		centerline.push(nodeB.center);
 
 		for (let r = 0; r < rings.length - 1; r++) stitchTubeRings(indices, rings[r], rings[r + 1], segments, solid);
 		appendTubeConnectorFaceGroups(faceGroups, rings, nodeA, segments, solid);
@@ -815,7 +830,7 @@ function buildTube(size, complexity, options) {
 	faceGroups.push({ normal: ScaleVector3(nodes[0].forward, -1), vertexIndices: capVertices(firstRing) });
 	faceGroups.push({ normal: nodes[nodes.length - 1].forward, vertexIndices: capVertices(lastRing) });
 
-	return { positions, indices, faceGroups };
+	return { positions, indices, faceGroups, centerline };
 }
 
 function buildTorus(size, complexity, options) {
@@ -1090,6 +1105,7 @@ function BuildObject(source) {
 				collisionShape: source.collisionShape,
 				localBounds, worldAabb,
 				detailedBounds: computeDetailedBounds({ collisionShape: source.collisionShape, geometry: tempGeometry, localBounds, worldAabb, transform }),
+				centerline    : tempGeometry === null ? null : computeWorldCenterline(shape, tempGeometry, transform),
 				customTextures: [],
 			},
 		};
@@ -1110,6 +1126,7 @@ function BuildObject(source) {
 				localBounds, worldAabb,
 				detailedBounds: computeDetailedBounds({ collisionShape: source.collisionShape, geometry, localBounds, worldAabb, transform }),
 				geometry      : { positions: geometry.positions, indices: geometry.indices, indexCount: geometry.indices.length },
+				centerline    : computeWorldCenterline(shape, geometry, transform),
 				customTextures: [],
 			},
 		};
@@ -1235,6 +1252,7 @@ function BuildObject(source) {
 		},
 		localBounds   : bounds,
 		worldAabb     : computeWorldAabbFromGeometry(geometry.positions, transform),
+		centerline    : computeWorldCenterline(shape, geometry, transform),
 		dimensions     : source.dimensions,
 		collisionShape : source.collisionShape,
 		customTextures : source.texture.custom,

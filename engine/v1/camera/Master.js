@@ -97,11 +97,25 @@ const travelsAround = (velocity, axis, lean) => {
 	return Math.abs(along) < Vector3Length(SubtractVector3(velocity, ScaleVector3(axis, along))) * Math.tan(lean.toRadians());
 };
 
+// Turn Tube loops about the centerline.
+function alongTube(sceneGraph, surfaceId, position, axis) {
+	const lines = sceneGraph.tubeCenterlines.get(surfaceId);
+	if (lines === undefined) return true;
+
+	let nearest = Infinity, tangent = null;
+	for (const line of lines) for (let i = 0; i < line.length; i++) {
+		const distance = Vector3Length(SubtractVector3(line[i], position));
+		if (distance >= nearest) continue;
+		nearest = distance;
+		tangent = SubtractVector3(line[Math.min(i + 1, line.length - 1)], line[Math.max(i - 1, 0)]);
+	}
+	return Math.abs(DotVector3(ResolveVector3Axis(tangent), axis)) >= Math.SQRT1_2;
+}
+
 // Net turn of the player's up about one axis on loop surfaces decides a loop.
 function trackLoop(playerState, sceneGraph) {
-	const lean = CAMERA_TUNING.Loops.Player;
-	const up = playerState.alignedUp;
-	const position = playerState.transform.position;
+	const { Player, ExitLeanGrace } = CAMERA_TUNING.Loops;
+	const { alignedUp, transform, physicsRuntime, underwater, grounded, velocity, character } = playerState, up = alignedUp;
 
 	// Tube bend turns the axis; only the leftover tilt is loop travel.
 	const bend = AzimuthTurnVector3(loop.previousUp, up);
@@ -109,20 +123,19 @@ function trackLoop(playerState, sceneGraph) {
 	if (loop.running) loop.axis = RotateByEuler(loop.axis, bend);
 
 	const turn = AngleBetweenVector3(bent, up);
-	const moved = SubtractVector3(position, loop.previousPosition);
+	const moved = SubtractVector3(transform.position, loop.previousPosition);
 
 	// Travel around the loop's axis; a tube's bend along its length doesn't count.
 	const around = loop.running ? SubtractVector3(moved, ScaleVector3(loop.axis, DotVector3(moved, loop.axis))) : moved;
-	const medium = playerState.underwater ? "Water" : "Air";
-	const onLoop = playerState.grounded && sceneGraph.loopSurfaces[medium].has(playerState.physicsRuntime.groundSurfaceId);
+	const medium = underwater ? "Water" : "Air";
+	const onLoop = grounded && sceneGraph.loopSurfaces[medium].has(physicsRuntime.groundSurfaceId);
 
 	// Why the camera lets go of the loop, if it does.
-	const release = !playerState.grounded && playerState.contactGrace <= EPSILON 
-		? "lost ground" : playerState.grounded && !onLoop 
-			? "left loop surface"
-			: Vector3Length(ProjectOntoPlane(playerState.velocity, playerState.alignedUp)) < 0.5 * CONFIG.Physics.Correction.MinGripSpeed[medium] * playerState.character.meta.maxSpeed 
-				? "too slow to grip" : loop.radius > 0 && Vector3Length(moved) > CAMERA_TUNING.Loops.ExitLeanGrace * loop.radius 
-					? "ran straight" : null;
+	const release = !grounded && contactGrace <= EPSILON ? "lost ground" : grounded && !onLoop 
+		? "left loop surface"
+		: Vector3Length(ProjectOntoPlane(velocity, alignedUp)) < 0.5 * CONFIG.Physics.Correction.MinGripSpeed[medium] * character.meta.maxSpeed 
+			? "too slow to grip" : loop.radius > 0 && Vector3Length(moved) > ExitLeanGrace * loop.radius 
+				? "ran straight" : null;
 
 	// Progress: turning while travelling around; else it counts as running straight.
 	let progressed = false;
@@ -145,7 +158,7 @@ function trackLoop(playerState, sceneGraph) {
 
 		// Center: settles across over half a lap, keeps pace along the axis.
 		if (loop.active && along > 0) {
-			const offset = SubtractVector3(AddVector3(position, ScaleVector3(up, loop.radius)), loop.center);
+			const offset = SubtractVector3(AddVector3(transform.position, ScaleVector3(up, loop.radius)), loop.center);
 			const axial = ScaleVector3(loop.axis, DotVector3(offset, loop.axis));
 			loop.center.set(AddVector3(loop.center, AddVector3(axial, ScaleVector3(SubtractVector3(offset, axial), Math.min(1, along / Math.PI)))));
 		}
@@ -155,27 +168,28 @@ function trackLoop(playerState, sceneGraph) {
 			loop.axis = ResolveVector3Axis(AddVector3(ScaleVector3(loop.axis, Math.min(loop.turned, Math.PI)), ScaleVector3(frameAxis, along)));
 		}
 		loop.turned += along;
-		progressed = along > 0 && travelsAround(playerState.velocity, loop.axis, loop.active ? lean.ExitLean : lean.EnterLean);
+		progressed = along > 0 && travelsAround(playerState.velocity, loop.axis, loop.active ? Player.ExitLean : Player.EnterLean);
 		if (loop.turned <= 0) releaseLoop("curved back or crested");
 
-		// Engage: near-horizontal axis, climbing, travelling around it.
+		// Engage: near-horizontal axis, climbing, travelling around it, along a tube's centerline.
 		else if (
-			!loop.active && 
-			loop.turned >= lean.EnterCurve.toRadians() 
-			&& Math.abs(loop.axis.y) < Math.SQRT1_2 && up.y < loop.startUpY 
-			&& travelsAround(playerState.velocity, loop.axis, lean.EnterLean)
+			!loop.active &&
+			loop.turned >= Player.EnterCurve.toRadians()
+			&& Math.abs(loop.axis.y) < Math.SQRT1_2 && up.y < loop.startUpY
+			&& travelsAround(playerState.velocity, loop.axis, Player.EnterLean)
+			&& alongTube(sceneGraph, physicsRuntime.groundSurfaceId, transform.position, loop.axis)
 		) {
 			// The center seeds from a radius settled over the whole engage turn.
-			loop.center.set(AddVector3(position, ScaleVector3(up, loop.radius)));
+			loop.center.set(AddVector3(transform.position, ScaleVector3(up, loop.radius)));
 			loop.active = true;
 			Log("ENGINE", `Loop engaged: axis=(${loop.axis.x.toFixed(2)}, ${loop.axis.y.toFixed(2)}, ${loop.axis.z.toFixed(2)})`, "log", "Level");
 		}
 	}
 	// Between curves only the along-axis travel moves the center.
-	else if (loop.active) loop.center.set(AddVector3(loop.center, ScaleVector3(loop.axis, DotVector3(SubtractVector3(position, loop.center), loop.axis))));
+	else if (loop.active) loop.center.set(AddVector3(loop.center, ScaleVector3(loop.axis, DotVector3(SubtractVector3(transform.position, loop.center), loop.axis))));
 
 	loop.previousUp = CloneVector3(up);
-	if (progressed || !loop.running) loop.previousPosition.set(position);
+	if (progressed || !loop.running) loop.previousPosition.set(transform.position);
 }
 
 // Camera triggers act the frame they're entered; activateOnce ones fire once.
@@ -220,7 +234,11 @@ function detectSituation(playerState, sceneGraph) {
 
 	trackLoop(playerState, sceneGraph);
 	const largeLoopRadius = CAMERA_TUNING.Modes.Triggers.LargeLoopScale * PlayerHeight(playerState);
-	frame.onSmallLoop = (sceneGraph.loopSurfaces[playerState.underwater ? "Water" : "Air"].get(surfaceId) ?? Infinity) < largeLoopRadius;
+
+	// A tube's bend counts as a slope, not a loop.
+	const tilt = ResolveVector3Axis(CrossVector3(WORLD_NORMALS.Up, playerState.alignedUp));
+	frame.onSmallLoop = (sceneGraph.loopSurfaces[playerState.underwater ? "Water" : "Air"].get(surfaceId) ?? Infinity) < largeLoopRadius
+		&& alongTube(sceneGraph, surfaceId, playerState.transform.position, tilt);
 	if (loop.active) {
 		return (
 			loop.radius > 0 && 
@@ -242,7 +260,9 @@ function activateMode(mode) {
 }
 
 function GetCameraPosition() {
-	latestCameraPosition === null ? Log("ENGINE", "window.camPos can only be used while in a level", "error", "Level") : latestCameraPosition
+	return latestCameraPosition === null 
+		? Log("ENGINE", "GetCameraPosition can only be used while in a level", "error", "Level") 
+		: latestCameraPosition;
 }
 
 function resolveDefaultLevelCamera(sceneGraph) {

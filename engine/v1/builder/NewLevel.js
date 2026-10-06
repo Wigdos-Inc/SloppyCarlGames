@@ -495,6 +495,15 @@ async function BuildLevel(payload) {
 	BuildVoidWalls({ terrain, obstacles: obstacleRecords, voids }, payload.world.textureScale);
 	const { chunks, loopSurfaces } = buildSurfaceChunks(terrain, obstacleRecords, voids);
 
+	// Store centerlines by surface id for improved loop detection in tubes.
+	const tubeCenterlines = new Map();
+	const addCenterlines = (id, meshes) => {
+		const lines = meshes.filter((mesh) => mesh.centerline !== null).map((mesh) => mesh.centerline);
+		if (lines.length > 0) tubeCenterlines.set(id, lines);
+	};
+	[...terrain, ...voidTerrain].forEach((mesh) => addCenterlines(mesh.id, [mesh]));
+	allObstacleRecords.forEach((record) => addCenterlines(record.id, record.parts));
+
 	// Open faces per default object id, gathered from every void relation that references it.
 	const openFacesByObjectId = new Map();
 	const collectOpenFaces = (entries) => {
@@ -572,7 +581,7 @@ async function BuildLevel(payload) {
 		world: payload.world,
 		terrain, entities, triggers, scatter: [], scatterBatches,
 		obstacles               : obstacleRecords,
-		voids, waterVisual, chunks, loopSurfaces,
+		voids, waterVisual, chunks, loopSurfaces, tubeCenterlines,
 		scatterPrimitiveGeometry: BuildScatterVisualResources(scatterBatches),
 		debug                   : {
 			showTriggerVolumes: !!(CONFIG.Debug.All === true && CONFIG.Debug.Levels.Triggers === true),
