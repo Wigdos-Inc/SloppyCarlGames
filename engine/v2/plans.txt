@@ -9,6 +9,7 @@
   - Module groups need a master module that orchestrates through a state (entityState, physicsState, etc).
   - Look into Add-on modules so not everything has to always be loaded.
   - Look into creating a smaller engine core or game template that each game can use instead of manually having to import the engine and start it
+    - Package?
   - At the core:
     - Modularity must remain a central anchor. 
     - Every major system must work primarily through global systems and their own subsystems.
@@ -39,6 +40,7 @@
     - Any.max(others)
 - Even more "special" recurring datatypes will become classes:
   - Matrix4
+    - .multiply(other)
   - AABB
     - .expand(type, val)
     - .shrink
@@ -47,3 +49,7 @@
 - For entity movement, collect every single movement source into the physicsState separately
   - Each type of movement can be individually cancelled.
   - Final velocity is calculated near the end of the physics engine.
+- Use libraries where applicable and efficient.
+- More texture options:
+  - Materials: metallic, etc (get matte, reflective, fake-3D)
+- Establish a CONFIG.Private and CONFIG.Public for more clarity between the two.
