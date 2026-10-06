@@ -1,82 +1,70 @@
 import { StartEngine } from "../../engine/v1/Bootup.js";
-import jsonEntities from "./json/entities.json" with { type: "json" };
-import jsonObstacles from "./json/obstacles.json" with { type: "json" };
-import jsonPlayers from "./json/players.json" with { type: "json" };
-import jsonTerrain from "./json/terrain.json" with { type: "json" };
-import { validatePlayerEntry, synthesizePlayerEntity, toCharactersJsonEntry, buildPlayerRegistry, PLAYER_TYPE } from "./playerMode.js";
+import { validatePlayerEntry, synthesizePlayerEntity, toCharactersJsonEntry, PLAYER_TYPE } from "./playerMode.js";
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 
 StartEngine();
-ENGINE.CONFIG.DEBUG.SKIP.Splash = true;
-ENGINE.CONFIG.DEBUG.SKIP.Intro  = true;
-ENGINE.CONFIG.DEBUG.LOGGING.All = false;
+ENGINE.Config.Debug.Skip.Splash = true;
+ENGINE.Config.Debug.Skip.Intro  = true;
+ENGINE.Config.Debug.Logging.All = false;
 
-const { Start, Load, Clear, Exit, Cache, GetModelState, GetFullState } = ENGINE.Simulator;
+const { Start, Load, Clear, Cache } = ENGINE.Simulator;
 window.load = Load;
 
+// ── Session ──────────────────────────────────────────────────────────────────
+// Custom JSON lives for the tab session only; engine definitions are never copied.
+
+const sessionKey = "SIMULATOR_SESSION";
+const session = ENGINE.Meta.ReadFromSession(sessionKey) ?? { lastId: null, lastMode: null, custom: [] };
+const saveSession = () => ENGINE.Meta.PushToSession(sessionKey, session);
+
 // ── Registries ────────────────────────────────────────────────────────────────
-// Four modes, one per object family: entity, player, obstacle, terrain. Each has its
-// own seed file (json/*.json) and its own user store (localStorage sim_user_*). A def
-// is routed to a mode by `type` (modeForType). Non-player defs are cached through the
-// engine; player defs synth-cache on load, since the engine has no "player" objectType.
+// Engine definitions come from ENGINE.Blueprints and load by the ids the engine
+// simulator caches them under (template.<key>, player.<key>).
 
 const MODES = ["entity", "player", "obstacle", "terrain"];
-const USER_KEY = {
-    entity  : "sim_user_entities",
-    player  : "sim_user_players",
-    obstacle: "sim_user_obstacles",
-    terrain : "sim_user_terrain",
-};
-const seedFor = { entity: jsonEntities, player: jsonPlayers, obstacle: jsonObstacles, terrain: jsonTerrain };
 const modeForType = (type) => type === PLAYER_TYPE ? "player" : type === "obstacle" ? "obstacle" : type === "terrain" ? "terrain" : "entity";
-const mergeById = (defs) => [...new Map(defs.map(d => [d.id, d])).values()];
 
-const readStore = (mode) => { try { return JSON.parse(localStorage.getItem(USER_KEY[mode]) ?? "[]") ?? []; } catch { return []; } };
-const writeStore = (mode) => localStorage.setItem(USER_KEY[mode], JSON.stringify(userStores[mode]));
+const { PlayerCharacters, Characters, Enemies, Projectiles, Obstacles, Terrain } = ENGINE.Blueprints;
+const templateEntry = (key, objectType, definition) => ({ id: `template.${key}`, objectType, definition, engine: true });
 
-const userStores = { entity: readStore("entity"), player: readStore("player"), obstacle: readStore("obstacle"), terrain: readStore("terrain") };
+// Object templates nest root fields under `shared`; Edit shows them as a flat level-object payload.
+// Root shape is required but unused once parts exist; null part textures take the shared one.
+const toObjectPayload = (key, template, objectType) => ({
+    id: key, type: objectType, shape: "cube", position: { x: 0, y: 0, z: 0 }, ...template.shared,
+    parts: template.parts.map((part) => part.texture === null ? { ...part, texture: structuredClone(template.shared.texture) } : part),
+});
 
-// One-time migration: split the old unified localStorage["entities"] store and legacy
-// localStorage["characters"] player drafts into the per-type stores, then drop old keys.
-(function migrateLegacyStores() {
-    const legacy = [];
-    try { const old = JSON.parse(localStorage.getItem("entities") ?? "null"); if (Array.isArray(old)) legacy.push(...old); } catch {}
-    try { const chars = JSON.parse(localStorage.getItem("characters") ?? "null"); if (Array.isArray(chars)) legacy.push(...chars.map(c => ({ ...c, type: PLAYER_TYPE }))); } catch {}
-    if (legacy.length === 0) return;
-    for (const def of legacy) {
-        const mode = modeForType(def.type);
-        userStores[mode] = mergeById([...userStores[mode], def]);
-    }
-    for (const mode of MODES) writeStore(mode);
-    localStorage.removeItem("entities");
-    localStorage.removeItem("characters");
-})();
+const entityEntries = (collection) => Object.entries(collection).map(([key, def]) => templateEntry(key, def.type, { id: key, ...def }));
+const objectEntries = (collection, objectType) => Object.entries(collection).map(([key, def]) => templateEntry(key, objectType, toObjectPayload(key, def, objectType)));
 
-const registries = { entity: [], player: [], obstacle: [], terrain: [] };
-const toEntry = (d) => ({ objectType: d.type, definition: d });
+const engineRegistries = {
+    entity  : [Characters, Enemies, Projectiles].flatMap(entityEntries),
+    player  : Object.entries(PlayerCharacters).map(([key, def]) => (
+        { id: `player.${key}`, objectType: PLAYER_TYPE, definition: { id: key, type: PLAYER_TYPE, ...def }, engine: true }
+    )),
+    obstacle: objectEntries(Obstacles, "obstacle"),
+    terrain : objectEntries(Terrain, "terrain"),
+};
 
-// Merge every seed + user def (user wins by id), then partition by mode. Robust to defs
-// still filed under the wrong seed during the type-split transition.
+const registries = {};
 function rebuildRegistries() {
-    const merged = mergeById([...MODES.flatMap(m => seedFor[m]), ...MODES.flatMap(m => userStores[m])]);
-    registries.entity   = merged.filter(d => modeForType(d.type) === "entity").map(toEntry);
-    registries.obstacle = merged.filter(d => modeForType(d.type) === "obstacle").map(toEntry);
-    registries.terrain  = merged.filter(d => modeForType(d.type) === "terrain").map(toEntry);
-    registries.player   = buildPlayerRegistry(merged.filter(d => modeForType(d.type) === "player"));
+    for (const m of MODES) {
+        const custom = session.custom.filter(d => modeForType(d.type) === m).map(d => ({ id: d.id, objectType: d.type, definition: d, engine: false }));
+        registries[m] = [...engineRegistries[m], ...custom];
+    }
 }
 
-// Upsert a saved definition into its per-type store and refresh registries.
-function persistDef(def) {
-    const store = userStores[modeForType(def.type)];
-    const i = store.findIndex(d => d.id === def.id);
-    if (i !== -1) store[i] = def; else store.push(def);
-    writeStore(modeForType(def.type));
+// Upsert a loaded custom definition into the session and refresh registries.
+function persistCustom(def) {
+    const i = session.custom.findIndex(d => d.id === def.id);
+    if (i !== -1) session.custom[i] = def; else session.custom.push(def);
+    saveSession();
     rebuildRegistries();
 }
 
 rebuildRegistries();
-Cache([...registries.entity, ...registries.obstacle, ...registries.terrain]);
+Cache(session.custom.filter(d => d.type !== PLAYER_TYPE).map(d => ({ objectType: d.type, definition: d })));
 
 // Debug
 window.entity = registries.entity[0]?.definition;
@@ -86,10 +74,6 @@ window.entity = registries.entity[0]?.definition;
 let mode = MODES.includes(localStorage.getItem("sim_mode")) ? localStorage.getItem("sim_mode") : "entity";
 
 const activeRegistry = () => registries[mode];
-
-// ── Session ──────────────────────────────────────────────────────────────────
-
-const sessionKey = "SIMULATOR_STATE";
 
 // ── Overlay DOM refs (populated by buildOverlay) ──────────────────────────────
 
@@ -128,8 +112,8 @@ function refreshDropdown() {
     }
     registry.forEach(entry => {
         const opt = document.createElement("option");
-        opt.value = entry.definition.id;
-        opt.textContent = entry.definition.id;
+        opt.value = entry.id;
+        opt.textContent = entry.engine ? entry.id : `${entry.id} (custom)`;
         selectEl.appendChild(opt);
     });
 }
@@ -164,13 +148,12 @@ async function cacheWithCapture(entries) {
     return captured;
 }
 
-// Load-by-id used by the dropdown and session restore. Player-tagged entries render
-// through a synthesized entity wrapper (the engine has no "player" objectType); entity
-// entries were cached at boot and load directly.
+// Load-by-id used by the dropdown and session restore. Custom player drafts render
+// through a synthesized entity wrapper; everything else is already engine-cached.
 async function loadEntry(id) {
-    const entry = activeRegistry().find(e => e.definition.id === id);
+    const entry = activeRegistry().find(e => e.id === id);
     if (!entry) return false;
-    if (entry.objectType === "player") {
+    if (!entry.engine && entry.objectType === PLAYER_TYPE) {
         const synth = synthesizePlayerEntity(entry.definition);
         await Cache([{ objectType: "entity", definition: synth }]);
         await Load({ id: synth.id });
@@ -180,13 +163,18 @@ async function loadEntry(id) {
     return true;
 }
 
+function rememberLoaded(id) {
+    session.lastId = id;
+    session.lastMode = mode;
+    saveSession();
+}
+
 const autoRestoreEnabled = () => localStorage.getItem("sim_auto_restore") !== "false";
 
 async function restoreSessionState() {
-    const state = ENGINE.Meta.ReadFromSession(sessionKey);
-    if (!state || !state.lastEntityId) return;
-    if (state.lastMode) setMode(state.lastMode);
-    if (!(await loadEntry(state.lastEntityId))) return;
+    if (session.lastId === null) return;
+    setMode(session.lastMode);
+    if (!(await loadEntry(session.lastId))) return;
     somethingLoaded = true;
     hideOverlay();
 }
@@ -208,7 +196,7 @@ async function handleLoad() {
     const id = selectEl.value;
     if (!id) return;
     if (!(await loadEntry(id))) return;
-    ENGINE.Meta.PushToSession(sessionKey, { lastEntityId: id, lastMode: mode });
+    rememberLoaded(id);
     somethingLoaded = true;
     hideOverlay();
 }
@@ -216,7 +204,7 @@ async function handleLoad() {
 function handleEdit() {
     const id = selectEl.value;
     if (!id) return;
-    const entry = activeRegistry().find(e => e.definition.id === id);
+    const entry = activeRegistry().find(e => e.id === id);
     if (!entry) return;
     textareaEl.value = JSON.stringify(entry.definition, null, 2);
     setError("");
@@ -251,7 +239,7 @@ async function handleLoadEntityJson(parsed) {
     }
 
     await Load({ id: parsed.id });
-    persistDef(parsed);
+    persistCustom(parsed);
     finishJsonLoad(parsed.id);
 }
 
@@ -272,14 +260,14 @@ async function handleLoadPlayerJson(parsed) {
     }
 
     await Load({ id: synth.id });
-    persistDef(parsed);
+    persistCustom(parsed);
     finishJsonLoad(parsed.id);
 }
 
 function finishJsonLoad(id) {
     refreshDropdown();
     selectEl.value = id;
-    ENGINE.Meta.PushToSession(sessionKey, { lastEntityId: id, lastMode: mode });
+    rememberLoaded(id);
     somethingLoaded = true;
     hideOverlay();
 }
@@ -297,7 +285,7 @@ async function handleCopyPlayer() {
             return;
         }
     } else {
-        const entry = registries.player.find(e => e.definition.id === selectEl.value);
+        const entry = registries.player.find(e => e.id === selectEl.value);
         if (!entry) { setError("Select or paste a character first."); return; }
         def = entry.definition;
     }

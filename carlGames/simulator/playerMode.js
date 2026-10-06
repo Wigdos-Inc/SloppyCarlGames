@@ -16,12 +16,9 @@
 
 const SIM_PLAYER_PREFIX = "__player__";
 
-// Simulator player-definition tag. characters.json entries carry no `type` (the map key
-// is the id); the Simulator stamps `type: "player"` so authored drafts can live in
-// entities.json alongside entities and be partitioned by mode. It is an app-side tag only
-// — the engine has no "player" objectType — and is stripped on export to characters.json.
+// Simulator player-definition tag, so custom drafts partition into Player mode.
+// App-side only; stripped on export to characters.json.
 export const PLAYER_TYPE = "player";
-export const isPlayerDef = (def) => def?.type === PLAYER_TYPE;
 
 // Top-level keys the entity schema uses but the player schema must never carry.
 // (`type` is intentionally absent — "player" is the allowed Simulator tag, checked below.)
@@ -294,13 +291,4 @@ export function synthesizePlayerEntity(def) {
 export function toCharactersJsonEntry(def) {
     const { id, type, ...body } = def; // strip the Simulator-only id + player tag
     return JSON.stringify({ [id]: body }, null, 2);
-}
-
-// Build the player registry: canonical characters (id + player tag injected for
-// editing/keying), overlaid with user-authored player drafts (already tagged).
-export function buildPlayerRegistry(userPlayerDefs) {
-    const canonical = Object.entries(characters()).map(([id, def]) => ({ id, type: PLAYER_TYPE, ...def }));
-    const byId = new Map(canonical.map((def) => [def.id, def]));
-    for (const def of userPlayerDefs) byId.set(def.id, def);
-    return [...byId.values()].map((def) => ({ objectType: "player", definition: def }));
 }
