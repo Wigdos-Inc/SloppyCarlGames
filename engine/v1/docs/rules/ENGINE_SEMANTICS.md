@@ -313,7 +313,7 @@ const fall =
 	(target.underwater ? meta.waterFloatiness : meta.airFloatiness);
 
 const scaledDistance =
-	(Loops.TightFraming * loop.radius) / Math.sin(DegreesToRadians(ctx.cameraState.fov) / 2) *
+	(Loops.TightFraming * loop.radius) / Math.sin(DegreesToRadians(ctx.cameraState.fov) * 0.5) *
 	(1 + (Loops.SpeedZoom - 1) * Clamp01((bottomSpeed / meta.maxSpeed - ceilingGrip) / (1 - ceilingGrip)));
 ```
 
@@ -323,7 +323,7 @@ Good — split into one-line constants:
 const floatiness = target.underwater ? meta.waterFloatiness : meta.airFloatiness;
 const fall = (Gravity.Strength.value * target.gravityScale - target.buoyancyForce) / floatiness;
 
-const fitDistance = (Loops.TightFraming * loop.radius) / Math.sin(DegreesToRadians(ctx.cameraState.fov) / 2);
+const fitDistance = (Loops.TightFraming * loop.radius) / Math.sin(DegreesToRadians(ctx.cameraState.fov) * 0.5);
 const speedZoom = 1 + (Loops.SpeedZoom - 1) * Clamp01((bottomSpeed / meta.maxSpeed - ceilingGrip) / (1 - ceilingGrip));
 const scaledDistance = fitDistance * speedZoom;
 ```

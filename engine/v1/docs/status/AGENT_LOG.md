@@ -402,3 +402,30 @@ Examples:
     - This is the existing grip design; neither camera fix changed it. What should happen at a crawl on a vertical wall was put to the author and is undecided.
   - Circling the vertical shaft never triggers loop controls, by design: a vertical axis fails the fixed 45° engage rule.
   - No console errors. node --check passed.
+- [2026-10-07] MAIN: 0.34 patch 2 (backface culling, in progress): void walls fixed in builder/NewVoid.js.
+  - **Cause:** void wall linings kept the void solid's source winding, which faces outward. With `CONFIG.Performance.BackfaceCulling` on, the walls were culled from inside the cavity and showed only from outside.
+  - **Fix:** `resolveCavitySign` already finds which way the source winding faces. Faces with `cavitySign < 0` reverse their lining triples.
+  - **Unaffected:** collision soups (they carry explicit normals) and UV generation. Triplanar takes its normals from screen-space derivatives, so winding doesn't matter there.
+  - Culling for every other pass is unchanged. Water seen from below, decal quads, debug wireframes and single-quad planes are still one-sided and haven't been checked in the browser with culling on.
+  - Not browser-verified. node --check passed, also as .mjs.
+- [2026-10-07] MAIN: 0.34.2 continued. The author ruled that one-sided surfaces are excluded from culling rather than given new geometry. Water and planes are now never culled, in handlers/Render.js.
+  - **Water:** the body cube and top plane are seen from behind underwater, so they're excluded. Rejected: flipping the culled side while underwater. That would also change the look from above, where the body's back faces currently add to the tint.
+  - **Planes:** excluded per mesh, per scatter batch and per decal draw. Crossed-pair scatter cards were the motivating case. Rejected: two-sided `buildPlane` geometry, because collision, decal-facet and UV code would all read the duplicate triangles. The author noted that planes are only 2 triangles, so excluding them costs nothing.
+  - Debug wireframes, bounding boxes and trails are drawn as lines, which culling doesn't affect. The DEFERRED entry "Per-draw backface culling for closed opaque meshes" is resolved and removed.
+  - Not browser-verified. node --check passed, also as .mjs.
+  - Separately fixed: a ReferenceError in camera/Master.js `trackLoop`. Commit 6c7225e (0.34.1) switched to destructured `playerState` fields but missed `contactGrace`. It threw on the first airborne frame. The author confirmed the fix.
+  - Still open in 0.34.2: the todo sub-item "Fix Water vs Trigger layering" (not yet discussed).
+- [2026-10-07] MAIN: 0.34.2, "Fix Water vs Trigger layering" — fixed in handlers/Render.js.
+  - **Report:** the author's screenshot showed the water top drawn in front of trigger overlays regardless of distance.
+  - **Cause, by code reading:** the trigger overlay drew before the water with no depth write, so the water always painted over it.
+  - **Rejected:** sorting triggers by center into the water-anchored translucent pass. Trigger columns run from start.y to world height, so most straddle the waterline, and the bug would just move to the underwater half.
+  - **Fix:** triggers are split at the water level by a fragment clip in the main mesh shader. The half on the far side of the water draws before the water pass, the near half after it.
+  - Not browser-verified; the GLSL only compiles at runtime.
+  - **Open questions to the author (not deferred):**
+    - With culling on, trigger volumes (cubes) are invisible from inside. Should the overlay get `cull: false` like the water?
+    - `buildTriggerMesh` in builder/NewLevel.js sets `position.y = (start.y + triggerHeight) * 0.5`, which is worldHeight * 0.5. So the visual box spans start.y/2 to worldHeight − start.y/2. Code reading only; whether trigger detection uses this mesh is unchecked.
+- [2026-10-07] MAIN: 0.34.2 follow-up — both open trigger questions from the previous entry are resolved by author rulings.
+  - **Culling:** triggers are never culled, so the overlay shows from inside.
+  - **Span:** triggers render and detect from their authored start.y up to world.height, reaching up only. Detection reads the trigger mesh's own worldAabb (physics/Collision.js), so the drawn box is the detection box. The old centre, (start.y + triggerHeight) * 0.5, worked out to worldHeight * 0.5, which offset both boxes to span start.y * 0.5 to worldHeight − start.y * 0.5.
+  - **Rejected:** a full world-bottom-to-top column, because it would make start.y meaningless. Also a separate render-only box.
+  - Not browser-verified.

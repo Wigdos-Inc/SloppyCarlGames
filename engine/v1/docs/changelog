@@ -13,3 +13,28 @@
 **What:** `frame.onSmallLoop` now also requires `alongTube` for the slope's tilt axis (`cross(world up, alignedUp)`). A tube's walls, which tilt around its centerline, still don't roll. A bend along the tube's length rolls like a regular slope. Non-tube small-loop surfaces are unchanged.
 
 **Where:** [camera/Master.js](engine/v1/camera/Master.js) (`detectSituation`).
+
+## Void wall linings wound to face the cavity
+**What:** Void wall linings now face into the cavity. Each void face carries `flipWinding` (`cavitySign < 0`), and `buildHostLining` pushes that face's lining triples as (a, c, b) when it is set.
+
+**Where:** [builder/NewVoid.js](engine/v1/builder/NewVoid.js) (`buildVoidFaces`, `buildHostLining`).
+
+## Backface culling skips water and planes
+**What:** `setFaceCulling(gl, cull)` turns on `CULL_FACE` only when `cull` is true and `CONFIG.Performance.BackfaceCulling` is on. It replaces the frame-start toggle in `drawScene`. Culling is set per mesh in `drawMeshList`, and is off for `primitive === "plane"` and for `options.cull === false`. `drawWaterPass` passes `cull: false`. The scatter instance, scatter decal and mesh decal passes also skip planes. Scatter instance results now carry `primitive`.
+
+**Where:** [handlers/Render.js](engine/v1/handlers/Render.js) (`setFaceCulling`, `drawMeshList`, `drawWaterPass`, `drawDecalPass`, `drawScatterDecalPass`, `buildScatterInstanceBuffers`, `drawScene`).
+
+## trackLoop reads contactGrace
+**What:** `contactGrace` is added to the `playerState` destructure in `trackLoop`, which fixes a ReferenceError on the first airborne frame.
+
+**Where:** [camera/Master.js](engine/v1/camera/Master.js) (`trackLoop`).
+
+## Trigger overlay split at the water line
+**What:** The main mesh program has a `v_worldY` varying and a `u_waterClip` uniform (x = water level in world units, y = side kept: +1 above, −1 below, 0 keeps all). Clipped fragments get alpha 0 and are discarded. `drawMeshList` sets `u_waterClip` on every non-triplanar call (default `keepWholeMesh`). `drawTriggerOverlay` replaces PASS C. With water, `drawTranslucentPass` draws the far-side trigger half before the water and the near-side half after it. Without water, triggers draw whole before the translucents.
+
+**Where:** [handlers/Render.js](engine/v1/handlers/Render.js) (`createProgram`, `drawMeshList`, `drawTriggerOverlay`, `drawTranslucentPass`, `drawScene`).
+
+## Triggers unculled and anchored at their authored base
+**What:** `drawTriggerOverlay` passes `cull: false`. `buildTriggerMesh` centres the box at `start.y + triggerHeight * 0.5`, so the drawn and detected box spans `start.y` to `world.height`.
+
+**Where:** [handlers/Render.js](engine/v1/handlers/Render.js) (`drawTriggerOverlay`), [builder/NewLevel.js](engine/v1/builder/NewLevel.js) (`buildTriggerMesh`).

@@ -134,7 +134,8 @@ Version Goals:
     - Offset the camera at incline changes so it remains vertically stationary during loops. Ensure it doesn't influence movement. [DONE]
   1. Loop detection false positives [DONE]
     - The upward slope in the tunnel connecting underwater and above water counts as a loop, forcing a bad side-view camera angle.
-  2. Backface Culling [PENDING]
+  2. Backface Culling [CURRENT]
+    - Fix Water vs Trigger layering. [PENDING]
   3.  Toon-switch for outlines. [PENDING]
   4. DEFERRED Performance Enhancements [PENDING]
     - Move Render.js Shaders to new Shaders.js module.
