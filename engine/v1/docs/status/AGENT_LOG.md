@@ -465,3 +465,7 @@ Examples:
     - particle count steady at 12 running or still, which rules out a particle backlog
   - **Unconfirmed hypothesis:** the choppiness was perceived, not a frame drop. Candidates are the antialiasing lost with the off-screen target, aliased ink lines, screen-fixed halftone, and 60 renders on a 75 Hz display.
   - **Outcome:** the author kept the halftone and asked for antialiasing back. The scene now draws into 4× multisampled renderbuffers and is resolved by blit into the textures the filter passes read. The ink lines stay per-pixel, so only geometry edges are multisampled. Browser-checked: no GL or console errors, edges smoothed, debug overlays still on top. Visual sign-off is the author's. node --check passed on both modules, also as .mjs.
+- [2026-10-07] MAIN: 0.34.3 cleanup after the author flagged comment violations and possible duplication. MAIN reviewed it directly, with no ERA/DRYAD because none was asked for.
+  - **Comments:** the edge-bend comment was a jargon reasoning chain. The ink program and ink pass comments overlapped. `createTargetTexture`'s comment was a fragment. `Lines.Width` was described inaccurately; it's really line thickness. The Halftone trailing comment crammed three meanings into one line.
+  - **Duplication:** the ink pass was recomputing the near-side water clip that `drawTranslucentPass` already derived. It's now computed once in `drawScene` as `passState.nearWaterClip`.
+  - Not browser-verified, because LiveServer was down. node --check passed on both modules, also as .mjs.

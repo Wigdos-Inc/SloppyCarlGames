@@ -136,7 +136,7 @@ Version Goals:
     - The upward slope in the tunnel connecting underwater and above water counts as a loop, forcing a bad side-view camera angle.
   2. Backface Culling [DONE]
     - Fix Water vs Trigger layering. [DONE]
-  3.  Toon-switch for outlines. [CURRENT]
+  3.  Toon-switch for outlines. [DONE]
   4. DEFERRED Performance Enhancements [PENDING]
     - Move Render.js Shaders to new Shaders.js module.
     - Move Object.js shape functions to new NewPrimitive.js module.

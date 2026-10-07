@@ -68,3 +68,13 @@
 - **Cleanup removed:** the texture unbinds after both passes are gone.
 
 **Where:** [handlers/Render.js](engine/v1/handlers/Render.js) (`ensureSceneTarget`, `resolveSceneTarget`, `drawInkPass`, `drawFilterPass`), [core/config.js](engine/v1/core/config.js) (`FILTER_TUNING.Samples`).
+
+## Near-side water clip shared through passState
+**What:**
+- `drawScene` computes `passState.nearWaterClip` once: `keepWholeMesh` without water, otherwise `{ level, side }` keeping the camera's side.
+- `drawInkPass` reads it and no longer takes a `waterClip` parameter.
+- `drawTranslucentPass` destructures `level`/`side` from it for the trigger overlay halves.
+- Comments in the toon code were rewritten.
+- `FILTER_TUNING.Comic.Posterize` and `.Halftone` are multi-line objects with one comment per field.
+
+**Where:** [handlers/Render.js](engine/v1/handlers/Render.js) (`drawScene`, `drawInkPass`, `drawTranslucentPass`), [core/config.js](engine/v1/core/config.js) (`FILTER_TUNING`).
