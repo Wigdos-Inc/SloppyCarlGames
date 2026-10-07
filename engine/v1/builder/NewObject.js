@@ -352,17 +352,15 @@ function computeWorldAabbFromBounds(localBounds, transform) {
 }
 
 function buildCube(size) {
-	const sx = Math.max(0.0001, size.x) / 2;
-	const sy = Math.max(0.0001, size.y) / 2;
-	const sz = Math.max(0.0001, size.z) / 2;
+	const s = size.clone().max(ToVector3(0.0001)).scale(0.5);
 
 	const positions = [
-		-sx, -sy, sz, sx, -sy, sz, sx, sy, sz, -sx, sy, sz,
-		sx, -sy, -sz, -sx, -sy, -sz, -sx, sy, -sz, sx, sy, -sz,
-		-sx, -sy, -sz, -sx, -sy, sz, -sx, sy, sz, -sx, sy, -sz,
-		sx, -sy, sz, sx, -sy, -sz, sx, sy, -sz, sx, sy, sz,
-		-sx, sy, sz, sx, sy, sz, sx, sy, -sz, -sx, sy, -sz,
-		-sx, -sy, -sz, sx, -sy, -sz, sx, -sy, sz, -sx, -sy, sz,
+		-s.x, -s.y,  s.z,  s.x, -s.y,  s.z,  s.x,  s.y,  s.z, -s.x,  s.y,  s.z,
+		 s.x, -s.y, -s.z, -s.x, -s.y, -s.z, -s.x,  s.y, -s.z,  s.x,  s.y, -s.z,
+		-s.x, -s.y, -s.z, -s.x, -s.y,  s.z, -s.x,  s.y,  s.z, -s.x,  s.y, -s.z,
+		 s.x, -s.y,  s.z,  s.x, -s.y, -s.z,  s.x,  s.y, -s.z,  s.x,  s.y,  s.z,
+		-s.x,  s.y,  s.z,  s.x,  s.y,  s.z,  s.x,  s.y, -s.z, -s.x,  s.y, -s.z,
+		-s.x, -s.y, -s.z,  s.x, -s.y, -s.z,  s.x, -s.y,  s.z, -s.x, -s.y,  s.z,
 	];
 
 	const indices = [
@@ -387,9 +385,9 @@ function buildCube(size) {
 }
 
 function buildPyramid(size) {
-	const sx = size.x / 2;
+	const sx = size.x * 0.5;
 	const sy = size.y;
-	const sz = size.z / 2;
+	const sz = size.z * 0.5;
 	const baseFrontLeft = { x: -sx, y: 0, z: sz };
 	const baseFrontRight = { x: sx, y: 0, z: sz };
 	const baseBackRight = { x: sx, y: 0, z: -sz };
@@ -436,8 +434,8 @@ function buildPyramid(size) {
 }
 
 function buildPlane(size) {
-	const sx = size.x / 2;
-	const sz = size.z / 2;
+	const sx = size.x * 0.5;
+	const sz = size.z * 0.5;
 
 	return {
 		positions: [
@@ -643,8 +641,8 @@ function makeTubeNode(frame, dimensionX, dimensionZ, thickness, curved, smoothne
 		forward: { x: frame[4],  y: frame[5],  z: frame[6]  },
 		xAxis:   { x: frame[0],  y: frame[1],  z: frame[2]  },
 		zAxis:   { x: frame[8],  y: frame[9],  z: frame[10] },
-		radiusX: dimensionX / 2,
-		radiusZ: dimensionZ / 2,
+		radiusX: dimensionX * 0.5,
+		radiusZ: dimensionZ * 0.5,
 		thickness,
 		curved,
 		smoothness,
@@ -834,8 +832,8 @@ function buildTube(size, complexity, options) {
 }
 
 function buildTorus(size, complexity, options) {
-	const majorRadius = Math.max(0.0002, ToNumber(options.radius, size.x / 2));
-	const minorRadius = Math.max(0.0001, Math.min(ToNumber(options.thickness, size.y / 4), majorRadius * 0.95));
+	const majorRadius = Math.max(0.0002, ToNumber(options.radius, size.x * 0.5));
+	const minorRadius = Math.max(0.0001, Math.min(ToNumber(options.thickness, size.y * 0.25), majorRadius * 0.95));
 	const resolution = resolveTorusResolution(complexity);
 	const majorSegments = resolution.majorSegments;
 	const minorSegments = resolution.minorSegments;
@@ -881,11 +879,11 @@ function buildTorus(size, complexity, options) {
 }
 
 function resolveRampShape(size) {
-	const halfDepth = size.z / 2;
-	const baseY = -size.y / 2;
+	const halfDepth = size.z * 0.5;
+	const baseY = -size.y * 0.5;
 	const slopeAngle = Math.atan2(size.y, halfDepth * 2);
 	const slopeNormal = { x: 0, y: Math.cos(slopeAngle), z: -Math.sin(slopeAngle) };
-	return { halfWidth: size.x / 2, halfDepth, baseY, rise: size.y, backY: baseY + size.y, slopeNormal };
+	return { halfWidth: size.x * 0.5, halfDepth, baseY, rise: size.y, backY: baseY + size.y, slopeNormal };
 }
 
 function buildRampSimple(size) {

@@ -570,7 +570,7 @@ function prepareChase(ctx) {
 		const offset = startPitch - chaseRuntime.settle;
 		let pitch = startPitch + stiffen(DegreesToRadians(view.pitch) - startPitch, offset, offset > 0 ? freedom.top : freedom.bottom, share);
 		if (freedom.wrap) pitch -= 2 * Math.PI * Math.round(pitch / (2 * Math.PI));
-		chaseRuntime.flipped = Math.abs(pitch) > Math.PI / 2;
+		chaseRuntime.flipped = Math.abs(pitch) > Math.PI * 0.5;
 		rig.direction = armAt(heading, yaw, pitch, rig.up);
 	}
 	else chaseRuntime.sinceInput += ctx.deltaSeconds;
@@ -618,7 +618,7 @@ function updateChase(ctx) {
 		);
 
 		const ceilingGrip = Correction.MinGripSpeed[target.underwater ? "Water" : "Air"];
-		const fitDistance = (Loops.TightFraming * loop.radius) / Math.sin(DegreesToRadians(ctx.cameraState.fov) / 2);
+		const fitDistance = (Loops.TightFraming * loop.radius) / Math.sin(DegreesToRadians(ctx.cameraState.fov) * 0.5);
 		const speedZoom = 1 + (Loops.SpeedZoom - 1) * Clamp01((bottomSpeed / maxSpeed - ceilingGrip) / (1 - ceilingGrip));
 		const scaledDistance = fitDistance * speedZoom;
 		
@@ -665,7 +665,7 @@ function updateChase(ctx) {
 		
 		if (Math.abs(left) > freedom.yaw) turn += Math.sign(left) * (Math.abs(left) - freedom.yaw) * trail;
 		nextPitch += (Clamp(nextPitch, freedom.minPitch, freedom.maxPitch) - nextPitch) * trail;
-		chaseRuntime.flipped = Math.abs(nextPitch) > Math.PI / 2;
+		chaseRuntime.flipped = Math.abs(nextPitch) > Math.PI * 0.5;
 		rig.direction = armAt(heading, turn, nextPitch, up);
 		if (chaseRuntime.returning && Math.abs(gap - turn) < DegreesToRadians(5)) chaseRuntime.returning = false;
 	}
@@ -674,7 +674,7 @@ function updateChase(ctx) {
 	return aimedRig(
 		rig.distance.value * (ctx.cameraState.situation === "largeLoop" ? Loops.LargeLoopZoom : 1), 
 		null, Body.Radius.value, 
-		true, armAt(chaseHeading(ctx.cameraState, up), 0, chasePitch(up) + Math.PI / 2, up)
+		true, armAt(chaseHeading(ctx.cameraState, up), 0, chasePitch(up) + Math.PI * 0.5, up)
 	);
 }
 

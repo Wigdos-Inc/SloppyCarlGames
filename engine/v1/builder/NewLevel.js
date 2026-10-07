@@ -57,7 +57,7 @@ function resolveTriggerColor(triggerType) {
 function buildTriggerMesh(triggerDefinition, world, index) {
 	const triggerHeight = world.height.value - triggerDefinition.start.y;
 	const position = triggerDefinition.start.clone().add(triggerDefinition.end).scale(0.5); 
-	position.y = (triggerDefinition.start.y + triggerHeight) / 2;
+	position.y = triggerDefinition.start.y + triggerHeight * 0.5;
 
 	const color = resolveTriggerColor(triggerDefinition.type);
 
@@ -332,7 +332,7 @@ function foldRadius(a, b, fold) {
 		const reach = [facet.a, facet.b, facet.c].map((point) => DotVector3(point, CrossVector3(edge, facet.normal)));
 		return Math.max(...reach) - Math.min(...reach);
 	};
-	return (width(a) + width(b)) / (4 * Math.tan(fold / 2));
+	return (width(a) + width(b)) / (4 * Math.tan(fold * 0.5));
 }
 
 // Chunks join touching pieces; loop surfaces are picked per medium.

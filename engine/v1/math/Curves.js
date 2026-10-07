@@ -5,7 +5,7 @@ const easings = {
 	linear:    (t) => t,
 	easeIn:    (t) => t * t,
 	easeOut:   (t) => t * (2 - t),
-	easeInOut: (t) => (t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2),
+	easeInOut: (t) => (t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) * 0.5),
 };
 
 const ApplyEasing = (name, t) => easings[name](t);
@@ -17,7 +17,7 @@ function SampleConnectorCenterline(startCenter, forward, endCenter, backward, sm
 	const cornerM = ScaleVector3(AddVector3(AddVector3(startCenter, ScaleVector3(forward, chord * 0.667)), AddVector3(endCenter, ScaleVector3(backward, chord * 0.667))), 0.5);
 	// Circular-arc handles; 1/3 of the chord when straight.
 	const turn = Math.acos(Clamp(-DotVector3(forward, backward), -1, 1));
-	const d = chord * (turn < 1e-6 ? 1 / 3 : (2 / 3) * Math.tan(turn / 4) / Math.sin(turn / 2));
+	const d = chord * (turn < 1e-6 ? 1 / 3 : (2 / 3) * Math.tan(turn * 0.25) / Math.sin(turn * 0.5));
 	const p1 = AddVector3(startCenter, ScaleVector3(forward, d));
 	const p2 = AddVector3(endCenter, ScaleVector3(backward, d));
 
@@ -34,7 +34,7 @@ function SampleConnectorCenterline(startCenter, forward, endCenter, backward, sm
 				),
 				ScaleVector3(p2, 3 * oneMinusT * t * t)
 			),
-			ScaleVector3(endCenter, t * t * t)
+			ScaleVector3(endCenter, t ** 3)
 		);
 		points.push(LerpVector3(sharp, smooth, smoothness));
 	}

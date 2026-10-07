@@ -102,7 +102,7 @@ function updateSliderVisual(targetId, value) {
 	if (percentElement) percentElement.textContent = `${percent}%`;
 }
 
-const stepPercent = (value, min) => Math.round(ENGINE.Math.Other.Clamp(value, min, 100) / 5) * 5;
+const stepPercent = (value, min) => Math.round(ENGINE.Math.Other.Clamp(value, min, 100) * 0.2) * 5;
 
 function updatePercentSliderVisual(targetId, value, min) {
 	const input = document.getElementById(targetId);

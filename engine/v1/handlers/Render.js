@@ -97,7 +97,7 @@ const detailedBoundsTypeColors = {
 };
 
 function createPerspectiveMatrix(fovDegrees, aspect, near, far) {
-	const f = 1 / Math.tan(((fovDegrees * Math.PI) / 180) / 2);
+	const f = 1 / Math.tan(((fovDegrees * Math.PI) / 180) * 0.5);
 	const nf = 1 / (near - far);
 	return [
 		f / aspect, 0, 0, 0,
@@ -245,20 +245,25 @@ function createProgram(gl) {
 		uniform mat4 u_model;
 		out vec2 v_uv;
 		out vec3 v_viewPos;
+		out float v_worldY;
 		void main() {
 			vec4 world = u_model * vec4(a_position, 1.0);
 			vec4 viewPos = u_view * world;
 			gl_Position = u_projection * viewPos;
 			v_uv = a_uv;
 			v_viewPos = viewPos.xyz;
+			v_worldY = world.y;
 		}
 	`;
 
+	// u_waterClip: x = water level, y = side kept (+1 above, -1 below, 0 keeps all).
 	return createLinkedProgram(gl, {
 		vertexShaderSource: vertexShaderSource,
 		fragmentShaderSource: createFoggedTextureFragmentShader(
-			"uniform vec4 u_tint;",
-			"vec4(texel.rgb * u_tint.rgb, texel.a * u_tint.a)"
+			"uniform vec4 u_tint; uniform vec2 u_waterClip;",
+			"vec4(texel.rgb * u_tint.rgb, texel.a * u_tint.a * step(0.0, u_waterClip.y * (v_worldY - u_waterClip.x)))",
+			false,
+			"in vec2 v_uv; in float v_worldY;"
 		),
 		attributeNames: {
 			position: "a_position",
@@ -270,6 +275,7 @@ function createProgram(gl) {
 			model       : "u_model",
 			texture     : "u_texture",
 			tint        : "u_tint",
+			waterClip   : "u_waterClip",
 			fogFull     : "u_fogFull",
 			colorShift  : "u_colorShift",
 			underwater  : "u_underwater",
@@ -1000,6 +1006,7 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 			instanceCount,
 			textureID: batch.textureID,
 			decalDraws,
+			primitive : batch.primitive,
 			dimensions: batch.dimensions,
 			rounding,
 		});
@@ -1738,6 +1745,11 @@ function ensureMeshBuffer(renderer, mesh, shader) {
 	return meshBuffer;
 }
 
+// Don't cull planes.
+const setFaceCulling = (gl, cull) => cull && CONFIG.Performance.BackfaceCulling ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE);
+
+const keepWholeMesh = { level: 0, side: 0 };
+
 function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 	if (meshes.length === 0) return;
 
@@ -1748,6 +1760,10 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 
 	configureTexturedMeshPass(gl, shader, passState);
 	if (disableDepthWriteForPass) gl.depthMask(false);
+	if (!options.triplanar) {
+		const waterClip = options.waterClip === undefined ? keepWholeMesh : options.waterClip;
+		gl.uniform2f(shader.uniforms.waterClip, waterClip.level, waterClip.side);
+	}
 
 	for (const mesh of meshes) {
 		const meshBuffer = ensureMeshBuffer(renderer, mesh, shader);
@@ -1755,6 +1771,7 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 
 		const dc = mesh.displayColor;
 
+		setFaceCulling(gl, options.cull !== false && mesh.primitive !== "plane");
 		gl.bindVertexArray(meshBuffer.vao);
 		gl.uniform1i(shader.uniforms.texture, 0);
 		gl.uniformMatrix4fv(shader.uniforms.model, false, renderMatrixFor(mesh));
@@ -1786,9 +1803,10 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 	if (disableDepthWriteForPass) gl.depthMask(true);
 }
 
+// Don't cull the water mesh's faces as you're meant to be inside them.
 function drawWaterPass(renderer, sceneGraph, passState) {
 	const meshes = sceneGraph.waterVisual === null ? [] : [sceneGraph.waterVisual.body, sceneGraph.waterVisual.top];
-	drawMeshList(renderer, sceneGraph, meshes, passState, { depthMask: false });
+	drawMeshList(renderer, sceneGraph, meshes, passState, { depthMask: false, cull: false });
 }
 
 // Issued as runs of consecutive same-shader meshes so global sort order survives.
@@ -1804,18 +1822,35 @@ function drawSortedRuns(renderer, sceneGraph, meshes, passState) {
 	}
 }
 
+// Color filter over solid geometry. No depth-write and never culled.
+function drawTriggerOverlay(renderer, sceneGraph, passState, waterClip = keepWholeMesh) {
+	if (!sceneGraph.debug.showTriggerVolumes) return;
+	drawMeshList(renderer, sceneGraph, sceneGraph.triggers, passState, { depthMask: false, cull: false, waterClip });
+}
+
 // Water is a fixed anchor: far side of the camera draws first, near side last.
 function drawTranslucentPass(renderer, sceneGraph, meshes, passState, cameraPosition, waterLevelCnu, underwater) {
 	sortBackToFront(meshes, cameraPosition);
 
-	if (waterLevelCnu === null) { drawSortedRuns(renderer, sceneGraph, meshes, passState); return; }
+	if (waterLevelCnu === null) {
+		// Triggers are split to prevent depth-fighting with the water top.
+		drawTriggerOverlay(renderer, sceneGraph, passState);
+
+		drawSortedRuns(renderer, sceneGraph, meshes, passState);
+		return;
+	}
 
 	const above = [];
 	const below = [];
 	for (const mesh of meshes) (mesh.displayTransform.position.y > waterLevelCnu ? above : below).push(mesh);
 
+	const level    = sceneGraph.world.water.level.toWorldUnit();
+	const nearSide = underwater ? -1 : 1;
+
 	drawSortedRuns(renderer, sceneGraph, underwater ? above : below, passState);
+	drawTriggerOverlay(renderer, sceneGraph, passState, { level, side: -nearSide });
 	drawWaterPass(renderer, sceneGraph, passState);
+	drawTriggerOverlay(renderer, sceneGraph, passState, { level, side: nearSide });
 	drawSortedRuns(renderer, sceneGraph, underwater ? below : above, passState);
 }
 
@@ -1841,7 +1876,7 @@ function decalAnimationMargin(entity, partId, decalEntry) {
 
 	// Position offset in rest half-extents.
 	const rest = decalEntry.localTransform.scale;
-	return (scale + offset / (Math.min(Math.abs(rest.x), Math.abs(rest.y)) / 2)) * decalMarginSafety;
+	return (scale + offset / (Math.min(Math.abs(rest.x), Math.abs(rest.y)) * 0.5)) * decalMarginSafety;
 }
 
 // One VAO per (mesh, decal), never rebuilt.
@@ -1865,7 +1900,7 @@ function ensureDecalGeometry(renderer, mesh, decalEntry, index, entity, partId) 
 		mesh.geometry,
 		BuildDecalPlacementMatrix(dim, decalEntry.localTransform, decalEntry.side),
 		ResolveDecalShapeCode(mesh.shape, decalEntry.side),
-		{ x: dim.x / 2, y: dim.y / 2, z: dim.z / 2 },
+		dim.clone().scale(0.5),
 		DecalRounding(mesh.shape, mesh.detail.primitiveOptions),
 		decalAnimationMargin(entity, partId, decalEntry)
 	);
@@ -1916,12 +1951,12 @@ export function BuildDecalPlacementMatrix(dim, transform, side) {
 
 	// Face center + local offset combined into a single translation in part-local CNU space.
 	const faceTranslations = {
-		front:  [pos.x,             pos.y,             pos.z + dim.z / 2],
-		back:   [pos.x,             pos.y,             pos.z - dim.z / 2],
-		top:    [pos.x,             pos.y + dim.y / 2, pos.z            ],
-		bottom: [pos.x,             pos.y - dim.y / 2, pos.z            ],
-		right:  [pos.x + dim.x / 2, pos.y,             pos.z            ],
-		left:   [pos.x - dim.x / 2, pos.y,             pos.z            ],
+		front:  [pos.x,               pos.y,               pos.z + dim.z * 0.5],
+		back:   [pos.x,               pos.y,               pos.z - dim.z * 0.5],
+		top:    [pos.x,               pos.y + dim.y * 0.5, pos.z              ],
+		bottom: [pos.x,               pos.y - dim.y * 0.5, pos.z              ],
+		right:  [pos.x + dim.x * 0.5, pos.y,               pos.z              ],
+		left:   [pos.x - dim.x * 0.5, pos.y,               pos.z              ],
 	};
 
 
@@ -1944,10 +1979,12 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	const drawDecalsForMesh = (mesh, entity = null, partId = null) => {
 		if (mesh.customTextures.length === 0) return;
 
+		setFaceCulling(gl, mesh.primitive !== "plane");
+		
 		// Mesh-level uniforms: identical for every decal on this mesh — set once.
 		gl.uniformMatrix4fv(decalShader.uniforms.partWorld, false, renderMatrixFor(mesh));
 		const dim = mesh.dimensions;
-		gl.uniform3f(decalShader.uniforms.halfExtents, dim.x / 2, dim.y / 2, dim.z / 2);
+		gl.uniform3f(decalShader.uniforms.halfExtents, dim.x * 0.5, dim.y * 0.5, dim.z * 0.5);
 		gl.uniform1f(decalShader.uniforms.rounding, DecalRounding(mesh.shape, mesh.detail.primitiveOptions));
 		gl.uniform1i(decalShader.uniforms.texture, 0);
 
@@ -2000,7 +2037,8 @@ function drawScatterDecalPass(renderer, sceneGraph, passState) {
 
 	renderer.scatterDecalBatches.forEach((batch) => {
 		const dim = batch.dimensions;
-		gl.uniform3f(shader.uniforms.halfExtents, dim.x / 2, dim.y / 2, dim.z / 2);
+		setFaceCulling(gl, batch.primitive !== "plane");
+		gl.uniform3f(shader.uniforms.halfExtents, dim.x * 0.5, dim.y * 0.5, dim.z * 0.5);
 		gl.uniform1f(shader.uniforms.rounding, batch.rounding);
 
 		batch.decalDraws.forEach((draw) => {
@@ -2056,8 +2094,7 @@ function drawScene(renderer, sceneGraph) {
 	gl.enable(gl.DEPTH_TEST);
 	gl.enable(gl.BLEND);
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-	if (CONFIG.Debug.Levels.BackfaceCulling) gl.enable(gl.CULL_FACE);
-	else gl.disable(gl.CULL_FACE);
+	setFaceCulling(gl, true);
 	gl.clearColor(0.04, 0.05, 0.08, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -2120,6 +2157,7 @@ function drawScene(renderer, sceneGraph) {
 		gl.uniform1f(renderer.scatterShader.uniforms.cullRadius, passState.cullRadius);
 
 		renderer.scatterInstances.forEach(batch => {
+			setFaceCulling(gl, batch.primitive !== "plane");
 			gl.bindVertexArray(batch.vao);
 			gl.activeTexture(gl.TEXTURE0);
 			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, batch.textureID));
@@ -2132,10 +2170,7 @@ function drawScene(renderer, sceneGraph) {
 	// === PASS B2: Instanced scatter decals (custom textures baked per batch) ===
 	drawScatterDecalPass(renderer, sceneGraph, passState);
 
-	// === PASS C: Trigger overlay (no depth write — color filter over all solid geometry) ===
-	if (sceneGraph.debug.showTriggerVolumes) drawMeshList(renderer, sceneGraph, sceneGraph.triggers, passState, { depthMask: false });
-
-	// === PASS D: Translucent meshes, water-anchored (sorted back-to-front, no depth write) ===
+	// === PASS D: Translucent meshes and trigger overlay, water-anchored (sorted back-to-front, no depth write) ===
 	drawTranslucentPass(renderer, sceneGraph, entitiesTranslucent, passState, cameraState.position, waterLevelCnu, underwater);
 
 	drawBoundingBoxes(renderer, sceneGraph, projection, view);

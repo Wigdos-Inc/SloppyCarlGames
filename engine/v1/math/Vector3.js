@@ -119,7 +119,7 @@ function TransportVector3(v, from, to) {
 function AzimuthTurnVector3(from, to) {
 	const raw = Math.atan2(to.x, to.z) - Math.atan2(from.x, from.z);
 	const turn = Math.atan2(Math.sin(raw), Math.cos(raw));
-	return { x: 0, y: Math.abs(turn) > Math.PI / 2 ? 0 : turn, z: 0 };
+	return { x: 0, y: Math.abs(turn) > Math.PI * 0.5 ? 0 : turn, z: 0 };
 }
 
 // Turns unit `from` toward unit `to` by at most `maxStep` radians; lands exactly on `to` once in reach, so callers can detect arrival.

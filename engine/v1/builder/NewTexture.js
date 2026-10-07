@@ -136,7 +136,7 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			if (cellCount === 0) return;
 			const cellSize  = size / cellCount;
 			const blockSize = Math.max(1, Math.floor(cellSize * textureDefinition.speckSize * cfg.SpeckSize));
-			const inset     = (cellSize - blockSize) / 2;
+			const inset     = (cellSize - blockSize) * 0.5;
 			ctx.fillStyle = secondary;
 			for (let xi = 0; xi < cellCount; xi++) for (let yi = 0; yi < cellCount; yi++) {
 				fillReplacing(ctx, replace, () => ctx.fillRect(Math.round(xi * cellSize + inset), Math.round(yi * cellSize + inset), blockSize, blockSize));
@@ -165,10 +165,10 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 		// Note: Raw UVs repeat, so the gradient's two ends are matched to hide the seam.
 		case "linear": {
 			const mid = rgbaToCss({
-				r: (textureDefinition.primary.r + textureDefinition.secondary.r) / 2,
-				g: (textureDefinition.primary.g + textureDefinition.secondary.g) / 2,
-				b: (textureDefinition.primary.b + textureDefinition.secondary.b) / 2,
-				a: (textureDefinition.primary.a + textureDefinition.secondary.a) / 2,
+				r: (textureDefinition.primary.r + textureDefinition.secondary.r) * 0.5,
+				g: (textureDefinition.primary.g + textureDefinition.secondary.g) * 0.5,
+				b: (textureDefinition.primary.b + textureDefinition.secondary.b) * 0.5,
+				a: (textureDefinition.primary.a + textureDefinition.secondary.a) * 0.5,
 			});
 			const gradient = ctx.createLinearGradient(0, 0, 0, size);
 			gradient.addColorStop(0, mid);
@@ -205,8 +205,8 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			const ratio     = textureDefinition.speckSize * cfg.SpeckSize;
 			const blockSize = Math.max(1, Math.round(cell * ratio));
 			const drawWrapped = (cx, cy) => {
-				const x0 = cx - blockSize / 2;
-				const y0 = cy - blockSize / 2;
+				const x0 = cx - blockSize * 0.5;
+				const y0 = cy - blockSize * 0.5;
 				for (const dx of [-size, 0, size]) for (const dy of [-size, 0, size]) {
 					const x = x0 + dx, y = y0 + dy;
 					if (x + blockSize <= 0 || x >= size || y + blockSize <= 0 || y >= size) continue;

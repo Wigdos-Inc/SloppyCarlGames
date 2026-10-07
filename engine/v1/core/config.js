@@ -17,7 +17,6 @@ const API_CONFIG = {
     Levels: {
       Triggers: true,                        // Render Trigger Meshes
       FreeCam : false,                       // Free Camera Mode
-      BackfaceCulling: false,                // Cull back faces — wrongly wound geometry vanishes
       BoundingBox: {                         // Render Bounding Boxes
         Terrain     : false,
         Scatter     : false,
@@ -95,12 +94,13 @@ const API_CONFIG = {
     Cutscene: settings?.cutscene ?? 1
   },
   Performance: {
-    Scatter    : { Density: "High", Quality: "High" },
-    Particles  : "High",
-    SimDistance: "High",
-    Animations : "High",
-    FrameRate  : 60,
-    Resolution : 100
+    Scatter        : { Density: "High", Quality: "High" },     // Amount of scatter, and how expensive the shapes are.
+    Particles      : "High",                                   // The amount of particles generators emit.
+    SimDistance    : "High",                                   // Umbrella definition for both rendering and simulation distance.
+    Animations     : "High",                                   // Smoothness of animations.
+    FrameRate      : 60,                                       // FPS for simulation and rendering.
+    Resolution     : 100,                                      // Visual crispness.
+    BackfaceCulling: true,                                     // Cull back faces
   },
   Physics: {
     Gravity   : { 

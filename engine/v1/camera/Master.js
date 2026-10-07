@@ -115,7 +115,7 @@ function alongTube(sceneGraph, surfaceId, position, axis) {
 // Net turn of the player's up about one axis on loop surfaces decides a loop.
 function trackLoop(playerState, sceneGraph) {
 	const { Player, ExitLeanGrace } = CAMERA_TUNING.Loops;
-	const { alignedUp, transform, physicsRuntime, underwater, grounded, velocity, character } = playerState, up = alignedUp;
+	const { alignedUp, transform, physicsRuntime, underwater, grounded, contactGrace, velocity, character } = playerState, up = alignedUp;
 
 	// Tube bend turns the axis; only the leftover tilt is loop travel.
 	const bend = AzimuthTurnVector3(loop.previousUp, up);

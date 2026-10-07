@@ -132,6 +132,7 @@ function buildVoidFaces(voidMesh, voidTriangles) {
 			localNormal: computeTriangleNormal(positions, i0, i1, i2),
 			basis      : barycentricBasis(w0, w1, w2),
 			aabb       : TriangleAabb(world),
+			flipWinding: cavitySign < 0,                                   // Reverse lining to face the cavity.
 			world,
 		});
 	}
@@ -334,11 +335,11 @@ function buildHostLining(voidFaces, hostSolid, neighbours) {
 		for (const piece of pieces) {
 			if (triangleArea(piece) < minimumOpenFaceArea) continue;
 
-			lining.triples.push(
-				appendLiningVertex(lining, face, piece.a),
-				appendLiningVertex(lining, face, piece.b),
-				appendLiningVertex(lining, face, piece.c)
-			);
+			const a = appendLiningVertex(lining, face, piece.a);
+			const b = appendLiningVertex(lining, face, piece.b);
+			const c = appendLiningVertex(lining, face, piece.c);
+			if (face.flipWinding) lining.triples.push(a, c, b);
+			else lining.triples.push(a, b, c);
 			lining.normals.push(face.localNormal);
 			lining.worldTriangles.push({ w0: piece.a, w1: piece.b, w2: piece.c, normal: piece.normal });
 		}
