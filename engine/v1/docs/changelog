@@ -38,3 +38,33 @@
 **What:** `drawTriggerOverlay` passes `cull: false`. `buildTriggerMesh` centres the box at `start.y + triggerHeight * 0.5`, so the drawn and detected box spans `start.y` to `world.height`.
 
 **Where:** [handlers/Render.js](engine/v1/handlers/Render.js) (`drawTriggerOverlay`), [builder/NewLevel.js](engine/v1/builder/NewLevel.js) (`buildTriggerMesh`).
+
+## Toon and comic filters
+**What:** `CONFIG.Rendering.Filters` is `{ ToonLines, Comic }` (replaces `Outlines`); both currently `true`. New exported `FILTER_TUNING` outside `API_CONFIG`: `Lines { Color, Width, Threshold }` and `Comic { LightDirection, Bands, ShadowFloor, ColorLevels, Halftone { CellSize, Strength } }`.
+- `comicLightGLSL` in `createFoggedTextureFragmentShader` multiplies every surface program's color by a light band. The band comes from the screen-space face normal (turned toward the camera) and `FILTER_TUNING.Comic.LightDirection`, and is gated by a new `u_comic` uniform set in `configureTexturedMeshPass` from `passState.comic`.
+- When either filter is on, `drawScene` draws into `renderer.sceneTarget` (RGBA8 color + DEPTH_COMPONENT24 depth textures from `ensureSceneTarget`, resized with the canvas). `drawFilterPass` (PASS F, after the translucent pass, before the debug overlays) then draws it to the canvas through `createFilterProgram`:
+  - posterize plus halftone dots on geometry, when Comic is on
+  - ink lines where inverse view depth bends, faded by fog, when ToonLines is on
+  - the scene depth is written through `gl_FragDepth` with `depthFunc(ALWAYS)`
+- With both filters off, the scene draws straight to the canvas as before.
+
+**Where:** [core/config.js](engine/v1/core/config.js) (`API_CONFIG.Rendering.Filters`, `FILTER_TUNING`), [handlers/Render.js](engine/v1/handlers/Render.js) (`comicLightGLSL`, `createFoggedTextureFragmentShader`, `createFilterProgram`, `createTargetTexture`, `ensureSceneTarget`, `ensureFilterQuad`, `ensureLevelRenderer`, `configureTexturedMeshPass`, `drawFilterPass`, `drawScene`).
+
+## Toon lines under scatter and water; softer comic
+**What:**
+- **Ink pass:** ToonLines moved to `drawInkPass` (PASS E2, after decals, before scatter). The pass blits scene depth into `sceneTarget.edgeDepth` through `edgeFramebuffer`, then alpha-blends ink from `createInkProgram` onto the scene color. It drops ink for pixels whose rebuilt world height is on the far side of the water from the camera (`u_waterClip`).
+- **Filter pass:** `createFilterProgram` now does comic and presenting only, sharing `fullscreenVertexGLSL`. Comic skips the sky. Posterize blends by `Posterize.Strength`, and halftone dots form only below `Halftone.Below` brightness.
+- **`FILTER_TUNING.Comic`:**
+  - `ColorLevels` replaced by `Posterize { Levels, Strength }`
+  - `Halftone` gains `Below`
+  - `ShadowFloor` changes from 0.6 to 0.75
+
+**Where:** [handlers/Render.js](engine/v1/handlers/Render.js) (`fullscreenVertexGLSL`, `createInkProgram`, `createFilterProgram`, `ensureInkQuad`, `ensureSceneTarget`, `ensureLevelRenderer`, `drawInkPass`, `drawFilterPass`, `drawScene`), [core/config.js](engine/v1/core/config.js) (`FILTER_TUNING`).
+
+## Antialiased filter target
+**What:**
+- **Multisampled target:** when filtered, `sceneTarget.framebuffer` draws into multisampled renderbuffers (`colorSamples` RGBA8, `depthSamples` DEPTH_COMPONENT24) at `FILTER_TUNING.Samples` (4) samples.
+- **Resolves:** `resolveSceneTarget` blits the scene into `resolveFramebuffer`, which holds the `color`/`depth` textures, in `drawFilterPass` (color and depth). It blits into `edgeFramebuffer` in `drawInkPass` (depth).
+- **Cleanup removed:** the texture unbinds after both passes are gone.
+
+**Where:** [handlers/Render.js](engine/v1/handlers/Render.js) (`ensureSceneTarget`, `resolveSceneTarget`, `drawInkPass`, `drawFilterPass`), [core/config.js](engine/v1/core/config.js) (`FILTER_TUNING.Samples`).

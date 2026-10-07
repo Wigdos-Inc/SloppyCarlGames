@@ -429,3 +429,39 @@ Examples:
   - **Span:** triggers render and detect from their authored start.y up to world.height, reaching up only. Detection reads the trigger mesh's own worldAabb (physics/Collision.js), so the drawn box is the detection box. The old centre, (start.y + triggerHeight) * 0.5, worked out to worldHeight * 0.5, which offset both boxes to span start.y * 0.5 to worldHeight − start.y * 0.5.
   - **Rejected:** a full world-bottom-to-top column, because it would make start.y meaningless. Also a separate render-only box.
   - Not browser-verified.
+- [2026-10-07] MAIN: 0.34.3 Toon Mode scoped with the author — scope only, no code changed, implementation not yet authorized.
+  - **Shape:** a whole-scene config filter, not per-character. Rejected: per-character outlines by inverted hull.
+  - **Switches:** `Filters.ToonLines` and `Filters.Comic`. Their parent path in API_CONFIG (`Rendering.Filters` vs top-level) is unconfirmed.
+  - **ToonLines:** the scene draws into an off-screen color+depth target (resized in `syncCanvasSize`). A fullscreen post pass at the end of `drawScene` inks depth edges and fades them with fog. Debug overlays draw after it.
+  - **Comic:** posterize and halftone in the same post pass, plus temporary cel banding (quantized N·L) that runs only when Comic is on. Normals come from screen-space derivatives of `v_viewPos` inside the shared `createFoggedTextureFragmentShader`. All five surface programs (main, triplanar, scatter, decal, scatter decal) already pass `v_viewPos`, so no vertex shader changes. Two-sided planes (scatter blades) flip the normal toward the camera. The light direction is a fixed engine tuning constant, converted to view space once per frame in `passState`.
+  - **Why temporary:** the engine has no lighting and no vertex normals (vertex data is position+uv only). Smooth normals need analytic normals per curved primitive: cylinder side quads share no vertices and the sphere duplicates its seam column, so generic averaging fails. They would also have to survive void carving, entity templates and scatter, and need a normal matrix for non-uniform scale. That's 0.40-sized. The author accepted faceted bands until 0.40 Lighting & Shadows replaces them.
+  - **Runtime cost:** shading itself is negligible. Shadows (an extra per-frame depth pass from the light) are the real cost and stay in 0.40.
+  - **Known limit:** depth-only edges miss creases that face the camera (e.g. cube edges). Per-pixel normals would fix it, but that wasn't scoped in.
+  - **Plan:** MAIN implements directly in Render.js + config.js, not ED. The Shaders.js split (0.34.4) stays separate.
+- [2026-10-07] MAIN: 0.34.3 Toon Mode implemented after the author's go-ahead (no ED/ERA/DRYAD), in core/config.js and handlers/Render.js. Switches live at `CONFIG.Rendering.Filters` per the author. Both are on for testing; the intended shipping default is off.
+  - **Edge method:** ink lines come from a Laplacian of inverse view depth, normalized by depth. Inverse depth changes evenly across any flat surface, so this catches creases as well as silhouettes. That supersedes the scoping entry's "depth-only edges miss creases".
+  - **Debug overlays:** the filter pass copies scene depth into the canvas through `gl_FragDepth` (`depthFunc ALWAYS`), so overlays drawn afterwards stay hidden behind geometry. Without it they'd show through walls, since the canvas depth is never written while filtered.
+  - **Decals:** the light-band normal is computed at the top of the fragment shader, before the decal cut's `discard`, so derivatives run in uniform control flow.
+  - **Tradeoffs reported to the author:**
+    - With a filter on, the scene loses the canvas's built-in antialiasing (the off-screen target is single-sampled).
+    - `Lines.Threshold` depends on resolution and needs feel-tuning; set low, it may ink the facet edges on spheres.
+    - Halftone dots appear on bright colors too, just smaller.
+  - Not browser-verified; the GLSL only compiles at runtime. node --check passed on both modules, also as .mjs.
+- [2026-10-07] MAIN: 0.34.3 Toon Mode revised after the author's first in-game screenshot. The verdict was "both are a bit much": the comic filter overpowered instead of reading as a filter, scatter shouldn't have outlines, and the water meshes should be exempt.
+  - **Scatter:** lines moved out of the final pass into a mid-frame ink pass that runs after decals and before scatter and translucents. It reads a copy of the scene depth, because the scene target's own depth can't be sampled while it's attached. Scatter never reaches that copy, so it makes no lines, and blades and translucents draw over the lines behind them.
+  - **Water:** water never wrote depth, so it never made lines itself. What remained was lines seen through it. The ink pass rebuilds each pixel's world height and drops lines on the far side of the water surface, the same rule the main shader uses for clipping. The water meshes span the whole level at one height, so the plane test exempts exactly the water area.
+  - **Comic softened:**
+    - the sky is skipped
+    - posterize blends halfway to its steps
+    - halftone dots only form in darker tones
+    - the darkest band is lighter (0.6 → 0.75)
+  - Not browser-verified. node --check passed on both modules, also as .mjs.
+- [2026-10-07] MAIN: 0.34.3 — the author reported an fps drop, judged by feel at 25–30, while running at speed across the lvl2 above-water grass field (`complex-geo-ground`) toward `swiss-cheese-platform`. It seemed to happen only, or more, with the filters on, and took seconds to recover after stopping. Not reproduced; the author then couldn't find it either.
+  - **Measured (chrome-devtools, 1920×950, both filters on), on that route and others:**
+    - a steady 60 renders/s, the full simulation rate
+    - worst frame ≤16 ms
+    - GPU 1.4–1.8 ms per frame (EXT_disjoint_timer_query_webgl2); both filters together cost about +0.2 ms (1.71 vs 1.48 ms standing on the field)
+    - no substep-cap warnings
+    - particle count steady at 12 running or still, which rules out a particle backlog
+  - **Unconfirmed hypothesis:** the choppiness was perceived, not a frame drop. Candidates are the antialiasing lost with the off-screen target, aliased ink lines, screen-fixed halftone, and 60 renders on a 75 Hz display.
+  - **Outcome:** the author kept the halftone and asked for antialiasing back. The scene now draws into 4× multisampled renderbuffers and is resolved by blit into the textures the filter passes read. The ink lines stay per-pixel, so only geometry edges are multisampled. Browser-checked: no GL or console errors, edges smoothed, debug overlays still on top. Visual sign-off is the author's. node --check passed on both modules, also as .mjs.

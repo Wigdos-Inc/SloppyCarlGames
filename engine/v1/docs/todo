@@ -134,9 +134,9 @@ Version Goals:
     - Offset the camera at incline changes so it remains vertically stationary during loops. Ensure it doesn't influence movement. [DONE]
   1. Loop detection false positives [DONE]
     - The upward slope in the tunnel connecting underwater and above water counts as a loop, forcing a bad side-view camera angle.
-  2. Backface Culling [CURRENT]
-    - Fix Water vs Trigger layering. [PENDING]
-  3.  Toon-switch for outlines. [PENDING]
+  2. Backface Culling [DONE]
+    - Fix Water vs Trigger layering. [DONE]
+  3.  Toon-switch for outlines. [CURRENT]
   4. DEFERRED Performance Enhancements [PENDING]
     - Move Render.js Shaders to new Shaders.js module.
     - Move Object.js shape functions to new NewPrimitive.js module.
@@ -147,9 +147,9 @@ Version Goals:
     - Release jump early for quicker falloff.
     - Solve over-rotation in above-water tunnel.
     - Store medium (Water/Air) on entity definition (e.g. playerState)
+    - If holding "A", then pressing and releasing "D", "A" stops working until it's pressed again. This must be fixed.
 - 0.35: Entity AI
-  1. Add optional Q/W rotation controls.
-  2. Add custom player control option.
+  1. Add optional Q/W rotation controls & add full custom player controls support.
   3. Add optional Swimming & Flying states.
   4. Add player/characters.json animation authoring support.
   x. Bug fixes.
@@ -159,6 +159,9 @@ Version Goals:
   1. Bug fixes.
   2. Increase game-side control in sub-systems.
   3. Load Screen functionality.
+- 0.38: Abilities Support:
+  - Standard simple abilities.
+  - 
 - 0.38: Moving Terrain & Obstacles.
 - 0.39: DEFERRED Backlog Cleanup
   1. Optionally block scatter on decals.
@@ -166,16 +169,16 @@ Version Goals:
   3. Block scatter inside objects.
     - Block generation if cheaper than post-generation block.
     - Mark for runtime culling for moving platforms.
-  4. Add lighting.
   x. Debug & finish testGame level 2.
-- 0.40: Add entity (player, npcs, bosses) accessories support.
+- 0.40: Lighting & Shadows.
+- 0.41: Add entity (player, npcs, bosses) accessories support.
   - Pre-built, but not rendered (or zero-scaled).
   - Accessories can be toggled individually through the API.
-- 0.41: Populate Templates, Scatter & Textures.
-- 0.42: Engine Cutscenes
+- 0.42: Populate Templates, Scatter & Textures.
+- 0.43: Engine Cutscenes
   1. Add credits builder.
   2. Add dialogue system.
-- 0.43: Add testGame boss level.
+- 0.44: Add testGame boss level.
   1. Full optimization sweep.
   x. Debugging.
 - 1.0: Full API & Documentation
