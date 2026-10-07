@@ -155,7 +155,8 @@ const API_CONFIG = {
     },
     Fog    : { Air: 100, Water: 60 },            // Fog reach %, 20-100; >100 saturates past the cull radius and pops in
     Filters: {
-      Outlines: false
+      ToonLines: true,                           // Ink lines on edges and creases
+      Comic    : true,                           // Light bands, fewer colors and halftone dots
     }
   }
 };
@@ -240,7 +241,31 @@ const CAMERA_TUNING = DeepFreeze({
   },
 });
 
+// Toon and comic filter look.
+const FILTER_TUNING = DeepFreeze({
+  Samples: 4,                                             // Antialiasing samples per pixel while a filter is on
+  Lines: {
+    Color    : { r: 0.06, g: 0.05, b: 0.08 },             // Ink color
+    Width    : 1,                                         // Line thickness in pixels
+    Threshold: 0.0015,                                    // How sharp a bend in the surface must be to ink it
+  },
+  Comic: {
+    LightDirection: { x: 0.35, y: 0.85, z: 0.4 },         // World direction toward the light
+    Bands         : 3,                                    // Light steps from shadow to fully lit
+    ShadowFloor   : 0.75,                                 // Brightness of the darkest band
+    Posterize     : {
+      Levels  : 8,                                        // Color steps per channel
+      Strength: 0.5,                                      // How far colors snap to those steps
+    },
+    Halftone      : {
+      CellSize: 5,                                        // Dot spacing in pixels
+      Strength: 0.2,                                      // How dark a full dot gets
+      Below   : 0.4,                                      // Brightness under which dots appear
+    },
+  },
+});
+
 /* === EXPORTS === */
 // Public configuration surface for engine modules.
 
-export { API_CONFIG as CONFIG, PERFORMANCE_SCALING, GROUNDING, MOVEMENT_TUNING, CAMERA_TUNING, SKY_STOP_LIMIT };
+export { API_CONFIG as CONFIG, PERFORMANCE_SCALING, GROUNDING, MOVEMENT_TUNING, CAMERA_TUNING, FILTER_TUNING, SKY_STOP_LIMIT };

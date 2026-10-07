@@ -7,7 +7,7 @@
 
 import { UIElement } from "../builder/NewUI.js";
 import { TransformPointByMatrix } from "../builder/NewObject.js";
-import { CONFIG, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../core/config.js";
+import { CONFIG, FILTER_TUNING, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateRenderMatrix, MultiplyMatrix4 } from "../math/Matrix.js";
 import { AddVector3, AngleBetweenVector3, CloneVector3, CrossVector3, DivideVector3, DotVector3, MultiplyVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3Length, Vector3Matches, Vector3Sq, Vector3ToArray } from "../math/Vector3.js";
@@ -199,6 +199,21 @@ const skySampleGLSL = `
 	}
 `;
 
+const comicLightDirection = ResolveVector3Axis(FILTER_TUNING.Comic.LightDirection);
+
+// Steps each face's brightness by how directly it faces the light; planes light from both sides.
+const comicLightGLSL = `
+	uniform float u_comic;
+	float comicLight() {
+		vec3 normal = normalize(cross(dFdx(v_viewPos), dFdy(v_viewPos)));
+		normal = dot(normal, v_viewPos) > 0.0 ? -normal : normal;
+		vec3 light = normalize(mat3(u_view) * vec3(${comicLightDirection.x.toFixed(4)}, ${comicLightDirection.y.toFixed(4)}, ${comicLightDirection.z.toFixed(4)}));
+		float bands = ${FILTER_TUNING.Comic.Bands.toFixed(1)};
+		float band = min(floor(max(dot(normal, light), 0.0) * bands) / (bands - 1.0), 1.0);
+		return mix(1.0, mix(${FILTER_TUNING.Comic.ShadowFloor.toFixed(4)}, 1.0, band), u_comic);
+	}
+`;
+
 function createFoggedTextureFragmentShader(
 	sharedDeclarations, shadedExpression, premultiplied = false,
 	varyings = "in vec2 v_uv;",
@@ -217,9 +232,14 @@ function createFoggedTextureFragmentShader(
 		${varyings}
 		in vec3 v_viewPos;
 		out vec4 fragColor;
+		${comicLightGLSL}
 		void main() {
+			// Light steps first, before the decal cut below can discard the pixel.
+			float comicShade = comicLight();
+
 			${texelComputation}
 			vec4 shaded = ${shadedExpression};
+			shaded.rgb *= comicShade;
 			if (shaded.a <= 0.01) {
 				discard;
 			}
@@ -282,6 +302,7 @@ function createProgram(gl) {
 			skyStops    : "u_skyStops[0]",
 			skyStopCount: "u_skyStopCount",
 			waterTint   : "u_waterTint",
+			comic       : "u_comic",
 		},
 		createError    : "WebGL program creation failed",
 		linkErrorPrefix: "Program link error",
@@ -341,6 +362,7 @@ function createEntityTriplanarProgram(gl) {
 			skyStops    : "u_skyStops[0]",
 			skyStopCount: "u_skyStopCount",
 			waterTint   : "u_waterTint",
+			comic       : "u_comic",
 		},
 		createError    : "WebGL triplanar program creation failed",
 		linkErrorPrefix: "Triplanar program link error",
@@ -450,6 +472,7 @@ function createScatterProgram(gl) {
 			skyStops    : "u_skyStops[0]",
 			skyStopCount: "u_skyStopCount",
 			waterTint   : "u_waterTint",
+			comic       : "u_comic",
 		},
 		linkErrorPrefix: "Scatter shader link error",
 	});
@@ -749,6 +772,7 @@ function createDecalProgram(gl) {
 			skyStops    : "u_skyStops[0]",
 			skyStopCount: "u_skyStopCount",
 			waterTint   : "u_waterTint",
+			comic       : "u_comic",
 		},
 		createError    : "decal shader program creation failed",
 		linkErrorPrefix: "decal shader link error",
@@ -806,6 +830,7 @@ function createScatterDecalProgram(gl) {
 			skyStops    : "u_skyStops[0]",
 			skyStopCount: "u_skyStopCount",
 			waterTint   : "u_waterTint",
+			comic       : "u_comic",
 		},
 		createError    : "scatter decal shader program creation failed",
 		linkErrorPrefix: "scatter decal shader link error",
@@ -879,6 +904,120 @@ function createBlendProgram(gl) {
 		uniformNames   : { from: "u_from", to: "u_to", ratio: "u_ratio" },
 		createError    : "texture blend program creation failed",
 		linkErrorPrefix: "texture blend shader link error",
+	});
+}
+
+const fullscreenVertexGLSL = `#version 300 es
+	in vec2 a_position;
+	void main() {
+		gl_Position = vec4(a_position, 0.0, 1.0);
+	}
+`;
+
+// Ink lines on edges and creases, faded by fog.
+function createInkProgram(gl) {
+	const { Lines } = FILTER_TUNING;
+
+	const fragmentShaderSource = `#version 300 es
+		precision highp float;
+		uniform sampler2D u_depth;
+		uniform mat4 u_view;
+		uniform vec2 u_rayScale;
+		uniform float u_near;
+		uniform float u_far;
+		uniform float u_fogFull;
+		uniform float u_cameraY;
+		uniform vec2 u_waterClip;
+		out vec4 fragColor;
+
+		// Distance from the camera along its view direction, read from the depth buffer.
+		float viewDepth(ivec2 pixel) {
+			ivec2 clamped = clamp(pixel, ivec2(0), textureSize(u_depth, 0) - 1);
+			float ndc = texelFetch(u_depth, clamped, 0).r * 2.0 - 1.0;
+			return 2.0 * u_near * u_far / (u_far + u_near - ndc * (u_far - u_near));
+		}
+
+		void main() {
+			ivec2 pixel = ivec2(gl_FragCoord.xy);
+			float z = viewDepth(pixel);
+
+			// How sharply the surface bends here: high at outlines and creases, zero on flat ground.
+			ivec2 across = ivec2(${Lines.Width}, 0);
+			ivec2 down = ivec2(0, ${Lines.Width});
+			float neighbors = 1.0 / viewDepth(pixel + across) + 1.0 / viewDepth(pixel - across) + 1.0 / viewDepth(pixel + down) + 1.0 / viewDepth(pixel - down);
+			float bend = abs(neighbors * z - 4.0);
+
+			// No lines on anything seen through the water surface.
+			vec2 ndc = gl_FragCoord.xy / vec2(textureSize(u_depth, 0)) * 2.0 - 1.0;
+			float worldY = u_cameraY + dot(vec3(ndc * u_rayScale * z, -z), u_view[1].xyz);
+			float keep = step(0.0, u_waterClip.y * (worldY - u_waterClip.x));
+
+			float fog = clamp(z / u_fogFull, 0.0, 1.0);
+			float ink = smoothstep(${Lines.Threshold.toFixed(6)}, ${(Lines.Threshold * 2).toFixed(6)}, bend) * (1.0 - fog * fog * fog) * keep;
+			fragColor = vec4(${Lines.Color.r.toFixed(4)}, ${Lines.Color.g.toFixed(4)}, ${Lines.Color.b.toFixed(4)}, ink);
+		}
+	`;
+
+	return createLinkedProgram(gl, {
+		vertexShaderSource: fullscreenVertexGLSL,
+		fragmentShaderSource,
+		attributeNames : { position: "a_position" },
+		uniformNames   : {
+			depth     : "u_depth",
+			view      : "u_view",
+			rayScale  : "u_rayScale",
+			near      : "u_near",
+			far       : "u_far",
+			fogFull   : "u_fogFull",
+			cameraY   : "u_cameraY",
+			waterClip : "u_waterClip",
+		},
+		createError    : "ink program creation failed",
+		linkErrorPrefix: "ink shader link error",
+	});
+}
+
+// Copies the filtered scene onto the canvas, adding comic color on geometry when enabled.
+function createFilterProgram(gl) {
+	const { Posterize, Halftone } = FILTER_TUNING.Comic;
+
+	const fragmentShaderSource = `#version 300 es
+		precision highp float;
+		uniform sampler2D u_color;
+		uniform sampler2D u_depth;
+		uniform float u_comic;
+		out vec4 fragColor;
+
+		void main() {
+			ivec2 pixel = ivec2(gl_FragCoord.xy);
+			vec3 color = texelFetch(u_color, pixel, 0).rgb;
+			float depth = texelFetch(u_depth, pixel, 0).r;
+
+			// Fewer color steps and halftone dots in darker tones, skipping the sky.
+			if (u_comic > 0.5 && depth < 1.0) {
+				float levels = ${Posterize.Levels.toFixed(1)};
+				color = mix(color, floor(color * levels + 0.5) / levels, ${Posterize.Strength.toFixed(4)});
+				float shade = clamp(1.0 - dot(color, vec3(0.299, 0.587, 0.114)) / ${Halftone.Below.toFixed(4)}, 0.0, 1.0);
+				float radius = sqrt(shade) * 0.5;
+				vec2 cell = mat2(0.7071, 0.7071, -0.7071, 0.7071) * gl_FragCoord.xy / ${Halftone.CellSize.toFixed(1)};
+				float inDot = 1.0 - smoothstep(radius - 0.08, radius, length(fract(cell) - 0.5));
+				color *= 1.0 - inDot * ${Halftone.Strength.toFixed(4)};
+			}
+
+			fragColor = vec4(color, 1.0);
+
+			// Copied so the debug overlays drawn afterwards still hide behind geometry.
+			gl_FragDepth = depth;
+		}
+	`;
+
+	return createLinkedProgram(gl, {
+		vertexShaderSource: fullscreenVertexGLSL,
+		fragmentShaderSource,
+		attributeNames : { position: "a_position" },
+		uniformNames   : { color: "u_color", depth: "u_depth", comic: "u_comic" },
+		createError    : "filter program creation failed",
+		linkErrorPrefix: "filter shader link error",
 	});
 }
 
@@ -1442,8 +1581,75 @@ function ensureFullscreenQuad(renderer, cacheKey, shader, label) {
 	return renderer[cacheKey];
 }
 
-const ensureBlendQuad = (renderer) => ensureFullscreenQuad(renderer, "blendQuad", renderer.blendShader, "Blend");
-const ensureSkyQuad   = (renderer) => ensureFullscreenQuad(renderer, "skyQuad",   renderer.skyShader,   "Sky");
+const ensureBlendQuad  = (renderer) => ensureFullscreenQuad(renderer, "blendQuad",  renderer.blendShader,  "Blend");
+const ensureSkyQuad    = (renderer) => ensureFullscreenQuad(renderer, "skyQuad",    renderer.skyShader,    "Sky");
+const ensureFilterQuad = (renderer) => ensureFullscreenQuad(renderer, "filterQuad", renderer.filterShader, "Filter");
+const ensureInkQuad    = (renderer) => ensureFullscreenQuad(renderer, "inkQuad",    renderer.inkShader,    "Ink");
+
+// A texture the filters read pixel for pixel, with no smoothing.
+function createTargetTexture(gl) {
+	const texture = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, texture);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	return texture;
+}
+
+// Antialiased off-screen scene and the plain copies the filters read, resized with the canvas.
+function ensureSceneTarget(renderer) {
+	const { gl, canvas } = renderer;
+	if (renderer.sceneTarget === null) {
+		renderer.sceneTarget = {
+			framebuffer       : gl.createFramebuffer(),
+			resolveFramebuffer: gl.createFramebuffer(),
+			edgeFramebuffer   : gl.createFramebuffer(),
+			colorSamples      : gl.createRenderbuffer(),
+			depthSamples      : gl.createRenderbuffer(),
+			color             : createTargetTexture(gl),
+			depth             : createTargetTexture(gl),
+			edgeDepth         : createTargetTexture(gl),
+			width: 0, height: 0,
+		};
+	}
+
+	const target = renderer.sceneTarget;
+	if (target.width === canvas.width && target.height === canvas.height) return target;
+
+	target.width  = canvas.width;
+	target.height = canvas.height;
+	gl.bindRenderbuffer(gl.RENDERBUFFER, target.colorSamples);
+	gl.renderbufferStorageMultisample(gl.RENDERBUFFER, FILTER_TUNING.Samples, gl.RGBA8, target.width, target.height);
+	gl.bindRenderbuffer(gl.RENDERBUFFER, target.depthSamples);
+	gl.renderbufferStorageMultisample(gl.RENDERBUFFER, FILTER_TUNING.Samples, gl.DEPTH_COMPONENT24, target.width, target.height);
+	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+
+	gl.bindTexture(gl.TEXTURE_2D, target.color);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, target.width, target.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+	for (const depth of [target.depth, target.edgeDepth]) {
+		gl.bindTexture(gl.TEXTURE_2D, depth);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, target.width, target.height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+	}
+	gl.bindTexture(gl.TEXTURE_2D, null);
+
+	gl.bindFramebuffer(gl.FRAMEBUFFER, target.edgeFramebuffer);
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, target.edgeDepth, 0);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, target.resolveFramebuffer);
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target.color, 0);
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, target.depth, 0);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, target.colorSamples);
+	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, target.depthSamples);
+	return target;
+}
+
+// Averages the antialiased scene down into a plain framebuffer the filters can read.
+function resolveSceneTarget(gl, target, drawFramebuffer, mask) {
+	gl.bindFramebuffer(gl.READ_FRAMEBUFFER, target.framebuffer);
+	gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, drawFramebuffer);
+	gl.blitFramebuffer(0, 0, target.width, target.height, 0, 0, target.width, target.height, mask, gl.NEAREST);
+}
 
 // Entries past u_skyStopCount are never sampled, so only the live stops are written.
 function fillSkyStops(renderer, stops) {
@@ -1609,34 +1815,43 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		return null;
 	}
 
+	const filterShader = createFilterProgram(gl);
+	if (!filterShader) {
+		Log("ENGINE", "Failed to create filter shader.", "error", "Render");
+		return null;
+	}
+
+	const inkShader = createInkProgram(gl);
+	if (!inkShader) {
+		Log("ENGINE", "Failed to create ink shader.", "error", "Render");
+		return null;
+	}
+
 	const renderer = {
-		rootId, root, canvas, gl, shader,
-		scatterShader,
-		decalShader,
-		scatterDecalShader,
-		entityTriplanarShader,
-		skyShader,
-		blendShader,
-		blendFramebuffer,
-		blendQuad: null,
-		skyQuad: null,
-		skyStopData: new Float32Array(SKY_STOP_LIMIT * 4),
-		animatedSources: new Map(),
-		drawnTextures: new Set(),
-		meshBuffers: new Map(),
-		textures: new Map(),
-		geometryRegistry: new Map(),
-		scatterInstances: null,
-		scatterDecalBatches: null,
-		scatterInstancesBuilt: false,
-		voidWallUvMeshes: null,
+		rootId, root, canvas, gl, shader, scatterShader, decalShader, scatterDecalShader, entityTriplanarShader, 
+		skyShader, blendShader, blendFramebuffer, filterShader, inkShader,
+		blendQuad              : null,
+		skyQuad                : null,
+		filterQuad             : null,
+		inkQuad                : null,
+		sceneTarget            : null,
+		skyStopData            : new Float32Array(SKY_STOP_LIMIT * 4),
+		animatedSources        : new Map(),
+		drawnTextures          : new Set(),
+		meshBuffers            : new Map(),
+		textures               : new Map(),
+		geometryRegistry       : new Map(),
+		scatterInstances       : null,
+		scatterDecalBatches    : null,
+		scatterInstancesBuilt  : false,
+		voidWallUvMeshes       : null,
 		voidWallTriplanarMeshes: null,
-		voidWallMeshesBuilt: false,
-		fallbackTexture: createFallbackTexture(gl),
+		voidWallMeshesBuilt    : false,
+		fallbackTexture        : createFallbackTexture(gl),
 		loggedScatterSubmission: false,
-		debugLineShader: null,
-		debugLineBuffer: null,
-		decalGeometry: new WeakMap(),
+		debugLineShader        : null,
+		debugLineBuffer        : null,
+		decalGeometry          : new WeakMap(),
 	};
 
 	levelRendererCache.set(rootId, renderer);
@@ -1668,7 +1883,10 @@ function collectRenderableMeshes(sceneGraph) {
 	const entitiesTranslucent = [];
 
 	const collectEntityPart = (mesh) => {
-		if (isTranslucentMesh(mesh)) { entitiesTranslucent.push(mesh); return; }
+		if (isTranslucentMesh(mesh)) { 
+			entitiesTranslucent.push(mesh); 
+			return; 
+		}
 		(meshUsesTriplanar(mesh) ? entitiesTriplanar : entitiesUv).push(mesh);
 	};
 
@@ -1712,6 +1930,7 @@ function configureTexturedMeshPass(gl, shader, passState) {
 	gl.uniformMatrix4fv(shader.uniforms.view, false, passState.view);
 	gl.uniform1f(shader.uniforms.fogFull, passState.fogFull);
 	gl.uniform3f(shader.uniforms.colorShift, passState.colorShift.r, passState.colorShift.g, passState.colorShift.b);
+	gl.uniform1f(shader.uniforms.comic, passState.comic);
 	applySkyUniforms(gl, shader, passState);
 }
 
@@ -1844,13 +2063,12 @@ function drawTranslucentPass(renderer, sceneGraph, meshes, passState, cameraPosi
 	const below = [];
 	for (const mesh of meshes) (mesh.displayTransform.position.y > waterLevelCnu ? above : below).push(mesh);
 
-	const level    = sceneGraph.world.water.level.toWorldUnit();
-	const nearSide = underwater ? -1 : 1;
+	const { level, side } = passState.nearWaterClip;
 
 	drawSortedRuns(renderer, sceneGraph, underwater ? above : below, passState);
-	drawTriggerOverlay(renderer, sceneGraph, passState, { level, side: -nearSide });
+	drawTriggerOverlay(renderer, sceneGraph, passState, { level, side: -side });
 	drawWaterPass(renderer, sceneGraph, passState);
-	drawTriggerOverlay(renderer, sceneGraph, passState, { level, side: nearSide });
+	drawTriggerOverlay(renderer, sceneGraph, passState, passState.nearWaterClip);
 	drawSortedRuns(renderer, sceneGraph, underwater ? below : above, passState);
 }
 
@@ -2079,17 +2297,82 @@ function drawVoidWalls(renderer, sceneGraph, passState) {
 	drawMeshList(renderer, sceneGraph, renderer.voidWallTriplanarMeshes, passState, { triplanar: true });
 }
 
+// Runs before scatter and translucents, so they cover the lines and add none of their own.
+function drawInkPass(renderer, passState, cameraState) {
+	const gl = renderer.gl;
+	const quad = ensureInkQuad(renderer);
+	if (!quad) return;
+
+	const shader = renderer.inkShader;
+	const target = renderer.sceneTarget;
+
+	// The depth the lines are found in.
+	resolveSceneTarget(gl, target, target.edgeFramebuffer, gl.DEPTH_BUFFER_BIT);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+
+	gl.disable(gl.DEPTH_TEST);
+	gl.useProgram(shader.program);
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, target.edgeDepth);
+	gl.uniform1i(shader.uniforms.depth, 0);
+	gl.uniformMatrix4fv(shader.uniforms.view, false, passState.view);
+	gl.uniform2f(shader.uniforms.rayScale, 1 / passState.projection[0], 1 / passState.projection[5]);
+	gl.uniform1f(shader.uniforms.near, cameraState.near.value);
+	gl.uniform1f(shader.uniforms.far, cameraState.far.value);
+	gl.uniform1f(shader.uniforms.fogFull, passState.fogFull);
+	gl.uniform1f(shader.uniforms.cameraY, cameraState.position.y);
+	gl.uniform2f(shader.uniforms.waterClip, passState.nearWaterClip.level, passState.nearWaterClip.side);
+	gl.bindVertexArray(quad.vao);
+	gl.drawElements(gl.TRIANGLES, quad.indexCount, gl.UNSIGNED_SHORT, 0);
+	gl.bindVertexArray(null);
+	gl.enable(gl.DEPTH_TEST);
+}
+
+// Draws the filtered scene to the screen, writing its depth too so the debug overlays still hide behind geometry.
+function drawFilterPass(renderer, passState) {
+	const gl = renderer.gl;
+	const quad = ensureFilterQuad(renderer);
+	if (!quad) return;
+
+	const shader = renderer.filterShader;
+	const target = renderer.sceneTarget;
+
+	resolveSceneTarget(gl, target, target.resolveFramebuffer, gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	gl.disable(gl.BLEND);
+	gl.depthFunc(gl.ALWAYS);
+	gl.useProgram(shader.program);
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, target.color);
+	gl.activeTexture(gl.TEXTURE1);
+	gl.bindTexture(gl.TEXTURE_2D, target.depth);
+	gl.uniform1i(shader.uniforms.color, 0);
+	gl.uniform1i(shader.uniforms.depth, 1);
+	gl.uniform1f(shader.uniforms.comic, passState.comic);
+	gl.bindVertexArray(quad.vao);
+	gl.drawElements(gl.TRIANGLES, quad.indexCount, gl.UNSIGNED_SHORT, 0);
+	gl.bindVertexArray(null);
+	gl.activeTexture(gl.TEXTURE0);
+
+	gl.depthFunc(gl.LESS);
+	gl.enable(gl.BLEND);
+}
+
 function drawScene(renderer, sceneGraph) {
 	const gl = renderer.gl;
+	const filters = CONFIG.Rendering.Filters;
+	const filtered = filters.ToonLines || filters.Comic;
 
 	syncCanvasSize(renderer);
-	
+
 	// Writes animated textures off-screen; viewport/depth/blend below restore what it touched.
 	blendAnimatedTextures(renderer, sceneGraph);
 
 	// Reset after the blend: it only updates animated textures drawn last frame.
 	renderer.drawnTextures.clear();
 
+	// Filters draw the scene off-screen first, then onto the canvas in drawFilterPass.
+	gl.bindFramebuffer(gl.FRAMEBUFFER, filtered ? ensureSceneTarget(renderer).framebuffer : null);
 	gl.viewport(0, 0, renderer.canvas.width, renderer.canvas.height);
 	gl.enable(gl.DEPTH_TEST);
 	gl.enable(gl.BLEND);
@@ -2118,8 +2401,15 @@ function drawScene(renderer, sceneGraph) {
 	const fogFull = simDistance * worldInstances.Cull * worldInstances.Fog * (fogPercent / 100);
 	const cullRadius = simDistance * PERFORMANCE_SCALING.SimDistance.Fractions.Scatter.Cull;
 	const skyStops = sceneGraph.world.skybox.stops;
+
+	// Keeps only what's on the camera's side of the water surface.
+	const nearWaterClip = waterLevelCnu === null
+		? keepWholeMesh
+		: { level: sceneGraph.world.water.level.toWorldUnit(), side: underwater ? -1 : 1 };
+
 	const passState = {
-		projection, view, fogFull, colorShift, underwaterValue, cullRadius,
+		projection, view, fogFull, colorShift, underwaterValue, cullRadius, nearWaterClip,
+		comic       : filters.Comic ? 1 : 0,
 		skyStops    : fillSkyStops(renderer, skyStops),
 		skyStopCount: skyStops.length,
 		waterTint   : sceneGraph.world.water.tint,
@@ -2149,6 +2439,9 @@ function drawScene(renderer, sceneGraph) {
 	// === PASS E: Decal quads (custom textures, alpha-blended on top of geometry) ===
 	drawDecalPass(renderer, sceneGraph, passState);
 
+	// === PASS E2: Toon lines, under scatter and translucents ===
+	if (filters.ToonLines) drawInkPass(renderer, passState, cameraState);
+
 	// === PASS B: Instanced scatter rendering ===
 	if (!renderer.scatterInstancesBuilt) buildScatterInstanceBuffers(renderer, sceneGraph);
 
@@ -2172,6 +2465,9 @@ function drawScene(renderer, sceneGraph) {
 
 	// === PASS D: Translucent meshes and trigger overlay, water-anchored (sorted back-to-front, no depth write) ===
 	drawTranslucentPass(renderer, sceneGraph, entitiesTranslucent, passState, cameraState.position, waterLevelCnu, underwater);
+
+	// === PASS F: Comic color, onto the canvas ===
+	if (filtered) drawFilterPass(renderer, passState);
 
 	drawBoundingBoxes(renderer, sceneGraph, projection, view);
 	drawGridOverlay(renderer, sceneGraph, projection, view);
