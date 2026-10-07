@@ -53,3 +53,11 @@
 - More texture options:
   - Materials: metallic, etc (get matte, reflective, fake-3D)
 - Establish a CONFIG.Private and CONFIG.Public for more clarity between the two.
+- Support GLB models.
+
+
+IMPORTANT:
+- This version of the engine might utilize RJS C-libraries. So the higher cost functionality would move away, and CNE would become a layer on top.
+- Methods:
+  - Build it with small libraries. Vector math would become it's own library for example (in C).
+- The RJS engine, and thus the console will support Assembly, C and C++.
