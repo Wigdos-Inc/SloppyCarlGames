@@ -2,6 +2,8 @@
 
 This project's active codebase is `engine/v1/`. All rule documents live in `engine/v1/docs/rules/`. Read the rules that govern any module you touch before making changes. Read only the rules relevant to the module being edited — not all rules at once — unless doing a broad review.
 
+MOST OF THIS DOES NOT APPLY IF YOU'RE A GAME DEV AGENT/SESSION.
+
 ## Rule Priority
 
 1. `FORBIDDEN_DEFENSIVE_CHECKS.md` — highest priority. No defensive guards on guaranteed engine-owned symbols.
@@ -39,6 +41,7 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 
 - **`era`** — Engine Rules Auditor. Audits engine/v1/ for rule violations. Add "fixes authorized" to the prompt to allow edits; "rule updates authorized" to allow rule doc edits.
 - **`dryad`** — DRY Agent for Deduplication. Identifies duplication, unnecessary complexity, and performance issues. Add "implementation authorized" to allow edits.
+- **`sage`** — Read-only engine Q&A for agents building games on CNE (ENGINE API, payloads, events). Never logs or edits; the `sage` skill below remains the docs/log writer.
 - **`ed`** — Engine Developer. Full implementation authority. Pass a concrete task description as the prompt. ED is hard-blocked from destructive or risky shell commands (git mutations like `checkout`/`reset`/`restore`, and bulk/in-place data rewrites or file deletes) — it returns any such operation to you with an explanation instead of running it. Prefer to perform risky data/JSON operations (reverts, wholesale transforms, deletions) yourself rather than delegating them to ED, and never ask ED to undo work via git.
 
 ### Skills — `Skill` tool, `skill: "<name>"`
