@@ -54,6 +54,7 @@
   - Materials: metallic, etc (get matte, reflective, fake-3D)
 - Establish a CONFIG.Private and CONFIG.Public for more clarity between the two.
 - Support GLB models.
+- Consider Displacement Maps for better underwater.
 
 
 IMPORTANT:
