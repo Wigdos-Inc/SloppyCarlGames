@@ -52,7 +52,6 @@ Written while building a third-person ghost-vacuuming game on CNE v0.34.3 from o
   loading testGame and comparing `worldAabb` against the payload. ✅
 - **[PAPERCUT] StartupGuide uses the wrong config casing.** It says `ENGINE.Config.DEBUG.SKIP.Splash`;
   the real key is `ENGINE.Config.Debug.Skip.Splash` (the guide's path throws). ✅
-- **[PAPERCUT] `Skip.Splash` defaults to `true`**, while the StartupGuide says the default splash plays. 📖
 - **[PAPERCUT] Config accepts typos silently.** testGame writes `Config.Debug.ALL` while the engine reads
   `Config.Debug.All`; the live config carries both and testGame's "debug mode" toggle does nothing. ✅
   A sealed config or `SetConfig(path, value)` that warns on unknown keys would catch this.
@@ -155,6 +154,28 @@ Written while building a third-person ghost-vacuuming game on CNE v0.34.3 from o
 - **[PAPERCUT] Music `loop` defaults to `false`; `PlayMusic` no-ops if the name matches the current
   track even with a different `src`.** 📖
 - **[PAPERCUT] testGame spells UI music `source` and level music `src`** (both accepted via alias). ✅
+- **[FRICTION] No way to chain music (intro → loop).** `PlayMusic` returns nothing, fires no "ended" event,
+  has no queue/`next` option, and exposes no position or duration. The intro → loop handoff here is a
+  game-side countdown of the intro's length (read from file metadata with a plain `Audio`), held while the
+  level is paused. It works ✅ but can drift by the engine's start latency. The alternative,
+  `await PlayAudio(intro)`, puts the intro on the SFX volume and outside `PauseMusic`. 📖
+  A `PlayMusic` promise, a `MUSIC_ENDED` event, or `{ next: { src, loop } }` would each fix it.
+
+## 7b. Splash
+
+- **[FRICTION] Custom splash sequences can't include built-in presets.** "CarlNet splash, then mine" means
+  copying the CarlNet step by hand and pointing at the engine's own asset files
+  (`engine/v1/assets/engine/carlNetEngine.png/.mp3`) — not an API, so it breaks if that layout moves. ✅
+  A step like `{ preset: "carlnet" }` inside a custom sequence would solve it.
+- **[FRICTION] Splash images can't be sized.** They render at natural size, capped at 60vw/60vh, centered
+  on black. A 676 px logo with transparent margins showed at ~310 px; I crop and upscale it to a data URL
+  at boot. A per-step `size`/`fit` field (and a background color) would avoid that. ✅
+- **[PAPERCUT] Step audio isn't tied to the step.** `sfx` starts at step start but plays to completion, so
+  a 14 s jingle on a 4 s step bleeds into the title music; step length must be hand-matched to the clip.
+  There's also no per-step event to hook. ✅📖
+- **[PAPERCUT] Any validation error silently swaps in the full default sequence**, logged only when
+  `Debug.All` is on — a typo in `holdMs` looks like "my splash was ignored". Steps are also keyed by `name`,
+  so two unnamed steps overwrite each other. 📖
 
 ## 8. Entities & Game Logic (the big one)
 

@@ -1,5 +1,5 @@
 // Menu screens, authored as ENGINE.UI payloads.
-import { AssetUrl, AssetExists, PlayMusic } from "./assets.js";
+import { AssetUrl, AssetExists, PlayMusic, CutoutUrl } from "./assets.js";
 import { LoadSettings, SaveSettings, ApplySettings } from "./settings.js";
 
 const MENU_ROOT = "engine-ui-root";
@@ -49,7 +49,7 @@ const backdrop = (children) => ({
 	children: [
 		{ type: "div", styles: { position: "absolute", left: "8%", right: "8%", bottom: "0", height: "38%", background: "#0d0812", clipPath: "polygon(0 100%, 0 40%, 10% 40%, 10% 18%, 16% 0, 22% 18%, 22% 40%, 38% 40%, 38% 22%, 50% 6%, 62% 22%, 62% 40%, 78% 40%, 78% 18%, 84% 0, 90% 18%, 90% 40%, 100% 40%, 100% 100%)" } },
 		{ type: "div", styles: { position: "absolute", left: "14%", bottom: "14%", width: "26px", height: "36px", background: "#f2c45a", boxShadow: "0 0 18px #f2c45a" } },
-		{ type: "div", styles: { position: "absolute", left: "47.5%", bottom: "20%", width: "30px", height: "40px", background: "#f2c45a", boxShadow: "0 0 18px #f2c45a" } },
+		{ type: "div", styles: { position: "absolute", left: "58%", bottom: "4%", width: "30px", height: "40px", background: "#f2c45a", boxShadow: "0 0 18px #f2c45a" } },
 		{ type: "div", styles: { position: "absolute", right: "15%", bottom: "11%", width: "26px", height: "36px", background: "#6a4a8a", boxShadow: "0 0 12px #6a4a8a" } },
 		{ type: "div", styles: { position: "absolute", inset: "0", boxShadow: "inset 0 0 160px 40px rgba(0,0,0,0.85)" } },
 		...children,
@@ -77,7 +77,8 @@ function ghostArt() {
 
 async function heroArt() {
 	if (await AssetExists("images/title_art.png")) {
-		return { type: "img", src: AssetUrl("images/title_art.png"), styles: { position: "absolute", left: "6%", bottom: "4%", height: "70%", filter: "drop-shadow(0 18px 24px rgba(0,0,0,0.7))" } };
+		// 575×434 with the robot + ghost in the middle ~62% × 76%; sized by height so it stays clear of the menu.
+		return { type: "img", src: AssetUrl("images/title_art.png"), styles: { position: "absolute", left: "-3vw", bottom: "-2vh", height: "62vh", filter: "drop-shadow(0 18px 24px rgba(0,0,0,0.7))" } };
 	}
 	// Placeholder robot: box head, hat, cylinder body.
 	const block = (styles, children) => ({ type: "div", styles: { position: "absolute", border: "4px solid #120c10", ...styles }, children });
@@ -104,18 +105,22 @@ const KEYFRAMES = "@keyframes lsm-bob { 0%,100% { transform: translateY(0) } 50%
 
 export async function ShowTitle() {
 	ENGINE.UI.ClearUI(OVERLAY_ROOT);
+	const hasArt = await AssetExists("images/title_art.png");
+	const hasLogo = await AssetExists("images/logo.png");
 	ENGINE.UI.ApplyMenuUI({
 		screenId: "LsmTitle",
 		rootId: MENU_ROOT,
 		stylesheet: KEYFRAMES,
 		elements: [backdrop([
 			await heroArt(),
-			ghostArt(),
+			// title_art.png already has the ghost in it.
+			...(hasArt ? [] : [ghostArt()]),
 			{
 				type: "div",
-				styles: { position: "absolute", left: "50%", top: "9%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", animation: "lsm-flicker 5s infinite" },
+				styles: { position: "absolute", left: "50%", top: hasLogo ? "3vh" : "9%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", animation: "lsm-flicker 5s infinite" },
 				children: [
-					(await AssetExists("images/logo.png")) ? { type: "img", src: AssetUrl("images/logo.png"), styles: { maxHeight: "220px", maxWidth: "70vw" } } : logo("86px"),
+					// logo.png is a tall 373×492 on an opaque near-black field; the cutout keys that field out.
+					hasLogo ? { type: "img", src: await CutoutUrl("images/logo.png"), styles: { height: "42vh" } } : logo("86px"),
 					caption("Chapter 1 - Clean the Mess.", "38px", "#ffffff"),
 				],
 			},
@@ -124,7 +129,7 @@ export async function ShowTitle() {
 				button("lsm-howto", "HOW TO PLAY", "LSM_HOWTO"),
 				button("lsm-gallery", "GHOST GALLERY", "LSM_GALLERY"),
 				button("lsm-settings", "SETTINGS", "LSM_SETTINGS"),
-			], { top: "64%" }),
+			], { top: hasLogo ? "73%" : "64%" }),
 			{ type: "div", text: `CarlNet Engine v${ENGINE.Meta.Version}  ·  a Wigdos bootleg`, styles: { position: "absolute", bottom: "14px", right: "20px", fontFamily: FONT, fontWeight: "800", fontSize: "14px", color: "rgba(255,255,255,0.45)" } },
 		])],
 	});

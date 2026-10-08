@@ -4,7 +4,8 @@ import { Box, Wall, Decal, ImageDecal, rgb } from "./build.js";
 export const WALL_HEIGHT = 5;
 export const WALL_THICKNESS = 0.4;
 export const DOOR = { width: 2.6, top: 3.3 };
-export const WINDOW = { width: 2.2, bottom: 1.4, top: 3.6 };
+// 2.9 × 2.2 matches moon_window.jpeg's aspect (803×610), so the photo fills the opening exactly.
+export const WINDOW = { width: 2.9, bottom: 1.4, top: 3.6 };
 
 // Mansion footprint: x 0..44, z 0..32. Row A is the front (z 0..15).
 export const ROOMS = [
@@ -68,14 +69,20 @@ function walls() {
 		...wall("ext-east-b", "z", 44 - T / 2, 15, 32, room("kitchen"), []),
 
 		// Interior partitions.
-		...wall("int-x14-a", "z", 14, 0, 15, room("parlor"), [door(7.5)]),
-		...wall("int-x30-a", "z", 30, 0, 15, room("bathroom"), [door(7.5)]),
-		...wall("int-x14-b", "z", 14, 15, 32, room("library"), [door(23.5)]),
-		...wall("int-x30-b", "z", 30, 15, 32, room("kitchen"), [door(23.5)]),
-		...wall("int-z15-w", "x", 15, 0, 14, room("parlor"), [door(7)]),
-		...wall("int-z15-c", "x", 15, 14, 30, room("foyer"), [{ at: 22, width: 4, top: 3.8 }]),
-		...wall("int-z15-e", "x", 15, 30, 44, room("bathroom"), [door(37)]),
+		// Interior partitions: two half-thickness skins so each side carries its own room's wallpaper.
+		...partition("int-x14-a", "z", 14, 0, 15, "parlor", "foyer", [door(7.5)]),
+		...partition("int-x30-a", "z", 30, 0, 15, "foyer", "bathroom", [door(7.5)]),
+		...partition("int-x14-b", "z", 14, 15, 32, "library", "dining", [door(23.5)]),
+		...partition("int-x30-b", "z", 30, 15, 32, "dining", "kitchen", [door(23.5)]),
+		...partition("int-z15-w", "x", 15, 0, 14, "parlor", "library", [door(7)]),
+		...partition("int-z15-c", "x", 15, 14, 30, "foyer", "dining", [{ at: 22, width: 4, top: 3.8 }]),
+		...partition("int-z15-e", "x", 15, 30, 44, "bathroom", "kitchen", [door(37)]),
 	];
+
+	function partition(id, axis, line, from, to, lowRoom, highRoom, gaps) {
+		const skin = (suffix, offset, roomId) => Wall(`${id}-${suffix}`, axis, line + offset, from, to, { height: H, thickness: T / 2, color: room(roomId), texture: WALLPAPER, gaps, trimColor: TRIM });
+		return [...skin("lo", -T / 4, lowRoom), ...skin("hi", T / 4, highRoom)];
+	}
 }
 
 const decal = Decal;
@@ -96,25 +103,29 @@ function floorStains(room) {
 	return out;
 }
 
-// Night sky backdrops behind every window; `side` is the face looking into the house.
+// Backdrops sit flush against the outer wall face behind every window; `side` faces into the house.
+// With moon_window.jpeg the photo (frame, mullions and all) fills the opening; otherwise shape decals.
 function windowBackdrops(images) {
 	const sky = rgb(0.07, 0.08, 0.20);
 	const moon = rgb(0.96, 0.92, 0.66);
 	const star = rgb(0.85, 0.85, 1);
 	const out = [];
-	const backdrop = (id, pos, dims, side, withMoon) => out.push(Box(id, pos, dims, sky, "none", { texture: {
+	const wide = WINDOW.width + 0.6;
+	const tall = WINDOW.top - WINDOW.bottom + 0.6;
+	const base = WINDOW.bottom - 0.3;
+	const backdrop = (id, pos, dims, side, withMoon) => out.push(Box(id, pos, dims, images.moon ? rgb(0.10, 0.07, 0.05) : sky, "none", { texture: {
 		generated: { id: "none" },
-		custom: images.moon ? [ImageDecal(images.moon, side, 0, 0.2, 0, 2.8, 2.6)] : [
-			...(withMoon ? [decal("circle", moon, side, 0.55, 0.75, 0, 1.0, 1.0), decal("circle", sky, side, 0.85, 0.95, 0, 0.9, 0.9)] : []),
-			decal("circle", star, side, -0.8, 1.2, 0, 0.08, 0.08),
-			decal("circle", star, side, -0.3, 0.4, 0, 0.06, 0.06),
+		custom: images.moon ? [ImageDecal(images.moon, side, 0, 0, 0, WINDOW.width, WINDOW.top - WINDOW.bottom)] : [
+			...(withMoon ? [decal("circle", moon, side, 0.55, 0.45, 0, 1.0, 1.0), decal("circle", sky, side, 0.85, 0.65, 0, 0.9, 0.9)] : []),
+			decal("circle", star, side, -0.8, 0.7, 0, 0.08, 0.08),
+			decal("circle", star, side, -0.3, 0.1, 0, 0.06, 0.06),
 			decal("circle", star, side, 0.9, -0.6, 0, 0.07, 0.07),
 		],
 	} }));
-	[7, 17.5, 26.5, 37].forEach((x, i) => backdrop(`sky-front-${i}`, [x, 0.8, -1.2], [3.2, 3.6, 0.2], "front", i === 1));
-	[7, 18.5, 25.5, 37].forEach((x, i) => backdrop(`sky-back-${i}`, [x, 0.8, 33.2], [3.2, 3.6, 0.2], "back", i % 2 === 0));
-	backdrop("sky-west-0", [-1.2, 0.8, 23.5], [0.2, 3.6, 3.2], "right", true);
-	backdrop("sky-east-0", [45.2, 0.8, 7.5], [0.2, 3.6, 3.2], "left", false);
+	[7, 17.5, 26.5, 37].forEach((x, i) => backdrop(`sky-front-${i}`, [x, base, -0.07], [wide, tall, 0.1], "front", i === 1));
+	[7, 18.5, 25.5, 37].forEach((x, i) => backdrop(`sky-back-${i}`, [x, base, 32.07], [wide, tall, 0.1], "back", i % 2 === 0));
+	backdrop("sky-west-0", [-0.07, base, 23.5], [0.1, tall, wide], "right", true);
+	backdrop("sky-east-0", [44.07, base, 7.5], [0.1, tall, wide], "left", false);
 	return out;
 }
 
@@ -132,7 +143,8 @@ function addCracks(piece, seed, crackImage) {
 	sides.forEach((side) => {
 		const base = r() * 360;
 		if (crackImage) {
-			custom.push(ImageDecal(crackImage, side, cx, cy, base, 1.6, 1.6));
+			// wall_crack.png is 592×421 with ~70% of its width inked; 2.1 m wide gives ~1.5 m of crack.
+			custom.push(ImageDecal(crackImage, side, cx, cy, base, 2.1, 1.5));
 			return;
 		}
 		for (let i = 0; i < 4; i++) {

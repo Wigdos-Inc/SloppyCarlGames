@@ -1,5 +1,6 @@
 // Luigi's Shitty Mansion — entry point.
 import { StartEngine } from "../../engine/v1/Bootup.js";
+import { ProvideSplash } from "./src/splash.js";
 
 StartEngine();
 
@@ -11,7 +12,7 @@ ENGINE.Config.Debug.Skip.Splash = DEV;
 // Debug.All doubles as a KeyR respawn hotkey and the log gate; ship with it off.
 ENGINE.Config.Debug.All = DEV;
 
-ENGINE.Startup.ProvideSplashScreenPayload({ outputType: "default" });
+ProvideSplash();
 
 const { ShowTitle, ShowHowToPlay, ShowSettings, HandleMenuInput } = await import("./src/menus.js");
 const { OpenGallery, HandleGalleryInput } = await import("./src/gallery.js");

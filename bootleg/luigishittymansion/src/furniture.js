@@ -178,8 +178,20 @@ const PORTRAITS = {
 export const Painting = (id, origin, yaw, w, h, color, subject = null) => Prop(id, origin, yaw, [
 	{ name: "frame", at: [0, 0, 0], size: [w + 0.2, h + 0.2, 0.08], color: BRASS, tex: T.wood },
 	{ name: "canvas", at: [0, 0.1, 0.03], size: [w, h, 0.04], color, tex: T.stone,
-		texture: { generated: { id: "none" }, custom: !subject ? [] : subject.image ? [ImageDecal(subject.image, "front", 0, 0, 0, w, h)] : PORTRAITS[subject](w, h) } },
+		texture: { generated: { id: "none" }, custom: subject ? PORTRAITS[subject](w, h) : [] } },
 ]);
+
+// portrait.png (446×559) carries its own ornate frame inside transparent margins: the board matches
+// the opaque frame (86.5% × 85.2% of the image) and the full-size decal's margins simply don't draw.
+const PORTRAIT_IMAGE = { aspect: 446 / 559, frame: [0.865, 0.852], offset: [-0.012, -0.0125] };
+export const FramedImage = (id, origin, yaw, w, image) => {
+	const h = w / PORTRAIT_IMAGE.aspect;
+	const [bw, bh] = [w * PORTRAIT_IMAGE.frame[0], h * PORTRAIT_IMAGE.frame[1]];
+	return Prop(id, origin, yaw, [
+		{ name: "board", at: [0, 0, 0], size: [bw, bh, 0.06], color: DARK_WOOD, tex: T.plain,
+			texture: { generated: { id: "none" }, custom: [ImageDecal(image, "front", PORTRAIT_IMAGE.offset[0] * w, PORTRAIT_IMAGE.offset[1] * h, 0, w, h)] } },
+	]);
+};
 
 export const Globe = (id, origin) => Prop(id, origin, 0, [
 	{ name: "stand", shape: "cylinder", at: [0, 0, 0], size: [0.4, 0.8, 0.4], color: DARK_WOOD, tex: T.wood },
@@ -193,8 +205,11 @@ export const BoardedDoor = (id, origin, yaw) => Prop(id, origin, yaw, [
 	{ name: "knob", shape: "sphere", at: [0.95, 1.5, 0.16], size: [0.14, 0.14, 0.14], color: BRASS, tex: T.metal },
 ]);
 
-export const WindowFrame = (id, origin, yaw) => Prop(id, origin, yaw, [
-	{ name: "sill", at: [0, -0.08, 0], size: [2.6, 0.12, 0.6], color: DARK_WOOD, tex: T.wood },
-	{ name: "mullionV", at: [0, 0, 0], size: [0.1, 2.2, 0.1], color: DARK_WOOD, tex: T.wood },
-	{ name: "mullionH", at: [0, 1.0, 0], size: [2.2, 0.1, 0.1], color: DARK_WOOD, tex: T.wood },
+// The window photo carries its own frame and mullions, so only the sill is geometry then.
+export const WindowFrame = (id, origin, yaw, width, height, photo) => Prop(id, origin, yaw, [
+	{ name: "sill", at: [0, -0.08, 0], size: [width + 0.4, 0.12, 0.6], color: DARK_WOOD, tex: T.wood },
+	...(photo ? [] : [
+		{ name: "mullionV", at: [0, 0, 0], size: [0.1, height, 0.1], color: DARK_WOOD, tex: T.wood },
+		{ name: "mullionH", at: [0, height / 2 - 0.1, 0], size: [width, 0.1, 0.1], color: DARK_WOOD, tex: T.wood },
+	]),
 ]);

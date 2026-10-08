@@ -4,7 +4,7 @@ import { ROOMS, RoomAt, RoomById } from "./mansion.js";
 import { GHOST_SPECIES } from "./blueprints.js";
 import * as Hud from "./hud.js";
 import * as Menus from "./menus.js";
-import { PlaySfx, PlayMusic, PreloadAudio, AssetUrl, AssetExists } from "./assets.js";
+import { PlaySfx, PlayMusic, PreloadAudio, AssetUrl, AssetExists, AudioDuration } from "./assets.js";
 import { StartHum, StopHum, SetHumLoad } from "./synth.js";
 import { LoadSettings, ApplySettings } from "./settings.js";
 import * as W from "./world.js";
@@ -117,7 +117,7 @@ function createRun() {
 		visited: new Set(), room: null, bossReady: false, bossOut: false,
 		ghosts, trash,
 		nozzle: player.model.parts.find((part) => part.id === "nozzleMouth").mesh,
-		vacuumOn: false, fxTimer: 0, hintTimer: 0,
+		vacuumOn: false, fxTimer: 0, hintTimer: 0, musicLeft: 0,
 	};
 }
 
@@ -135,7 +135,7 @@ export async function StartChapter() {
 	pausedBySelf = false;
 	await Hud.ShowHud(MAX_HEALTH, "Chapter 1 - Clean the Mess.");
 	const optional = async (path) => (await AssetExists(path)) ? AssetUrl(path) : null;
-	const images = { moon: await optional("images/moon_window.png"), crack: await optional("images/wall_crack.png"), portrait: await optional("images/portrait.png") };
+	const images = { moon: await optional("images/moon_window.jpeg"), crack: await optional("images/wall_crack.png"), portrait: await optional("images/portrait.png") };
 	const scene = await ENGINE.Level.CreateLevel(BuildLevelPayload(images), { renderOptions: { rootId: "engine-level-root" } });
 	starting = false;
 	if (!scene) {
@@ -145,7 +145,25 @@ export async function StartChapter() {
 	run = createRun();
 	Hud.UpdateBoss(null);
 	Hud.ShowHint("WASD move · MOUSE look · hold LEFT CLICK / J to vacuum · SPACE jump");
-	PlayMusic("LSM_MANSION", "audio/mansion_theme.mp3");
+	startMansionMusic(run);
+}
+
+// The intro plays once, then the loop takes over. The engine has no music-ended signal, so the
+// handoff runs on a countdown that only advances while the level (and therefore its music) is running.
+const MUSIC = { full: "audio/mansion_theme_full.mp3", loop: "audio/mansion_theme_loop.mp3" };
+
+async function startMansionMusic(current) {
+	const seconds = (await AssetExists(MUSIC.full)) ? await AudioDuration(MUSIC.full) : 0;
+	if (run !== current) return;
+	if (!seconds) return void PlayMusic("LSM_MANSION_LOOP", MUSIC.loop);
+	await PlayMusic("LSM_MANSION_FULL", MUSIC.full, false);
+	current.musicLeft = seconds;
+}
+
+function updateMusic(seconds) {
+	if (!(run.musicLeft > 0)) return;
+	run.musicLeft -= seconds;
+	if (run.musicLeft <= 0) PlayMusic("LSM_MANSION_LOOP", MUSIC.loop);
 }
 
 function endRun() {
@@ -633,10 +651,12 @@ function update(dt) {
 
 function tick(now) {
 	requestAnimationFrame(tick);
-	const dt = Math.min(0.05, (now - last) / 1000);
+	const elapsed = (now - last) / 1000;
 	last = now;
 	if (!run || run.over || paused || !W.Scene()) return;
-	update(dt);
+	// Music follows wall-clock time; gameplay clamps long frames.
+	updateMusic(elapsed);
+	update(Math.min(0.05, elapsed));
 }
 
 requestAnimationFrame(tick);

@@ -1,6 +1,6 @@
 // Chapter 1 level payload: mansion shell + furniture + pooled entities.
 import { rgb, Flip } from "./build.js";
-import { BuildShell, ROOMS, RoomById, RoomCenter, WALL_HEIGHT } from "./mansion.js";
+import { BuildShell, ROOMS, RoomById, RoomCenter, WALL_HEIGHT, WINDOW } from "./mansion.js";
 import * as F from "./furniture.js";
 import { BuildBlueprints } from "./blueprints.js";
 import { ROBOT_PARTS, ROBOT_ANIMATIONS } from "./robot.js";
@@ -74,6 +74,7 @@ function placement(id, type, blueprintId, x, z, yaw = 0) {
 function furniture(images) {
 	const CEIL = WALL_HEIGHT - 1.8;
 	const RED_RUG = rgb(0.50, 0.10, 0.12);
+	const frame = (id, origin, yaw) => F.WindowFrame(id, origin, yaw, WINDOW.width, WINDOW.top - WINDOW.bottom, Boolean(images.moon));
 	return [
 		// Foyer
 		...F.BoardedDoor("foyer-door", [22, 0, 0.32], 0),
@@ -83,7 +84,9 @@ function furniture(images) {
 		...F.Barrel("foyer-barrel", [16.8, 0, 3.2]),
 		...F.Chair("foyer-chair", [26.6, 0, 8.8], -30, true),
 		...F.Table("foyer-side", [28.9, 0, 4.2], 90, 1.4, 0.7),
-		...F.Painting("foyer-portrait", [29.76, 1.7, 9.5], -90, 1.4, 1.8, rgb(0.20, 0.30, 0.22), images.portrait ? { image: images.portrait } : "robot"),
+		...(images.portrait
+			? F.FramedImage("foyer-portrait", [29.77, 1.45, 9.5], -90, 1.7, images.portrait)
+			: F.Painting("foyer-portrait", [29.76, 1.7, 9.5], -90, 1.4, 1.8, rgb(0.20, 0.30, 0.22), "robot")),
 
 		// Parlor
 		...F.Fireplace("parlor-fire", [1.0, 0, 7.5], 90),
@@ -129,10 +132,10 @@ function furniture(images) {
 		...F.Painting("dining-portrait", [22, 1.7, 31.55], 180, 1.8, 2.2, rgb(0.30, 0.16, 0.14), "landlord"),
 
 		// Window frames on every pane (front z=0, back z=32, west x=0, east x=44).
-		...[7, 17.5, 26.5, 37].flatMap((x, i) => F.WindowFrame(`win-front-${i}`, [x, 1.4, 0.2], 0)),
-		...[7, 18.5, 25.5, 37].flatMap((x, i) => F.WindowFrame(`win-back-${i}`, [x, 1.4, 31.8], 180)),
-		...F.WindowFrame("win-west", [0.2, 1.4, 23.5], 90),
-		...F.WindowFrame("win-east", [43.8, 1.4, 7.5], -90),
+		...[7, 17.5, 26.5, 37].flatMap((x, i) => frame(`win-front-${i}`, [x, WINDOW.bottom, 0.2], 0)),
+		...[7, 18.5, 25.5, 37].flatMap((x, i) => frame(`win-back-${i}`, [x, WINDOW.bottom, 31.8], 180)),
+		...frame("win-west", [0.2, WINDOW.bottom, 23.5], 90),
+		...frame("win-east", [43.8, WINDOW.bottom, 7.5], -90),
 
 		// Kitchen
 		...F.Counter("kitchen-counter0", [35.4, 0, 31.4], 180, 8.6),

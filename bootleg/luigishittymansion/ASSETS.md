@@ -1,41 +1,35 @@
-# Asset Requests — Luigi's Shitty Mansion
+# Assets — Luigi's Shitty Mansion
 
-Everything below already has a working placeholder, so the game runs without any of it. Drop a file at the
-listed path (relative to `bootleg/luigishittymansion/`) and the game picks it up on the next load. The game
-checks with a HEAD request, so each file you haven't supplied yet shows up as a harmless 404 in the console.
+Paths are relative to `bootleg/luigishittymansion/`. Every asset has a working placeholder, so the game
+runs with any of them missing. A file dropped at its listed path is picked up on the next load. The game
+probes with a HEAD request, so each still-missing file is a harmless 404 in the console.
 
-## Audio
+## Delivered
+
+| File | Used as | How it was fitted |
+|---|---|---|
+| `assets/audio/splash.mp3` | Studio jingle on the 2nd splash step | Starts the instant the step begins; the step lasts the clip's measured length (14.1 s) so it doesn't bleed into the title music. |
+| `assets/images/splash.png` | Studio logo, after the engine's CarlNet splash | The engine shows splash images at natural size, so it's cropped to the logo and upscaled 2× at boot (displays ~540 px). |
+| `assets/audio/title_theme.mp3` | Title screen music (loops) | — |
+| `assets/audio/mansion_theme_full.mp3` | In-level music, played once | Hands off to the loop when it ends (countdown of its real length, held while paused). |
+| `assets/audio/mansion_theme_loop.mp3` | In-level music after the intro, loops forever | — |
+| `assets/images/title_art.png` | Title hero art (bottom-left) | Landscape art already contains the ghost, so the CSS ghost is hidden when it's present. Sized by height to stay clear of the menu. |
+| `assets/images/logo.png` | Title logo | Tall and opaque on near-black: the black field is keyed out to transparent at boot, and the title layout gives it a 42vh slot. |
+| `assets/images/moon_window.jpeg` | The view through every window | It's a whole window (frame + mullions), so window openings were reshaped to its 1.316 aspect (2.9 × 2.2 m) and the geometric mullions are dropped; it sits flush behind the opening. |
+| `assets/images/portrait.png` | "The Ecstatic Gremlin" in the Foyer | Has its own ornate frame, so the brass frame is dropped; a backing board matches the opaque frame and the transparent margins vanish. |
+| `assets/images/wall_crack.png` | Wall cracks | Drawn at its own aspect (2.1 × 1.5 m including margins, ~1.5 m of actual crack), randomly rotated. |
+
+## Still open (optional)
 
 | File | What it is | Placeholder today |
 |---|---|---|
-| `assets/audio/title_theme.mp3` | Title screen music. Spooky-goofy, loops. | Silence |
-| `assets/audio/mansion_theme.mp3` | In-level music. Tense but silly, loops ~1–2 min. | Silence |
-| `assets/audio/victory.mp3` | "Chapter clear" music/jingle; plays over the victory screen. | Synthesized arpeggio (SFX) |
-| `assets/audio/game_over.mp3` | Short sad trombone / failure sting. | Synthesized |
+| `assets/audio/victory.mp3` | Short "chapter clear" sting over the victory screen. | Synthesized arpeggio |
+| `assets/audio/game_over.mp3` | Short failure sting. | Synthesized |
 | `assets/audio/vacuum_start.mp3` | Vacuum spin-up (~0.3 s). | Synthesized |
 | `assets/audio/capture.mp3` | Ghost getting slurped in: pop / "fwoomp". | Synthesized |
-| `assets/audio/trash.mp3` | Trash slurp (short, crunchy). | Synthesized |
-| `assets/audio/hurt.mp3` | Robot "bonk"/clang when hit. | Synthesized |
-| `assets/audio/ghost_laugh.mp3` | Ghost giggle (on spawn and when it hits you). | Synthesized |
+| `assets/audio/trash.mp3` | Trash slurp. | Synthesized |
+| `assets/audio/hurt.mp3` | Robot bonk/clang when hit. | Synthesized |
+| `assets/audio/ghost_laugh.mp3` | Ghost giggle (spawn and on hitting you). | Synthesized |
 | `assets/audio/heart.mp3` | Health pickup chime. | Synthesized |
-| `assets/audio/door.mp3` | Door creak (reserved for later chapters). | Synthesized |
 
-The vacuum's running hum stays synthesized on purpose: it pitches up live while a ghost is struggling,
-and the engine's looping-SFX handling is unreliable (see `ENGINE_GAPS.md` §6).
-
-## Images (UI)
-
-| File | What it is | Placeholder today |
-|---|---|---|
-| `assets/images/title_art.png` | Title hero art: the box-head robot (straw hat, green round eye, blue square eye, frown) holding the vacuum. Transparent PNG, ~900 px tall; shown bottom-left. | CSS-drawn robot |
-| `assets/images/logo.png` | "LUIGI'S SHITTY MANSION" logo, transparent PNG, wide (~1400×400). | Styled text |
-
-## Images (in-world decals)
-
-All transparent PNGs, drawn as image decals by the engine.
-
-| File | What it is | Placeholder today |
-|---|---|---|
-| `assets/images/wall_crack.png` | Black hand-drawn crack lines (like the reference shot). Square, ~512 px. Drawn 1.6 m wide, randomly rotated. | Thin dark pill-shape decals |
-| `assets/images/moon_window.png` | Night sky with a crescent moon and stars, seen through a window. ~560×520 (it fills a 2.8×2.6 m pane). | Yellow/blue circle decals + star dots |
-| `assets/images/portrait.png` | Creepy ancestor portrait for the Foyer (ideally of the robot). ~560×720 (fills a 1.4×1.8 m canvas). | Robot face built from shape decals |
+The vacuum's running hum stays synthesized on purpose: it pitches up live while a ghost struggles.
