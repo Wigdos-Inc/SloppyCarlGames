@@ -18,7 +18,7 @@
 - 2D games support through vector2 functionality.
 - All units and vectors in the engine will be instanced at the first boundary, and then will be modified through methods.
   - UnitVector3s are no longer worth anything as 1 WorldUnit = 1 CNU. So 1 will refer to 1 metre.
-  - The 3 classes will be: Unit, Vector2, Vector3. All will have variants of the methods:
+  - The 3 primary classes will be: Unit, Vector2, Vector3. All will have variants of the methods:
     - Any.add(other)
     - Any.subtract(other)
     - Any.multiply(other)
@@ -46,6 +46,7 @@
     - .shrink
     - .move
     - .overlap(other)
+  - Color3 (rbg) & Color4 (rgba)
 - For entity movement, collect every single movement source into the physicsState separately
   - Each type of movement can be individually cancelled.
   - Final velocity is calculated near the end of the physics engine.
