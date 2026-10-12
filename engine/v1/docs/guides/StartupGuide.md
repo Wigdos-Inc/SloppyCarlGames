@@ -230,17 +230,17 @@ Here is what happens from the moment the browser loads your page to the moment y
 
 ## Skipping the Splash Sequence
 
-*Keywords: skip splash, SKIP.Splash, CONFIG.Debug.Skip.Splash, sessionStorage, SplashPlayed, config.js, automatic skip*
+*Keywords: skip splash, Skip.Splash, CONFIG.Debug.Skip.Splash, sessionStorage, SplashPlayed, config.js, automatic skip*
 
 The splash sequence skips in two situations:
 
 **Automatically after the first play** — The engine stores a flag in `sessionStorage` the first time splash runs. On every subsequent page reload within the same browser session (tab reuse, F5, etc.), splash is skipped. Opening a fresh tab or closing and reopening the browser plays it again.
 
-**Manually, via config** — Set `ENGINE.Config.DEBUG.SKIP.Splash` to `true` immediately after `StartEngine()` returns. `StartEngine()` is what makes the `ENGINE` API available, and the splash sequence doesn't run until the user clicks — so there is always a window to set this flag before anything plays:
+**Manually, via config** — Set `ENGINE.Config.Debug.Skip.Splash` to `true` immediately after `StartEngine()` returns. `StartEngine()` is what makes the `ENGINE` API available, and the splash sequence doesn't run until the user clicks — so there is always a window to set this flag before anything plays:
 
 ```js
 StartEngine();
-ENGINE.Config.DEBUG.SKIP.Splash = true;
+ENGINE.Config.Debug.Skip.Splash = true;
 ```
 
 When `Splash` is `true`, `runSplashSequence` logs "Splash screen sequence skipped" and returns immediately. The rest of the startup sequence (intro cinematic, `UI_REQUEST`) still runs normally.
@@ -249,11 +249,11 @@ When `Splash` is `true`, `runSplashSequence` logs "Splash screen sequence skippe
 
 ## Skipping the Intro Cinematic
 
-*Keywords: skip intro, SKIP.Intro, CONFIG.Debug.Skip.Intro, skipIntro, localStorage, settings, programmatic skip, player toggle, default behavior*
+*Keywords: skip intro, Skip.Intro, CONFIG.Debug.Skip.Intro, skipIntro, localStorage, settings, programmatic skip, player toggle, default behavior*
 
 The intro cinematic is controlled by `CONFIG.Debug.Skip.Intro`. When this is `true`, the engine never fires `INTRO_CINEMATIC_REQUEST` and never calls `PlayIntroCinematic`, so no video plays.
 
-**Default behavior** — In the engine's default config, `SKIP.Intro` reads from `localStorage` under a `settings` key: `settings?.skipIntro ?? true`. This means if there is no saved settings object, intro is *skipped by default*. If the user has a `settings` object in localStorage (e.g. from a settings menu), `skipIntro` in that object controls it.
+**Default behavior** — In the engine's default config, `Skip.Intro` reads from `localStorage` under a `settings` key: `settings?.skipIntro ?? true`. This means if there is no saved settings object, intro is *skipped by default*. If the user has a `settings` object in localStorage (e.g. from a settings menu), `skipIntro` in that object controls it.
 
 **Programmatically** — You can set it directly after engine initialization:
 
@@ -261,12 +261,12 @@ The intro cinematic is controlled by `CONFIG.Debug.Skip.Intro`. When this is `tr
 StartEngine();
 
 // Skip the intro for this session.
-ENGINE.Config.DEBUG.SKIP.Intro = true;
+ENGINE.Config.Debug.Skip.Intro = true;
 ```
 
 Because `runStartupSequence` reads `CONFIG.Debug.Skip.Intro` at the moment the user clicks to start, setting this flag any time before that click takes effect.
 
-**Via the settings menu pattern** — The testGame settings menu exposes a toggle that writes `skipIntro` to localStorage. On the next page load, `config.js` picks it up and sets `SKIP.Intro` accordingly. This is how a player-facing "skip intro" toggle would work.
+**Via the settings menu pattern** — The testGame settings menu exposes a toggle that writes `skipIntro` to localStorage. On the next page load, `config.js` picks it up and sets `Skip.Intro` accordingly. This is how a player-facing "skip intro" toggle would work.
 
 ---
 

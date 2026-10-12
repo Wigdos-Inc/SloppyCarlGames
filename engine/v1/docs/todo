@@ -30,6 +30,7 @@ Player Abilities:
 Ledge balancing: partial rotation at an edge already reads as leaning — build it into an almost-falling state.
 Rework Collectible system into collections with built-in handling support.
 Build new trigger types:
+- Only camera triggers do anything today; custom, dialogue and cutscene validate and fire no events.
 - Level Clear
 - Custom
 - Teleport
@@ -100,11 +101,15 @@ Additions to Level API:
   - Switch
   - SetPosition
   - GetPosition
+  - GetDirection — aim-where-you-look needs camera forward; today it's GetActiveLevel().cameraConfig.state.forward.
   - Snapshot
 - Trigger(triggerId)
 - Do:
-  - 
+  -
 - GetSnapshot
+- Per-frame hook (callback or LEVEL_TICK), so games stop running their own rAF loop one frame out of phase with the sim.
+- IsPaused()
+- LEVEL_PAUSED carries its source (player vs PauseLevel()), so a game-over freeze doesn't need a game-side flag.
 
 
 Add full documentation API so devs can understand how to work the engine.
@@ -137,49 +142,89 @@ Version Goals:
   2. Backface Culling [DONE]
     - Fix Water vs Trigger layering. [DONE]
   3.  Toon-switch for outlines. [DONE]
-  4. DEFERRED Performance Enhancements [PENDING]
-    - Move Render.js Shaders to new Shaders.js module.
-    - Move Object.js shape functions to new NewPrimitive.js module.
-  5. Todo Performance Enhancements [PENDING]
-  6. orbitCam Rework
-  7. Sprite/Bilboard Support (rotating images that resize based on distance)
-  8. Movement Enhancements.
+  4. DEFERRED Performance Enhancements [CURRENT]
+    - Move Render.js Shaders to new Shaders.js module. [DONE]
+    - Move Object.js shape functions to new NewPrimitive.js module. [DONE]
+      - Center the pyramid: its base sits at y=0, so the bottom-center lift floats it by half its height. Carl has pyramid-hosted decals, so check him after. [DONE]
+  5. Interpolation [PENDING]
+  6. Todo Performance Enhancements [PENDING]
+  7. Occlusion Culling [PENDING]
+    - Measure first: a one-off debug count (GPU occlusion queries) of how much drawing is fully hidden behind walls. Build only if it beats the CPU cost.
+    - If built: same-frame CPU depth check in new math/Occlusion.js. Scope: docs/scoping/render/culling-scope.md §4.5.
+  8. orbitCam Rework [PENDING]
+    - Games can't set the initial camera yaw or the player's spawn facing (LSM rotated its whole level 180° to work around it).
+    - Mouse sensitivity is read once at level start, so a settings change mid-level does nothing until the next level.
+  9. Sprite/Bilboard Support (rotating images that resize based on distance)
+  10. Movement Enhancements. [PENDING]
     - Release jump early for quicker falloff.
     - Solve over-rotation in above-water tunnel.
     - Store medium (Water/Air) on entity definition (e.g. playerState)
     - If holding "A", then pressing and releasing "D", "A" stops working until it's pressed again. This must be fixed.
-- 0.35: Entity AI
+- 0.35: Workers (Multi-Threading) [PENDING]
+  - Needs a full scoping pass.
+  - Consider a coordinator/state manager. If small, an exported "Workforce" object in meta.js acting as the state manager could work quite well.
+  - Main candidate for worker deferral: noise textures (lvl2 water face bake is ~1.3 s of a ~3.4 s load).
+  - Entity AI (0.36) may benefit: pathfinding is expensive both while building and in the hot path.
+  - Afterwards: look for hot-path candidates (e.g. animated noise re-bakes).
+- 0.36: Entity AI
+  - Blueprint movement fields chase, jump, jumpOnSight, disappear and aggroRange validate but do nothing; devs read them as the AI API.
   1. Add optional Q/W rotation controls & add full custom player controls support.
-  3. Add optional Swimming & Flying states.
-  4. Add player/characters.json animation authoring support.
+  2. Add optional Swimming & Flying states.
+  3. Add player/characters.json animation authoring support.
   x. Bug fixes.
-- 0.36: Combat Expansion
+- 0.37: Additional Control Schemes
+  - Controller Support.
+  - Custom control bindings.
+    - Add gameplay controls bindings to API_CONFIG so games don't have to run custom event listeners (they still can if they want).
+      - Standard movement and camera controls have defaults.
+      - Any abilities for the player authored in the level payload are added as extra properties for authoring in the config (needs a function that also emits logs for added and removed API fields).
+      - Any of these can be changed to "none" and the engine stops listening for those.
+      - A full 
+      - The Simulator has a hardcoded controls scheme.
+  - Input magnitude is ignored: Movement normalizes the direction, so forward: 0.5 is full speed. Analog sticks need it.
+  - No invert-Y option.
+- 0.38: Combat Expansion
+  - Player hp is a stale 3 nothing reads; damage is ring rules only. Games build hearts/HP/i-frames themselves.
+  - One enemy hit soft-locks the player: Stunned and invulnerable are set, but nothing counts the timer down or leaves Stunned before respawn.
   x. Bug fixes.
-- 0.37: Collectible Rework
+- 0.39: Collectible Rework
   1. Bug fixes.
   2. Increase game-side control in sub-systems.
   3. Load Screen functionality.
-- 0.38: Abilities Support:
+- 0.40: Abilities Support:
   - Standard simple abilities.
+  - Player.Input.boost is read by nothing, and nothing sets playerState.boost.active. LSM wrote GetState().boost directly for sprint.
   - 
-- 0.38: Moving Terrain & Obstacles.
-- 0.39: DEFERRED Backlog Cleanup
+- 0.41: Moving Terrain & Obstacles.
+- 0.42: DEFERRED Backlog Cleanup
   1. Optionally block scatter on decals.
   2. Add scatter support to voids.
   3. Block scatter inside objects.
     - Block generation if cheaper than post-generation block.
     - Mark for runtime culling for moving platforms.
-  x. Debug & finish testGame level 2.
-- 0.40: Lighting & Shadows.
-- 0.41: Add entity (player, npcs, bosses) accessories support.
+  4. ApplyLevelUI [PENDING]
+    - ApplyMenuUI becomes strictly non-level menus that replace each other.
+    - ApplyLevelUI layers in-level UI (HUDs, inventories, pause menus, tooltips) on top of each other, optionally pausing gameplay while open. Shares most logic with ApplyMenuUI.
+    - Complaint: ApplyMenuUI mid-level resets the input event types, killing mouse look, wheel and arrow look until pause/resume. HUDs had to be applied before CreateLevel with every later element pre-built and hidden.
+    - Complaint: no way to update an element's text or style; live HUD values go through document.getElementById.
+  5. Level Music Playlist [PENDING]
+    - Level music block gains "start", "loop" and "shuffle".
+      - start: optional track, always the first to play when the level starts.
+      - loop: array of tracks played one after another after start, looping forever.
+      - shuffle: picks loop tracks at random; the same track never plays twice in a row unless loop holds only one.
+    - Complaint: level music was validated and normalized but never played; testGame plays it itself after CreateLevel, and nothing pauses it with the level.
+- 0.43: Lighting & Shadows.
+- 0.44: Add entity (player, npcs, bosses) accessories support.
   - Pre-built, but not rendered (or zero-scaled).
   - Accessories can be toggled individually through the API.
-- 0.42: Populate Templates, Scatter & Textures.
-- 0.43: Engine Cutscenes
+- 0.45: Populate Templates, Scatter & Textures.
+- 0.46: Engine Cutscenes
   1. Add credits builder.
   2. Add dialogue system.
-- 0.44: Add testGame boss level.
+    - Both vocal and text-boxes.
+- 0.47: Add testGame boss level.
   1. Full optimization sweep.
+  x. Debug & finish testGame level 2.
   x. Debugging.
 - 1.0: Full API & Documentation
   - Add canonSchemas aliases.
@@ -187,6 +232,9 @@ Version Goals:
     - Errors only give the generic path, not the actual degenerate entry.
     - Errors don't disclose how many sibling or child entries are affected/lost.
   - Improve engine processes logging.
+  - Remove Unit and UnitVector3 from the Engine API. Games read and write raw vectors; the API restores instancing on write and strips it on read.
+    - Complaint: one object mixes types (transform.position/velocity are UnitVector3, scale and facing are plain), and .set(x, y, z) silently writes undefined.
+  - Game-developer API reference: StartupGuide stops at the title screen and system_map is engine-internal. LSM found the API by dumping ENGINE in the console.
 - 1.1: CarlNet Editor
   - Transform the Simulator App to a proper 3D editor.
     - It will be capable of adding, resizing and moving objects to build models.
@@ -202,5 +250,4 @@ Version Goals:
   x. Bug fixes.
 - 1.2: Build levels progressively rather than at once.
   - Build a level chunk only when its within simDistance*2.
-  1. Add billboards
-- 1.3: Mobile Support.
+- 1.3: Mobile & Controller Support.

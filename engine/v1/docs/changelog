@@ -78,3 +78,153 @@
 - `FILTER_TUNING.Comic.Posterize` and `.Halftone` are multi-line objects with one comment per field.
 
 **Where:** [handlers/Render.js](engine/v1/handlers/Render.js) (`drawScene`, `drawInkPass`, `drawTranslucentPass`), [core/config.js](engine/v1/core/config.js) (`FILTER_TUNING`).
+
+## Dead camera payload fields removed
+**What:**
+- `level.camera.sensitivity` was removed from the schema. Mouse sensitivity is `CONFIG.Camera.Sensitivity`.
+- `level.camera.levelOpening.endPosition` was removed from the schema and from normalization. `startPosition` stays.
+- The fields were also removed from the engine level template and from testGame's `levels.json` (2 stages) and `lvl2.json`.
+
+**Where:** [core/canonSchemas.json](engine/v1/core/canonSchemas.json) (`level.camera`), [core/normalize.js](engine/v1/core/normalize.js) (level camera normalization), [builder/templates/levels.json](engine/v1/builder/templates/levels.json), [testGame/levels/levels.json](engine/v1/testGame/levels/levels.json), [testGame/levels/lvl2.json](engine/v1/testGame/levels/lvl2.json).
+
+## LSM field-test one-line fixes
+**What:**
+- `flatDecalOrder` is now `[0, 2, 1, 1, 2, 3]`, so flat decal quads face outward from their host face.
+- `handleLookInput` no longer consumes `pointerdown` while the pointer is already locked. The click falls through to `USER_INPUT`.
+- `PlayAudio` captures its own id per call, and its `finalize` removes that id from the channel's active list.
+- `BroadphaseCollectCandidates` skips terrain and obstacles whose `detailedBounds` is `null`.
+- `CreateDetailedBoundsFromParts` returns `null` for `collisionShape: "none"`.
+- `RayAABBDetailedBoundsIntersect` no longer has a null-bounds early return.
+- StartupGuide's config paths now read `Debug.Skip`.
+
+**Where:** [handlers/Render.js](engine/v1/handlers/Render.js) (`flatDecalOrder`), [camera/Modes.js](engine/v1/camera/Modes.js) (`handleLookInput`), [handlers/Sound.js](engine/v1/handlers/Sound.js) (`PlayAudio`), [physics/Collision.js](engine/v1/physics/Collision.js) (`BroadphaseCollectCandidates`), [builder/NewObstacle.js](engine/v1/builder/NewObstacle.js) (`CreateDetailedBoundsFromParts`), [math/Collision.js](engine/v1/math/Collision.js) (`RayAABBDetailedBoundsIntersect`), [docs/guides/StartupGuide.md](engine/v1/docs/guides/StartupGuide.md).
+
+## Shaders and primitives split into their own modules
+**What:**
+- All WebGL shader code moved from `Render.js` to `handlers/utilities/Shaders.js`: shader compile/link helpers, the shared GLSL chunks, and the ten program builders.
+- The program builders are exported as `CreateProgram`, `CreateEntityTriplanarProgram`, `CreateLineProgram`, `CreateScatterProgram`, `CreateDecalProgram`, `CreateScatterDecalProgram`, `CreateSkyProgram`, `CreateBlendProgram`, `CreateInkProgram` and `CreateFilterProgram`, and `Render.js` imports them. The CPU-side decal code stays in `Render.js`.
+- All primitive shape construction moved from `NewObject.js` to `builder/NewPrimitive.js`: the complexity resolvers, the ring/fan/sector helpers, every `build<Shape>` function and its tube helpers, and `BuildGeometry`.
+- `BuildGeometry` is exported only from `NewPrimitive.js`. `NewObject.js` and `NewScatter.js` import it from there. `NewPrimitive.js` imports `TransformPointByMatrix` from `NewObject.js`.
+- UV generation, bounds, `TransformPointByMatrix` and `computeWorldCenterline` stay in `NewObject.js`.
+- No behavior change.
+
+**Where:** [handlers/utilities/Shaders.js](engine/v1/handlers/utilities/Shaders.js), [handlers/Render.js](engine/v1/handlers/Render.js), [builder/NewPrimitive.js](engine/v1/builder/NewPrimitive.js), [builder/NewObject.js](engine/v1/builder/NewObject.js), [builder/NewScatter.js](engine/v1/builder/NewScatter.js).
+
+## Shader builders exported as one default object
+**What:**
+- The `Create` prefix was dropped from the `Shaders.js` program builders. They are now `Program`, `EntityTriplanarProgram`, `LineProgram`, `ScatterProgram`, `DecalProgram`, `ScatterDecalProgram`, `SkyProgram`, `BlendProgram`, `InkProgram` and `FilterProgram`.
+- They are exported as one default object instead of named exports. This replaces the `Create*` names listed in "Shaders and primitives split into their own modules".
+- `Render.js` imports the object as `CreateShader` and calls `CreateShader.<Name>(gl)`.
+
+**Where:** [handlers/utilities/Shaders.js](engine/v1/handlers/utilities/Shaders.js), [handlers/Render.js](engine/v1/handlers/Render.js).
+
+## Pyramid centered; cylinder-cap decals resolve Flat
+**What:**
+- `buildPyramid` is centered on its local origin. The base sits at `y = -size.y / 2` and the apex at `y = +size.y / 2`. Before, the base was at `0` and the apex at `size.y`.
+- `ResolveDecalShapeCode` compares its capitalised key against `"Cylinder"`, so decals on cylinder `top`/`bottom` caps resolve `DECAL_SHAPE_CODES.Flat`. Before, they resolved `Cylinder`. The renderer and the Simulator exporter both pick this up.
+
+**Where:** [builder/NewPrimitive.js](engine/v1/builder/NewPrimitive.js) (`buildPyramid`), [handlers/Render.js](engine/v1/handlers/Render.js) (`ResolveDecalShapeCode`).
+
+## Curved primitives lie flat when rotated 90°
+**What:**
+- `appendRadialVertices` takes an optional `angleOffset` (default `0`).
+- `buildCylinder` (side quads and both cap rings), `buildCapsule` (every ring) and `appendTubeRing` (every tube cross-section, outer and inner) turn their rings by `Math.PI / segments`.
+- `appendTubeConnectorFaceGroups` adds the same `Math.PI / segments` to each sector's `midAngle`, so the radial face-group normals stay centred on their sectors.
+- `buildSphere` adds `Math.PI / slices` to `theta`. Its uvs are unchanged.
+- `resolveSphereResolution` stacks are `7`/`13`/`19` (low/medium/high), up from `6`/`12`/`18`.
+- Cone and torus are unchanged.
+
+**Where:** [builder/NewPrimitive.js](engine/v1/builder/NewPrimitive.js) (`appendRadialVertices`, `resolveSphereResolution`, `buildCylinder`, `buildSphere`, `buildCapsule`, `appendTubeRing`, `appendTubeConnectorFaceGroups`).
+
+## Void carve uses a triangle grid
+**What:**
+- `math/Collision.js`:
+  - `insideRayCrosses(point, triangle)` is the per-triangle ray test, split out of `PointInsideMesh`. `PointInsideMesh` now calls it, with the same signature and result.
+  - New exports:
+    - `BuildTriangleGrid(triangles, triangleAabbs)` splits a mesh's bounds into equal cells, each listing the triangles that touch it.
+    - `TriangleGridCandidates(grid, aabb)` returns the triangle indices in the cells a box touches, ascending. It returns every index when the box spans more cells than there are triangles.
+    - `PointInsideTriangleGrid(point, grid)` gives the same answer as `PointInsideMesh`, testing only triangles in the cells the ray passes through.
+- `NewVoid.js`:
+  - `buildCuttingSolid` builds a `grid` for every host and void solid. `candidateIndices` and the `buildCandidates` flag are removed.
+  - `resolveCavitySign`, `buildVoidFaces` and `pieceInsideSolid` take a solid and use `PointInsideTriangleGrid`.
+  - `collectCrossingPlanes` and `carveTriangleByVoid` take their candidates from `TriangleGridCandidates`.
+  - `drainPairings` and `buildObstacleVoidWalls` push items one at a time instead of spreading an array into `push`.
+  - The "Void classification complete" log now ends with `ms=`.
+- `config.js`: new export `CARVE_GRID_TRIANGLES_PER_CELL = 2`, outside `API_CONFIG`.
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js) (`insideRayCrosses`, `PointInsideMesh`, `BuildTriangleGrid`, `TriangleGridCandidates`, `PointInsideTriangleGrid`), [builder/NewVoid.js](engine/v1/builder/NewVoid.js) (`buildCuttingSolid`, `resolveCavitySign`, `buildVoidFaces`, `pieceInsideSolid`, `collectCrossingPlanes`, `carveTriangleByVoid`, `drainPairings`, `buildObstacleVoidWalls`, `BuildVoidWalls`), [core/config.js](engine/v1/core/config.js) (`CARVE_GRID_TRIANGLES_PER_CELL`).
+
+## Void host detection uses the triangle grids; spread pushes replaced
+**What:**
+- `MeshesIntersect(solidA, solidB)` takes cutting solids instead of `(triangles, aabb)` pairs.
+  - Containment uses `PointInsideTriangleGrid` against the other solid's grid.
+  - `edgesCrossMesh(triangles, targetGrid)` tests each edge only against `TriangleGridCandidates` for the edge's bounding box.
+  - The opening `AabbOverlap` reject is removed.
+- `collectRelationHosts(voidSolid, hosts)` builds a host's cutting solid on that host's first strict AABB overlap with a void. Hosts start as `{ mesh, recordId, solid: null }` and no longer carry `triangles`.
+- Terrain and obstacle voids call `buildVoidFaces` only when they have at least one related host.
+- Four array spreads into `push` are now per-item loop pushes:
+  - obstacle triangle soups
+  - void-wall lining triangles
+  - openFaces grouped by object id
+  - built terrain meshes
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js) (`edgesCrossMesh`, `MeshesIntersect`), [builder/NewVoid.js](engine/v1/builder/NewVoid.js) (`collectRelationHosts`, `buildTerrainVoidWalls`, `buildObstacleVoidWalls`), [builder/NewObstacle.js](engine/v1/builder/NewObstacle.js), [builder/NewLevel.js](engine/v1/builder/NewLevel.js), [builder/NewTerrain.js](engine/v1/builder/NewTerrain.js) (`BuildTerrain`).
+
+## Frustum culling and the entity render gate
+**What:**
+- `math/Matrix.js`: new `FrustumPlanes(matrix)` returns the six inward-facing view walls of a projection × view matrix, each as `[x, y, z, offset]`.
+- `math/Collision.js`: new `AabbOutsideFrustum(planes, aabb, padding = 0)` returns true when the box, optionally padded, sits fully behind any one wall.
+- `core/config.js`: new `PERFORMANCE_SCALING.Culling.EntityPadding = new Unit(2, "cnu")`.
+- `handlers/Render.js`:
+  - `drawScene` builds the frustum from `MultiplyMatrix4(projection, view)`, stores it on `passState.frustum`, and calls `hideOffscreen` before `collectRenderableMeshes`.
+  - New `hideOffscreen` sets `performance.rendering = false` for terrain meshes, obstacle records and entities that are fully off screen. Entities are tested with `entityRenderBounds` (all part boxes merged, or the single mesh's box), padded by `EntityPadding`.
+  - `collectRenderableMeshes` and the entity loop in `drawDecalPass` skip entities whose `performance.rendering` is false.
+  - `drawVoidWalls` draws only the void-wall meshes that are on screen.
+
+**Where:** [math/Matrix.js](engine/v1/math/Matrix.js) (`FrustumPlanes`), [math/Collision.js](engine/v1/math/Collision.js) (`AabbOutsideFrustum`), [core/config.js](engine/v1/core/config.js) (`PERFORMANCE_SCALING.Culling`), [handlers/Render.js](engine/v1/handlers/Render.js) (`drawScene`, `entityRenderBounds`, `hideOffscreen`, `collectRenderableMeshes`, `drawDecalPass`, `drawVoidWalls`).
+
+## Scatter drawn per visible ground square
+**What:**
+- **`core/config.js`:** `PERFORMANCE_SCALING.Culling` gains `ScatterCellSize = new Unit(20, "cnu")`.
+- **`handlers/Render.js`:**
+  - `buildInstancedVao` takes an optional `instanceOffset` (bytes, default `0`), added to every instance attribute's offset.
+  - New `groupInstancesIntoCells(instanceData, instanceCount, instanceReach)`:
+    - Copies a batch's instances into a new `Float32Array`, grouped by XZ ground square. Order is kept within each square.
+    - Returns one `{ start, count, aabb }` per square. The box grows each instance's position by the shape's reach times its matrix's scaling.
+  - `buildScatterInstanceBuffers`:
+    - Measures each batch's `instanceReach` from its shared primitive geometry.
+    - Uploads the grouped data and builds one VAO per square (`cell.vao`). Each decal draw gets matching `cellVaos`.
+    - Batch results carry `cells` instead of `vao`.
+    - The ready log reports the cell count and cell size.
+  - New `scatterCellVisible(cell, passState)`: a square passes if its box is within `passState.cullRadius` of `passState.cameraPosition` and not fully outside `passState.frustum`.
+  - The scatter pass and `drawScatterDecalPass` issue one instanced draw per visible square.
+  - `passState` gains `cameraPosition`.
+  - `sceneGraph` scatter `instanceData` is not modified.
+
+**Where:** [core/config.js](engine/v1/core/config.js) (`PERFORMANCE_SCALING.Culling`), [handlers/Render.js](engine/v1/handlers/Render.js) (`buildInstancedVao`, `groupInstancesIntoCells`, `buildScatterInstanceBuffers`, `scatterCellVisible`, `drawScatterDecalPass`, `drawScene`).
+
+## Scatter dissolve always reaches full opacity
+**What:**
+- In `scatterCullGLSL`, each instance's `cullHash` is now scaled by `0.75`. The instance's quarter-wide dissolve (`clamp((fade - cullHash) * 4.0, 0, 1)`) now always finishes before `fade` reaches 1.
+- The blade and scatter decal shaders both use this cull code, so both get the fix.
+
+**Where:** [handlers/utilities/Shaders.js](engine/v1/handlers/utilities/Shaders.js) (`scatterCullGLSL`).
+
+## Loop counts steady frames as exact game steps
+**What:**
+- **`core/config.js`:** new exported `FRAME_SNAP = { Frames: 4, WindowMs: 1 }`, outside `PERFORMANCE_SCALING`.
+- **`handlers/game/Level.js`:**
+  - `levelLoop` gains `recentFrames`, which is reset in `StartLevelLoop`.
+  - Each unpaused frame averages the last `FRAME_SNAP.Frames` frame times. If the average is within `FRAME_SNAP.WindowMs` of a whole number of fixed steps, the accumulator gains exactly that many steps. Otherwise it gains the real frame time.
+  - TEMP: `pacingProbe` logs an error for any second with 3 or more frames that ran 2+ steps. It reports frames, drawn, catch-ups, longest gap and longest work. It is to be removed once the fix is verified.
+
+**Where:** [core/config.js](engine/v1/core/config.js) (`FRAME_SNAP`), [handlers/game/Level.js](engine/v1/handlers/game/Level.js) (`levelLoop`, `pacingProbe`, `StartLevelLoop`).
+
+## Frame-step values inlined; pacing probe removed
+**What:**
+- **`core/config.js`:** `FRAME_SNAP` and its export are removed.
+- **`handlers/game/Level.js`:**
+  - The loop's frame-step check now uses inline values: a 4-frame average and a 1 ms window.
+  - The TEMP `pacingProbe` and its per-second error log are removed.
+
+**Where:** [core/config.js](engine/v1/core/config.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js) (`StartLevelLoop`).

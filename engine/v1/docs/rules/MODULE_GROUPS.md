@@ -32,7 +32,7 @@ All math helper functions needed by multiple files.
 - **Can be accessed**: Anywhere at will — no restrictions on who imports from `math/`.
 - **May import/export**: Anywhere at will — math is a global helper layer on par with `core/`.
 - **Contains**: Vector operations, unit conversion classes (`Unit`, `UnitVector3`), interpolation functions (`Lerp`, `SmoothStep`), clamping (`Clamp`), number parsing (`ToNumber`), physics math (ray-AABB intersection), curve utilities.
-- **Does not**: Hold state or perform side effects. Math remains pure and stateless even when it imports shared engine primitives or constants.
+- **Does not**: Hold state of its own. Math stays stateless even when it imports shared engine primitives or constants. It may change data passed into it, such as a caller-owned scratch buffer.
 
 ---
 
@@ -87,7 +87,7 @@ Anything of critical importance to the functionality of the engine.
 All logic for building anything visuals-related.
 
 - **Called by**: Handlers.
-- **Contains**: Mesh construction (`NewObject.js`), entity building (`NewEntity.js`), obstacle building (`NewObstacle.js`), scatter/detail generation (`NewScatter.js`), particle group generation (`NewParticles.js`), texture/material management (`NewTexture.js`), level assembly (`NewLevel.js`), UI building (`NewUI.js`).
+- **Contains**: Mesh construction (`NewObject.js`), primitive shape geometry (`NewPrimitive.js`), entity building (`NewEntity.js`), obstacle building (`NewObstacle.js`), scatter/detail generation (`NewScatter.js`), particle group generation (`NewParticles.js`), texture/material management (`NewTexture.js`), level assembly (`NewLevel.js`), UI building (`NewUI.js`).
 - **The rendering pipeline depends on these** — builders produce the mesh and scene data that the renderer consumes.
 - **Does not**: Manage state or drive update loops. Builders are called, produce output, and return.
 
