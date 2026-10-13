@@ -25,7 +25,7 @@ Owns all player state, movement logic, model assembly, abilities, and animation.
     - **W/S steers.** W steers away from the camera along the axis and S toward it, and the lock holds the new angle.
     - Velocity is re-projected onto the lock's direction every frame, keeping its speed.
     - **Coasting.** Locked with no A/D sets `gravityScale` to `modeData.coastGravityScale` and `dragFree = true`.
-    - **Leaving the lock.** Past the lock, a held lock keeps its direction via `heldForward` until a fresh press.
+    - **Leaving the lock.** Past the lock, a held lock keeps its direction via `heldForward` only while A/D throttles it (`lockThrottle > 0`). A fresh press, no A/D, or a braking A/D drops it.
 
   **Support, braking and slide damping.** `support = max(|up.y|, MOVEMENT_TUNING.MinSupport)` — cos(incline) floored at 0.25, engaging past 75.5° — scales friction, so friction falls off with steepness while a wall still brakes and an overhang cannot accelerate. A reversal (input against travel) brakes at `(deceleration + acceleration × ReversalBrakeScale) × support`. `getPrimaryOppositeHeld` reads the dominant axis against `MOVEMENT_TUNING.OppositeInput` to arm the stop latch (`stoppingActive`). Back held with Left/Right is a **carve**: no reversal brake and no stop latch, plain acceleration. On a sliding contact, input with a negative component along the downslope direction is scaled by `SlideUphillScale` (0.15). With no input, no lock and a `"walkable"` contact, `staticFriction` is set to the idle friction, which physics uses to hold the player still on slopes (see physics.md).
 

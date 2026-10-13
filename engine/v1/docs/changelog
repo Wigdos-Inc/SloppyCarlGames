@@ -228,3 +228,123 @@
   - The TEMP `pacingProbe` and its per-second error log are removed.
 
 **Where:** [core/config.js](engine/v1/core/config.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js) (`StartLevelLoop`).
+
+## Shared triangle, bounds and vertex-read helpers moved into math/
+**What:**
+- **`math/Collision.js`:**
+  - New exports `TriangleNormal(a, b, c)` (zero vector when degenerate), `TriangleArea(a, b, c)` and `TriangleCentroid(a, b, c)`. They replace the unused private `triangleNormal`.
+  - New BOUNDS FROM AABB section exports `SphereFromAabb(aabb, inscribed)`, `CapsuleFromAabb(aabb)` and `ObbFromAabb(aabb)`.
+  - `BuildTriangleGrid`'s area sum uses `TriangleArea`.
+- **`math/Matrix.js`:** `TransformPointByMatrix` moved here from `builder/NewObject.js`, which no longer exports it.
+- **`math/Vector3.js`:** new `ArrayToVector3(array, index)` reads vertex `index` out of a flat xyz array.
+- **Builders now call the shared helpers instead of local copies:**
+  - `NewObject.js`: drops `computeSphereFromMesh`, `computeCapsuleFromMesh` and `getVertexVector`.
+  - `NewEntity.js`: drops `computeCapsuleFromAabb`, `computeSphereFromAabb` (now `SphereFromAabb(…, true)`) and `computeObbFromAabb`. `transformOffset` now calls `rotateWithTrig`.
+  - `NewObstacle.js`: drops `createEnvelopeObb`, `createEnvelopeSphere` and `createEnvelopeCapsule`.
+  - `NewVoid.js`: drops `windingNormal`, `computeTriangleNormal` and `triangleArea`.
+  - `NewLevel.js`: `boxFacets` now takes an obb object. Aabb bounds go through `ObbFromAabb`, and the surface-chunk centroid uses `TriangleCentroid`.
+  - `NewPrimitive.js`: the pyramid face normal and the tube ring vertex reads use the shared helpers.
+- **Handlers:** `Render.js` and `Simulator.js` import `TransformPointByMatrix` from `math/Matrix.js` and read vertices with `ArrayToVector3`. Render's degenerate-facet check is `TriangleArea(...) < 5e-15`. Simulator's glTF `triangleNormal` wraps `TriangleNormal`.
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js), [math/Matrix.js](engine/v1/math/Matrix.js), [math/Vector3.js](engine/v1/math/Vector3.js), [builder/NewObject.js](engine/v1/builder/NewObject.js), [builder/NewEntity.js](engine/v1/builder/NewEntity.js), [builder/NewObstacle.js](engine/v1/builder/NewObstacle.js), [builder/NewVoid.js](engine/v1/builder/NewVoid.js), [builder/NewLevel.js](engine/v1/builder/NewLevel.js), [builder/NewPrimitive.js](engine/v1/builder/NewPrimitive.js), [handlers/Render.js](engine/v1/handlers/Render.js), [handlers/game/Simulator.js](engine/v1/handlers/game/Simulator.js).
+
+## Sphere-collision obstacles get a sphere envelope
+**What:**
+- `CreateDetailedBoundsFromParts`: a `collisionShape: "sphere"` obstacle now gets `SphereFromAabb(bounds, false)`. It used to get a capsule.
+
+**Where:** [builder/NewObstacle.js](engine/v1/builder/NewObstacle.js) (`CreateDetailedBoundsFromParts`).
+
+## Shared AABB center and half-size helpers
+**What:**
+- **`math/Collision.js`:** new exports `AabbCenter(aabb)` and `AabbHalfExtents(aabb)`, which return plain vectors. The box contact functions and the three collider builders use them. The `UnitVector3` fields are built with `.clone().set(...)`.
+- **`physics/Collision.js`:**
+  - The private `getAabbCenter` and `getHalfExtents` are removed.
+  - `buildEntityAabbAtPosition` is removed. The trigger overlap test now uses `entity.collision.aabb` directly.
+  - `checkSweptAabbPair` drops its `position` parameter.
+- **Other callers use the shared helpers:**
+  - `physics/Correction.js`: `PoseAnchor`.
+  - `camera/Modes.js`: `AimPoint`.
+  - `builder/NewObject.js`: `computeObbFromMesh`.
+  - `builder/NewEntity.js`: the aabb case of `computeScaledBounds`.
+- **Vertex reads:** `handlers/Render.js` (scatter `instanceReach`) and `handlers/game/Simulator.js` (the decal nearest-facet loop) now read vertices with `ArrayToVector3`.
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js), [physics/Collision.js](engine/v1/physics/Collision.js), [physics/Correction.js](engine/v1/physics/Correction.js), [camera/Modes.js](engine/v1/camera/Modes.js), [builder/NewObject.js](engine/v1/builder/NewObject.js), [builder/NewEntity.js](engine/v1/builder/NewEntity.js), [handlers/Render.js](engine/v1/handlers/Render.js), [handlers/game/Simulator.js](engine/v1/handlers/game/Simulator.js).
+
+## `ArrayToVector3` gains a `multiplied` flag; hand-written triple reads use it
+**What:**
+- **`math/Vector3.js`:** `ArrayToVector3(array, index, multiplied)`. With `multiplied`, `index` is a vertex in a flat xyz array (`index * 3`). Without it, the three values are read from `index` directly.
+- **Existing vertex reads** now pass `true`: `Render.js`, `NewPrimitive.js`, `NewObject.js`, `NewVoid.js`, `Simulator.js`.
+- **Hand-written triples replaced** with `ArrayToVector3`, or `Vector3ToArray(ArrayToVector3(...))` where an array is needed:
+  - `Render.js`: `DecalSurfaceUv` placement columns, `createObbLineVertices` axes.
+  - `NewObject.js`: `computeObbFromMesh` model-matrix axes.
+  - `NewPrimitive.js`: `makeTubeNode` frame columns.
+  - `Simulator.js`: `buildMeshVertices` index triple, `buildDecalVertices` `faceAxis` and `decalCenter`.
+  - `math/Collision.js`: `projectObbRadiusOntoAxis`.
+  - `NewVoid.js`: `groupCoplanarPieces` triples, `buildVoidFaces` and `carveHostGeometry` index triples, `buildVoidMesh` face-group `vertexIndices`.
+- **Fix:** `NewVoid.js` `buildVoidMesh` (both branches) now spreads the lining position into `newPositions`. It was pushing a nested array.
+
+**Where:** [math/Vector3.js](engine/v1/math/Vector3.js), [math/Collision.js](engine/v1/math/Collision.js), [builder/NewVoid.js](engine/v1/builder/NewVoid.js), [builder/NewObject.js](engine/v1/builder/NewObject.js), [builder/NewPrimitive.js](engine/v1/builder/NewPrimitive.js), [handlers/Render.js](engine/v1/handlers/Render.js), [handlers/game/Simulator.js](engine/v1/handlers/game/Simulator.js).
+
+## Inside-box and AABB-vs-AABB contacts simplified; collision bug fixes
+**What:**
+- **`math/Vector3.js`:** new `MinAxisVector3`, the index of a vector's smallest component.
+- **`math/Collision.js`:**
+  - `resolveInsideAabbContact` and `resolveInsideObbContact` are merged into `resolveInsideBoxContact`.
+  - New module constant `worldBoxAxes`, used by `AabbObbContact`, `aabbTriangleSetContact` and `ObbFromAabb`.
+  - New `worldBoxFaces` and `obbFaces`: each box axis's negative and positive face normals, used by `resolveInsideBoxContact` and `AabbAabbContact`.
+  - `chooseDeepestContact` is exported as `ChooseDeepestContact`.
+- **AABB-vs-AABB contact:** `aabbAabbContact` moves from physics/Collision.js to math/Collision.js as the exported `AabbAabbContact`. The duplicate `chooseDeepestContact` in physics/ is removed; `iterateCompoundSpheres` uses the shared one.
+- **`handlers/Render.js`:** `createObbLineVertices` now scales each OBB axis by its own half-extent. It multiplied a vector of axis vectors, which gave the debug wireframe NaN corners.
+- **Fixes to the uncommitted math/Collision.js edits:**
+  - `projectObbRadiusOntoAxis` returned NaN.
+  - `ClosestPointOnTriangle` lost `ac` on the a→c edge and set an undeclared `w` for interior points.
+  - `TriangleAabb` read `triangle.x`.
+- **`rules/ENGINE_SEMANTICS.md` §5.2:** a declared function that spans lines uses `function`; only one-line functions may be `const`. Inline callbacks are exempt.
+
+**Where:** [math/Vector3.js](engine/v1/math/Vector3.js), [math/Collision.js](engine/v1/math/Collision.js), [physics/Collision.js](engine/v1/physics/Collision.js), [handlers/Render.js](engine/v1/handlers/Render.js), [rules/ENGINE_SEMANTICS.md](engine/v1/docs/rules/ENGINE_SEMANTICS.md).
+
+## `BestMatchOf` adopted; soup contacts share `deepestContactInBox`; scatter-decal crash fix
+**What:**
+- **`math/Utilities.js`:** `BestMatchOf(array, condition, currentBest, storage)`, the author's version, is now exported.
+- **`BestMatchOf` call sites:**
+  - `math/Collision.js`: the `aabbTriangleSetContact` facing-triangle pick.
+  - `builder/NewEntity.js`: the face-to-world-axis alignment pick.
+- **`math/Collision.js`:** new `deepestContactInBox(triangles, box, contactWith)`. `SphereTriangleSoupContact`, `CapsuleTriangleSoupContact`, `SphereVoidWallContact` and `CapsuleVoidWallContact` are now one-line calls to it.
+- **`handlers/Render.js`:** `drawScatterDecalPass` read `scatterDecalShader.uniform` instead of `.uniforms`, so the first uniform set threw at level start.
+
+**Where:** [math/Utilities.js](engine/v1/math/Utilities.js), [math/Collision.js](engine/v1/math/Collision.js), [builder/NewEntity.js](engine/v1/builder/NewEntity.js), [handlers/Render.js](engine/v1/handlers/Render.js).
+
+## Void-carved hosts no longer vanish
+**What:**
+- **Fixes to the uncommitted `carveHostGeometry` refactor:**
+  - `groupStart` is captured before each face-texture group's triangle loop again. It was read after the loop, so every group had 0 indices and carved hosts drew nothing.
+  - A blended carve vertex takes its index from `posSliced` before the push. It read the unsliced `positions`, so every new vertex shared one index.
+- **`drainCarveQueue`:** the "after" triangle and vertex totals read `hostMesh.geometry` after the carve again, not arrays destructured before it.
+
+**Where:** [builder/NewVoid.js](engine/v1/builder/NewVoid.js).
+
+## `AzimuthTurnVector3` gives no turn for vertical vectors
+**What:**
+- **`math/Vector3.js`:** `AzimuthTurnVector3` returns a zero turn when either vector has no horizontal component (`hypot(x, z) <= EPSILON`).
+
+**Where:** [math/Vector3.js](engine/v1/math/Vector3.js).
+
+## chaseCam no longer freezes the input basis after a loop
+**What:**
+- **`prepareChase`:** always returns the live `armBasis`. On `leftLoop` it still sets `returning = true`, but no longer freezes a behind-the-facing basis.
+- **`chaseRuntime.frozenBasis`:** removed, along with its resets in `initializeChase` and on look input.
+
+**Where:** [camera/Modes.js](engine/v1/camera/Modes.js).
+
+## A carried lock outside a loop needs a throttling A/D
+**What:**
+- **`UpdateMovement`:** outside a loop, a carried lock now drops unless A/D is held and throttling it (`input.right !== 0 && lockThrottle > 0`). Before, it only dropped on a key change.
+
+**Where:** [player/Movement.js](engine/v1/player/Movement.js).
+
+## chaseCam's post-loop return trails the exit facing
+**What:**
+- **`chaseRuntime.exitFacing`:** new. `prepareChase` clones the target's facing into it on `leftLoop`.
+- **`updateChase`:** trails `exitFacing` while `returning`, and the live facing otherwise.
+
+**Where:** [camera/Modes.js](engine/v1/camera/Modes.js).

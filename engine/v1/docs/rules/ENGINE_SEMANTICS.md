@@ -262,7 +262,25 @@ const { Look, Loops, Modes, Body } = CAMERA_TUNING;
 
 ### 5.2 Multi-Line Constants
 
-A constant stays on one line unless its value is an array, object, function or ternary. Any other value too long for one line is split into smaller constants within its subchain.
+A constant stays on one line unless its value is an array, object or ternary. Any other value too long for one line is split into smaller constants within its subchain.
+
+A declared function that spans lines uses `function`. Only a one-line function is declared as a `const` arrow. Callbacks passed inline, such as to `forEach` or `map`, are exempt.
+
+```js
+// Bad
+const contactWith = (triangle) => {
+	if (!triangleInQueryBox(triangle, box)) return null;
+	return sphereTriangleContact(center, radius, triangle);
+};
+
+// Good
+const contactWith = (triangle) => triangleInQueryBox(triangle, box) ? sphereTriangleContact(center, radius, triangle) : null;
+
+function contactWith(triangle) {
+	if (!triangleInQueryBox(triangle, box)) return null;
+	return sphereTriangleContact(center, radius, triangle);
+}
+```
 
 A multi-line ternary keeps its condition on the first line with the constant name. The second and third lines start on `?` and `:`.
 
@@ -351,5 +369,6 @@ const scaledDistance = fitDistance * speedZoom;
 | Is this module constant there to be tuned? | Move it to `config.js`, outside `API_CONFIG` |
 | Does this module export something it imported? | Remove it; consumers import from the source |
 | Is this a long unbroken chain of constants? | Break it into subchains just before their use; widely used ones go at the top |
-| Does this constant span lines without being an array, object, function or ternary? | Split it into one-line constants |
+| Does this constant span lines without being an array, object or ternary? | Split it into one-line constants |
+| Does a declared function span lines? | Declare it with `function` |
 | Is a long property path repeated throughout this scope? | Destructure it at the top |
