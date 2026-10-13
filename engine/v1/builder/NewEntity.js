@@ -10,6 +10,7 @@ import { ResolveEntitySource } from "./NewTemplate.js";
 import {
 	AddVector3,
 	CloneVector3,
+	CompareVector3,
 	DotVector3,
 	LerpVector3,
 	MultiplyVector3,
@@ -17,12 +18,12 @@ import {
 	ScaleVector3,
 	SubtractVector3,
 	ToVector3,
-	Vector3Matches,
 	Vector3Sq,
 	WORLD_NORMALS,
 } from "../math/Vector3.js";
 import { ComposeEulerRotations } from "../math/Matrix.js";
-import { Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
+import { AabbCenter, AabbHalfExtents, CapsuleFromAabb, ObbFromAabb, SphereFromAabb } from "../math/Collision.js";
+import { BestMatchOf, Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
 
 // Default model-pose turn rate, radians/second. Characters scale it by their control values.
 const defaultModelTurnRate = 8;
@@ -73,16 +74,9 @@ function remapFacesAfterRotation(rotation) {
 	// Sort by best alignment (highest dot product first) to prevent ties from producing duplicates.
 	const assignments = [];
 	for (const entry of rotatedEntries) {
-		let bestDot = -Infinity;
-		let bestLabel = "top";
-		for (const axis of worldAxes) {
-			const d = DotVector3(entry.rotated, axis.dir);
-			if (d > bestDot) {
-				bestDot = d;
-				bestLabel = axis.label;
-			}
-		}
-		assignments.push({ name: entry.name, bestLabel, bestDot });
+		const alignment = (axis) => DotVector3(entry.rotated, axis.dir);
+		const bestAxis = BestMatchOf(worldAxes, (axis, best) => alignment(axis) > alignment(best), worldAxes[0]);
+		assignments.push({ name: entry.name, bestLabel: bestAxis.label, bestDot: alignment(bestAxis) });
 	}
 
 	// Greedy assignment: highest alignment first.
@@ -132,14 +126,14 @@ function cloneLocalTransform(transform) {
 
 // model.posedTransform records what the mesh hierarchy currently reflects; equal means the re-pose is a no-op.
 const poseMatchesTransform = (model, transform) => {
-	return Vector3Matches(model.posedTransform.position, transform.position) &&
-	Vector3Matches(model.posedTransform.rotation, transform.rotation) &&
-	Vector3Matches(model.posedTransform.scale, transform.scale);
+	return CompareVector3(model.posedTransform.position, transform.position) &&
+	CompareVector3(model.posedTransform.rotation, transform.rotation) &&
+	CompareVector3(model.posedTransform.scale, transform.scale);
 }
 
 // Orientation held means the pose only shifted, so it can be translated instead of recomposed.
 const poseOrientationMatches = (model, transform) => {
-	return Vector3Matches(model.posedTransform.rotation, transform.rotation) && Vector3Matches(model.posedTransform.scale, transform.scale);
+	return CompareVector3(model.posedTransform.rotation, transform.rotation) && CompareVector3(model.posedTransform.scale, transform.scale);
 }
 
 function ComposeTransform(parentTransform, localTransform) {
@@ -168,7 +162,6 @@ function resolveInitialMovementProgress(movement, currentPosition) {
 
 function normalizeMovement(movement, surface) {
 	// Resolve surface-local start/end to world space; Y anchors to surfaceTopY.
-	// Clone so the cached entity definition is never mutated.
 	const surfaceOrigin = getSurfaceOrigin(surface);
 	return {
 		...movement,
@@ -231,10 +224,14 @@ function buildPart(source, textureScale, faceTextureStore, geometryCache, geomet
 function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore, geometryCache) {
 	// --- Step 1: Resolve rootTransform from data ---
 	const rtScale = entityDefinition.model.rootTransform.scale;
-	const geometryCacheKeyPrefix = entityDefinition.blueprintId !== null ? entityDefinition.blueprintId : entityDefinition.id;
+	const geometryCacheKeyPrefix = entityDefinition.blueprintId !== null 
+		? entityDefinition.blueprintId 
+		: entityDefinition.id;
 
 	// Build all parts (each part wraps its own values in Unit/UnitVector3).
-	const parts = entityDefinition.model.parts.map((part) => buildPart(part, textureScale, faceTextureStore, geometryCache, geometryCacheKeyPrefix));
+	const parts = entityDefinition.model.parts.map((part) => 
+		buildPart(part, textureScale, faceTextureStore, geometryCache, geometryCacheKeyPrefix)
+	);
 
 	// Build index and parent-child links in two passes so part order is unconstrained
 	const index = {};
@@ -245,9 +242,7 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 	const rootPartIds = parts.filter((p) => p.parentId === "root").map((p) => p.id);
 
 	// Resolve spawn surface.
-	const spawnSurfaceId = entityDefinition.model.spawnSurfaceId;
-	const surface = surfaceMap[spawnSurfaceId];
-	const surfaceOrigin = getSurfaceOrigin(surface);
+	const surfaceOrigin = getSurfaceOrigin(surfaceMap[entityDefinition.model.spawnSurfaceId]);
 
 	// --- Root parts: build localTransform relative to rootTransform (model-local) ---
 	// Y = scaledHalfHeight (bottom at rootTransform.y, floor grounded after pose) + localPosition.
@@ -274,6 +269,7 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 	while (processQueue.length > 0) {
 		const partId = processQueue.shift();
 		if (processed.has(partId)) continue;
+
 		processed.add(partId);
 
 		const part = index[partId];
@@ -309,7 +305,7 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 			scale: rtScale,
 			pivot: entityDefinition.model.rootTransform.pivot,
 		},
-		spawnSurfaceId,
+		spawnSurfaceId: entityDefinition.model.spawnSurfaceId,
 		surfacePosition: surfaceOrigin,
 		parts, index,
 		roots: rootPartIds,
@@ -407,21 +403,7 @@ function rotateWithTrig(point, trig) {
 }
 
 // Local offset through scale then rotation — CreateModelMatrix's R·S order.
-function transformOffset(point, scale, trig) {
-	const v = MultiplyVector3(point, scale);
-
-	const p1x = v.x * trig.cz - v.y * trig.sz;
-	const p1y = v.x * trig.sz + v.y * trig.cz;
-
-	const p2y = p1y * trig.cx - v.z * trig.sx;
-	const p2z = p1y * trig.sx + v.z * trig.cx;
-
-	return {
-		x: p1x * trig.cy + p2z * trig.sy,
-		y: p2y,
-		z: -p1x * trig.sy + p2z * trig.cy,
-	};
-}
+const transformOffset = (point, scale, trig) => rotateWithTrig(MultiplyVector3(point, scale), trig);
 
 // A scaled clone of a Unit, preserving its type.
 const scaleUnit = (u, f) => new Unit(u.value * f, u.type);
@@ -444,40 +426,11 @@ function placeAabbEnclosure(aabb, position, scale, trig) {
 	return { min: min.add(position), max: max.add(position) };
 }
 
-function computeCapsuleFromAabb(aabb) {
-	const dim = SubtractVector3(aabb.max, aabb.min);
-	const radius = Math.max(0.0001, Math.max(dim.x, dim.z) * 0.5);
-	const halfHeight = Math.max(0, (dim.y * 0.5) - radius);
-
-	const start = aabb.min.clone().add(aabb.max).scale(0.5);
-	const end = start.clone();
-	start.y -= halfHeight; 
-	end.y += halfHeight;
-
-	return {
-		type: "capsule",
-		radius: new Unit(radius, "cnu"),
-		halfHeight: new Unit(halfHeight, "cnu"),
-		segmentStart: start,
-		segmentEnd: end,
-	};
-}
-
-function computeSphereFromAabb(aabb) {
-	// Inscribed sphere
-	const half = aabb.max.clone().subtract(aabb.min).scale(0.5);
-	return {
-		type: "sphere",
-		center: aabb.min.clone().add(aabb.max).scale(0.5),
-		radius: new Unit(Math.max(0.0001, Math.min(half.x, half.y, half.z)), "cnu"),
-	};
-}
-
 function computeCompoundSpheresFromModel(model) {
 	const spheres = [];
 	model.parts.forEach((part) => {
 		if (part.addsToBounds === false) return;
-		const sphere = computeSphereFromAabb(part.mesh.worldAabb);
+		const sphere = SphereFromAabb(part.mesh.worldAabb, true);
 		spheres.push({
 			center: sphere.center,
 			radius: sphere.radius,
@@ -497,8 +450,8 @@ function computeScaledBounds(bounds, scaleFactor) {
 				radius: sphereRadius,
 			};
 		case "aabb":
-			const center = ScaleVector3(AddVector3(bounds.min, bounds.max), 0.5);
-			const half = ScaleVector3(SubtractVector3(bounds.max, bounds.min), 0.5 * scaleFactor);
+			const center = AabbCenter(bounds);
+			const half = ScaleVector3(AabbHalfExtents(bounds), scaleFactor);
 			return {
 				type: "aabb",
 				min: bounds.min.clone().set(SubtractVector3(center, half)),
@@ -546,59 +499,46 @@ function resolvePhysicsShape(shape, aabb) {
 // Builds the bounds for a shape type from the entity AABB or model.
 function buildBoundsForShape(shape, aabb, model) {
 	switch (shape) {
-		case "sphere"         : return computeSphereFromAabb(aabb);
+		case "sphere"         : return SphereFromAabb(aabb, true);
 		case "aabb"           : return { type: "aabb", min: aabb.min, max: aabb.max };
-		case "capsule"        : return computeCapsuleFromAabb(aabb);
-		case "obb"            : return computeObbFromAabb(aabb);
+		case "capsule"        : return CapsuleFromAabb(aabb);
+		case "obb"            : return ObbFromAabb(aabb);
 		case "compound-sphere": return computeCompoundSpheresFromModel(model);
 	}
 }
 
 // Places frozen rest-pose bounds into world space. Compound-sphere is rebuilt from the posed model instead.
 function placeBoundsForShape(bounds, transform, model, trig) {
-	const position = transform.position;
-	const scale = transform.scale;
+	const { type, center, radius, segmentStart, segmentEnd, halfExtents, halfHeight, axes } = bounds;
+	const { position, scale } = transform;
 	const widest = Math.max(scale.x, scale.y, scale.z);
 
-	switch (bounds.type) {
+	switch (type) {
 		case "sphere":
 			return {
 				type: "sphere",
-				center: bounds.center.clone().set(AddVector3(transformOffset(bounds.center, scale, trig), position)),
-				radius: scaleUnit(bounds.radius, widest),
+				center: center.clone().set(AddVector3(transformOffset(center, scale, trig), position)),
+				radius: scaleUnit(radius, widest),
 			};
 		case "aabb":
 			return { type: "aabb", ...placeAabbEnclosure(bounds, position, scale, trig) };
 		case "capsule":
 			return {
 				type: "capsule",
-				radius: scaleUnit(bounds.radius, widest),
-				halfHeight: scaleUnit(bounds.halfHeight, scale.y),
-				segmentStart: bounds.segmentStart.clone().set(AddVector3(transformOffset(bounds.segmentStart, scale, trig), position)),
-				segmentEnd: bounds.segmentEnd.clone().set(AddVector3(transformOffset(bounds.segmentEnd, scale, trig), position)),
+				radius: scaleUnit(radius, widest),
+				halfHeight: scaleUnit(halfHeight, scale.y),
+				segmentStart: segmentStart.clone().set(AddVector3(transformOffset(segmentStart, scale, trig), position)),
+				segmentEnd: segmentEnd.clone().set(AddVector3(transformOffset(segmentEnd, scale, trig), position)),
 			};
 		case "obb":
 			return {
 				type: "obb",
-				center: bounds.center.clone().set(AddVector3(transformOffset(bounds.center, scale, trig), position)),
-				halfExtents: bounds.halfExtents.clone().set(MultiplyVector3(bounds.halfExtents, scale)),
-				axes: bounds.axes.map((axis) => rotateWithTrig(axis, trig)),
+				center: center.clone().set(AddVector3(transformOffset(center, scale, trig), position)),
+				halfExtents: halfExtents.clone().set(MultiplyVector3(halfExtents, scale)),
+				axes: axes.map((axis) => rotateWithTrig(axis, trig)),
 			};
 		case "compound-sphere": return computeCompoundSpheresFromModel(model);
 	}
-}
-
-function computeObbFromAabb(aabb) {
-	return {
-		type: "obb",
-		center: aabb.min.clone().add(aabb.max).scale(0.5),
-		halfExtents: aabb.max.clone().subtract(aabb.min).scale(0.5),
-		axes: [
-			WORLD_NORMALS.Right,
-			WORLD_NORMALS.Up,
-			WORLD_NORMALS.Forward,
-		],
-	};
 }
 
 // Builds the physics, hurtbox and hitbox bounds for an entity. detailedBounds is the physics bounds.
@@ -627,6 +567,7 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverri
 	if (collisionOverride.hitbox !== null) {
 		const hitboxShape = collisionOverride.hitbox;
 		const baseBounds = buildBoundsForShape(hitboxShape, aabb, model);
+
 		// Player hitbox is 1.1× radius.
 		if (entityType === "player") hitbox = { shape: hitboxShape, bounds: computeScaledBounds(baseBounds, 1.1) };
 		else hitbox = { shape: hitboxShape, bounds: baseBounds };
@@ -636,8 +577,7 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverri
 		collisionShape: physicsShape,
 		detailedBounds: physicsBounds,
 		physics: { shape: physicsShape, bounds: physicsBounds },
-		hurtbox: hurtbox,
-		hitbox: hitbox,
+		hurtbox, hitbox,
 	};
 }
 
@@ -667,7 +607,7 @@ function captureRestCollision(definition, model) {
 		physics      : detailed.physics,
 		hurtbox      : detailed.hurtbox,
 		hitbox       : detailed.hitbox,
-		groundCapsule: computeCapsuleFromAabb(aabb),
+		groundCapsule: CapsuleFromAabb(aabb),
 	};
 }
 

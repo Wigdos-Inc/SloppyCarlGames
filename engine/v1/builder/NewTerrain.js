@@ -63,7 +63,7 @@ function BuildTerrain(objects, world, faceTextureStore) {
 		const built = source.parts.length === 0
 			? buildSingleTerrain(source, world, faceTextureStore)
 			: buildTerrainParts(source, world, faceTextureStore);
-		meshes.push(...built);
+		for (const mesh of built) meshes.push(mesh);
 	});
 
 	const terrain     = meshes.filter((mesh) => mesh.meta.mode !== "void");

@@ -35,12 +35,10 @@
                 "acceleration": 44,
                 "speedStep": 2.5
             },
-            "sensitivity": 0.12,
             "heightOffset": 1.5,
             "aimHeight": 0.5,
             "levelOpening": {
-                "startPosition": { "x": 250, "y": 8, "z": 258 },
-                "endPosition":   { "x": 250, "y": 8, "z": 258 }
+                "startPosition": { "x": 250, "y": 8, "z": 258 }
             }
         },
         "terrain": {

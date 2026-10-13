@@ -21,7 +21,7 @@ import {
 	WORLD_NORMALS,
 	LerpVector3,
 } from "../math/Vector3.js";
-import { ApplyDeceleration, ClampVelocity, ProjectOntoPlane } from "../math/Collision.js";
+import { AabbCenter, ApplyDeceleration, ClampVelocity, ProjectOntoPlane } from "../math/Collision.js";
 import { Clamp, Clamp01, DegreesToRadians, Lerp, RadiansToDegrees, SmoothStep, UnitVector3 } from "../math/Utilities.js";
 import { PlayerHeight } from "../player/Master.js";
 
@@ -93,7 +93,7 @@ const chaseRuntime = {
 	sinceInput : Infinity,                                   // Seconds since the last look input
 	sinceChase : 0,                                          // Seconds following without a break; ramps the swing in
 	returning  : false,                                      // Coming back to the trail after a loop
-	frozenBasis: null,                                       // Input basis held while returning
+	exitFacing : null,                                       // The facing at the loop's exit, which the return swings behind
 	side       : 0,                                          // Radians the trail sits off behind your facing; 0 for chaseCam
 	repick     : false,                                      // Re-pick the side once look settles
 	settle     : 0,                                          // Radians the arm settles above your travel; lowers as an incline rolls it
@@ -116,7 +116,7 @@ const arrowStep = (deltaSeconds) => CONFIG.Camera.Sensitivity.Keyboard * 2 * del
 // Pointer lock, the mode's held keys, mouse look and wheel into lookInput.
 function handleLookInput(eventLike, keyState) {
 	switch (eventLike.type) {
-		case "pointerdown": return RequestPointerLock();
+		case "pointerdown": return IsPointerLocked() ? false : RequestPointerLock();
 		case "keydown":
 			if (eventLike.code === "Escape") { 
 				ReleasePointerLock(); 
@@ -183,7 +183,7 @@ function modelFlip({ target, onRamp }) {
 
 // The look point: `aimShare` of the target's height up from its feet, along the camera's eased up; flips with the model.
 function AimPoint(ctx) {
-	return ctx.target.collision.aabb.min.clone().add(ctx.target.collision.aabb.max).scale(0.5).add(
+	return ctx.target.collision.aabb.min.clone().set(AabbCenter(ctx.target.collision.aabb)).add(
 		ScaleVector3(rig.up, PlayerHeight(ctx.target) * (ctx.aimShare - 0.5) * modelFlip(ctx))
 	);
 }
@@ -512,7 +512,6 @@ function initializeChase(ctx, mode) {
 	chaseRuntime.sinceInput = Infinity;
 	chaseRuntime.sinceChase = 0;
 	chaseRuntime.returning = false;
-	chaseRuntime.frozenBasis = null;
 	chaseRuntime.side = 0;
 	chaseRuntime.repick = false;
 	chaseRuntime.settle = settlePitch(1);
@@ -533,10 +532,8 @@ function initializeChase(ctx, mode) {
 // Look within the speed's freedom; then the input basis, or a loopControls lock.
 function prepareChase(ctx) {
 	if (ctx.leftLoop) {
-		// Frozen from behind the facing, on its surface.
-		const surfaceUp = ctx.target.alignedUp;
 		chaseRuntime.returning = true;
-		chaseRuntime.frozenBasis = { forward: ResolveVector3Axis(ProjectOntoPlane(ctx.target.facing, surfaceUp)), up: surfaceUp };
+		chaseRuntime.exitFacing = CloneVector3(ctx.target.facing);
 	}
 
 	const loop = ctx.loop;
@@ -553,7 +550,6 @@ function prepareChase(ctx) {
 
 		// Look cancels a return.
 		chaseRuntime.returning = false;
-		chaseRuntime.frozenBasis = null;
 		const heading = chaseHeading(ctx.cameraState, rig.up);
 		const facing = ProjectOntoPlane(ctx.target.facing, rig.up);
 		let yaw = DegreesToRadians(view.yaw);
@@ -576,7 +572,7 @@ function prepareChase(ctx) {
 	else chaseRuntime.sinceInput += ctx.deltaSeconds;
 
 	// sideCam's keys map as if from behind you.
-	const basis = chaseRuntime.returning ? chaseRuntime.frozenBasis : armBasis(ctx.cameraState, chaseRuntime.side);
+	const basis = armBasis(ctx.cameraState, chaseRuntime.side);
 	if (!addons.includes("loopControls") || !(loop.active || ctx.cameraState.situation === "slope")) return { control: "free", basis };
 	
 	// Locked to the loop's axis, or the slope's fall line.
@@ -639,7 +635,7 @@ function updateChase(ctx) {
 	if (settled) chaseRuntime.settle = settlePitch((ctx.cameraState.looping ? 1 : Math.max(0, Math.cos(AngleBetweenVector3(up, WORLD_NORMALS.Up)))) * modelFlip(ctx));
 
 	// Follows while you move, or returning from a loop at any speed, once the look delay has passed.
-	const facing = ProjectOntoPlane(target.facing, up);
+	const facing = ProjectOntoPlane(chaseRuntime.returning ? chaseRuntime.exitFacing : target.facing, up);
 	const facingKnown = Vector3Length(facing) > EPSILON;
 	const following = facingKnown && (ctx.speedShare > EPSILON || chaseRuntime.returning) && settled;
 	chaseRuntime.sinceChase = following ? chaseRuntime.sinceChase + ctx.deltaSeconds : 0;

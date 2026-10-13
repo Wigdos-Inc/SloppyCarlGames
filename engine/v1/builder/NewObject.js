@@ -2,42 +2,35 @@
 
 // Called by anything that wants any 3D object or wants to build models.
 
+import { BuildGeometry } from "./NewPrimitive.js";
 import { BuildScatter } from "./NewScatter.js";
 import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveTextureBlueprint, FREQUENCY_PATTERN_CONFIG, ComputeGeneratedTextureID, IsTextureTransparent, InitializeDecalDisplay } from "./NewTexture.js";
 import VISUAL_TEMPLATES from "./templates/textures.json" with { type: "json" };
 import { CONFIG } from "../core/config.js";
-import { EPSILON } from "../core/meta.js";
-import { CreateModelMatrix, CreateIdentityMatrix, CreateRenderMatrixCache, MultiplyMatrix4 } from "../math/Matrix.js";
-import { SampleConnectorCenterline, ParallelTransportFrames } from "../math/Curves.js";
-import { Clamp, ToNumber, Unit, UnitVector3 } from "../math/Utilities.js";
+import { CreateModelMatrix, CreateRenderMatrixCache, TransformPointByMatrix } from "../math/Matrix.js";
+import { AabbCenter, AabbHalfExtents, CapsuleFromAabb, SphereFromAabb, TriangleNormal } from "../math/Collision.js";
+import { Clamp, UnitVector3 } from "../math/Utilities.js";
 import {
 	AbsoluteVector3,
 	AddVector3,
-	CrossVector3,
-	DotVector3,
+	ArrayToVector3,
+	MaxVector3,
 	ResolveVector3Axis,
 	ScaleVector3,
 	SubtractVector3,
-	ToVector3,
-	Vector3Distance,
-	Vector3Sq,
-	WORLD_NORMALS
+	ToVector3
 } from "../math/Vector3.js";
 
 function computeObbFromMesh(mesh) {
 	const modelMatrix = CreateModelMatrix(mesh.transform);
 	return {
 		type: "obb",
-		center: mesh.worldAabb.min.clone().add(mesh.worldAabb.max).scale(0.5),
-		halfExtents: mesh.localBounds.max
-			.clone()
-			.subtract(mesh.localBounds.min)
-			.scale(0.5)
-			.multiply(AbsoluteVector3(mesh.transform.scale)),
+		center: mesh.worldAabb.min.clone().set(AabbCenter(mesh.worldAabb)),
+		halfExtents: mesh.localBounds.max.clone().set(AabbHalfExtents(mesh.localBounds)).multiply(AbsoluteVector3(mesh.transform.scale)),
 		axes: [
-			ResolveVector3Axis({ x: modelMatrix[0], y: modelMatrix[1], z: modelMatrix[2] }), 
-			ResolveVector3Axis({ x: modelMatrix[4], y: modelMatrix[5], z: modelMatrix[6] }), 
-			ResolveVector3Axis({ x: modelMatrix[8], y: modelMatrix[9], z: modelMatrix[10] })
+			ResolveVector3Axis(ArrayToVector3(modelMatrix, 0)),
+			ResolveVector3Axis(ArrayToVector3(modelMatrix, 4)),
+			ResolveVector3Axis(ArrayToVector3(modelMatrix, 8))
 		],
 	};
 }
@@ -50,41 +43,14 @@ function computeAabbFromMesh(mesh) {
 	};
 }
 
-function computeSphereFromMesh(mesh) {
-	const half = mesh.worldAabb.max.clone().subtract(mesh.worldAabb.min).scale(0.5);
-	return {
-		type: "sphere",
-		center: mesh.worldAabb.min.clone().add(mesh.worldAabb.max).scale(0.5),
-		radius: new Unit(Math.max(0.0001, Math.sqrt(Vector3Sq(half))), "cnu"),
-	};
-}
-
-function computeCapsuleFromMesh(mesh) {
-	const dim = mesh.worldAabb.max.clone().subtract(mesh.worldAabb.min);
-	const radius = Math.max(0.0001, Math.max(dim.x, dim.z) * 0.5);
-	const halfHeight = Math.max(0, (dim.y * 0.5) - radius);
-	const start = mesh.worldAabb.min.clone().add(mesh.worldAabb.max).scale(0.5);
-	const end = start.clone();
-	start.y -= halfHeight;
-	end.y += halfHeight;
-	return {
-		type: "capsule",
-		radius: new Unit(radius, "cnu"),
-		halfHeight: new Unit(halfHeight, "cnu"),
-		segmentStart: start,
-		segmentEnd: end,
-	};
-}
-
 function computeTriangleSoupFromMesh(mesh) {
 	// One matrix for the whole buffer — the transform is fixed across the sweep.
 	const modelMatrix = CreateModelMatrix(mesh.transform);
 	const readVertex = (vertexIndex) => {
-		const vertex = TransformPointByMatrix({
-			x: mesh.geometry.positions[vertexIndex * 3],
-			y: mesh.geometry.positions[(vertexIndex * 3) + 1],
-			z: mesh.geometry.positions[(vertexIndex * 3) + 2],
-		}, modelMatrix);
+		const vertex = TransformPointByMatrix(
+			ArrayToVector3(mesh.geometry.positions, vertexIndex, true), 
+			modelMatrix
+		);
 		return new UnitVector3(vertex.x, vertex.y, vertex.z, "cnu");
 	};
 
@@ -94,7 +60,7 @@ function computeTriangleSoupFromMesh(mesh) {
 		const a = readVertex(indices[index]);
 		const b = readVertex(indices[index + 1]);
 		const c = readVertex(indices[index + 2]);
-		triangles.push({ a, b, c, normal: ResolveVector3Axis(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a))) });
+		triangles.push({ a, b, c, normal: TriangleNormal(a, b, c) });
 	}
 
 	return { type: "triangle-soup", triangles };
@@ -103,89 +69,21 @@ function computeTriangleSoupFromMesh(mesh) {
 function computeDetailedBounds(mesh) {
 	switch(mesh.collisionShape) {
 		case "none"         : return null;
-		case "sphere"       : return computeSphereFromMesh(mesh);
-		case "capsule"      : return computeCapsuleFromMesh(mesh);
+		case "sphere"       : return SphereFromAabb(mesh.worldAabb, false);
+		case "capsule"      : return CapsuleFromAabb(mesh.worldAabb);
 		case "triangle-soup": return computeTriangleSoupFromMesh(mesh);
 		case "aabb"         : return computeAabbFromMesh(mesh);
 		case "obb"          : return computeObbFromMesh(mesh);
 	}
 }
 
-function resolveCylinderSegments(complexity) {
-	switch (complexity) {
-		case "low" : return 8;
-		case "high": return 16;
-		default    : return 12;
-	}
-}
-
-function resolveSphereResolution(complexity) {
-	switch(complexity) {
-		case "low" : return { stacks: 6, slices: 8 };
-		case "high": return { stacks: 18, slices: 24 };
-		default    : return { stacks: 12, slices: 16 };
-	}
-}
-
-function resolveCapsuleCapStacks(complexity) {
-	switch(complexity) {
-		case "low" : return 4;
-		case "high": return 8;
-		default    : return 6;
-	}
-}
-
-function resolveTorusResolution(complexity) {
-	switch(complexity) {
-		case "low" : return { majorSegments: 12, minorSegments: 8 };
-		case "high": return { majorSegments: 32, minorSegments: 16 };
-		default    : return { majorSegments: 20, minorSegments: 12 };
-	}
-}
-
-function resolveRampCurveSegments(complexity) {
-	switch (complexity) {
-		case "low" : return 4;
-		case "high": return 12;
-		default    : return 8;
-	}
-}
-
-// Divide segmentCount into angular sectors: start/end column + mid-angle (radians). Shared by torus/tube face groups.
-function resolveSectorRange(sector, sectorCount, segmentCount) {
-	const start = Math.floor((sector / sectorCount) * segmentCount);
-	const end = Math.floor(((sector + 1) / sectorCount) * segmentCount);
-	return { start, end, midAngle: ((start + end) * 0.5 / segmentCount) * Math.PI * 2 };
-}
-
-function appendRadialVertices(positions, radiusX, y, radiusZ, segments) {
-	const start = positions.length / 3;
-	const vertexIndices = [];
-	for (let index = 0; index <= segments; index++) {
-		const angle = (index / segments) * Math.PI * 2;
-		positions.push(Math.cos(angle) * radiusX, y, Math.sin(angle) * radiusZ);
-		vertexIndices.push((positions.length / 3) - 1);
-	}
-
-	return { start, vertexIndices };
-}
-
-function appendTriangleFanIndices(indices, centerIndex, ringStart, segments, reverseWinding = false) {
-	for (let index = 0; index < segments; index++) {
-		const current = ringStart + index;
-		const next = ringStart + index + 1;
-		if (reverseWinding) indices.push(centerIndex, next, current);
-		else indices.push(centerIndex, current, next);
-	}
-}
-
-
 function generateSphereUvs(positions) {
 	const min = ToVector3(Infinity);
 	const max = ToVector3(-Infinity);
 
-	for (let index = 0; index < positions.length; index += 3) {
-		const { x, y, z } = { x: positions[index + 0], y: positions[index + 1], z: positions[index + 2] };
+	const vertexCount = positions.length / 3;
+	for (let index = 0; index < vertexCount; index++) {
+		const { x, y, z } = ArrayToVector3(positions, index, true);
 		if (x < min.x) min.x = x;
 		if (y < min.y) min.y = y;
 		if (z < min.z) min.z = z;
@@ -195,17 +93,16 @@ function generateSphereUvs(positions) {
 	}
 
 	const center = ScaleVector3(AddVector3(min, max), 0.5);
-	const radius = ScaleVector3(SubtractVector3(max, min), 0.5);
-	radius.x = Math.max(0.0001, radius.x);
-	radius.y = Math.max(0.0001, radius.y);
-	radius.z = Math.max(0.0001, radius.z);
+	const radius = MaxVector3(0.0001, ScaleVector3(SubtractVector3(max, min), 0.5));
 
 	const uvs = [];
-	for (let index = 0; index < positions.length; index += 3) {
-		const theta = Math.atan2(((positions[index + 2] - center.z) / radius.z), ((positions[index + 0] - center.x) / radius.x));
-		const u = (theta + Math.PI) / (Math.PI * 2);
-		const v = Math.acos(Clamp((positions[index + 1] - center.y) / radius.y, -1, 1)) / Math.PI;
-		uvs.push(u, v);
+	for (let index = 0; index < vertexCount; index++) {
+		const point = ArrayToVector3(positions, index, true);
+		const theta = Math.atan2(((point.z - center.z) / radius.z), ((point.x - center.x) / radius.x));
+		uvs.push(
+			(theta + Math.PI) / (Math.PI * 2), 
+			Math.acos(Clamp((point.y - center.y) / radius.y, -1, 1)) / Math.PI
+		);
 	}
 
 	return uvs;
@@ -219,18 +116,13 @@ function GenerateFaceProjectedUvs(positions, faceGroups, normalize = false) {
 		return                               ["x", "y"];
 	}
 
-	const getVertexVector = (positions, vertexIndex) => {
-		const offset = vertexIndex * 3;
-		return { x: positions[offset + 0], y: positions[offset + 1], z: positions[offset + 2] };
-	}
-
 	const uvs = new Array(positions.length / 3 * 2).fill(0);
 
 	if (!normalize) {
 		for (const group of faceGroups) {
 			const [uAxis, vAxis] = getProjectedAxesFromNormal(group.normal);
 			for (const vertexIndex of group.vertexIndices) {
-				const vertex = getVertexVector(positions, vertexIndex);
+				const vertex = ArrayToVector3(positions, vertexIndex, true);
 				const uvOffset = vertexIndex * 2;
 				uvs[uvOffset + 0] = vertex[uAxis];
 				uvs[uvOffset + 1] = vertex[vAxis];
@@ -246,7 +138,7 @@ function GenerateFaceProjectedUvs(positions, faceGroups, normalize = false) {
 		let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
 
 		for (const vertexIndex of group.vertexIndices) {
-			const vertex = getVertexVector(positions, vertexIndex);
+			const vertex = ArrayToVector3(positions, vertexIndex, true);
 			const u = vertex[uAxis];
 			const v = vertex[vAxis];
 			if (u < minU) minU = u;
@@ -260,7 +152,7 @@ function GenerateFaceProjectedUvs(positions, faceGroups, normalize = false) {
 		faceSpans.push({ uSpan, vSpan });
 
 		for (const vertexIndex of group.vertexIndices) {
-			const vertex = getVertexVector(positions, vertexIndex);
+			const vertex = ArrayToVector3(positions, vertexIndex, true);
 			const uvOffset = vertexIndex * 2;
 			uvs[uvOffset + 0] = (vertex[uAxis] - minU) / uSpan;
 			uvs[uvOffset + 1] = (vertex[vAxis] - minV) / vSpan;
@@ -282,8 +174,8 @@ function computeBounds(positions) {
 		max: new UnitVector3(positions[0], positions[1], positions[2], "cnu")
 	};
 
-	for (let index = 3; index < positions.length; index += 3) {
-		const local = { x: positions[index], y: positions[index + 1], z: positions[index + 2] };
+	for (let index = 1; index < positions.length / 3; index++) {
+		const local = ArrayToVector3(positions, index, true);
 		bounds.min.min(local);
 		bounds.max.max(local);
 	}
@@ -291,25 +183,17 @@ function computeBounds(positions) {
 	return bounds;
 }
 
-function TransformPointByMatrix(localPoint, matrix) {
-	return {
-		x: matrix[0] * localPoint.x + matrix[4] * localPoint.y + matrix[8] * localPoint.z + matrix[12],
-		y: matrix[1] * localPoint.x + matrix[5] * localPoint.y + matrix[9] * localPoint.z + matrix[13],
-		z: matrix[2] * localPoint.x + matrix[6] * localPoint.y + matrix[10] * localPoint.z + matrix[14],
-	};
-}
-
 function computeWorldAabbFromGeometry(positions, transform) {
 	// One matrix for the whole buffer — the transform is fixed across the sweep.
 	const matrix = CreateModelMatrix(transform);
-	const first  = TransformPointByMatrix({ x: positions[0], y: positions[1], z: positions[2] }, matrix);
+	const first  = TransformPointByMatrix(ArrayToVector3(positions, 0, true), matrix);
 	const bounds = {
 		min: new UnitVector3(first.x, first.y, first.z, "cnu"),
 		max: new UnitVector3(first.x, first.y, first.z, "cnu")
 	};
 
-	for (let index = 3; index < positions.length; index += 3) {
-		const world = TransformPointByMatrix({ x: positions[index], y: positions[index + 1], z: positions[index + 2] }, matrix);
+	for (let index = 1; index < positions.length / 3; index++) {
+		const world = TransformPointByMatrix(ArrayToVector3(positions, index, true), matrix);
 		bounds.min.min(world);
 		bounds.max.max(world);
 	}
@@ -351,673 +235,6 @@ function computeWorldAabbFromBounds(localBounds, transform) {
 	return bounds;
 }
 
-function buildCube(size) {
-	const s = size.clone().max(ToVector3(0.0001)).scale(0.5);
-
-	const positions = [
-		-s.x, -s.y,  s.z,  s.x, -s.y,  s.z,  s.x,  s.y,  s.z, -s.x,  s.y,  s.z,
-		 s.x, -s.y, -s.z, -s.x, -s.y, -s.z, -s.x,  s.y, -s.z,  s.x,  s.y, -s.z,
-		-s.x, -s.y, -s.z, -s.x, -s.y,  s.z, -s.x,  s.y,  s.z, -s.x,  s.y, -s.z,
-		 s.x, -s.y,  s.z,  s.x, -s.y, -s.z,  s.x,  s.y, -s.z,  s.x,  s.y,  s.z,
-		-s.x,  s.y,  s.z,  s.x,  s.y,  s.z,  s.x,  s.y, -s.z, -s.x,  s.y, -s.z,
-		-s.x, -s.y, -s.z,  s.x, -s.y, -s.z,  s.x, -s.y,  s.z, -s.x, -s.y,  s.z,
-	];
-
-	const indices = [
-		0, 1, 2, 0, 2, 3,
-		4, 5, 6, 4, 6, 7,
-		8, 9, 10, 8, 10, 11,
-		12, 13, 14, 12, 14, 15,
-		16, 17, 18, 16, 18, 19,
-		20, 21, 22, 20, 22, 23,
-	];
-
-	const faceGroups = [
-		{ normal: WORLD_NORMALS.Forward,  vertexIndices: [0,  1,  2,  3],  indexStart: 0,  indexCount: 6 },
-		{ normal: WORLD_NORMALS.Backward, vertexIndices: [4,  5,  6,  7],  indexStart: 6,  indexCount: 6 },
-		{ normal: WORLD_NORMALS.Left,     vertexIndices: [8,  9,  10, 11], indexStart: 12, indexCount: 6 },
-		{ normal: WORLD_NORMALS.Right,    vertexIndices: [12, 13, 14, 15], indexStart: 18, indexCount: 6 },
-		{ normal: WORLD_NORMALS.Up,       vertexIndices: [16, 17, 18, 19], indexStart: 24, indexCount: 6 },
-		{ normal: WORLD_NORMALS.Down,     vertexIndices: [20, 21, 22, 23], indexStart: 30, indexCount: 6 },
-	];
-
-	return { positions, indices, faceGroups };
-}
-
-function buildPyramid(size) {
-	const sx = size.x * 0.5;
-	const sy = size.y;
-	const sz = size.z * 0.5;
-	const baseFrontLeft = { x: -sx, y: 0, z: sz };
-	const baseFrontRight = { x: sx, y: 0, z: sz };
-	const baseBackRight = { x: sx, y: 0, z: -sz };
-	const baseBackLeft = { x: -sx, y: 0, z: -sz };
-	const apex = { x: 0, y: sy, z: 0 };
-
-	const positions = [];
-	const indices = [];
-	const faceGroups = [];
-
-	const pushVertex = (vertex) => {
-		positions.push(vertex.x, vertex.y, vertex.z);
-		return (positions.length / 3) - 1;
-	};
-
-	const addQuadFace = (a, b, c, d, normal) => {
-		const indexStart = indices.length;
-		const start = pushVertex(a);
-		pushVertex(b);
-		pushVertex(c);
-		pushVertex(d);
-		indices.push(start, start + 1, start + 2);
-		indices.push(start, start + 2, start + 3);
-		faceGroups.push({ normal, vertexIndices: [start, start + 1, start + 2, start + 3], indexStart, indexCount: 6 });
-	};
-
-	const addTriangleFace = (a, b, c) => {
-		const indexStart = indices.length;
-		const start = pushVertex(a);
-		pushVertex(b);
-		pushVertex(c);
-		indices.push(start, start + 1, start + 2);
-		const normal = ResolveVector3Axis(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a)));
-		faceGroups.push({ normal, vertexIndices: [start, start + 1, start + 2], indexStart, indexCount: 3 });
-	};
-
-	addQuadFace(baseBackLeft, baseBackRight, baseFrontRight, baseFrontLeft, WORLD_NORMALS.Down);
-	addTriangleFace(baseFrontLeft, baseFrontRight, apex);
-	addTriangleFace(baseFrontRight, baseBackRight, apex);
-	addTriangleFace(baseBackRight, baseBackLeft, apex);
-	addTriangleFace(baseBackLeft, baseFrontLeft, apex);
-
-	return { positions, indices, faceGroups };
-}
-
-function buildPlane(size) {
-	const sx = size.x * 0.5;
-	const sz = size.z * 0.5;
-
-	return {
-		positions: [
-			-sx, 0, sz,
-			sx, 0, sz,
-			sx, 0, -sz,
-			-sx, 0, -sz,
-		],
-		indices: [0, 1, 2, 0, 2, 3],
-		faceGroups: [{ normal: WORLD_NORMALS.Up, vertexIndices: [0, 1, 2, 3], indexStart: 0, indexCount: 6 }],
-	};
-}
-
-function buildCylinder(size, complexity) {
-	const radius = size.clone().divide(ToVector3(2));
-	const segments = resolveCylinderSegments(complexity);
-
-	const positions = [];
-	const indices = [];
-	const faceGroups = [];
-
-	const pushVertex = (x, y, z) => {
-		positions.push(x, y, z);
-		return (positions.length / 3) - 1;
-	};
-
-	for (let index = 0; index < segments; index++) {
-		const startAngle = (index / segments) * Math.PI * 2;
-		const endAngle = ((index + 1) / segments) * Math.PI * 2;
-		const startX = Math.cos(startAngle) * radius.x;
-		const startZ = Math.sin(startAngle) * radius.z;
-		const endX = Math.cos(endAngle) * radius.x;
-		const endZ = Math.sin(endAngle) * radius.z;
-		const start = pushVertex(startX, -radius.y, startZ);
-		pushVertex(startX, radius.y, startZ);
-		pushVertex(endX, radius.y, endZ);
-		pushVertex(endX, -radius.y, endZ);
-		const indexStart = indices.length;
-		indices.push(start, start + 1, start + 2);
-		indices.push(start, start + 2, start + 3);
-		const midAngle = startAngle + ((endAngle - startAngle) * 0.5);
-		faceGroups.push({
-			normal: { x: Math.cos(midAngle), y: 0, z: Math.sin(midAngle) },
-			vertexIndices: [start, start + 1, start + 2, start + 3],
-			indexStart,
-			indexCount: 6,
-		});
-	}
-
-	const topCenter = pushVertex(0, radius.y, 0);
-	const topRing = appendRadialVertices(positions, radius.x, radius.y, radius.z, segments);
-	const topIndexStart = indices.length;
-	appendTriangleFanIndices(indices, topCenter, topRing.start, segments, true);
-	faceGroups.push({ normal: WORLD_NORMALS.Up, vertexIndices: [topCenter, ...topRing.vertexIndices], indexStart: topIndexStart, indexCount: indices.length - topIndexStart });
-
-	const bottomCenter = pushVertex(0, -radius.y, 0);
-	const bottomRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
-	const bottomIndexStart = indices.length;
-	appendTriangleFanIndices(indices, bottomCenter, bottomRing.start, segments);
-	faceGroups.push({ normal: WORLD_NORMALS.Down, vertexIndices: [bottomCenter, ...bottomRing.vertexIndices], indexStart: bottomIndexStart, indexCount: indices.length - bottomIndexStart });
-
-	return { positions, indices, faceGroups };
-}
-
-function buildSphere(size, complexity) {
-	const radius = size.clone().divide(ToVector3(2));
-	const resolution = resolveSphereResolution(complexity);
-
-	const positions = [];
-	const indices = [];
-	const uvs = [];
-
-	for (let stack = 0; stack <= resolution.stacks; stack++) {
-		const v = stack / resolution.stacks;
-		const phi = v * Math.PI;
-		for (let slice = 0; slice <= resolution.slices; slice++) {
-			const u = slice / resolution.slices;
-			const theta = u * Math.PI * 2;
-			const x = Math.cos(theta) * Math.sin(phi) * radius.x;
-			const y = Math.cos(phi) * radius.y;
-			const z = Math.sin(theta) * Math.sin(phi) * radius.z;
-			positions.push(x, y, z);
-			uvs.push(u, v);
-		}
-	}
-
-	for (let stack = 0; stack < resolution.stacks; stack++) {
-		for (let slice = 0; slice < resolution.slices; slice++) {
-			const first = stack * (resolution.slices + 1) + slice;
-			const second = first + resolution.slices + 1;
-			// Skips the zero-area half of each pole cell.
-			if (stack !== 0) indices.push(first, first + 1, second);
-			if (stack !== resolution.stacks - 1) indices.push(second, first + 1, second + 1);
-		}
-	}
-
-	return { positions, indices, uvs, uvMode: "sphere" };
-}
-
-function buildCone(size, complexity) {
-	const radius = size.clone().divide(ToVector3(2));
-	const segments = resolveCylinderSegments(complexity);
-
-	const positions = [];
-	const indices = [];
-	const sideVertexIndices = [];
-	const baseVertexIndices = [];
-
-	const apexIndex = positions.length / 3;
-	positions.push(0, radius.y, 0);
-	sideVertexIndices.push(apexIndex);
-
-	const sideRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
-	sideVertexIndices.push(...sideRing.vertexIndices);
-
-	const sideIndexStart = indices.length;
-	for (let index = 0; index < segments; index++) indices.push(apexIndex, sideRing.start + index + 1, sideRing.start + index);
-	const sideIndexCount = indices.length - sideIndexStart;
-
-	const baseCenter = positions.length / 3;
-	positions.push(0, -radius.y, 0);
-	baseVertexIndices.push(baseCenter);
-
-	const baseRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments);
-	baseVertexIndices.push(...baseRing.vertexIndices);
-	const baseIndexStart = indices.length;
-	appendTriangleFanIndices(indices, baseCenter, baseRing.start, segments);
-
-	return {
-		positions, indices,
-		faceGroups: [
-			{ normal: WORLD_NORMALS.Up,   vertexIndices: sideVertexIndices, indexStart: sideIndexStart, indexCount: sideIndexCount },
-			{ normal: WORLD_NORMALS.Down, vertexIndices: baseVertexIndices, indexStart: baseIndexStart, indexCount: indices.length - baseIndexStart },
-		],
-	};
-}
-
-// rounding: share of each half-height taken by its cap.
-function buildCapsule(size, complexity, options) {
-	const radius = size.clone().divide(ToVector3(2));
-	const capHeight = radius.y * options.rounding;
-	const cylinderHalf = radius.y - capHeight;
-	const segments = resolveCylinderSegments(complexity);
-	const capStacks = resolveCapsuleCapStacks(complexity);
-
-	const positions = [];
-	const indices = [];
-	const rings = [];
-
-	const pushRing = (y, ringScaleX, ringScaleZ, groupName) => {
-		rings.push({ start: appendRadialVertices(positions, ringScaleX, y, ringScaleZ, segments).start, group: groupName });
-	};
-
-	for (let stack = 0; stack <= capStacks; stack++) {
-		const angle = (stack / capStacks) * Math.PI * 0.5;
-		const ringScale = Math.sin(angle);
-		pushRing(cylinderHalf + Math.cos(angle) * capHeight, radius.x * ringScale, radius.z * ringScale, "top");
-	}
-
-	pushRing(-cylinderHalf, radius.x, radius.z, "body");
-
-	for (let stack = 1; stack <= capStacks; stack++) {
-		const angle = (stack / capStacks) * Math.PI * 0.5;
-		const ringScale = Math.cos(angle);
-		pushRing(-cylinderHalf - Math.sin(angle) * capHeight, radius.x * ringScale, radius.z * ringScale, "bottom");
-	}
-
-	const topVertices = [];
-	const bodyVertices = [];
-	const bottomVertices = [];
-
-	for (let ring = 0; ring < rings.length - 1; ring++) {
-		for (let index = 0; index < segments; index++) {
-			const a = rings[ring].start + index;
-			const b = rings[ring].start + index + 1;
-			const c = rings[ring + 1].start + index;
-			const d = rings[ring + 1].start + index + 1;
-
-			indices.push(a, b, c);
-			indices.push(b, d, c);
-
-			if (rings[ring].group === "top" && rings[ring + 1].group === "top") topVertices.push(a, b, c, d);
-			else if (rings[ring].group === "bottom" && rings[ring + 1].group === "bottom") bottomVertices.push(a, b, c, d);
-			else bodyVertices.push(a, b, c, d);
-		}
-	}
-
-	return {
-		positions, indices,
-		faceGroups: [
-			{ normal: WORLD_NORMALS.Up, vertexIndices: topVertices },
-			{ normal: WORLD_NORMALS.Right, vertexIndices: bodyVertices },
-			{ normal: WORLD_NORMALS.Down, vertexIndices: bottomVertices },
-		],
-	};
-}
-
-// Reads a tube node's center, axes and ring radii from its frame matrix (Y is the forward axis).
-function makeTubeNode(frame, dimensionX, dimensionZ, thickness, curved, smoothness) {
-	return {
-		frame,
-		center:  { x: frame[12], y: frame[13], z: frame[14] },
-		forward: { x: frame[4],  y: frame[5],  z: frame[6]  },
-		xAxis:   { x: frame[0],  y: frame[1],  z: frame[2]  },
-		zAxis:   { x: frame[8],  y: frame[9],  z: frame[10] },
-		radiusX: dimensionX * 0.5,
-		radiusZ: dimensionZ * 0.5,
-		thickness,
-		curved,
-		smoothness,
-	};
-}
-
-// Walks the bone chain from an identity root frame, applying each node's transform on top of the previous frame.
-function resolveTubeNodes(size, options) {
-	const nodes = [makeTubeNode(CreateIdentityMatrix(), size.x, size.z, options.thickness.value, options.curved, options.smoothness)];
-	let frame = nodes[0].frame;
-	for (const node of options.nodes) {
-		frame = MultiplyMatrix4(frame, CreateModelMatrix({
-			position: node.localPosition,
-			rotation: node.localRotation,
-			scale: { x: 1, y: 1, z: 1 },
-			pivot: { x: 0, y: 0, z: 0 },
-		}));
-		nodes.push(makeTubeNode(frame, node.dimensions.x, node.dimensions.z, node.thickness.value, node.curved, node.smoothness));
-	}
-	return nodes;
-}
-
-// One cross-section in local X-Z, placed by the frame matrix. Solid omits the inner ring.
-function appendTubeRing(positions, matrix, radiusX, radiusZ, thickness, segments, solid) {
-	const pushRing = (ringRadiusX, ringRadiusZ) => {
-		const local = [];
-		appendRadialVertices(local, ringRadiusX, 0, ringRadiusZ, segments);
-		const vertexIndices = [];
-		for (let i = 0; i < local.length; i += 3) {
-			const point = TransformPointByMatrix({ x: local[i], y: local[i + 1], z: local[i + 2] }, matrix);
-			positions.push(point.x, point.y, point.z);
-			vertexIndices.push((positions.length / 3) - 1);
-		}
-		return vertexIndices;
-	};
-
-	const outerIndices = pushRing(radiusX, radiusZ);
-	if (solid) return { outerIndices, innerIndices: null };
-
-	const innerX = Math.max(0.00005, radiusX - Math.min(thickness, radiusX * 0.95));
-	const innerZ = Math.max(0.00005, radiusZ - Math.min(thickness, radiusZ * 0.95));
-	return { outerIndices, innerIndices: pushRing(innerX, innerZ) };
-}
-
-function frameToTubeMatrix(frame, position) {
-	const zAxis = CrossVector3(frame.normal, frame.tangent);
-	return [
-		frame.normal.x,  frame.normal.y,  frame.normal.z,  0,
-		frame.tangent.x, frame.tangent.y, frame.tangent.z, 0,
-		zAxis.x,         zAxis.y,         zAxis.z,         0,
-		position.x,      position.y,      position.z,      1,
-	];
-}
-
-function rollTubeFrame(frame, angle) {
-	const normal = AddVector3(ScaleVector3(frame.normal, Math.cos(angle)), ScaleVector3(frame.binormal, Math.sin(angle)));
-	return { tangent: frame.tangent, normal, binormal: CrossVector3(frame.tangent, normal) };
-}
-
-// Carries the cross-section along the connector, then spreads a roll so the end lines up with the target node's axis.
-function orientConnectorFrames(points, startAxis, targetAxis) {
-	const frames = ParallelTransportFrames(points, startAxis);
-	const last = frames.length - 1;
-	const endTangent = frames[last].tangent;
-	const target = ResolveVector3Axis(SubtractVector3(targetAxis, ScaleVector3(endTangent, DotVector3(targetAxis, endTangent))));
-	const residual = Math.atan2(
-		DotVector3(CrossVector3(frames[last].normal, target), endTangent),
-		DotVector3(frames[last].normal, target)
-	);
-	for (let i = 0; i <= last; i++) frames[i] = rollTubeFrame(frames[i], residual * (i / last));
-	return frames;
-}
-
-function stitchTubeRings(indices, ringA, ringB, segments, solid) {
-	for (let i = 0; i < segments; i++) {
-		const oa0 = ringA.outerIndices[i], oa1 = ringA.outerIndices[i + 1];
-		const ob0 = ringB.outerIndices[i], ob1 = ringB.outerIndices[i + 1];
-		indices.push(oa0, ob0, ob1);
-		indices.push(oa0, ob1, oa1);
-		if (solid) continue;
-		const ia0 = ringA.innerIndices[i], ia1 = ringA.innerIndices[i + 1];
-		const ib0 = ringB.innerIndices[i], ib1 = ringB.innerIndices[i + 1];
-		indices.push(ia0, ib1, ib0);
-		indices.push(ia0, ia1, ib1);
-	}
-}
-
-// Solid caps with a disc instead of an annulus.
-function capTubeRing(indices, ring, segments, forward, solid) {
-	if (solid) {
-		const apex = ring.outerIndices[0];
-		for (let i = 1; i < segments - 1; i++) {
-			const o0 = ring.outerIndices[i], o1 = ring.outerIndices[i + 1];
-			if (forward) indices.push(apex, o1, o0);
-			else indices.push(apex, o0, o1);
-		}
-		return;
-	}
-
-	for (let i = 0; i < segments; i++) {
-		const o0 = ring.outerIndices[i], o1 = ring.outerIndices[i + 1];
-		const in0 = ring.innerIndices[i], in1 = ring.innerIndices[i + 1];
-		if (forward) {
-			indices.push(o0, in1, o1);
-			indices.push(o0, in0, in1);
-		} 
-		else {
-			indices.push(o0, o1, in1);
-			indices.push(o0, in1, in0);
-		}
-	}
-}
-
-// Face groups per connector: angular sectors with radial normals, like buildTorus.
-function appendTubeConnectorFaceGroups(faceGroups, rings, node, segments, solid) {
-	const sectorCount = Math.min(8, segments);
-	for (let sector = 0; sector < sectorCount; sector++) {
-		const { start: startColumn, end: endColumn, midAngle: angle } = resolveSectorRange(sector, sectorCount, segments);
-		const outerVertices = [];
-		const innerVertices = [];
-		for (const ring of rings) {
-			for (let column = startColumn; column <= endColumn; column++) {
-				outerVertices.push(ring.outerIndices[column]);
-				if (!solid) innerVertices.push(ring.innerIndices[column]);
-			}
-		}
-		const radial = AddVector3(ScaleVector3(node.xAxis, Math.cos(angle)), ScaleVector3(node.zAxis, Math.sin(angle)));
-		faceGroups.push({ normal: radial, vertexIndices: outerVertices });
-		if (!solid) faceGroups.push({ normal: ScaleVector3(radial, -1), vertexIndices: innerVertices });
-	}
-}
-
-function buildTube(size, complexity, options) {
-	const segments = resolveCylinderSegments(complexity);
-	const nodes = resolveTubeNodes(size, options);
-	const solid = options.solid;
-
-	const positions = [];
-	const indices = [];
-	const faceGroups = [];
-
-	const nodeRings = nodes.map((node) => appendTubeRing(positions, node.frame, node.radiusX, node.radiusZ, node.thickness, segments, solid));
-	const centerline = [nodes[0].center];
-	const lerp = (a, b, t) => a + ((b - a) * t);
-
-	for (let i = 0; i < nodes.length - 1; i++) {
-		const nodeA = nodes[i];
-		const nodeB = nodes[i + 1];
-		const rings = [nodeRings[i]];
-
-		// Zero-length segments have no centerline to curve; their end rings stitch directly.
-		if (nodeA.curved && Vector3Distance(nodeA.center, nodeB.center) > EPSILON) {
-			const backward = ScaleVector3(nodeB.forward, -1);
-			const points = SampleConnectorCenterline(nodeA.center, nodeA.forward, nodeB.center, backward, nodeA.smoothness, segments);
-			const frames = orientConnectorFrames(points, nodeA.xAxis, nodeB.xAxis);
-			for (let j = 1; j < points.length - 1; j++) {
-				const t = j / (points.length - 1);
-				centerline.push(points[j]);
-				rings.push(appendTubeRing(
-					positions,
-					frameToTubeMatrix(frames[j], points[j]),
-					lerp(nodeA.radiusX, nodeB.radiusX, t),
-					lerp(nodeA.radiusZ, nodeB.radiusZ, t),
-					lerp(nodeA.thickness, nodeB.thickness, t),
-					segments,
-					solid
-				));
-			}
-		}
-
-		rings.push(nodeRings[i + 1]);
-		centerline.push(nodeB.center);
-
-		for (let r = 0; r < rings.length - 1; r++) stitchTubeRings(indices, rings[r], rings[r + 1], segments, solid);
-		appendTubeConnectorFaceGroups(faceGroups, rings, nodeA, segments, solid);
-	}
-
-	const firstRing = nodeRings[0];
-	const lastRing = nodeRings[nodeRings.length - 1];
-	const capVertices = (ring) => solid ? [...ring.outerIndices] : [...ring.outerIndices, ...ring.innerIndices];
-	capTubeRing(indices, firstRing, segments, false, solid);
-	capTubeRing(indices, lastRing, segments, true, solid);
-	faceGroups.push({ normal: ScaleVector3(nodes[0].forward, -1), vertexIndices: capVertices(firstRing) });
-	faceGroups.push({ normal: nodes[nodes.length - 1].forward, vertexIndices: capVertices(lastRing) });
-
-	return { positions, indices, faceGroups, centerline };
-}
-
-function buildTorus(size, complexity, options) {
-	const majorRadius = Math.max(0.0002, ToNumber(options.radius, size.x * 0.5));
-	const minorRadius = Math.max(0.0001, Math.min(ToNumber(options.thickness, size.y * 0.25), majorRadius * 0.95));
-	const resolution = resolveTorusResolution(complexity);
-	const majorSegments = resolution.majorSegments;
-	const minorSegments = resolution.minorSegments;
-
-	const positions = [];
-	const indices = [];
-
-	for (let major = 0; major <= majorSegments; major++) {
-		const u = (major / majorSegments) * Math.PI * 2;
-		for (let minor = 0; minor <= minorSegments; minor++) {
-			const v = (minor / minorSegments) * Math.PI * 2;
-			const ringRadius = majorRadius + (minorRadius * Math.cos(v));
-			positions.push(ringRadius * Math.cos(u), minorRadius * Math.sin(v), ringRadius * Math.sin(u));
-		}
-	}
-
-	const stride = minorSegments + 1;
-	for (let major = 0; major < majorSegments; major++) {
-		for (let minor = 0; minor < minorSegments; minor++) {
-			const a = major * stride + minor;
-			const b = (major + 1) * stride + minor;
-			const c = a + 1;
-			const d = b + 1;
-			indices.push(a, c, b);
-			indices.push(c, d, b);
-		}
-	}
-
-	const sectorCount = Math.min(8, majorSegments);
-	const faceGroups = [];
-	for (let sector = 0; sector < sectorCount; sector++) {
-		const { start: startMajor, end: endMajor, midAngle: sectorMid } = resolveSectorRange(sector, sectorCount, majorSegments);
-		const vertexIndices = [];
-		for (let major = startMajor; major <= endMajor + 1; major++) {
-			const wrappedMajor = Math.min(major, majorSegments);
-			for (let minor = 0; minor <= minorSegments; minor++) vertexIndices.push((wrappedMajor * stride) + minor);
-		}
-
-		faceGroups.push({ normal: { x: Math.cos(sectorMid), y: 0, z: Math.sin(sectorMid) }, vertexIndices });
-	}
-
-	return { positions, indices, faceGroups };
-}
-
-function resolveRampShape(size) {
-	const halfDepth = size.z * 0.5;
-	const baseY = -size.y * 0.5;
-	const slopeAngle = Math.atan2(size.y, halfDepth * 2);
-	const slopeNormal = { x: 0, y: Math.cos(slopeAngle), z: -Math.sin(slopeAngle) };
-	return { halfWidth: size.x * 0.5, halfDepth, baseY, rise: size.y, backY: baseY + size.y, slopeNormal };
-}
-
-function buildRampSimple(size) {
-	const ramp = resolveRampShape(size);
-	const positions = [
-		-ramp.halfWidth, ramp.baseY, -ramp.halfDepth,
-		ramp.halfWidth, ramp.baseY, -ramp.halfDepth,
-		ramp.halfWidth, ramp.baseY, ramp.halfDepth,
-		-ramp.halfWidth, ramp.baseY, ramp.halfDepth,
-		ramp.halfWidth, ramp.backY, ramp.halfDepth,
-		-ramp.halfWidth, ramp.backY, ramp.halfDepth,
-	];
-
-	const indices = [
-		0, 1, 2,
-		0, 2, 3,
-		3, 2, 4,
-		3, 4, 5,
-		0, 5, 4,
-		0, 4, 1,
-		0, 3, 5,
-		1, 4, 2,
-	];
-
-	return {
-		positions, indices,
-		faceGroups: [
-			{ normal: WORLD_NORMALS.Down,    vertexIndices: [0, 1, 2, 3], indexStart: 0,  indexCount: 6 },
-			{ normal: WORLD_NORMALS.Forward, vertexIndices: [2, 3, 4, 5], indexStart: 6,  indexCount: 6 },
-			{ normal: ramp.slopeNormal,      vertexIndices: [0, 1, 4, 5], indexStart: 12, indexCount: 6 },
-			{ normal: WORLD_NORMALS.Left,    vertexIndices: [0, 3, 5],    indexStart: 18, indexCount: 3 },
-			{ normal: WORLD_NORMALS.Right,   vertexIndices: [1, 2, 4],    indexStart: 21, indexCount: 3 },
-		],
-	};
-}
-
-function buildRampComplex(size, complexity, options) {
-	const ramp = resolveRampShape(size);
-	const segments = resolveRampCurveSegments(complexity);
-	const depth = options.depth;
-	const positions = [];
-	const indices = [];
-	const topLeftIndices = [];
-	const topRightIndices = [];
-	const bottomLeftIndices = [];
-	const bottomRightIndices = [];
-
-	// Quadratic Bezier toe-to-crest; depth slides the control point toward the bottom-back corner.
-	const curveZ = (t) => ramp.halfDepth * (((2 * t) - 1) + (2 * depth * t * (1 - t)));
-
-	for (let index = 0; index <= segments; index++) {
-		const t = index / segments;
-		const z = curveZ(t);
-		const y = ramp.baseY + (ramp.rise * (((1 - t) * t * (1 - depth)) + (t * t)));
-		topLeftIndices.push(positions.length / 3);
-		positions.push(-ramp.halfWidth, y, z);
-		topRightIndices.push(positions.length / 3);
-		positions.push(ramp.halfWidth, y, z);
-		bottomLeftIndices.push(positions.length / 3);
-		positions.push(-ramp.halfWidth, ramp.baseY, z);
-		bottomRightIndices.push(positions.length / 3);
-		positions.push(ramp.halfWidth, ramp.baseY, z);
-	}
-
-	for (let index = 0; index < segments; index++) {
-		const topLeft = topLeftIndices[index];
-		const topRight = topRightIndices[index];
-		const nextTopLeft = topLeftIndices[index + 1];
-		const nextTopRight = topRightIndices[index + 1];
-		const bottomLeft = bottomLeftIndices[index];
-		const bottomRight = bottomRightIndices[index];
-		const nextBottomLeft = bottomLeftIndices[index + 1];
-		const nextBottomRight = bottomRightIndices[index + 1];
-
-		indices.push(topLeft, nextTopLeft, nextTopRight);
-		indices.push(topLeft, nextTopRight, topRight);
-
-		indices.push(bottomLeft, bottomRight, nextBottomRight);
-		indices.push(bottomLeft, nextBottomRight, nextBottomLeft);
-
-		// Toe column has no thickness — one triangle closes each side wall.
-		indices.push(bottomLeft, nextBottomLeft, nextTopLeft);
-		if (index > 0) indices.push(bottomLeft, nextTopLeft, topLeft);
-
-		indices.push(bottomRight, nextTopRight, nextBottomRight);
-		if (index > 0) indices.push(bottomRight, topRight, nextTopRight);
-	}
-
-	const backTopLeft = topLeftIndices[topLeftIndices.length - 1];
-	const backTopRight = topRightIndices[topRightIndices.length - 1];
-	const backBottomLeft = bottomLeftIndices[bottomLeftIndices.length - 1];
-	const backBottomRight = bottomRightIndices[bottomRightIndices.length - 1];
-	indices.push(backBottomLeft, backBottomRight, backTopRight);
-	indices.push(backBottomLeft, backTopRight, backTopLeft);
-
-	const topVertexIndices = [];
-	const bottomVertexIndices = [];
-	const leftVertexIndices = [];
-	const rightVertexIndices = [];
-	for (let index = 0; index <= segments; index++) {
-		topVertexIndices.push(topLeftIndices[index], topRightIndices[index]);
-		bottomVertexIndices.push(bottomLeftIndices[index], bottomRightIndices[index]);
-		leftVertexIndices.push(bottomLeftIndices[index], topLeftIndices[index]);
-		rightVertexIndices.push(bottomRightIndices[index], topRightIndices[index]);
-	}
-
-	return {
-		positions, indices,
-		faceGroups: [
-			{ normal: WORLD_NORMALS.Down, vertexIndices: bottomVertexIndices },
-			{ normal: WORLD_NORMALS.Forward, vertexIndices: [backBottomLeft, backBottomRight, backTopRight, backTopLeft] },
-			{ normal: ramp.slopeNormal, vertexIndices: topVertexIndices },
-			{ normal: WORLD_NORMALS.Left, vertexIndices: leftVertexIndices },
-			{ normal: WORLD_NORMALS.Right, vertexIndices: rightVertexIndices },
-		],
-	};
-}
-
-function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
-	switch (shape) {
-		case "cube"        : return buildCube(size);
-		case "cylinder"    : return buildCylinder(size, complexity);
-		case "sphere"      : return buildSphere(size, complexity);
-		case "capsule"     : return buildCapsule(size, complexity, primitiveOptions);
-		case "cone"        : return buildCone(size, complexity);
-		case "ramp-simple" : return buildRampSimple(size);
-		case "ramp-complex": return buildRampComplex(size, complexity, primitiveOptions);
-		case "tube"        : return buildTube(size, complexity, primitiveOptions);
-		case "torus"       : return buildTorus(size, complexity, primitiveOptions);
-		case "pyramid"     : return buildPyramid(size);
-		case "plane"       : return buildPlane(size);
-	}
-}
-
 // Builds+Freezes the geometry template for (blueprintId::partId), shared by ref across same-blueprint instances.
 function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiveOptions, texture) {
 	const geometry = BuildGeometry(shape, dimensions, complexity, primitiveOptions);
@@ -1044,7 +261,7 @@ function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiv
 		const frequencyConfigKey = textureBlueprint === undefined ? undefined : FREQUENCY_PATTERN_CONFIG[textureBlueprint.pattern];
 		if (frequencyConfigKey !== undefined) {
 			const uvScale = textureBlueprint.density * CONFIG.Rendering.Texture[frequencyConfigKey].Density * texture.density;
-			uvs.forEach(uv => uv *= uvScale);
+			for (let i=0; i < uvs.length; i++) uvs[i] *= uvScale;
 		}
 	}
 
@@ -1316,4 +533,4 @@ function UpdateObjectWorldAabb(mesh) {
 	return mesh.worldAabb;
 }
 
-export { BuildObject, UpdateObjectWorldAabb, BuildGeometry, GenerateUVs, GenerateFaceProjectedUvs, TransformPointByMatrix };
+export { BuildObject, UpdateObjectWorldAabb, GenerateUVs, GenerateFaceProjectedUvs };

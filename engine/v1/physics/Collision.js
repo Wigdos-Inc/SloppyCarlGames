@@ -6,7 +6,7 @@
 
 import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
 import { EPSILON } from "../core/meta.js";
-import { Clamp, Squared, Unit } from "../math/Utilities.js";
+import { Clamp, Unit } from "../math/Utilities.js";
 import {
 	AddVector3,
 	SubtractVector3,
@@ -21,15 +21,21 @@ import {
 	RotateByEuler,
 	TransportVector3,
 	WORLD_NORMALS,
+	CompareVector3,
+	MinVector3,
+	ToVector3,
+	MaxVector3,
 } from "../math/Vector3.js";
 import {
 	SweptAABB,
+	AabbCenter,
+	AabbHalfExtents,
 	AabbOverlap,
-	StrictAabbOverlap,
 	SphereSphereContact,
 	SphereAABBContact,
 	SphereOBBContact,
 	AabbObbContact,
+	AabbAabbContact,
 	SphereCapsuleContact,
 	CapsuleAABBContact,
 	CapsuleCapsuleContact,
@@ -45,6 +51,7 @@ import {
 	SweptSphereAABB,
 	SweptSphereOBB,
 	NoContact,
+	ChooseDeepestContact,
 } from "../math/Collision.js";
 import { ClassifySurface } from "./Correction.js";
 
@@ -193,41 +200,9 @@ function offsetDetailedBounds(bounds, offset) {
 	}
 }
 
-// Should probably be moved to other contact helper functions in math/Collision.js
-function aabbAabbContact(boundsA, boundsB) {
-	if (!AabbOverlap(boundsA, boundsB)) return NoContact();
-	const centerA = getAabbCenter(boundsA);
-	const centerB = getAabbCenter(boundsB);
-	const overlaps = [
-		{
-			depth: centerA.x <= centerB.x ? boundsA.max.x - boundsB.min.x : boundsB.max.x - boundsA.min.x,
-			normal: centerA.x <= centerB.x ? WORLD_NORMALS.Left : WORLD_NORMALS.Right,
-		},
-		{
-			depth: centerA.y <= centerB.y ? boundsA.max.y - boundsB.min.y : boundsB.max.y - boundsA.min.y,
-			normal: centerA.y <= centerB.y ? WORLD_NORMALS.Down : WORLD_NORMALS.Up,
-		},
-		{
-			depth: centerA.z <= centerB.z ? boundsA.max.z - boundsB.min.z : boundsB.max.z - boundsA.min.z,
-			normal: centerA.z <= centerB.z ? WORLD_NORMALS.Backward : WORLD_NORMALS.Forward,
-		},
-	];
-
-	let best = overlaps[0];
-	for (const overlap of overlaps) if (overlap.depth < best.depth) best = overlap;
-
-	return { hit: true, normal: CloneVector3(best.normal), depth: best.depth };
-}
-
-function chooseDeepestContact(best, candidate) {
-	if (!candidate.hit) return best;
-	if (!best.hit || candidate.depth > best.depth) return candidate;
-	return best;
-}
-
 function iterateCompoundSpheres(compound, contactFn) {
 	let best = NoContact();
-	compound.spheres.forEach(sphere => best = chooseDeepestContact(best, contactFn(sphere)));
+	compound.spheres.forEach(sphere => best = ChooseDeepestContact(best, contactFn(sphere)));
 	return best;
 }
 
@@ -262,7 +237,7 @@ function narrowphaseContact(boundsA, boundsB) {
 		case "traa": return invertContact(AabbTriangleSoupContact(boundsB, boundsA));
 		case "aavo": return AabbVoidWallContact(boundsA, boundsB);
 		case "voaa": return invertContact(AabbVoidWallContact(boundsB, boundsA));
-		case "aaaa": return aabbAabbContact(boundsA, boundsB);
+		case "aaaa": return AabbAabbContact(boundsA, boundsB);
 		case "aaob": return AabbObbContact(boundsA, boundsB);
 		case "obaa": return invertContact(AabbObbContact(boundsB, boundsA));
 
@@ -296,19 +271,6 @@ const GetSimDistanceValue = () => PERFORMANCE_SCALING.SimDistance.Tiers[CONFIG.P
 // A null viewer opts out of the gate entirely (payloads may carry no player).
 const IsBeyondSimDistance = (viewerPos, tgtPos) => viewerPos !== null && Vector3Distance(viewerPos, tgtPos) > GetSimDistanceValue().value;
 
-const getHalfExtents = (aabb) => aabb.max.clone().subtract(aabb.min).scale(0.5);
-
-function buildEntityAabbAtPosition(entityAabb, position) {
-	const halfExtents = getHalfExtents(entityAabb);
-	const centerPos = position.clone().add(getAabbCenter(entityAabb).subtract(position));
-	return {
-		min: centerPos.clone().subtract(halfExtents),
-		max: centerPos.clone().add(halfExtents),
-	};
-}
-
-const getAabbCenter = (aabb) => aabb.min.clone().add(aabb.max).scale(0.5);
-
 /**
  * Broadphase: collect all collidable scene objects within sim radius.
  */
@@ -316,9 +278,9 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 	const candidates = [];
 	const withinSimRadius = (aabb) => AabbOverlap(simRadiusAabb, aabb);
 
-	// Terrain (always solid).
+	// Terrain and obstacles authored with collisionShape "none" have no bounds and are skipped.
 	sceneGraph.terrain.forEach(mesh => {
-		if (!withinSimRadius(mesh.worldAabb)) return;
+		if (mesh.detailedBounds === null || !withinSimRadius(mesh.worldAabb)) return;
 		candidates.push({
 			id: mesh.id,
 			pairId: mesh.id,
@@ -332,7 +294,7 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 
 	// Obstacles.
 	sceneGraph.obstacles.forEach(obs => {
-		if (!withinSimRadius(obs.worldAabb)) return;
+		if (obs.detailedBounds === null || !withinSimRadius(obs.worldAabb)) return;
 		candidates.push({
 			id            : obs.id,
 			pairId        : obs.id,
@@ -441,17 +403,20 @@ function isVoidCancelled(entity, candidate, sceneGraph, motionOffset, contact) {
 	for (const ns of (isTerrain ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles)) {
 		if (ns.relations[candidate.ref.id]?.suppressed !== true) continue;
 		const entityAabb = motionOffset ? offsetAabb(entity.collision.aabb, motionOffset) : entity.collision.aabb;
-		if (!StrictAabbOverlap(entityAabb, expandAabbY(ns.worldAabb, voidBoundaryEpsilon.value))) continue;
-		// Center inside the cavity cancels the host outright.
-		if (PointInsideMesh(getAabbCenter(entityAabb), ns.solidTriangles)) return true;
+		if (!AabbOverlap(entityAabb, expandAabbY(ns.worldAabb, voidBoundaryEpsilon.value), true)) continue;
 
+		// Center inside the cavity cancels the host outright.
+		if (PointInsideMesh(AabbCenter(entityAabb), ns.solidTriangles)) return true;
+
+		// Probe sits contactMaterialProbe inside the host, behind the contact point.
 		if (contact && contact.point) {
-			// Probe sits contactMaterialProbe inside the host, behind the contact point.
 			if (PointInsideMesh(AddVector3(contact.point, ScaleVector3(contact.normal, -contactMaterialProbe.value)), ns.solidTriangles)) return true;
 			continue;
 		}
 
-		const entityBounds = motionOffset ? offsetDetailedBounds(entity.collision.physics.bounds, motionOffset) : entity.collision.physics.bounds;
+		const entityBounds = motionOffset 
+			? offsetDetailedBounds(entity.collision.physics.bounds, motionOffset) 
+			: entity.collision.physics.bounds;
 		if (ns.detailedBounds && NarrowphaseTest(entityBounds, ns.detailedBounds)) return true;
 	}
 
@@ -482,8 +447,8 @@ function CheckEntityTrueOverlap(entityA, entityB) {
  * SWEPT HELPERS
  * ======================================================================== */
 
-function checkSweptAabbPair(position, displacement, entityAabb, targetAabb) {
-	return SweptAABB(position.clone().add(getAabbCenter(entityAabb).subtract(position)), displacement, getHalfExtents(entityAabb), targetAabb);
+function checkSweptAabbPair(displacement, entityAabb, targetAabb) {
+	return SweptAABB(AabbCenter(entityAabb), displacement, AabbHalfExtents(entityAabb), targetAabb);
 }
 
 function checkSweptSpherePair(position, displacement, radius, targetAabb) {
@@ -605,7 +570,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 		if (candidate.type === "entity" && candidate.ref === entity) continue;
 
 		if (candidate.isTrigger) {
-			if (AabbOverlap(buildEntityAabbAtPosition(entity.collision.aabb, entity.transform.position), candidate.aabb)) {
+			if (AabbOverlap(entity.collision.aabb, candidate.aabb)) {
 				const item = poolPush(triggerResultPool);
 				item.target = candidate;
 				item.trigger = candidate.trigger;
@@ -617,7 +582,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 		// Swept test.
 		let swept;
 		if (useSphereSwept) swept = checkSweptSphereCandidatePair(sphereCenter, vel, sphereRadius, candidate);
-		else swept = checkSweptAabbPair(entity.transform.position, vel, entity.collision.aabb, candidate.aabb);
+		else swept = checkSweptAabbPair(vel, entity.collision.aabb, candidate.aabb);
 
 		if (swept.hit && swept.tEntry >= 0 && swept.tEntry <= 1) {
 			const cachedPair = isPlayer ? null : readReusableActiveCollisionPair(entity, candidate);
@@ -981,18 +946,22 @@ function ProbeGroundContact(entity, sceneGraph, groundSnapTolerance, candidates,
 
 	// Triangle closest to the probe by true distance.
 	const trySoup = (from, soup) => {
-		let soupDistanceSq = Squared(maxDist);
-		let soupTriangle = null;
-		let soupOffset = null;
+		let soupDistanceSq = maxDist ** 2, soupTriangle = null, soupOffset = null;
 		for (const triangle of soup.triangles) {
-			if (from.x < Math.min(triangle.a.x, triangle.b.x, triangle.c.x) - maxDist || from.x > Math.max(triangle.a.x, triangle.b.x, triangle.c.x) + maxDist) continue;
-			if (from.z < Math.min(triangle.a.z, triangle.b.z, triangle.c.z) - maxDist || from.z > Math.max(triangle.a.z, triangle.b.z, triangle.c.z) + maxDist) continue;
-			if (from.y < Math.min(triangle.a.y, triangle.b.y, triangle.c.y) - maxDist || from.y > Math.max(triangle.a.y, triangle.b.y, triangle.c.y) + maxDist) continue;
+			const { a,b,c } = triangle;
+			if (
+				CompareVector3(from, SubtractVector3(MinVector3(a, MinVector3(b, c)), ToVector3(maxDist)), "lesser") ||
+				CompareVector3(from, AddVector3(MaxVector3(a, MaxVector3(b, c)), ToVector3(maxDist)), "greater")
+			) {
+				continue;
+			}
 
 			const offset = reachesTriangle(from, triangle);
 			if (offset === null) continue;
+			
 			const distanceSq = Vector3Sq(offset);
 			if (distanceSq >= soupDistanceSq) continue;
+
 			soupDistanceSq = distanceSq;
 			soupTriangle = triangle;
 			soupOffset = offset;

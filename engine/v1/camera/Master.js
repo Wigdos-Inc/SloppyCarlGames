@@ -6,6 +6,7 @@
 import { CONFIG, CAMERA_TUNING } from "../core/config.js";
 import { EPSILON, Log } from "../core/meta.js";
 import {
+	AbsoluteVector3,
 	AddVector3,
 	AngleBetweenVector3,
 	AzimuthTurnVector3,
@@ -327,7 +328,7 @@ function checkCameraObstruction(origin, desiredCamPos, sceneGraph, radius, bodyA
 		// Closest reach: the camera's body clear of the target's extent along the arm.
 		const cameraRadius = CAMERA_TUNING.Body.Radius.value;
 		const { min, max } = bodyAabb;
-		const bodyReach = 0.5 * (Math.abs(dir.x) * (max.x - min.x) + Math.abs(dir.y) * (max.y - min.y) + Math.abs(dir.z) * (max.z - min.z));
+		const bodyReach = DotVector3(AbsoluteVector3(dir), SubtractVector3(max, min)) * 0.5;
 		closestT = Math.max(cameraRadius + bodyReach, closestT - cameraRadius);
 	}
 

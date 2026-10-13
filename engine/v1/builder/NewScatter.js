@@ -8,7 +8,8 @@
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateRenderMatrix } from "../math/Matrix.js";
-import { BuildObject, BuildGeometry, GenerateUVs } from "./NewObject.js";
+import { BuildObject, GenerateUVs } from "./NewObject.js";
+import { BuildGeometry } from "./NewPrimitive.js";
 import { ComputeGeneratedTextureID, ComputeCustomTextureSignature, InitializeDecalDisplay } from "./NewTexture.js";
 import { RotateByEuler, MultiplyVector3, ScaleVector3, CloneVector3, WORLD_NORMALS, DotVector3, AbsoluteVector3 } from "../math/Vector3.js";
 import visualTemplates from "./templates/textures.json" with { type: "json" };

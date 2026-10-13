@@ -1258,7 +1258,6 @@ async function LevelPayload(payload) {
 	freeCam.speedStep = new Unit(freeCam.speedStep, "cnu");
 	normalized.camera.heightOffset = new Unit(normalized.camera.heightOffset, "cnu");
 	normalized.camera.levelOpening.startPosition = toUnitVector3(normalized.camera.levelOpening.startPosition, "cnu");
-	normalized.camera.levelOpening.endPosition = toUnitVector3(normalized.camera.levelOpening.endPosition, "cnu");
 	normalizeCameraMaps(normalized.camera);
 
 	normalized.terrain.objects = normalizeArray(rawPayload.terrain?.objects).value.map((entry) =>

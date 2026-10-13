@@ -34,12 +34,10 @@
 					"camera": {
 						"activeSet": "carlCamSet",
 						"distance": {"min":3,"default":6,"max":12},
-						"sensitivity": 0.12,
 						"heightOffset": 1.5,
 						"aimHeight": 1.2,
 						"levelOpening": {
-							"startPosition": {"x":650,"y":30,"z":561.127},
-							"endPosition": {"x":650,"y":30,"z":561.127}
+							"startPosition": {"x":650,"y":30,"z":561.127}
 						}
 					},
 					"player": {

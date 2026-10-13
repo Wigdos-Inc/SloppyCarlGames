@@ -1,4 +1,4 @@
-import { CloneVector3, ScaleVector3 } from "./Vector3.js";
+import { AddVector3, ArrayToVector3, CloneVector3, ScaleVector3 } from "./Vector3.js";
 import { Clamp, CNU_SCALE } from "./Utilities.js";
 
 function CreateIdentityMatrix() {
@@ -24,6 +24,14 @@ function MultiplyMatrix4(a, b) {
 	return out;
 }
 
+function TransformPointByMatrix(localPoint, matrix) {
+	return {
+		x: matrix[0] * localPoint.x + matrix[4] * localPoint.y + matrix[8] * localPoint.z + matrix[12],
+		y: matrix[1] * localPoint.x + matrix[5] * localPoint.y + matrix[9] * localPoint.z + matrix[13],
+		z: matrix[2] * localPoint.x + matrix[6] * localPoint.y + matrix[10] * localPoint.z + matrix[14],
+	};
+}
+
 function createTranslationMatrix(position) {
 	return [
 		1, 0, 0, 0,
@@ -43,8 +51,7 @@ function createScaleMatrix(scale) {
 }
 
 function createRotationX(radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
+	const c = Math.cos(radians), s = Math.sin(radians);
 	return [
 		1, 0, 0, 0,
 		0, c, s, 0,
@@ -54,8 +61,7 @@ function createRotationX(radians) {
 }
 
 function createRotationY(radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
+	const c = Math.cos(radians), s = Math.sin(radians);
 	return [
 		c, 0, -s, 0,
 		0, 1, 0, 0,
@@ -65,8 +71,7 @@ function createRotationY(radians) {
 }
 
 function createRotationZ(radians) {
-	const c = Math.cos(radians);
-	const s = Math.sin(radians);
+	const c = Math.cos(radians), s = Math.sin(radians);
 	return [
 		c, s, 0, 0,
 		-s, c, 0, 0,
@@ -150,13 +155,8 @@ function buildModelMatrix(position, pivotPost, rotation, scale, pivotPre) {
 }
 
 function CreateModelMatrix(transform) {
-	return buildModelMatrix(
-		transform.position,
-		transform.pivot,
-		transform.rotation,
-		transform.scale,
-		transform.pivot,
-	);
+	const { position, pivot, rotation, scale } = transform;
+	return buildModelMatrix(position, pivot, rotation, scale, pivot);
 }
 
 function CreateRenderMatrix(transform) {
@@ -180,6 +180,15 @@ function CreateRenderMatrixCache(transform) {
 	};
 }
 
+// The six walls of what a projection × view matrix can see, each as [x, y, z, offset] facing inward.
+function FrustumPlanes(matrix) {
+	const row = (r) => [matrix[r], matrix[4 + r], matrix[8 + r], matrix[12 + r]];
+	const [r0, r1, r2, r3] = [row(0), row(1), row(2), row(3)];
+	const plus  = (r) => r3.map((value, i) => value + r[i]);
+	const minus = (r) => r3.map((value, i) => value - r[i]);
+	return [plus(r0), minus(r0), plus(r1), minus(r1), plus(r2), minus(r2)];
+}
+
 export {
 	ComposeEulerRotations,
 	EulerFromBasis,
@@ -187,5 +196,7 @@ export {
 	CreateModelMatrix,
 	CreateRenderMatrix,
 	CreateRenderMatrixCache,
+	FrustumPlanes,
 	MultiplyMatrix4,
+	TransformPointByMatrix,
 };

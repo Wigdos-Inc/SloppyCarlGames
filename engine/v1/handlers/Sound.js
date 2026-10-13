@@ -76,18 +76,18 @@ function PlayAudio(src, options, channel = "Sfx") {
 	if (audioPayload === null) return Promise.resolve();
 
 	const state = oneShotChannels[channel];
-	state.nextId++;
+	const id = ++state.nextId;
 	const label = audioPayload.id || audioPayload.name || audioPayload.src;
 
-	Log("ENGINE", `Audio play (${state.logLabel}): ${state.nextId} ${label}`, "log", "Audio");
+	Log("ENGINE", `Audio play (${state.logLabel}): ${id} ${label}`, "log", "Audio");
 
 	const audio = playAudio(audioPayload.src, audioPayload, channel);
-	state.active.push({ id: state.nextId, src: audioPayload.src, label, audio, options: audioPayload });
+	state.active.push({ id, src: audioPayload.src, label, audio, options: audioPayload });
 
 	return new Promise((resolve) => {
 		// Clean up audio tracking on completion.
 		const finalize = () => {
-			const index = state.active.findIndex((item) => item.id === state.nextId);
+			const index = state.active.findIndex((item) => item.id === id);
 			if (index >= 0) state.active.splice(index, 1);
 			resolve();
 		};
@@ -188,10 +188,7 @@ function UpdateActiveAudioVolumes() {
 	oneShotChannels.Voice.active.forEach((item) => configureAudio(item.audio, item.options, "Voice"));
 
 	const cutsceneVideo = document.getElementById("engine-intro-video") ?? null;
-	if (cutsceneVideo) {
-		const volume = resolveVolume("Cutscene", null);
-		cutsceneVideo.volume = Clamp01(volume);
-	}
+	if (cutsceneVideo) cutsceneVideo.volume = Clamp01(resolveVolume("Cutscene", null));
 }
 
 /* === EXPORTS === */

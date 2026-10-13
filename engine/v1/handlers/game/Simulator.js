@@ -15,20 +15,28 @@ import { ValidateSimulatorPayload, ValidateSimulatorBulkPayload } from "../../co
 import { MergeAabb, CreateDetailedBoundsFromParts } from "../../builder/NewObstacle.js";
 import { UpdateObjectWorldAabb } from "../../builder/NewObject.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
-import { Squared, UnitVector3 } from "../../math/Utilities.js";
+import { UnitVector3 } from "../../math/Utilities.js";
 import simulatorTemplates from "../../builder/templates/levels.json" with { type: "json" };
 import terrainTemplates from "../../builder/templates/terrain.json" with { type: "json" };
 import obstacleTemplates from "../../builder/templates/obstacles.json" with { type: "json" };
 import characterTemplates from "../../builder/templates/characters.json" with { type: "json" };
 import enemyTemplates from "../../builder/templates/enemies.json" with { type: "json" };
 import projectileTemplates from "../../builder/templates/projectiles.json" with { type: "json" };
-import { CloneVector3, SubtractVector3, AddVector3, ScaleVector3, CrossVector3, ResolveVector3Axis, WORLD_NORMALS, ToVector3, DivideVector3, MultiplyVector3 } from "../../math/Vector3.js";
+import { 
+	ArrayToVector3, 
+	CloneVector3, 
+	SubtractVector3, 
+	AddVector3, 
+	ScaleVector3, 
+	ResolveVector3Axis, 
+	WORLD_NORMALS, 
+	ToVector3, 
+	DivideVector3, 
+	MultiplyVector3, 
+	Vector3Sq 
+} from "../../math/Vector3.js";
 import { CreateModelMatrix } from "../../math/Matrix.js";
-
-// Platform padding and camera-fit factors relative to the loaded object's bounds.
-const platformPadFactor = 1.6;
-const framingFactor     = 1.8;
-const heightFraction    = 0.5;
+import { TriangleNormal } from "../../math/Collision.js";
 
 const templateDisc   = simulatorTemplates.simulatorLevel.terrain.objects[0];
 const templateCamera = simulatorTemplates.simulatorLevel.camera;
@@ -223,11 +231,13 @@ function spawnPlatform(sceneGraph, footprintXZ) {
 // Fits OrbitCam framing and follow target to the loaded object's bounds; returns its extent.
 function frameLoadedObject(aabb) {
 	const ext = SubtractVector3(aabb.max, aabb.min);
-	const distance     = Math.max(templateCamera.distance.default, framingFactor * Math.max(ext.x, ext.z, ext.y));
-	const heightOffset = Math.max(templateCamera.heightOffset, ext.y * heightFraction);
-	SetOrbitCamFraming({ distance, heightOffset });
+	SetOrbitCamFraming({ 
+		distance    : Math.max(templateCamera.distance.default, 1.8 * Math.max(ext.x, ext.z, ext.y)), 
+		heightOffset: Math.max(templateCamera.heightOffset, ext.y * 0.5)
+	});
 
-	const center = aabb.max.clone().add(aabb.min).scale(0.5); center.y = aabb.min.y + ext.y * templateCamera.aimHeight;
+	const center = aabb.max.clone().add(aabb.min).scale(0.5); 
+	center.y = aabb.min.y + ext.y * templateCamera.aimHeight;
 	simulatorRuntime.followTarget = { transform: { position: center } };
 	return ext;
 }
@@ -327,7 +337,7 @@ async function Load(payload) {
 	if (objectType !== "terrain") {
 		// Resize the platform to the object's footprint.
 		DespawnFromScene(simulatorRuntime.platformMesh, "terrain", sceneGraph);
-		const footprint = Math.max(templateDisc.dimensions.x, Math.max(ext.x, ext.z) * platformPadFactor);
+		const footprint = Math.max(templateDisc.dimensions.x, Math.max(ext.x, ext.z) * 1.6);
 		simulatorRuntime.platformMesh = spawnPlatform(sceneGraph, footprint);
 	}
 
@@ -335,10 +345,12 @@ async function Load(payload) {
 
 	// Terrain spawns return an array of meshes; every other type returns one carrier.
 	const carriers = objectType === "terrain" ? built : [built];
-	const requests = carriers.flatMap((carrier) => ParticleGeneratorRequests(carrier, ENTITY_TYPES.includes(objectType) ? "entity" : objectType));
+	const requests = carriers.flatMap(
+		(carrier) => ParticleGeneratorRequests(carrier, ENTITY_TYPES.includes(objectType) ? "entity" : objectType)
+	);
 
 	// Force-disable physics in the Simulator
-	requests.forEach((request) => { request.overrides = WithParticleOverride(request.overrides, "physics", "none"); });
+	requests.forEach((request) => request.overrides = WithParticleOverride(request.overrides, "physics", "none"));
 	SpawnParticleRequests(requests, sceneGraph);
 
 	Log("ENGINE", `Simulator loaded: id=${definition.id}, type=${objectType}`, "log", "Simulator");
@@ -347,7 +359,10 @@ async function Load(payload) {
 async function CacheEntries(bulkPayload) {
 	Log("ENGINE", "Simulator cache request received.", "log", "Simulator");
 	const validated = await ValidateSimulatorBulkPayload(bulkPayload);
-	for (const entry of validated) simulatorCache.set(entry.definition.id, { definition: entry.definition, objectType: entry.objectType });
+	for (const entry of validated) simulatorCache.set(
+		entry.definition.id, 
+		{ definition: entry.definition, objectType: entry.objectType }
+	);
 	Log("ENGINE", `Simulator caching complete: ${validated.length} entries.\n${validated.map(e => `- ${e.definition.id} (${e.objectType})`).join("\n")}`, "log", "Simulator");
 }
 
@@ -428,7 +443,7 @@ function meshPrimitiveSpans(mesh) {
 }
 
 function triangleNormal(pa, pb, pc) {
-	const normal = ResolveVector3Axis(CrossVector3(SubtractVector3(pb, pa), SubtractVector3(pc, pa)));
+	const normal = TriangleNormal(pa, pb, pc);
 	return normal.x === 0 && normal.y === 0 && normal.z === 0 ? WORLD_NORMALS.Up : normal;
 }
 
@@ -467,13 +482,10 @@ function buildMeshVertices(mesh, span) {
 	const { positions, indices, uvs } = mesh.geometry;
 	const triplanar = mesh.geometry.triplanar === true;
 	const data      = createVertexData(span.indexCount / 3);
-	const pointAt   = (index) => ({ x: positions[index * 3], y: positions[index * 3 + 1], z: positions[index * 3 + 2] });
 
 	for (let offset = 0; offset < span.indexCount; offset += 3) {
-		const ia = indices[span.indexStart + offset];
-		const ib = indices[span.indexStart + offset + 1];
-		const ic = indices[span.indexStart + offset + 2];
-		const pa = pointAt(ia), pb = pointAt(ib), pc = pointAt(ic);
+		const { x: ia, y: ib, z: ic } = ArrayToVector3(indices, span.indexStart + offset);
+		const pa = ArrayToVector3(positions, ia, true), pb = ArrayToVector3(positions, ib, true), pc = ArrayToVector3(positions, ic, true);
 		const normal = triangleNormal(pa, pb, pc);
 		const uv     = triplanar
 			? triplanarTriangleUvs(pa, pb, pc, normal, mesh.material.textureScale)
@@ -489,13 +501,14 @@ function buildMeshVertices(mesh, span) {
 function decalSurfaceNormal(shapeCode, point, halfExtents, rounding, faceAxis) {
 	switch (shapeCode) {
 		case DECAL_SHAPE_CODES.Flat    : return faceAxis;
-		case DECAL_SHAPE_CODES.Cylinder: return ResolveVector3Axis({ x: point.x / Squared(halfExtents.x), y: 0, z: point.z / Squared(halfExtents.z) });
+		case DECAL_SHAPE_CODES.Cylinder: 
+			return ResolveVector3Axis({ x: point.x / (halfExtents.x ** 2), y: 0, z: point.z / (halfExtents.z ** 2) });
 		case DECAL_SHAPE_CODES.Capsule :
 			const band = CapsuleBand(halfExtents, rounding, point.y);
 			return ResolveVector3Axis({ 
-				x: point.x / Squared(halfExtents.x), 
-				y: (point.y - band.originY) / Squared(band.capRadius), 
-				z: point.z / Squared(halfExtents.z) 
+				x: point.x / (halfExtents.x ** 2), 
+				y: (point.y - band.originY) / (band.capRadius ** 2), 
+				z: point.z / (halfExtents.z ** 2) 
 			});
 		default: return  ResolveVector3Axis(DivideVector3(point, MultiplyVector3(halfExtents, halfExtents)));
 	}
@@ -511,7 +524,10 @@ function clipToDecalSquare(polygon) {
 			if (da >= 0) kept.push(a);
 			if ((da > 0 && db < 0) || (da < 0 && db > 0)) {
 				const t = da / (da - db);
-				kept.push({ point: AddVector3(a.point, ScaleVector3(SubtractVector3(b.point, a.point), t)), u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t });
+				kept.push({ 
+					point: AddVector3(a.point, ScaleVector3(SubtractVector3(b.point, a.point), t)), 
+					u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t 
+				});
 			}
 		});
 		if (kept.length < 3) return [];
@@ -522,21 +538,24 @@ function clipToDecalSquare(polygon) {
 
 // Host facets, lifted by a fixed epsilon since glTF has no polygon offset.
 function buildDecalVertices(mesh, decalEntry, lift) {
-	const halfExtents = mesh.dimensions.clone().divide(ToVector3(2));
+	const halfExtents = mesh.dimensions.clone().scale(0.5);
 	const rounding    = DecalRounding(mesh.shape, mesh.detail.primitiveOptions);
 	const shapeCode   = ResolveDecalShapeCode(mesh.shape, decalEntry.side);
-	const faceMatrix  = DECAL_FACE_ROTATIONS[decalEntry.side];
-	const faceAxis    = { x: faceMatrix[8], y: faceMatrix[9], z: faceMatrix[10] };
 	const placement   = BuildDecalPlacementMatrix(mesh.dimensions, decalEntry.localTransform, decalEntry.side);
 	const { positions, uvs } = SelectDecalFacets(mesh.geometry, placement, shapeCode, halfExtents, rounding, 1);
-	const corner    = (index) => ({ point: { x: positions[index * 3], y: positions[index * 3 + 1], z: positions[index * 3 + 2] }, u: uvs[index * 2], v: uvs[index * 2 + 1] });
+	
+	const corner    = (index) => ({ point: ArrayToVector3(positions, index, true), u: uvs[index * 2], v: uvs[index * 2 + 1] });
 	const windingOf = (first) => Math.sign((uvs[first * 2 + 2] - uvs[first * 2]) * (uvs[first * 2 + 5] - uvs[first * 2 + 1]) - (uvs[first * 2 + 4] - uvs[first * 2]) * (uvs[first * 2 + 3] - uvs[first * 2 + 1]));
 
 	// Uv winding flips only across a sphere's antipodal fold; the facet nearest the center sets the true one.
 	let winding = 0, nearest = Infinity;
+	const decalCenter = ArrayToVector3(placement, 12);
+	const centerDistanceSq = (index) => Vector3Sq(SubtractVector3(
+		ArrayToVector3(positions, index, true), 
+		ArrayToVector3(placement, 12)
+	));
 	for (let first = 0; first < positions.length / 3; first += 3) {
-		let distance = 0;
-		for (let slot = 0; slot < 9; slot++) distance += Squared(positions[first * 3 + slot] - placement[12 + slot % 3]);
+		const distance = centerDistanceSq(first) + centerDistanceSq(first + 1) + centerDistanceSq(first + 2);
 		if (distance < nearest && windingOf(first) !== 0) { nearest = distance; winding = windingOf(first); }
 	}
 
@@ -575,7 +594,8 @@ function buildDecalVertices(mesh, decalEntry, lift) {
 		}
 	}
 
-	const data = createVertexData(corners.length / 3);
+	const faceAxis = ArrayToVector3(DECAL_FACE_ROTATIONS[decalEntry.side], 8);
+	const data     = createVertexData(corners.length / 3);
 	corners.forEach(({ point, u, v }) => {
 		const normal = decalSurfaceNormal(shapeCode, point, halfExtents, rounding, faceAxis);
 		pushVertex(data, AddVector3(point, ScaleVector3(normal, lift)), normal, u + 0.5, 0.5 - v);
@@ -588,6 +608,7 @@ async function encodeTextureImage(source) {
 	const canvas  = document.createElement("canvas");
 	canvas.width  = source.width;
 	canvas.height = source.height;
+	
 	const context = canvas.getContext("2d");
 	context.drawImage(source, 0, 0);
 
@@ -791,13 +812,9 @@ const GetFullState       = () => simulatorRuntime;
 
 function HandleSimulatorInput(event) {
 	if (event.type !== "keydown") return false;
-	if (event.code === "Escape") {
-		Exit();
-		return true;
-	}
-	if (event.code === "KeyE") {
-		Download();
-		return true;
+	switch (event.code) {
+		case "Escape": Exit()    ; return true;
+		case "KeyE"  : Download(); return true;
 	}
 
 	if (simulatorRuntime.entity === null || simulatorRuntime.animSetKeys.length === 0) return false;
@@ -835,4 +852,16 @@ function UpdateSimulator(deltaSeconds, sceneGraph) {
 	}
 }
 
-export { Start, Load, CacheEntries as Cache, Clear, Exit, Download, IsSimulatorActive, HandleSimulatorInput, UpdateSimulator, GetModelState, GetFullState };
+export { 
+	Start, 
+	Load, 
+	CacheEntries as Cache, 
+	Clear, 
+	Exit, 
+	Download, 
+	IsSimulatorActive, 
+	HandleSimulatorInput, 
+	UpdateSimulator, 
+	GetModelState, 
+	GetFullState 
+};

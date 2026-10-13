@@ -248,7 +248,7 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	if (enteredLoop) frame.holding = hasInput && !frame.locked;
 	if (keysChanged) frame.holding = false;
 	if (inLoop && (keysChanged || (enteredLoop && frame.locked))) lockLoop(playerState, input, loop, tVel, up, modeData.view);
-	else if (keysChanged) frame.locked = false;
+	else if (keysChanged || (!inLoop && !(input.right !== 0 && frame.lockThrottle > 0))) frame.locked = false;
 
 	if (frame.locked) {
 		// Past the lock, its direction carries on until a fresh press.

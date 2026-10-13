@@ -15,7 +15,7 @@ const API_CONFIG = {
       Cutscene: false,                       // Skip All Cutscenes
     },
     Levels: {
-      Triggers: true,                        // Render Trigger Meshes
+      Triggers: false,                        // Render Trigger Meshes
       FreeCam : false,                       // Free Camera Mode
       BoundingBox: {                         // Render Bounding Boxes
         Terrain     : false,
@@ -24,7 +24,7 @@ const API_CONFIG = {
         EntityPart  : false,
         Obstacle    : false,
         Void        : false,
-        Player      : true,
+        Player      : false,
         PlayerPart  : false,
         Boss        : false,
         BossPart    : false,
@@ -40,12 +40,12 @@ const API_CONFIG = {
         Obstacle: false,
         Void    : false,                     // Void volume + its void walls and open faces
         Entity  : false,
-        Player  : true,
+        Player  : false,
         Boss    : false,
         Particle: false,
       },
       Trails: {                              // Render Movement Trails
-        Player     : true,
+        Player     : false,
         Boss       : false,
         Enemies    : false,
         Collectible: false,
@@ -155,14 +155,17 @@ const API_CONFIG = {
     },
     Fog    : { Air: 100, Water: 60 },            // Fog reach %, 20-100; >100 saturates past the cull radius and pops in
     Filters: {
-      ToonLines: true,                           // Ink lines on edges and creases
-      Comic    : true,                           // Light bands, fewer colors and halftone dots
+      ToonLines: false,                          // Ink lines on edges and creases
+      Comic    : false,                          // Light bands, fewer colors and halftone dots
     }
   }
 };
 
 // Max authorable skybox gradient stops.
 const SKY_STOP_LIMIT = 10;
+
+// Rough triangles per cell when gridding meshes for void carving. Higher means fewer, fuller cells.
+const CARVE_GRID_TRIANGLES_PER_CELL = 2;
 
 // Performance-related scaling.
 const PERFORMANCE_SCALING = DeepFreeze({
@@ -181,37 +184,41 @@ const PERFORMANCE_SCALING = DeepFreeze({
   Animation: {
     Entities: { Disabled: 0, Low: 0.25, Medium: 0.50, High: 1 }       // Frame correction budget
   },
-  Loop: { MaxSubsteps: 4 }                                            // Physics ticks per frame before time dilates
+  Loop: { MaxSubsteps: 4 },                                           // Physics ticks per frame before time dilates
+  Culling: {
+    EntityPadding  : new Unit(2, "cnu"),                              // Room around an entity's parts for animation to swing past them
+    ScatterCellSize: new Unit(20, "cnu")                              // Size of the ground squares scatter grouped for culling
+  }
 });
 
 // Footing feel: jump windows, contact grace, grip ramp.
 const GROUNDING = DeepFreeze({
-  JumpBufferMs  : 120,    // Early press held until landing
-  CoyoteMs      : 100,    // Late press honoured after leaving the ground
-  ContactGraceMs: 50,     // Surface pose held after a missed probe
-  GripRampMs    : 2000,   // Grip demand's crossing of 0 ↔ MinGripSpeed
+  JumpBufferMs  : 120,                                                // Early press held until landing
+  CoyoteMs      : 100,                                                // Late press honoured after leaving the ground
+  ContactGraceMs: 50,                                                 // Surface pose held after a missed probe
+  GripRampMs    : 2000,                                               // Grip demand's crossing of 0 ↔ MinGripSpeed
 });
 
 // Movement feel: friction floor, slide damping, reversal braking.
 const MOVEMENT_TUNING = DeepFreeze({
-  MinSupport        : 0.25,                         // Friction floor; engages past 75.5°
-  SlideUphillScale  : 0.15,                         // Acceleration kept pressing uphill on a slide
-  ReversalBrakeScale: 0.75,                         // Share of acceleration added to braking on a reversal
+  MinSupport        : 0.25,                                       // Friction floor; engages past 75.5°
+  SlideUphillScale  : 0.15,                                       // Acceleration kept pressing uphill on a slide
+  ReversalBrakeScale: 0.75,                                       // Share of acceleration added to braking on a reversal
   OppositeInput     : { Forward: 0.25, Left: 0.2, Right: 0.25 },  // Input past which a reversal counts as held
 });
 
 // Default camera feel.
 const CAMERA_TUNING = DeepFreeze({
   Body: {
-    Radius      : new Unit(0.3, "cnu"),     // Camera's size; walls and the target keep it this far off
-    LagStrength : 1,                        // How tightly the camera keeps up with its target
-    RollStrength: 1,                        // How quickly it rolls to the surface
-  },
-  Look: { ReturnDelayMs: 500 },             // Wait after looking before the camera drifts back
-  Walls: {
-    ReturnDelayMs : 250,                    // Wait after a wall clears before moving back out
-    ZoomStrength  : 1,                      // How sharply it pulls in to a wall
-    ReturnStrength: 1,                      // How quickly it moves back out
+    Radius      : new Unit(0.3, "cnu"),            // Camera's size; walls and the target keep it this far off
+    LagStrength : 1,                               // How tightly the camera keeps up with its target
+    RollStrength: 1,                               // How quickly it rolls to the surface
+  },       
+  Look: { ReturnDelayMs: 500 },                    // Wait after looking before the camera drifts back
+  Walls: {       
+    ReturnDelayMs : 250,                           // Wait after a wall clears before moving back out
+    ZoomStrength  : 1,                             // How sharply it pulls in to a wall
+    ReturnStrength: 1,                             // How quickly it moves back out
   },
   Loops: {
     MinCurveThreshold: new Unit(120, "degrees"),   // Least surface curve that counts as loop-like
@@ -265,7 +272,54 @@ const FILTER_TUNING = DeepFreeze({
   },
 });
 
+// Debug overlay colors per object type.
+const DEBUG_COLORS = DeepFreeze({
+  BoundingBoxes: {
+    Terrain     : { r: 0.95, g: 0.85, b: 0.20, a: 1.00 },
+    Scatter     : { r: 0.20, g: 0.80, b: 0.20, a: 1.00 },
+    Entity      : { r: 0.20, g: 0.60, b: 1.00, a: 1.00 },
+    EntityPart  : { r: 0.45, g: 0.75, b: 1.00, a: 1.00 },
+    Obstacle    : { r: 1.00, g: 0.35, b: 0.35, a: 1.00 },
+    Void        : { r: 0.35, g: 1.00, b: 0.85, a: 1.00 },
+    Player      : { r: 0.90, g: 0.95, b: 1.00, a: 1.00 },
+    PlayerPart  : { r: 0.75, g: 0.85, b: 1.00, a: 1.00 },
+    Boss        : { r: 0.95, g: 0.20, b: 0.90, a: 1.00 },
+    BossPart    : { r: 1.00, g: 0.45, b: 0.95, a: 1.00 },
+    Particle    : { r: 0.60, g: 0.40, b: 1.00, a: 1.00 },
+    ParticlePart: { r: 0.75, g: 0.60, b: 1.00, a: 1.00 },
+  },
+  DetailedBounds: {
+    Terrain     : { r: 1.00, g: 0.75, b: 0.15, a: 1.00 },
+    Obstacle    : { r: 1.00, g: 0.35, b: 0.35, a: 1.00 },
+    Entity      : { r: 0.15, g: 0.95, b: 0.95, a: 1.00 },
+    Player      : { r: 0.85, g: 0.95, b: 1.00, a: 1.00 },
+    Boss        : { r: 1.00, g: 0.35, b: 0.85, a: 1.00 },
+    Particle    : { r: 0.60, g: 0.40, b: 1.00, a: 1.00 },
+    Void        : { r: 0.35, g: 1.00, b: 0.85, a: 1.00 },
+    VoidWall    : { r: 0.20, g: 0.50, b: 1.00, a: 1.00 },
+    VoidOpenFace: { r: 1.00, g: 0.20, b: 0.55, a: 1.00 },
+  },
+  Trails: {
+    Player     : { r: 0.00, g: 1.00, b: 1.00, a: 1.00 },
+    Boss       : { r: 1.00, g: 0.20, b: 0.90, a: 1.00 },
+    Enemies    : { r: 1.00, g: 0.60, b: 0.20, a: 1.00 },
+    Collectible: { r: 0.20, g: 1.00, b: 0.40, a: 1.00 },
+    Projectile : { r: 1.00, g: 1.00, b: 0.20, a: 1.00 },
+    Particle   : { r: 0.70, g: 0.40, b: 1.00, a: 1.00 },
+  },
+});
+
 /* === EXPORTS === */
 // Public configuration surface for engine modules.
 
-export { API_CONFIG as CONFIG, PERFORMANCE_SCALING, GROUNDING, MOVEMENT_TUNING, CAMERA_TUNING, FILTER_TUNING, SKY_STOP_LIMIT };
+export { 
+  API_CONFIG as CONFIG, 
+  PERFORMANCE_SCALING, 
+  GROUNDING, 
+  MOVEMENT_TUNING, 
+  CAMERA_TUNING,
+  FILTER_TUNING,
+  DEBUG_COLORS,
+  SKY_STOP_LIMIT,
+  CARVE_GRID_TRIANGLES_PER_CELL 
+};

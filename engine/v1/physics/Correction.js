@@ -4,8 +4,8 @@
 
 import { CONFIG, GROUNDING } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";
-import { AddVector3, AngleBetweenVector3, TransportVector3, CrossVector3, DotVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
-import { ProjectOntoPlane } from "../math/Collision.js";
+import { AngleBetweenVector3, TransportVector3, CrossVector3, DotVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
+import { AabbCenter, ProjectOntoPlane } from "../math/Collision.js";
 import { EulerFromBasis } from "../math/Matrix.js";
 import { Clamp } from "../math/Utilities.js";
 
@@ -183,7 +183,7 @@ function ApplyGroundSnap(playerState, groundContact, groundSnapTolerance) {
 // Pivot about the contact cap while touching a surface; about the body's center when releasing one.
 function PoseAnchor(entity) {
 	const rest = entity.collision.rest;
-	const local = entity.surfaceContact !== "none" ? rest.groundCapsule.segmentStart : ScaleVector3(AddVector3(rest.aabb.min, rest.aabb.max), 0.5);
+	const local = entity.surfaceContact !== "none" ? rest.groundCapsule.segmentStart : AabbCenter(rest.aabb);
 	return MultiplyVector3(local, entity.transform.scale);
 }
 

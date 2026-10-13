@@ -19,7 +19,7 @@ import { CONFIG, PERFORMANCE_SCALING, CAMERA_TUNING } from "../core/config.js";
 import { EPSILON, Log } from "../core/meta.js";
 import { Clamp, DegreesToRadians, UnitVector3 } from "../math/Utilities.js";
 import { AddVector3, AngleBetweenVector3, CrossVector3, DotVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3ToArray, WORLD_NORMALS } from "../math/Vector3.js";
-import { AabbOverlap, TriangleAabb, TriangleDistanceSq } from "../math/Collision.js";
+import { AabbOverlap, ObbFromAabb, TriangleAabb, TriangleCentroid, TriangleDistanceSq } from "../math/Collision.js";
 import { IsPointInSuppressingVoid } from "../physics/Collision.js";
 
 function resolveEntityBlueprintMap(payload) {
@@ -284,9 +284,9 @@ function buildSceneDetailedBounds(sceneGraph) {
 /* === SURFACE CHUNKS === */
 
 // 12 triangles, outward normals.
-function boxFacets(center, axes, half) {
+function boxFacets({ center, axes, halfExtents }) {
 	const facets = [];
-	const extents = Vector3ToArray(half);
+	const extents = Vector3ToArray(halfExtents);
 	for (let axis = 0; axis < 3; axis++) {
 		const u = (axis + 1) % 3;
 		const v = (axis + 2) % 3;
@@ -308,12 +308,8 @@ function boundsFacets(bounds) {
 	if (bounds === null) return [];
 	switch (bounds.type) {
 		case "triangle-soup": return bounds.triangles;
-		case "obb"          : return boxFacets(bounds.center, bounds.axes, bounds.halfExtents);
-		case "aabb"         : return boxFacets(
-			bounds.min.clone().add(bounds.max).scale(0.5),
-			[WORLD_NORMALS.Right, WORLD_NORMALS.Up, WORLD_NORMALS.Forward],
-			bounds.max.clone().subtract(bounds.min).scale(0.5)
-		);
+		case "obb"          : return boxFacets(bounds);
+		case "aabb"         : return boxFacets(ObbFromAabb(bounds));
 		default: return [];
 	}
 }
@@ -339,7 +335,7 @@ function foldRadius(a, b, fold) {
 function buildSurfaceChunks(terrain, obstacles, voids) {
 	const started = performance.now();
 	const pieces = [];
-	const centroid = (f) => ScaleVector3(AddVector3(AddVector3(f.a, f.b), f.c), 1 / 3);
+	const centroid = (f) => TriangleCentroid(f.a, f.b, f.c);
 	const addHost = (id, aabb, bounds, flags, hostVoids) => pieces.push({
 		id, aabb,
 		facets: boundsFacets(bounds).filter((facet) => !(flags.nullable !== false && IsPointInSuppressingVoid(centroid(facet), id, hostVoids))),
@@ -349,7 +345,10 @@ function buildSurfaceChunks(terrain, obstacles, voids) {
 	for (const entry of [...voids.terrain, ...voids.obstacles]) {
 		const lining = [];
 		for (const hostId in entry.relations) {
-			entry.relations[hostId].voidWallMeshes.forEach((wall) => lining.push(...wall.floorBounds.triangles, ...wall.wallBounds.triangles));
+			for (const wall of entry.relations[hostId].voidWallMeshes) {
+				for (const triangle of wall.floorBounds.triangles) lining.push(triangle);
+				for (const triangle of wall.wallBounds.triangles) lining.push(triangle);
+			}
 		}
 		if (lining.length > 0) pieces.push({ id: entry.id, aabb: entry.worldAabb, facets: lining });
 	}
@@ -510,7 +509,8 @@ async function BuildLevel(payload) {
 		for (const entry of entries) {
 			for (const id in entry.relations) {
 				if (!openFacesByObjectId.has(id)) openFacesByObjectId.set(id, []);
-				openFacesByObjectId.get(id).push(...entry.relations[id].openFaces);
+				const openFaces = openFacesByObjectId.get(id);
+				for (const face of entry.relations[id].openFaces) openFaces.push(face);
 			}
 		}
 	};

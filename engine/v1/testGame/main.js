@@ -182,7 +182,7 @@ function getSettingsSnapshot() {
 		gameSfx            : cfg.Volume.GameSfx,
 		cutscene           : cfg.Volume.Cutscene,
 		skipIntro          : cfg.Debug.Skip.Intro,
-		debugMode          : cfg.Debug.ALL,
+		debugMode          : cfg.Debug.All,
 		mouseSensitivity   : cfg.Camera.Sensitivity.Mouse,
 		keyboardSensitivity: cfg.Camera.Sensitivity.Keyboard,
 		scatterDensity     : cfg.Performance.Scatter.Density,
@@ -224,7 +224,7 @@ function applySettings(settings) {
 	cfg.Volume.GameSfx = settings.gameSfx;
 	cfg.Volume.Cutscene = settings.cutscene;
 	cfg.Debug.Skip.Intro = settings.skipIntro;
-	cfg.Debug.ALL = settings.debugMode;
+	cfg.Debug.All = settings.debugMode;
 	cfg.Camera.Sensitivity.Mouse = settings.mouseSensitivity;
 	cfg.Camera.Sensitivity.Keyboard = settings.keyboardSensitivity;
 	cfg.Performance.Scatter.Density = settings.scatterDensity;

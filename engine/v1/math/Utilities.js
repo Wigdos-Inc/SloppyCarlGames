@@ -1,4 +1,4 @@
-import { AddVector3, CloneVector3, DivideVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "./Vector3.js";
+import { AddVector3, CloneVector3, DivideVector3, MaxVector3, MinVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "./Vector3.js";
 
 // 1 CNU = CNU_SCALE World Units (WebGL coordinate space). Set once during development.
 export const CNU_SCALE = 1;
@@ -83,36 +83,14 @@ class UnitVector3 {
 		return this;
 	}
 
-	add(vector) {
-		return this.set(AddVector3(this, vector));
-	}
-	subtract(vector) {
-		return this.set(SubtractVector3(this, vector));
-	}
-	multiply(vector) {
-		return this.set(MultiplyVector3(this, vector));
-	}
-	divide(vector) {
-		return this.set(DivideVector3(this, vector));
-	}
-	scale(scalar) {
-		return this.set(ScaleVector3(this, scalar));
-	}
+	add(vector) {      return this.set(AddVector3(this, vector)) }
+	subtract(vector) { return this.set(SubtractVector3(this, vector)) }
+	multiply(vector) { return this.set(MultiplyVector3(this, vector)) }
+	divide(vector) {   return this.set(DivideVector3(this, vector)) }
+	scale(scalar) {    return this.set(ScaleVector3(this, scalar)) }
 
-	min(vector) {
-		return this.set({
-			x: Math.min(this.x, vector.x),
-			y: Math.min(this.y, vector.y),
-			z: Math.min(this.z, vector.z)
-		});
-	}
-	max(vector) {
-		return this.set({
-			x: Math.max(this.x, vector.x),
-			y: Math.max(this.y, vector.y),
-			z: Math.max(this.z, vector.z)
-		});
-	}
+	min(vector) { return this.set(MinVector3(this, vector)) }
+	max(vector) { return this.set(MaxVector3(this, vector)) }
 
  	toWorldUnit(replace = false) {
 		if (this.type === "cnu") {
@@ -123,8 +101,7 @@ class UnitVector3 {
 			}
 			return converted;
 		}
-		if (replace === true) return this;
-		return CloneVector3(this);
+		return replace === true ? this : CloneVector3(this);
 	}
 
 	toCNU(replace = false) {
@@ -136,8 +113,7 @@ class UnitVector3 {
 			}
 			return converted;
 		}
-		if (replace === true) return this;
-		return CloneVector3(this);
+		return replace === true ? this : CloneVector3(this);
 	}
 
 	toRadians(replace = false) {
@@ -149,8 +125,7 @@ class UnitVector3 {
 			}
 			return converted;
 		}
-		if (replace === true) return this;
-		return CloneVector3(this);
+		return replace === true ? this : CloneVector3(this);
 	}
 
 	toDegrees(replace = false) {
@@ -162,8 +137,7 @@ class UnitVector3 {
 			}
 			return converted;
 		}
-		if (replace === true) return this;
-		return CloneVector3(this);
+		return replace === true ? this : CloneVector3(this);
 	}
 
 	clone() {
@@ -182,15 +156,35 @@ const Clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const Clamp01 = (value) => Clamp(value, 0, 1);
 
 const Lerp = (a, b, t) => a + (b - a) * Clamp01(t);
-const Squared = (value) => value * value;
 
 // Hermite smoothstep interpolation between two scalar values
 function SmoothStep(a, b, t) {
 	const clamped = Clamp01((t - a) / (b - a));
-	return Squared(clamped) * (3 - 2 * clamped);
+	return (clamped ** 2) * (3 - 2 * clamped);
 }
 
-export { 
+function BestMatchOf(
+	array       = [],                                         // Array of items to find the "best" entry of.
+	condition   = (entry, best, storage) => entry === best,   // The exact check made to determine what counts as "best".
+	currentBest = null,                                       // The optional first "best" to check against.
+	storage     = {}                                          // An optional object to mutate in the handler for storage.
+) {
+	// Store the first/fallback "best".
+	let bestMatch = currentBest;
+
+	// Go through each entry. Overwrite bestMatch on a better match against the condition.
+	for (const item of array) {
+		const result = condition(item, bestMatch, storage);
+		if (result === null) return null;
+		if (result === true) bestMatch = item;
+	}
+
+	return bestMatch;
+}
+
+// BestMatchOf([2, 3, 4], ((v, b) => Math.max(v, b) === v), 0); Returns 4.
+
+export {
 	RadiansToDegrees, 
 	DegreesToRadians, 
 	WorldUnitToCNU, 
@@ -198,9 +192,9 @@ export {
 	ToNumber, 
 	Clamp, 
 	Clamp01,
-	Lerp, 
-	Squared,
+	Lerp,
 	SmoothStep,
-	Unit, 
+	BestMatchOf,
+	Unit,
 	UnitVector3 
 };

@@ -72,7 +72,6 @@ const DotVector3 = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
 const Vector3Sq = (vector) => (vector.x * vector.x) + (vector.y * vector.y) + (vector.z * vector.z);
 const Vector3Length = (vector) => Math.hypot(vector.x, vector.y, vector.z);
 const Vector3Distance = (a, b) => Vector3Length(SubtractVector3(a, b));
-const Vector3Matches = (a, b) => a.x === b.x && a.y === b.y && a.z === b.z;
 
 // 0 when the point is inside the box, so you're never "far" from a box you're in.
 const Vector3SqDistanceToAabb = (point, aabb) => Vector3Sq(SubtractVector3(point, ClampVector3(point, aabb.min, aabb.max)));
@@ -84,21 +83,24 @@ function ResolveVector3Axis(vector) {
 
 const CloneVector3 = (vector) => { return { x: vector.x, y: vector.y, z: vector.z } };
 
+const MinVector3 = (a, b) => { return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), z: Math.min(a.z, b.z) } }
+const MaxVector3 = (a, b) => { return { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y), z: Math.max(a.z, b.z) } }
+
+// Index of the smallest component (0 x, 1 y, 2 z); earlier axis wins ties.
+const MinAxisVector3 = (v) => v.x <= v.y && v.x <= v.z ? 0 : v.y <= v.z ? 1 : 2;
+
 // Rotates a point by Euler radians in CreateModelMatrix's order (Z, then X, then Y).
 function RotateByEuler(point, rotation) {
 	// Z rotation
-	const cz = Math.cos(rotation.z);
-	const sz = Math.sin(rotation.z);
+	const cz = Math.cos(rotation.z), sz = Math.sin(rotation.z);
 	const p1 = { x: point.x * cz - point.y * sz, y: point.x * sz + point.y * cz, z: point.z };
 
 	// X rotation
-	const cx = Math.cos(rotation.x);
-	const sx = Math.sin(rotation.x);
+	const cx = Math.cos(rotation.x), sx = Math.sin(rotation.x);
 	const p2 = { x: p1.x, y: p1.y * cx - p1.z * sx, z: p1.y * sx + p1.z * cx };
 
 	// Y rotation
-	const cy = Math.cos(rotation.y);
-	const sy = Math.sin(rotation.y);
+	const cy = Math.cos(rotation.y), sy = Math.sin(rotation.y);
 	return { x: p2.x * cy + p2.z * sy, y: p2.y, z: -p2.x * sy + p2.z * cy };
 }
 
@@ -107,8 +109,7 @@ const AngleBetweenVector3 = (a, b) => Math.acos(Clamp(DotVector3(a, b), -1, 1));
 
 // Minimal rotation carrying unit `from` onto unit `to`, applied to `v`. Undefined for a half-turn.
 function TransportVector3(v, from, to) {
-	const axis = CrossVector3(from, to);
-	const cos = DotVector3(from, to);
+	const axis = CrossVector3(from, to), cos = DotVector3(from, to);
 	return AddVector3(
 		AddVector3(ScaleVector3(v, cos), CrossVector3(axis, v)), 
 		ScaleVector3(axis, DotVector3(axis, v) / (1 + cos))
@@ -117,6 +118,8 @@ function TransportVector3(v, from, to) {
 
 // How far to turn left/right to go from `from`'s heading to `to`'s. No turn past a quarter turn (e.g. wall to ceiling).
 function AzimuthTurnVector3(from, to) {
+	// Straight up or down has no heading; its atan2 is float noise.
+	if (Math.hypot(from.x, from.z) <= EPSILON || Math.hypot(to.x, to.z) <= EPSILON) return ToVector3(0);
 	const raw = Math.atan2(to.x, to.z) - Math.atan2(from.x, from.z);
 	const turn = Math.atan2(Math.sin(raw), Math.cos(raw));
 	return { x: 0, y: Math.abs(turn) > Math.PI * 0.5 ? 0 : turn, z: 0 };
@@ -136,6 +139,22 @@ function RotateTowardVector3(from, to, maxStep) {
 	);
 
 	return AddVector3(ScaleVector3(from, Math.cos(maxStep)), ScaleVector3(e2, Math.sin(maxStep)));
+}
+
+// Three consecutive values from `index`; `multiplied` treats `index` as a vertex in a flat xyz array.
+const ArrayToVector3 = (array, index, multiplied) => {
+	index *= multiplied ? 3 : 1;
+	return { x: array[index], y: array[index + 1], z: array[index + 2] };
+};
+
+function CompareVector3(a, b, method) {
+	switch(method) {
+		case "lesser"       : return a.x   < b.x && a.y   < b.y && a.z   < b.z;
+		case "lesser-loose" : return a.x  <= b.x && a.y  <= b.y && a.z  <= b.z;
+		case "greater"      : return a.x   > b.x && a.y   > b.y && a.z   > b.z;
+		case "greater-loose": return a.x  >= b.x && a.y  >= b.y && a.z  >= b.z;
+		default             : return a.x === b.x && a.y === b.y && a.z === b.z;
+	}
 }
 
 /* === ENGINE VARIABLES === */
@@ -165,7 +184,6 @@ export {
 	Vector3Sq,
 	Vector3Length,
 	Vector3Distance,
-	Vector3Matches,
 	Vector3SqDistanceToAabb,
 	ResolveVector3Axis,
 	LerpVector3,
@@ -175,6 +193,11 @@ export {
 	TransportVector3,
 	AzimuthTurnVector3,
 	ToVector3,
+	MinVector3,
+	MaxVector3,
+	MinAxisVector3,
+	CompareVector3,
 	Vector3ToArray,
+	ArrayToVector3,
 	WORLD_NORMALS,
 };

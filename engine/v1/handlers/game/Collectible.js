@@ -5,6 +5,7 @@
 
 import { CONFIG } from "../../core/config.js";
 import { Log, SendEvent } from "../../core/meta.js";
+import { CloneVector3 } from "../../math/Vector3.js";
 import { CheckEntityAabbOverlap } from "../../physics/Collision.js";
 
 // Collectible pickup & removal from the scene.
@@ -20,10 +21,7 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 		if (!CheckEntityAabbOverlap(playerState, entity)) continue;
 
 		// Pickup!
-		playerState.collectibles = Math.min(
-			playerState.collectibles + 1,
-			playerState.maxCollectibles
-		);
+		playerState.collectibles = Math.min(playerState.collectibles + 1, playerState.maxCollectibles);
 
 		Log("ENGINE", `Collectible "${entity.id}" picked up. Total: ${playerState.collectibles}`, "log", "Level");
 
@@ -32,8 +30,8 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 			SendEvent("ENTITY_DESPAWN", {
 				id      : entity.id,
 				type    : entity.type,
-				position: { x: entity.transform.position.x, y: entity.transform.position.y, z: entity.transform.position.z },
-				velocity: { x: entity.velocity.x, y: entity.velocity.y, z: entity.velocity.z },
+				position: CloneVector3(entity.transform.position),
+				velocity: CloneVector3(entity.velocity),
 			});
 		}
 		sceneGraph.entities.splice(i, 1);

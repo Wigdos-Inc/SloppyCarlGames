@@ -1125,18 +1125,6 @@
           }
         }
       },
-      "sensitivity": {
-        "__meta": {
-          "description": "Camera sensitivity",
-          "aliases": [],
-          "dataType": "number",
-          "isRequired": false,
-          "isExpected": false,
-          "fallback": 0.12,
-          "range": { "min": 0.001, "max": 10 },
-          "deprecated": false
-        }
-      },
       "heightOffset": {
         "__meta": {
           "description": "Camera height offset",
@@ -1206,50 +1194,6 @@
           "z": {
             "__meta": {
               "description": "Start z",
-              "aliases": [],
-              "dataType": "number",
-              "isRequired": false,
-              "isExpected": true,
-              "fallback": 0,
-              "deprecated": false
-            }
-          }
-        },
-        "endPosition": {
-          "__meta": {
-            "description": "Opening end position",
-            "aliases": [],
-            "dataType": "vector3",
-            "isRequired": false,
-            "isExpected": true,
-            "fallback": { "x": 0, "y": 0, "z": 0 },
-            "deprecated": false
-          },
-          "x": {
-            "__meta": {
-              "description": "End x",
-              "aliases": [],
-              "dataType": "number",
-              "isRequired": false,
-              "isExpected": true,
-              "fallback": 0,
-              "deprecated": false
-            }
-          },
-          "y": {
-            "__meta": {
-              "description": "End y",
-              "aliases": [],
-              "dataType": "number",
-              "isRequired": false,
-              "isExpected": true,
-              "fallback": 0,
-              "deprecated": false
-            }
-          },
-          "z": {
-            "__meta": {
-              "description": "End z",
               "aliases": [],
               "dataType": "number",
               "isRequired": false,

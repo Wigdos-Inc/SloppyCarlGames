@@ -6,13 +6,33 @@
 // UI element builder.
 
 import { UIElement } from "../builder/NewUI.js";
-import { TransformPointByMatrix } from "../builder/NewObject.js";
-import { CONFIG, FILTER_TUNING, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../core/config.js";
+import { CONFIG, DEBUG_COLORS, FILTER_TUNING, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../core/config.js";
 import { Log } from "../core/meta.js";
-import { CreateIdentityMatrix, CreateRenderMatrix, MultiplyMatrix4 } from "../math/Matrix.js";
-import { AddVector3, AngleBetweenVector3, CloneVector3, CrossVector3, DivideVector3, DotVector3, MultiplyVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3, ToVector3, Vector3Length, Vector3Matches, Vector3Sq, Vector3ToArray } from "../math/Vector3.js";
+import { CreateIdentityMatrix, CreateRenderMatrix, FrustumPlanes, MultiplyMatrix4, TransformPointByMatrix } from "../math/Matrix.js";
+import { AabbOutsideFrustum, TriangleArea } from "../math/Collision.js";
+import { 
+	AddVector3, 
+	AngleBetweenVector3, 
+	ArrayToVector3, 
+	CloneVector3, 
+	CompareVector3, 
+	CrossVector3, 
+	DivideVector3, 
+	DotVector3, 
+	MaxVector3, 
+	MinVector3, 
+	ResolveVector3Axis, 
+	ScaleVector3, 
+	SubtractVector3, 
+	ToVector3, 
+	Vector3Length, 
+	Vector3Sq, 
+	Vector3SqDistanceToAabb, 
+	Vector3ToArray 
+} from "../math/Vector3.js";
 import { Clamp } from "../math/Utilities.js";
 import { GetSimDistanceValue } from "../physics/Collision.js";
+import CreateShader from "./utilities/Shaders.js";
 
 /* === INTERNALS === */
 // DOM helpers for rendering payloads.
@@ -57,8 +77,8 @@ function ApplyRootStylesheet(rootId, stylesheet) {
 /* === PAYLOADS === */
 // Renders payloads built by the UI builder.
 
+// Replace existing contents by default, then append the pre-built elements.
 function RenderPayload(payload) {
-	// Replace existing contents by default, then append the pre-built elements.
 	const root = ensureRoot(payload.rootId, payload.rootStyles);
 	if (payload.replace !== false) root.innerHTML = "";
 	root.appendChild(payload.elements);
@@ -69,36 +89,9 @@ function RenderPayload(payload) {
 
 const levelRendererCache = new Map();
 const identityRenderMatrix = new Float32Array(CreateIdentityMatrix());
-const boundingBoxTypeColors = {
-	Terrain: { r: 0.95, g: 0.85, b: 0.2, a: 1 },
-	Scatter: { r: 0.2, g: 0.8, b: 0.2, a: 1 },
-	Entity: { r: 0.2, g: 0.6, b: 1, a: 1 },
-	EntityPart: { r: 0.45, g: 0.75, b: 1, a: 1 },
-	Obstacle: { r: 1, g: 0.35, b: 0.35, a: 1 },
-	Void: { r: 0.35, g: 1, b: 0.85, a: 1 },
-	Player: { r: 0.9, g: 0.95, b: 1, a: 1 },
-	PlayerPart: { r: 0.75, g: 0.85, b: 1, a: 1 },
-	Boss: { r: 0.95, g: 0.2, b: 0.9, a: 1 },
-	BossPart: { r: 1, g: 0.45, b: 0.95, a: 1 },
-	Particle: { r: 0.6, g: 0.4, b: 1, a: 1 },
-	ParticlePart: { r: 0.75, g: 0.6, b: 1, a: 1 },
-};
-
-const detailedBoundsTypeColors = {
-	Terrain: { r: 1, g: 0.75, b: 0.15, a: 1 },
-	Obstacle: { r: 1, g: 0.35, b: 0.35, a: 1 },
-	Entity: { r: 0.15, g: 0.95, b: 0.95, a: 1 },
-	Player: { r: 0.85, g: 0.95, b: 1, a: 1 },
-	Boss: { r: 1, g: 0.35, b: 0.85, a: 1 },
-	Particle: { r: 0.6, g: 0.4, b: 1, a: 1 },
-	Void: { r: 0.35, g: 1, b: 0.85, a: 1 },
-	VoidWall: { r: 0.2, g: 0.5, b: 1, a: 1 },
-	VoidOpenFace: { r: 1, g: 0.2, b: 0.55, a: 1 },
-};
 
 function createPerspectiveMatrix(fovDegrees, aspect, near, far) {
-	const f = 1 / Math.tan(((fovDegrees * Math.PI) / 180) * 0.5);
-	const nf = 1 / (near - far);
+	const f = 1 / Math.tan(((fovDegrees * Math.PI) / 180) * 0.5), nf = 1 / (near - far);
 	return [
 		f / aspect, 0, 0, 0,
 		0, f, 0, 0,
@@ -119,366 +112,7 @@ function createLookAtMatrix(eye, target, up) {
 	];
 }
 
-function createShader(gl, type, source) {
-	const shader = gl.createShader(type);
-	if (!shader) {
-		Log("ENGINE", `Shader creation failed (type ${type})`, "error", "Render");
-		return null;
-	}
-	gl.shaderSource(shader, source);
-	gl.compileShader(shader);
-	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-		Log("ENGINE", `Shader compile error: ${gl.getShaderInfoLog(shader)}`, "error", "Render");
-		gl.deleteShader(shader);
-		return null;
-	}
-	return shader;
-}
-
-function resolveProgramLocations(names, resolver) {
-	const locations = {};
-	for (const key in names) locations[key] = resolver(names[key]);
-	return locations;
-}
-
-function createLinkedProgram(gl, options) {
-	const vertex = createShader(gl, gl.VERTEX_SHADER, options.vertexShaderSource);
-	const fragment = createShader(gl, gl.FRAGMENT_SHADER, options.fragmentShaderSource);
-	if (!vertex || !fragment) return null;
-
-	const program = gl.createProgram();
-	if (!program) {
-		if (options.createError) Log("ENGINE", options.createError, "error", "Render");
-		return null;
-	}
-
-	gl.attachShader(program, vertex);
-	gl.attachShader(program, fragment);
-	gl.linkProgram(program);
-
-	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-		if (options.linkErrorPrefix) {
-			Log("ENGINE", `${options.linkErrorPrefix}: ${gl.getProgramInfoLog(program)}`, "error", "Render");
-		}
-		gl.deleteProgram(program);
-		return null;
-	}
-
-	return {
-		program,
-		attributes: resolveProgramLocations(options.attributeNames || {}, (name) => gl.getAttribLocation(program, name)),
-		uniforms: resolveProgramLocations(options.uniformNames, (name) => gl.getUniformLocation(program, name)),
-	};
-}
-
-// Shared by the sky quad and every fogged surface.
-const skySampleGLSL = `
-	uniform mat4 u_view;
-	uniform vec4 u_skyStops[${SKY_STOP_LIMIT}];
-	uniform int u_skyStopCount;
-	uniform vec3 u_waterTint;
-	uniform float u_underwater;
-
-	// Stop 0 = horizon, last = zenith, evenly spaced; everything below the horizon takes stop 0. Alpha is ignored.
-	vec3 sampleSky(float elevation) {
-		float span = float(u_skyStopCount - 1);
-		float t = clamp(elevation, 0.0, 1.0) * span;
-		int lower = int(min(floor(t), span - 1.0));
-		vec3 sky = mix(u_skyStops[lower].rgb, u_skyStops[lower + 1].rgb, t - float(lower));
-		return mix(sky, u_waterTint, clamp(u_underwater, 0.0, 1.0));
-	}
-
-	// Column 1 of the view matrix is world-up expressed in view space.
-	float viewRayElevation(vec3 viewRay) {
-		return dot(normalize(viewRay), u_view[1].xyz);
-	}
-
-	// Same, for callers that already have the ray length.
-	float viewRayElevation(vec3 viewRay, float viewDist) {
-		return dot(viewRay, u_view[1].xyz) / viewDist;
-	}
-`;
-
-const comicLightDirection = ResolveVector3Axis(FILTER_TUNING.Comic.LightDirection);
-
-// Steps each face's brightness by how directly it faces the light; planes light from both sides.
-const comicLightGLSL = `
-	uniform float u_comic;
-	float comicLight() {
-		vec3 normal = normalize(cross(dFdx(v_viewPos), dFdy(v_viewPos)));
-		normal = dot(normal, v_viewPos) > 0.0 ? -normal : normal;
-		vec3 light = normalize(mat3(u_view) * vec3(${comicLightDirection.x.toFixed(4)}, ${comicLightDirection.y.toFixed(4)}, ${comicLightDirection.z.toFixed(4)}));
-		float bands = ${FILTER_TUNING.Comic.Bands.toFixed(1)};
-		float band = min(floor(max(dot(normal, light), 0.0) * bands) / (bands - 1.0), 1.0);
-		return mix(1.0, mix(${FILTER_TUNING.Comic.ShadowFloor.toFixed(4)}, 1.0, band), u_comic);
-	}
-`;
-
-function createFoggedTextureFragmentShader(
-	sharedDeclarations, shadedExpression, premultiplied = false,
-	varyings = "in vec2 v_uv;",
-	texelComputation = "vec4 texel = texture(u_texture, v_uv);"
-) {
-	// Premultiplied textures: color shift and fog are scaled by alpha as well.
-	const shiftExpr    = premultiplied ? "shaded.rgb + u_colorShift * shaded.a" : "shaded.rgb + u_colorShift";
-	const fogColorExpr = premultiplied ? "fogColor * shaded.a"                  : "fogColor";
-	return `#version 300 es
-		precision highp float;
-		uniform sampler2D u_texture;
-		uniform float u_fogFull;
-		uniform vec3 u_colorShift;
-		${skySampleGLSL}
-		${sharedDeclarations}
-		${varyings}
-		in vec3 v_viewPos;
-		out vec4 fragColor;
-		${comicLightGLSL}
-		void main() {
-			// Light steps first, before the decal cut below can discard the pixel.
-			float comicShade = comicLight();
-
-			${texelComputation}
-			vec4 shaded = ${shadedExpression};
-			shaded.rgb *= comicShade;
-			if (shaded.a <= 0.01) {
-				discard;
-			}
-
-			float viewDist = length(v_viewPos);
-			// Fog grows with distance cubed: nearby stays clear, full fog at the fog reach.
-			float fog = clamp(viewDist / u_fogFull, 0.0, 1.0);
-			fog *= fog * fog;
-			vec3 shifted = ${shiftExpr};
-			vec3 fogColor = sampleSky(viewRayElevation(v_viewPos, viewDist));
-			vec3 finalColor = mix(shifted, ${fogColorExpr}, fog);
-			fragColor = vec4(finalColor, shaded.a);
-		}
-	`;
-}
-
-function createProgram(gl) {
-	const vertexShaderSource = `#version 300 es
-		in vec3 a_position;
-		in vec2 a_uv;
-		uniform mat4 u_projection;
-		uniform mat4 u_view;
-		uniform mat4 u_model;
-		out vec2 v_uv;
-		out vec3 v_viewPos;
-		out float v_worldY;
-		void main() {
-			vec4 world = u_model * vec4(a_position, 1.0);
-			vec4 viewPos = u_view * world;
-			gl_Position = u_projection * viewPos;
-			v_uv = a_uv;
-			v_viewPos = viewPos.xyz;
-			v_worldY = world.y;
-		}
-	`;
-
-	// u_waterClip: x = water level, y = side kept (+1 above, -1 below, 0 keeps all).
-	return createLinkedProgram(gl, {
-		vertexShaderSource: vertexShaderSource,
-		fragmentShaderSource: createFoggedTextureFragmentShader(
-			"uniform vec4 u_tint; uniform vec2 u_waterClip;",
-			"vec4(texel.rgb * u_tint.rgb, texel.a * u_tint.a * step(0.0, u_waterClip.y * (v_worldY - u_waterClip.x)))",
-			false,
-			"in vec2 v_uv; in float v_worldY;"
-		),
-		attributeNames: {
-			position: "a_position",
-			uv      : "a_uv",
-		},
-		uniformNames: {
-			projection  : "u_projection",
-			view        : "u_view",
-			model       : "u_model",
-			texture     : "u_texture",
-			tint        : "u_tint",
-			waterClip   : "u_waterClip",
-			fogFull     : "u_fogFull",
-			colorShift  : "u_colorShift",
-			underwater  : "u_underwater",
-			skyStops    : "u_skyStops[0]",
-			skyStopCount: "u_skyStopCount",
-			waterTint   : "u_waterTint",
-			comic       : "u_comic",
-		},
-		createError    : "WebGL program creation failed",
-		linkErrorPrefix: "Program link error",
-	});
-}
-
-function createEntityTriplanarProgram(gl) {
-	// Object-space triplanar for noise entity parts; adds a position varying for derivative-based normals.
-	const vertexShaderSource = `#version 300 es
-		in vec3 a_position;
-		in vec2 a_uv;
-		uniform mat4 u_projection;
-		uniform mat4 u_view;
-		uniform mat4 u_model;
-		out vec2 v_uv;
-		out vec3 v_viewPos;
-		out vec3 v_objPos;
-		void main() {
-			vec4 world = u_model * vec4(a_position, 1.0);
-			vec4 viewPos = u_view * world;
-			gl_Position = u_projection * viewPos;
-			v_uv = a_uv;
-			v_viewPos = viewPos.xyz;
-			v_objPos = a_position;
-		}
-	`;
-
-	return createLinkedProgram(gl, {
-		vertexShaderSource: vertexShaderSource,
-		fragmentShaderSource: createFoggedTextureFragmentShader(
-			"uniform vec4 u_tint; uniform float u_texScale;",
-			"vec4(texel.rgb * u_tint.rgb, texel.a * u_tint.a)",
-			false,
-			"in vec3 v_objPos;",
-			`vec3 n = normalize(cross(dFdx(v_objPos), dFdy(v_objPos)));
-			vec3 w = abs(n); w = w / (w.x + w.y + w.z);
-			w = pow(w, vec3(4.0)); w = w / (w.x + w.y + w.z);
-			vec4 tx = texture(u_texture, v_objPos.zy * u_texScale);
-			vec4 ty = texture(u_texture, v_objPos.xz * u_texScale);
-			vec4 tz = texture(u_texture, v_objPos.xy * u_texScale);
-			vec4 texel = tx * w.x + ty * w.y + tz * w.z;`
-		),
-		attributeNames: {
-			position: "a_position",
-			uv      : "a_uv",
-		},
-		uniformNames: {
-			projection  : "u_projection",
-			view        : "u_view",
-			model       : "u_model",
-			texture     : "u_texture",
-			tint        : "u_tint",
-			fogFull     : "u_fogFull",
-			colorShift  : "u_colorShift",
-			underwater  : "u_underwater",
-			texScale    : "u_texScale",
-			skyStops    : "u_skyStops[0]",
-			skyStopCount: "u_skyStopCount",
-			waterTint   : "u_waterTint",
-			comic       : "u_comic",
-		},
-		createError    : "WebGL triplanar program creation failed",
-		linkErrorPrefix: "Triplanar program link error",
-	});
-}
-
-function createLineProgram(gl) {
-	const vertexShaderSource = `#version 300 es
-		in vec3 a_position;
-		uniform mat4 u_projection;
-		uniform mat4 u_view;
-		uniform mat4 u_model;
-		void main() {
-			gl_Position = u_projection * u_view * u_model * vec4(a_position, 1.0);
-		}
-	`;
-
-	const fragmentShaderSource = `#version 300 es
-		precision mediump float;
-		uniform vec4 u_color;
-		out vec4 fragColor;
-		void main() {
-			fragColor = u_color;
-		}
-	`;
-
-	return createLinkedProgram(gl, {
-		vertexShaderSource: vertexShaderSource,
-		fragmentShaderSource: fragmentShaderSource,
-		attributeNames: {
-			position: "a_position",
-		},
-		uniformNames: {
-			projection: "u_projection",
-			view      : "u_view",
-			model     : "u_model",
-			color     : "u_color",
-		},
-	});
-}
-
-// Shared by both scatter vertex shaders; decals must cull in lockstep with their blade.
-const scatterCullGLSL = `
-	vec3 instanceOrigin = instanceModel[3].xyz;
-	float instanceDistance = length((u_view * vec4(instanceOrigin, 1.0)).xyz);
-	float fade = 1.0 - smoothstep(u_cullRadius * (1.0 - float(${PERFORMANCE_SCALING.SimDistance.Fractions.Scatter.Fade})), u_cullRadius, instanceDistance);
-	float cullHash = fract(sin(dot(instanceOrigin, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-	if (cullHash > fade) {
-		gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
-		return;
-	}
-	// Dissolve over the last quarter of each instance's own margin.
-	float instanceAlpha = clamp((fade - cullHash) * 4.0, 0.0, 1.0);
-`;
-
-function createScatterProgram(gl) {
-	// Instanced scatter shader: per-instance model matrix + tint via vertex attributes.
-	// Attribute layout:
-	//   0 = a_position (vec3)
-	//   1 = a_uv (vec2)
-	//   2 = a_instanceRow0 (vec4) — model matrix column 0
-	//   3 = a_instanceRow1 (vec4) — model matrix column 1
-	//   4 = a_instanceRow2 (vec4) — model matrix column 2
-	//   5 = a_instanceRow3 (vec4) — model matrix column 3
-	//   6 = a_instanceTint (vec4) — per-instance tint/opacity
-
-	const vertexShaderSource = `#version 300 es
-		layout(location = 0) in vec3 a_position;
-		layout(location = 1) in vec2 a_uv;
-		layout(location = 2) in vec4 a_instanceRow0;
-		layout(location = 3) in vec4 a_instanceRow1;
-		layout(location = 4) in vec4 a_instanceRow2;
-		layout(location = 5) in vec4 a_instanceRow3;
-		layout(location = 6) in vec4 a_instanceTint;
-		uniform mat4 u_projection;
-		uniform mat4 u_view;
-		uniform float u_cullRadius;
-		out vec2 v_uv;
-		out vec3 v_viewPos;
-		out vec4 v_tint;
-		void main() {
-			mat4 instanceModel = mat4(a_instanceRow0, a_instanceRow1, a_instanceRow2, a_instanceRow3);
-			${scatterCullGLSL}
-			vec4 world = instanceModel * vec4(a_position, 1.0);
-			vec4 viewPos = u_view * world;
-			gl_Position = u_projection * viewPos;
-			v_uv = a_uv;
-			v_viewPos = viewPos.xyz;
-			v_tint = vec4(a_instanceTint.rgb, a_instanceTint.a * instanceAlpha);
-		}
-	`;
-
-	return createLinkedProgram(gl, {
-		vertexShaderSource: vertexShaderSource,
-		fragmentShaderSource: createFoggedTextureFragmentShader(
-			"in vec4 v_tint;",
-			"vec4(texel.rgb * v_tint.rgb, texel.a * v_tint.a)"
-		),
-		uniformNames: {
-			projection  : "u_projection",
-			view        : "u_view",
-			texture     : "u_texture",
-			fogFull     : "u_fogFull",
-			colorShift  : "u_colorShift",
-			underwater  : "u_underwater",
-			cullRadius  : "u_cullRadius",
-			skyStops    : "u_skyStops[0]",
-			skyStopCount: "u_skyStopCount",
-			waterTint   : "u_waterTint",
-			comic       : "u_comic",
-		},
-		linkErrorPrefix: "Scatter shader link error",
-	});
-}
-
-// Decal shape enum; keep in sync with decalSurfaceUvGLSL and builder/NewObject.js.
+// Decal shape enum; keep in sync with decalSurfaceUvGLSL in Shaders.js and builder/NewPrimitive.js.
 const DECAL_SHAPE_CODES = {
 	Flat    : 0, // any non-curved primitive — no projection
 	Sphere  : 1, // buildSphere
@@ -489,94 +123,22 @@ const DECAL_SHAPE_CODES = {
 // Cylinder caps are flat disks (unlike capsule ends) — decals there skip radial projection.
 function ResolveDecalShapeCode(shape, side) {
 	const key = shape.charAt(0).toUpperCase() + shape.slice(1), codes = DECAL_SHAPE_CODES;
-	if (key === "cylinder") return side === "top" || side === "bottom" ? codes.Flat : codes.Cylinder;
-	if (typeof codes[key] === "number") return codes[key];
-	return codes.Flat;
+	if (key === "Cylinder") return side === "top" || side === "bottom" ? codes.Flat : codes.Cylinder;
+	return typeof codes[key] === "number" ? codes[key] : codes.Flat;
 }
-
-// Exact mirror of DecalSurfaceUv.
-const decalSurfaceUvGLSL = `
-	const int SHAPE_FLAT = 0;
-	const int SHAPE_SPHERE = 1;
-	const int SHAPE_CYLINDER = 2;
-	const int SHAPE_CAPSULE = 3;
-
-	// The decal's right and up directions, laid flat on the surface at its center.
-	void decalSurfaceFrame(vec3 centerDir, vec3 u, vec3 v, out vec3 right, out vec3 up) {
-		right = normalize(u - centerDir * dot(u, centerDir));
-		up = cross(centerDir, right);
-		if (dot(up, v) < 0.0) up = -up;
-	}
-
-	// Tube height, continued onto the cap.
-	float decalMeridianArc(vec3 point, float capRadius, float cylinderHalf, int shape) {
-		if (shape == SHAPE_CYLINDER || abs(point.y) <= cylinderHalf) return point.y;
-		vec3 n = normalize(point - vec3(0.0, sign(point.y) * cylinderHalf, 0.0));
-		return sign(point.y) * cylinderHalf + capRadius * asin(clamp(n.y, -1.0, 1.0));
-	}
-
-	// Angle around the vertical axis. A point on the axis itself uses the fallback angle.
-	float decalAxisAngle(float z, float x, float fallback) {
-		return x == 0.0 && z == 0.0 ? fallback : atan(z, x);
-	}
-
-	vec2 decalSurfaceUv(int shape, vec3 point, mat4 placement, vec3 r, float rounding) {
-		vec3 center = placement[3].xyz;
-		// Floored: zero scale stays finite.
-		float width = max(length(placement[0].xyz), 1e-6), height = max(length(placement[1].xyz), 1e-6);
-		vec3 u = placement[0].xyz / width, v = placement[1].xyz / height;
-
-		if (shape == SHAPE_FLAT) {
-			vec3 offset = point - center;
-			return vec2(dot(offset, u) / width, dot(offset, v) / height);
-		}
-
-		float capRadius = r.y * rounding;
-		float cylinderHalf = r.y - capRadius;
-		bool onCap = shape == SHAPE_CAPSULE && abs(center.y) > cylinderHalf;
-		vec3 right, up;
-
-		// Sphere or capsule cap: unrolls the surface outward from the decal's center.
-		if (shape == SHAPE_SPHERE || onCap) {
-			vec3 origin = vec3(0.0, onCap ? clamp(center.y, -cylinderHalf, cylinderHalf) : 0.0, 0.0);
-			float radius = onCap ? capRadius : length(center);
-			vec3 centerDir = normalize(center - origin), n = normalize(point - origin);
-			decalSurfaceFrame(centerDir, u, v, right, up);
-			vec2 bearing = vec2(dot(n, right), dot(n, up));
-			float span = length(bearing);
-			float turn = 6.283185307179586 * radius;
-			return (span > 1e-12 ? radius * acos(clamp(dot(n, centerDir), -1.0, 1.0)) * bearing / span : vec2(0.0))
-			     / vec2(min(width, turn), min(height, turn));
-		}
-
-		// Tube side: unrolls the surface flat, distance around by distance along.
-		vec3 centerDir = normalize(center - vec3(0.0, center.y, 0.0));
-		vec3 meridian = normalize(vec3(0.0, 1.0, 0.0) - centerDir * centerDir.y);
-		vec3 azimuth = cross(centerDir, meridian);
-		decalSurfaceFrame(centerDir, u, v, right, up);
-		float rho = max(length(vec2(center.x, center.z)), 1e-6);
-		float centerAngle = decalAxisAngle(center.z, center.x, 0.0);
-		float dTheta = decalAxisAngle(point.z, point.x, centerAngle) - centerAngle;
-		if (dTheta >  3.141592653589793) dTheta -= 6.283185307179586;
-		if (dTheta < -3.141592653589793) dTheta += 6.283185307179586;
-		float arc = rho * dTheta;
-		float rise = decalMeridianArc(point, capRadius, cylinderHalf, shape) - decalMeridianArc(center, capRadius, cylinderHalf, shape);
-		return vec2((arc * dot(right, azimuth) + rise * dot(right, meridian)) / min(width, 6.283185307179586 * rho),
-		            (arc * dot(up, azimuth) + rise * dot(up, meridian)) / height);
-	}
-`;
 
 /* === DECAL GEOMETRY === */
 // Capsule cap share; every other shape ignores it.
-function DecalRounding(shape, primitiveOptions) {
-	return shape === "capsule" ? primitiveOptions.rounding : 0;
-}
+const DecalRounding = (shape, primitiveOptions) => shape === "capsule" ? primitiveOptions.rounding : 0;
 
 // Capsule ray origin: on the axis within the band, cap center beyond it.
 function CapsuleBand(halfExtents, rounding, pointY) {
 	const capRadius    = halfExtents.y * rounding;
 	const cylinderHalf = halfExtents.y - capRadius;
-	return { capRadius, cylinderHalf, originY: Math.abs(pointY) <= cylinderHalf ? pointY : Math.sign(pointY) * cylinderHalf };
+	return { 
+		capRadius, cylinderHalf, 
+		originY: Math.abs(pointY) <= cylinderHalf ? pointY : Math.sign(pointY) * cylinderHalf 
+	};
 }
 
 // The decal's right and up directions, laid flat on the surface at its center.
@@ -598,12 +160,12 @@ function decalMeridianArc(point, capRadius, cylinderHalf, shapeCode) {
 
 // Mirrored by decalSurfaceUvGLSL. referenceArc: seam branch to unwrap into; 0 for none.
 function DecalSurfaceUv(point, placement, shapeCode, halfExtents, rounding, referenceArc) {
-	const center = { x: placement[12], y: placement[13], z: placement[14] };
-	// Floored: zero scale stays finite.
-	const width = Math.max(Vector3Length({ x: placement[0], y: placement[1], z: placement[2] }), 1e-6);
-	const height = Math.max(Vector3Length({ x: placement[4], y: placement[5], z: placement[6] }), 1e-6);
-	const u = { x: placement[0] / width,  y: placement[1] / width,  z: placement[2] / width  };
-	const v = { x: placement[4] / height, y: placement[5] / height, z: placement[6] / height };
+
+	const center = ArrayToVector3(placement, 12);
+	const width = Math.max(Vector3Length(ArrayToVector3(placement, 0)), 1e-6);
+	const height = Math.max(Vector3Length(ArrayToVector3(placement, 4)), 1e-6);
+	const u = DivideVector3(ArrayToVector3(placement, 0), ToVector3(width));
+	const v = DivideVector3(ArrayToVector3(placement, 4), ToVector3(height));
 
 	if (shapeCode === DECAL_SHAPE_CODES.Flat) {
 		const offset = SubtractVector3(point, center);
@@ -626,7 +188,12 @@ function DecalSurfaceUv(point, placement, shapeCode, halfExtents, rounding, refe
 		const geodesic  = radius * AngleBetweenVector3(normal, centerDir);
 		const arc  = bearing > 1e-12 ? geodesic * bearingU / bearing : 0;
 		const turn = 2 * Math.PI * radius;
-		return { u: arc / Math.min(width, turn), v: (bearing > 1e-12 ? geodesic * bearingV / bearing : 0) / Math.min(height, turn), arc };
+
+		return { 
+			u: arc / Math.min(width, turn), 
+			v: (bearing > 1e-12 ? geodesic * bearingV / bearing : 0) / Math.min(height, turn), 
+			arc 
+		};
 	}
 
 	// Tube side: unrolls the surface flat, distance around by distance along.
@@ -646,6 +213,7 @@ function DecalSurfaceUv(point, placement, shapeCode, halfExtents, rounding, refe
 	while (arc - referenceArc >  piArc) arc -= 2 * piArc;
 	while (arc - referenceArc < -piArc) arc += 2 * piArc;
 	const rise = decalMeridianArc(point, band.capRadius, band.cylinderHalf, shapeCode) - decalMeridianArc(center, band.capRadius, band.cylinderHalf, shapeCode);
+	
 	return {
 		u: (arc * DotVector3(frame.right, azimuth) + rise * DotVector3(frame.right, meridian)) / Math.min(width, 2 * piArc),
 		v: (arc * DotVector3(frame.up, azimuth)    + rise * DotVector3(frame.up, meridian))    / height,
@@ -654,8 +222,13 @@ function DecalSurfaceUv(point, placement, shapeCode, halfExtents, rounding, refe
 }
 
 // Flat host: the placed quad is exact.
-const flatDecalCorners = [{ x: -0.5, y: -0.5, z: 0 }, { x: -0.5, y: 0.5, z: 0 }, { x: 0.5, y: -0.5, z: 0 }, { x: 0.5, y: 0.5, z: 0 }];
-const flatDecalOrder   = [0, 1, 2, 2, 1, 3];
+const flatDecalCorners = [
+	{ x: -0.5, y: -0.5, z: 0 }, 
+	{ x: -0.5, y: 0.5, z: 0 }, 
+	{ x: 0.5, y: -0.5, z: 0 }, 
+	{ x: 0.5, y: 0.5, z: 0 }
+];
+const flatDecalOrder   = [0, 2, 1, 1, 2, 3];
 
 function flatDecalFacets(placement) {
 	const positions = new Float32Array(flatDecalOrder.length * 3);
@@ -663,7 +236,8 @@ function flatDecalFacets(placement) {
 	flatDecalOrder.forEach((corner, slot) => {
 		const point = TransformPointByMatrix(flatDecalCorners[corner], placement);
 		positions[slot * 3] = point.x; positions[slot * 3 + 1] = point.y; positions[slot * 3 + 2] = point.z;
-		uvs[slot * 2] = flatDecalCorners[corner].x; uvs[slot * 2 + 1] = flatDecalCorners[corner].y;
+		uvs[slot * 2] = flatDecalCorners[corner].x; 
+		uvs[slot * 2 + 1] = flatDecalCorners[corner].y;
 	});
 	return { positions, uvs };
 }
@@ -675,9 +249,9 @@ function SelectDecalFacets(geometry, placement, shapeCode, halfExtents, rounding
 	const half = 0.5 * margin;
 	const { positions, indices } = geometry;
 	const vertexCount = positions.length / 3;
-	const points  = new Array(vertexCount);
-	const baseUvs = new Array(vertexCount);
-	const pointAt = (index) => points[index] || (points[index] = { x: positions[index * 3], y: positions[index * 3 + 1], z: positions[index * 3 + 2] });
+	const points  = new Array(vertexCount), baseUvs = new Array(vertexCount);
+	const pointAt = (index) => points[index] || (points[index] = ArrayToVector3(positions, index, true));
+	
 	// First vertices map with referenceArc 0, so they cache per index.
 	const baseUvAt = (index) => baseUvs[index] || (baseUvs[index] = DecalSurfaceUv(pointAt(index), placement, shapeCode, halfExtents, rounding, 0));
 
@@ -687,16 +261,16 @@ function SelectDecalFacets(geometry, placement, shapeCode, halfExtents, rounding
 		tri[0] = pointAt(indices[offset]);
 		tri[1] = pointAt(indices[offset + 1]);
 		tri[2] = pointAt(indices[offset + 2]);
+		
 		// Degenerate capsule pole triangles.
-		if (Vector3Length(CrossVector3(SubtractVector3(tri[1], tri[0]), SubtractVector3(tri[2], tri[0]))) < 1e-14) continue;
+		if (TriangleArea(tri[0], tri[1], tri[2]) < 5e-15) continue;
 
 		// Unwrap into the first vertex's branch.
 		const base = baseUvAt(indices[offset]);
 		us[0] = base.u; vs[0] = base.v;
 		for (let corner = 1; corner < 3; corner++) {
 			const mapped = DecalSurfaceUv(tri[corner], placement, shapeCode, halfExtents, rounding, base.arc);
-			us[corner] = mapped.u;
-			vs[corner] = mapped.v;
+			us[corner] = mapped.u; vs[corner] = mapped.v;
 		}
 
 		const minU = Math.min(us[0], us[1], us[2]), maxU = Math.max(us[0], us[1], us[2]);
@@ -711,314 +285,6 @@ function SelectDecalFacets(geometry, placement, shapeCode, halfExtents, rounding
 		}
 	}
 	return { positions: new Float32Array(keptPoints), uvs: new Float32Array(keptUvs) };
-}
-
-// Cut per fragment, so animation only moves u_placement.
-const decalFragmentDeclarations = `uniform vec4 u_tint;
-		uniform mat4 u_placement;
-		uniform int u_shape;
-		uniform vec3 u_halfExtents;
-		uniform float u_rounding;
-		${decalSurfaceUvGLSL}`;
-
-// The exact [-0.5, 0.5] cut.
-const decalFragmentCut = `vec2 decalUv = decalSurfaceUv(u_shape, v_partLocal, u_placement, u_halfExtents, u_rounding);
-			if (abs(decalUv.x) > 0.5 || abs(decalUv.y) > 0.5) discard;
-			vec4 texel = texture(u_texture, vec2(decalUv.x + 0.5, 0.5 - decalUv.y));`;
-
-function createDecalProgram(gl) {
-	// Host facets in part-local space.
-	const vertexShaderSource = `#version 300 es
-		in vec3 a_position;
-		uniform mat4 u_projection;
-		uniform mat4 u_view;
-		uniform mat4 u_partWorld;
-		out vec3 v_partLocal;
-		out vec3 v_viewPos;
-
-		void main() {
-			vec4 viewPos = u_view * u_partWorld * vec4(a_position, 1.0);
-			gl_Position = u_projection * viewPos;
-			v_partLocal = a_position;
-			v_viewPos = viewPos.xyz;
-		}
-	`;
-
-	return createLinkedProgram(gl, {
-		vertexShaderSource: vertexShaderSource,
-		fragmentShaderSource: createFoggedTextureFragmentShader(
-			decalFragmentDeclarations,
-			"vec4(texel.rgb * u_tint.rgb * u_tint.a, texel.a * u_tint.a)",
-			true,
-			"in vec3 v_partLocal;",
-			decalFragmentCut
-		),
-		attributeNames: {
-			position: "a_position",
-		},
-		uniformNames: {
-			projection  : "u_projection",
-			view        : "u_view",
-			placement   : "u_placement",
-			partWorld   : "u_partWorld",
-			shape       : "u_shape",
-			halfExtents : "u_halfExtents",
-			rounding    : "u_rounding",
-			texture     : "u_texture",
-			tint        : "u_tint",
-			fogFull     : "u_fogFull",
-			colorShift  : "u_colorShift",
-			underwater  : "u_underwater",
-			skyStops    : "u_skyStops[0]",
-			skyStopCount: "u_skyStopCount",
-			waterTint   : "u_waterTint",
-			comic       : "u_comic",
-		},
-		createError    : "decal shader program creation failed",
-		linkErrorPrefix: "decal shader link error",
-	});
-}
-
-function createScatterDecalProgram(gl) {
-	// Instanced variant of the decal shader: u_partWorld becomes per-instance row attributes.
-	const vertexShaderSource = `#version 300 es
-		layout(location = 0) in vec3 a_position;
-		layout(location = 2) in vec4 a_instanceRow0;
-		layout(location = 3) in vec4 a_instanceRow1;
-		layout(location = 4) in vec4 a_instanceRow2;
-		layout(location = 5) in vec4 a_instanceRow3;
-		uniform mat4 u_projection;
-		uniform mat4 u_view;
-		uniform float u_cullRadius;
-		out vec3 v_partLocal;
-		out vec3 v_viewPos;
-		out float v_cullAlpha;
-
-		void main() {
-			mat4 instanceModel = mat4(a_instanceRow0, a_instanceRow1, a_instanceRow2, a_instanceRow3);
-			${scatterCullGLSL}
-			vec4 viewPos = u_view * instanceModel * vec4(a_position, 1.0);
-			gl_Position = u_projection * viewPos;
-			v_partLocal = a_position;
-			v_viewPos = viewPos.xyz;
-			v_cullAlpha = instanceAlpha;
-		}
-	`;
-
-	return createLinkedProgram(gl, {
-		vertexShaderSource: vertexShaderSource,
-		fragmentShaderSource: createFoggedTextureFragmentShader(
-			`${decalFragmentDeclarations}\n\t\tin float v_cullAlpha;`,
-			"vec4(texel.rgb * u_tint.rgb * u_tint.a, texel.a * u_tint.a) * v_cullAlpha",
-			true,
-			"in vec3 v_partLocal;",
-			decalFragmentCut
-		),
-		uniformNames: {
-			projection  : "u_projection",
-			view        : "u_view",
-			placement   : "u_placement",
-			shape       : "u_shape",
-			halfExtents : "u_halfExtents",
-			rounding    : "u_rounding",
-			texture     : "u_texture",
-			tint        : "u_tint",
-			fogFull     : "u_fogFull",
-			colorShift  : "u_colorShift",
-			underwater  : "u_underwater",
-			cullRadius  : "u_cullRadius",
-			skyStops    : "u_skyStops[0]",
-			skyStopCount: "u_skyStopCount",
-			waterTint   : "u_waterTint",
-			comic       : "u_comic",
-		},
-		createError    : "scatter decal shader program creation failed",
-		linkErrorPrefix: "scatter decal shader link error",
-	});
-}
-
-// Fullscreen backdrop; the view ray is the exact inverse of the projection in use.
-function createSkyProgram(gl) {
-	const vertexShaderSource = `#version 300 es
-		in vec2 a_position;
-		uniform vec2 u_rayScale;
-		out vec3 v_viewPos;
-		void main() {
-			v_viewPos = vec3(a_position * u_rayScale, -1.0);
-			gl_Position = vec4(a_position, 0.0, 1.0);
-		}
-	`;
-
-	const fragmentShaderSource = `#version 300 es
-		precision highp float;
-		${skySampleGLSL}
-		in vec3 v_viewPos;
-		out vec4 fragColor;
-		void main() {
-			fragColor = vec4(sampleSky(viewRayElevation(v_viewPos)), 1.0);
-		}
-	`;
-
-	return createLinkedProgram(gl, {
-		vertexShaderSource, fragmentShaderSource,
-		attributeNames : { position: "a_position" },
-		uniformNames   : {
-			view        : "u_view",
-			rayScale    : "u_rayScale",
-			skyStops    : "u_skyStops[0]",
-			skyStopCount: "u_skyStopCount",
-			waterTint   : "u_waterTint",
-			underwater  : "u_underwater",
-		},
-		createError    : "sky program creation failed",
-		linkErrorPrefix: "sky shader link error",
-	});
-}
-
-// Crossfades two baked surfaces; fog/tint are applied later by the textured programs, not here.
-function createBlendProgram(gl) {
-	const vertexShaderSource = `#version 300 es
-		in vec2 a_position;
-		out vec2 v_uv;
-		void main() {
-			v_uv = a_position * 0.5 + 0.5;
-			gl_Position = vec4(a_position, 0.0, 1.0);
-		}
-	`;
-
-	const fragmentShaderSource = `#version 300 es
-		precision highp float;
-		uniform sampler2D u_from;
-		uniform sampler2D u_to;
-		uniform float u_ratio;
-		in vec2 v_uv;
-		out vec4 fragColor;
-		void main() {
-			fragColor = mix(texture(u_from, v_uv), texture(u_to, v_uv), u_ratio);
-		}
-	`;
-
-	return createLinkedProgram(gl, {
-		vertexShaderSource, fragmentShaderSource,
-		attributeNames : { position: "a_position" },
-		uniformNames   : { from: "u_from", to: "u_to", ratio: "u_ratio" },
-		createError    : "texture blend program creation failed",
-		linkErrorPrefix: "texture blend shader link error",
-	});
-}
-
-const fullscreenVertexGLSL = `#version 300 es
-	in vec2 a_position;
-	void main() {
-		gl_Position = vec4(a_position, 0.0, 1.0);
-	}
-`;
-
-// Ink lines on edges and creases, faded by fog.
-function createInkProgram(gl) {
-	const { Lines } = FILTER_TUNING;
-
-	const fragmentShaderSource = `#version 300 es
-		precision highp float;
-		uniform sampler2D u_depth;
-		uniform mat4 u_view;
-		uniform vec2 u_rayScale;
-		uniform float u_near;
-		uniform float u_far;
-		uniform float u_fogFull;
-		uniform float u_cameraY;
-		uniform vec2 u_waterClip;
-		out vec4 fragColor;
-
-		// Distance from the camera along its view direction, read from the depth buffer.
-		float viewDepth(ivec2 pixel) {
-			ivec2 clamped = clamp(pixel, ivec2(0), textureSize(u_depth, 0) - 1);
-			float ndc = texelFetch(u_depth, clamped, 0).r * 2.0 - 1.0;
-			return 2.0 * u_near * u_far / (u_far + u_near - ndc * (u_far - u_near));
-		}
-
-		void main() {
-			ivec2 pixel = ivec2(gl_FragCoord.xy);
-			float z = viewDepth(pixel);
-
-			// How sharply the surface bends here: high at outlines and creases, zero on flat ground.
-			ivec2 across = ivec2(${Lines.Width}, 0);
-			ivec2 down = ivec2(0, ${Lines.Width});
-			float neighbors = 1.0 / viewDepth(pixel + across) + 1.0 / viewDepth(pixel - across) + 1.0 / viewDepth(pixel + down) + 1.0 / viewDepth(pixel - down);
-			float bend = abs(neighbors * z - 4.0);
-
-			// No lines on anything seen through the water surface.
-			vec2 ndc = gl_FragCoord.xy / vec2(textureSize(u_depth, 0)) * 2.0 - 1.0;
-			float worldY = u_cameraY + dot(vec3(ndc * u_rayScale * z, -z), u_view[1].xyz);
-			float keep = step(0.0, u_waterClip.y * (worldY - u_waterClip.x));
-
-			float fog = clamp(z / u_fogFull, 0.0, 1.0);
-			float ink = smoothstep(${Lines.Threshold.toFixed(6)}, ${(Lines.Threshold * 2).toFixed(6)}, bend) * (1.0 - fog * fog * fog) * keep;
-			fragColor = vec4(${Lines.Color.r.toFixed(4)}, ${Lines.Color.g.toFixed(4)}, ${Lines.Color.b.toFixed(4)}, ink);
-		}
-	`;
-
-	return createLinkedProgram(gl, {
-		vertexShaderSource: fullscreenVertexGLSL,
-		fragmentShaderSource,
-		attributeNames : { position: "a_position" },
-		uniformNames   : {
-			depth     : "u_depth",
-			view      : "u_view",
-			rayScale  : "u_rayScale",
-			near      : "u_near",
-			far       : "u_far",
-			fogFull   : "u_fogFull",
-			cameraY   : "u_cameraY",
-			waterClip : "u_waterClip",
-		},
-		createError    : "ink program creation failed",
-		linkErrorPrefix: "ink shader link error",
-	});
-}
-
-// Copies the filtered scene onto the canvas, adding comic color on geometry when enabled.
-function createFilterProgram(gl) {
-	const { Posterize, Halftone } = FILTER_TUNING.Comic;
-
-	const fragmentShaderSource = `#version 300 es
-		precision highp float;
-		uniform sampler2D u_color;
-		uniform sampler2D u_depth;
-		uniform float u_comic;
-		out vec4 fragColor;
-
-		void main() {
-			ivec2 pixel = ivec2(gl_FragCoord.xy);
-			vec3 color = texelFetch(u_color, pixel, 0).rgb;
-			float depth = texelFetch(u_depth, pixel, 0).r;
-
-			// Fewer color steps and halftone dots in darker tones, skipping the sky.
-			if (u_comic > 0.5 && depth < 1.0) {
-				float levels = ${Posterize.Levels.toFixed(1)};
-				color = mix(color, floor(color * levels + 0.5) / levels, ${Posterize.Strength.toFixed(4)});
-				float shade = clamp(1.0 - dot(color, vec3(0.299, 0.587, 0.114)) / ${Halftone.Below.toFixed(4)}, 0.0, 1.0);
-				float radius = sqrt(shade) * 0.5;
-				vec2 cell = mat2(0.7071, 0.7071, -0.7071, 0.7071) * gl_FragCoord.xy / ${Halftone.CellSize.toFixed(1)};
-				float inDot = 1.0 - smoothstep(radius - 0.08, radius, length(fract(cell) - 0.5));
-				color *= 1.0 - inDot * ${Halftone.Strength.toFixed(4)};
-			}
-
-			fragColor = vec4(color, 1.0);
-
-			// Copied so the debug overlays drawn afterwards still hide behind geometry.
-			gl_FragDepth = depth;
-		}
-	`;
-
-	return createLinkedProgram(gl, {
-		vertexShaderSource: fullscreenVertexGLSL,
-		fragmentShaderSource,
-		attributeNames : { position: "a_position" },
-		uniformNames   : { color: "u_color", depth: "u_depth", comic: "u_comic" },
-		createError    : "filter program creation failed",
-		linkErrorPrefix: "filter shader link error",
-	});
 }
 
 /* === GEOMETRY REGISTRY === */
@@ -1045,9 +311,7 @@ function ensureSharedGeometry(renderer, sceneGraph, primitiveKey) {
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geometry.indices), gl.STATIC_DRAW);
 
 	const entry = {
-		positionBuffer: positionBuffer,
-		uvBuffer: uvBuffer,
-		indexBuffer: indexBuffer,
+		positionBuffer, uvBuffer, indexBuffer,
 		indexCount: geometry.indices.length,
 	};
 
@@ -1058,8 +322,8 @@ function ensureSharedGeometry(renderer, sceneGraph, primitiveKey) {
 /* === SCATTER INSTANCE BUFFERS === */
 // Builds per-batch VAOs and instance buffers from scatterBatches on the sceneGraph.
 
-// Shared position/uv/index + per-instance model-matrix rows, optional trailing tint row.
-function buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBuffer, includeTint) {
+// Shared position/uv/index + per-instance model-matrix rows, optional trailing tint.
+function buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBuffer, includeTint, instanceOffset = 0) {
 	const vao = gl.createVertexArray();
 	gl.bindVertexArray(vao);
 
@@ -1081,12 +345,48 @@ function buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBu
 	for (let row = 0; row < rowCount; row++) {
 		const location = 2 + row;
 		gl.enableVertexAttribArray(location);
-		gl.vertexAttribPointer(location, 4, gl.FLOAT, false, stride, row * 16);
+		gl.vertexAttribPointer(location, 4, gl.FLOAT, false, stride, instanceOffset + row * 16);
 		gl.vertexAttribDivisor(location, 1);
 	}
 
 	gl.bindVertexArray(null);
 	return vao;
+}
+
+// Reorder instances so each ground square's instances sit together, and boxes each square for culling.
+function groupInstancesIntoCells(instanceData, instanceCount, instanceReach) {
+	const byCell = new Map();
+
+	const cellSize = PERFORMANCE_SCALING.Culling.ScatterCellSize.value;
+	for (let i = 0; i < instanceCount; i++) {
+		const key = `
+			${Math.floor(instanceData[i * 20 + 12] / cellSize)}|
+			${Math.floor(instanceData[i * 20 + 14] / cellSize)}
+		`;
+		if (!byCell.has(key)) byCell.set(key, []);
+		byCell.get(key).push(i);
+	}
+
+	const sorted = new Float32Array(instanceData.length);
+	const cells  = [];
+	let written  = 0;
+	for (const indices of byCell.values()) {
+		let min = ToVector3(Infinity), max = ToVector3(-Infinity);
+		for (const i of indices) {
+			const row = instanceData.subarray(i * 20, i * 20 + 20);
+			sorted.set(row, written * 20);
+
+			// How far this instance's farthest vertex can sit from its position, after its scale.
+			const rows  = [row[0], row[1], row[2], row[4], row[5], row[6], row[8], row[9], row[10]];
+			const reach = instanceReach * Math.hypot(...rows);
+			min = MinVector3(min, SubtractVector3(ArrayToVector3(row, 12), ToVector3(reach)));
+			max = MaxVector3(max, AddVector3(ArrayToVector3(row, 12), ToVector3(reach)));
+			written++;
+		}
+		cells.push({ start: written - indices.length, count: indices.length, aabb: { min, max } });
+	}
+
+	return { sorted, cells };
 }
 
 function buildScatterInstanceBuffers(renderer, sceneGraph) {
@@ -1099,7 +399,7 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 
 	const gl = renderer.gl;
 	const results = [];
-	let totalInstances = 0;
+	let totalInstances = 0, totalCells = 0;
 
 	sceneGraph.scatterBatches.forEach((batch, batchKey) => {
 		if (batch.instanceCount === 0) return;
@@ -1108,46 +408,52 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 		if (!geo) return;
 
 		const instanceCount = batch.instanceCount;
-		const instanceData = batch.instanceData;
+		const primitiveGeometry = sceneGraph.visualResources.primitiveGeometry[batch.primitiveKey];
+
+		// Farthest vertex of the shared shape from its own origin, before any instance scaling.
+		let instanceReach = 0;
+		for (let i = 0; i < primitiveGeometry.positions.length / 3; i++) {
+			instanceReach = Math.max(instanceReach, Vector3Length(ArrayToVector3(primitiveGeometry.positions, i, true)));
+		}
+		const { sorted, cells } = groupInstancesIntoCells(batch.instanceData, instanceCount, instanceReach);
 
 		const instanceBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, instanceData, gl.STATIC_DRAW);
+		gl.bufferData(gl.ARRAY_BUFFER, sorted, gl.STATIC_DRAW);
 
-		// Model matrix rows 0-3 + per-instance tint row 4.
-		const vao = buildInstancedVao(gl, geo.positionBuffer, geo.uvBuffer, geo.indexBuffer, instanceBuffer, true);
+		// One vertex array per ground square, starting at that square's first instance.
+		const { positionBuffer, uvBuffer, indexBuffer } = geo
+		for (const cell of cells) {
+			cell.vao = buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBuffer, true, cell.start * 80);
+		}
 
 		// Scatter decals are static: built once, shared by every instance.
-		const primitiveGeometry = sceneGraph.visualResources.primitiveGeometry[batch.primitiveKey];
-		const dim = batch.dimensions;
-		const rounding = DecalRounding(batch.primitive, batch.primitiveOptions);
-		const decalDraws = batch.customTextures.map((decalEntry, index) => {
-			const shapeCode = ResolveDecalShapeCode(batch.primitive, decalEntry.side);
-			const placement = BuildDecalPlacementMatrix(dim, decalEntry.displayTransform, decalEntry.side);
-			const facets    = SelectDecalFacets(primitiveGeometry, placement, shapeCode, DivideVector3(dim, ToVector3(2)), rounding, 1);
+		const { dimensions, primitive, primitiveOptions, customTextures, textureID } = batch;
+		const rounding = DecalRounding(primitive, primitiveOptions);
+		const decalDraws = customTextures.map((decalEntry, index) => {
+			const shapeCode = ResolveDecalShapeCode(primitive, decalEntry.side);
+			const placement = BuildDecalPlacementMatrix(dimensions, decalEntry.displayTransform, decalEntry.side);
+			const facets    = SelectDecalFacets(primitiveGeometry, placement, shapeCode, ScaleVector3(dimensions, 0.5), rounding, 1);
 
 			const positionBuffer = gl.createBuffer();
 			gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 			gl.bufferData(gl.ARRAY_BUFFER, facets.positions, gl.STATIC_DRAW);
+
 			return {
 				shapeCode,
 				placement  : new Float32Array(placement),
-				vao        : buildInstancedVao(gl, positionBuffer, null, null, instanceBuffer, false),
+				cellVaos   : cells.map((cell) => buildInstancedVao(gl, positionBuffer, null, null, instanceBuffer, false, cell.start * 80)),
 				vertexCount: facets.positions.length / 3,
 				textureKey : `${batchKey}::customTexture::${index}`,
 			};
 		});
 
 		totalInstances += instanceCount;
+		totalCells     += cells.length;
 		results.push({
-			key: batchKey, vao,
-			indexCount: geo.indexCount,
-			instanceCount,
-			textureID: batch.textureID,
-			decalDraws,
-			primitive : batch.primitive,
-			dimensions: batch.dimensions,
-			rounding,
+			key: batchKey, cells, indexCount: geo.indexCount,
+			instanceCount, textureID: textureID, decalDraws,
+			primitive : primitive, dimensions: dimensions, rounding,
 		});
 	});
 
@@ -1156,15 +462,16 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 	renderer.scatterInstancesBuilt = true;
 	Log(
 		"ENGINE",
-		`Scatter instancing ready: ${results.length} batch(es), ${totalInstances} total instance(s), ${results.length} draw call(s)`,
+		`Scatter instancing ready: 
+			${results.length} batch(es), 
+			${totalInstances} total instance(s), 
+			${totalCells} cell(s) of ${PERFORMANCE_SCALING.Culling.ScatterCellSize.value} cnu`,
 		"log",
 		"Level"
 	);
 }
 
 const isBoundingBoxDebugEnabled = (type) => !!(CONFIG.Debug.All && CONFIG.Debug.Levels.BoundingBox[type]);
-const isGridDebugEnabled = () => !!(CONFIG.Debug.All && CONFIG.Debug.Levels.BoundingBox.Grid.Visible);
-const isDetailedBoundsDebugEnabled = (type) => !!(CONFIG.Debug.All && CONFIG.Debug.Levels.DetailedBounds[type]);
 
 function bindDebugLinePass(renderer, gl, projection, view) {
 	gl.useProgram(renderer.debugLineShader.program);
@@ -1185,8 +492,7 @@ function buildBoxWireframe(p000, p001, p010, p011, p100, p101, p110, p111) {
 }
 
 function createMinMaxBoxLineVertices(bounds) {
-	const min = bounds.min.toWorldUnit();
-	const max = bounds.max.toWorldUnit();
+	const min = bounds.min.toWorldUnit(), max = bounds.max.toWorldUnit();
 	return buildBoxWireframe(
 		[min.x, min.y, min.z], [min.x, min.y, max.z],
 		[min.x, max.y, min.z], [min.x, max.y, max.z],
@@ -1196,10 +502,8 @@ function createMinMaxBoxLineVertices(bounds) {
 }
 
 function createGridLineVertices(bounds, step) {
-	const wMin = bounds.min.toWorldUnit();
-	const wMax = bounds.max.toWorldUnit();
-
-	const min = Vector3ToArray(wMin), max = Vector3ToArray(wMax);
+	const min = Vector3ToArray(bounds.min.toWorldUnit());
+	const max = Vector3ToArray(bounds.max.toWorldUnit());
 	const a = [0, 0, 0], b = [0, 0, 0];
 	const lines = [];
 
@@ -1207,9 +511,11 @@ function createGridLineVertices(bounds, step) {
 	for (let s = 0; s < 3; s++) {
 		for (let k = 0; k < 3; k++) {
 			if (k === s) continue;
+
 			const l = 3 - s - k;
 			a[l] = min[l];
 			b[l] = max[l];
+
 			for (const side of [min[k], max[k]]) {
 				a[k] = b[k] = side;
 				for (let v = min[s]; v <= max[s] + step * 0.001; v += step) {
@@ -1220,18 +526,21 @@ function createGridLineVertices(bounds, step) {
 		}
 	}
 
-	if (lines.length === 0) return null;
-	return new Float32Array(lines);
+	return lines.length === 0 ? null : new Float32Array(lines);
 }
 
 function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 	if (sceneGraph.debugBoundingBoxes.length === 0) return;
 
 	const gl = renderer.gl;
-	if (!renderer.debugLineShader) renderer.debugLineShader = createLineProgram(gl);
-	if (!renderer.debugLineShader) return;
-	if (!renderer.debugLineBuffer) renderer.debugLineBuffer = gl.createBuffer();
-	if (!renderer.debugLineBuffer) return;
+	if (!renderer.debugLineShader) {
+		renderer.debugLineShader = CreateShader.LineProgram(gl);
+		return;
+	}
+	if (!renderer.debugLineBuffer) {
+		renderer.debugLineBuffer = gl.createBuffer();
+		return;
+	}
 
 	bindDebugLinePass(renderer, gl, projection, view);
 
@@ -1241,7 +550,7 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 		const vertices = createMinMaxBoxLineVertices(record);
 		if (!vertices) return;
 
-		const color = boundingBoxTypeColors[record.type];
+		const color = DEBUG_COLORS.BoundingBoxes[record.type];
 		gl.uniform4f(renderer.debugLineShader.uniforms.color, color.r, color.g, color.b, color.a);
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 		gl.drawArrays(gl.LINES, 0, vertices.length / 3);
@@ -1249,7 +558,7 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 }
 
 function drawGridOverlay(renderer, sceneGraph, projection, view) {
-	if (!isGridDebugEnabled()) return;
+	if (!(CONFIG.Debug.All && CONFIG.Debug.Levels.BoundingBox.Grid.Visible)) return;
 	if (sceneGraph.debugBoundingBoxes.length === 0) return;
 
 	const gl = renderer.gl;
@@ -1271,13 +580,16 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 
 function createObbLineVertices(bounds) {
 	const c = bounds.center.toWorldUnit();
-	const s = MultiplyVector3({ x: bounds.axes[0], y: bounds.axes[1], z: bounds.axes[2] }, bounds.halfExtents.toWorldUnit());
+	const half = bounds.halfExtents.toWorldUnit();
+	const s = { x: ScaleVector3(bounds.axes[0], half.x), y: ScaleVector3(bounds.axes[1], half.y), z: ScaleVector3(bounds.axes[2], half.z) };
 
 	const sign = (v, on) => on ? v : ScaleVector3(v, -1);
 
 	// Bits of i pick each axis side: 4 = x, 2 = y, 1 = z.
 	const corners = [];
-	for (let i = 0; i < 8; i++) corners.push(Vector3ToArray(AddVector3(AddVector3(AddVector3(c, sign(s.x, i & 4)), sign(s.y, i & 2)), sign(s.z, i & 1))));
+	for (let i = 0; i < 8; i++) {
+		corners.push(Vector3ToArray(AddVector3(AddVector3(AddVector3(c, sign(s.x, i & 4)), sign(s.y, i & 2)), sign(s.z, i & 1))));
+	}
 	return buildBoxWireframe(...corners);
 }
 
@@ -1285,19 +597,17 @@ function createCapsuleLineVertices(bounds, longitudinalSegments = 8) {
 	const start = bounds.segmentStart.toWorldUnit();
 	const end = bounds.segmentEnd.toWorldUnit();
 	const radius = bounds.radius.toWorldUnit();
+
 	const lines = [];
-	const ringOffset = radius * Math.SQRT1_2;
-	const ringRadius = radius * Math.SQRT1_2;
+	const ringOffset = radius * Math.SQRT1_2, ringRadius = radius * Math.SQRT1_2;
 	const bottomPole = [start.x, start.y - radius, start.z];
 	const topPole = [end.x, end.y + radius, end.z];
 
 	for (let i = 0; i < longitudinalSegments; i++) {
 		const t0 = (i / longitudinalSegments) * Math.PI * 2;
 		const t1 = ((i + 1) / longitudinalSegments) * Math.PI * 2;
-		const c0 = Math.cos(t0);
-		const s0 = Math.sin(t0);
-		const c1 = Math.cos(t1);
-		const s1 = Math.sin(t1);
+		const c0 = Math.cos(t0), c1 = Math.cos(t1);
+		const s0 = Math.sin(t0), s1 = Math.sin(t1);
 		const bottomBase = [start.x + c0 * radius, start.y, start.z + s0 * radius];
 		const topBase = [end.x + c0 * radius, end.y, end.z + s0 * radius];
 		const bottomMid = [start.x + c0 * ringRadius, start.y - ringOffset, start.z + s0 * ringRadius];
@@ -1343,14 +653,10 @@ function createSphereLineVertices(bounds, radialSegments = 16) {
 function createTriangleSoupLineVertices(bounds) {
 	const lines = [];
 	bounds.triangles.forEach((triangle) => {
-		const a = triangle.a.toWorldUnit();
-		const b = triangle.b.toWorldUnit();
-		const c = triangle.c.toWorldUnit();
-		lines.push(
-			a.x, a.y, a.z, b.x, b.y, b.z,
-			b.x, b.y, b.z, c.x, c.y, c.z,
-			c.x, c.y, c.z, a.x, a.y, a.z
-		);
+		const a = Vector3ToArray(triangle.a.toWorldUnit());
+		const b = Vector3ToArray(triangle.b.toWorldUnit());
+		const c = Vector3ToArray(triangle.c.toWorldUnit());
+		lines.push(...a, ...b, ...b, ...c, ...c, ...a);
 	});
 	return new Float32Array(lines);
 }
@@ -1358,18 +664,14 @@ function createTriangleSoupLineVertices(bounds) {
 function drawDetailedBoundsShape(gl, shader, bounds) {
 	let vertices = null;
 	switch(bounds.type) {
-		case "capsule"      : vertices = createCapsuleLineVertices(bounds);      break;
-		case "obb"          : vertices = createObbLineVertices(bounds);          break;
-		case "sphere"       : vertices = createSphereLineVertices(bounds);       break;
-		case "aabb"         : vertices = createMinMaxBoxLineVertices(bounds);    break;
-		case "triangle-soup":
-		case "voidWall"     : vertices = createTriangleSoupLineVertices(bounds); break;
-		case "compound"     :
-			bounds.parts.forEach((part) => drawDetailedBoundsShape(gl, shader, part));
-			return;
-		case "compound-sphere":
-			bounds.spheres.forEach((sphere) => drawDetailedBoundsShape(gl, shader, sphere));
-			return;
+		case "capsule"        : vertices = createCapsuleLineVertices(bounds);      break;
+		case "obb"            : vertices = createObbLineVertices(bounds);          break;
+		case "sphere"         : vertices = createSphereLineVertices(bounds);       break;
+		case "aabb"           : vertices = createMinMaxBoxLineVertices(bounds);    break;
+		case "triangle-soup"  :
+		case "voidWall"       : vertices = createTriangleSoupLineVertices(bounds); break;
+		case "compound"       : bounds.parts.forEach((part) => drawDetailedBoundsShape(gl, shader, part));       return;
+		case "compound-sphere": bounds.spheres.forEach((sphere) => drawDetailedBoundsShape(gl, shader, sphere)); return;
 		default: return;
 	}
 
@@ -1378,37 +680,28 @@ function drawDetailedBoundsShape(gl, shader, bounds) {
 }
 
 function drawDetailedBounds(renderer, sceneGraph, projection, view) {
-	const records = sceneGraph.debug.detailedBounds;
-	if (records.length === 0) return;
+	if (sceneGraph.debug.detailedBounds.length === 0) return;
 
 	const gl = renderer.gl;
-	if (!renderer.debugLineShader) renderer.debugLineShader = createLineProgram(gl);
-	if (!renderer.debugLineShader) return;
-	if (!renderer.debugLineBuffer) renderer.debugLineBuffer = gl.createBuffer();
-	if (!renderer.debugLineBuffer) return;
+	if (!renderer.debugLineShader) {
+		renderer.debugLineShader = CreateShader.LineProgram(gl);
+		return;
+	}
+	if (!renderer.debugLineBuffer) {
+		renderer.debugLineBuffer = gl.createBuffer();
+		return;
+	}
 
 	bindDebugLinePass(renderer, gl, projection, view);
-	const shader = renderer.debugLineShader;
 
-	records.forEach((record) => {
-		if (!isDetailedBoundsDebugEnabled(record.toggle)) return;
+	sceneGraph.debug.detailedBounds.forEach((record) => {
+		if (!(CONFIG.Debug.All && CONFIG.Debug.Levels.DetailedBounds[record.toggle])) return;
 
-		const color = detailedBoundsTypeColors[record.type];
-		gl.uniform4f(shader.uniforms.color, color.r, color.g, color.b, color.a);
-		drawDetailedBoundsShape(gl, shader, record.bounds);
+		const color = DEBUG_COLORS.DetailedBounds[record.type];
+		gl.uniform4f(renderer.debugLineShader.uniforms.color, color.r, color.g, color.b, color.a);
+		drawDetailedBoundsShape(gl, renderer.debugLineShader, record.bounds);
 	});
 }
-
-const trailTypeColors = {
-	Player: { r: 0, g: 1, b: 1, a: 1 },
-	Boss: { r: 1, g: 0.2, b: 0.9, a: 1 },
-	Enemies: { r: 1, g: 0.6, b: 0.2, a: 1 },
-	Collectible: { r: 0.2, g: 1, b: 0.4, a: 1 },
-	Projectile: { r: 1, g: 1, b: 0.2, a: 1 },
-	Particle: { r: 0.7, g: 0.4, b: 1, a: 1 },
-};
-
-const isTrailDebugEnabled = (type) => !!(CONFIG.Debug.All && CONFIG.Debug.Levels.Trails[type]);
 
 function classifyEntityTrailType(entity) {
 	if (entity.type.includes("player"))      return "Player";
@@ -1431,18 +724,18 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 	const trailScale = 0.15;
 
 	sceneGraph.entities.forEach(entity => {
+		const { velocity, transform } = entity;
 		const trailType = classifyEntityTrailType(entity);
-		if (!isTrailDebugEnabled(trailType)) return;
 
-		const vel = entity.velocity;
-		if (Vector3Sq(vel) < 0.01) return;
+		if (!(CONFIG.Debug.All && CONFIG.Debug.Levels.Trails[trailType])) return;
+		if (Vector3Sq(velocity) < 0.01) return;
 
-		const pos = entity.transform.position.toWorldUnit();
-		const end = AddVector3(pos, ScaleVector3(vel, trailScale));
 
 		// Convert CNU positions to world units for rendering.
-		const vertices = new Float32Array([pos.x, pos.y, pos.z, end.x, end.y, end.z]);
-		const color = trailTypeColors[trailType];
+		const position = transform.position.toWorldUnit();
+		const end = AddVector3(position, ScaleVector3(velocity, trailScale));
+		const vertices = new Float32Array([...Vector3ToArray(position), ...Vector3ToArray(end)]);
+		const color = DEBUG_COLORS.Trails[trailType];
 
 		gl.uniform4f(renderer.debugLineShader.uniforms.color, color.r, color.g, color.b, color.a);
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
@@ -1451,9 +744,7 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 }
 
 function createMeshBuffers(gl, mesh, shader) {
-	const positionBuffer = gl.createBuffer();
-	const uvBuffer = gl.createBuffer();
-	const indexBuffer = gl.createBuffer();
+	const positionBuffer = gl.createBuffer(), uvBuffer = gl.createBuffer(), indexBuffer = gl.createBuffer();
 	if (!positionBuffer || !uvBuffer || !indexBuffer) {
 		Log("ENGINE", "WebGL buffer creation failed", "error", "Render");
 		return null;
@@ -1491,10 +782,10 @@ function createMeshBuffers(gl, mesh, shader) {
 function renderMatrixFor(mesh) {
 	const cache     = mesh.renderMatrixCache;
 	const transform = mesh.displayTransform;
-	if (Vector3Matches(cache.position, transform.position) &&
-		Vector3Matches(cache.pivot,    transform.pivot)    &&
-		Vector3Matches(cache.rotation, transform.rotation) &&
-		Vector3Matches(cache.scale,    transform.scale)
+	if (CompareVector3(cache.position, transform.position) &&
+		CompareVector3(cache.pivot,    transform.pivot)    &&
+		CompareVector3(cache.rotation, transform.rotation) &&
+		CompareVector3(cache.scale,    transform.scale)
 	) {
 		return cache.matrix;
 	}
@@ -1507,14 +798,12 @@ function renderMatrixFor(mesh) {
 	return cache.matrix;
 }
 
-const getMeshBufferKey = (mesh) => `${mesh.id}|${mesh.primitive}|${mesh.dimensions.x}|${mesh.dimensions.y}|${mesh.dimensions.z}|${mesh.complexity}|${mesh.geometry.indices.length}`;
-
 function createFallbackTexture(gl) {
 	const texture = gl.createTexture();
 	if (!texture) return null;
+
 	gl.bindTexture(gl.TEXTURE_2D, texture);
-	const pixel = new Uint8Array([255, 255, 255, 255]);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -1526,8 +815,10 @@ function createFallbackTexture(gl) {
 function uploadTextureImage(gl, textureID, source, reallocate) {
 	const isDecal = textureID.includes("::customTexture::");
 	if (isDecal) gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+
 	if (reallocate) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
 	else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
+
 	if (isDecal) gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
 }
 
@@ -1557,8 +848,7 @@ function ensureFullscreenQuad(renderer, cacheKey, shader, label) {
 	if (renderer[cacheKey]) return renderer[cacheKey];
 
 	const gl = renderer.gl;
-	const positionBuffer = gl.createBuffer();
-	const indexBuffer = gl.createBuffer();
+	const positionBuffer = gl.createBuffer(), indexBuffer = gl.createBuffer();
 	if (!positionBuffer || !indexBuffer) {
 		Log("ENGINE", `${label} quad buffer creation failed`, "error", "Render");
 		return null;
@@ -1770,40 +1060,40 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		return null;
 	}
 
-	const shader = createProgram(gl);
+	const shader = CreateShader.Program(gl);
 	if (!shader) return null;
 
-	const scatterShader = createScatterProgram(gl);
+	const scatterShader = CreateShader.ScatterProgram(gl);
 	if (!scatterShader) {
 		Log("ENGINE", "Failed to create instanced scatter shader.", "error", "Render");
 		return null;
 	}
 
-	const decalShader = createDecalProgram(gl);
+	const decalShader = CreateShader.DecalProgram(gl);
 	if (!decalShader) {
 		Log("ENGINE", "Failed to create decal shader.", "error", "Render");
 		return null;
 	}
 
-	const scatterDecalShader = createScatterDecalProgram(gl);
+	const scatterDecalShader = CreateShader.ScatterDecalProgram(gl);
 	if (!scatterDecalShader) {
 		Log("ENGINE", "Failed to create scatter decal shader.", "error", "Render");
 		return null;
 	}
 
-	const entityTriplanarShader = createEntityTriplanarProgram(gl);
+	const entityTriplanarShader = CreateShader.EntityTriplanarProgram(gl);
 	if (!entityTriplanarShader) {
 		Log("ENGINE", "Failed to create entity triplanar shader.", "error", "Render");
 		return null;
 	}
 
-	const skyShader = createSkyProgram(gl);
+	const skyShader = CreateShader.SkyProgram(gl);
 	if (!skyShader) {
 		Log("ENGINE", "Failed to create sky shader.", "error", "Render");
 		return null;
 	}
 
-	const blendShader = createBlendProgram(gl);
+	const blendShader = CreateShader.BlendProgram(gl);
 	if (!blendShader) {
 		Log("ENGINE", "Failed to create texture blend shader.", "error", "Render");
 		return null;
@@ -1815,13 +1105,13 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		return null;
 	}
 
-	const filterShader = createFilterProgram(gl);
+	const filterShader = CreateShader.FilterProgram(gl);
 	if (!filterShader) {
 		Log("ENGINE", "Failed to create filter shader.", "error", "Render");
 		return null;
 	}
 
-	const inkShader = createInkProgram(gl);
+	const inkShader = CreateShader.InkProgram(gl);
 	if (!inkShader) {
 		Log("ENGINE", "Failed to create ink shader.", "error", "Render");
 		return null;
@@ -1875,6 +1165,32 @@ const isTranslucentMesh = (mesh) => mesh.displayColor !== null ? mesh.displayCol
 // Triplanar only when the mesh is flagged. Unflagged meshes use UVs.
 const meshUsesTriplanar = (mesh) => mesh.geometry.triplanar === true;
 
+// Box around everything an entity draws: all its parts, or its single mesh.
+function entityRenderBounds(entity) {
+	if (!entity.model) return entity.mesh.worldAabb;
+
+	const min = { x: Infinity, y: Infinity, z: Infinity };
+	const max = { x: -Infinity, y: -Infinity, z: -Infinity };
+	for (const part of entity.model.parts) {
+		const box = part.mesh.worldAabb;
+		min.x = Math.min(min.x, box.min.x); max.x = Math.max(max.x, box.max.x);
+		min.y = Math.min(min.y, box.min.y); max.y = Math.max(max.y, box.max.y);
+		min.z = Math.min(min.z, box.min.z); max.z = Math.max(max.z, box.max.z);
+	}
+	return { min, max };
+}
+
+// Hides anything fully off screen until the next distance check turns it back on.
+function hideOffscreen(sceneGraph, frustum) {
+	const hide = (target, aabb, padding = 0) => {
+		if (target.performance.rendering && AabbOutsideFrustum(frustum, aabb, padding)) target.performance.rendering = false;
+	};
+
+	sceneGraph.terrain.forEach((mesh) => hide(mesh, mesh.worldAabb));
+	sceneGraph.obstacles.forEach((record) => hide(record, record.worldAabb));
+	sceneGraph.entities.forEach((entity) => hide(entity, entityRenderBounds(entity), PERFORMANCE_SCALING.Culling.EntityPadding.value));
+}
+
 function collectRenderableMeshes(sceneGraph) {
 	const terrain = [];
 	const obstacles = [];
@@ -1900,6 +1216,7 @@ function collectRenderableMeshes(sceneGraph) {
 		record.parts.forEach((part) => obstacles.push(part));
 	});
 	sceneGraph.entities.forEach((entity) => {
+		if (!entity.performance.rendering) return;
 		if (entity.model) {
 			entity.model.parts.forEach((part) => collectEntityPart(part.mesh));
 			return;
@@ -1953,7 +1270,8 @@ function drawSkyPass(renderer, passState) {
 }
 
 function ensureMeshBuffer(renderer, mesh, shader) {
-	const meshBufferKey = getMeshBufferKey(mesh);
+	const { id, primitive, dimensions, complexity, geometry } = mesh;
+	const meshBufferKey = `${id}|${primitive}|${dimensions.x}|${dimensions.y}|${dimensions.z}|${complexity}|${geometry.indices.length}`;
 	let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
 	if (!meshBuffer) {
 		meshBuffer = createMeshBuffers(renderer.gl, mesh, shader);
@@ -1988,17 +1306,16 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		const meshBuffer = ensureMeshBuffer(renderer, mesh, shader);
 		if (!meshBuffer) continue;
 
-		const dc = mesh.displayColor;
-
 		setFaceCulling(gl, options.cull !== false && mesh.primitive !== "plane");
 		gl.bindVertexArray(meshBuffer.vao);
 		gl.uniform1i(shader.uniforms.texture, 0);
 		gl.uniformMatrix4fv(shader.uniforms.model, false, renderMatrixFor(mesh));
 		gl.uniform4f(shader.uniforms.tint,
-			dc !== null ? dc.r : mesh.material.color.r,
-			dc !== null ? dc.g : mesh.material.color.g,
-			dc !== null ? dc.b : mesh.material.color.b,
-			dc !== null ? dc.a : mesh.material.opacity);
+			mesh.displayColor !== null ? mesh.displayColor.r : mesh.material.color.r,
+			mesh.displayColor !== null ? mesh.displayColor.g : mesh.material.color.g,
+			mesh.displayColor !== null ? mesh.displayColor.b : mesh.material.color.b,
+			mesh.displayColor !== null ? mesh.displayColor.a : mesh.material.opacity
+		);
 		if (options.triplanar) gl.uniform1f(shader.uniforms.texScale, mesh.material.textureScale);
 
 		if (mesh.geometry.faceTextureGroups) {
@@ -2012,9 +1329,8 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 			continue;
 		}
 
-		const texture = ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID);
 		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, texture);
+		gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID));
 		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_INT, 0);
 		gl.bindVertexArray(null);
 	}
@@ -2054,25 +1370,20 @@ function drawTranslucentPass(renderer, sceneGraph, meshes, passState, cameraPosi
 	if (waterLevelCnu === null) {
 		// Triggers are split to prevent depth-fighting with the water top.
 		drawTriggerOverlay(renderer, sceneGraph, passState);
-
 		drawSortedRuns(renderer, sceneGraph, meshes, passState);
 		return;
 	}
 
-	const above = [];
-	const below = [];
+	const above = [], below = [];
 	for (const mesh of meshes) (mesh.displayTransform.position.y > waterLevelCnu ? above : below).push(mesh);
 
 	const { level, side } = passState.nearWaterClip;
-
 	drawSortedRuns(renderer, sceneGraph, underwater ? above : below, passState);
 	drawTriggerOverlay(renderer, sceneGraph, passState, { level, side: -side });
 	drawWaterPass(renderer, sceneGraph, passState);
 	drawTriggerOverlay(renderer, sceneGraph, passState, passState.nearWaterClip);
 	drawSortedRuns(renderer, sceneGraph, underwater ? below : above, passState);
 }
-
-const decalMarginSafety = 1.15; // back/elastic easings overshoot their keyframe extremes
 
 // Widest animated footprint in rest-footprint units; 1 when untracked.
 function decalAnimationMargin(entity, partId, decalEntry) {
@@ -2082,8 +1393,10 @@ function decalAnimationMargin(entity, partId, decalEntry) {
 	for (const setName in entity.animations) {
 		const partTrack = entity.animations[setName].parts[partId];
 		if (partTrack === undefined) continue;
+
 		const target = partTrack.decals[decalEntry.id];
 		if (target === undefined || target.transform === undefined) continue;
+
 		for (const keyframe of target.transform.keyframes) {
 			const value = keyframe.value;
 			if (value.scale !== undefined)    scale  = Math.max(scale, Math.abs(value.scale.x), Math.abs(value.scale.y));
@@ -2094,7 +1407,7 @@ function decalAnimationMargin(entity, partId, decalEntry) {
 
 	// Position offset in rest half-extents.
 	const rest = decalEntry.localTransform.scale;
-	return (scale + offset / (Math.min(Math.abs(rest.x), Math.abs(rest.y)) * 0.5)) * decalMarginSafety;
+	return (scale + offset / (Math.min(Math.abs(rest.x), Math.abs(rest.y)) * 0.5)) * 1.15;
 }
 
 // One VAO per (mesh, decal), never rebuilt.
@@ -2113,12 +1426,11 @@ function ensureDecalGeometry(renderer, mesh, decalEntry, index, entity, partId) 
 		return null;
 	}
 
-	const dim    = mesh.dimensions;
 	const facets = SelectDecalFacets(
 		mesh.geometry,
-		BuildDecalPlacementMatrix(dim, decalEntry.localTransform, decalEntry.side),
+		BuildDecalPlacementMatrix(mesh.dimensions, decalEntry.localTransform, decalEntry.side),
 		ResolveDecalShapeCode(mesh.shape, decalEntry.side),
-		dim.clone().scale(0.5),
+		mesh.dimensions.clone().scale(0.5),
 		DecalRounding(mesh.shape, mesh.detail.primitiveOptions),
 		decalAnimationMargin(entity, partId, decalEntry)
 	);
@@ -2164,8 +1476,7 @@ function endDecalState(gl) {
 
 // displayTransform to render, localTransform to export.
 export function BuildDecalPlacementMatrix(dim, transform, side) {
-	const pos = transform.position;
-	const sc  = transform.scale;
+	const pos = transform.position, sc  = transform.scale;
 
 	// Face center + local offset combined into a single translation in part-local CNU space.
 	const faceTranslations = {
@@ -2181,18 +1492,23 @@ export function BuildDecalPlacementMatrix(dim, transform, side) {
 	// Moves the decal onto its face, turns it outward, spins and scales it. The part's transform is applied later in the shader.
 	const [tx, ty, tz] = faceTranslations[side];
 	const c = Math.cos(transform.rotation.value), s = Math.sin(transform.rotation.value);
-	const tMatrix  = [1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  tx, ty, tz, 1];
-	const rzMatrix = [c, s, 0, 0,  -s, c, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
-	const sMatrix  = [sc.x, 0, 0, 0,  0, sc.y, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
-
-	return MultiplyMatrix4(tMatrix, MultiplyMatrix4(DECAL_FACE_ROTATIONS[side], MultiplyMatrix4(rzMatrix, sMatrix)));
+	
+	return MultiplyMatrix4(
+		[1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  tx, ty, tz, 1], 
+		MultiplyMatrix4(DECAL_FACE_ROTATIONS[side], 
+			MultiplyMatrix4(
+				[c, s, 0, 0,  -s, c, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1], 
+				[sc.x, 0, 0, 0,  0, sc.y, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1]
+			)
+		)
+	);
 }
 
 function drawDecalPass(renderer, sceneGraph, passState) {
 	const gl = renderer.gl;
-	const decalShader = renderer.decalShader;
+	const uniforms = renderer.decalShader.uniforms;
 
-	beginDecalState(gl, decalShader, passState);
+	beginDecalState(gl, renderer.decalShader, passState);
 
 	const drawDecalsForMesh = (mesh, entity = null, partId = null) => {
 		if (mesh.customTextures.length === 0) return;
@@ -2200,34 +1516,36 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 		setFaceCulling(gl, mesh.primitive !== "plane");
 		
 		// Mesh-level uniforms: identical for every decal on this mesh — set once.
-		gl.uniformMatrix4fv(decalShader.uniforms.partWorld, false, renderMatrixFor(mesh));
 		const dim = mesh.dimensions;
-		gl.uniform3f(decalShader.uniforms.halfExtents, dim.x * 0.5, dim.y * 0.5, dim.z * 0.5);
-		gl.uniform1f(decalShader.uniforms.rounding, DecalRounding(mesh.shape, mesh.detail.primitiveOptions));
-		gl.uniform1i(decalShader.uniforms.texture, 0);
+		gl.uniformMatrix4fv(uniforms.partWorld, false, renderMatrixFor(mesh));
+		gl.uniform3f(uniforms.halfExtents, ...Vector3ToArray(dim.clone().scale(0.5)));
+		gl.uniform1f(uniforms.rounding, DecalRounding(mesh.shape, mesh.detail.primitiveOptions));
+		gl.uniform1i(uniforms.texture, 0);
 
 		mesh.customTextures.forEach((decalEntry, index) => {
 			const geometry = ensureDecalGeometry(renderer, mesh, decalEntry, index, entity, partId);
 			gl.bindVertexArray(geometry.vao);
-			gl.uniform1i(decalShader.uniforms.shape, ResolveDecalShapeCode(mesh.shape, decalEntry.side));
-			gl.uniformMatrix4fv(decalShader.uniforms.placement, false, new Float32Array(BuildDecalPlacementMatrix(dim, decalEntry.displayTransform, decalEntry.side)));
+			gl.uniform1i(uniforms.shape, ResolveDecalShapeCode(mesh.shape, decalEntry.side));
+			gl.uniformMatrix4fv(
+				uniforms.placement, false, 
+				new Float32Array(BuildDecalPlacementMatrix(dim, decalEntry.displayTransform, decalEntry.side))
+			);
 			if (decalEntry.mutable === true && decalEntry.activeSourceKey === null) {
 				const tint = decalEntry.displayColor !== null ? decalEntry.displayColor : decalEntry.texture.primary;
-				gl.uniform4f(decalShader.uniforms.tint, tint.r, tint.g, tint.b, tint.a);
+				gl.uniform4f(uniforms.tint, tint.r, tint.g, tint.b, tint.a);
 			}
-			else gl.uniform4f(decalShader.uniforms.tint, 1, 1, 1, 1);
+			else gl.uniform4f(uniforms.tint, 1, 1, 1, 1);
 
 			const baseKey = `${mesh.id}::customTexture::${index}`;
 			const textureKey = decalEntry.activeSourceKey !== null ? `${baseKey}::${decalEntry.activeSourceKey}` : baseKey;
-			const texture = ensureSceneTexture(renderer, sceneGraph, textureKey);
 			gl.activeTexture(gl.TEXTURE0);
-			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, textureKey));
 			gl.drawArrays(gl.TRIANGLES, 0, geometry.vertexCount);
 		});
 	};
 
 	sceneGraph.entities.forEach((entity) => {
-		if (!entity.model) return;
+		if (!entity.model || !entity.performance.rendering) return;
 		entity.model.parts.forEach((part) => drawDecalsForMesh(part.mesh, entity, part.id));
 	});
 	sceneGraph.obstacles.forEach((obstacle) => {
@@ -2240,31 +1558,39 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	endDecalState(gl);
 }
 
+// A scatter square is drawn only when part of it is within the scatter cull radius and on screen.
+function scatterCellVisible(cell, passState) {
+	return Vector3SqDistanceToAabb(passState.cameraPosition, cell.aabb) <= passState.cullRadius * passState.cullRadius
+		&& !AabbOutsideFrustum(passState.frustum, cell.aabb);
+}
+
 // Instanced counterpart of drawDecalPass — placement/shape are precomputed in buildScatterInstanceBuffers.
 function drawScatterDecalPass(renderer, sceneGraph, passState) {
 	if (renderer.scatterDecalBatches.length === 0) return;
 
 	const gl = renderer.gl;
-	const shader = renderer.scatterDecalShader;
+	const uniforms = renderer.scatterDecalShader.uniforms;
 
-	beginDecalState(gl, shader, passState);
-	gl.uniform1f(shader.uniforms.cullRadius, passState.cullRadius);
-	gl.uniform1i(shader.uniforms.texture, 0);
-	gl.uniform4f(shader.uniforms.tint, 1, 1, 1, 1);
+	beginDecalState(gl, renderer.scatterDecalShader, passState);
+	gl.uniform1f(uniforms.cullRadius, passState.cullRadius);
+	gl.uniform1i(uniforms.texture, 0);
+	gl.uniform4f(uniforms.tint, 1, 1, 1, 1);
 	gl.activeTexture(gl.TEXTURE0);
 
 	renderer.scatterDecalBatches.forEach((batch) => {
-		const dim = batch.dimensions;
 		setFaceCulling(gl, batch.primitive !== "plane");
-		gl.uniform3f(shader.uniforms.halfExtents, dim.x * 0.5, dim.y * 0.5, dim.z * 0.5);
-		gl.uniform1f(shader.uniforms.rounding, batch.rounding);
+		gl.uniform3f(uniforms.halfExtents, ...Vector3ToArray(batch.dimensions.clone().scale(0.5)));
+		gl.uniform1f(uniforms.rounding, batch.rounding);
 
 		batch.decalDraws.forEach((draw) => {
-			gl.bindVertexArray(draw.vao);
-			gl.uniform1i(shader.uniforms.shape, draw.shapeCode);
-			gl.uniformMatrix4fv(shader.uniforms.placement, false, draw.placement);
+			gl.uniform1i(uniforms.shape, draw.shapeCode);
+			gl.uniformMatrix4fv(uniforms.placement, false, draw.placement);
 			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, draw.textureKey));
-			gl.drawArraysInstanced(gl.TRIANGLES, 0, draw.vertexCount, batch.instanceCount);
+			batch.cells.forEach((cell, index) => {
+				if (!scatterCellVisible(cell, passState)) return;
+				gl.bindVertexArray(draw.cellVaos[index]);
+				gl.drawArraysInstanced(gl.TRIANGLES, 0, draw.vertexCount, cell.count);
+			});
 		});
 	});
 
@@ -2293,17 +1619,17 @@ function ensureVoidWallMeshes(renderer, sceneGraph) {
 
 function drawVoidWalls(renderer, sceneGraph, passState) {
 	ensureVoidWallMeshes(renderer, sceneGraph);
-	drawMeshList(renderer, sceneGraph, renderer.voidWallUvMeshes,        passState);
-	drawMeshList(renderer, sceneGraph, renderer.voidWallTriplanarMeshes, passState, { triplanar: true });
+	const onScreen = (mesh) => !AabbOutsideFrustum(passState.frustum, mesh.worldAabb);
+	drawMeshList(renderer, sceneGraph, renderer.voidWallUvMeshes.filter(onScreen),        passState);
+	drawMeshList(renderer, sceneGraph, renderer.voidWallTriplanarMeshes.filter(onScreen), passState, { triplanar: true });
 }
 
 // Runs before scatter and translucents, so they cover the lines and add none of their own.
 function drawInkPass(renderer, passState, cameraState) {
-	const gl = renderer.gl;
-	const quad = ensureInkQuad(renderer);
+	const gl = renderer.gl, quad = ensureInkQuad(renderer);
 	if (!quad) return;
 
-	const shader = renderer.inkShader;
+	const uniforms = renderer.inkShader.uniforms;
 	const target = renderer.sceneTarget;
 
 	// The depth the lines are found in.
@@ -2311,17 +1637,17 @@ function drawInkPass(renderer, passState, cameraState) {
 	gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
 
 	gl.disable(gl.DEPTH_TEST);
-	gl.useProgram(shader.program);
+	gl.useProgram(renderer.inkShader.program);
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, target.edgeDepth);
-	gl.uniform1i(shader.uniforms.depth, 0);
-	gl.uniformMatrix4fv(shader.uniforms.view, false, passState.view);
-	gl.uniform2f(shader.uniforms.rayScale, 1 / passState.projection[0], 1 / passState.projection[5]);
-	gl.uniform1f(shader.uniforms.near, cameraState.near.value);
-	gl.uniform1f(shader.uniforms.far, cameraState.far.value);
-	gl.uniform1f(shader.uniforms.fogFull, passState.fogFull);
-	gl.uniform1f(shader.uniforms.cameraY, cameraState.position.y);
-	gl.uniform2f(shader.uniforms.waterClip, passState.nearWaterClip.level, passState.nearWaterClip.side);
+	gl.uniform1i(uniforms.depth, 0);
+	gl.uniformMatrix4fv(uniforms.view, false, passState.view);
+	gl.uniform2f(uniforms.rayScale, 1 / passState.projection[0], 1 / passState.projection[5]);
+	gl.uniform1f(uniforms.near, cameraState.near.value);
+	gl.uniform1f(uniforms.far, cameraState.far.value);
+	gl.uniform1f(uniforms.fogFull, passState.fogFull);
+	gl.uniform1f(uniforms.cameraY, cameraState.position.y);
+	gl.uniform2f(uniforms.waterClip, passState.nearWaterClip.level, passState.nearWaterClip.side);
 	gl.bindVertexArray(quad.vao);
 	gl.drawElements(gl.TRIANGLES, quad.indexCount, gl.UNSIGNED_SHORT, 0);
 	gl.bindVertexArray(null);
@@ -2334,21 +1660,19 @@ function drawFilterPass(renderer, passState) {
 	const quad = ensureFilterQuad(renderer);
 	if (!quad) return;
 
-	const shader = renderer.filterShader;
 	const target = renderer.sceneTarget;
-
 	resolveSceneTarget(gl, target, target.resolveFramebuffer, gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	gl.disable(gl.BLEND);
 	gl.depthFunc(gl.ALWAYS);
-	gl.useProgram(shader.program);
+	gl.useProgram(renderer.filterShader.program);
 	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, target.color);
+	gl.bindTexture(gl.TEXTURE_2D, renderer.sceneTarget.color);
 	gl.activeTexture(gl.TEXTURE1);
-	gl.bindTexture(gl.TEXTURE_2D, target.depth);
-	gl.uniform1i(shader.uniforms.color, 0);
-	gl.uniform1i(shader.uniforms.depth, 1);
-	gl.uniform1f(shader.uniforms.comic, passState.comic);
+	gl.bindTexture(gl.TEXTURE_2D, renderer.sceneTarget.depth);
+	gl.uniform1i(renderer.filterShader.uniforms.color, 0);
+	gl.uniform1i(renderer.filterShader.uniforms.depth, 1);
+	gl.uniform1f(renderer.filterShader.uniforms.comic, passState.comic);
 	gl.bindVertexArray(quad.vao);
 	gl.drawElements(gl.TRIANGLES, quad.indexCount, gl.UNSIGNED_SHORT, 0);
 	gl.bindVertexArray(null);
@@ -2390,6 +1714,7 @@ function drawScene(renderer, sceneGraph) {
 		cameraState.far.value
 	));
 	const view = new Float32Array(createLookAtMatrix(cameraState.position, cameraState.target, cameraState.up));
+	const frustum = FrustumPlanes(MultiplyMatrix4(projection, view));
 
 	const waterLevelCnu = sceneGraph.world.water.level === null ? null : sceneGraph.world.water.level.value;
 	const underwater = waterLevelCnu !== null && cameraState.position.y < waterLevelCnu;
@@ -2408,7 +1733,8 @@ function drawScene(renderer, sceneGraph) {
 		: { level: sceneGraph.world.water.level.toWorldUnit(), side: underwater ? -1 : 1 };
 
 	const passState = {
-		projection, view, fogFull, colorShift, underwaterValue, cullRadius, nearWaterClip,
+		projection, view, frustum, fogFull, colorShift, underwaterValue, cullRadius, nearWaterClip,
+		cameraPosition: cameraState.position,
 		comic       : filters.Comic ? 1 : 0,
 		skyStops    : fillSkyStops(renderer, skyStops),
 		skyStopCount: skyStops.length,
@@ -2425,6 +1751,7 @@ function drawScene(renderer, sceneGraph) {
 		sceneGraph.effects.underwater.particleHook(cameraState, sceneGraph);
 	}
 
+	hideOffscreen(sceneGraph, frustum);
 	const { terrain, obstacles, entitiesUv, entitiesTriplanar, entitiesTranslucent } = collectRenderableMeshes(sceneGraph);
 
 	// === PASS 2.5: Void walls (textured interior surfaces inside void holes) ===
@@ -2451,11 +1778,14 @@ function drawScene(renderer, sceneGraph) {
 
 		renderer.scatterInstances.forEach(batch => {
 			setFaceCulling(gl, batch.primitive !== "plane");
-			gl.bindVertexArray(batch.vao);
 			gl.activeTexture(gl.TEXTURE0);
 			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, batch.textureID));
 			gl.uniform1i(renderer.scatterShader.uniforms.texture, 0);
-			gl.drawElementsInstanced(gl.TRIANGLES, batch.indexCount, gl.UNSIGNED_SHORT, 0, batch.instanceCount);
+			for (const cell of batch.cells) {
+				if (!scatterCellVisible(cell, passState)) continue;
+				gl.bindVertexArray(cell.vao);
+				gl.drawElementsInstanced(gl.TRIANGLES, batch.indexCount, gl.UNSIGNED_SHORT, 0, cell.count);
+			}
 			gl.bindVertexArray(null);
 		});
 	}

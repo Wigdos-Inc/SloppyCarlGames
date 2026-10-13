@@ -6,41 +6,8 @@
 import { BuildObject } from "./NewObject.js";
 import { ResolveObjectSource } from "./NewTemplate.js";
 import { Log } from "../core/meta.js";
-import { Unit } from "../math/Utilities.js";
-import { MultiplyVector3, Vector3Sq, WORLD_NORMALS } from "../math/Vector3.js";
-
-function createEnvelopeObb(bounds) {
-	return {
-		type: "obb",
-		center: bounds.min.clone().add(bounds.max).scale(0.5),
-		halfExtents: bounds.max.clone().subtract(bounds.min).scale(0.5),
-		axes: [WORLD_NORMALS.Right, WORLD_NORMALS.Up, WORLD_NORMALS.Forward],
-	};
-}
-
-function createEnvelopeSphere(bounds) {
-	return {
-		type: "sphere",
-		center: bounds.min.clone().add(bounds.max).scale(0.5),
-		radius: new Unit(Math.max(0.0001, Math.sqrt(Vector3Sq(bounds.max.clone().subtract(bounds.min).scale(0.5)))), "cnu"),
-	};
-}
-
-function createEnvelopeCapsule(bounds) {
-	const dim = bounds.max.clone().subtract(bounds.min);
-	const radius = Math.max(0.0001, Math.max(dim.x, dim.z) * 0.5);
-	const halfHeight = Math.max(0, (dim.y * 0.5) - radius);
-	const segmentStart = bounds.min.clone().add(bounds.max).scale(0.5);
-	const segmentEnd = segmentStart.clone();
-	segmentStart.y -= halfHeight;
-	segmentEnd.y += halfHeight;
-	return {
-		type: "capsule",
-		radius: new Unit(radius, "cnu"),
-		halfHeight: new Unit(halfHeight, "cnu"),
-		segmentStart, segmentEnd,
-	};
-}
+import { CapsuleFromAabb, ObbFromAabb, SphereFromAabb } from "../math/Collision.js";
+import { MultiplyVector3 } from "../math/Vector3.js";
 
 function MergeAabb(accumulator, bounds) {
 	if (!accumulator) {
@@ -57,22 +24,21 @@ function MergeAabb(accumulator, bounds) {
 }
 
 function CreateDetailedBoundsFromParts(source, parts, bounds) {
-	if (source.collisionShape === "triangle-soup") {
-		const triangles = [];
-		for (let index = 0; index < parts.length; index++) {
-			const partBounds = parts[index].detailedBounds;
-			if (partBounds.type !== "triangle-soup") continue;
-			triangles.push(...partBounds.triangles);
-		}
-		return { type: "triangle-soup", triangles };
+	switch (source.collisionShape) {
+		case "none"         : return null;
+		case "triangle-soup":
+			const triangles = [];
+			for (const part of parts) {
+				if (part.detailedBounds.type !== "triangle-soup") continue;
+				for (const triangle of part.detailedBounds.triangles) triangles.push(triangle);
+			}
+			return { type: "triangle-soup", triangles };
+		case "aabb"   : return { type: "aabb", min: bounds.min.clone(), max: bounds.max.clone() };
+		case "sphere" : return SphereFromAabb(bounds, false);
+		case "capsule": return CapsuleFromAabb(bounds);
 	}
 
-	if (source.collisionShape === "aabb") return { type: "aabb", min: bounds.min.clone(), max: bounds.max.clone() };
-	if (source.collisionShape === "sphere") return createEnvelopeSphere(bounds);
-	if (source.collisionShape === "capsule") return createEnvelopeCapsule(bounds);
-
-	if (parts.length === 1) return parts[0].detailedBounds;
-	return createEnvelopeObb(bounds);
+	return parts.length === 1 ? parts[0].detailedBounds : ObbFromAabb(bounds);
 }
 
 function buildObstacleParts(source, index, options) {

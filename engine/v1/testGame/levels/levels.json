@@ -32,11 +32,9 @@
                         "activeSet": "custom",
                         "situations": { "slowMovement": "orbitCam" },
                         "distance": { "min": 2.5, "default": 5, "max": 10 },
-                        "sensitivity": 0.12,
                         "heightOffset": 1.5,
                         "levelOpening": {
-                            "startPosition": { "x": 60, "y": 52, "z": 112 },
-                            "endPosition": { "x": 60, "y": 52, "z": 112 }
+                            "startPosition": { "x": 60, "y": 52, "z": 112 }
                         }
                     },
                     "player": {
@@ -813,11 +811,9 @@
                         "activeSet": "custom",
                         "situations": { "slowMovement": "orbitCam" },
                         "distance": { "min": 2.5, "default": 5, "max": 10 },
-                        "sensitivity": 0.12,
                         "heightOffset": 2,
                         "levelOpening": {
-                            "startPosition": { "x": 12, "y": 4.5, "z": 24 },
-                            "endPosition": { "x": 12, "y": 4.5, "z": 24 }
+                            "startPosition": { "x": 12, "y": 4.5, "z": 24 }
                         }
                     },
                     "player": {

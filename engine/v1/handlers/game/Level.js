@@ -48,6 +48,7 @@ const levelLoop = {
 	accumulator: 0,
 	fixedTimeStep: 1000 / 60,
 	cappedStreak: 0,
+	recentFrames: [],
 };
 
 // Consecutive capped frames before the warning escalates to an error.
@@ -128,6 +129,7 @@ function StartLevelLoop() {
 	levelLoop.lastFrameTime = performance.now();
 	levelLoop.accumulator = 0;
 	levelLoop.cappedStreak = 0;
+	levelLoop.recentFrames = [];
 	levelLoop.fixedTimeStep = 1000 / CONFIG.Performance.FrameRate;
 	document.addEventListener("pointerlockchange", onPointerLockChange);
 
@@ -139,7 +141,15 @@ function StartLevelLoop() {
 		levelLoop.lastFrameTime = now;
 
 		if (!levelLoop.paused) {
-			levelLoop.accumulator += frameTime;
+			// When recent frames average close to a whole number of physics steps, advance exactly that many to avoid stutter.
+			const recent = levelLoop.recentFrames;
+			recent.push(frameTime);
+			if (recent.length > 4) recent.shift();
+			const average = recent.reduce((sum, time) => sum + time, 0) / recent.length;
+			const wholeSteps = Math.round(average / levelLoop.fixedTimeStep);
+			levelLoop.accumulator += wholeSteps >= 1 && Math.abs(average - wholeSteps * levelLoop.fixedTimeStep) < 1 
+				? wholeSteps * levelLoop.fixedTimeStep 
+				: frameTime;
 
 			const maxSubsteps = PERFORMANCE_SCALING.Loop.MaxSubsteps;
 			let steps = 0;
@@ -157,7 +167,12 @@ function StartLevelLoop() {
 					Log("ENGINE", `Frame hit the ${maxSubsteps}-substep cap; simulation debt dropped.`, "warn", "Level");
 				}
 				else if (levelLoop.cappedStreak === sustainedCapFrames) {
-					Log("ENGINE", `Substep cap sustained ${sustainedCapFrames} frames; simulation is running behind real time.`, "error", "Level");
+					Log(
+						"ENGINE", 
+						`Substep cap sustained ${sustainedCapFrames} frames; simulation is running behind real time.`, 
+						"error", 
+						"Level"
+					);
 				}
 			}
 			else levelLoop.cappedStreak = 0;
@@ -225,9 +240,6 @@ function ResumeLevelLoop(triggeredByEscape = false) {
 const ToggleLevelLoopPause = (triggeredByEscape = false) => levelLoop.paused ? ResumeLevelLoop(triggeredByEscape) : PauseLevelLoop();
 
 async function CreateLevel(payload, options, simulatorOverride = false) {
-
-	// === VALIDATION & NORMALIZATION PIPELINE ===
-
 	const rawPayload = structuredClone(payload);
 	payload = await ValidateLevelPayload(payload);
 	if (!payload) {
@@ -323,9 +335,9 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 }
 
 // Every scene-side particle spawn resolves the same three scene fields; only the viewer gate differs.
-const generateForScene = (request, viewerPosition, sceneGraph) => GenerateParticles(
-	request, viewerPosition, sceneGraph.world.textureScale, sceneGraph.visualResources.textureRegistry, sceneGraph.partGeometryCache
-);
+function generateForScene(request, viewerPos, sceneGraph) {
+	return GenerateParticles(request, viewerPos, sceneGraph.world.textureRegistry, sceneGraph.partGeometryCache);
+}
 
 // Drives every group's lifetime and emits the siblings a seeding group asks for.
 // Note: Loops backwards so finished groups can be removed mid-loop.
@@ -336,6 +348,7 @@ function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
 	for (let i = sceneGraph.entities.length - 1; i >= 0; i--) {
 		const group = sceneGraph.entities[i].particle;
 		if (group === null) continue;
+		
 		// Mode test: a burst has no target to ride.
 		if (group.targetKey !== null) group.follow(targets);
 		group.advance(deltaMilliseconds, deltaSeconds);
