@@ -10,16 +10,18 @@ import { Vector3SqDistanceToAabb } from "../../math/Vector3.js";
 import { GetSimDistanceValue } from "../../physics/Collision.js";
 import { PERFORMANCE_SCALING } from "../../core/config.js";
 
-// Collects the meshes that use each pending texture.
-function assignOwnerMeshes(sceneGraph, pending) {
-	ForEachTexturedMesh(sceneGraph, (mesh) => {
-		const materialEntry = pending[mesh.material.textureID];
+// Rebuilds the static meshes that use each animated texture. Entities report through their own flag instead.
+function assignOwnerMeshes(sceneGraph, byTextureID) {
+	for (const textureID in byTextureID) byTextureID[textureID].ownerMeshes = [];
+
+	ForEachTexturedMesh({ ...sceneGraph, entities: [] }, (mesh) => {
+		const materialEntry = byTextureID[mesh.material.textureID];
 		if (materialEntry) materialEntry.ownerMeshes.push(mesh);
 
 		const groups = mesh.geometry.faceTextureGroups;
 		if (!groups) return;
 		for (const group of groups) {
-			const groupEntry = pending[group.textureID];
+			const groupEntry = byTextureID[group.textureID];
 			if (groupEntry) groupEntry.ownerMeshes.push(mesh);
 		}
 	});
@@ -43,17 +45,16 @@ function createAnimationStateEntry(textureEntry, textureScale) {
 	};
 }
 
+// Registers newly added animated textures, then refreshes owners for all of them.
 function addAnimationEntries(sceneGraph, animationState) {
-	const added = {};
 	for (const textureID in sceneGraph.visualResources.textureRegistry) {
 		if (animationState.byTextureID[textureID]) continue;
 		const textureEntry = sceneGraph.visualResources.textureRegistry[textureID];
 		if (!textureEntry.definition) continue;
 		if (textureEntry.definition.animation.able !== true) continue;
-		added[textureID] = createAnimationStateEntry(textureEntry, animationState.textureScale);
-		animationState.byTextureID[textureID] = added[textureID];
+		animationState.byTextureID[textureID] = createAnimationStateEntry(textureEntry, animationState.textureScale);
 	}
-	assignOwnerMeshes(sceneGraph, added);
+	assignOwnerMeshes(sceneGraph, animationState.byTextureID);
 }
 
 function InitializeTextureAnimation(sceneGraph) {
@@ -112,32 +113,51 @@ function updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds
 	stateEntry.blendRatio     = 0;
 }
 
-function AddTextureAnimationEntries(sceneGraph) {
+// Keeps animated textures and their owners in step with a spawn or despawn.
+function SyncTextureAnimation(sceneGraph) {
 	addAnimationEntries(sceneGraph, sceneGraph.visualResources.textureAnimation);
 }
 
-// A shared face texture is near if any owner mesh is.
+// A shared face texture is near if any static mesh using it is.
 function isOwnerWithinReach(ownerMeshes, cameraPosition, sqReach) {
 	for (const mesh of ownerMeshes) if (Vector3SqDistanceToAabb(cameraPosition, mesh.worldAabb) <= sqReach) return true;
 	return false;
 }
 
+// Textures worn by entities flagged within bake reach.
+function nearEntityTextureIDs(entities) {
+	const near = new Set();
+	for (const entity of entities) {
+		if (!entity.performance.animatedTexture) continue;
+		for (const { mesh } of entity.model.parts) {
+			near.add(mesh.material.textureID);
+			const groups = mesh.geometry.faceTextureGroups;
+			if (groups) for (const group of groups) near.add(group.textureID);
+		}
+	}
+	return near;
+}
+
 function UpdateTextureAnimation(sceneGraph, deltaMilliseconds) {
 	const animationState = sceneGraph.visualResources.textureAnimation;
+	const textureIDs = Object.keys(animationState.byTextureID);
+	if (textureIDs.length === 0) return;
 
 	const reach = GetSimDistanceValue().value * PERFORMANCE_SCALING.SimDistance.Fractions.TextureAnimation.StopBake;
 	const sqReach = reach * reach;
+	const nearEntityTextures = nearEntityTextureIDs(sceneGraph.entities);
 
-	for (const textureID in animationState.byTextureID) {
+	for (const textureID of textureIDs) {
 		const stateEntry = animationState.byTextureID[textureID];
+		const bakeAllowed = nearEntityTextures.has(textureID) || isOwnerWithinReach(stateEntry.ownerMeshes, sceneGraph.cameraConfig.state.position, sqReach);
 		updateTextureAnimationEntry(
 			sceneGraph.visualResources.textureRegistry[textureID],
 			stateEntry,
 			deltaMilliseconds,
 			animationState.textureScale,
-			isOwnerWithinReach(stateEntry.ownerMeshes, sceneGraph.cameraConfig.state.position, sqReach)
+			bakeAllowed
 		);
 	}
 }
 
-export { InitializeTextureAnimation, UpdateTextureAnimation, AddTextureAnimationEntries };
+export { InitializeTextureAnimation, UpdateTextureAnimation, SyncTextureAnimation };

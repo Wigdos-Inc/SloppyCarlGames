@@ -28,9 +28,10 @@ import {
 import { ApplyPhysicsPipeline } from "../../physics/Master.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
+import { GetSimDistanceValue } from "../../physics/Collision.js";
 import { EnsureAnimationRuntime, ResolveEntityAnimation } from "./Animation.js";
 import { UpdatePerformanceFlags } from "./Performance.js";
-import { InitializeTextureAnimation, UpdateTextureAnimation, AddTextureAnimationEntries } from "./Texture.js";
+import { InitializeTextureAnimation, UpdateTextureAnimation, SyncTextureAnimation } from "./Texture.js";
 import { PrepareLevelVisualResources, AddToVisualResources } from "../../builder/NewTexture.js";
 import { Clamp01 } from "../../math/Utilities.js";
 import { IsSimulatorActive, UpdateSimulator } from "./Simulator.js";
@@ -335,9 +336,9 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 	return sceneGraph;
 }
 
-// Every scene-side particle spawn resolves the same three scene fields; only the viewer gate differs.
-function generateForScene(request, viewerPos, sceneGraph) {
-	return GenerateParticles(request, viewerPos, sceneGraph.world.textureRegistry, sceneGraph.partGeometryCache);
+// Every scene-side particle spawn resolves the same three scene fields.
+function generateForScene(request, sceneGraph) {
+	return GenerateParticles(request, sceneGraph.world.textureScale, sceneGraph.visualResources.textureRegistry, sceneGraph.partGeometryCache);
 }
 
 // Drives every group's lifetime and emits the siblings a seeding group asks for.
@@ -347,9 +348,13 @@ function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
 	const targets = resolveGeneratorTargets(sceneGraph);
 
 	for (let i = sceneGraph.entities.length - 1; i >= 0; i--) {
-		const group = sceneGraph.entities[i].particle;
+		const entity = sceneGraph.entities[i];
+		const group = entity.particle;
 		if (group === null) continue;
-		
+
+		// Frozen beyond draw distance.
+		if (!entity.performance.physics) continue;
+
 		// Mode test: a burst has no target to ride.
 		if (group.targetKey !== null) group.follow(targets);
 		group.advance(deltaMilliseconds, deltaSeconds);
@@ -364,7 +369,7 @@ function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
 
 	// Push siblings straight in; they reuse the level-built group's geometry key and texture id.
 	seedRequests.forEach((request) => {
-		const { groups } = generateForScene(request, sceneGraph.cameraConfig.state.position, sceneGraph);
+		const { groups } = generateForScene(request, sceneGraph);
 		sceneGraph.entities.push(...groups);
 	});
 }
@@ -510,7 +515,7 @@ function findSceneTarget(sceneGraph, id, partId) {
 
 function finalizeSpawn(result, objectType, sceneGraph) {
 	(Array.isArray(result) ? result : [result]).forEach((mesh) => AddToVisualResources(mesh, objectType, sceneGraph));
-	AddTextureAnimationEntries(sceneGraph);
+	SyncTextureAnimation(sceneGraph);
 	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
 	return result;
 }
@@ -565,6 +570,7 @@ function DespawnFromScene(target, objectType, sceneGraph) {
 		const index = array.indexOf(element);
 		if (index >= 0) array.splice(index, 1);
 	});
+	SyncTextureAnimation(sceneGraph);
 	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
 	return target;
 }
@@ -592,11 +598,16 @@ function SpawnParticles(request, generator) {
 		normalized.position = transform.position.clone().add(RotateByEuler(normalized.offset, transform.rotation));
 	}
 
-	const { groups } = generateForScene(normalized, sceneGraph.cameraConfig.state.position, sceneGraph);
-	if (groups.length === 0) {
-		Log("ENGINE", `Level.SpawnParticles: '${normalized.templateId}' produced no groups (gated by performance or sim distance).`, "warn", "Level");
+	// A far burst would sit frozen and play late once the player arrives.
+	const drawReach = GetSimDistanceValue().value * PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances.Cull;
+	if (normalized.mode === "burst" && Vector3Distance(sceneGraph.cameraConfig.state.position, normalized.position) > drawReach) {
+		Log("ENGINE", `Level.SpawnParticles: '${normalized.templateId}' burst dropped beyond draw distance.`, "warn", "Level");
 		return;
 	}
+
+	// Empty only when particles are disabled, which GenerateParticles already logs.
+	const { groups } = generateForScene(normalized, sceneGraph);
+	if (groups.length === 0) return;
 
 	// Added as plain entities; "particle" isn't one of the standard entity types.
 	sceneGraph.entities.push(...groups);
@@ -607,8 +618,7 @@ function SpawnParticles(request, generator) {
 // Generators for a runtime-spawned object. Requests arrive built; the caller owns their overrides.
 function SpawnParticleRequests(requests, sceneGraph) {
 	requests.forEach((request) => {
-		// The Simulator previews at any range, so no viewer gate.
-		const { groups } = generateForScene(request, null, sceneGraph);
+		const { groups } = generateForScene(request, sceneGraph);
 		sceneGraph.entities.push(...groups);
 		finalizeSpawn(groups, "entity", sceneGraph);
 	});

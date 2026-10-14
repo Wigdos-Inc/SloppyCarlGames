@@ -705,7 +705,7 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 			hitbox        : null,
 		},
 		hitboxActive: rest.hitbox !== null,
-		performance: { physics: true, rendering: true },
+		performance: { physics: true, rendering: true, animatedTexture: true },
 		animations: definition.animations,
 		particle: null,
 		state: {

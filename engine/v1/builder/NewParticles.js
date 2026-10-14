@@ -11,7 +11,6 @@ import { BuildEntity, UpdateEntityModelFromTransform } from "./NewEntity.js";
 import { CloneTemplatePart } from "./NewTemplate.js";
 import { AddVector3, CrossVector3, MultiplyVector3, RotateByEuler, ScaleVector3, ToVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
 import { Clamp01, Lerp, Unit, UnitVector3 } from "../math/Utilities.js";
-import { IsBeyondSimDistance } from "../physics/Collision.js";
 import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
 import { Log } from "../core/meta.js";
 
@@ -377,19 +376,17 @@ class burstParticleGroup extends particleGroup {
 /**
  * Generate the particle groups for one request.
  * @param {object} request — { templateId, position (absolute UnitVector3 cnu), offset (target-local, un-rotated), overrides, mode, target }.
- * @param {object} viewerPosition — camera/spawn reference for the sim-distance gate; null skips it.
  * @param {number} textureScale — world texture scale (px per CNU).
  * @param {object} faceTextureStore — content-signature-keyed store the per-face bake dedups against.
  * @param {Map} geometryCache — (blueprintId::partId)-keyed frozen part geometry templates.
  * @returns {object} — { groups } — built entities, one per group.
  */
-function GenerateParticles(request, viewerPosition, textureScale, faceTextureStore, geometryCache) {
+function GenerateParticles(request, textureScale, faceTextureStore, geometryCache) {
 	const multiplier = PERFORMANCE_SCALING.Density.Particles[CONFIG.Performance.Particles];
 	if (multiplier === 0) {
 		Log("ENGINE", "Particles disabled: PERFORMANCE.Particles is Disabled.", "warn", "Level");
 		return { groups: [] };
 	}
-	if (IsBeyondSimDistance(viewerPosition, request.position)) return { groups: [] };
 
 	const resolved  = resolveRequest(particleTemplates[request.templateId], request.overrides);
 	const halfAngle = spreadHalfAngles[resolved.spread].value;

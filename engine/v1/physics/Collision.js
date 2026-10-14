@@ -271,8 +271,7 @@ const NarrowphaseTest = (bA, bB) => narrowphaseContact(bA, bB).hit;
 
 const GetSimDistanceValue = () => PERFORMANCE_SCALING.SimDistance.Tiers[CONFIG.Performance.SimDistance];
 
-// A null viewer opts out of the gate entirely (payloads may carry no player).
-const IsBeyondSimDistance = (viewerPos, tgtPos) => viewerPos !== null && Vector3Distance(viewerPos, tgtPos) > GetSimDistanceValue().value;
+const IsBeyondSimDistance = (viewerPos, tgtPos) => Vector3Distance(viewerPos, tgtPos) > GetSimDistanceValue().value;
 
 /**
  * Broadphase: collect all collidable scene objects within sim radius.
@@ -703,7 +702,7 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 
 		if (!AabbOverlap(entity.collision.aabb, candidate.aabb)) continue;
 
-		const cachedPair = isPlayer || detailedBounds.type === "triangle-soup"
+		const cachedPair = isPlayer || candidate.detailedBounds.type === "triangle-soup"
 			? null
 			: readReusableActiveCollisionPair(entity, candidate);
 		const contact = cachedPair 

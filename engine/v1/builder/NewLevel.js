@@ -565,7 +565,6 @@ async function BuildLevel(payload) {
 	generatorRequests.forEach((request) => {
 		const { groups } = GenerateParticles(
 			request,
-			payload.player === null ? null : payload.player.spawnPosition,
 			payload.world.textureScale,
 			faceTextureStore,
 			partGeometryCache

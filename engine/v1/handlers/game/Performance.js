@@ -7,10 +7,14 @@ import { PERFORMANCE_SCALING } from "../../core/config.js";
 import { GetSimDistanceValue, IsBeyondSimDistance } from "../../physics/Collision.js";
 import { Vector3SqDistanceToAabb } from "../../math/Vector3.js";
 
-// Updates each instance's physics and rendering flags by distance from the camera.
+// Updates each instance's physics, rendering and texture animation flags by distance from the camera.
 function UpdatePerformanceFlags(sceneGraph) {
 	const { cameraConfig, terrain, obstacles, entities } = sceneGraph;
-	const renderReachSq  = (GetSimDistanceValue().value * PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances.Cull) ** 2;
+	const { WorldInstances, TextureAnimation } = PERFORMANCE_SCALING.SimDistance.Fractions;
+	const simDistance = GetSimDistanceValue().value;
+
+	const renderReachSq = (simDistance * WorldInstances.Cull) ** 2;
+	const bakeReachSq   = (simDistance * TextureAnimation.StopBake) ** 2;
 
 	// Point-to-AABB — bounds, not center.
 	const withinRender = (aabb) => Vector3SqDistanceToAabb(cameraConfig.state.position, aabb) <= renderReachSq;
@@ -19,8 +23,14 @@ function UpdatePerformanceFlags(sceneGraph) {
 	obstacles.forEach((obstacle) => obstacle.performance.rendering = withinRender(obstacle.worldAabb));
 
 	entities.forEach((entity) => {
-		entity.performance.physics   = !IsBeyondSimDistance(cameraConfig.state.position, entity.transform.position);
-		entity.performance.rendering = withinRender(entity.collision.aabb);
+		const distanceSq = Vector3SqDistanceToAabb(cameraConfig.state.position, entity.collision.aabb);
+		entity.performance.rendering       = distanceSq <= renderReachSq;
+		entity.performance.animatedTexture = distanceSq <= bakeReachSq;
+
+		// Particles keep moving as far as they draw.
+		entity.performance.physics = entity.particle !== null
+			? entity.performance.rendering
+			: !IsBeyondSimDistance(cameraConfig.state.position, entity.transform.position);
 	});
 }
 
