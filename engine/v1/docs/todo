@@ -1,8 +1,5 @@
 This file contains current priorities.
 
-Add new characters to test multiple types of characters with intuitive physics
-- Jeff (in progress)
-- Latina
 COMBAT REWORK:
 - Projectile Functionality
 - Damage and destroy objects
@@ -41,7 +38,6 @@ Add new Terrain, Obstacle and Entity Templates.
 - City Rubble (Obstacle)
 - Basketball Hoop (Obstacle)
 - Shrine (Terrain)
-Build new test level (prompt in notepad).
 Build Load Screen functionality.
 - Background Image support
 - HTML Element support
@@ -50,17 +46,7 @@ Add aliases to canonSchemas.json
 Performance Enhancements (DRYAD):
 - Must abide simulation distance:
   - Any animations. From textures to entities.
-  - Rendering instances. We must check whether skipping rendering based on distance would be worthwhile
-    - If yes, then fade them in/out rather than allowing pop-in
-  - Particle logic.
-  - Advanced physics application.
   - Runtime instance spawning. Any instance that's being spawned too far, gets enqueued until the player gets close enough.
-Per-entity render flags, set during the SimDistance check collision already runs:
-- render.animatedTexture: texture gate ORs its owners' flags instead of testing every owner AABB per frame.
-- render.model: skip rendering distant entities entirely. Reaches into the decal and translucent passes, so it's its own pass.
-- Force the SimDistance check even when an entity's collision flag is off.
-- Entity-owned textures only. Large static owners (sea-surface, terrain, obstacles) keep point-to-AABB.
-- Multi-owner still needs the OR. energy-core resolves two owners at different distances.
 
 
 Additions to Level API:

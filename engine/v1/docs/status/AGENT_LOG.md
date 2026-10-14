@@ -218,3 +218,12 @@ Examples:
     - no console errors.
   - **Not measured:** runtime cost.
   - **Over estimate:** about 25 lines of logic plus imports and exports, against my 15–20 line estimate.
+- [2026-10-14] MAIN: 0.34.6 Todo Performance Enhancements, done directly with no subagents.
+  - **Audit:** most of the todo's distance-gating items already existed (render and physics distance flags, fog before cull, texture bake gate, model and decal skipping). Entity animation has nothing to gate yet, because only the player animates.
+  - **Particles:** every physics mode now stops at the draw distance, at the author's request for consistency. The physics range (1.0×) would have frozen "none" particles that are still visible in the fog band.
+  - **Generators:** the earlier waiting-list proposal was dropped. The author pointed out that entities are built at any distance, so generators are now built regardless and frozen while far.
+    - The author asked whether this piles a generator's particles into one block. It doesn't: the seeding group's clock freezes too, so siblings only appear once in range.
+    - Bursts stay gated, because a frozen far burst would play late on arrival.
+  - **Texture owners bug, found by code reading:** owners were recorded only when a texture first registered, so later spawns never counted and despawned meshes stayed.
+  - **Regression from 0.34.4 (commit 95a069f), found by code reading:** `generateForScene` dropped `textureScale` and shifted its arguments, so every runtime particle spawn should throw at `geometryCache.get` in NewObject.js. Fixed but not verified in the browser.
+  - **Within estimate:** about 40–50 lines as estimated. node --check passed on all seven files.

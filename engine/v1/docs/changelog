@@ -379,3 +379,20 @@
 - **`math/Collision.js`:** `segmentQueryBox` and `triangleInQueryBox` are now exported as `SegmentQueryBox` and `TriangleInQueryBox`.
 
 **Where:** [physics/Collision.js](engine/v1/physics/Collision.js), [math/Collision.js](engine/v1/math/Collision.js).
+
+## Particles freeze beyond draw distance; generators build at any distance; per-entity texture animation flag
+**What:**
+- **`UpdatePerformanceFlags`:**
+  - A particle entity's `performance.physics` is now its draw-distance result (SimDistance × `WorldInstances.Cull`). Other entities keep the sim-distance center check.
+  - New `entity.performance.animatedTexture`: one point-to-AABB test per entity at SimDistance × `TextureAnimation.StopBake`. `BuildEntity` initializes it `true`.
+- **`updateParticles`:** skips `follow`, `advance` and `seedDue` for groups whose `performance.physics` is false.
+- **`GenerateParticles`:** the `viewerPosition` parameter and its sim-distance gate are removed. Level build, seeded siblings and Simulator requests no longer pass a viewer.
+- **`SpawnParticles`:** drops a burst beyond draw distance with a `Level` warn before generating. Generator requests are built at any distance.
+- **`generateForScene`:** passes `world.textureScale`, `visualResources.textureRegistry` and `partGeometryCache` again (0.34.4 had dropped `textureScale` and shifted the rest).
+- **Texture animation:**
+  - `UpdateTextureAnimation` ORs the textures worn by flagged entities (`nearEntityTextureIDs`, once per frame) with the per-mesh check on static owners.
+  - `assignOwnerMeshes` rebuilds static owner lists (entities excluded) for every animated texture, not only newly added ones.
+  - `AddTextureAnimationEntries` is renamed `SyncTextureAnimation` and is called from both `finalizeSpawn` and `DespawnFromScene`.
+- **`IsBeyondSimDistance`:** the null-viewer opt-out is removed.
+
+**Where:** [handlers/game/Performance.js](engine/v1/handlers/game/Performance.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js), [handlers/game/Texture.js](engine/v1/handlers/game/Texture.js), [builder/NewParticles.js](engine/v1/builder/NewParticles.js), [builder/NewLevel.js](engine/v1/builder/NewLevel.js), [builder/NewEntity.js](engine/v1/builder/NewEntity.js), [physics/Collision.js](engine/v1/physics/Collision.js).
