@@ -348,3 +348,34 @@
 - **`updateChase`:** trails `exitFacing` while `returning`, and the live facing otherwise.
 
 **Where:** [camera/Modes.js](engine/v1/camera/Modes.js).
+
+## FrameRate fits an even fraction of the browser's refresh rate
+**What:**
+- **`CONFIG.Performance.FrameRate`:** now a getter/setter. The setter stores the requested rate. The getter returns the closest `refreshRate / N` to it, rounding ties up. A changed request that gets coerced logs a `Render` warn.
+- **`CONFIG.Performance.RefreshRate()`:** new. Logs and returns the browser's refresh rate, or `null` until it has been measured.
+- **Refresh measurement:** at load, config.js takes the median of 60 `requestAnimationFrame` gaps and rounds it to whole Hz. If the pending FrameRate request gets coerced, it then warns.
+- **Level loop frame snap:** besides whole numbers of steps, it now also snaps frames that average close to an even split of a step (`step / N`).
+
+**Where:** [core/config.js](engine/v1/core/config.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js).
+
+## FrameRate handler moved to a config.js handlers section, with two-thirds rounding
+**What:**
+- **Replaces the earlier FrameRate entry today:** `fittedFrameRate`, `warnIfFitted` and the top-of-file `measureRefreshRate` are removed.
+- **`CONFIG.Performance`:** holds a plain `FrameRate: 60` again, plus a `RefreshRate()` method that logs and returns the measured rate.
+- **`/* === HANDLERS === */` section (above the exports):**
+  - `frameRate` / `refreshRate` lets.
+  - `measureRefreshRate(gaps, previous)`: the median of 60 rAF gaps, rounded to whole Hz. When it finishes, it sets FrameRate again so the stored value gets fitted.
+  - `Object.defineProperty(API_CONFIG.Performance, "FrameRate", …)`: the setter fits the value to a refresh fraction and warns when it changed; the getter returns the stored value.
+- **Fitting rule:** between two adjacent fractions, the lower two thirds of the gap round down. The result never goes below the lowest fraction at or above 30.
+
+**Where:** [core/config.js](engine/v1/core/config.js).
+
+## Fast bodies no longer pass through triangle-soup colliders
+**What:**
+- **`DetectPhysicsCollisions`:** when a step is longer than the body's smallest AABB half-extent, it traces the body's AABB center along the step.
+  - The trace runs against each triangle-soup candidate whose AABB overlaps the path box.
+  - It only considers front faces inside the path box.
+  - The nearest crossing that isn't void-cancelled becomes a swept solid, with `tEntry = (t − reach) / moveLength` and the face's normal.
+- **`math/Collision.js`:** `segmentQueryBox` and `triangleInQueryBox` are now exported as `SegmentQueryBox` and `TriangleInQueryBox`.
+
+**Where:** [physics/Collision.js](engine/v1/physics/Collision.js), [math/Collision.js](engine/v1/math/Collision.js).

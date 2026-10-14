@@ -176,3 +176,45 @@ Examples:
     - **Verified, S exit:** the return ends 100 frames after exit, at ≤2.4°/frame. Carl, backpedalling at 15 u/s, then ran up the tube wall into a new small loop (normal engagement). The arm still shortens to ~1.8 from obstruction while Carl backs toward the camera; whether that also happened before this session was not measured.
     - **Verified, W exit:** the return ends 70 frames after exit at under 1°/frame. Side effect: steering with A during the return, the camera holds behind the exit facing; it lagged at most 16° and caught up once the return ended.
   - **Raised to the author, not changed:** with D held and S added, the lock still carries, as designed for D. Carl runs at 24 along the carried heading, which is away from the camera once chaseCam swings behind, and S is ignored while D throttles.
+- [2026-10-14] MAIN: 0.34.5 frame pacing. Blended rendering was dropped, and FrameRate is now fitted to a fraction of the refresh rate. Implemented in config.js and Level.js.
+  - **Why blending was dropped:** on a fixed-refresh screen, a FrameRate that doesn't divide the refresh rate can't hold every picture for the same number of refreshes. That is arithmetic, and the same limit shows up in TV 3:2 pulldown, in consoles' 40fps modes needing 120Hz, and in Unity's WebGL guidance to let the browser choose the rate.
+  - **Rejected by the author:**
+    - drawing every refresh with blending, because it works the hardware above FrameRate;
+    - capped drawing with blending, because it keeps uneven holds at most FrameRates.
+  - **Author's decisions:**
+    - FrameRate is coerced to the closest even fraction of the measured refresh rate, using regular rounding;
+    - a single getter/setter on `CONFIG.Performance.FrameRate`, with the handler in config.js;
+    - `RefreshRate` sits next to FrameRate and both logs and returns.
+  - **Implementation:** the refresh rate is the median of 60 rAF gaps at load, rounded to whole Hz. The 0.34.4 frame snap also snaps to `step / N`, so 37.5 on 75Hz steps exactly every 2nd frame.
+  - **Finding in the 0.34.4 snap:** its 1ms tolerance also caught near-but-unequal rates. FrameRate 57 on 60Hz counted every 16.67ms frame as one 17.54ms step, running the game about 5% fast. Coercion makes this unreachable.
+  - **Behaviour change:** the default FrameRate 60 coerces to 75 on a 75Hz browser.
+  - **Known gaps:**
+    - the rate is measured once at load, so a window moved to a monitor with a different rate isn't re-measured where the browser follows the window;
+    - testGame's slider still offers free values from 30 to 144, which get coerced with a warning.
+  - **Verification:** `node --check` passes on both files. The browser check was not run because LiveServer was down.
+- [2026-10-14] MAIN: FrameRate handler rework at the author's direction. Moved into a config.js `HANDLERS` section, using `Object.defineProperty`. Superseded today's earlier helper-function version, which the author called overengineered and beyond the scope I had given.
+  - **Author's decisions:**
+    - fitting and the warning happen in the setter, not the getter;
+    - the handler stays in config.js;
+    - the rounding rule: between two adjacent refresh fractions, the lower two thirds round down. The minimum is the lowest fraction at or above 30, since 30 is the playability floor. On a 60Hz screen that gives 40→30, 49→30 and 52→60.
+  - **Rule added** to ENGINE_SEMANTICS §5.2 as the author stated it: braces holding more than one statement span lines.
+  - **Verified in the browser:** RefreshRate measured 75, and the default 60 read back as 37.5.
+  - **Open:** the author asked whether `if (refreshRate === null) return;` is defensive. I answered that it covers the real pre-measurement window and offered to install the accessor after measurement instead. No answer yet, so no change.
+- [2026-10-14] MAIN: Bug fix. Fast bodies passed through triangle-soup colliders and got stuck inside. The author reported it on the halfpipe back wall and on ramps at lower FrameRates.
+  - **Root cause, confirmed:**
+    - The only swept test is against a candidate's whole AABB, and narrowphase checks only the end position.
+    - When one step carries the capsule middle past a soup face, `capsuleTriangleContact` orients the push by the side the segment midpoint is on, so it pushes inward.
+    - Soups are hollow shells, so every inner face then keeps the body inside.
+  - **Repro:**
+    - Player behind the halfpipe deck (back face z=445), moving at 25 u/s toward -z, from 12 phase-offset starts.
+    - 0/12 passed through at FrameRate 75; 2/12 at 37.5.
+    - In the pass-through step the player moved 1.03 units where speed explains 0.59, so collision pushed the extra 0.44 inward.
+  - **Why the gate isn't `swept.hit`:** `SweptAABB` reports no hit when the body starts inside the object's AABB, which is the ramp case.
+  - **Verified at 37.5:**
+    - halfpipe wall: 0/36 pass-throughs at 25, 40 and 60 u/s;
+    - fast drops (30 u/s) onto the deck top land at y 48.13 and are grounded;
+    - fast drops onto slope-ramp-a1 land grounded on the slope (normal y 0.97);
+    - runs into both ends of the ramp don't end inside;
+    - no console errors.
+  - **Not measured:** runtime cost.
+  - **Over estimate:** about 25 lines of logic plus imports and exports, against my 15–20 line estimate.

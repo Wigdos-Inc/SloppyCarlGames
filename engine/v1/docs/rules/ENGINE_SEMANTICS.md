@@ -20,7 +20,7 @@ Read only the comment, at speed. You should know what the code below does, and w
 
 - **One line is the norm.** A second line is allowed only to explain a term the first line needs.
 - **Plain words.** Jargon that stops the reader ("ulp", "coincident boundary plane") fails, even in one line.
-- **Readable, not compressed.** Squeezing a comment into a cryptic fragment fails as badly as an essay. Don't drop the nuance the reader needs.
+- **Readable, not compressed.** Squeezing a comment into a cryptic fragment fails as badly as an essay. Don't drop the nuance the reader needs, but communicate it directly.
 - **About this code.** The comment relates to the code directly below it. Mentions of other modules or systems that this code doesn't touch don't belong.
 - **Readable in isolation.** Read it as if you don't know what the code does. If it only makes sense once you already understand the code, it does nothing.
 - **Accurate for the whole block.** A comment above a block must describe the block, not just its first line, and must never claim something the code doesn't do. If it's about one important line, separate that line with a blank line on either side so the comment covers only it.
@@ -36,8 +36,8 @@ Read only the comment, at speed. You should know what the code below does, and w
   ```
 - **What + short why** in one line.
   ```js
-  // One offset shared by r/g/b, keeping the hue (grey stays grey).
-  // Void walls run before scatter so scatter may avoid openings.
+  // One offset shared by r/g/b to keep the hue (grey stays grey).
+  // Void walls run before scatter to prevent scatter generation above holes.
   ```
 - **`// Note:`** for a constraint someone editing the code must know, including cross-file registration.
   ```js
@@ -265,6 +265,8 @@ const { Look, Loops, Modes, Body } = CAMERA_TUNING;
 A constant stays on one line unless its value is an array, object or ternary. Any other value too long for one line is split into smaller constants within its subchain.
 
 A declared function that spans lines uses `function`. Only a one-line function is declared as a `const` arrow. Callbacks passed inline, such as to `forEach` or `map`, are exempt.
+
+Braces holding more than one statement span lines. `if (x) { a(); return; }` on one line is not allowed.
 
 ```js
 // Bad
