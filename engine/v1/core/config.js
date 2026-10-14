@@ -1,5 +1,5 @@
 import { Unit } from "../math/Utilities.js";
-import { DeepFreeze, ReadFromSession } from "./meta.js";
+import { DeepFreeze, ReadFromSession, Log } from "./meta.js";
 
 /* === CONFIG === */
 // Base values and rule switches for the engine and game-facing API.
@@ -15,7 +15,7 @@ const API_CONFIG = {
       Cutscene: false,                       // Skip All Cutscenes
     },
     Levels: {
-      Triggers: false,                        // Render Trigger Meshes
+      Triggers: false,                       // Render Trigger Meshes
       FreeCam : false,                       // Free Camera Mode
       BoundingBox: {                         // Render Bounding Boxes
         Terrain     : false,
@@ -86,11 +86,11 @@ const API_CONFIG = {
     },
   },
   Volume: {
-    Master  : settings?.master ?? 0.5,
-    Music   : settings?.music ?? 1,
-    Voice   : settings?.voice ?? 1,
-    MenuSfx : settings?.menuSfx ?? 1,
-    GameSfx : settings?.gameSfx ?? 1,
+    Master  : settings?.master   ?? 0.5,
+    Music   : settings?.music    ?? 1,
+    Voice   : settings?.voice    ?? 1,
+    MenuSfx : settings?.menuSfx  ?? 1,
+    GameSfx : settings?.gameSfx  ?? 1,
     Cutscene: settings?.cutscene ?? 1
   },
   Performance: {
@@ -98,7 +98,8 @@ const API_CONFIG = {
     Particles      : "High",                                   // The amount of particles generators emit.
     SimDistance    : "High",                                   // Umbrella definition for both rendering and simulation distance.
     Animations     : "High",                                   // Smoothness of animations.
-    FrameRate      : 60,                                       // FPS for simulation and rendering.
+    FrameRate      : 60,                                       // FPS for simulation and rendering, fitted to a fraction of RefreshRate.
+    RefreshRate    : () => refreshRate,
     Resolution     : 100,                                      // Visual crispness.
     BackfaceCulling: true,                                     // Cull back faces
   },
@@ -173,7 +174,7 @@ const PERFORMANCE_SCALING = DeepFreeze({
     Tiers    : { Low: new Unit(50, "cnu"), Medium: new Unit(100, "cnu"), High: new Unit(150, "cnu"), Ultra: new Unit(250, "cnu") },
     Fractions: {
       Scatter         : { Cull: 0.70, Fade: 0.40 },                   // Cull relative to SimDistance; Fade relative to Cull
-      TextureAnimation: { StopBake : 0.60 },
+      TextureAnimation: { StopBake: 0.60 },
       WorldInstances  : { Cull: 1.5, Fog: 0.90 }                      // Cull relative to SimDistance; Fog relative to Cull
     }
   },
@@ -307,6 +308,48 @@ const DEBUG_COLORS = DeepFreeze({
     Projectile : { r: 1.00, g: 1.00, b: 0.20, a: 1.00 },
     Particle   : { r: 0.70, g: 0.40, b: 1.00, a: 1.00 },
   },
+});
+
+
+/* === HANDLERS === */
+// Small functions behind config values that need more than a stored value.
+
+let frameRate = API_CONFIG.Performance.FrameRate;
+let refreshRate = null;
+
+// Measures the refresh rate from the typical gap across 60 frames, then refits FrameRate to it.
+function measureRefreshRate(gaps, previous) {
+  requestAnimationFrame((now) => {
+    gaps.push(now - previous);
+    if (gaps.length < 60) {
+      measureRefreshRate(gaps, now);
+      return;
+    }
+    refreshRate = Math.round(1000 / gaps.sort((a, b) => a - b)[30]);
+    API_CONFIG.Performance.FrameRate = frameRate;
+  });
+}
+measureRefreshRate([], performance.now());
+
+// Fits FrameRate to a fraction of the refresh rate, keeping every frame on screen equally long.
+Object.defineProperty(API_CONFIG.Performance, "FrameRate", {
+  get: () => frameRate,
+  set(value) {
+    frameRate = value;
+    if (refreshRate === null) return;
+
+    // Rounds down unless the value is in the top third between two fractions, and never below 30.
+    const divisor = Math.max(1, Math.floor(refreshRate / value));
+    const higher  = refreshRate / divisor;
+    const lower   = refreshRate / (divisor + 1);
+    const fitted  = value < lower + (higher - lower) * 2 / 3 ? lower : higher;
+    frameRate = Math.max(fitted, refreshRate / Math.floor(refreshRate / 30));
+
+    if (frameRate !== value) {
+      Log("ENGINE", `FrameRate rounded to ${frameRate} to match a fraction of ${refreshRate}Hz refresh rate.`, "warn", "Render");
+    }
+  },
+  enumerable: true,
 });
 
 /* === EXPORTS === */

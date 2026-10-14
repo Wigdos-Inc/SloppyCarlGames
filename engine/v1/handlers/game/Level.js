@@ -141,15 +141,16 @@ function StartLevelLoop() {
 		levelLoop.lastFrameTime = now;
 
 		if (!levelLoop.paused) {
-			// When recent frames average close to a whole number of physics steps, advance exactly that many to avoid stutter.
+			// Prevent stutter by advancing further if it's just short of the next browser step.
 			const recent = levelLoop.recentFrames;
 			recent.push(frameTime);
 			if (recent.length > 4) recent.shift();
 			const average = recent.reduce((sum, time) => sum + time, 0) / recent.length;
-			const wholeSteps = Math.round(average / levelLoop.fixedTimeStep);
-			levelLoop.accumulator += wholeSteps >= 1 && Math.abs(average - wholeSteps * levelLoop.fixedTimeStep) < 1 
-				? wholeSteps * levelLoop.fixedTimeStep 
-				: frameTime;
+			const ratio = average / levelLoop.fixedTimeStep;
+			const snapped = ratio >= 1
+				? Math.round(ratio) * levelLoop.fixedTimeStep
+				: levelLoop.fixedTimeStep / Math.round(1 / ratio);
+			levelLoop.accumulator += Math.abs(average - snapped) < 1 ? snapped : frameTime;
 
 			const maxSubsteps = PERFORMANCE_SCALING.Loop.MaxSubsteps;
 			let steps = 0;

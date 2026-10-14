@@ -302,16 +302,16 @@ function sphereTriangleContact(center, radius, triangle) {
 }
 
 // Soup prefilter — the shape's extent grown by its radius; a triangle outside it can't reach.
-const segmentQueryBox = (start, end, radius) => ({
+const SegmentQueryBox = (start, end, radius) => ({
 	min: SubtractVector3(MinVector3(start, end), ToVector3(radius)),
 	max: AddVector3(MaxVector3(start, end), ToVector3(radius)),
 });
 
-const sphereQueryBox  = (center, radius) => segmentQueryBox(center, center, radius.value);
-const capsuleQueryBox = (capsule) => segmentQueryBox(capsule.segmentStart, capsule.segmentEnd, capsule.radius.value);
+const sphereQueryBox  = (center, radius) => SegmentQueryBox(center, center, radius.value);
+const capsuleQueryBox = (capsule) => SegmentQueryBox(capsule.segmentStart, capsule.segmentEnd, capsule.radius.value);
 
 // Note: Inlined to prevent over-allocation per triangle.
-function triangleInQueryBox (t, box) {
+function TriangleInQueryBox (t, box) {
 	const min = MinVector3(t.a, MinVector3(t.b, t.c)), max = MaxVector3(t.a, MaxVector3(t.b, t.c));
 	return CompareVector3(max, box.min, "greater-loose") && CompareVector3(min, box.max, "lesser-loose");
 }
@@ -321,7 +321,7 @@ function deepestContactInBox(triangles, box, contactWith) {
 
 	let best = NoContact();
 	for (const triangle of triangles) {
-		if (!triangleInQueryBox(triangle, box)) continue;
+		if (!TriangleInQueryBox(triangle, box)) continue;
 		best = ChooseDeepestContact(best, contactWith(triangle));
 	}
 	return best;
@@ -477,7 +477,7 @@ function aabbTriangleSetContact(aabb, soup, oneSided) {
 
 	const cluster = [];
 	for (const triangle of soup.triangles) {
-		if (!triangleInQueryBox(triangle, aabb)) continue;
+		if (!TriangleInQueryBox(triangle, aabb)) continue;
 
 		// One-sided: only front faces that see the center participate.
 		if (oneSided && DotVector3(triangle.normal, SubtractVector3(center, triangle.a)) < 0) continue;
@@ -1159,6 +1159,8 @@ export {
 	RayCapsuleIntersect,
 	RayTriangleIntersect,
 	RayTriangleSoupIntersect,
+	SegmentQueryBox,
+	TriangleInQueryBox,
 	RayDetailedBoundsIntersect,
 	SweptSphereAABB,
 	SweptSphereOBB,

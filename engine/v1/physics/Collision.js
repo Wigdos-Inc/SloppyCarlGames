@@ -50,6 +50,9 @@ import {
 	PointInsideMesh,
 	SweptSphereAABB,
 	SweptSphereOBB,
+	RayTriangleIntersect,
+	SegmentQueryBox,
+	TriangleInQueryBox,
 	NoContact,
 	ChooseDeepestContact,
 } from "../math/Collision.js";
@@ -563,6 +566,14 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 		sphereRadius = entity.collision.physics.bounds.radius.value;
 	}
 
+	// Trace the body's path when moving fast, to prevent phasing through triangle-soup surfaces.
+	const bodyHalf = AabbHalfExtents(entity.collision.aabb);
+	const reach = Math.min(bodyHalf.x, bodyHalf.y, bodyHalf.z);
+	const moveLength = Math.sqrt(Vector3Sq(vel));
+	const bodyCenter = AabbCenter(entity.collision.aabb);
+	const traceDirection = moveLength > reach ? ScaleVector3(vel, 1 / moveLength) : null;
+	const tracePath = SegmentQueryBox(bodyCenter, AddVector3(bodyCenter, vel), 0);
+
 	ResetCollisionPools();
 
 	for (const candidate of candidates) {
@@ -579,20 +590,41 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 			continue;
 		}
 
+		const detailedBounds = candidate.detailedBounds;
+
 		// Swept test.
 		let swept;
 		if (useSphereSwept) swept = checkSweptSphereCandidatePair(sphereCenter, vel, sphereRadius, candidate);
 		else swept = checkSweptAabbPair(vel, entity.collision.aabb, candidate.aabb);
+
+		// Stops the body short of the first surface its path would pass through.
+		if (traceDirection !== null && detailedBounds.type === "triangle-soup" && AabbOverlap(tracePath, candidate.aabb)) {
+			let crossing = null;
+			for (const triangle of detailedBounds.triangles) {
+				if (DotVector3(triangle.normal, traceDirection) >= 0 || !TriangleInQueryBox(triangle, tracePath)) continue;
+				const ray = RayTriangleIntersect(bodyCenter, traceDirection, triangle, crossing === null ? moveLength : crossing.t);
+				if (ray.hit) crossing = { t: ray.t, normal: CloneVector3(triangle.normal) };
+			}
+			if (crossing !== null) {
+				const point = AddVector3(bodyCenter, ScaleVector3(traceDirection, crossing.t));
+				const contact = { hit: true, normal: crossing.normal, depth: 0, point };
+				if (!isVoidCancelled(entity, candidate, sceneGraph, vel, contact)) {
+					const tEntry = Math.max(0, crossing.t - reach) / moveLength;
+					fillSolidResult(candidate, { tEntry }, contact).shape = entity.collision.physics.bounds.type;
+					continue;
+				}
+			}
+		}
 
 		if (swept.hit && swept.tEntry >= 0 && swept.tEntry <= 1) {
 			const cachedPair = isPlayer ? null : readReusableActiveCollisionPair(entity, candidate);
 			if (isPlayer) {
 				let contact = cachedPair ? buildContactFromCachedPair(cachedPair) : NoContact();
 				if (!cachedPair) {
-					contact = narrowphaseContact(offsetDetailedBounds(entity.collision.physics.bounds, vel), candidate.detailedBounds);
+					contact = narrowphaseContact(offsetDetailedBounds(entity.collision.physics.bounds, vel), detailedBounds);
 					if (!contact.hit) {
 						const entryBounds = offsetDetailedBounds(entity.collision.physics.bounds, ScaleVector3(vel, swept.tEntry));
-						contact = narrowphaseContact(entryBounds, candidate.detailedBounds);
+						contact = narrowphaseContact(entryBounds, detailedBounds);
 					}
 					if (!contact.hit) {
 						removeActiveCollisionPair(entity, candidate);
@@ -613,7 +645,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 			let contact = cachedPair ? buildContactFromCachedPair(cachedPair) : NoContact();
 			if (!cachedPair) {
 				const entityDetailed = offsetDetailedBounds(entity.collision.physics.bounds, ScaleVector3(vel, swept.tEntry));
-				contact = narrowphaseContact(entityDetailed, candidate.detailedBounds);
+				contact = narrowphaseContact(entityDetailed, detailedBounds);
 				if (!contact.hit) {
 					removeActiveCollisionPair(entity, candidate);
 					continue;
@@ -671,7 +703,7 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 
 		if (!AabbOverlap(entity.collision.aabb, candidate.aabb)) continue;
 
-		const cachedPair = isPlayer || candidate.detailedBounds.type === "triangle-soup"
+		const cachedPair = isPlayer || detailedBounds.type === "triangle-soup"
 			? null
 			: readReusableActiveCollisionPair(entity, candidate);
 		const contact = cachedPair 

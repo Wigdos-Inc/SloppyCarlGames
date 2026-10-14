@@ -146,8 +146,8 @@ Version Goals:
     - Move Render.js Shaders to new Shaders.js module. [DONE]
     - Move Object.js shape functions to new NewPrimitive.js module. [DONE]
       - Center the pyramid: its base sits at y=0, so the bottom-center lift floats it by half its height. Carl has pyramid-hosted decals, so check him after. [DONE]
-  5. Interpolation [CURRENT]
-  6. Todo Performance Enhancements [PENDING]
+  5. FrameRate Coercion [DONE]
+  6. Todo Performance Enhancements [CURRENT]
   7. Occlusion Culling [PENDING]
     - Measure first: a one-off debug count (GPU occlusion queries) of how much drawing is fully hidden behind walls. Build only if it beats the CPU cost.
     - If built: same-frame CPU depth check in new math/Occlusion.js. Scope: docs/scoping/render/culling-scope.md §4.5.
