@@ -396,3 +396,274 @@
 - **`IsBeyondSimDistance`:** the null-viewer opt-out is removed.
 
 **Where:** [handlers/game/Performance.js](engine/v1/handlers/game/Performance.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js), [handlers/game/Texture.js](engine/v1/handlers/game/Texture.js), [builder/NewParticles.js](engine/v1/builder/NewParticles.js), [builder/NewLevel.js](engine/v1/builder/NewLevel.js), [builder/NewEntity.js](engine/v1/builder/NewEntity.js), [physics/Collision.js](engine/v1/physics/Collision.js).
+
+## Uncapped FrameRate mode and in-level frame counter
+**What:**
+- **`CONFIG.Performance.FrameRate`:** accepts `Infinity`. The setter stores it without fitting it to a refresh fraction.
+- **`CONFIG.Performance.FrameCounter`:** new public switch, default `false`.
+- **`PERFORMANCE_SCALING.Loop.UncappedSimRate`:** new internal constant, `60`.
+- **Level loop:**
+  - `StartLevelLoop` sets `levelLoop.uncapped` when FrameRate is `Infinity`.
+  - The fixed step is `1000 / UncappedSimRate` in uncapped mode and `1000 / FrameRate` otherwise.
+  - Uncapped mode draws on every `requestAnimationFrame` callback and adds the raw `frameTime` to the accumulator, skipping the stutter snap. Finite rates still draw only on frames with a simulation step.
+- **Frame counter:** a top-right HUD (`engine-frame-counter` root, built through `CreateUI`) shows `RenderLevel` calls per second.
+  - It refreshes every 500 ms and follows the `FrameCounter` switch while the level runs.
+  - `StopLevelLoop` removes it.
+- **testGame:** the FrameRate slider max goes from 144 to 145. The last notch (`UNCAPPED_FRAME_RATE`) is labelled "∞", saved as 145, and applied to the engine as `Infinity`.
+
+**Where:** [core/config.js](engine/v1/core/config.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js), [testGame/main.js](engine/v1/testGame/main.js), [testGame/menus/ui.json](engine/v1/testGame/menus/ui.json).
+
+## Debug performance testers: BackfaceCulling, MSAA, FlatShading
+**What:**
+- **`CONFIG.Debug.Levels.Performance`:** new block holding `BackfaceCulling: true`, `MSAA: true` and `FlatShading: false`. These only take effect while `Debug.All` is on.
+  - `BackfaceCulling` moves here from `CONFIG.Performance`.
+- **`DEBUG_COLORS.FlatShading`:** new, `{ 0.55, 0.55, 0.60 }`.
+- **`ensureLevelRenderer`:** passes `antialias: msaa` to `getContext` and stores `renderer.msaa`.
+- **`ensureSceneTarget`:** the filter target uses `FILTER_TUNING.Samples` when MSAA is on, and 0 samples otherwise.
+- **`setFaceCulling`:** reads the moved flag.
+- **`createFoggedTextureFragmentShader`:** with FlatShading on, it emits a `main` body that outputs `DEBUG_COLORS.FlatShading` at alpha 1. This covers the main, entity triplanar, scatter, decal and scatter decal programs.
+- **`createLinkedProgram`:** binds each `attributeNames` entry to a fixed slot in declaration order and reports those slots, replacing the `getAttribLocation` query.
+- **When changes apply:** MSAA and FlatShading take effect on the next level load. BackfaceCulling applies live.
+
+**Where:** [core/config.js](engine/v1/core/config.js), [handlers/Render.js](engine/v1/handlers/Render.js), [handlers/utilities/Shaders.js](engine/v1/handlers/utilities/Shaders.js).
+
+## FlatShading skips water
+**What:**
+- **`ensureLevelRenderer`:** stores `renderer.flatShading`, read when the renderer is created.
+- **`drawWaterPass`:** returns early when `renderer.flatShading` is set.
+
+**Where:** [handlers/Render.js](engine/v1/handlers/Render.js).
+
+## Refresh-rate measurement validates its sample; FrameRate logs once per level
+**What:**
+- **`measureRefreshRate`:**
+  - If the median of 60 rAF gaps is under 1.5 ms, it stops and leaves `refreshRate` null, so FrameRate is used unfitted.
+  - Otherwise it requires 45 of the 60 gaps to fall within 5% of the median, or it retries with a fresh window.
+  - Only then does it set `refreshRate` and refit FrameRate.
+- **FrameRate setter:** no longer logs the "rounded to" warning. The `Log` import is removed from config.js.
+- **`StartLevelLoop`:** logs `FrameRate X (refresh rate: Y | unmeasured)` once per level load on `Render`.
+
+**Where:** [core/config.js](engine/v1/core/config.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js).
+
+## FrameRate setter warns when it fits a request
+**What:**
+- **FrameRate setter:** when fitting changes the requested value, it warns on `Render`: `FrameRate <requested> set to <fitted> to fit the <refresh>Hz refresh rate.`
+  - A stored `lastFitWarning` string (request plus refresh rate) dedupes it. Setting the same value again stays quiet.
+  - A request made before the measurement completes warns when the measurement refits it.
+- **Imports:** the `Log` import is restored in config.js.
+
+**Where:** [core/config.js](engine/v1/core/config.js).
+
+## Refresh rate from the fastest repeating frame gap; settled FrameRate warning
+**What:**
+- **`fastestRepeatedRate(sorted)`:** new. Finds the shortest gap with at least 5 gaps within 5% of it, and returns the rate from their average.
+- **`measureRefreshRate`:**
+  - Runs for the whole session in 60-frame windows, keeping the fastest rate of at least 30 Hz.
+  - When 5 or more gaps in a window are under 2 ms, it stops, leaves `refreshRate` null and logs `Browser frame limiter is off; FrameRate runs as set.` on `Render`.
+- **`requestedFrameRate`:** new. The setter stores the game's request here, and refits re-apply it rather than the previously fitted value.
+- **Fit warning:**
+  - It waits until the value has stayed the same for 500 ms, so only the settled value warns.
+  - Deduped on the warning text.
+  - The dedupe resets when the value is used unfitted.
+
+**Where:** [core/config.js](engine/v1/core/config.js).
+
+## Refresh rate measured once per level start; logic moved to meta.js
+**What:**
+- **meta.js `REFRESH RATE` section:** new.
+  - Module state: `refreshRate`, `lastFitWarning`.
+  - `RefreshRate()`: returns the last measured rate.
+  - `MeasureRefreshRate()`: a Promise that times 30 rAF gaps.
+    - When 5 or more gaps are under 2 ms, it sets `refreshRate` to null and logs `Browser frame limiter is off; FrameRate runs as set.` on `Render`.
+    - Otherwise it takes the first cluster of 5 gaps within 5%, averaged, as whole Hz. The result is null when no cluster is found or it's under 30 Hz.
+    - Every run overwrites `refreshRate`.
+  - `FitFrameRate(requested)`: the existing `refreshRate / n` fit. It returns the request unchanged when `refreshRate` is null or the request is Infinity.
+  - `CommitFrameRate(requested)`: fits against the current `refreshRate`. It warns on `Render` only when the fit changes the value and the warning text differs from `lastFitWarning`.
+- **config.js:**
+  - The FrameRate getter returns `FitFrameRate(requestedFrameRate)`. The setter stores the request and calls `CommitFrameRate`.
+  - Removed: the continuous measurement, `fastestRepeatedRate`, the debounce timer and the setter's fit body.
+  - `Performance.RefreshRate` now holds meta's `RefreshRate`.
+- **`CreateLevel`:** awaits `MeasureRefreshRate()` right before `BuildLevel`.
+- **`StartLevelLoop`:** its FrameRate log line is removed.
+- **testGame `handleSettingsInput`:** returns before save and apply on `input` events, so sliders commit on `change`.
+
+**Where:** [core/meta.js](engine/v1/core/meta.js), [core/config.js](engine/v1/core/config.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js), [testGame/main.js](engine/v1/testGame/main.js).
+
+## FrameRate reporting: unmeasured writes, unchanged results, level-load changes
+**What:**
+- **`reportFrameRate(message, level)`:** new. Logs on `Render` unless the message is identical to the last FrameRate report.
+- **`fastestRepeatedRate(sorted)`:** extracted from `MeasureRefreshRate`. Returns null with no cluster or under 30 Hz.
+- **State:** new `reportedFrameRate`, the FrameRate last reported as in use. `lastFitWarning` is replaced by `lastFrameRateLog`.
+- **`CommitFrameRate` reports one of:**
+  - No refresh rate: log `FrameRate set to X; no measured refresh rate to fit it to.`
+  - Fitted rate equals the reported rate: log `FrameRate stays at Y on the RHz refresh rate.`
+  - Fitted rate differs from the request: warn `FrameRate X set to Y to fit the RHz refresh rate.`
+  - Otherwise: log `FrameRate set to Y.`
+- **`MeasureRefreshRate`:** after each measurement, when the FrameRate in use changed, logs `FrameRate is now Y to fit the measured RHz refresh rate.` (or `with no refresh rate to fit to`).
+
+**Where:** [core/meta.js](engine/v1/core/meta.js).
+
+## Per-channel duplicate log detection; source filter case; FrameRate report cleanup
+**What:**
+- **`isDuplicateOfLatest`:** compares against `latestByChannel`, a new module `Map` keyed `source|channel` that `Log` sets after caching. The Controls 3-entry window is unchanged.
+- **`shouldLog`:** compares the source to `"ENGINE"` / `"GAME"`, matching the uppercased source `Log` passes.
+- **`reportFrameRate`, `lastFrameRateLog`:** removed. `CommitFrameRate` and `MeasureRefreshRate` call `Log` directly on `Render`.
+- **`CommitFrameRate` with no refresh rate:** logs `No refresh rate has been measured yet. FrameRate will be fitted at the first level load.`
+
+**Where:** [core/meta.js](engine/v1/core/meta.js).
+
+## Scatter geometry key includes primitive options
+**What:**
+- **`primitiveGeometryKey`:** serializes `primOptions` with `JSON.stringify` instead of interpolating the object, so scatter parts that differ only in `primitiveOptions` get separate batches and meshes.
+
+**Where:** [builder/NewScatter.js](engine/v1/builder/NewScatter.js).
+
+## Log channel recognition, ENGINE.AddLogChannel, case-preserving messages, unfitted FrameRate reasons
+**What:**
+- **`Log`:**
+  - Messages keep their case. Only the level is lowercased for its checks, and the source stays uppercased.
+  - The invalid-source replacement error uses the source `"ENGINE"`.
+  - When a channel's first segment, with its first letter capitalized, isn't a key of `CONFIG.Debug.Logging.Channel`, the entry is still cached. `Log` then logs an ENGINE error on `Meta` — `Log channel "X" is not recognized. Add it with ENGINE.AddLogChannel("X").` — and returns without printing.
+- **`shouldLog`:** looks channels up with the first letter capitalized. New internal helper `capitalized(name)`.
+- **`AddLogChannel(name)`:** new in meta.js and exposed as `ENGINE.AddLogChannel`. It capitalizes the first letter, sets `CONFIG.Debug.Logging.Channel[Name] = true` and logs `Log channel "Name" added.` on `Meta`.
+- **`unfittedReason`:** new in the REFRESH RATE section.
+  - It starts as `No refresh rate has been measured yet. FrameRate will be fitted at the first level load.`
+  - Each measurement sets it to `Browser frame limiter is off; FrameRate runs as set.` or `The refresh rate couldn't be measured; FrameRate runs as set.`
+  - `CommitFrameRate` logs it when `refreshRate` is null, and the limiter-off log uses the same text.
+
+**Where:** [core/meta.js](engine/v1/core/meta.js), [core/ini.js](engine/v1/core/ini.js).
+
+## ENGINE.Meta.Logging groups the logging helpers
+**What:**
+- **`ENGINE.Meta.Logging`:** new object holding `{ LogAll, Cache, AddChannel }`. These were `ENGINE.Meta.LogAll`, `ENGINE.Meta.LogCache` and `ENGINE.AddLogChannel`, which are all removed.
+- **`ENGINE.Log`:** stays top-level.
+- **Names:** the internal meta.js names are unchanged; ini.js maps them.
+- **Unrecognized-channel error:** now names `ENGINE.Meta.Logging.AddChannel("X")`.
+
+**Where:** [core/ini.js](engine/v1/core/ini.js), [core/meta.js](engine/v1/core/meta.js).
+
+## Refresh-rate code split between config.js and Performance.js
+**What:**
+- **config.js `HANDLERS`:**
+  - State: `requestedFrameRate`, `refreshRate`, `reportedFrameRate`, `unfittedReason`.
+  - `fitFrameRate(requested)`: returns the request unfitted when `refreshRate` is null or Infinity.
+  - FrameRate accessor: the getter returns the fitted value. The setter logs the unfitted reason, "stays at", the "set to … to fit" warning, or "set to".
+  - New `RefreshRate` accessor. Its setter stores the value (Infinity = limiter off, null = no steady reading), sets `unfittedReason`, logs the limiter-off text, and logs `FrameRate is now …` when the rate in use changes.
+- **`Performance.RefreshRate`:** now a property instead of a function. Its default is `null`.
+- **Performance.js:**
+  - Keeps `fastestRepeatedRate` and `MeasureRefreshRate`, which writes `CONFIG.Performance.RefreshRate`.
+  - Exports `UpdatePerformanceFlags` and `MeasureRefreshRate`. It no longer imports meta.js.
+- **Level.js:** imports `MeasureRefreshRate` from Performance.js.
+- **meta.js:** the `REFRESH RATE` section and its exports are removed.
+
+**Where:** [core/config.js](engine/v1/core/config.js), [handlers/game/Performance.js](engine/v1/handlers/game/Performance.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js), [core/meta.js](engine/v1/core/meta.js).
+
+## Engine logs moved off unsupported channels
+**What:**
+- **math/Forces.js:** six "… disabled" warnings in `ComputeGravity`, `ComputeResistance`, `ComputeBuoyancy` and `ComputeStepVelocity.scalar` move from `Physics` to `Level`.
+- **handlers/game/Animation.js:** the "no set matches action …" warning moves from `Animation` to `Level`.
+
+**Where:** [math/Forces.js](engine/v1/math/Forces.js), [handlers/game/Animation.js](engine/v1/handlers/game/Animation.js).
+
+## Void carving cuts polygons instead of triangles
+**What:**
+- **math/Collision.js:** `SplitTriangleByPlane` and its private `fanTriangulate` are replaced by the exported `SplitPolygonByPlane(polygon, planeNormal, planeOffset)`. It returns `[front, back]` corner lists, or `null` when the plane doesn't cut the polygon in two.
+- **builder/NewVoid.js:**
+  - Host carving, lining clipping and open-face clipping work on convex corner lists, which are split into triangles only at output. Renames: `carveTriangleByVoid` → `carvePolygonByVoid`, `splitTriangleBySolid` → `splitPolygonBySolid`, `planeCrossesTriangle` → `planeCrossesPolygon`. `pieceInsideSolid` now takes `(polygon, normal, solid)`. New helpers: `polygonAabb`, `polygonArea`.
+  - `buildCuttingSolid` adds `vertices` and a lazily filled `clearSides` array.
+  - New `clearSideOf(solid, index)` returns which side of a wall the whole solid stays clear of. New `outsideByWall` keeps a piece without further cuts when it stands off that side; a piece lying in the wall itself doesn't count. Walls that have a clear side are tried first when cutting.
+  - New constant `planeTolerance = 0.0001`.
+  - Lining and open-face output skips triangles smaller than `minimumOpenFaceArea`.
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js), [builder/NewVoid.js](engine/v1/builder/NewVoid.js).
+
+## Occlusion culling: terrain hides what sits behind it
+**What:**
+- **math/Matrix.js:** new export `InvertAffineMatrix(m)`.
+- **math/Collision.js:** new `BLOCKERS` section. Exports `InscribedBox`, `VoidCutBoxes`, `AabbLargestFace`, `SolidBoxes`, `ProjectBoxCorners`, `ConvexHull2D`, `CornersInsideHull`, `BeyondFrontFaces`; private `subtractBox`, `mergeTouching`.
+- **core/config.js:** `Debug.Levels.Performance.OcclusionCulling`. `PERFORMANCE_SCALING.Culling` gains `BlockerBudget`, `MinBlockerSize`, `IdleBackoffMs`, `ResumeDistance`, `ResumeTurn`.
+- **builder/NewTerrain.js:** `BuildTerrain` attaches an `occluder` record (`inverse`, `pieces`) to every non-void terrain mesh; only static, opaque, default-mode shapes get pieces. New export `CarveOccluders(terrain, voidTerrain)` rebuilds the records of carved hosts.
+- **builder/NewLevel.js:** calls `CarveOccluders` after `BuildVoidWalls`.
+- **builder/NewVoid.js:** void wall meshes carry `occluded: false`.
+- **handlers/Render.js:**
+  - New `OCCLUSION` section: `stillOn`, `chooseBlockers`, `hideOccluded`. `hideOccluded` runs after `hideOffscreen` in `drawScene`.
+  - Terrain, obstacles and entities are hidden through `performance.rendering`; scatter cells and void walls through a new `occluded` flag, checked by the scatter draw, `drawScatterDecalPass` and `drawVoidWalls`.
+  - Idle back-off: a frame that hides nothing pauses the step for a doubling window capped at `IdleBackoffMs`; a camera jump ends the pause.
+  - Renderer gains `occlusion` state and `voidWallMeshes`; `passState` gains `viewProjection`. The scatter buffer build and `ensureVoidWallMeshes` now run before the occlusion step.
+  - The temporary OCCLUSION COUNT measurement block is removed.
+
+**Where:** [math/Matrix.js](engine/v1/math/Matrix.js), [math/Collision.js](engine/v1/math/Collision.js), [core/config.js](engine/v1/core/config.js), [builder/NewTerrain.js](engine/v1/builder/NewTerrain.js), [builder/NewLevel.js](engine/v1/builder/NewLevel.js), [builder/NewVoid.js](engine/v1/builder/NewVoid.js), [handlers/Render.js](engine/v1/handlers/Render.js).
+
+## Physics refactor: collision registry and assemblers that return results
+**What:**
+- **handlers/game/Performance.js:** new `UpdateCollisionCandidates(entity, sceneGraph)`.
+  - It qualifies an entity: the player always; others when `performance.physics` is true, `CONFIG.Physics.Collision.Enabled` is on and the entity's collision flag is set.
+  - It re-poses the entity with `UpdateEntityModelFromTransform`.
+  - It stores the `BroadphaseCollectCandidates` list on `entity.performance.collision`, or `false` when it doesn't qualify or the list is empty.
+  - The SimDistance tier is now read directly.
+- **SimDistance accessors:** `GetSimDistanceValue` and `IsBeyondSimDistance` are removed. Render.js, Level.js and Texture.js read `PERFORMANCE_SCALING.SimDistance.Tiers[CONFIG.Performance.SimDistance]` directly.
+- **handlers/game/Level.js:** `Update` runs the registry pass every step, after the Simulator early return. `SpawnParticles` builds lists for new groups when they spawn.
+- **builder/NewEntity.js:** `performance.collision` starts as `false`.
+- **builder/NewObject.js:** the `mode: "invisible"` branch gains `performance: { rendering: true }`.
+- **handlers/game/Collectible.js:** `AabbOverlap` is inlined; `CheckEntityAabbOverlap` is removed.
+- **physics/Collision.js:**
+  - The swept, overlap and probe passes iterate `entity.performance.collision`.
+  - Entity candidates are `{ id, pairId, isTrigger, type, ref }`, and their bounds are read live through `candidateAabb` and `candidateBounds`.
+  - The re-probe broadphase is removed.
+  - New export `NO_GROUND_CONTACT`.
+  - `ResolveCollisions` returns `collisionKey`.
+  - Duplicates merged into `fillSolidResult`, `collectTrigger`, `surfaceFlags` and `hostVoids`.
+  - The probe's triangle prefilter rejects on any axis instead of requiring all three.
+  - The pair cache is a `WeakMap` keyed by entity.
+  - Removed:
+    - `CheckEntityTrueOverlap` and `NarrowphaseTest`;
+    - the `ResetCollisionPools` export;
+    - the player cache branch;
+    - the pool `shape` field;
+    - the gates the registry made unreachable.
+- **math/Collision.js:** new `OffsetDetailedBounds`, `NarrowphaseContact`, `ExpandAabbY`, `SweptSphereBounds`, `HorizontalApproach`, `SlideAlongContacts`, `PointAabbFaceGap`, `PointObbFaceGap`, `NearestFrontTriangle` and `SurfaceAlignedRotation`, moved from physics/ and written with Vector3 helpers.
+- **physics/Correction.js:**
+  - New: `GetCorrectionFrame`, `GetSurfaceCorrection`, `GetGroundSnap`, `GetSurfaceOrientation`, `GetGripDemand`, `GetReferenceNormal`.
+  - Removed: `ApplySurfaceCorrection`, `ApplyGroundSnap`, `ApplyPlayerSurfaceOrientation`, `UpdateGripDemand`, `ReferenceReleaseStep`.
+- **physics/Forces.js:** new `GetFloatiness` and `GetStaticFriction`. `GetGravity` applies `gravityScale`.
+- **physics/Master.js:**
+  - `physicsState` gains `displacement`, `collision`, `correction` and `loop`.
+  - Master applies every returned result to the entity.
+  - Detection is gated on `performance.collision !== false`.
+
+**Where:** [handlers/game/Performance.js](engine/v1/handlers/game/Performance.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js), [handlers/Render.js](engine/v1/handlers/Render.js), [handlers/game/Texture.js](engine/v1/handlers/game/Texture.js), [handlers/game/Collectible.js](engine/v1/handlers/game/Collectible.js), [builder/NewEntity.js](engine/v1/builder/NewEntity.js), [builder/NewObject.js](engine/v1/builder/NewObject.js), [physics/Collision.js](engine/v1/physics/Collision.js), [physics/Correction.js](engine/v1/physics/Correction.js), [physics/Forces.js](engine/v1/physics/Forces.js), [physics/Master.js](engine/v1/physics/Master.js), [math/Collision.js](engine/v1/math/Collision.js).
+
+## Physics follow-ups: allocation-free triangle checks and player detection reuse
+**What:**
+- **math/Collision.js:**
+  - `TriangleInQueryBox`, the `NearestFrontTriangle` prefilter and `insideRayCrosses` compare with `Math.min`/`Math.max` scalars.
+  - `SweptAABB` reads per-axis values directly and returns a frozen no-hit result.
+  - Contact functions with no outside importer are now private and renamed lowerCamelCase.
+  - New private `capsuleSamples`; `invertContact` moved to module level.
+  - `ReflectVector3` is removed.
+- **physics/Collision.js:**
+  - `ProbeGroundContact` is split into `GatherGroundHits` (raw hits) and `PickGroundContact` (classification and ranking).
+  - `HostVoids` is exported.
+  - The impact builders are inlined (frozen `noFloorImpact`/`noWallImpact`).
+  - Solid pool items hold `tEntry`, `normal`, `pushDepth`, `type`, `sourceType`.
+  - New `outsideReachXZ` helper; the end-of-move body is built once per call; `ResolveCollisions` returns early with no hits.
+- **physics/Master.js:**
+  - The player reuses the last overlap detection (`physicsState.collision.overlaps`) and raw ground hits (`physicsState.correction.groundHits`) until a `moveEntity()` position write clears them.
+  - `noResult` is replaced by `noDetection` and `CORRECTION_DISABLED`.
+- **physics/Correction.js:** `heldSurface` and `hasMeaningfulDelta` are inlined.
+- **camera/Master.js:** uses `HostVoids`.
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js), [physics/Collision.js](engine/v1/physics/Collision.js), [physics/Master.js](engine/v1/physics/Master.js), [physics/Correction.js](engine/v1/physics/Correction.js), [camera/Master.js](engine/v1/camera/Master.js).
+
+## Camera rays skip lining triangles outside the ray's reach
+**What:**
+- **math/Collision.js:** `RayTriangleSoupIntersect` skips triangles outside the ray segment's box when given a finite `maxDistance` (`SegmentQueryBox` + `TriangleInQueryBox`). Results are unchanged.
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js).
+
+## Visual-only model parts get a corner-built world box
+**What:**
+- **builder/NewEntity.js:** `applyModelPose` gives parts with `addsToBounds: false` a world AABB from the 8 corners of their local `geometry.bounds`. Bounds parts keep the per-vertex `UpdateObjectWorldAabb` sweep. Visual-only parts no longer refresh `mesh.detailedBounds` on re-pose.
+- **builder/NewObject.js:** `computeWorldAabbFromBounds` is renamed `ComputeWorldAabbFromBounds` and exported.
+
+**Where:** [builder/NewEntity.js](engine/v1/builder/NewEntity.js), [builder/NewObject.js](engine/v1/builder/NewObject.js).

@@ -121,7 +121,7 @@ Version Goals:
   3. Sticky Terrain: [DONE]
     - Fix bug where you clip out of bounds in voids. [DONE]
     - Add a "sticky" field to terrain. The player's grounding is no longer tied to a minimum speed while grounded on this part. [DONE]
-- 0.34: Camera & Controls Stability [PATCHING]
+- 0.34: Camera & Controls Stability [FINISHED]
     - Offset the camera at incline changes so it remains vertically stationary during loops. Ensure it doesn't influence movement. [DONE]
   1. Loop detection false positives [DONE]
     - The upward slope in the tunnel connecting underwater and above water counts as a loop, forcing a bad side-view camera angle.
@@ -133,32 +133,55 @@ Version Goals:
     - Move Object.js shape functions to new NewPrimitive.js module. [DONE]
       - Center the pyramid: its base sits at y=0, so the bottom-center lift floats it by half its height. Carl has pyramid-hosted decals, so check him after. [DONE]
   5. FrameRate Coercion [DONE]
-  6. Todo Performance Enhancements [CURRENT]
-  7. Occlusion Culling [PENDING]
-    - Measure first: a one-off debug count (GPU occlusion queries) of how much drawing is fully hidden behind walls. Build only if it beats the CPU cost.
-    - If built: same-frame CPU depth check in new math/Occlusion.js. Scope: docs/scoping/render/culling-scope.md §4.5.
-  8. orbitCam Rework [PENDING]
+  6. Todo Performance Enhancements [DONE]
+- 0.35 Occlusion Culling & CPU Optimizations [CURRENT]
+    - Built: blocker culling in Render.js hideOccluded, helpers in math/Collision.js, occluder records from NewTerrain.js. ARGUS: 0 false hides on lvl2, stress grid, LSM. Scope: docs/scoping/render/culling-scope.md §4.5.
+    - Left: remove testGame lvlStress.json and its level.js entry.
+  1. orbitCam Rework [PENDING]
     - Games can't set the initial camera yaw or the player's spawn facing (LSM rotated its whole level 180° to work around it).
     - Mouse sensitivity is read once at level start, so a settings change mid-level does nothing until the next level.
-  9. Sprite/Bilboard Support (rotating images that resize based on distance)
-  10. Movement Enhancements. [PENDING]
+  2. Sprite/Bilboard Support (rotating images that resize based on distance)
+    - Look into adding mipmaps to remove the weird rounded artifacts at a distance.
+  3. Movement Enhancements. [PENDING]
     - Release jump early for quicker falloff.
     - Solve over-rotation in above-water tunnel.
     - Store medium (Water/Air) on entity definition (e.g. playerState)
     - If holding "A", then pressing and releasing "D", "A" stops working until it's pressed again. This must be fixed.
-- 0.35: Workers (Multi-Threading) [PENDING]
+    - Jumping off a sloped surface doesn't feel correct because you keep so much upwards momentum. It can feel like you're still jumping "up" while you're rotated 80 degrees, which is not how jumping should feel.
+  4. Look into why moving and running through voids causes performance drops.
+- 0.36: Workers (Multi-Threading) [PENDING]
   - Needs a full scoping pass.
-  - Consider a coordinator/state manager. If small, an exported "Workforce" object in meta.js acting as the state manager could work quite well.
-  - Main candidate for worker deferral: noise textures (lvl2 water face bake is ~1.3 s of a ~3.4 s load).
-  - Entity AI (0.36) may benefit: pathfinding is expensive both while building and in the hot path.
-  - Afterwards: look for hot-path candidates (e.g. animated noise re-bakes).
-- 0.36: Entity AI
+  - Consider a coordinator/state manager. If small, an exported "Workforce" object in meta.js acting as the state manager could work quite well. It'd check if workers are available and assign them.
+  - Candidates for Worker Tasks:
+    - Build-time Texture generation/baking (lvl2 water face bake is ~1.3/~3.4s of the load time). Speeds up level build.
+      - Could contain runtime noise-rebaking. Candidate for permanent worker slot.
+    - Entity Pathfinding (0.36). Candidate for a permanent worker slot (cannot be assigned to other tasks).
+    - think of more candidates just in case...
+- 0.37: Primitive Expansion
+  - Options:
+    - "rounding" & "complexity" to Cubes
+    - "domeRatio" to Spheres
+  - Shapes:
+    - "diamond" (complexity makes it range from a jewel to something more like a nose)
+  - Expand Instance.js to reduce tedious json authoring. Add missing fields. No datatype normalization.
+    - Remove dead fields in Engine json.
+    - Update engine rule docs.
+  - Move more non-standard fields to primitiveOptions
+  - Look into unifying capsule and cylinder.
+    - Add "topRounding" and "bottomRounding" primitiveOptions, which equate to how much of the cylinder the cap replaces.
+  1. Allow voids on entities (they'll act as carving). Void walls must start supporting decals.
+- 0.38: Entity AI
   - Blueprint movement fields chase, jump, jumpOnSight, disappear and aggroRange validate but do nothing; devs read them as the AI API.
+  - Make SimRadius a calculation rather than authorable.
+    - Entities will replace velocity with velocity.start, and gain velocity.max (including the player, losing maxSpeed)
+    - SimRadius will equal: (velocity.max / 10) * (60 / CONFIG.Performance.FrameRate)
+    - Double SimRadius for the player
+    - SimRadius is in CNU. velocity.max is CNU/s
   1. Add optional Q/W rotation controls & add full custom player controls support.
   2. Add optional Swimming & Flying states.
   3. Add player/characters.json animation authoring support.
   x. Bug fixes.
-- 0.37: Additional Control Schemes
+- 0.39: Additional Control Schemes
   - Controller Support.
   - Custom control bindings.
     - Add gameplay controls bindings to API_CONFIG so games don't have to run custom event listeners (they still can if they want).
@@ -169,20 +192,21 @@ Version Goals:
       - The Simulator has a hardcoded controls scheme.
   - Input magnitude is ignored: Movement normalizes the direction, so forward: 0.5 is full speed. Analog sticks need it.
   - No invert-Y option.
-- 0.38: Combat Expansion
+- 0.40: Combat Expansion
   - Player hp is a stale 3 nothing reads; damage is ring rules only. Games build hearts/HP/i-frames themselves.
   - One enemy hit soft-locks the player: Stunned and invulnerable are set, but nothing counts the timer down or leaves Stunned before respawn.
   x. Bug fixes.
-- 0.39: Collectible Rework
+- 0.41: Collectible Rework
   1. Bug fixes.
   2. Increase game-side control in sub-systems.
   3. Load Screen functionality.
-- 0.40: Abilities Support:
+- 0.42: Abilities Support:
   - Standard simple abilities.
   - Player.Input.boost is read by nothing, and nothing sets playerState.boost.active. LSM wrote GetState().boost directly for sprint.
   - 
-- 0.41: Moving Terrain & Obstacles.
-- 0.42: DEFERRED Backlog Cleanup
+- 0.43: Moving Terrain & Obstacles.
+  - Moving terrain gets no occlusion blocker pieces (static-only blocking is permanent); it can still be hidden.
+- 0.44: DEFERRED Backlog Cleanup
   1. Optionally block scatter on decals.
   2. Add scatter support to voids.
   3. Block scatter inside objects.
@@ -199,16 +223,16 @@ Version Goals:
       - loop: array of tracks played one after another after start, looping forever.
       - shuffle: picks loop tracks at random; the same track never plays twice in a row unless loop holds only one.
     - Complaint: level music was validated and normalized but never played; testGame plays it itself after CreateLevel, and nothing pauses it with the level.
-- 0.43: Lighting & Shadows.
-- 0.44: Add entity (player, npcs, bosses) accessories support.
+- 0.45: Lighting & Shadows.
+- 0.46: Add entity (player, npcs, bosses) accessories support.
   - Pre-built, but not rendered (or zero-scaled).
   - Accessories can be toggled individually through the API.
-- 0.45: Populate Templates, Scatter & Textures.
-- 0.46: Engine Cutscenes
+- 0.47: Populate Templates, Scatter & Textures.
+- 0.48: Engine Cutscenes
   1. Add credits builder.
   2. Add dialogue system.
     - Both vocal and text-boxes.
-- 0.47: Add testGame boss level.
+- 0.49: Add testGame boss level.
   1. Full optimization sweep.
   x. Debug & finish testGame level 2.
   x. Debugging.

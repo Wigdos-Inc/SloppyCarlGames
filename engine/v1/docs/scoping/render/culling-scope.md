@@ -138,7 +138,7 @@ The existing in-shader fade and cull stays. It still gives the soft dissolve at 
 
 ### 4.5 Occlusion culling: STAYS IN SCOPE (author, D4)
 
-The author rejected leaving it out. A level with a dense hotspot of objects behind walls, lagging while none of it can be seen, would read as a bug, and future content may well do that. It is **its own patch, 0.34.6** (author, 2026-10-10).
+The author rejected leaving it out. A level with a dense hotspot of objects behind walls, lagging while none of it can be seen, would read as a bug, and future content may well do that. It is **its own patch, 0.34.7** (author, 2026-10-10; renumbered after 0.34.6 became Todo Performance Enhancements).
 
 **Measure first.** Its CPU cost has to beat the GPU work it saves, and neither is known. Before building, a one-off debug count uses GPU occlusion queries (late answers don't matter for counting) to total how much drawing is fully hidden behind walls. It is built only if that total justifies it.
 
@@ -150,6 +150,86 @@ The author rejected leaving it out. A level with a dense hotspot of objects behi
 - **No pop-in:** it runs in the same frame as the draw, so nothing appears late.
 - **Rough size:** ~250 lines, most of it the triangle filler.
 - **Placement (author, 2026-10-10):** the pure part goes in a new `math/Occlusion.js`. Size settings live in config.js and are passed in as parameters, so the module stays free of config and a worker can load it in 0.35. Wall selection and the calls stay in Render.js (~40 lines).
+
+**Measured in 0.34.7** (rounds 1–5, on the author's machine throttled to low-end mobile: GPU 810 MHz, CPU 10×; SimDistance Ultra):
+- **Depth picture (above):** filling the picture costs 10–45 ms of CPU per frame in a plain JS prototype. That is more than the GPU work it saves.
+- **GPU queries, one frame late:**
+  - About 35 µs of CPU per object tested, plus 1.3–5 ms of GPU for the test boxes. Answers arrive exactly 1 frame late.
+  - Wins where much is hidden, about breaks even indoors, and loses 1–3 ms in open areas.
+- **Blocker culling (author's idea, see below):** found the most promising.
+  - Same frame, no GPU cost, and **0 false hides** at every spot measured.
+  - Roughly halves GPU time where the view is enclosed: stress grid 41 → 22 ms, LSM 22 → 10–12 ms.
+  - A first test version spent 14–27 ms of CPU per frame on its own work, which cancelled the saving.
+  - **Rebuilt in the engine-proper shape below** (round 5), its own work drops to 1.5–8.4 ms. It then cuts both GPU and CPU time wherever something is hidden:
+
+    | Spot | GPU ms | drawScene CPU ms |
+    |---|---|---|
+    | stress grid, facing a wall | 46.6 → 26.2 | 49.4 → 37.1 |
+    | lvl2 underwater | 13.8 → 9.5 | 16.6 → 13.8 |
+    | LSM foyer | 17.5 → 10.9 | 19.7 → 17.6 |
+
+  - With nothing to hide (lvl2 hub) it costs about 1.1 ms of CPU, which the idle back-off below addresses.
+
+**Status (author, 2026-10-19):** blocker culling is proven by measurement, and no further tests are needed. Non-cube blockers are the only open question, and may not be an issue. Implementation is to be planned in plan mode with ED, ERA and DRYAD.
+
+**Blocker culling: how it works.** Anything that sits fully behind a solid "blocker" is skipped in the same frame.
+- **Blockers:** solid boxes fitted inside opaque terrain shapes. Every carving void is cut out of them, so openings stay open. A box inside the solid can only block less than the solid, never more.
+- **Test:** an object is hidden when its whole padded box projects inside a blocker's screen outline and lies strictly beyond every blocker face turned toward the camera. Every ray to it then passes through the blocker first, so the test is exact.
+- **Non-widening volumes:** measured and dropped. They hide almost nothing and are no safer.
+- **Silhouette a single fitted box keeps** (geometry, not measured):
+
+  | Shape | Kept |
+  |---|---|
+  | cube, plane | 100% |
+  | cylinder | ~71% side, 64% top |
+  | ramp | 50% |
+  | pyramid | 44% |
+  | sphere | 42% |
+  | cone | ~30% |
+  | torus, hollow tube, ramp-complex | no blocker |
+
+**Blocker culling: engine-proper shape** (if accepted; rough size ~250 lines):
+- **Cull pipeline.** Each stage only sees what the cheaper stage before it let through, using the existing `performance.rendering` flag on persistent sceneGraph objects:
+  - distance, per tick, in Performance.js (exists)
+  - frustum, per frame, in `hideOffscreen` (exists)
+  - occlusion, per frame, in a new `hideOccluded` right after it.
+  - Scatter cells and void walls have no flag today. Each gets a small one that its draw loop checks.
+- **Blocker candidates come from the same survivors.** This is exact, not an approximation:
+  - A blocker outside the frustum can only hide things that are also outside it.
+  - A blocker past render distance can only hide things that are farther still.
+- **Pieces built at level build, after void carving** (~80 lines):
+  - Each eligible terrain mesh, and later obstacle parts, gets a persistent `occluder` record. It holds its solid pieces in the mesh's own space, each piece's world corners and world box, and the mesh's inverse matrix.
+  - Static terrain is computed once. For Moving Terrain & Obstacles, pieces are recomputed when the transform changes, using the change check `renderMatrixFor` already does.
+  - Entities never block: they move and animate.
+- **Pruning at build, no runtime cost** (~25 lines):
+  - Drop scraps.
+  - Merge pieces that share a whole face.
+  - Keep each host's largest few.
+  - These are functional thresholds, so they stay inline. This is what stops tube voids multiplying pieces (lvl2 reached ~1,000 in view).
+- **Cheapest check first, inside the occlusion step** (~60 lines):
+  1. Frustum test on each piece's box.
+  2. Quick size estimate (face area ÷ distance²), with no projection.
+  3. Project only the chosen blockers.
+  4. Per object: a screen-rectangle pre-check, then the exact outline test, then the face rule.
+  - Objects are read straight from the sceneGraph lists, with reused scratch arrays and no per-frame allocation.
+- **Persistent ranking** (~20 lines): keep the blockers that hid something last frame, plus a few new top candidates. After a camera cut or a level start, the first frame falls back to the size estimate. Ranking changes how much is hidden, never whether a hide is correct.
+- **Idle back-off** (author's idea, refinements agreed 2026-10-19; ~10–15 lines). When a frame hides nothing, the occlusion step pauses for a short window. A paused frame draws everything, so this can only lose savings, never cause pop-in.
+  - **Time-based window,** about 100 ms, derived from the fitted FrameRate (about 10% of the frame rate).
+  - **Window grows** (1, 2, 4… frames up to the cap) and resets the moment anything is hidden.
+  - **Always runs** after a big camera change: a teleport, a camera cut or a fast turn.
+  - It only fires in truly open views. Where something is always hidden, it never pauses.
+- **Minimum blocker size** (agreed 2026-10-19): pieces too small to ever hide much are dropped at build. This keeps round props and other small shapes from swelling the candidate list. Each blocker costs the same whatever its shape. Round shapes only take a slot when they are big and close.
+- **Non-cube blockers, open point:** the facet margins (0.92 for cylinders and cones, 0.88 for spheres and capsule caps) are reasoned, not yet confirmed. No measured case has a sphere or capsule blocker doing the hiding.
+- **Placement:**
+  - pure maths (fitted boxes, box subtraction, outlines, the shadow and face tests): `math/Occlusion.js` (~60 lines). That module was approved for the depth-picture design; whether it carries over needs the author's confirmation.
+  - piece building: a builder step.
+  - candidate choice and flagging: Render.js.
+- **Limits:**
+  - **Workers:** they would add a frame of lag and defeat the same-frame test, so this path doesn't use them.
+  - **Near plane:** a blocker crossing it is dropped until near-plane clipping is added.
+  - **Shadows (0.43):** camera occlusion must not decide shadow casters.
+  - **Translucent meshes:** can be hidden, but never block.
+  - **Safety check:** the GPU false-hide check is test scaffolding only. It could stay as a debug toggle.
 
 **Considered and not chosen: a build-time visibility grid** ("which areas can see which", the author's idea).
 - **Stacked spaces:** a flat grid can't represent spaces stacked on top of each other, like lvl2's underwater tunnel under the hub. It would need to be 3D, and its build cost and memory grow fast.
