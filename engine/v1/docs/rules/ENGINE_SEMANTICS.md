@@ -266,7 +266,13 @@ A constant stays on one line unless its value is an array, object or ternary. An
 
 A declared function that spans lines uses `function`. Only a one-line function is declared as a `const` arrow. Callbacks passed inline, such as to `forEach` or `map`, are exempt.
 
-Braces holding more than one statement span lines. `if (x) { a(); return; }` on one line is not allowed.
+A loop or statement never shares its line with more than one action. If its body needs braces, the body spans lines: `if (x) { a(); return; }` and `for (const p of list) { a(p); b(p); }` on one line are not allowed.
+
+- A `return` with extremely short contents is exempt, braces included: `return { min, max };`.
+- One line may declare several variables when they are very short or related: `let min = ToVector3(Infinity), max = ToVector3(-Infinity);`.
+- A loop whose body is a single nested loop or statement keeps it on the same line; only the innermost braced body spans lines: `for (let i...) for (let j...) {` and `for (const i of list) if (ok(i)) near.push(i);` are fine.
+- One action followed by an early return folds into the return: `if (!replace) return drawFn();`, not a braced body holding `drawFn(); return;`. Assignments fold the same way (`return this.finished = true;`). Don't fold when the function returns values elsewhere, since the folded value would change its result.
+- No line runs past ~150 characters, so it reads without scrolling. A fold or one-liner that would go past that stays multiline.
 
 ```js
 // Bad
@@ -373,4 +379,5 @@ const scaledDistance = fitDistance * speedZoom;
 | Is this a long unbroken chain of constants? | Break it into subchains just before their use; widely used ones go at the top |
 | Does this constant span lines without being an array, object or ternary? | Split it into one-line constants |
 | Does a declared function span lines? | Declare it with `function` |
+| Does a braced loop or statement body sit on one line? | Split it across lines; only short `return`s are exempt |
 | Is a long property path repeated throughout this scope? | Destructure it at the top |

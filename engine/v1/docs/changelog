@@ -667,3 +667,32 @@
 - **builder/NewObject.js:** `computeWorldAabbFromBounds` is renamed `ComputeWorldAabbFromBounds` and exported.
 
 **Where:** [builder/NewEntity.js](engine/v1/builder/NewEntity.js), [builder/NewObject.js](engine/v1/builder/NewObject.js).
+
+## Shared `PointsAabb` helper for min/max box folds
+**What:**
+- **math/Collision.js:** new exported `PointsAabb(points, min, max, transform, skip)`: box around a list of points. `min`/`max` default to ±Infinity; `transform` and `skip` default to `null`. `VoidCutBoxes`'s inner `boxOf` is removed in its favour.
+- **builder/NewVoid.js:** `polygonAabb` is removed; its callers use `PointsAabb`.
+- **builder/NewEntity.js:** `computeEntityAabb` and `placeAabbEnclosure` use `PointsAabb` and `.set()` the result into cloned UnitVector3s.
+- **handlers/Render.js:** `entityRenderBounds` uses `PointsAabb` over each part's box corners.
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js), [builder/NewVoid.js](engine/v1/builder/NewVoid.js), [builder/NewEntity.js](engine/v1/builder/NewEntity.js), [handlers/Render.js](engine/v1/handlers/Render.js).
+
+## One-line braced bodies split per ENGINE_SEMANTICS §5.2
+**What:**
+- 19 one-line braced loop/statement bodies split across lines. No behaviour change.
+- **handlers/game/Simulator.js:** `collectTextureIds`'s inner `add` is now a `function add(id)` declaration with an early return.
+- **builder/NewObject.js:** `buildEntityPartGeometryTemplate` freezes its template with `DeepFreeze` (from core/meta.js) instead of four `Object.freeze` calls.
+
+**Where:** [core/validate.js](engine/v1/core/validate.js), [core/normalize.js](engine/v1/core/normalize.js), [builder/NewLevel.js](engine/v1/builder/NewLevel.js), [builder/NewScatter.js](engine/v1/builder/NewScatter.js), [builder/NewParticles.js](engine/v1/builder/NewParticles.js), [builder/NewTexture.js](engine/v1/builder/NewTexture.js), [builder/NewVoid.js](engine/v1/builder/NewVoid.js), [builder/templates/Instance.js](engine/v1/builder/templates/Instance.js), [handlers/game/Animation.js](engine/v1/handlers/game/Animation.js), [handlers/game/Simulator.js](engine/v1/handlers/game/Simulator.js), [builder/NewObject.js](engine/v1/builder/NewObject.js).
+
+## `BuildObject` builds every mesh from one base definition
+**What:**
+- **builder/NewObject.js:** `BuildObject` declares one base `mesh` (id, type, meta, transform, dimensions, collisionShape, worldAabb, detailedBounds, customTextures, performance) that each mode extends; every return is `return { mesh }`. The entity-part and general paths are merged: one shared set of renderable fields, then geometry differs (cached template vs fresh build with localBounds/centerline); worldAabb, detailedBounds, decal init and scatter run once. Void meshes now also carry `performance: { rendering: true }`.
+
+**Where:** [builder/NewObject.js](engine/v1/builder/NewObject.js).
+
+## Action-then-return blocks folded into `return action;`
+**What:**
+- 25 `{ action; return; }` early-return blocks became one-line `return action;`, per ENGINE_SEMANTICS §5.2. No behaviour change.
+
+**Where:** [builder/NewParticles.js](engine/v1/builder/NewParticles.js), [builder/NewTexture.js](engine/v1/builder/NewTexture.js), [handlers/Render.js](engine/v1/handlers/Render.js), [builder/NewVoid.js](engine/v1/builder/NewVoid.js), [builder/templates/Instance.js](engine/v1/builder/templates/Instance.js), [handlers/game/Performance.js](engine/v1/handlers/game/Performance.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js), [handlers/game/Simulator.js](engine/v1/handlers/game/Simulator.js), [core/validate.js](engine/v1/core/validate.js).
