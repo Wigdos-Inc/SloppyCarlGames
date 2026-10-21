@@ -136,7 +136,6 @@ Version Goals:
   6. Todo Performance Enhancements [DONE]
 - 0.35 Occlusion Culling & CPU Optimizations [CURRENT]
     - Built: blocker culling in Render.js hideOccluded, helpers in math/Collision.js, occluder records from NewTerrain.js. ARGUS: 0 false hides on lvl2, stress grid, LSM. Scope: docs/scoping/render/culling-scope.md §4.5.
-    - Left: remove testGame lvlStress.json and its level.js entry.
   1. orbitCam Rework [PENDING]
     - Games can't set the initial camera yaw or the player's spawn facing (LSM rotated its whole level 180° to work around it).
     - Mouse sensitivity is read once at level start, so a settings change mid-level does nothing until the next level.

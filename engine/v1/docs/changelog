@@ -696,3 +696,14 @@
 - 25 `{ action; return; }` early-return blocks became one-line `return action;`, per ENGINE_SEMANTICS §5.2. No behaviour change.
 
 **Where:** [builder/NewParticles.js](engine/v1/builder/NewParticles.js), [builder/NewTexture.js](engine/v1/builder/NewTexture.js), [handlers/Render.js](engine/v1/handlers/Render.js), [builder/NewVoid.js](engine/v1/builder/NewVoid.js), [builder/templates/Instance.js](engine/v1/builder/templates/Instance.js), [handlers/game/Performance.js](engine/v1/handlers/game/Performance.js), [handlers/game/Level.js](engine/v1/handlers/game/Level.js), [handlers/game/Simulator.js](engine/v1/handlers/game/Simulator.js), [core/validate.js](engine/v1/core/validate.js).
+
+## Level-build hang fixes after 0.35
+**What:**
+- **math/Collision.js:**
+  - The `PointInsideTriangleGrid` cell-step branches are braced again.
+  - `subtractBox` tests per-axis separation again (`apartX`/`apartY`/`apartZ`).
+- **builder/NewTexture.js:** `BuildFaceTextureData` returns the `faceTextureGroups` array itself.
+- **builder/NewObject.js:** stray `;;` removed at the face-texture call site.
+- **testGame/levels/level.js:** the `./lvlStress.json` entry is removed.
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js), [builder/NewTexture.js](engine/v1/builder/NewTexture.js), [builder/NewObject.js](engine/v1/builder/NewObject.js), [testGame/levels/level.js](engine/v1/testGame/levels/level.js).
