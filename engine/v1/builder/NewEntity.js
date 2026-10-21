@@ -5,7 +5,7 @@
 // Called by NewBoss.js, player/Model.js, helpers/game/Level.js and helpers/Cutscene.js for Entity Models
 // Uses NewObject.js for Model Parts
 
-import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
+import { BuildObject, UpdateObjectWorldAabb, ComputeWorldAabbFromBounds } from "./NewObject.js";
 import { ResolveEntitySource } from "./NewTemplate.js";
 import {
 	AddVector3,
@@ -22,7 +22,7 @@ import {
 	WORLD_NORMALS,
 } from "../math/Vector3.js";
 import { ComposeEulerRotations } from "../math/Matrix.js";
-import { AabbCenter, AabbHalfExtents, CapsuleFromAabb, ObbFromAabb, SphereFromAabb } from "../math/Collision.js";
+import { AabbCenter, AabbHalfExtents, CapsuleFromAabb, ObbFromAabb, PointsAabb, SphereFromAabb } from "../math/Collision.js";
 import { BestMatchOf, Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
 
 // Default model-pose turn rate, radians/second. Characters scale it by their control values.
@@ -340,7 +340,11 @@ function applyModelPose(model) {
 		part.mesh.transform.position.set(worldTransform.position);
 		part.mesh.transform.rotation.set(worldTransform.rotation);
 		part.mesh.transform.scale = worldTransform.scale;
-		part.mesh.worldAabb = UpdateObjectWorldAabb(part.mesh);
+
+		// Visual-only parts use a rough box instead of every vertex to reduce unecessary computations.
+		part.mesh.worldAabb = part.addsToBounds === false
+			? ComputeWorldAabbFromBounds(part.mesh.geometry.bounds, part.mesh.transform)
+			: UpdateObjectWorldAabb(part.mesh);
 
 		part.children.forEach((childId) => applyPart(childId, worldTransform));
 	};
@@ -359,16 +363,10 @@ function applyModelPose(model) {
 /* === AABB === */
 
 function computeEntityAabb(model) {
-	let min = ToVector3(Infinity);
-	let max = ToVector3(-Infinity);
-
-	model.parts.forEach((part) => {
-		if (part.addsToBounds === false) return;
-		min = part.mesh.worldAabb.min.clone().min(min);
-		max = part.mesh.worldAabb.max.clone().max(max);
-	});
-
-	return { min, max };
+	const corners  = model.parts.flatMap((part) => part.addsToBounds === false ? [] : [part.mesh.worldAabb.min, part.mesh.worldAabb.max]);
+	const { min, max } = PointsAabb(corners);
+	const rootAabb = model.parts[0].mesh.worldAabb;
+	return { min: rootAabb.min.clone().set(min), max: rootAabb.max.clone().set(max) };
 }
 
 function computeExpandedAabb(aabb, padding) {
@@ -410,20 +408,16 @@ const scaleUnit = (u, f) => new Unit(u.value * f, u.type);
 
 // World enclosure of a local box scaled and rotated by the transform.
 function placeAabbEnclosure(aabb, position, scale, trig) {
-	const min = aabb.min.clone().set(ToVector3(Infinity));
-	const max = aabb.max.clone().set(ToVector3(-Infinity));
-
-	for (let corner = 0; corner < 8; corner++) {
-		const placed = transformOffset({
-			x: (corner & 1) === 0 ? aabb.min.x : aabb.max.x,
-			y: (corner & 2) === 0 ? aabb.min.y : aabb.max.y,
-			z: (corner & 4) === 0 ? aabb.min.z : aabb.max.z,
-		}, scale, trig);
-		min.min(placed);
-		max.max(placed);
-	}
-
-	return { min: min.add(position), max: max.add(position) };
+	const corners = Array.from({ length: 8 }, (_, corner) => ({
+		x: (corner & 1) === 0 ? aabb.min.x : aabb.max.x,
+		y: (corner & 2) === 0 ? aabb.min.y : aabb.max.y,
+		z: (corner & 4) === 0 ? aabb.min.z : aabb.max.z,
+	}));
+	const placed = PointsAabb(corners, ToVector3(Infinity), ToVector3(-Infinity), (corner) => transformOffset(corner, scale, trig));
+	return { 
+		min: aabb.min.clone().set(placed.min).add(position), 
+		max: aabb.max.clone().set(placed.max).add(position) 
+	};
 }
 
 function computeCompoundSpheresFromModel(model) {
@@ -705,7 +699,7 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 			hitbox        : null,
 		},
 		hitboxActive: rest.hitbox !== null,
-		performance: { physics: true, rendering: true, animatedTexture: true },
+		performance: { physics: true, rendering: true, animatedTexture: true, collision: false },
 		animations: definition.animations,
 		particle: null,
 		state: {

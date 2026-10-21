@@ -7,8 +7,7 @@
 import { BeginTextureBake, AdvanceNoiseBake, ForEachTexturedMesh } from "../../builder/NewTexture.js";
 import { Clamp01 } from "../../math/Utilities.js";
 import { Vector3SqDistanceToAabb } from "../../math/Vector3.js";
-import { GetSimDistanceValue } from "../../physics/Collision.js";
-import { PERFORMANCE_SCALING } from "../../core/config.js";
+import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
 
 // Rebuilds the static meshes that use each animated texture. Entities report through their own flag instead.
 function assignOwnerMeshes(sceneGraph, byTextureID) {
@@ -143,8 +142,8 @@ function UpdateTextureAnimation(sceneGraph, deltaMilliseconds) {
 	const textureIDs = Object.keys(animationState.byTextureID);
 	if (textureIDs.length === 0) return;
 
-	const reach = GetSimDistanceValue().value * PERFORMANCE_SCALING.SimDistance.Fractions.TextureAnimation.StopBake;
-	const sqReach = reach * reach;
+	const { Tiers, Fractions } = PERFORMANCE_SCALING.SimDistance;
+	const sqReach = (Tiers[CONFIG.Performance.SimDistance].value * Fractions.TextureAnimation.StopBake) ** 2;
 	const nearEntityTextures = nearEntityTextureIDs(sceneGraph.entities);
 
 	for (const textureID of textureIDs) {

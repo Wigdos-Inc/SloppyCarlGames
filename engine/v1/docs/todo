@@ -140,7 +140,7 @@ Version Goals:
   1. orbitCam Rework [PENDING]
     - Games can't set the initial camera yaw or the player's spawn facing (LSM rotated its whole level 180° to work around it).
     - Mouse sensitivity is read once at level start, so a settings change mid-level does nothing until the next level.
-  2. Sprite/Bilboard Support (rotating images that resize based on distance)
+  2. Sprite/Bilboard Support (rotating images that resize based on distance) [PENDING]
     - Look into adding mipmaps to remove the weird rounded artifacts at a distance.
   3. Movement Enhancements. [PENDING]
     - Release jump early for quicker falloff.
@@ -148,7 +148,7 @@ Version Goals:
     - Store medium (Water/Air) on entity definition (e.g. playerState)
     - If holding "A", then pressing and releasing "D", "A" stops working until it's pressed again. This must be fixed.
     - Jumping off a sloped surface doesn't feel correct because you keep so much upwards momentum. It can feel like you're still jumping "up" while you're rotated 80 degrees, which is not how jumping should feel.
-  4. Look into why moving and running through voids causes performance drops.
+  4. Look into why moving and running through voids causes performance drops. [PENDING]
 - 0.36: Workers (Multi-Threading) [PENDING]
   - Needs a full scoping pass.
   - Consider a coordinator/state manager. If small, an exported "Workforce" object in meta.js acting as the state manager could work quite well. It'd check if workers are available and assign them.

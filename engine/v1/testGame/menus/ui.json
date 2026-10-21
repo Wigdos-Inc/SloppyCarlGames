@@ -2422,7 +2422,7 @@
                                                                     "attributes": {
                                                                         "type": "range",
                                                                         "min": "30",
-                                                                        "max": "144",
+                                                                        "max": "145",
                                                                         "step": "1"
                                                                     },
                                                                     "value": "60",

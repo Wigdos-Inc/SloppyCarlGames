@@ -133,7 +133,7 @@ function shouldLog(source, channel, level, message) {
   }
 
   // Is the Logging Source allowed?
-  if ((source === "engine" && Source.Engine === false) || (source === "game" && Source.Game === false)) return false;
+  if ((source === "ENGINE" && Source.Engine === false) || (source === "GAME" && Source.Game === false)) return false;
 
   if (channel.startsWith("Controls")) {
     // Is the Controls Logging Subchannel allowed?
@@ -145,8 +145,11 @@ function shouldLog(source, channel, level, message) {
     if (subChannel && Channel.Controls[subChannel] === true) return true;
   }
   // Is the Logging Channel allowed?
-  return Channel[channel];
+  return Channel[capitalized(channel)];
 }
+
+// First letter uppercase, matching how log channels are named.
+const capitalized = (name) => name.charAt(0).toUpperCase() + name.slice(1);
 
 function resolveLevel(level) {
   if (level === "warn" || level === "warning") return "warn";
@@ -157,17 +160,12 @@ function resolveLevel(level) {
 /* === LOGGING === */
 // Main log funnel and log replay.
 
+// Last entry per source and channel, for spotting repeats even when other channels log in between.
+const latestByChannel = new Map();
+
 function isDuplicateOfLatest(entry) {
-  const latest = logs.all.length === 0 ? null : logs.all[logs.all.length - 1];
-  if (
-    latest &&
-    latest.source === entry.source &&
-    latest.channel === entry.channel &&
-    latest.level === entry.level &&
-    latest.message === entry.message
-  ) {
-    return true;
-  }
+  const latest = latestByChannel.get(`${entry.source}|${entry.channel}`);
+  if (latest && latest.level === entry.level && latest.message === entry.message) return true;
 
   if (!String(entry.channel).startsWith("Controls")) return false;
 
@@ -191,13 +189,13 @@ function isDuplicateOfLatest(entry) {
 
 function Log(source, message, level, channel) {
   // Normalize payload
-  [level, message] = [level, message].map(v => v.toLowerCase());
+  level  = level.toLowerCase();
   source = source.toUpperCase();
 
   // Normalize invalid source names into an engine error.
   if (!/^[A-Z0-9_]+$/i.test(source)) {
     message = `Invalid log source "${source}". ${message}`;
-    source  = "engine";
+    source  = "ENGINE";
     level   = "error";
   }
 
@@ -215,10 +213,17 @@ function Log(source, message, level, channel) {
 
   // Log Caching
   logs.all.push(entry);
+  latestByChannel.set(`${entry.source}|${entry.channel}`, entry);
   if (entry.channel && entry.channel.startsWith("Controls")) logs.controls.push(entry);
   else if (entry.source === "ENGINE") logs.engine.push(entry);
   else if (entry.source === "GAME")   logs.game.push(entry);
   else                                logs.other.push(entry);
+
+  // Unrecognized channels never print; the error says how to add one.
+  if (!(capitalized(entry.channel.split(".")[0]) in CONFIG.Debug.Logging.Channel)) {
+    Log("ENGINE", `Log channel "${entry.channel}" is not recognized. Add it with ENGINE.Meta.Logging.AddChannel("${entry.channel}").`, "error", "Meta");
+    return;
+  }
 
   // Skip console output when debug gating fails.
   if (!shouldLog(entry.source, entry.channel, entry.level, entry.message)) return;
@@ -239,6 +244,13 @@ function LogAll() {
       entry.message
     );
   });
+}
+
+// Adds an enabled log channel, capitalized like the engine's own.
+function AddLogChannel(name) {
+  const channel = capitalized(name);
+  CONFIG.Debug.Logging.Channel[channel] = true;
+  Log("ENGINE", `Log channel "${channel}" added.`, "log", "Meta");
 }
 
 // Log the current cache snapshot.
@@ -350,6 +362,7 @@ export {
   Log,
   LogAll,
   LogCache,
+  AddLogChannel,
   SendEvent,
   Wait,
   IsPointerLocked,

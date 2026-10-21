@@ -11,7 +11,7 @@ import { BuildObject } from "./NewObject.js";
 import { BuildEntity } from "./NewEntity.js";
 import { GenerateParticles, ParticleGeneratorRequests } from "./NewParticles.js";
 import { BuildObstacles } from "./NewObstacle.js";
-import { BuildTerrain } from "./NewTerrain.js";
+import { BuildTerrain, CarveOccluders } from "./NewTerrain.js";
 import { ResolveObjectSource } from "./NewTemplate.js";
 import { BuildScatterBatches, BuildScatterVisualResources } from "./NewScatter.js";
 import { BuildVoidWalls } from "./NewVoid.js";
@@ -378,7 +378,10 @@ function buildSurfaceChunks(terrain, obstacles, voids) {
 				const [k1, k2] = [keys[edge], keys[(edge + 1) % 3]].sort();
 				if (k1 === k2) continue;
 				const shared = edgeOwners.get(`${k1}|${k2}`);
-				if (!shared) { edgeOwners.set(`${k1}|${k2}`, [index]); continue; }
+				if (!shared) {
+					edgeOwners.set(`${k1}|${k2}`, [index]);
+					continue;
+				}
 				shared.forEach((other) => link(other, index));
 				shared.push(index);
 			}
@@ -389,10 +392,18 @@ function buildSurfaceChunks(terrain, obstacles, voids) {
 	const pieceRoots = makeRoots(pieces.length);
 	const reach = pieces.map((piece) => expand(piece.aabb));
 	const facetReach = facets.map((facet) => expand(TriangleAabb(facet)));
-	const nearFacets = (piece, bounds) => piece.facets.map((_, offset) => piece.first + offset).filter((index) => AabbOverlap(facetReach[index], bounds));
+
+	function nearFacets(piece, bounds) {
+		return piece.facets.map((_, offset) => piece.first + offset).filter((index) => AabbOverlap(facetReach[index], bounds));
+	}
+
 	for (let i = 0; i < pieces.length; i++) for (let j = i + 1; j < pieces.length; j++) {
 		if (!AabbOverlap(reach[i], reach[j])) continue;
-		if (pieces[i].facets.length === 0 || pieces[j].facets.length === 0) { joinRoots(pieceRoots, i, j); continue; }
+		if (pieces[i].facets.length === 0 || pieces[j].facets.length === 0) {
+			joinRoots(pieceRoots, i, j);
+			continue;
+		}
+
 		const nearJ = nearFacets(pieces[j], reach[i]);
 		for (const a of nearFacets(pieces[i], reach[j])) for (const b of nearJ) {
 			if (AabbOverlap(facetReach[a], facetReach[b]) && TriangleDistanceSq(facets[a], facets[b]) <= EPSILON * EPSILON) link(a, b);
@@ -411,11 +422,14 @@ function buildSurfaceChunks(terrain, obstacles, voids) {
 	// Loop surfaces: smooth components with floor and ceiling, then their steeper-than-ground sub-components reaching the ceiling. Each keeps its loop radius.
 	const loopSurfaces = { Air: new Map(), Water: new Map() };
 	const loopIncline = CAMERA_TUNING.Loops.MinCurveThreshold.toRadians();
+
 	for (const medium in loopSurfaces) {
 		const limit = DegreesToRadians(CONFIG.Physics.Correction.MaxAngleDelta[medium].Ground);
 		const smooth = links.filter((l) => l.concave && l.fold <= limit);
 		const roots = makeRoots(facets.length);
+
 		smooth.forEach(({ a, b }) => joinRoots(roots, a, b));
+
 		const floors = new Set(), ceilings = new Set();
 		incline.forEach((angle, index) => {
 			if (angle <= limit) floors.add(findRoot(roots, index));
@@ -426,7 +440,10 @@ function buildSurfaceChunks(terrain, obstacles, voids) {
 		const steepRoots = makeRoots(facets.length);
 		smooth.forEach(({ a, b }) => { if (steep(a) && steep(b)) joinRoots(steepRoots, a, b); });
 		const loopRoots = new Set();
-		incline.forEach((angle, index) => { if (angle >= loopIncline && steep(index)) loopRoots.add(findRoot(steepRoots, index)); });
+		incline.forEach((angle, index) => { 
+			if (angle >= loopIncline && steep(index)) loopRoots.add(findRoot(steepRoots, index)); 
+		});
+
 		// Median fold radius per loop; one without folds has no size.
 		const foldRadii = new Map();
 		smooth.forEach(({ a, b, fold }) => {
@@ -435,6 +452,7 @@ function buildSurfaceChunks(terrain, obstacles, voids) {
 			if (!foldRadii.has(root)) foldRadii.set(root, []);
 			foldRadii.get(root).push(foldRadius(facets[a], facets[b], fold));
 		});
+
 		const loopRadius = (root) => {
 			const radii = (foldRadii.get(root) || [Infinity]).sort((x, y) => x - y);
 			return radii[radii.length >> 1];
@@ -474,10 +492,7 @@ async function BuildLevel(payload) {
 	};
 
 	// A central storage for easy reuse.
-	const faceTextureStore = {};
-
-	// A cache to prevent geometry regeneration
-	const partGeometryCache = new Map();
+	const faceTextureStore = {}, partGeometryCache = new Map();
 
 	// Template refs resolve once here; resolution inside the builders is passthrough for these.
 	const terrainDefinitions  = payload.terrain.objects.map((definition) => ResolveObjectSource(definition, "terrain"));
@@ -486,12 +501,14 @@ async function BuildLevel(payload) {
 	const { terrain, voidTerrain, meshes: allTerrain } = BuildTerrain(terrainDefinitions, payload.world, faceTextureStore);
 
 	const { built: allObstacleRecords } = BuildObstacles(obstacleDefinitions, { textureScale: payload.world.textureScale, faceTextureStore });
-	const obstacleRecords          = allObstacleRecords.filter((r) => r.mode !== "void");
+	const obstacleRecords     = allObstacleRecords.filter((r) => r.mode !== "void");
 	const voidObstacleRecords = allObstacleRecords.filter((r) => r.mode === "void");
 
 	// Void walls run before scatter so scatter may avoid openings.
 	const voids = { terrain: voidTerrain, obstacles: voidObstacleRecords };
 	BuildVoidWalls({ terrain, obstacles: obstacleRecords, voids }, payload.world.textureScale);
+	CarveOccluders(terrain, voidTerrain);
+	
 	const { chunks, loopSurfaces } = buildSurfaceChunks(terrain, obstacleRecords, voids);
 
 	// Store centerlines by surface id for improved loop detection in tubes.

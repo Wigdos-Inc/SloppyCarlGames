@@ -245,7 +245,7 @@ function ValidateLevelPayload(payload) {
 		if (!isPlainObject(rawWorld) || !isPlainObject(rawWorld.skybox)) return;
 
 		const skybox = rawWorld.skybox;
-		if (skybox.color === undefined) { errors.push(`${path}.color: missing required color.`); return; }
+		if (skybox.color === undefined) return errors.push(`${path}.color: missing required color.`);
 		if (skybox.mode === "gradient") {
 			if (!Array.isArray(skybox.color)) errors.push(`${path}.color: expected array in 'gradient' mode.`);
 			return;

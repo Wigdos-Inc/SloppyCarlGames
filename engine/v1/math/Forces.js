@@ -38,7 +38,9 @@ function buoyancyScalar(position, waterLevel, submergence, dt) {
  */
 function ComputeGravity(velocity, deltaSeconds) {
 	if (CONFIG.Physics.Gravity.Enabled === false) {
-		if (!logFlags.gravity) { Log("ENGINE", "Gravity disabled — ComputeGravity is a no-op", "warn", "Physics"); logFlags.gravity = true; }
+		if (!logFlags.gravity) { 
+			Log("ENGINE", "Gravity disabled — ComputeGravity is a no-op", "warn", "Level"); logFlags.gravity = true; 
+		}
 		return CloneVector3(velocity);
 	}
 	return { x: velocity.x, y: gravityScalar(velocity.y, deltaSeconds), z: velocity.z };
@@ -53,7 +55,10 @@ function ComputeGravity(velocity, deltaSeconds) {
  */
 function ComputeResistance(velocity, deltaSeconds, submergence) {
 	if (CONFIG.Physics.Resistance.Enabled === false) {
-		if (!logFlags.resistance) { Log("ENGINE", "Resistance disabled — ComputeResistance is a no-op", "warn", "Physics"); logFlags.resistance = true; }
+		if (!logFlags.resistance) { 
+			Log("ENGINE", "Resistance disabled — ComputeResistance is a no-op", "warn", "Level"); 
+			logFlags.resistance = true; 
+		}
 		return CloneVector3(velocity);
 	}
 	return {
@@ -76,7 +81,7 @@ function ComputeBuoyancy(position, waterLevel, submergence, deltaSeconds) {
 	const { Force, Enabled, GradientDepth } = CONFIG.Physics.Buoyancy;
 	if (Enabled === false || submergence <= 0) {
 		if (!logFlags.buoyancy) { 
-			Log("ENGINE", "Buoyancy disabled or no submergence — ComputeBuoyancy is a no-op", "warn", "Physics"); 
+			Log("ENGINE", "Buoyancy disabled or no submergence — ComputeBuoyancy is a no-op", "warn", "Level"); 
 			logFlags.buoyancy = true; 
 		}
 		return { velocityChange: 0, buoyancyForce: 0 };
@@ -102,19 +107,12 @@ function ComputeBuoyancy(position, waterLevel, submergence, deltaSeconds) {
  *   flag true = apply floatiness smoothing after forces.
  */
 const ComputeStepVelocity = {
-	/**
-	 * @param {number} v — current velocity component.
-	 * @param {{ gravity?: true, buoyancy?: object, resistance?: object }} forces
-	 * @param {number} dt
-	 * @param {{ flag: boolean, floatiness: number }} vertical
-	 * @returns {number}
-	 */
 	scalar(v, forces, dt, vertical) {
 		const vBefore = v;
 		if (forces.gravity) {
 			if (CONFIG.Physics.Gravity.Enabled !== false) v = gravityScalar(v, dt);
 			else if (!logFlags.gravity) {
-				Log("ENGINE", "Gravity disabled — scalar gravity skipped", "warn", "Physics");
+				Log("ENGINE", "Gravity disabled — scalar gravity skipped", "warn", "Level");
 				logFlags.gravity = true;
 			}
 		}
@@ -123,14 +121,14 @@ const ComputeStepVelocity = {
 				v += buoyancyScalar(forces.buoyancy.position, forces.buoyancy.waterLevel, forces.buoyancy.submergence, dt);
 			}
 			else if (!logFlags.buoyancy) {
-				Log("ENGINE", "Buoyancy disabled — scalar buoyancy skipped", "warn", "Physics");
+				Log("ENGINE", "Buoyancy disabled — scalar buoyancy skipped", "warn", "Level");
 				logFlags.buoyancy = true;
 			}
 		}
 		if (forces.resistance) {
 			if (CONFIG.Physics.Resistance.Enabled !== false) v = resistanceScalar(v, forces.resistance.submergence, dt);
 			else if (!logFlags.resistance) {
-				Log("ENGINE", "Resistance disabled — scalar resistance skipped", "warn", "Physics");
+				Log("ENGINE", "Resistance disabled — scalar resistance skipped", "warn", "Level");
 				logFlags.resistance = true;
 			}
 		}
@@ -138,15 +136,6 @@ const ComputeStepVelocity = {
 		return v;
 	},
 
-	/**
-	 * @param {{ x: number, y: number, z: number }} velocity
-	 * @param {number} submergence — fraction of capsule below waterLevel (0–1).
-	 * @param {{ x: number, y: number, z: number }} position
-	 * @param {Unit} waterLevel
-	 * @param {number} deltaSeconds
-	 * @param {{ flag: boolean, floatiness: number }} vertical
-	 * @returns {{ x: number, y: number, z: number }}
-	 */
 	sim(velocity, submergence, position, waterLevel, deltaSeconds, vertical) {
 		return {
 			x: this.scalar(velocity.x, { resistance: { submergence } }, deltaSeconds, { flag: false }),

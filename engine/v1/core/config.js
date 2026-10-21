@@ -52,6 +52,12 @@ const API_CONFIG = {
         Projectile : false,
         Particle   : false,
       },
+      Performance: {                         // Performance Testers
+        BackfaceCulling : true,
+        OcclusionCulling: false,             // Skip what sits fully behind solid terrain
+        MSAA            : true,              // Antialias the level; applies on next level load
+        FlatShading     : false,             // One color, no texture, fog or lighting; applies on next level load
+      },
     },
     Logging: {                               // Logging Flags
       All: true,
@@ -74,14 +80,14 @@ const API_CONFIG = {
           Hover: true,
           Key  : true,
         },
-        Level: true,
-        Render: true,
-        Simulator: true,
+        Level     : true,
+        Render    : true,
+        Simulator : true,
         Validation: true,
-        Meta: true,
-        Player: true,
-        Events: true,
-        Debug: true,
+        Meta      : true,
+        Player    : true,
+        Events    : true,
+        Debug     : true,
       },
     },
   },
@@ -94,17 +100,17 @@ const API_CONFIG = {
     Cutscene: settings?.cutscene ?? 1
   },
   Performance: {
-    Scatter        : { Density: "High", Quality: "High" },     // Amount of scatter, and how expensive the shapes are.
-    Particles      : "High",                                   // The amount of particles generators emit.
-    SimDistance    : "High",                                   // Umbrella definition for both rendering and simulation distance.
-    Animations     : "High",                                   // Smoothness of animations.
-    FrameRate      : 60,                                       // FPS for simulation and rendering, fitted to a fraction of RefreshRate.
-    RefreshRate    : () => refreshRate,
-    Resolution     : 100,                                      // Visual crispness.
-    BackfaceCulling: true,                                     // Cull back faces
+    Scatter     : { Density: "High", Quality: "High" },     // Amount of scatter, and how expensive the shapes are.
+    Particles   : "High",                                   // The amount of particles generators emit.
+    SimDistance : "High",                                   // Umbrella definition for both rendering and simulation distance.
+    Animations  : "High",                                   // Smoothness of animations.
+    FrameRate   : Infinity,                                 // FPS for simulation and rendering, fitted to a fraction of RefreshRate. Infinity renders uncapped.
+    FrameCounter: true,                                     // Show rendered FPS while a level runs.
+    RefreshRate : null,                                     // Display refresh rate measured at level start; Infinity when the frame limiter is off.
+    Resolution  : 100,                                      // Visual crispness.
   },
   Physics: {
-    Gravity   : { 
+    Gravity   : {
       Enabled         : true, 
       Strength        : new Unit(10, "cnu"), 
       TerminalVelocity: { Air: new Unit(30, "cnu"), Water: new Unit(12, "cnu") } 
@@ -128,7 +134,7 @@ const API_CONFIG = {
         Air  : { Ground: 35, Sliding: 75, Recover: 20 },
         Water: { Ground: 45, Sliding: 85, Recover: 45 },
       },
-      MinGripSpeed        : { Air: 0.8, Water: 0.8 },     // Share of maxSpeed needed to grip upside down; eases to 0 at Ground
+      MinGripSpeed: { Air: 0.8, Water: 0.8 },     // Share of maxSpeed needed to grip upside down; eases to 0 at Ground
     },
   },
   CustomEvents: {
@@ -185,10 +191,18 @@ const PERFORMANCE_SCALING = DeepFreeze({
   Animation: {
     Entities: { Disabled: 0, Low: 0.25, Medium: 0.50, High: 1 }       // Frame correction budget
   },
-  Loop: { MaxSubsteps: 4 },                                           // Physics ticks per frame before time dilates
+  Loop: {
+    MaxSubsteps    : 4,                                               // Physics ticks per frame before time dilates
+    UncappedSimRate: 60,                                              // Physics ticks per second when FrameRate is Infinity
+  },
   Culling: {
     EntityPadding  : new Unit(2, "cnu"),                              // Room around an entity's parts for animation to swing past them
-    ScatterCellSize: new Unit(20, "cnu")                              // Size of the ground squares scatter grouped for culling
+    ScatterCellSize: new Unit(20, "cnu"),                             // Size of the ground squares scatter grouped for culling
+    BlockerBudget  : 16,                                              // Max terrain blockers checked per frame
+    MinBlockerSize : new Unit(2, "cnu"),                              // Smallest blocker size considered.
+    IdleBackoffMs  : 100,                                             // Longest pause in hiding checks while nothing is hidden
+    ResumeDistance : new Unit(5, "cnu"),                              // Camera move that ends a pause in hiding checks
+    ResumeTurn     : new Unit(25, "degrees")                          // Camera turn that ends a pause in hiding checks
   }
 });
 
@@ -308,46 +322,64 @@ const DEBUG_COLORS = DeepFreeze({
     Projectile : { r: 1.00, g: 1.00, b: 0.20, a: 1.00 },
     Particle   : { r: 0.70, g: 0.40, b: 1.00, a: 1.00 },
   },
+  FlatShading: { r: 0.55, g: 0.55, b: 0.60, a: 1.00 },
 });
 
 
 /* === HANDLERS === */
 // Small functions behind config values that need more than a stored value.
 
-let frameRate = API_CONFIG.Performance.FrameRate;
-let refreshRate = null;
+let requestedFrameRate = API_CONFIG.Performance.FrameRate;
+let refreshRate = null, reportedFrameRate = null;
+let unfittedReason = "No refresh rate has been measured yet. FrameRate will be fitted at the first level load.";
 
-// Measures the refresh rate from the typical gap across 60 frames, then refits FrameRate to it.
-function measureRefreshRate(gaps, previous) {
-  requestAnimationFrame((now) => {
-    gaps.push(now - previous);
-    if (gaps.length < 60) {
-      measureRefreshRate(gaps, now);
-      return;
-    }
-    refreshRate = Math.round(1000 / gaps.sort((a, b) => a - b)[30]);
-    API_CONFIG.Performance.FrameRate = frameRate;
-  });
+// Fits a FrameRate request to refreshRate / n, rounding down unless it's in the top third between two fractions, and never below 30.
+function fitFrameRate(requested) {
+  if (refreshRate === null || refreshRate === Infinity || requested === Infinity) return requested;
+
+  const divisor = Math.max(1, Math.floor(refreshRate / requested));
+  const higher  = refreshRate / divisor;
+  const lower   = refreshRate / (divisor + 1);
+  return Math.max((requested < lower + (higher - lower) * 2 / 3 ? lower : higher), refreshRate / Math.floor(refreshRate / 30));
 }
-measureRefreshRate([], performance.now());
 
-// Fits FrameRate to a fraction of the refresh rate, keeping every frame on screen equally long.
+// Reads back the request fitted to the last measured refresh rate; a write reports what it runs at.
 Object.defineProperty(API_CONFIG.Performance, "FrameRate", {
-  get: () => frameRate,
+  get: () => fitFrameRate(requestedFrameRate),
   set(value) {
-    frameRate = value;
-    if (refreshRate === null) return;
-
-    // Rounds down unless the value is in the top third between two fractions, and never below 30.
-    const divisor = Math.max(1, Math.floor(refreshRate / value));
-    const higher  = refreshRate / divisor;
-    const lower   = refreshRate / (divisor + 1);
-    const fitted  = value < lower + (higher - lower) * 2 / 3 ? lower : higher;
-    frameRate = Math.max(fitted, refreshRate / Math.floor(refreshRate / 30));
-
-    if (frameRate !== value) {
-      Log("ENGINE", `FrameRate rounded to ${frameRate} to match a fraction of ${refreshRate}Hz refresh rate.`, "warn", "Render");
+    requestedFrameRate = value;
+    const fitted = fitFrameRate(value);
+    if (refreshRate === null || refreshRate === Infinity) Log("ENGINE", unfittedReason, "log", "Render");
+    else if (fitted === reportedFrameRate) {
+      Log("ENGINE", `FrameRate stays at ${fitted} on the ${refreshRate}Hz refresh rate.`, "log", "Render");
     }
+    else if (fitted !== value) {
+      Log("ENGINE", `FrameRate ${value} set to ${fitted} to fit the ${refreshRate}Hz refresh rate.`, "warn", "Render");
+    }
+    else Log("ENGINE", `FrameRate set to ${fitted}.`, "log", "Render");
+    reportedFrameRate = fitted;
+  },
+  enumerable: true,
+});
+
+// Written by each level-start measurement: Infinity when the frame limiter is off, null without a steady reading.
+Object.defineProperty(API_CONFIG.Performance, "RefreshRate", {
+  get: () => refreshRate,
+  set(value) {
+    refreshRate = value;
+    if (value === null) unfittedReason = "The refresh rate couldn't be measured; FrameRate runs as set.";
+    if (value === Infinity) {
+      unfittedReason = "Browser frame limiter is off; FrameRate runs as set.";
+      Log("ENGINE", unfittedReason, "log", "Render");
+    }
+
+    // Reports when the new measurement changes the FrameRate in use.
+    const fitted = fitFrameRate(requestedFrameRate);
+    const fitText = value === null || value === Infinity
+      ? "with no refresh rate to fit to"
+      : `to fit the measured ${value}Hz refresh rate`;
+    if (fitted !== reportedFrameRate) Log("ENGINE", `FrameRate is now ${fitted} ${fitText}.`, "log", "Render");
+    reportedFrameRate = fitted;
   },
   enumerable: true,
 });

@@ -297,7 +297,7 @@ class particleGroup {
 		if (this.physicsMode === "none")   this.entity.transform.position.add(ScaleVector3(this.entity.velocity, deltaSeconds));
 		if (this.physicsMode === "simple") this.entity.velocity.y -= arcRate.value * deltaSeconds;
 
-		if (this.total >= this.lifespan) { this.expire(); return; }
+		if (this.total >= this.lifespan) return this.expire();
 		if (this.total < this.duration.holdTimeMs) return;
 
 		if (this.decayStart === null) this.decayStart = this.total;
@@ -333,7 +333,7 @@ class particleGroup {
 
 	// End of one emission: looping by default, so the burst subclass overrides instead.
 	expire() {
-		if (this.orphaned) { this.finished = true; return; }
+		if (this.orphaned) return this.finished = true;
 		this.recycle();
 	}
 

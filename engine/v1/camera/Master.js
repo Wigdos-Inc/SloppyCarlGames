@@ -23,7 +23,7 @@ import {
 	WORLD_NORMALS,
 } from "../math/Vector3.js";
 import { ProjectOntoPlane, RayAABBIntersect, RayAABBDetailedBoundsIntersect, RayDetailedBoundsIntersect } from "../math/Collision.js";
-import { BroadphaseCollectCandidates, IsPointInSuppressingVoid } from "../physics/Collision.js";
+import { BroadphaseCollectCandidates, IsPointInSuppressingVoid, HostVoids } from "../physics/Collision.js";
 import { Clamp, DegreesToRadians, Lerp, Unit, UnitVector3 } from "../math/Utilities.js";
 import { PlayerHeight } from "../player/Master.js";
 import { ResolveCameraSet } from "./Sets.js";
@@ -316,8 +316,13 @@ function checkCameraObstruction(origin, desiredCamPos, sceneGraph, radius, bodyA
 
 		// Host surface carved away by a void is not a real obstruction.
 		if (candidate.type !== "voidWall") {
-			const voids = candidate.type === "terrain" ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles;
-			if (IsPointInSuppressingVoid(AddVector3(rayOrigin, ScaleVector3(dir, hit.t)), candidate.id, voids)) continue;
+			if (IsPointInSuppressingVoid(
+				AddVector3(rayOrigin, ScaleVector3(dir, hit.t)), 
+				candidate.id, 
+				HostVoids(sceneGraph, candidate.type === "terrain")
+			)) {
+				continue;
+			}
 		}
 
 		closestT = hit.t;
@@ -327,8 +332,7 @@ function checkCameraObstruction(origin, desiredCamPos, sceneGraph, radius, bodyA
 	if (obstructed) {
 		// Closest reach: the camera's body clear of the target's extent along the arm.
 		const cameraRadius = CAMERA_TUNING.Body.Radius.value;
-		const { min, max } = bodyAabb;
-		const bodyReach = DotVector3(AbsoluteVector3(dir), SubtractVector3(max, min)) * 0.5;
+		const bodyReach = DotVector3(AbsoluteVector3(dir), SubtractVector3(bodyAabb.max, bodyAabb.min)) * 0.5;
 		closestT = Math.max(cameraRadius + bodyReach, closestT - cameraRadius);
 	}
 
@@ -364,6 +368,7 @@ function settleArmDistance(runtime, { obstructed, clippedDistance }, scaledDista
 function placeOnRig({ runtime, scaledDistance, center: rigCenter, radius, holdArm, tangent }, sceneGraph, simulating) {
 	const { cameraState, target, deltaSeconds, follow } = frame;
 	const { direction, up } = runtime;
+
 	// The Simulator's target has no body; it aims its own point.
 	const targetPoint = simulating ? target.transform.position.clone() : AimPoint(frame);
 
@@ -379,21 +384,21 @@ function placeOnRig({ runtime, scaledDistance, center: rigCenter, radius, holdAr
 	// Held arms: the lag's flat-ground distance.
 	let reach = runtime.currentDistance.value;
 	if (holdArm) {
-		const lag = SubtractVector3(center, runtime.pivot);
-		const level = ProjectOntoPlane(lag, up);
-		const flatLag = Vector3Length(level) > EPSILON ? ScaleVector3(ResolveVector3Axis(level), Vector3Length(lag)) : level;
+		const lag       = SubtractVector3(center, runtime.pivot);
+		const level     = ProjectOntoPlane(lag, up);
+		const flatLag   = Vector3Length(level) > EPSILON ? ScaleVector3(ResolveVector3Axis(level), Vector3Length(lag)) : level;
 		const flatReach = Vector3Length(SubtractVector3(ScaleVector3(direction, reach), flatLag));
-		const along = DotVector3(lag, direction);
+		const along     = DotVector3(lag, direction);
 		reach = along + Math.sqrt(Math.max(0, flatReach * flatReach - DotVector3(lag, lag) + along * along));
 	}
 	cameraState.position.set(AddVector3(runtime.pivot, ScaleVector3(direction, reach)));
 
 	// View from the arm; up flips past the arc's top.
-	const look = ResolveVector3Axis(SubtractVector3(targetPoint, cameraState.position));
-	const viewUp = DotVector3(ProjectOntoPlane(up, look), tangent) < 0 ? ScaleVector3(up, -1) : up;
+	const look          = ResolveVector3Axis(SubtractVector3(targetPoint, cameraState.position));
+	const viewUp        = DotVector3(ProjectOntoPlane(up, look), tangent) < 0 ? ScaleVector3(up, -1) : up;
 	cameraState.forward = ScaleVector3(direction, -1);
-	cameraState.right = ResolveVector3Axis(CrossVector3(cameraState.forward, viewUp));
-	cameraState.up = ResolveVector3Axis(ProjectOntoPlane(viewUp, look));
+	cameraState.right   = ResolveVector3Axis(CrossVector3(cameraState.forward, viewUp));
+	cameraState.up      = ResolveVector3Axis(ProjectOntoPlane(viewUp, look));
 	cameraState.target.set(targetPoint);
 }
 
@@ -414,19 +419,19 @@ function InitializeCameraState(sceneGraph, payloadMeta, target, simulating) {
 	const cameraConfig = sceneGraph.cameraConfig;
 	const levelBase = resolveDefaultLevelCamera(sceneGraph);
 	const cameraState = { ...levelBase, activeSet: null, activeMode: null, situation: "slowMovement", looping: false, modeData: null };
-	frame.set = ResolveCameraSet(cameraConfig);
+	frame.set = ResolveCameraSet(sceneGraph.cameraConfig);
 	frame.payloadMeta = payloadMeta;
 	frame.cameraState = cameraState;
 	frame.target = target;
 	frame.leftLoop = false;
 	frame.speedShare = 0;
 	frame.onRamp = false;
-	frame.aimHeight = cameraConfig.aimHeight;
-	frame.aimShare = cameraConfig.aimHeight;
+	frame.aimHeight = sceneGraph.cameraConfig.aimHeight;
+	frame.aimShare = sceneGraph.cameraConfig.aimHeight;
 	cameraState.activeSet = frame.set.name;
 	setMode = frame.set.situations.slowMovement;
 
-	ResetCameraModes(cameraConfig, levelBase);
+	ResetCameraModes(sceneGraph.cameraConfig, levelBase);
 	activateMode(freeCamOverride ? "freeCam" : simulating ? "orbitCam" : setMode);
 	latestCameraPosition = cameraState.position;
 	return cameraState;
@@ -438,7 +443,6 @@ function InitializeCameraState(sceneGraph, payloadMeta, target, simulating) {
  */
 function PrepareCamera(sceneGraph, deltaSeconds, target, simulating) {
 	const cameraState = frame.cameraState;
-	const wasLooping = cameraState.looping;
 	frame.target = target;
 	frame.deltaSeconds = deltaSeconds;
 	if (!simulating) {
@@ -447,7 +451,7 @@ function PrepareCamera(sceneGraph, deltaSeconds, target, simulating) {
 		cameraState.situation = detectSituation(target, sceneGraph);
 		cameraState.looping = cameraState.situation === "smallLoop" || cameraState.situation === "largeLoop";
 	}
-	frame.leftLoop = wasLooping && !cameraState.looping;
+	frame.leftLoop = cameraState.looping && !cameraState.looping;
 
 	// A custom set leaves unmapped situations on the running mode.
 	if (cameraState.situation in frame.set.situations) setMode = frame.set.situations[cameraState.situation];

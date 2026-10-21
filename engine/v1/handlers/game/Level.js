@@ -7,7 +7,8 @@
 // Uses Render.js for rendering level state per frame.
 
 import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js";
-import { RenderLevel, RemoveRoot, ClearLevelRenderer } from "../Render.js";
+import { RenderLevel, RemoveRoot, ClearLevelRenderer, SetElementText } from "../Render.js";
+import { CreateUI } from "../UI.js";
 import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS, ENTITY_TYPES, ReleasePointerLock, IsPointerLocked } from "../../core/meta.js";
 import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
 import { InitializeCameraState, PrepareCamera, UpdateCamera } from "../../camera/Master.js";
@@ -28,9 +29,8 @@ import {
 import { ApplyPhysicsPipeline } from "../../physics/Master.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
-import { GetSimDistanceValue } from "../../physics/Collision.js";
 import { EnsureAnimationRuntime, ResolveEntityAnimation } from "./Animation.js";
-import { UpdatePerformanceFlags } from "./Performance.js";
+import { UpdatePerformanceFlags, UpdateCollisionCandidates, MeasureRefreshRate } from "./Performance.js";
 import { InitializeTextureAnimation, UpdateTextureAnimation, SyncTextureAnimation } from "./Texture.js";
 import { PrepareLevelVisualResources, AddToVisualResources } from "../../builder/NewTexture.js";
 import { Clamp01 } from "../../math/Utilities.js";
@@ -48,12 +48,19 @@ const levelLoop = {
 	lastFrameTime: 0,
 	accumulator: 0,
 	fixedTimeStep: 1000 / 60,
+	uncapped: false,
 	cappedStreak: 0,
 	recentFrames: [],
+	counterShown: false,
+	counterRenders: 0,
+	counterStart: 0,
 };
 
 // Consecutive capped frames before the warning escalates to an error.
 const sustainedCapFrames = 10;
+
+const frameCounterRootId = "engine-frame-counter";
+const frameCounterInterval = 500;
 
 
 function cacheLevelPayload(payload) {
@@ -116,6 +123,36 @@ function syncEntityMeshes(sceneGraph) {
 	});
 }
 
+function showFrameCounter() {
+	CreateUI({
+		screenId: "FrameCounter",
+		rootId: frameCounterRootId,
+		stylesheet: null,
+		rootStyles: {
+			position: "fixed", top: "12px", right: "12px", zIndex: "10", pointerEvents: "none",
+			background: "rgba(0,0,0,0.55)", color: "#e8eaf0", padding: "4px 10px", borderRadius: "6px",
+			fontFamily: "monospace", fontSize: "13px",
+		},
+		elements: [{ type: "div", id: "frame-counter-text", text: "FPS: —", attributes: {}, styles: {}, events: {}, on: {}, children: [] }],
+	});
+}
+
+// Shows rendered frames per second, refreshed twice a second; follows the FrameCounter switch live.
+function updateFrameCounter(now) {
+	const elapsed = now - levelLoop.counterStart;
+	if (elapsed < frameCounterInterval) return;
+
+	if (CONFIG.Performance.FrameCounter !== levelLoop.counterShown) {
+		if (CONFIG.Performance.FrameCounter) showFrameCounter();
+		else RemoveRoot(frameCounterRootId);
+		levelLoop.counterShown = CONFIG.Performance.FrameCounter;
+	}
+	if (levelLoop.counterShown) SetElementText("frame-counter-text", `FPS: ${Math.round(levelLoop.counterRenders * 1000 / elapsed)}`);
+
+	levelLoop.counterRenders = 0;
+	levelLoop.counterStart = now;
+}
+
 function onPointerLockChange() {
 	if (!levelLoop.active) return;
 	if (document.pointerLockElement) ResumeLevelLoop();
@@ -131,9 +168,11 @@ function StartLevelLoop() {
 	levelLoop.accumulator = 0;
 	levelLoop.cappedStreak = 0;
 	levelLoop.recentFrames = [];
-	levelLoop.fixedTimeStep = 1000 / CONFIG.Performance.FrameRate;
+	levelLoop.uncapped = CONFIG.Performance.FrameRate === Infinity;
+	levelLoop.fixedTimeStep = 1000 / (levelLoop.uncapped ? PERFORMANCE_SCALING.Loop.UncappedSimRate : CONFIG.Performance.FrameRate);
+	levelLoop.counterRenders = 0;
+	levelLoop.counterStart = levelLoop.lastFrameTime;
 	document.addEventListener("pointerlockchange", onPointerLockChange);
-
 	const frame = () => {
 		if (!levelLoop.active) return;
 
@@ -151,7 +190,7 @@ function StartLevelLoop() {
 			const snapped = ratio >= 1
 				? Math.round(ratio) * levelLoop.fixedTimeStep
 				: levelLoop.fixedTimeStep / Math.round(1 / ratio);
-			levelLoop.accumulator += Math.abs(average - snapped) < 1 ? snapped : frameTime;
+			levelLoop.accumulator += !levelLoop.uncapped && Math.abs(average - snapped) < 1 ? snapped : frameTime;
 
 			const maxSubsteps = PERFORMANCE_SCALING.Loop.MaxSubsteps;
 			let steps = 0;
@@ -179,10 +218,14 @@ function StartLevelLoop() {
 			}
 			else levelLoop.cappedStreak = 0;
 
-			// Only render per-tick
-			if (steps > 0) RenderLevel(levelRuntimeState.sceneGraph, levelRuntimeState.renderOptions);
+			// Only render per-tick, unless uncapped
+			if (steps > 0 || levelLoop.uncapped) {
+				RenderLevel(levelRuntimeState.sceneGraph, levelRuntimeState.renderOptions);
+				levelLoop.counterRenders++;
+			}
 		}
 
+		updateFrameCounter(now);
 		levelLoop.animationFrameId = requestAnimationFrame(frame);
 	};
 
@@ -196,6 +239,8 @@ function StopLevelLoop() {
 	}
 	levelLoop.active = false;
 	document.removeEventListener("pointerlockchange", onPointerLockChange);
+	if (levelLoop.counterShown) RemoveRoot(frameCounterRootId);
+	levelLoop.counterShown = false;
 
 	if (levelLoop.animationFrameId !== null) {
 		cancelAnimationFrame(levelLoop.animationFrameId);
@@ -275,6 +320,8 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 		Log("ENGINE", "Please end levels naturally before starting new ones.", "warn", "Level");
 	}
 
+	// Measured before the build, while nothing else is drawing.
+	await MeasureRefreshRate();
 	const sceneGraph = await BuildLevel(payload);
 	Log("ENGINE", `Level sceneGraph created: ${payload.id}`, "log", "Level");
 
@@ -343,7 +390,7 @@ function generateForScene(request, sceneGraph) {
 
 // Drives every group's lifetime and emits the siblings a seeding group asks for.
 // Note: Loops backwards so finished groups can be removed mid-loop.
-function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
+function updateParticles(sceneGraph, deltaMs, deltaSeconds) {
 	const seedRequests = [];
 	const targets = resolveGeneratorTargets(sceneGraph);
 
@@ -357,14 +404,14 @@ function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
 
 		// Mode test: a burst has no target to ride.
 		if (group.targetKey !== null) group.follow(targets);
-		group.advance(deltaMilliseconds, deltaSeconds);
+		group.advance(deltaMs, deltaSeconds);
 
 		// Remove finished groups.
 		if (group.finished) {
 			sceneGraph.entities.splice(i, 1);
 			continue;
 		}
-		if (group.seedDue(deltaMilliseconds)) seedRequests.push(group.request);
+		if (group.seedDue(deltaMs)) seedRequests.push(group.request);
 	}
 
 	// Push siblings straight in; they reuse the level-built group's geometry key and texture id.
@@ -374,24 +421,27 @@ function updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds) {
 	});
 }
 
-function runFrameTail(sceneGraph, deltaMilliseconds) {
-	UpdateTextureAnimation(sceneGraph, deltaMilliseconds);
+function runFrameTail(sceneGraph, deltaMs) {
+	UpdateTextureAnimation(sceneGraph, deltaMs);
 	syncEntityMeshes(sceneGraph);
 	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
 }
 
-function Update(deltaMilliseconds) {
-	const deltaSeconds = Math.max(0, deltaMilliseconds) / 1000;
+function Update(deltaMs) {
+	const deltaSeconds = Math.max(0, deltaMs) / 1000;
 	const sceneGraph = levelRuntimeState.sceneGraph;
 
 	UpdatePerformanceFlags(sceneGraph);
 
 	if (IsSimulatorActive()) {
 		UpdateSimulator(deltaSeconds, sceneGraph);
-		updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds);
-		runFrameTail(sceneGraph, deltaMilliseconds);
+		updateParticles(sceneGraph, deltaMs, deltaSeconds);
+		runFrameTail(sceneGraph, deltaMs);
 		return;
 	}
+
+	// Each entity's collidables, gathered once for the whole step.
+	sceneGraph.entities.forEach((entity) => UpdateCollisionCandidates(entity, sceneGraph));
 
 	// === PLAYER PIPELINE ===
 	const playerState = GetPlayerState();
@@ -416,7 +466,7 @@ function Update(deltaMilliseconds) {
 
 	// === PARTICLES ===
 	// After the entity pass so "full" groups are already displaced, before runFrameTail publishes.
-	updateParticles(sceneGraph, deltaMilliseconds, deltaSeconds);
+	updateParticles(sceneGraph, deltaMs, deltaSeconds);
 
 	// === CAMERA ===
 	UpdateCamera(sceneGraph, deltaSeconds, playerState, false);
@@ -425,8 +475,9 @@ function Update(deltaMilliseconds) {
 	// Model pose and animation, after true poses are settled and before render reads displayTransform.
 	if (playerState.active) ResolveEntityAnimation(playerState, deltaSeconds);
 
-	runFrameTail(sceneGraph, deltaMilliseconds);
+	runFrameTail(sceneGraph, deltaMs);
 }
+
 
 const GetActiveLevel = () => levelRuntimeState.sceneGraph;
 
@@ -579,14 +630,8 @@ function DespawnFromScene(target, objectType, sceneGraph) {
 // Note: Only appends to entities. A game's event handler can call this mid-loop.
 function SpawnParticles(request, generator) {
 	const sceneGraph = GetActiveLevel();
-	if (sceneGraph === null) {
-		Log("ENGINE", "Level.SpawnParticles: no active level.", "error", "Level");
-		return;
-	}
-	if (IsSimulatorActive()) {
-		Log("ENGINE", "Level.SpawnParticles: simulator mode never ticks particles.", "error", "Level");
-		return;
-	}
+	if (sceneGraph === null) return Log("ENGINE", "Level.SpawnParticles: no active level.", "error", "Level");
+	if (IsSimulatorActive()) return Log("ENGINE", "Level.SpawnParticles: simulator mode never ticks particles.", "error", "Level");
 
 	const resolveTarget = (id, partId) => findSceneTarget(sceneGraph, id, partId);
 	const normalized = ValidateRuntime.Particles(request, generator, resolveTarget);
@@ -599,7 +644,8 @@ function SpawnParticles(request, generator) {
 	}
 
 	// A far burst would sit frozen and play late once the player arrives.
-	const drawReach = GetSimDistanceValue().value * PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances.Cull;
+	const { Tiers, Fractions } = PERFORMANCE_SCALING.SimDistance;
+	const drawReach = Tiers[CONFIG.Performance.SimDistance].value * Fractions.WorldInstances.Cull;
 	if (normalized.mode === "burst" && Vector3Distance(sceneGraph.cameraConfig.state.position, normalized.position) > drawReach) {
 		Log("ENGINE", `Level.SpawnParticles: '${normalized.templateId}' burst dropped beyond draw distance.`, "warn", "Level");
 		return;
@@ -611,6 +657,9 @@ function SpawnParticles(request, generator) {
 
 	// Added as plain entities; "particle" isn't one of the standard entity types.
 	sceneGraph.entities.push(...groups);
+
+	// Gather collision candidates now so groups spawned mid-step collide this step.
+	groups.forEach((group) => UpdateCollisionCandidates(group, sceneGraph));
 	finalizeSpawn(groups, "entity", sceneGraph);
 	Log("ENGINE", `Particles spawned: id=${normalized.templateId}, mode=${normalized.mode}, groups=${groups.length}`, "log", "Level");
 }

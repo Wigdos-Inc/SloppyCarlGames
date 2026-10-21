@@ -174,14 +174,8 @@ function clearEnvironmentState() {
 }
 
 async function Start() {
-	if (!EngineInitialized) {
-		Log("ENGINE", "Simulator.Start: engine not yet initialized.", "error", "Simulator");
-		return;
-	}
-	if (simulatorRuntime.active) {
-		Log("ENGINE", "Simulator.Start: already active.", "error", "Simulator");
-		return;
-	}
+	if (!EngineInitialized) return Log("ENGINE", "Simulator.Start: engine not yet initialized.", "error", "Simulator");
+	if (simulatorRuntime.active) return Log("ENGINE", "Simulator.Start: already active.", "error", "Simulator");
 	if (!engineEntriesCached) await cacheEngineEntries();
 
 	simulatorRuntime.hadLevel = GetActiveLevel() !== null;
@@ -246,24 +240,15 @@ function frameLoadedObject(aabb) {
 const clearParticles = (sceneGraph) => DespawnFromScene(sceneGraph.entities.filter((entity) => entity.particle !== null), "entity", sceneGraph);
 
 async function Load(payload) {
-	if (!simulatorRuntime.active) {
-		Log("ENGINE", "Simulator.Load: simulator not active.", "error", "Simulator");
-		return;
-	}
+	if (!simulatorRuntime.active) return Log("ENGINE", "Simulator.Load: simulator not active.", "error", "Simulator");
 
 	const validated = await ValidateSimulatorPayload(payload);
-	if (validated === null) {
-		Log("ENGINE", "Simulator.Load: payload rejected by validation.", "error", "Simulator");
-		return;
-	}
+	if (validated === null) return Log("ENGINE", "Simulator.Load: payload rejected by validation.", "error", "Simulator");
 
 	let definition, objectType;
 	if (validated.payloadType === "cached") {
 		const cached = simulatorCache.get(validated.id);
-		if (!cached) {
-			Log("ENGINE", `Simulator.Load: no cached entry for id '${validated.id}'.`, "error", "Simulator");
-			return;
-		}
+		if (!cached) return Log("ENGINE", `Simulator.Load: no cached entry for id '${validated.id}'.`, "error", "Simulator");
 		definition = cached.definition;
 		objectType = cached.objectType;
 	} 
@@ -334,8 +319,8 @@ async function Load(payload) {
 
 	const ext = frameLoadedObject(aabb);
 
+	// Resize the platform to the object's footprint.
 	if (objectType !== "terrain") {
-		// Resize the platform to the object's footprint.
 		DespawnFromScene(simulatorRuntime.platformMesh, "terrain", sceneGraph);
 		const footprint = Math.max(templateDisc.dimensions.x, Math.max(ext.x, ext.z) * 1.6);
 		simulatorRuntime.platformMesh = spawnPlatform(sceneGraph, footprint);
@@ -384,10 +369,7 @@ async function cacheEngineEntries() {
 }
 
 function Clear() {
-	if (!simulatorRuntime.active) {
-		Log("ENGINE", "Simulator.Clear: simulator not active.", "error", "Simulator");
-		return;
-	}
+	if (!simulatorRuntime.active) return Log("ENGINE", "Simulator.Clear: simulator not active.", "error", "Simulator");
 	if (simulatorRuntime.builtObject !== null) DespawnFromScene(simulatorRuntime.builtObject, simulatorRuntime.objectType, GetActiveLevel());
 	clearParticles(GetActiveLevel());
 	clearTargetState();
@@ -396,10 +378,7 @@ function Clear() {
 }
 
 async function Exit() {
-	if (!simulatorRuntime.active) {
-		Log("ENGINE", "Simulator.Exit: simulator not active.", "error", "Simulator");
-		return;
-	}
+	if (!simulatorRuntime.active) return Log("ENGINE", "Simulator.Exit: simulator not active.", "error", "Simulator");
 	const hadLevel = simulatorRuntime.hadLevel;
 	clearEnvironmentState();
 	ClearLevel(false);
@@ -556,7 +535,10 @@ function buildDecalVertices(mesh, decalEntry, lift) {
 	));
 	for (let first = 0; first < positions.length / 3; first += 3) {
 		const distance = centerDistanceSq(first) + centerDistanceSq(first + 1) + centerDistanceSq(first + 2);
-		if (distance < nearest && windingOf(first) !== 0) { nearest = distance; winding = windingOf(first); }
+		if (distance < nearest && windingOf(first) !== 0) {
+			nearest = distance;
+			winding = windingOf(first);
+		}
 	}
 
 	const corners = [];
@@ -629,7 +611,11 @@ async function encodeTextureImage(source) {
 function collectTextureIds(meshes) {
 	const ids  = [];
 	const seen = new Set();
-	const add  = (id) => { if (!seen.has(id)) { seen.add(id); ids.push(id); } };
+	function add(id) {
+		if (seen.has(id)) return;
+		seen.add(id);
+		ids.push(id);
+	}
 	meshes.forEach((mesh) => {
 		meshPrimitiveSpans(mesh).forEach((span) => add(span.textureID));
 		for (let index = 0; index < mesh.customTextures.length; index++) add(`${mesh.id}::customTexture::${index}`);
@@ -655,7 +641,10 @@ function pushFloatAccessor(writer, values, type, count, min, max) {
 		componentType: gltfFloat,
 		count, type,
 	};
-	if (min !== null) { accessor.min = min; accessor.max = max; }
+	if (min !== null) {
+		accessor.min = min;
+		accessor.max = max;
+	}
 	writer.accessors.push(accessor);
 	return writer.accessors.length - 1;
 }
@@ -675,7 +664,10 @@ function pushMaterial(writer, textureIndex, alphaMode, baseColorFactor) {
 	if (baseColorFactor !== null) pbr.baseColorFactor = baseColorFactor;
 
 	const material = { pbrMetallicRoughness: pbr, doubleSided: true };
-	if (alphaMode === "MASK")  { material.alphaMode = "MASK"; material.alphaCutoff = 0.5; }
+	if (alphaMode === "MASK") {
+		material.alphaMode = "MASK";
+		material.alphaCutoff = 0.5;
+	}
 	if (alphaMode === "BLEND") material.alphaMode = "BLEND";
 	writer.materials.push(material);
 	return writer.materials.length - 1;
@@ -743,14 +735,8 @@ function triggerFileDownload(buffer, fileName) {
 }
 
 async function Download() {
-	if (!simulatorRuntime.active) {
-		Log("ENGINE", "Simulator.Download: simulator not active.", "error", "Simulator");
-		return;
-	}
-	if (simulatorRuntime.builtObject === null) {
-		Log("ENGINE", "Simulator.Download: no object loaded.", "error", "Simulator");
-		return;
-	}
+	if (!simulatorRuntime.active) return Log("ENGINE", "Simulator.Download: simulator not active.", "error", "Simulator");
+	if (simulatorRuntime.builtObject === null) return Log("ENGINE", "Simulator.Download: no object loaded.", "error", "Simulator");
 
 	SetElementText("sim-hud-export", "Export: baking…");
 

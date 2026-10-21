@@ -249,7 +249,12 @@ function applyDisplayColor(runtime, target, color) {
 		runtime.colorDisplays.set(target, d);
 		target.displayColor = d;
 	} 
-	else { d.r = color.r; d.g = color.g; d.b = color.b; d.a = color.a; }
+	else {
+		d.r = color.r;
+		d.g = color.g;
+		d.b = color.b;
+		d.a = color.a;
+	}
 }
 
 // Decals and colors only — a model-pose lean keeps part displays alive after the set ends.
@@ -319,8 +324,10 @@ function resolveAnimationStep(model, runtime, set, deltaSeconds, root) {
 			for (const decalId in partTrack.decals) {
 				const decalEntry = runtime.decalIndex.get(decalId);
 				const decalTarget = partTrack.decals[decalId];
+
 				const decalOffset = resolveTargetOffset(runtime, decalTarget.transform, t, `${partId}::${decalId}`, correctionActive, factor, true);
 				applyDecalDisplay(runtime, decalEntry, decalOffset);
+				
 				const decalColor = resolveColorValue(runtime, decalTarget.color, t, `${partId}::${decalId}::color`, correctionActive, factor);
 				if (decalColor !== null) applyDisplayColor(runtime, decalEntry, decalColor);
 				if (decalTarget.swap !== undefined) applyDecalSwap(decalEntry, decalTarget.swap, t);
@@ -355,7 +362,9 @@ function ResolveEntityAnimation(entity, deltaSeconds) {
 		runtime.elapsed = 0;
 		runtime.correctionN = resolveCorrectionFrames(entity.type);
 		runtime.correctionCounter = runtime.correctionN;
-		if (setName === null) Log("ENGINE", `no set matches action '${entity.action}' on '${entity.id}', holding rest`, "warn", "Animation");
+		if (setName === null) {
+			Log("ENGINE", `no set matches action '${entity.action}' on '${entity.id}', holding rest`, "warn", "Level");
+		}
 	}
 
 	const leaning = resolveModelPose(entity, runtime, deltaSeconds);

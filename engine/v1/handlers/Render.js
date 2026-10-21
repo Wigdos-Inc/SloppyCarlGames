@@ -9,7 +9,15 @@ import { UIElement } from "../builder/NewUI.js";
 import { CONFIG, DEBUG_COLORS, FILTER_TUNING, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateRenderMatrix, FrustumPlanes, MultiplyMatrix4, TransformPointByMatrix } from "../math/Matrix.js";
-import { AabbOutsideFrustum, TriangleArea } from "../math/Collision.js";
+import { 
+	AabbOutsideFrustum, 
+	BeyondFrontFaces, 
+	ConvexHull2D, 
+	CornersInsideHull, 
+	PointsAabb, 
+	ProjectBoxCorners, 
+	TriangleArea 
+} from "../math/Collision.js";
 import { 
 	AddVector3, 
 	AngleBetweenVector3, 
@@ -31,7 +39,6 @@ import {
 	Vector3ToArray 
 } from "../math/Vector3.js";
 import { Clamp } from "../math/Utilities.js";
-import { GetSimDistanceValue } from "../physics/Collision.js";
 import CreateShader from "./utilities/Shaders.js";
 
 /* === INTERNALS === */
@@ -383,7 +390,7 @@ function groupInstancesIntoCells(instanceData, instanceCount, instanceReach) {
 			max = MaxVector3(max, AddVector3(ArrayToVector3(row, 12), ToVector3(reach)));
 			written++;
 		}
-		cells.push({ start: written - indices.length, count: indices.length, aabb: { min, max } });
+		cells.push({ start: written - indices.length, count: indices.length, aabb: { min, max }, occluded: false });
 	}
 
 	return { sorted, cells };
@@ -533,14 +540,8 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 	if (sceneGraph.debugBoundingBoxes.length === 0) return;
 
 	const gl = renderer.gl;
-	if (!renderer.debugLineShader) {
-		renderer.debugLineShader = CreateShader.LineProgram(gl);
-		return;
-	}
-	if (!renderer.debugLineBuffer) {
-		renderer.debugLineBuffer = gl.createBuffer();
-		return;
-	}
+	if (!renderer.debugLineShader) return renderer.debugLineShader = CreateShader.LineProgram(gl);
+	if (!renderer.debugLineBuffer) return renderer.debugLineBuffer = gl.createBuffer();
 
 	bindDebugLinePass(renderer, gl, projection, view);
 
@@ -683,14 +684,8 @@ function drawDetailedBounds(renderer, sceneGraph, projection, view) {
 	if (sceneGraph.debug.detailedBounds.length === 0) return;
 
 	const gl = renderer.gl;
-	if (!renderer.debugLineShader) {
-		renderer.debugLineShader = CreateShader.LineProgram(gl);
-		return;
-	}
-	if (!renderer.debugLineBuffer) {
-		renderer.debugLineBuffer = gl.createBuffer();
-		return;
-	}
+	if (!renderer.debugLineShader) return renderer.debugLineShader = CreateShader.LineProgram(gl);
+	if (!renderer.debugLineBuffer) return renderer.debugLineBuffer = gl.createBuffer();
 
 	bindDebugLinePass(renderer, gl, projection, view);
 
@@ -909,10 +904,11 @@ function ensureSceneTarget(renderer) {
 
 	target.width  = canvas.width;
 	target.height = canvas.height;
+	const samples = renderer.msaa ? FILTER_TUNING.Samples : 0;
 	gl.bindRenderbuffer(gl.RENDERBUFFER, target.colorSamples);
-	gl.renderbufferStorageMultisample(gl.RENDERBUFFER, FILTER_TUNING.Samples, gl.RGBA8, target.width, target.height);
+	gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA8, target.width, target.height);
 	gl.bindRenderbuffer(gl.RENDERBUFFER, target.depthSamples);
-	gl.renderbufferStorageMultisample(gl.RENDERBUFFER, FILTER_TUNING.Samples, gl.DEPTH_COMPONENT24, target.width, target.height);
+	gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.DEPTH_COMPONENT24, target.width, target.height);
 	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 
 	gl.bindTexture(gl.TEXTURE_2D, target.color);
@@ -1054,7 +1050,9 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	root.appendChild(canvas);
 
 	// alpha: false — stops the white page bleeding through via framebuffer alpha.
-	const gl = canvas.getContext("webgl2", { alpha: false });
+	const msaa = !CONFIG.Debug.All || CONFIG.Debug.Levels.Performance.MSAA;
+	const flatShading = CONFIG.Debug.All && CONFIG.Debug.Levels.Performance.FlatShading;
+	const gl = canvas.getContext("webgl2", { alpha: false, antialias: msaa });
 	if (!gl) {
 		Log("ENGINE", "WebGL2 is not supported by this browser.", "error", "Render");
 		return null;
@@ -1118,7 +1116,7 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	}
 
 	const renderer = {
-		rootId, root, canvas, gl, shader, scatterShader, decalShader, scatterDecalShader, entityTriplanarShader, 
+		rootId, root, canvas, gl, msaa, flatShading, shader, scatterShader, decalShader, scatterDecalShader, entityTriplanarShader, 
 		skyShader, blendShader, blendFramebuffer, filterShader, inkShader,
 		blendQuad              : null,
 		skyQuad                : null,
@@ -1134,9 +1132,27 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		scatterInstances       : null,
 		scatterDecalBatches    : null,
 		scatterInstancesBuilt  : false,
+		voidWallMeshes         : null,
 		voidWallUvMeshes       : null,
 		voidWallTriplanarMeshes: null,
 		voidWallMeshesBuilt    : false,
+		occlusion              : {
+			hidden      : new Set(),                // Objects hidden this run
+			lastHidden  : new Set(),                // Objects hidden last run, re-tested while they stay off
+			useful      : new Set(),                // Blocker pieces that hid something this run
+			lastUseful  : new Set(),                // Blocker pieces that hid something last run, ranked first
+			flagged     : [],                       // Scatter squares and void walls hidden this run
+			scratch     : {                         // Reused for every object tested: world corners, screen corners, screen rectangle
+				wx: new Float64Array(8), wy: new Float64Array(8), wz: new Float64Array(8),
+				sx: new Float64Array(8), sy: new Float64Array(8), rect: new Float64Array(4),
+			},
+			idleWindow  : 1,                        // Frames the next idle pause lasts
+			pauseFrames : 0,                        // Frames left in the current idle pause
+			idleSince   : 0,                        // When the current idle pause began
+			lastPosition: ToVector3(Infinity),      // Camera at the last run; unset so the first frame counts as a jump
+			lastForward : ToVector3(0),             // Camera direction at the last run
+			lastMode    : null,                     // Camera mode at the last run
+		},
 		fallbackTexture        : createFallbackTexture(gl),
 		loggedScatterSubmission: false,
 		debugLineShader        : null,
@@ -1167,17 +1183,8 @@ const meshUsesTriplanar = (mesh) => mesh.geometry.triplanar === true;
 
 // Box around everything an entity draws: all its parts, or its single mesh.
 function entityRenderBounds(entity) {
-	if (!entity.model) return entity.mesh.worldAabb;
-
-	const min = { x: Infinity, y: Infinity, z: Infinity };
-	const max = { x: -Infinity, y: -Infinity, z: -Infinity };
-	for (const part of entity.model.parts) {
-		const box = part.mesh.worldAabb;
-		min.x = Math.min(min.x, box.min.x); max.x = Math.max(max.x, box.max.x);
-		min.y = Math.min(min.y, box.min.y); max.y = Math.max(max.y, box.max.y);
-		min.z = Math.min(min.z, box.min.z); max.z = Math.max(max.z, box.max.z);
-	}
-	return { min, max };
+	return !entity.model ? entity.mesh.worldAabb : PointsAabb(entity.model.parts.flatMap((part) => [part.mesh.worldAabb.min, part.mesh.worldAabb.max]));
+	return 
 }
 
 // Hides anything fully off screen until the next distance check turns it back on.
@@ -1192,11 +1199,8 @@ function hideOffscreen(sceneGraph, frustum) {
 }
 
 function collectRenderableMeshes(sceneGraph) {
-	const terrain = [];
-	const obstacles = [];
-	const entitiesUv = [];
-	const entitiesTriplanar = [];
-	const entitiesTranslucent = [];
+	const terrain = [], obstacles = [];
+	const entitiesUv = [], entitiesTriplanar = [], entitiesTranslucent = [];
 
 	const collectEntityPart = (mesh) => {
 		if (isTranslucentMesh(mesh)) { 
@@ -1217,10 +1221,7 @@ function collectRenderableMeshes(sceneGraph) {
 	});
 	sceneGraph.entities.forEach((entity) => {
 		if (!entity.performance.rendering) return;
-		if (entity.model) {
-			entity.model.parts.forEach((part) => collectEntityPart(part.mesh));
-			return;
-		}
+		if (entity.model) return entity.model.parts.forEach((part) => collectEntityPart(part.mesh));
 		collectEntityPart(entity.mesh);
 	});
 
@@ -1283,7 +1284,9 @@ function ensureMeshBuffer(renderer, mesh, shader) {
 }
 
 // Don't cull planes.
-const setFaceCulling = (gl, cull) => cull && CONFIG.Performance.BackfaceCulling ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE);
+function setFaceCulling(gl, cull) {
+	return cull && (!CONFIG.Debug.All || CONFIG.Debug.Levels.Performance.BackfaceCulling) ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE);
+}
 
 const keepWholeMesh = { level: 0, side: 0 };
 
@@ -1340,6 +1343,8 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 
 // Don't cull the water mesh's faces as you're meant to be inside them.
 function drawWaterPass(renderer, sceneGraph, passState) {
+	// Skip water under flat shading, where it would be an opaque slab hiding everything below it.
+	if (renderer.flatShading) return;
 	const meshes = sceneGraph.waterVisual === null ? [] : [sceneGraph.waterVisual.body, sceneGraph.waterVisual.top];
 	drawMeshList(renderer, sceneGraph, meshes, passState, { depthMask: false, cull: false });
 }
@@ -1587,7 +1592,7 @@ function drawScatterDecalPass(renderer, sceneGraph, passState) {
 			gl.uniformMatrix4fv(uniforms.placement, false, draw.placement);
 			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, draw.textureKey));
 			batch.cells.forEach((cell, index) => {
-				if (!scatterCellVisible(cell, passState)) return;
+				if (!scatterCellVisible(cell, passState) || cell.occluded) return;
 				gl.bindVertexArray(draw.cellVaos[index]);
 				gl.drawArraysInstanced(gl.TRIANGLES, 0, draw.vertexCount, cell.count);
 			});
@@ -1612,16 +1617,166 @@ function ensureVoidWallMeshes(renderer, sceneGraph) {
 	if (renderer.voidWallMeshesBuilt) return;
 	const meshes = gatherVoidWallMeshes(sceneGraph.voids.terrain);
 	meshes.push(...gatherVoidWallMeshes(sceneGraph.voids.obstacles));
-	renderer.voidWallUvMeshes        = meshes.filter((mesh) => !meshUsesTriplanar(mesh));
+	renderer.voidWallMeshes          = meshes;
+	renderer.voidWallUvMeshes       = meshes.filter((mesh) => !meshUsesTriplanar(mesh));
 	renderer.voidWallTriplanarMeshes = meshes.filter(meshUsesTriplanar);
 	renderer.voidWallMeshesBuilt     = true;
 }
 
 function drawVoidWalls(renderer, sceneGraph, passState) {
-	ensureVoidWallMeshes(renderer, sceneGraph);
-	const onScreen = (mesh) => !AabbOutsideFrustum(passState.frustum, mesh.worldAabb);
+	const onScreen = (mesh) => !AabbOutsideFrustum(passState.frustum, mesh.worldAabb) && !mesh.occluded;
 	drawMeshList(renderer, sceneGraph, renderer.voidWallUvMeshes.filter(onScreen),        passState);
 	drawMeshList(renderer, sceneGraph, renderer.voidWallTriplanarMeshes.filter(onScreen), passState, { triplanar: true });
+}
+
+/* === OCCLUSION === */
+// Hides what sits fully behind solid terrain, testing only what the distance and view checks left on.
+
+// Left on by the distance and view checks. Last run's hidden objects stay on until the next update.
+function stillOn(target, lastHidden) {
+	return target.performance.rendering || lastHidden.has(target);
+}
+
+// The terrain pieces most likely to hide things this frame, put on screen. Pieces that hid something last run go first.
+function chooseBlockers(sceneGraph, passState, near, occlusion) {
+	const { frustum, viewProjection, cameraPosition: camera } = passState;
+	const { scratch, lastUseful, lastHidden } = occlusion;
+
+	// Pieces in view, scored by size over distance without putting them on screen.
+	const candidates = [];
+	for (const mesh of sceneGraph.terrain) {
+		if (mesh.meta.mode !== "default" || !stillOn(mesh, lastHidden)) continue;
+		for (const piece of mesh.occluder.pieces) {
+			if (AabbOutsideFrustum(frustum, piece.worldAabb)) continue;
+			const score = lastUseful.has(piece) ? Infinity : piece.face / Math.max(Vector3SqDistanceToAabb(camera, piece.worldAabb), 1e-6);
+			candidates.push({ piece, occluder: mesh.occluder, score });
+		}
+	}
+	candidates.sort((a, b) => b.score - a.score);
+
+	// Only the best few go on screen; a piece crossing the camera's near limit is left out.
+	const blockers = [];
+	for (const { piece, occluder } of candidates) {
+		if (blockers.length >= PERFORMANCE_SCALING.Culling.BlockerBudget) break;
+		for (let k = 0; k < 8; k++) {
+			scratch.wx[k] = piece.corners[k].x;
+			scratch.wy[k] = piece.corners[k].y;
+			scratch.wz[k] = piece.corners[k].z;
+		}
+		if (!ProjectBoxCorners(viewProjection, near, scratch)) continue;
+
+		const hull = ConvexHull2D(scratch.sx, scratch.sy);
+		if (hull.length < 3) continue;
+		blockers.push({ 
+			piece, hull, 
+			inverse: occluder.inverse,
+			 cameraLocal: TransformPointByMatrix(camera, occluder.inverse), 
+			 rect: scratch.rect.slice() 
+		});
+	}
+	return blockers;
+}
+
+// Turns off objects fully behind the chosen terrain pieces, then sets the next idle pause.
+function hideOccluded(renderer, sceneGraph, passState, cameraState) {
+	const occlusion = renderer.occlusion;
+
+	// Last run's hidden scatter squares and void walls draw again unless this run hides them.
+	for (const surface of occlusion.flagged) surface.occluded = false;
+	occlusion.flagged.length = 0;
+
+	// This run's results start empty; the previous run's become last run's.
+	[occlusion.hidden, occlusion.lastHidden] = [occlusion.lastHidden, occlusion.hidden];
+	[occlusion.useful, occlusion.lastUseful] = [occlusion.lastUseful, occlusion.useful];
+	occlusion.hidden.clear();
+	occlusion.useful.clear();
+
+	if (CONFIG.Debug.All && !CONFIG.Debug.Levels.Performance.OcclusionCulling) return;
+
+	// A big camera move, turn or mode change ends any pause and drops last run's blocker ranking.
+	const { ResumeDistance, ResumeTurn, IdleBackoffMs, EntityPadding } = PERFORMANCE_SCALING.Culling;
+	const forward = ResolveVector3Axis(SubtractVector3(cameraState.target, cameraState.position));
+	const moved   = Vector3Sq(SubtractVector3(cameraState.position, occlusion.lastPosition)) > ResumeDistance.value ** 2;
+	const turned  = AngleBetweenVector3(forward, occlusion.lastForward) > ResumeTurn.toRadians();
+	if (moved || turned || cameraState.activeMode !== occlusion.lastMode) {
+		occlusion.pauseFrames = 0;
+		occlusion.lastUseful.clear();
+	}
+
+	// While paused, nothing is hidden.
+	if (occlusion.pauseFrames > 0 && performance.now() - occlusion.idleSince < IdleBackoffMs) {
+		occlusion.pauseFrames--;
+		return;
+	}
+	occlusion.lastPosition = CloneVector3(cameraState.position);
+	occlusion.lastForward  = forward;
+	occlusion.lastMode     = cameraState.activeMode;
+
+	const { lastHidden } = occlusion;
+	const near     = cameraState.near.value;
+	const blockers = chooseBlockers(sceneGraph, passState, near, occlusion);
+	const { viewProjection, frustum, cameraPosition: camera } = passState;
+	const { wx, wy, wz, sx, sy, rect } = occlusion.scratch;
+
+	// Grows a box by its pad plus a margin that widens with distance, then checks it against each blocker, cheapest test first.
+	function behindBlocker(aabb, pad) {
+		const d = MaxVector3(SubtractVector3(aabb.min, camera), MaxVector3(ToVector3(0), SubtractVector3(camera, aabb.max)));
+		const grow = pad + 0.05 + Math.sqrt(DotVector3(d)) * 0.002;
+		for (let k = 0; k < 8; k++) {
+			wx[k] = k & 1 ? aabb.max.x + grow : aabb.min.x - grow;
+			wy[k] = k & 2 ? aabb.max.y + grow : aabb.min.y - grow;
+			wz[k] = k & 4 ? aabb.max.z + grow : aabb.min.z - grow;
+		}
+		if (!ProjectBoxCorners(viewProjection, near, occlusion.scratch)) return false;
+
+		for (const blocker of blockers) {
+			const outer = blocker.rect;
+			if (rect[0] < outer[0] || rect[1] < outer[1] || rect[2] > outer[2] || rect[3] > outer[3]) continue;
+			if (!CornersInsideHull(blocker.hull, sx, sy)) continue;
+			if (!BeyondFrontFaces(blocker.piece.min, blocker.piece.max, blocker.inverse, blocker.cameraLocal, wx, wy, wz)) continue;
+			occlusion.useful.add(blocker.piece);
+			return true;
+		}
+		return false;
+	}
+
+	// Objects turn off until the next distance check; scatter squares and void walls are flagged until the next run.
+	function hideTarget(target) {
+		target.performance.rendering = false;
+		occlusion.hidden.add(target);
+	}
+	function flagSurface(surface) {
+		surface.occluded = true;
+		occlusion.flagged.push(surface);
+	}
+
+	if (blockers.length > 0) {
+		for (const mesh of sceneGraph.terrain) {
+			if (mesh.meta.mode === "default" && stillOn(mesh, lastHidden) && behindBlocker(mesh.worldAabb, 0)) hideTarget(mesh);
+		}
+		for (const record of sceneGraph.obstacles) {
+			if (record.mode === "default" && stillOn(record, lastHidden) && behindBlocker(record.worldAabb, 0)) hideTarget(record);
+		}
+		for (const entity of sceneGraph.entities) {
+			if (stillOn(entity, lastHidden) && behindBlocker(entityRenderBounds(entity), EntityPadding.value)) hideTarget(entity);
+		}
+		for (const mesh of renderer.voidWallMeshes) {
+			if (!AabbOutsideFrustum(frustum, mesh.worldAabb) && behindBlocker(mesh.worldAabb, 0)) flagSurface(mesh);
+		}
+		for (const batch of renderer.scatterInstances) {
+			for (const cell of batch.cells) if (scatterCellVisible(cell, passState) && behindBlocker(cell.aabb, 0)) flagSurface(cell);
+		}
+	}
+
+	// Something hidden keeps checks running every frame; nothing hidden pauses them for a window that doubles each time.
+	if (occlusion.hidden.size > 0 || occlusion.flagged.length > 0) {
+		occlusion.idleWindow  = 1;
+		occlusion.pauseFrames = 0;
+		return;
+	}
+	occlusion.pauseFrames = occlusion.idleWindow;
+	occlusion.idleWindow *= 2;
+	occlusion.idleSince   = performance.now();
 }
 
 // Runs before scatter and translucents, so they cover the lines and add none of their own.
@@ -1714,13 +1869,14 @@ function drawScene(renderer, sceneGraph) {
 		cameraState.far.value
 	));
 	const view = new Float32Array(createLookAtMatrix(cameraState.position, cameraState.target, cameraState.up));
-	const frustum = FrustumPlanes(MultiplyMatrix4(projection, view));
+	const viewProjection = MultiplyMatrix4(projection, view);
+	const frustum = FrustumPlanes(viewProjection);
 
 	const waterLevelCnu = sceneGraph.world.water.level === null ? null : sceneGraph.world.water.level.value;
 	const underwater = waterLevelCnu !== null && cameraState.position.y < waterLevelCnu;
 	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
 	const underwaterValue = underwater ? 1 : 0;
-	const simDistance = GetSimDistanceValue().toWorldUnit();
+	const simDistance = PERFORMANCE_SCALING.SimDistance.Tiers[CONFIG.Performance.SimDistance].toWorldUnit();
 	const worldInstances = PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances;
 	const fogPercent = underwater ? CONFIG.Rendering.Fog.Water : CONFIG.Rendering.Fog.Air;
 	const fogFull = simDistance * worldInstances.Cull * worldInstances.Fog * (fogPercent / 100);
@@ -1733,7 +1889,7 @@ function drawScene(renderer, sceneGraph) {
 		: { level: sceneGraph.world.water.level.toWorldUnit(), side: underwater ? -1 : 1 };
 
 	const passState = {
-		projection, view, frustum, fogFull, colorShift, underwaterValue, cullRadius, nearWaterClip,
+		projection, view, viewProjection, frustum, fogFull, colorShift, underwaterValue, cullRadius, nearWaterClip,
 		cameraPosition: cameraState.position,
 		comic       : filters.Comic ? 1 : 0,
 		skyStops    : fillSkyStops(renderer, skyStops),
@@ -1752,6 +1908,11 @@ function drawScene(renderer, sceneGraph) {
 	}
 
 	hideOffscreen(sceneGraph, frustum);
+
+	// Scatter squares and void walls must exist before the occlusion step can test them.
+	if (!renderer.scatterInstancesBuilt) buildScatterInstanceBuffers(renderer, sceneGraph);
+	ensureVoidWallMeshes(renderer, sceneGraph);
+	hideOccluded(renderer, sceneGraph, passState, cameraState);
 	const { terrain, obstacles, entitiesUv, entitiesTriplanar, entitiesTranslucent } = collectRenderableMeshes(sceneGraph);
 
 	// === PASS 2.5: Void walls (textured interior surfaces inside void holes) ===
@@ -1770,8 +1931,6 @@ function drawScene(renderer, sceneGraph) {
 	if (filters.ToonLines) drawInkPass(renderer, passState, cameraState);
 
 	// === PASS B: Instanced scatter rendering ===
-	if (!renderer.scatterInstancesBuilt) buildScatterInstanceBuffers(renderer, sceneGraph);
-
 	if (renderer.scatterInstances.length > 0) {
 		configureTexturedMeshPass(gl, renderer.scatterShader, passState);
 		gl.uniform1f(renderer.scatterShader.uniforms.cullRadius, passState.cullRadius);
@@ -1782,7 +1941,7 @@ function drawScene(renderer, sceneGraph) {
 			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, batch.textureID));
 			gl.uniform1i(renderer.scatterShader.uniforms.texture, 0);
 			for (const cell of batch.cells) {
-				if (!scatterCellVisible(cell, passState)) continue;
+				if (!scatterCellVisible(cell, passState) || cell.occluded) continue;
 				gl.bindVertexArray(cell.vao);
 				gl.drawElementsInstanced(gl.TRIANGLES, batch.indexCount, gl.UNSIGNED_SHORT, 0, cell.count);
 			}

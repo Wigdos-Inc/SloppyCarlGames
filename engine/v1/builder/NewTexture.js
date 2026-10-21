@@ -73,7 +73,7 @@ const FREQUENCY_PATTERN_CONFIG = {
 
 // Erase footprint first for translucent paint only (avoids double-blend); opaque skips it.
 function fillReplacing(ctx, replace, drawFn) {
-	if (!replace) { drawFn(); return; }
+	if (!replace) return drawFn();
 	const paintStyle = ctx.fillStyle;
 	ctx.globalCompositeOperation = "destination-out";
 	ctx.fillStyle = "#000";
@@ -84,9 +84,9 @@ function fillReplacing(ctx, replace, drawFn) {
 }
 
 // null = derive from alpha (legacy default).
-// Note: When adding a mode, also add it in canonSchemas.json (allowedValues).
-const resolveReplace = (definition) =>
-	definition.compositeMode !== null ? definition.compositeMode === "replace" : definition.secondary.a < 1;
+function resolveReplace(definition) {
+	return definition.compositeMode !== null ? definition.compositeMode === "replace" : definition.secondary.a < 1;
+}
 
 function drawShape(ctx, shape, replace, x, y, width, height) {
 	fillReplacing(ctx, replace, () => {
@@ -259,7 +259,10 @@ function createUsageEntry(baseTextureID) {
 function registerTextureUsage(id, options, usage) {
 	if (!usage[id]) usage[id] = createUsageEntry(id);
 	const entry = usage[id];
-	if (options.isTerrain) { entry.isTerrain = true; entry.maxSpan = options.maxSpan; }
+	if (options.isTerrain) {
+		entry.isTerrain = true;
+		entry.maxSpan = options.maxSpan;
+	}
 	entry.density = options.density;
 	entry.speckSize = options.speckSize;
 	entry.baseTextureID = options.baseTextureID;
@@ -274,16 +277,13 @@ function registerTextureUsage(id, options, usage) {
 
 // Texture definition -> registerTextureUsage options. Shared by mesh and scatter-batch collection.
 function textureRegistrationOptions(texture, isTerrain, maxSpan) {
+	const { density, speckSize, shape, compositeMode, holdTimeSpeed, blendTimeSpeed } = texture;
 	return {
-		isTerrain, maxSpan,
-		density          : texture.density,
-		speckSize        : texture.speckSize,
+		isTerrain, maxSpan, density, speckSize,
 		baseTextureID    : texture.id,
-		shape            : texture.shape,
-		compositeMode    : texture.compositeMode,
+		shape, compositeMode,
 		animatedRequested: texture.animated === true,
-		holdTimeSpeed    : texture.holdTimeSpeed,
-		blendTimeSpeed   : texture.blendTimeSpeed,
+		holdTimeSpeed, blendTimeSpeed,
 		primaryOverride  : texture.primary,
 		secondaryOverride: texture.secondary,
 	};

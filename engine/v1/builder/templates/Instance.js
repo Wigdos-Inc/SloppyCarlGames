@@ -32,10 +32,7 @@ function canonicalizePartTransform(part) {
 
 // Absent repeat canonicalizes to null; authored offsets instance once.
 function instancePartRepeat(part) {
-	if (part.repeat === undefined) {
-		part.repeat = null;
-		return;
-	}
+	if (part.repeat === undefined) return part.repeat = null;
 	part.repeat.offset.position = toUnitVector3(part.repeat.offset.position, "cnu");
 	part.repeat.offset.rotation = toUnitVector3(part.repeat.offset.rotation, "degrees").toRadians(true);
 }
@@ -76,7 +73,7 @@ const toRadianVector = (vector) => toUnitVector3(vector, "degrees").toRadians(tr
 // Scatter-only: a quality-tiered field is keyed low/medium/high, so each tier instances in place.
 function instanceScatterField(part, field, instancer) {
 	const value = part[field];
-	if (value.low === undefined) { part[field] = instancer(value); return; }
+	if (value.low === undefined) return part[field] = instancer(value);
 	for (const tier in value) value[tier] = instancer(value[tier]);
 }
 

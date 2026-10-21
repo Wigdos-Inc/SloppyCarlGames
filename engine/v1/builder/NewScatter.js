@@ -36,7 +36,9 @@ function hashNoise(x, z, seed) {
 	return value - Math.floor(value);
 }
 
-const primitiveGeometryKey = (prim, dim, comp, primOptions) => `${prim}_${dim.x}_${dim.y}_${dim.z}_${comp}_${primOptions}`;
+function primitiveGeometryKey(prim, dim, comp, primOptions) {
+	return `${prim}_${dim.x}_${dim.y}_${dim.z}_${comp}_${JSON.stringify(primOptions)}`;
+}
 
 // A quality-tiered field is an object keyed low/medium/high; anything else is a constant.
 const resolveTier = (value, tier) => (value.low === undefined ? value : value[tier]);
@@ -112,7 +114,10 @@ function resolveRootPart(parts, uniformScale) {
 
 	let selected = roots[0];
 	roots.forEach(candidate => {
-		if (candidate.stackY < selected.stackY) { selected = candidate; return; }
+		if (candidate.stackY < selected.stackY) {
+			selected = candidate;
+			return;
+		}
 		if (candidate.stackY === selected.stackY) {
 			if (getPartHalfHeight(candidate, uniformScale) > getPartHalfHeight(selected, uniformScale)) selected = candidate;
 		}

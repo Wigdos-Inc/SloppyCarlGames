@@ -9,17 +9,10 @@ import { Log } from "../core/meta.js";
 import { CapsuleFromAabb, ObbFromAabb, SphereFromAabb } from "../math/Collision.js";
 import { MultiplyVector3 } from "../math/Vector3.js";
 
-function MergeAabb(accumulator, bounds) {
-	if (!accumulator) {
-		return {
-			min: bounds.min.clone(),
-			max: bounds.max.clone(),
-		};
-	}
-
-	accumulator.min.min(bounds.min);
-	accumulator.max.max(bounds.max);
-
+function MergeAabb(accumulator, { min, max }) {
+	if (!accumulator) return { min: min.clone(), max: max.clone() };
+	accumulator.min.min(min);
+	accumulator.max.max(max);
 	return accumulator;
 }
 

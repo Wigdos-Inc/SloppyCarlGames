@@ -677,7 +677,10 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 					ctx.affectedDecalSources.add(entry);
 					break;
 				case "shape":
-					if (src.shape === null) { localWarnLog(`shape source '${key}' missing required 'shape' field`); continue; }
+					if (src.shape === null) {
+						localWarnLog(`shape source '${key}' missing required 'shape' field`);
+						continue;
+					}
 					src.mutable = false;
 					normalized[key] = src;
 					break;

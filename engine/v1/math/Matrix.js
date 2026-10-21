@@ -180,6 +180,18 @@ function CreateRenderMatrixCache(transform) {
 	};
 }
 
+// Undoes a rotate/scale/move matrix laid out like the render matrices.
+function InvertAffineMatrix(m) {
+	const [a, b, c, d, e, f, g, h, i] = [m[0], m[4], m[8], m[1], m[5], m[9], m[2], m[6], m[10]];
+	const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+	const r = [(e * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e) / det,
+		(f * g - d * i) / det, (a * i - c * g) / det, (c * d - a * f) / det,
+		(d * h - e * g) / det, (b * g - a * h) / det, (a * e - b * d) / det];
+	const [tx, ty, tz] = [m[12], m[13], m[14]];
+	return [r[0], r[3], r[6], 0, r[1], r[4], r[7], 0, r[2], r[5], r[8], 0,
+		-(r[0] * tx + r[1] * ty + r[2] * tz), -(r[3] * tx + r[4] * ty + r[5] * tz), -(r[6] * tx + r[7] * ty + r[8] * tz), 1];
+}
+
 // The six walls of what a projection × view matrix can see, each as [x, y, z, offset] facing inward.
 function FrustumPlanes(matrix) {
 	const row = (r) => [matrix[r], matrix[4 + r], matrix[8 + r], matrix[12 + r]];
@@ -197,6 +209,7 @@ export {
 	CreateRenderMatrix,
 	CreateRenderMatrixCache,
 	FrustumPlanes,
+	InvertAffineMatrix,
 	MultiplyMatrix4,
 	TransformPointByMatrix,
 };

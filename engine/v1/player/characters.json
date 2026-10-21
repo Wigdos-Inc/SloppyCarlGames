@@ -231,7 +231,7 @@
 			"acceleration": 100,
 			"deceleration": 100,
 			"stoppingThresholdRatio": 0.35,
-			"airControl": 0.1,
+			"airControl": 0.3,
 			"underwaterAirControl": 0.7,
 			"momentumTurnRate": 14,
 			"jumpHeight": 2,
@@ -466,17 +466,17 @@
 
 	"carl": {
 		"name": { "s": "Carl", "l": "Carl the Urgent Slug Urchin" },
-		"meta": { 
-			"maxSpeed": 25, 
-			"acceleration": 25, 
-			"deceleration": 10, 
-			"stoppingThresholdRatio": 0.35, 
-			"airControl": 0.5, 
-			"underwaterAirControl": 0.8, 
-			"momentumTurnRate": 14, 
-			"jumpHeight": 2.5, 
-			"airFloatiness": 0.8, 
-			"waterFloatiness": 1 
+		"meta": {
+			"maxSpeed": 25,
+			"acceleration": 25,
+			"deceleration": 10,
+			"stoppingThresholdRatio": 0.35,
+			"airControl": 0.5,
+			"underwaterAirControl": 0.8,
+			"momentumTurnRate": 14,
+			"jumpHeight": 2.5,
+			"airFloatiness": 0.8,
+			"waterFloatiness": 1
 		},
 		"physics": { "gravity": true, "buoyancy": true, "resistance": true, "correction": true, "collision": true },
 		"collisionOverride": { "physics": "auto", "hurtbox": "sphere", "hitbox": "sphere" },
@@ -1467,8 +1467,8 @@
 			"acceleration": 20,
 			"deceleration": 10,
 			"stoppingThresholdRatio": 0.35,
-			"airControl": 0.2,
-			"underwaterAirControl": 0.5,
+			"airControl": 0.5,
+			"underwaterAirControl": 0.25,
 			"momentumTurnRate": 14,
 			"jumpHeight": 2,
 			"airFloatiness": 1,

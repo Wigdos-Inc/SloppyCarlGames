@@ -6,7 +6,7 @@
 import { CONFIG } from "../../core/config.js";
 import { Log, SendEvent } from "../../core/meta.js";
 import { CloneVector3 } from "../../math/Vector3.js";
-import { CheckEntityAabbOverlap } from "../../physics/Collision.js";
+import { AabbOverlap } from "../../math/Collision.js";
 
 // Collectible pickup & removal from the scene.
 function HandleCollectiblePickups(playerState, sceneGraph) {
@@ -18,7 +18,7 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 
 		if (!entity.performance.physics) continue;
 
-		if (!CheckEntityAabbOverlap(playerState, entity)) continue;
+		if (!AabbOverlap(playerState.collision.aabb, entity.collision.aabb)) continue;
 
 		// Pickup!
 		playerState.collectibles = Math.min(playerState.collectibles + 1, playerState.maxCollectibles);

@@ -10,27 +10,28 @@ import {
 	BuildTriangleGrid,
 	MeshesIntersect,
 	PointInsideTriangleGrid,
-	SplitTriangleByPlane,
+	PointsAabb,
+	SplitPolygonByPlane,
 	TriangleAabb,
 	TriangleArea,
 	TriangleCentroid,
 	TriangleGridCandidates,
 	TriangleNormal
 } from "../math/Collision.js";
-import { Log } from "../core/meta.js";
+import { EPSILON, Log } from "../core/meta.js";
 import { GenerateUVs, GenerateFaceProjectedUvs } from "./NewObject.js";
 import VISUAL_TEMPLATES from "./templates/textures.json" with { type: "json" };
 import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { AddVector3, ArrayToVector3, DotVector3, ScaleVector3, SubtractVector3, Vector3ToArray } from "../math/Vector3.js";
 
 const interiorSampleDepth = new Unit(0.001, "cnu");
-const minimumOpenFaceArea = 0.000001;
+const planeTolerance = 0.0001;
 
-// World-space plain triangles. Intentionally not UnitVector3 — this is throwaway scratch geometry.
+// Convert a mesh to world-space triangles, as plain vectors for temporary cutting math.
 function buildWorldTriangles(mesh) {
 	const modelMatrix = CreateModelMatrix(mesh.transform);
 	const { positions, indices } = mesh.geometry;
-	const vertices    = [];
+	const vertices = [];
 
 	for (let i = 0; i < positions.length / 3; i++) {
 		vertices.push(TransformPointByMatrix(ArrayToVector3(positions, i, true), modelMatrix));
@@ -44,10 +45,16 @@ function buildWorldTriangles(mesh) {
 	return triangles;
 }
 
-// Cheap prefilter for cutting planes — an exact graze is a no-op split, not an error.
-function planeCrossesTriangle(planeNormal, planeOffset, triangle) {
+function polygonArea(polygon) {
+	let area = 0;
+	for (let i = 2; i < polygon.length; i++) area += TriangleArea(polygon[0], polygon[i - 1], polygon[i]);
+	return area;
+}
+
+// Check if the plane cuts through the polygon. Only touching it doesn't count.
+function planeCrossesPolygon(planeNormal, planeOffset, polygon) {
 	let front = 0, back = 0;
-	for (const vertex of [triangle.a, triangle.b, triangle.c]) {
+	for (const vertex of polygon) {
 		const distance = DotVector3(planeNormal, vertex) - planeOffset;
 		if (distance > 0) front++;
 		if (distance < 0) back++;
@@ -55,7 +62,7 @@ function planeCrossesTriangle(planeNormal, planeOffset, triangle) {
 	return front > 0 && back > 0;
 }
 
-// Lining pieces bucketed by source-face local normal — a clipped sliver can't re-derive one.
+// Group lining triangles that face the same way, using their original face's direction (tiny cut pieces can't give a reliable one).
 function groupCoplanarPieces(triples, normals) {
 	const normalGroups = [];
 	for (let i = 0; i < triples.length; i += 3) {
@@ -74,14 +81,13 @@ function groupCoplanarPieces(triples, normals) {
 	return normalGroups;
 }
 
-// Checks a sample of triangles and takes the majority vote, instead of testing every one (too slow on big tubes).
+// Find whether the void's triangles face into its cavity (1) or away (-1). Vote over a sample; checking every triangle is too slow on big tubes.
 function resolveCavitySign(solid) {
-	const { triangles } = solid;
-	const step = Math.max(1, Math.floor(triangles.length / 32));
+	const step = Math.max(1, Math.floor(solid.triangles.length / 32));
 	let inside = 0, sampled = 0;
 
-	for (let i = 0; i < triangles.length; i += step) {
-		const triangle = triangles[i];
+	for (let i = 0; i < solid.triangles.length; i += step) {
+		const triangle = solid.triangles[i];
 		const probe    = AddVector3(
 			TriangleCentroid(triangle.a, triangle.b, triangle.c), 
 			ScaleVector3(triangle.normal, interiorSampleDepth.value)
@@ -93,7 +99,7 @@ function resolveCavitySign(solid) {
 	return inside * 2 >= sampled ? 1 : -1;
 }
 
-// One void face in both spaces: local for the lining mesh, world (cavity-facing normal) for clipping.
+// Make a local copy of each void triangle for the lining mesh, and a world copy facing into the cavity for cutting.
 function buildVoidFaces(voidMesh, voidSolid) {
 	const modelMatrix = CreateModelMatrix(voidMesh.transform);
 	const indices     = voidMesh.geometry.indices;
@@ -127,7 +133,7 @@ function buildVoidFaces(voidMesh, voidSolid) {
 	return faces;
 }
 
-// Cutting data for one mesh: each triangle's bounds and plane, plus a grid for finding nearby triangles.
+// Build cutting data for one mesh: each triangle's bounds and plane, plus a grid for finding nearby triangles.
 function buildCuttingSolid(triangles, aabb) {
 	const triangleAabbs = triangles.map(TriangleAabb);
 	return {
@@ -135,26 +141,48 @@ function buildCuttingSolid(triangles, aabb) {
 		triangleAabbs,
 		planeOffsets: triangles.map((triangle) => DotVector3(triangle.normal, triangle.a)),
 		grid        : BuildTriangleGrid(triangles, triangleAabbs),
+		vertices    : [...new Set(triangles.flatMap((triangle) => [triangle.a, triangle.b, triangle.c]))],
+		clearSides  : new Array(triangles.length),                // Cached per triangle by clearSideOf.
 		aabb,
 	};
 }
 
-// Deduped cutting planes — the solid's triangles that straddle this triangle.
-function collectCrossingPlanes(solid, triangleAabb, triangle) {
+// Find which side of triangle `index` has no part of the solid: 1 front, -1 back, 0 neither. Cache it after first use.
+function clearSideOf(solid, index) {
+	if (solid.clearSides[index] !== undefined) return solid.clearSides[index];
+
+	const normal = solid.triangles[index].normal, offset = solid.planeOffsets[index];
+	let lowest = Infinity, highest = -Infinity;
+	for (const vertex of solid.vertices) {
+		const distance = DotVector3(normal, vertex) - offset;
+		lowest  = Math.min(lowest, distance);
+		highest = Math.max(highest, distance);
+	}
+	return solid.clearSides[index] = highest <= planeTolerance ? 1 : lowest >= -planeTolerance ? -1 : 0;
+}
+
+// Check if the piece sits on triangle `index`'s empty side, proving it's outside the solid. Lying flat on the triangle doesn't count.
+function outsideByWall(solid, index, polygon) {
+	const side = clearSideOf(solid, index);
+	if (side === 0) return false;
+
+	const normal    = solid.triangles[index].normal, offset = solid.planeOffsets[index];
+	const distances = polygon.map((vertex) => side * (DotVector3(normal, vertex) - offset));
+	return distances.every((distance) => distance >= -planeTolerance) && distances.some((distance) => distance > planeTolerance);
+}
+
+// Collect the solid's triangle planes that cut through this piece, skipping duplicates.
+function collectCrossingPlanes(solid, pieceAabb, polygon) {
 	const planes = [], planeKeys = new Set();
 
-	for (const i of TriangleGridCandidates(solid.grid, triangleAabb)) {
-		if (!AabbOverlap(solid.triangleAabbs[i], triangleAabb)) continue;
+	for (const i of TriangleGridCandidates(solid.grid, pieceAabb)) {
+		if (!AabbOverlap(solid.triangleAabbs[i], pieceAabb)) continue;
 
 		const normal = solid.triangles[i].normal, offset = solid.planeOffsets[i];
-		if (!planeCrossesTriangle(normal, offset, triangle)) continue;
+		if (!planeCrossesPolygon(normal, offset, polygon)) continue;
 
-		const key = `
-			${Math.round(normal.x * 1e4)}|
-			${Math.round(normal.y * 1e4)}|
-			${Math.round(normal.z * 1e4)}|
-			${Math.round(offset * 1e4)}
-		`;
+		const calc = (n) => Math.round(n * 1e4);
+		const key = `${calc(normal.x)}|${calc(normal.y)}|${calc(normal.z)}|${calc(offset)}`;
 		if (planeKeys.has(key)) continue;
 
 		planeKeys.add(key);
@@ -164,24 +192,21 @@ function collectCrossingPlanes(solid, triangleAabb, triangle) {
 	return planes;
 }
 
-// Sampling behind the face is what resolves a cap that sits exactly on the surface.
-function pieceInsideSolid(piece, solid) {
-	const sample = SubtractVector3(
-		TriangleCentroid(piece.a, piece.b, piece.c), 
-		ScaleVector3(piece.normal, interiorSampleDepth.value)
-	);
-	return PointInsideTriangleGrid(sample, solid.grid);
+// Check if a point just behind the piece's center is inside the solid (works even for pieces flush with its surface).
+function pieceInsideSolid(polygon, normal, solid) {
+	const center = ScaleVector3(polygon.reduce((sum, vertex) => AddVector3(sum, vertex)), 1 / polygon.length);
+	return PointInsideTriangleGrid(SubtractVector3(center, ScaleVector3(normal, interiorSampleDepth.value)), solid.grid);
 }
 
-// Triangle cut by every solid plane that straddles it; pieces outside the solid's AABB dropped.
-function splitTriangleBySolid(solid, triangle, triangleAabb) {
-	let pieces = [triangle];
+// Split a piece by every solid plane that crosses it, dropping parts outside the solid's box.
+function splitPolygonBySolid(solid, polygon, pieceAabb) {
+	let pieces = [polygon];
 
-	for (const plane of collectCrossingPlanes(solid, triangleAabb, triangle)) {
+	for (const plane of collectCrossingPlanes(solid, pieceAabb, polygon)) {
 		const survivors = [];
 		for (const piece of pieces) {
-			for (const split of SplitTriangleByPlane(piece, plane.normal, plane.offset)) {
-				if (AabbOverlap(TriangleAabb(split), solid.aabb)) survivors.push(split);
+			for (const split of SplitPolygonByPlane(piece, plane.normal, plane.offset) ?? [piece]) {
+				if (AabbOverlap(PointsAabb(split), solid.aabb)) survivors.push(split);
 			}
 		}
 		pieces = survivors;
@@ -190,56 +215,59 @@ function splitTriangleBySolid(solid, triangle, triangleAabb) {
 	return pieces;
 }
 
-// Host surface triangles clipped to the void solid — the exact opening, in the host's own plane.
+// Cut the host's surface down to the parts inside the void, giving the exact shape of the opening.
 function clipHostSurfaceToVoid(voidSolid, hostSolid) {
 	const openFaces = [];
+	const toUnit    = (vertex) => new UnitVector3(vertex.x, vertex.y, vertex.z, "cnu");
 
 	for (let i = 0; i < hostSolid.triangles.length; i++) {
-		const hostTriangle = hostSolid.triangles[i];
-		const hostAabb     = hostSolid.triangleAabbs[i];
+		const { a, b, c, normal } = hostSolid.triangles[i];
+		const hostAabb = hostSolid.triangleAabbs[i];
 		if (!AabbOverlap(hostAabb, voidSolid.aabb)) continue;
 
-		for (const piece of splitTriangleBySolid(voidSolid, hostSolid.triangles[i], hostAabb)) {
-			const { a, b, c, normal } = piece;
-			if (TriangleArea(a, b, c) < minimumOpenFaceArea) continue;
-			if (!pieceInsideSolid(piece, voidSolid)) continue;
+		for (const piece of splitPolygonBySolid(voidSolid, [a, b, c], hostAabb)) {
+			if (!pieceInsideSolid(piece, normal, voidSolid)) continue;
 
-			openFaces.push({
-				a     : new UnitVector3(a.x, a.y, a.z, "cnu"),
-				b     : new UnitVector3(b.x, b.y, b.z, "cnu"),
-				c     : new UnitVector3(c.x, c.y, c.z, "cnu"),
-				normal: new UnitVector3(normal.x, normal.y, normal.z, "cnu"),
-			});
+			for (let corner = 2; corner < piece.length; corner++) {
+				if (TriangleArea(piece[0], piece[corner - 1], piece[corner]) < EPSILON) continue;
+				openFaces.push({ a: toUnit(piece[0]), b: toUnit(piece[corner - 1]), c: toUnit(piece[corner]), normal: toUnit(normal) });
+			}
 		}
 	}
 
 	return openFaces;
 }
 
-// Kept host surface after one void, appended to `output`. Candidates narrow as pieces shrink.
-function carveTriangleByVoid(hostTriangle, voidSolid, output) {
-	const hostAabb = TriangleAabb(hostTriangle);
-	if (!AabbOverlap(hostAabb, voidSolid.aabb)) { output.push(hostTriangle); return; }
+// Cut away the parts of a polygon inside one void and append what's left to `output`.
+function carvePolygonByVoid(polygon, normal, voidSolid, output) {
+	const hostAabb = PointsAabb(polygon);
+	if (!AabbOverlap(hostAabb, voidSolid.aabb)) return output.push(polygon);
 
-	const stack = [{ piece: hostTriangle, candidates: TriangleGridCandidates(voidSolid.grid, hostAabb) }];
+	const stack = [{ piece: polygon, candidates: TriangleGridCandidates(voidSolid.grid, hostAabb) }];
 
 	while (stack.length > 0) {
 		const { piece, candidates } = stack.pop();
-		const pieceAabb = TriangleAabb(piece);
-		if (!AabbOverlap(pieceAabb, voidSolid.aabb)) { output.push(piece); continue; }
+		const pieceAabb = PointsAabb(piece);
+		if (!AabbOverlap(pieceAabb, voidSolid.aabb)) {
+			output.push(piece);
+			continue;
+		}
 
 		const near = [];
 		for (const index of candidates) if (AabbOverlap(voidSolid.triangleAabbs[index], pieceAabb)) near.push(index);
 
+		// Keep the piece whole if a nearby void triangle shows it's outside. Triangles with an empty side are tried first.
+		near.sort((first, second) => Math.abs(clearSideOf(voidSolid, second)) - Math.abs(clearSideOf(voidSolid, first)));
+		if (near.some((index) => outsideByWall(voidSolid, index, piece))) {
+			output.push(piece);
+			continue;
+		}
+
+		// Only accept a split that actually cuts the piece in two; otherwise the loop could repeat forever.
 		let parts = null;
 		for (const index of near) {
-			const normal = voidSolid.triangles[index].normal;
-			const offset = voidSolid.planeOffsets[index];
-			if (!planeCrossesTriangle(normal, offset, piece)) continue;
-
-			// Only accept a split that actually cuts the piece in two; otherwise the loop could repeat forever.
-			const split = SplitTriangleByPlane(piece, normal, offset);
-			if (split.length > 1) { parts = split; break; }
+			parts = SplitPolygonByPlane(piece, voidSolid.triangles[index].normal, voidSolid.planeOffsets[index]);
+			if (parts !== null) break;
 		}
 
 		if (parts !== null) {
@@ -247,37 +275,33 @@ function carveTriangleByVoid(hostTriangle, voidSolid, output) {
 			continue;
 		}
 
-		if (TriangleArea(piece.a, piece.b, piece.c) >= minimumOpenFaceArea && pieceInsideSolid(piece, voidSolid)) continue;
+		if (polygonArea(piece) >= EPSILON && pieceInsideSolid(piece, normal, voidSolid)) continue;
 		output.push(piece);
 	}
 }
 
-// Precomputed values for locating a point within a triangle, used to rebuild split vertices.
+// Precompute values for locating a point within a triangle, used to rebuild split vertices.
 function barycentricBasis(a, b, c) {
-	const edge0 = SubtractVector3(b, a);
-	const edge1 = SubtractVector3(c, a);
-	const d00   = DotVector3(edge0, edge0);
-	const d01   = DotVector3(edge0, edge1);
-	const d11   = DotVector3(edge1, edge1);
+	const edge0 = SubtractVector3(b, a), edge1 = SubtractVector3(c, a);
+	const d00   = DotVector3(edge0, edge0), d01   = DotVector3(edge0, edge1), d11   = DotVector3(edge1, edge1);
 	return { edge0, edge1, d00, d01, d11, origin: a, denominator: d00 * d11 - d01 * d01 };
 }
 
 function barycentricWeights(basis, point) {
 	const offset = SubtractVector3(point, basis.origin);
-	const d20    = DotVector3(offset, basis.edge0);
-	const d21    = DotVector3(offset, basis.edge1);
+	const d20    = DotVector3(offset, basis.edge0), d21    = DotVector3(offset, basis.edge1);
 	return {
 		v: (basis.d11 * d20 - basis.d01 * d21) / basis.denominator,
 		w: (basis.d00 * d21 - basis.d01 * d20) / basis.denominator,
 	};
 }
 
-// Kept within the source corners, so a blended vertex never grows the bounds.
+// Blend one coordinate across a triangle's corners, clamped to their range to never grow the bounds.
 function blendAxis(a0, a1, a2, v, w) {
 	return Math.min(Math.max(a0 + v * (a1 - a0) + w * (a2 - a0), Math.min(a0, a1, a2)), Math.max(a0, a1, a2));
 }
 
-// Corners keep their source index; clip crossings are blended into local space and deduped per face.
+// Return a lining vertex id. Reuse original corner ids; give new cut points a local-space vertex shared within the face.
 function appendLiningVertex(lining, face, vertex) {
 	const corner = vertex === face.world.a ? 0 : vertex === face.world.b ? 1 : vertex === face.world.c ? 2 : -1;
 	const key    = corner >= 0
@@ -307,18 +331,19 @@ function appendLiningVertex(lining, face, vertex) {
 	return id;
 }
 
-// Void surface clipped to one host solid, minus whatever a neighbouring void already removed.
-// Overlapping voids carve a union, so only the union's outer surface may be lined.
+// Build the void's lining inside one host, skipping parts that a neighbouring void already opens up.
 function buildHostLining(voidFaces, hostSolid, neighbours) {
 	const lining = { positions: [], triples: [], normals: [], worldTriangles: [], vertexIds: new Map() };
 
 	for (const face of voidFaces) {
 		if (!AabbOverlap(face.aabb, hostSolid.aabb)) continue;
 
+		const { a, b, c, normal } = face.world;
+
 		let pieces = [];
-		for (const piece of splitTriangleBySolid(hostSolid, face.world, face.aabb)) {
-			if (TriangleArea(piece.a, piece.b, piece.c) < minimumOpenFaceArea) continue;
-			if (pieceInsideSolid(piece, hostSolid)) pieces.push(piece);
+		for (const piece of splitPolygonBySolid(hostSolid, [a, b, c], face.aabb)) {
+			if (polygonArea(piece) < EPSILON) continue;
+			if (pieceInsideSolid(piece, normal, hostSolid)) pieces.push(piece);
 		}
 
 		for (const solid of neighbours) {
@@ -326,27 +351,29 @@ function buildHostLining(voidFaces, hostSolid, neighbours) {
 			if (!AabbOverlap(face.aabb, solid.aabb)) continue;
 
 			const kept = [];
-			for (const piece of pieces) carveTriangleByVoid(piece, solid, kept);
+			for (const piece of pieces) carvePolygonByVoid(piece, normal, solid, kept);
 			pieces = kept;
 		}
 
 		for (const piece of pieces) {
-			if (TriangleArea(piece.a, piece.b, piece.c) < minimumOpenFaceArea) continue;
+			const ids = piece.map((vertex) => appendLiningVertex(lining, face, vertex));
 
-			const a = appendLiningVertex(lining, face, piece.a);
-			const b = appendLiningVertex(lining, face, piece.b);
-			const c = appendLiningVertex(lining, face, piece.c);
-			if (face.flipWinding) lining.triples.push(a, c, b);
-			else lining.triples.push(a, b, c);
-			lining.normals.push(face.localNormal);
-			lining.worldTriangles.push({ w0: piece.a, w1: piece.b, w2: piece.c, normal: piece.normal });
+			for (let corner = 2; corner < piece.length; corner++) {
+				if (TriangleArea(piece[0], piece[corner - 1], piece[corner]) < EPSILON) continue;
+
+				if (face.flipWinding) lining.triples.push(ids[0], ids[corner], ids[corner - 1]);
+				else lining.triples.push(ids[0], ids[corner - 1], ids[corner]);
+
+				lining.normals.push(face.localNormal);
+				lining.worldTriangles.push({ w0: piece[0], w1: piece[corner - 1], w2: piece[corner], normal });
+			}
 		}
 	}
 
 	return lining;
 }
 
-// Rewrites the host index buffer around its voids. Vertices are only appended, so bounds from `positions` don't change.
+// Cut the voids out of the host's triangles. Existing vertices never move, keeping the host's bounds valid.
 function carveHostGeometry(hostMesh, voidSolids) {
 	const { positions, uvs, indices, faceTextureGroups } = hostMesh.geometry;
 	const posSliced = positions.slice(), uvsSliced = uvs.slice();
@@ -364,23 +391,30 @@ function carveHostGeometry(hostMesh, voidSolids) {
 			const { x: i0, y: i1, z: i2 } = ArrayToVector3(indices, i);
 			const a = worldVertex(i0), b = worldVertex(i1), c = worldVertex(i2);
 
-			// Degenerate source (sphere/cone poles): no surface to carve.
+			// Keep zero-area triangles (sphere and cone tips) as they are; there's nothing to cut.
 			const basis = barycentricBasis(a, b, c);
-			if (basis.denominator === 0) { newIndices.push(i0, i1, i2); continue; }
+			if (basis.denominator === 0) {
+				newIndices.push(i0, i1, i2);
+				continue;
+			}
 
-			const source = { a, b, c, normal: TriangleNormal(a, b, c) };
+			const source = [a, b, c];
+			const normal = TriangleNormal(a, b, c);
 
 			let pieces = [source];
 			for (const solid of voidSolids) {
 				const kept = [];
-				for (const piece of pieces) carveTriangleByVoid(piece, solid, kept);
+				for (const piece of pieces) carvePolygonByVoid(piece, normal, solid, kept);
 				pieces = kept;
 				if (pieces.length === 0) break;
 			}
 
-			if (pieces.length === 1 && pieces[0] === source) { newIndices.push(i0, i1, i2); continue; }
+			if (pieces.length === 1 && pieces[0] === source) {
+				newIndices.push(i0, i1, i2);
+				continue;
+			}
 
-			// Corners keep their original index; crossings are blended and deduped per source triangle.
+			// Reuse original corner indices; give new cut points a blended vertex shared within this triangle.
 			const resolveVertex = (vertex) => {
 				switch (vertex) {
 					case a: return i0;
@@ -416,7 +450,10 @@ function carveHostGeometry(hostMesh, voidSolids) {
 				return index;
 			};
 
-			for (const piece of pieces) newIndices.push(resolveVertex(piece.a), resolveVertex(piece.b), resolveVertex(piece.c));
+			for (const piece of pieces) {
+				const ids = piece.map(resolveVertex);
+				for (let corner = 2; corner < ids.length; corner++) newIndices.push(ids[0], ids[corner - 1], ids[corner]);
+			}
 		}
 
 		const indexCount = newIndices.length - groupStart;
@@ -475,7 +512,7 @@ function collectRelationHosts(voidSolid, hosts) {
 	return related;
 }
 
-// worldAabb plus floor/wall one-sided "voidWall" soups — split so floor isn't masked by wall.
+// Build collision bounds for a lining. Keep floor and walls apart so a wall contact can't hide the floor contact.
 function buildVoidCollision(worldTriangles) {
 	const min = new UnitVector3(Infinity, Infinity, Infinity, "cnu");
 	const max = new UnitVector3(-Infinity, -Infinity, -Infinity, "cnu");
@@ -502,19 +539,15 @@ function buildVoidCollision(worldTriangles) {
 }
 
 function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale) {
-	const material        = defaultMesh.material;
-	const liningPositions = lining.positions;
-	const collision       = buildVoidCollision(lining.worldTriangles);
-
+	const material  = defaultMesh.material;
+	const collision = buildVoidCollision(lining.worldTriangles);
 	const textureBlueprint = VISUAL_TEMPLATES.textures[defaultMesh.detail.texture.id];
 
 	if (textureBlueprint.pattern === "noise") {
 		const normalGroups = groupCoplanarPieces(lining.triples, lining.normals);
 
-		const newPositions  = [];
-		const newIndices    = [];
+		const newPositions = [], newIndices = [], faceGroupData = [];
 		const indexMap      = new Map();
-		const faceGroupData = [];
 
 		for (const group of normalGroups) {
 			const indexStart = newIndices.length;
@@ -522,7 +555,7 @@ function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale) {
 			for (const origIdx of group.triples) {
 				if (!indexMap.has(origIdx)) {
 					indexMap.set(origIdx, newPositions.length / 3);
-					newPositions.push(...Vector3ToArray(ArrayToVector3(liningPositions, origIdx, true)));
+					newPositions.push(...Vector3ToArray(ArrayToVector3(lining.positions, origIdx, true)));
 				}
 				newIndices.push(indexMap.get(origIdx));
 			}
@@ -534,7 +567,7 @@ function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale) {
 
 		const positionArray = new Float32Array(newPositions);
 
-		// Raw UVs scaled to the tile's world size — per-face bakes collapse to 1x1 on curved facets.
+		// Scale position-based UVs to the texture's tile size, instead of fitting the whole texture onto each small curved face.
 		const uvs       = GenerateFaceProjectedUvs(positionArray, faceGroupData, false);
 		for (let i = 0; i < uvs.length; i++) uvs[i] *= (textureScale / textureBlueprint.size);
 
@@ -552,7 +585,7 @@ function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale) {
 				opacity    : material.opacity,
 				transparent: material.transparent,
 			},
-			// Every lining carries its host's texture so the registry can resolve its id.
+			// Give every lining its host's texture so the registry can resolve its id.
 			detail           : { texture: defaultMesh.detail.texture },
 			geometry: {
 				positions       : positionArray,
@@ -562,19 +595,20 @@ function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale) {
 			worldAabb  : collision.worldAabb,
 			floorBounds: collision.floorBounds,
 			wallBounds : collision.wallBounds,
+			occluded   : false,
 		};
 
 		return mesh;
 	}
 
-	// Non-noise / tiling branch: flat remapping, per-triangle face groups, tiling UVs.
+	// Other textures: use one face group per triangle, with tiling UVs.
 	const indexMap     = new Map();
 	const newPositions = [], newIndices = [], faceGroups = [];
 
 	for (const origIdx of lining.triples) {
 		if (!indexMap.has(origIdx)) {
 			indexMap.set(origIdx, newPositions.length / 3);
-			newPositions.push(...Vector3ToArray(ArrayToVector3(liningPositions, origIdx, true)));
+			newPositions.push(...Vector3ToArray(ArrayToVector3(lining.positions, origIdx, true)));
 		}
 		newIndices.push(indexMap.get(origIdx));
 	}
@@ -612,12 +646,13 @@ function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale) {
 		worldAabb  : collision.worldAabb,
 		floorBounds: collision.floorBounds,
 		wallBounds : collision.wallBounds,
+		occluded   : false,
 	};
 
 	return mesh;
 }
 
-// One void↔host pairing. Deferred: a lining can only be cut once every void on that host is known.
+// Record a void and host to process later, once every void touching that host is known.
 function queuePairing(pairings, carveQueue, relations, host, voidMesh, voidFaces, voidSolid) {
 	if (!relations[host.recordId]) {
 		relations[host.recordId] = { suppressed: true, openFaces: [], voidWallMeshes: [] };
@@ -626,7 +661,7 @@ function queuePairing(pairings, carveQueue, relations, host, voidMesh, voidFaces
 	queueCarve(carveQueue, host.mesh, voidSolid);
 }
 
-// The host-clipped lining mesh, plus the void-clipped host openings.
+// Build each pairing's lining mesh and the opening it cuts in its host.
 function drainPairings(pairings, carveQueue, textureScale) {
 	for (const { relation, host, voidMesh, voidFaces, voidSolid } of pairings) {
 		const neighbours = carveQueue.get(host.mesh).filter((solid) => solid !== voidSolid);

@@ -7,7 +7,7 @@
 // Core diagnostics and logging support.
 
 // Engine API function imports.
-import { Log, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey, ReleasePointerLock, DeepFreeze } from "./meta.js";
+import { Log, AddLogChannel, LogAll, LogCache, IsPointerLocked, RequestPointerLock, SendEvent, Wait, Cache, Cursor, ExitGame, PushToSession, ReadFromSession, SESSION_KEYS as SessionKey, ReleasePointerLock, DeepFreeze } from "./meta.js";
 import { CONFIG as Config } from "./config.js";
 import { ApplyMenuUI, LoadScreen, ClearUI, ConvertHTML } from "../handlers/UI.js";
 import { Controls, StartInputRouter } from "../handlers/Controls.js";
@@ -46,9 +46,10 @@ function Initialize() {
     Config,
     Cache,
     Meta: {
-      LogAll, LogCache, ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
+      Logging: { LogAll, Cache: LogCache, AddChannel: AddLogChannel },
+      ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
       SessionKey, CNU_SCALE, DeepFreeze,
-      Version: "0.34.6",
+      Version: "0.35",
     },
     Controls,
     Input   : Object.freeze({ Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, }),

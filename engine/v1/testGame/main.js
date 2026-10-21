@@ -11,6 +11,10 @@ StartEngine();
 const { initEngine } = await import("./engineHelpers.js");
 initEngine(ENGINE);
 
+// Game log channels the engine doesn't define.
+ENGINE.Meta.Logging.AddChannel("Game");
+ENGINE.Meta.Logging.AddChannel("Settings");
+
 // Import other testGame modules after engine helpers are initialized.
 await import("./menus/ui.js");
 await import("./cutscene/cutscene.js");
@@ -57,6 +61,9 @@ const GRADED_LEVELS = ["Low", "Medium", "High"];
 const DISTANCE_LEVELS = ["Low", "Medium", "High", "Ultra"];
 const PRESET_LEVELS = ["Low", "Medium", "High", "Custom"];
 const PRESET_TIERS = PRESET_LEVELS.slice(0, -1);
+
+// Last frame rate slider notch, saved as a number and sent to the engine as Infinity.
+const UNCAPPED_FRAME_RATE = 145;
 
 const saveSettings = (settings) => localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 
@@ -131,14 +138,14 @@ function updateFrameRateVisual(targetId, value) {
 	const input = document.getElementById(targetId);
 	if (!input) return;
 	const min = Number(input.min) || 30;
-	const max = Number(input.max) || 144;
+	const max = Number(input.max) || UNCAPPED_FRAME_RATE;
 	const stepped = ENGINE.Math.Other.Clamp(Math.round(value), min, max);
 	const percent = Math.round(((stepped - min) / (max - min)) * 100);
 	input.value = String(stepped);
 	input.style.background = buildSliderGradient(percent);
 
 	const labelElement = document.getElementById(`${targetId}-percent`);
-	if (labelElement) labelElement.textContent = String(stepped);
+	if (labelElement) labelElement.textContent = stepped === UNCAPPED_FRAME_RATE ? "∞" : String(stepped);
 }
 
 function updateToggleVisual(toggleId, isOn) {
@@ -232,7 +239,7 @@ function applySettings(settings) {
 	cfg.Performance.Particles = settings.particles;
 	cfg.Performance.SimDistance = settings.simDistance;
 	cfg.Performance.Animations = settings.animations;
-	cfg.Performance.FrameRate = settings.frameRate;
+	cfg.Performance.FrameRate = settings.frameRate === UNCAPPED_FRAME_RATE ? Infinity : settings.frameRate;
 	cfg.Performance.Resolution = settings.resolution;
 
 	ENGINE.Audio.UpdateActiveAudioVolumes();
@@ -426,14 +433,15 @@ function handleSettingsInput(payload) {
 	}
 
 	if (resolvedTargetId === "setting-frame-rate" && typeof value === "number") {
-		const stepped = ENGINE.Math.Other.Clamp(Math.round(value), 30, 144);
+		const stepped = ENGINE.Math.Other.Clamp(Math.round(value), 30, UNCAPPED_FRAME_RATE);
 		settings.frameRate = stepped;
 		changedKey = "frameRate";
 		changedValue = stepped;
 		updateFrameRateVisual("setting-frame-rate", stepped);
 	}
 
-	if (!changedKey) return;
+	// Sliders only update visuals while dragged and commit on release.
+	if (!changedKey || payload.type === "input") return;
 
 	saveSettings(settings);
 	applySettings(settings);

@@ -1,6 +1,6 @@
 // Defines and exports all applicable shaders for Render.js
 
-import { FILTER_TUNING, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../../core/config.js";
+import { CONFIG, DEBUG_COLORS, FILTER_TUNING, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../../core/config.js";
 import { Log } from "../../core/meta.js";
 import { ResolveVector3Axis } from "../../math/Vector3.js";
 
@@ -10,6 +10,7 @@ function createShader(gl, type, source) {
 		Log("ENGINE", `Shader creation failed (type ${type})`, "error", "Render");
 		return null;
 	}
+
 	gl.shaderSource(shader, source);
 	gl.compileShader(shader);
 	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -17,6 +18,7 @@ function createShader(gl, type, source) {
 		gl.deleteShader(shader);
 		return null;
 	}
+	
 	return shader;
 }
 
@@ -39,6 +41,10 @@ function createLinkedProgram(gl, options) {
 
 	gl.attachShader(program, vertex);
 	gl.attachShader(program, fragment);
+
+	// Bind every attribute to a fixed slot so inputs the flat shader doesn't read still get a valid location.
+	const attributeSlots = Object.values(options.attributeNames || {});
+	attributeSlots.forEach((name, slot) => gl.bindAttribLocation(program, slot, name));
 	gl.linkProgram(program);
 
 	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
@@ -51,7 +57,7 @@ function createLinkedProgram(gl, options) {
 
 	return {
 		program,
-		attributes: resolveProgramLocations(options.attributeNames || {}, (name) => gl.getAttribLocation(program, name)),
+		attributes: resolveProgramLocations(options.attributeNames || {}, (name) => attributeSlots.indexOf(name)),
 		uniforms: resolveProgramLocations(options.uniformNames, (name) => gl.getUniformLocation(program, name)),
 	};
 }
@@ -107,18 +113,12 @@ function createFoggedTextureFragmentShader(
 	// Premultiplied textures: color shift and fog are scaled by alpha as well.
 	const shiftExpr    = premultiplied ? "shaded.rgb + u_colorShift * shaded.a" : "shaded.rgb + u_colorShift";
 	const fogColorExpr = premultiplied ? "fogColor * shaded.a"                  : "fogColor";
-	return `#version 300 es
-		precision highp float;
-		uniform sampler2D u_texture;
-		uniform float u_fogFull;
-		uniform vec3 u_colorShift;
-		${skySampleGLSL}
-		${sharedDeclarations}
-		${varyings}
-		in vec3 v_viewPos;
-		out vec4 fragColor;
-		${comicLightGLSL}
-		void main() {
+
+	// Flat shading tester: one color, no lighting, texture or fog.
+	const flat = DEBUG_COLORS.FlatShading;
+	const body = CONFIG.Debug.All && CONFIG.Debug.Levels.Performance.FlatShading
+		? `fragColor = vec4(${flat.r.toFixed(4)}, ${flat.g.toFixed(4)}, ${flat.b.toFixed(4)}, 1.0);`
+		: `
 			// Light steps first, before the decal cut below can discard the pixel.
 			float comicShade = comicLight();
 
@@ -137,6 +137,21 @@ function createFoggedTextureFragmentShader(
 			vec3 fogColor = sampleSky(viewRayElevation(v_viewPos, viewDist));
 			vec3 finalColor = mix(shifted, ${fogColorExpr}, fog);
 			fragColor = vec4(finalColor, shaded.a);
+		`;
+
+	return `#version 300 es
+		precision highp float;
+		uniform sampler2D u_texture;
+		uniform float u_fogFull;
+		uniform vec3 u_colorShift;
+		${skySampleGLSL}
+		${sharedDeclarations}
+		${varyings}
+		in vec3 v_viewPos;
+		out vec4 fragColor;
+		${comicLightGLSL}
+		void main() {
+			${body}
 		}
 	`;
 }
