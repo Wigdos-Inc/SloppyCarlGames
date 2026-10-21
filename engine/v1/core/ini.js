@@ -42,9 +42,7 @@ function Initialize() {
 
   // Create, freeze and expose the engine public API surface.
   return DeepFreeze({
-    Log,
-    Config,
-    Cache,
+    Log, Config, Cache,
     Meta: {
       Logging: { LogAll, Cache: LogCache, AddChannel: AddLogChannel },
       ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,

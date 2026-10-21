@@ -134,20 +134,22 @@ Version Goals:
       - Center the pyramid: its base sits at y=0, so the bottom-center lift floats it by half its height. Carl has pyramid-hosted decals, so check him after. [DONE]
   5. FrameRate Coercion [DONE]
   6. Todo Performance Enhancements [DONE]
-- 0.35 Occlusion Culling & CPU Optimizations [CURRENT]
+- 0.35 Occlusion Culling & CPU Optimizations [PATCHING]
     - Built: blocker culling in Render.js hideOccluded, helpers in math/Collision.js, occluder records from NewTerrain.js. ARGUS: 0 false hides on lvl2, stress grid, LSM. Scope: docs/scoping/render/culling-scope.md §4.5.
-  1. orbitCam Rework [PENDING]
+  1. Crash Fixes [DONE]
+  2. orbitCam Rework [PENDING]
     - Games can't set the initial camera yaw or the player's spawn facing (LSM rotated its whole level 180° to work around it).
     - Mouse sensitivity is read once at level start, so a settings change mid-level does nothing until the next level.
-  2. Sprite/Bilboard Support (rotating images that resize based on distance) [PENDING]
+    - Look into problem where hideOccluded only runs when Debug Mode is disabled (occlusion culling should run regardless)
+  3. Sprite/Bilboard Support (rotating images that resize based on distance) [PENDING]
     - Look into adding mipmaps to remove the weird rounded artifacts at a distance.
-  3. Movement Enhancements. [PENDING]
+  4. Movement Enhancements. [PENDING]
     - Release jump early for quicker falloff.
     - Solve over-rotation in above-water tunnel.
     - Store medium (Water/Air) on entity definition (e.g. playerState)
     - If holding "A", then pressing and releasing "D", "A" stops working until it's pressed again. This must be fixed.
     - Jumping off a sloped surface doesn't feel correct because you keep so much upwards momentum. It can feel like you're still jumping "up" while you're rotated 80 degrees, which is not how jumping should feel.
-  4. Look into why moving and running through voids causes performance drops. [PENDING]
+  5. Look into why moving and running through voids causes performance drops. [PENDING]
 - 0.36: Workers (Multi-Threading) [PENDING]
   - Needs a full scoping pass.
   - Consider a coordinator/state manager. If small, an exported "Workforce" object in meta.js acting as the state manager could work quite well. It'd check if workers are available and assign them.

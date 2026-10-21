@@ -1721,7 +1721,8 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 	// Grows a box by its pad plus a margin that widens with distance, then checks it against each blocker, cheapest test first.
 	function behindBlocker(aabb, pad) {
 		const d = MaxVector3(SubtractVector3(aabb.min, camera), MaxVector3(ToVector3(0), SubtractVector3(camera, aabb.max)));
-		const grow = pad + 0.05 + Math.sqrt(DotVector3(d)) * 0.002;
+		console.error(d, aabb.min, camera, aabb.max);
+		const grow = pad + 0.05 + Math.sqrt(Vector3Sq(d)) * 0.002;
 		for (let k = 0; k < 8; k++) {
 			wx[k] = k & 1 ? aabb.max.x + grow : aabb.min.x - grow;
 			wy[k] = k & 2 ? aabb.max.y + grow : aabb.min.y - grow;
