@@ -4,7 +4,7 @@ let entitiesDataPromise = null;
 function loadLevelsData() {
 	if (!levelsDataPromise) {
 		levelsDataPromise = Promise.all(
-			["./levels.json", "./lvl2.json", "./lvlStress.json"].map((path) =>
+			["./levels.json", "./lvl2.json"].map((path) =>
 				fetch(new URL(path, import.meta.url)).then((response) => response.json())
 			)
 		).then((files) => ({ levels: files.flatMap((file) => file.levels) }));

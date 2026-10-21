@@ -411,7 +411,7 @@ function BuildObject(source) {
 			ResolveTextureBlueprint(textureBlueprint, texture), 
 			geometry.faceGroups, faceSpans, textureScale, 
 			BuildNoiseAnimationOptions(textureBlueprint, texture)
-		);;
+		);
 		return { mesh };
 	}
 

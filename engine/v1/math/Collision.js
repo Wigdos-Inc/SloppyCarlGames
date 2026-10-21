@@ -1058,8 +1058,12 @@ function PointInsideTriangleGrid(point, grid) {
 		const tx = (min.x + (x + 1) * cellSize - point.x) / ray.x;
 		const ty = (min.y + (y + 1) * cellSize - point.y) / ray.y;
 		const tz = (min.z + (z + 1) * cellSize - point.z) / ray.z;
-		if (tx <= ty && tx <= tz) if (++x === nx) break;
-		else if (ty <= tz)        if (++y === ny) break; 
+		if (tx <= ty && tx <= tz) { 
+			if (++x === nx) break; 
+		}
+		else if (ty <= tz) { 
+			if (++y === ny) break; 
+		}
 		else if (++z === nz) break;
 	}
 
@@ -1175,8 +1179,10 @@ function VoidCutBoxes(solidTriangles, centerline, inverse) {
 
 // What's left of a box once a cut is removed: up to 6 solid slabs around it.
 function subtractBox(box, cut) {
-	const apart = CompareVector3(cut.max, box.min, "lesser-loose") || CompareVector3(cut.min, box.max, "greater-loose");
-	if (apart.x || apart.y || apart.z) return [box];
+	const apartX = cut.max.x <= box.min.x || cut.min.x >= box.max.x;
+	const apartY = cut.max.y <= box.min.y || cut.min.y >= box.max.y;
+	const apartZ = cut.max.z <= box.min.z || cut.min.z >= box.max.z;
+	if (apartX || apartY || apartZ) return [box];
 
 	const out = [], lo = { ...box.min }, hi = { ...box.max };
 	for (const axis of ["x", "y", "z"]) {

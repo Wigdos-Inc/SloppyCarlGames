@@ -752,7 +752,7 @@ function BuildFaceTextureData(store, textureID, resolvedBlueprint, faceGroupData
 		});
 		faceTextureGroups.push({ indexStart: group.indexStart, indexCount: group.indexCount, textureID: faceID });
 	}
-	return { faceTextureGroups };
+	return faceTextureGroups;
 }
 
 export {
