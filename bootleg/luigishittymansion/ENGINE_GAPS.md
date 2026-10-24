@@ -21,7 +21,7 @@ Written while building a third-person ghost-vacuuming game on CNE v0.34.3 from o
 6. **Player health / damage / respawn aren't game-controllable**, and engine combat soft-locks the
    player after one hit (📖). (§2)
 7. **Left mouse never reaches the game in a level** (✅): the camera swallows `pointerdown`. (§3)
-8. **Initial camera yaw and spawn facing can't be set** (✅) — I rotated the whole level 180°. (§7)
+8. ~~**Initial camera yaw and spawn facing can't be set**~~ — **resolved in CNE 0.35.2:** `player.rootTransform.rotation` sets the facing and orbitCam opens behind it; the 180° level rotation is gone. (§9)
 9. **No lighting, and fog is welded to SimDistance** (✅). (§5)
 10. **Dead or misleading surface area** (✅/📖): `Input.boost`, `movement.chase/aggroRange/attacks`,
     `camera.sensitivity`, level `music`, non-camera trigger types all validate and do nothing.
@@ -202,10 +202,11 @@ Written while building a third-person ghost-vacuuming game on CNE v0.34.3 from o
 
 - **[FRICTION] No camera-direction API.** Aim-where-you-look needs camera forward; the only route is
   `GetActiveLevel().cameraConfig.state.forward`. ✅
-- **[FRICTION] Initial camera yaw and spawn facing can't be set.** orbitCam opens on the player's +Z side
-  and the player spawns facing +Z, so I rotated the whole level 180° at the payload boundary. ✅
+- ~~**[FRICTION] Initial camera yaw and spawn facing can't be set.**~~ Resolved in CNE 0.35.2: the player
+  payload takes `rootTransform` (+ optional `spawnSurfaceId`), its rotation sets the spawn facing, and
+  orbitCam opens behind it. LSM no longer rotates the level.
 - **[PAPERCUT] `camera.sensitivity` and `levelOpening.endPosition` have no consumer.** 📖
-- **[PAPERCUT] Mouse sensitivity is latched at level start.** 📖
+- ~~**[PAPERCUT] Mouse sensitivity is latched at level start.**~~ Resolved in CNE 0.35.2: read live.
 - **[PAPERCUT] No invert-Y option.** ✅
 
 ## 10. Pause

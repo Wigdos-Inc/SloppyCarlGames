@@ -1,5 +1,5 @@
 // Chapter 1 level payload: mansion shell + furniture + pooled entities.
-import { rgb, Flip } from "./build.js";
+import { rgb } from "./build.js";
 import { BuildShell, ROOMS, RoomById, RoomCenter, WALL_HEIGHT, WINDOW } from "./mansion.js";
 import * as F from "./furniture.js";
 import { BuildBlueprints } from "./blueprints.js";
@@ -47,12 +47,6 @@ export const HEARTS = [
 
 const roomOf = (x, z) => ROOMS.find((room) => x >= room.x[0] && x < room.x[1] && z >= room.z[0] && z < room.z[1]);
 
-function flipObject(object) {
-	object.position = { ...object.position, ...Flip(object.position.x, object.position.z) };
-	object.rotation = { ...object.rotation, y: object.rotation.y + 180 };
-	return object;
-}
-
 // Entities are placed relative to their spawn surface's top-center; every one sits on a room floor.
 function placement(id, type, blueprintId, x, z, yaw = 0) {
 	const room = roomOf(x, z);
@@ -63,8 +57,8 @@ function placement(id, type, blueprintId, x, z, yaw = 0) {
 		blueprintId,
 		spawnSurfaceId: `${room.id}-floor`,
 		rootTransform: {
-			position: { x: center.x - x, y: 0, z: center.z - z },
-			rotation: { x: 0, y: yaw + 180, z: 0 },
+			position: { x: x - center.x, y: 0, z: z - center.z },
+			rotation: { x: 0, y: yaw, z: 0 },
 			scale: { x: 1, y: 1, z: 1 },
 			pivot: { x: 0, y: 0, z: 0 },
 		},
@@ -180,13 +174,13 @@ export function BuildLevelPayload(images) {
 		},
 		player: {
 			character: "chara_prop",
-			spawnPosition: { ...SPAWN, ...Flip(SPAWN.x, SPAWN.z) },
-			scale: { x: 1, y: 1, z: 1 },
+			// Faces +Z, into the mansion from the front door; orbitCam opens behind.
+			rootTransform: { position: SPAWN, rotation: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 } },
 			modelParts: ROBOT_PARTS,
 			animations: ROBOT_ANIMATIONS,
 			metaOverrides: { list: ["maxSpeed 5.5", "airFloatiness 2"], maxSpeed: 5.5, airFloatiness: 2 },
 		},
-		terrain: { objects: [...BuildShell(images), ...furniture(images)].map(flipObject), triggers: [] },
+		terrain: { objects: [...BuildShell(images), ...furniture(images)], triggers: [] },
 		obstacles: [],
 		entities,
 		entityBlueprints: BuildBlueprints(),

@@ -26,7 +26,7 @@ Vacuum trash for points and grab hearts to heal. Ghosts only hurt you with a tel
 | `main.js` | Boot and event wiring. |
 | `src/splash.js` | Custom splash sequence (CarlNet step + studio step). |
 | `src/game.js` | Chapter flow, rAF loop, vacuum, ghost AI, trash, health, boss, win/lose. |
-| `src/level.js` | Assembles the level payload (layout is authored front-door-at-z0, then rotated 180°). |
+| `src/level.js` | Assembles the level payload (front door at z=0; the player spawns facing +Z into the mansion). |
 | `src/mansion.js` | Rooms, walls, doorways, windows, decals. |
 | `src/furniture.js` | Furniture props built from primitives. |
 | `src/robot.js` | Player model (`player.modelParts`) + animation sets. |

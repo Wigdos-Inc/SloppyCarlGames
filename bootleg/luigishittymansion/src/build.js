@@ -3,11 +3,6 @@
 export const rgb = (r, g, b, a = 1) => ({ r, g, b, a });
 export const v3 = (x, y, z) => ({ x, y, z });
 
-// Layout is authored with the front door at z=0, then turned 180° about the house center for the
-// payload, because orbitCam always opens on the player's +Z side and cannot be aimed.
-export const HOUSE = { x: 44, z: 32 };
-export const Flip = (x, z) => ({ x: HOUSE.x - x, z: HOUSE.z - z });
-
 export function Obj(id, shape, pos, dims, color, textureId, extra = {}) {
 	const { rotation, texture, ...rest } = extra;
 	return {

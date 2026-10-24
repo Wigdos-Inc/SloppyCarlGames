@@ -8,7 +8,6 @@ import { PlaySfx, PlayMusic, PreloadAudio, AssetUrl, AssetExists, AudioDuration 
 import { StartHum, StopHum, SetHumLoad } from "./synth.js";
 import { LoadSettings, ApplySettings } from "./settings.js";
 import * as W from "./world.js";
-import { Flip } from "./build.js";
 
 const MAX_HEALTH = 5;
 const INVULN_SECONDS = 1.6;
@@ -101,8 +100,8 @@ function createRun() {
 		return {
 			def, cfg, entity,
 			state: "dormant", t: 0, stamina: cfg.stamina,
-			pos: { ...Flip(def.at[0], def.at[1]), y: HOVER },
-			target: Flip(def.at[0], def.at[1]),
+			pos: { x: def.at[0], y: HOVER, z: def.at[1] },
+			target: { x: def.at[0], z: def.at[1] },
 			yaw: 0, bob: rand(0, 6), orbit: rand(0, Math.PI * 2), stalkFor: 2, dashDir: { x: 0, z: 1 }, fx: 0, calm: 0,
 		};
 	});
@@ -330,7 +329,7 @@ const ghostCenter = (g) => ({ x: g.pos.x, y: g.pos.y + 0.55 * g.cfg.size, z: g.p
 
 function roamTarget(ghost) {
 	const room = RoomById(ghost.def.room);
-	return Flip(rand(room.x[0] + 1.6, room.x[1] - 1.6), rand(room.z[0] + 1.6, room.z[1] - 1.6));
+	return { x: rand(room.x[0] + 1.6, room.x[1] - 1.6), z: rand(room.z[0] + 1.6, room.z[1] - 1.6) };
 }
 
 function moveToward(ghost, tx, tz, speed, dt) {
@@ -628,8 +627,7 @@ function update(dt) {
 	run.invuln = Math.max(0, run.invuln - dt);
 
 	const p = player.transform.position;
-	const design = Flip(p.x, p.z);
-	const room = RoomAt(design.x, design.z);
+	const room = RoomAt(p.x, p.z);
 	if (room && room !== run.room) enterRoom(room);
 
 	const vac = updateVacuum(dt, player);
