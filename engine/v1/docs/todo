@@ -137,7 +137,7 @@ Version Goals:
 - 0.35 Occlusion Culling & CPU Optimizations [PATCHING]
     - Built: blocker culling in Render.js hideOccluded, helpers in math/Collision.js, occluder records from NewTerrain.js. ARGUS: 0 false hides on lvl2, stress grid, LSM. Scope: docs/scoping/render/culling-scope.md §4.5.
   1. Crash Fixes [DONE]
-  2. orbitCam Rework [PENDING]
+  2. orbitCam Rework [DONE]
     - Games can't set the initial camera yaw or the player's spawn facing (LSM rotated its whole level 180° to work around it).
     - Mouse sensitivity is read once at level start, so a settings change mid-level does nothing until the next level.
     - Look into problem where hideOccluded only runs when Debug Mode is disabled (occlusion culling should run regardless)
