@@ -23,3 +23,51 @@
 **What:** Character meta `maxSpeed` (CNU/s), `acceleration`/`deceleration` (CNU/s²) and `momentumTurnRate` are now Units, instanced next to `jumpHeight`. `momentumTurnRate` is authored in degrees/s (14 rad/s → 802.14 on all four characters) and converted with `.toRadians(true)`. `level.player.metaOverrides` instances the same keys plus `jumpHeight`, now taken as a plain number instead of `{ value }`. The default model turn rate is `new Unit(458.37, "degrees").toRadians(true)`, cloned into each entity's `modelTurnRate`; the player scales it into radian Units. `turnFacingToward` and `stepModelRotation` take a Unit max step. `CONFIG.Physics.Correction.ReferenceReleaseRate` is 229.18 degrees/s (was 4 rad/s), converted where it's used. The camera loop tracker's `turned`/`arcTurn` (radians) and `arc`/`radius` (CNU) are Units. `PlayerHeight` returns a CNU Unit, and `sceneGraph.loopSurfaces` radii are CNU Units. Already-instanced velocities and speeds are labelled per second where they're instanced. UNIT_INSTANCING.md gained a §1 "Rates" subsection.
 
 **Where:** [characters.json](engine/v1/player/characters.json), [Instance.js](engine/v1/builder/templates/Instance.js), [normalize.js](engine/v1/core/normalize.js), [Movement.js](engine/v1/player/Movement.js), [player/Master.js](engine/v1/player/Master.js), [Model.js](engine/v1/player/Model.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [NewLevel.js](engine/v1/builder/NewLevel.js), [NewParticles.js](engine/v1/builder/NewParticles.js), [Animation.js](engine/v1/handlers/game/Animation.js), [physics/Collision.js](engine/v1/physics/Collision.js), [Correction.js](engine/v1/physics/Correction.js), [config.js](engine/v1/core/config.js), [camera/Master.js](engine/v1/camera/Master.js), [Modes.js](engine/v1/camera/Modes.js), [UNIT_INSTANCING.md](engine/v1/docs/rules/UNIT_INSTANCING.md)
+
+## Unit and UnitVector3 are engine-exclusive
+
+**What:** `ENGINE.Math.Instancing` (`Unit`, `UnitVector3`) was removed from the game API, along with the now-unused import in ini.js. MODULE_GROUPS §3 and UNIT_INSTANCING §1 now state that `Unit`/`UnitVector3` are engine-exclusive: games never receive them, and math/ never uses them.
+
+**Where:** [ini.js](engine/v1/core/ini.js), [MODULE_GROUPS.md](engine/v1/docs/rules/MODULE_GROUPS.md), [UNIT_INSTANCING.md](engine/v1/docs/rules/UNIT_INSTANCING.md)
+
+## Game-exposed force math takes a plain water level
+
+**What:** `ComputeBuoyancy`, `ComputeSubmergence` and `ComputeStepVelocity`'s buoyancy input take `waterLevel` as a plain CNU number or null instead of a Unit. physics/Forces.js unwraps the scene's water-level Unit through a new `waterLevelOf`, which passes null through. Movement's buoyancy step-sim passes `waterLevel: 0`.
+
+**Where:** [math/Forces.js](engine/v1/math/Forces.js), [physics/Forces.js](engine/v1/physics/Forces.js), [Movement.js](engine/v1/player/Movement.js)
+
+## Shared CloneTransform and Unit.math
+
+**What:** `Unit.math(f, ...args)` sets the value to `f(value, ...args)` and returns the Unit. It is used for the camera's obstruction distance smoothing and the player's jump apex tracking. `CloneTransform` (math/Utilities.js, exposed as `ENGINE.Math.Other.CloneTransform`) copies a transform. Instanced position, rotation and pivot are cloned as UnitVector3, plain ones are copied as plain vectors, scale is always copied, and pivot is copied only if present. It replaces NewEntity.js `cloneRootTransform`/`cloneLocalTransform`, and the inline copies in Matrix.js `CreateRenderMatrixCache` and Animation.js `buildModelPose`/`applyPartLocal`. `applyModelPose` builds `model.posedTransform` directly with it. Scale is now copied where it used to be shared with the source. UNIT_INSTANCING.md gained a §3 exception for `CloneTransform`'s `instanceof` check and a §7 `.math` pattern.
+
+**Where:** [Utilities.js](engine/v1/math/Utilities.js), [Matrix.js](engine/v1/math/Matrix.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [Animation.js](engine/v1/handlers/game/Animation.js), [camera/Master.js](engine/v1/camera/Master.js), [player/Master.js](engine/v1/player/Master.js), [ini.js](engine/v1/core/ini.js), [UNIT_INSTANCING.md](engine/v1/docs/rules/UNIT_INSTANCING.md)
+
+## Capsule colliders reach full height again
+
+**What:** `CapsuleFromAabb` clones `segmentEnd` from the box center before `segmentStart` shifts down, so the segment spans the full box height instead of ending at the center.
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js)
+
+## Animated decals on flat faces are no longer cut to their rest footprint
+
+**What:** `flatDecalFacets` grows the flat decal quad (positions and UVs) by the decal's animation margin, the same margin curved hosts already use. `decalAnimationMargin` also accounts for spin, adding √2 when any keyframe rotates the decal.
+
+**Where:** [Render.js](engine/v1/handlers/Render.js)
+
+## Overlap push uses the shallower of collider and box depth
+
+**What:** `DetectCurrentPhysicsOverlaps` measures how far the entity's AABB and the candidate's AABB overlap along the contact normal. It pushes the entity out by whichever is smaller: that box overlap or the collider's contact depth. The candidate AABB is looked up once and reused for both the overlap gate and the depth.
+
+**Where:** [physics/Collision.js](engine/v1/physics/Collision.js)
+
+## Grounded model turns at the full rate
+
+**What:** Entities have a `modelTurnRate.ground` rate, the default 450°/s with no scaling; the player reuses the base entity's. `resolveModelPose` uses the water rate when underwater, the ground rate when grounded, and the air rate otherwise.
+
+**Where:** [NewEntity.js](engine/v1/builder/NewEntity.js), [player/Master.js](engine/v1/player/Master.js), [Animation.js](engine/v1/handlers/game/Animation.js)
+
+## Player model turns at the full rate out of water
+
+**What:** The player's `modelTurnRate.air` (out of water) is the base rate with no `airControl` scaling. `water` still scales by `underwaterAirControl`. The `modelTurnRate.ground` key from the previous entry is removed again, and `resolveModelPose` uses water when underwater and air otherwise.
+
+**Where:** [player/Master.js](engine/v1/player/Master.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [Animation.js](engine/v1/handlers/game/Animation.js)

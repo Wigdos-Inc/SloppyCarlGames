@@ -31,8 +31,9 @@ All math helper functions needed by multiple files.
 
 - **Can be accessed**: Anywhere at will — no restrictions on who imports from `math/`.
 - **May import/export**: Anywhere at will — math is a global helper layer on par with `core/`.
-- **Contains**: Vector operations, unit conversion classes (`Unit`, `UnitVector3`), interpolation functions (`Lerp`, `SmoothStep`), clamping (`Clamp`), number parsing (`ToNumber`), physics math (ray-AABB intersection), curve utilities.
-- **Does not**: Hold state of its own. Math stays stateless even when it imports shared engine primitives or constants. It may change data passed into it, such as a caller-owned scratch buffer.
+- **Contains**: Vector operations, unit conversion helpers (`CNUtoWorldUnit`, `DegreesToRadians`), interpolation functions (`Lerp`, `SmoothStep`), clamping (`Clamp`), number parsing (`ToNumber`), physics math (ray-AABB intersection), curve utilities.
+- **Does not**: Hold state of its own, or use `Unit`/`UnitVector3`. Math stays stateless even when it imports shared engine primitives or constants. It may change data passed into it, such as a caller-owned scratch buffer. Math takes and returns plain numbers and `{x, y, z}` vectors, so games can call it.
+- **Note**: `Unit` and `UnitVector3` are defined in `Utilities.js` only as engine-private convenience. They are engine-exclusive: games never receive them, and using them anywhere else in `math/` breaks statelessness.
 
 ---
 

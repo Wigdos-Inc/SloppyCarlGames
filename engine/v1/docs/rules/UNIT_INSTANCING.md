@@ -11,6 +11,7 @@ All world-space values (distance, rotation, dimension, position) must be instanc
 - **Payload values** (from games) are instanced in `core/normalize.js`, called by `core/validate.js`.
 - **Engine-internal defaults** (e.g. camera defaults) are instanced in the module that declares them.
 - A value is instanced **once**. After instancing, it is never instanced again.
+- `Unit` and `UnitVector3` are **engine-exclusive**. Games never receive them through the ENGINE API, and `math/` never uses them (MODULE_GROUPS §3). Values handed to math/ or to the game are plain numbers and `{x, y, z}` vectors.
 
 ### Default type assumptions
 
@@ -145,6 +146,8 @@ All engine functions must assume that incoming world-space values are already `U
 - **No fallback instancing** (e.g. `value instanceof Unit ? value : new Unit(value, "cnu")`).
 - **No defensive wrapping** (e.g. `typeof value === "number" ? new Unit(value, "cnu") : value`).
 
+**Exception:** `CloneTransform` in `math/Utilities.js` is shared by the engine and games, so it checks `instanceof UnitVector3` to keep each caller's vectors in their own form. That is a dual-input copy, not a guard.
+
 If a raw number arrives where a Unit is expected, **that is an upstream bug**. The resulting error must surface naturally — it reveals a weakness in the normalization layer that must be fixed there, not papered over downstream.
 
 ---
@@ -222,6 +225,12 @@ Update Loop
 
 ```js
 unit.value = newNumber;
+```
+
+When the new value comes from a function of the old one, use `.math` instead of repeating `.value` on both sides:
+
+```js
+unit.math(Lerp, target.value, t);   // not unit.value = Lerp(unit.value, target.value, t)
 ```
 
 ### Updating a UnitVector3
