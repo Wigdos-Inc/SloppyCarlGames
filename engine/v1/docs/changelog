@@ -1,1 +1,25 @@
 # Changelog (engine/v1/)
+
+## CONFIG values are raw numbers
+
+**What:** Every spatial value in `API_CONFIG` (`ENGINE.Config`) is now a plain number with its unit named in a comment: `Debug.Levels.BoundingBox.Grid.Size` (CNU), `Physics.Gravity.Strength` (CNU/s²), `Physics.Gravity.TerminalVelocity.Air/Water` (CNU/s), `Physics.Buoyancy.Force.Min/Max` (CNU/s²), `Physics.Buoyancy.GradientDepth` (CNU), `Camera.ZoomStep` (CNU). `Camera.Fov` and `Physics.Correction.MaxAngleDelta` are labelled degrees. Engine reads drop `.value`; the debug grid converts with `CNUtoWorldUnit`. Forces.js drag coefficients are now functions that read CONFIG live, not import-time constants. The engine-only exports in config.js stay Unit-instanced. UNIT_INSTANCING.md gained a §1 "Exception: CONFIG".
+
+**Where:** [config.js](engine/v1/core/config.js), [Forces.js](engine/v1/math/Forces.js), [physics/Master.js](engine/v1/physics/Master.js), [Correction.js](engine/v1/physics/Correction.js), [Modes.js](engine/v1/camera/Modes.js), [Render.js](engine/v1/handlers/Render.js), [Level.js](engine/v1/handlers/game/Level.js), [UNIT_INSTANCING.md](engine/v1/docs/rules/UNIT_INSTANCING.md)
+
+## Camera mode angles are Units
+
+**What:** orbitCam's `yaw`/`pitch` and freeCam's persisted view `yaw`/`pitch` are degree Units; chaseCam/sideCam's `side`/`settle` are radian Units. A reusable `chaseRuntime.look` holds the chase frame's look as degree Units. `consumeLookInput` writes `.value` on the view's Unit yaw and pitch, and readers convert with `.toRadians()`/`.toDegrees()`.
+
+**Where:** [Modes.js](engine/v1/camera/Modes.js)
+
+## Camera and movement angles passed between functions are Units
+
+**What:** In camera modes, `settlePitch`, `armPitch`, `chasePitch`, `gapToTrail` and `stiffen` return radian Units. `pitchWindow` takes a Unit settle and returns degree-Unit `top`/`bottom`/`min`/`max`. `chaseFreedom` returns those plus a radian-Unit `yaw`; its `minPitch`/`maxPitch` fields became `min`/`max`. `consumeLookInput` takes Unit pitch bounds, and `armAt`/`armBasis` take Unit angles. `wrapDegrees` wraps a degree Unit in place, and a read-only `noTurn` zero-radian Unit was added. `modeData.yaw` from freeCam and orbitCam is a radian Unit. The player input frame's `previousCameraYaw` and `lockAngle` are radian Units; `advanceCarriedForward` and `lockedDirection` take Unit angles. `cameraState.fov` was removed: the projection matrix and loop framing read `CONFIG.Camera.Fov` directly.
+
+**Where:** [Modes.js](engine/v1/camera/Modes.js), [camera/Master.js](engine/v1/camera/Master.js), [Movement.js](engine/v1/player/Movement.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [Render.js](engine/v1/handlers/Render.js)
+
+## Spatial rates are instanced
+
+**What:** Character meta `maxSpeed` (CNU/s), `acceleration`/`deceleration` (CNU/s²) and `momentumTurnRate` are now Units, instanced next to `jumpHeight`. `momentumTurnRate` is authored in degrees/s (14 rad/s → 802.14 on all four characters) and converted with `.toRadians(true)`. `level.player.metaOverrides` instances the same keys plus `jumpHeight`, now taken as a plain number instead of `{ value }`. The default model turn rate is `new Unit(458.37, "degrees").toRadians(true)`, cloned into each entity's `modelTurnRate`; the player scales it into radian Units. `turnFacingToward` and `stepModelRotation` take a Unit max step. `CONFIG.Physics.Correction.ReferenceReleaseRate` is 229.18 degrees/s (was 4 rad/s), converted where it's used. The camera loop tracker's `turned`/`arcTurn` (radians) and `arc`/`radius` (CNU) are Units. `PlayerHeight` returns a CNU Unit, and `sceneGraph.loopSurfaces` radii are CNU Units. Already-instanced velocities and speeds are labelled per second where they're instanced. UNIT_INSTANCING.md gained a §1 "Rates" subsection.
+
+**Where:** [characters.json](engine/v1/player/characters.json), [Instance.js](engine/v1/builder/templates/Instance.js), [normalize.js](engine/v1/core/normalize.js), [Movement.js](engine/v1/player/Movement.js), [player/Master.js](engine/v1/player/Master.js), [Model.js](engine/v1/player/Model.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [NewLevel.js](engine/v1/builder/NewLevel.js), [NewParticles.js](engine/v1/builder/NewParticles.js), [Animation.js](engine/v1/handlers/game/Animation.js), [physics/Collision.js](engine/v1/physics/Collision.js), [Correction.js](engine/v1/physics/Correction.js), [config.js](engine/v1/core/config.js), [camera/Master.js](engine/v1/camera/Master.js), [Modes.js](engine/v1/camera/Modes.js), [UNIT_INSTANCING.md](engine/v1/docs/rules/UNIT_INSTANCING.md)

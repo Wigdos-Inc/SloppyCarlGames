@@ -22,6 +22,17 @@ All world-space values (distance, rotation, dimension, position) must be instanc
 
 These defaults apply unless the source explicitly states otherwise.
 
+### Rates
+
+A rate of a CNU, world-unit, degree or radian measurement (speed, acceleration, turn rate) is instanced like the measurement itself. `Unit` carries no time dimension, so the instancing site names what the unit is per in a comment. Per second is the standard, and authorable rates are always per second.
+
+```js
+maxSpeed: new Unit(10, "cnu"),        // CNU/s
+turnRate: new Unit(45, "degrees"),    // Degrees/s
+```
+
+Rates that measure nothing spatial (lerp strengths, ramp rates, counts per second) stay raw under §4.
+
 ### Engine-owned static JSON sources
 
 If engine-owned static JSON contains world-space values, canonicalize those values exactly once at import/load time inside the owning module, typically with an IIFE that replaces raw JSON world-space units/vectors with `Unit` or `UnitVector3` instances respectively.
@@ -58,6 +69,16 @@ Instead, these templates are canonicalized at boot, from `core/ini.js`:
 The value is still instanced exactly once, at load — under the initializer's control instead of at import time. `builder/templates/Instance.js` owns these routines.
 
 This exception applies only to templates exposed through the public API. Engine-owned JSON that is not API-exposed still follows the import-time IIFE pattern above.
+
+### Exception: `CONFIG`
+
+`CONFIG` (`API_CONFIG` in `core/config.js`) is exposed live and writable as `ENGINE.Config`, so its values stay raw numbers. A game writing `ENGINE.Config.Physics.Gravity.Strength = 12` must work as written.
+
+- Every raw spatial value in `CONFIG` names its unit in its key (`FlatSnapDegrees`) or its comment (`// CNU`).
+- Engine reads use the raw number directly and convert at point of use with the plain helpers (`CNUtoWorldUnit`, `DegreesToRadians`).
+- Never mirror `CONFIG` into an instanced copy; it would go stale on the first game write.
+
+This applies only to `CONFIG`. The engine-only exports in `config.js` (`PERFORMANCE_SCALING`, `CAMERA_TUNING`, etc.) are frozen, never game-facing, and stay instanced.
 
 ---
 
@@ -140,7 +161,7 @@ Not everything gets instanced. The following value types remain plain numbers:
 | Counts/indices   | Array indices, entity counts                      | Discrete, not spatial     |
 | Boolean/string   | Flags, IDs, mode strings                          | Not numeric measurements  |
 
-**Rule of thumb**: If a value represents a measurement in a coordinate space (distance, position, angle, dimension), it gets instanced. If it is a dimensionless ratio, coefficient, or non-spatial number, it stays raw.
+**Rule of thumb**: If a value represents a measurement in a coordinate space (distance, position, angle, dimension), or a rate of one, it gets instanced. If it is a dimensionless ratio, coefficient, or non-spatial number, it stays raw. `CONFIG` is the one exception (see §1).
 
 If a builder or runtime subsystem deterministically computes auxiliary collision data such as simulation padding, capsule dimensions, or bounds offsets, instance that data at the module that computes it and keep it internal to the engine.
 
