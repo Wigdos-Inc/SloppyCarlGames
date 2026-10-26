@@ -46,7 +46,8 @@
     - .shrink
     - .move
     - .overlap(other)
-  - Color3 (rbg) & Color4 (rgba)
+  - RGBA
+  - Transform (position, rotation, scale, pivot)
 - For entity movement, collect every single movement source into the physicsState separately
   - Each type of movement can be individually cancelled.
   - Final velocity is calculated near the end of the physics engine.
