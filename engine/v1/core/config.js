@@ -32,7 +32,7 @@ const API_CONFIG = {
         ParticlePart: false,
         Grid        : {                      // Render Debug Grid
           Visible: false,
-          Size   : new Unit(1, "cnu"),
+          Size   : 1,                        // CNU
         }
       },
       DetailedBounds: {                      // Render Detailed Bounds
@@ -53,9 +53,7 @@ const API_CONFIG = {
         Particle   : false,
       },
       Performance: {                         // Performance Testers
-        BackfaceCulling : true,
-        OcclusionCulling: false,             // Skip what sits fully behind solid terrain
-        MSAA            : true,              // Antialias the level; applies on next level load
+        NoMSAA          : false,             // Turn off level antialiasing; applies on next level load
         FlatShading     : false,             // One color, no texture, fog or lighting; applies on next level load
       },
     },
@@ -100,26 +98,28 @@ const API_CONFIG = {
     Cutscene: settings?.cutscene ?? 1
   },
   Performance: {
-    Scatter     : { Density: "High", Quality: "High" },     // Amount of scatter, and how expensive the shapes are.
-    Particles   : "High",                                   // The amount of particles generators emit.
-    SimDistance : "High",                                   // Umbrella definition for both rendering and simulation distance.
-    Animations  : "High",                                   // Smoothness of animations.
-    FrameRate   : Infinity,                                 // FPS for simulation and rendering, fitted to a fraction of RefreshRate. Infinity renders uncapped.
-    FrameCounter: true,                                     // Show rendered FPS while a level runs.
-    RefreshRate : null,                                     // Display refresh rate measured at level start; Infinity when the frame limiter is off.
-    Resolution  : 100,                                      // Visual crispness.
+    Scatter         : { Density: "High", Quality: "High" }, // Amount of scatter, and how expensive the shapes are.
+    Particles       : "High",                               // The amount of particles generators emit.
+    SimDistance     : "High",                               // Umbrella definition for both rendering and simulation distance.
+    Animations      : "High",                               // Smoothness of animations.
+    FrameRate       : Infinity,                             // FPS for simulation and rendering, fitted to a fraction of RefreshRate. Infinity renders uncapped.
+    FrameCounter    : true,                                 // Show rendered FPS while a level runs.
+    RefreshRate     : null,                                 // Display refresh rate measured at level start; Infinity when the frame limiter is off.
+    Resolution      : 100,                                  // Visual crispness.
+    BackfaceCulling : true,                                 // Skip faces turned away from the camera.
+    OcclusionCulling: true,                                 // Skip what sits fully behind solid terrain.
   },
   Physics: {
     Gravity   : {
-      Enabled         : true, 
-      Strength        : new Unit(10, "cnu"), 
-      TerminalVelocity: { Air: new Unit(30, "cnu"), Water: new Unit(12, "cnu") } 
+      Enabled         : true,
+      Strength        : 10,                       // CNU/s²
+      TerminalVelocity: { Air: 30, Water: 12 },   // CNU/s
     },
     Resistance: { Enabled: true },
-    Buoyancy  : { 
-      Enabled      : true, 
-      Force        : { Min: new Unit(1, "cnu"), Max: new Unit(8, "cnu") }, 
-      GradientDepth: new Unit(2, "cnu") 
+    Buoyancy  : {
+      Enabled      : true,
+      Force        : { Min: 1, Max: 8 },          // CNU/s²
+      GradientDepth: 2,                           // CNU
     },
     Collision : { 
       Enabled: true, 
@@ -129,8 +129,8 @@ const API_CONFIG = {
     Correction: {
       Enabled             : true,
       FlatSnapDegrees     : 5,
-      ReferenceReleaseRate: 4,
-      MaxAngleDelta       : {
+      ReferenceReleaseRate: 230,                  // Degrees/s
+      MaxAngleDelta       : {                     // Degrees
         Air  : { Ground: 35, Sliding: 75, Recover: 20 },
         Water: { Ground: 45, Sliding: 85, Recover: 45 },
       },
@@ -149,9 +149,9 @@ const API_CONFIG = {
     }
   },
   Camera: {
-    Fov: 60,
+    Fov: 60,                                     // Degrees
     Sensitivity: { Mouse: 40, Keyboard: 50 },
-    ZoomStep: new Unit(0.5, "cnu"),          // Arm length change per wheel notch
+    ZoomStep: 0.5,                               // CNU of arm length change per wheel notch
   },
   Rendering: {
     Texture: {
@@ -259,7 +259,6 @@ const CAMERA_TUNING = DeepFreeze({
       MaxNarrowedYaw: new Unit(45, "degrees"),     // Look yaw range off the trail at top speed
       LookResistance: 1,                           // Resistance curve toward the look limits; 1 = even
     },
-    Orbit: { SideSwingSpeed: new Unit(120, "degrees") },  // Degrees per second orbitCam swings to a loop's side
   },
 });
 

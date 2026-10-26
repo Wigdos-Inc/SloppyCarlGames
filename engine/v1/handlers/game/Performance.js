@@ -72,12 +72,12 @@ function fastestRepeatedRate(sorted) {
 function MeasureRefreshRate() {
 	return new Promise((resolve) => {
 		const gaps = [];
-		let previous = null;
+		let lastTime = null;
 
 		const tick = (now) => {
-			if (previous !== null) gaps.push(now - previous);
+			if (lastTime !== null) gaps.push(now - lastTime);
 
-			previous = now;
+			lastTime = now;
 			if (gaps.length < 30) return requestAnimationFrame(tick);
 
 			// Under 2ms means the browser is uncapped.

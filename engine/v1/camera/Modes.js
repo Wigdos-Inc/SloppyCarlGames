@@ -1,7 +1,8 @@
-// Camera modes: orbitCam, freeCam, chaseCam and sideCam.
+// Runs the camera modes: orbitCam, freeCam, chaseCam and sideCam.
 
-// Driven by camera/Master.js, which picks the active mode and places the rig.
-// Each mode has initialize, prepare (before movement, returns its modeData), update (after physics) and handleInput.
+// Used by camera/Master.js to run the active mode
+// Used by handlers/game/Simulator.js to set orbitCam framing.
+// Uses player/Master.js to aim at the player's height.
 
 import { CONFIG, CAMERA_TUNING } from "../core/config.js";
 import { EPSILON, IsPointerLocked, Log, ReleasePointerLock, RequestPointerLock } from "../core/meta.js";
@@ -22,7 +23,7 @@ import {
 	LerpVector3,
 } from "../math/Vector3.js";
 import { AabbCenter, ApplyDeceleration, ClampVelocity, ProjectOntoPlane } from "../math/Collision.js";
-import { Clamp, Clamp01, DegreesToRadians, Lerp, RadiansToDegrees, SmoothStep, UnitVector3 } from "../math/Utilities.js";
+import { Clamp, Clamp01, DegreesToRadians, Lerp, RadiansToDegrees, SmoothStep, Unit, UnitVector3 } from "../math/Utilities.js";
 import { PlayerHeight } from "../player/Master.js";
 
 const persistedFreeCamViews = new Map();
@@ -42,15 +43,14 @@ const freeCamRuntime = {
 		ShiftRight: false,
 	},
 	settings: null,                                   // The level's camera.freeCam
-	maxSpeed: null,                                   // Unit; wheel-tuned top speed
+	maxSpeed: null,                                   // Top speed, changed with the wheel
 };
 
 // Look input shared by every mode.
 const lookInput = {
 	lookDeltaX    : 0,
 	lookDeltaY    : 0,
-	wheelDelta    : 0,
-	sensitivity   : 0,                                // Degrees per pixel; set at level start
+	wheelNotches  : 0,                                // Wheel notches this frame. Forward is positive.
 	arrowKeyState : {
 		ArrowLeft  : false,
 		ArrowRight : false,
@@ -59,61 +59,55 @@ const lookInput = {
 	},
 };
 
-// Arm shared by the rig modes, so a mode change carries it over.
+// Camera arm shared by the rig modes.
 const rig = {
-	direction        : CloneVector3(WORLD_NORMALS.Forward),  // Unit; pivot to camera
-	up               : CloneVector3(WORLD_NORMALS.Up),       // Smoothed camera up
-	pivot            : new UnitVector3(0, 0, 0, "cnu"),      // Lagged orbit center
-	distance         : null,                                 // Unit; arm length, wheel-zoomed within distanceRange
-	distanceRange    : null,                                 // { min, default, max } Units; the level's arm lengths
-	pitchLimit       : null,                                 // { top, bottom } degree Units; look tilt off the settled pitch
-	heightOffset     : null,                                 // Unit; the level's camera height above the target
+	direction        : CloneVector3(WORLD_NORMALS.Forward),  // Length 1, from the pivot to the camera
+	up               : CloneVector3(WORLD_NORMALS.Up),       // Direction of the screen's top, eased as the camera rolls
+	pivot            : new UnitVector3(0, 0, 0, "cnu"),      // Point the arm swings around, lagging behind the target
+	distance         : null,                                 // Arm length, zoomed with the wheel
+	distanceRange    : null,                                 // The level's { min, default, max } arm lengths
+	pitchLimit       : null,                                 // The level's { top, bottom } look limits around the resting tilt
+	heightOffset     : null,                                 // The level's camera height above the target
 	currentDistance  : null,
 	targetDistance   : null,
 	obstructionLogged: false,
 	obstructionClear : 0,                                    // Seconds since the last obstruction
 };
 
-// The aimed rig handed to Master.js; reused each frame.
+// The aimed arm handed to Master.js. One object reused every frame.
 const rigFrame = { runtime: rig, scaledDistance: 0, center: null, radius: 0, holdArm: false, tangent: null };
 
-const orbitCamRuntime = {
-	yaw        : 0,
-	pitch      : 0,
-	autoYaw    : 0,                                          // Side view's yaw, on top of the user's
-	steerOffset: 0,                                          // User yaw turned during side views; never steers
-	inputYaw   : 0,                                          // Degrees; the orbit yaw at a loop's engage, which input stays relative to
-	sideView   : false,                                      // A loop held the side view last frame
-	userTurned : false,                                      // Look input turned it this frame
-};
+const orbitCamRuntime = { yaw: new Unit(0, "degrees"), pitch: new Unit(0, "degrees") };
 
 // Shared by chaseCam and sideCam.
 const chaseRuntime = {
-	mode       : "chaseCam",                                 // Which of the two is running
-	sinceInput : Infinity,                                   // Seconds since the last look input
-	sinceChase : 0,                                          // Seconds following without a break; ramps the swing in
-	returning  : false,                                      // Coming back to the trail after a loop
-	exitFacing : null,                                       // The facing at the loop's exit, which the return swings behind
-	side       : 0,                                          // Radians the trail sits off behind your facing; 0 for chaseCam
-	repick     : false,                                      // Re-pick the side once look settles
-	settle     : 0,                                          // Radians the arm settles above your travel; lowers as an incline rolls it
-	flipped    : false,                                      // Look carried the arm past straight up or down
+	mode       : "chaseCam",                                                     // Which of the two is running
+	sinceInput : Infinity,                                                       // Seconds since the last look input
+	sinceChase : 0,                                                              // Seconds of unbroken following, to ease the swing in
+	returning  : false,                                                          // Swinging back behind the player after a loop
+	exitFacing : null,                                                           // The player's facing when leaving the loop
+	side       : new Unit(0, "radians"),                                         // Angle the camera sits off from behind the player. 0 for chaseCam
+	repick     : false,                                                          // Choose the side again once looking stops
+	settle     : new Unit(0, "radians"),                                         // Resting arm tilt. Lowers as the camera rolls on an incline
+	flipped    : false,                                                          // Look swung the arm over or under the player
+	look       : { yaw: new Unit(0, "degrees"), pitch: new Unit(0, "degrees") }, // This frame's look, before resistance
 };
 
 /* === SHARED === */
 
 function resetLookInput() {
-	lookInput.sensitivity = CONFIG.Camera.Sensitivity.Mouse * 0.0024;
 	lookInput.lookDeltaX = 0;
 	lookInput.lookDeltaY = 0;
-	lookInput.wheelDelta = 0;
+	lookInput.wheelNotches = 0;
 	Object.keys(lookInput.arrowKeyState).forEach(key => { lookInput.arrowKeyState[key] = false; });
 }
 
-// Arrow look this frame, degrees.
+// Turn mouse sensitivity into degrees per pixel moved.
+const mouseStep = () => CONFIG.Camera.Sensitivity.Mouse * 0.0024;
+
+// Turn keyboard sensitivity into degrees for this frame.
 const arrowStep = (deltaSeconds) => CONFIG.Camera.Sensitivity.Keyboard * 2 * deltaSeconds;
 
-// Pointer lock, the mode's held keys, mouse look and wheel into lookInput.
 function handleLookInput(eventLike, keyState) {
 	switch (eventLike.type) {
 		case "pointerdown": return IsPointerLocked() ? false : RequestPointerLock();
@@ -134,7 +128,7 @@ function handleLookInput(eventLike, keyState) {
 			lookInput.lookDeltaX += eventLike.movementX;
 			lookInput.lookDeltaY += eventLike.movementY;
 			return true;
-		case "wheel": lookInput.wheelDelta += eventLike.deltaY; return true;
+		case "wheel": lookInput.wheelNotches -= Math.sign(eventLike.deltaY); return true;
 		default: return false;
 	}
 }
@@ -142,20 +136,24 @@ function handleLookInput(eventLike, keyState) {
 const handleRigInput = (eventLike) => handleLookInput(eventLike, lookInput.arrowKeyState);
 const handleFreeCamInput = (eventLike) => handleLookInput(eventLike, freeCamRuntime.keyState);
 
-// Zoom, then mouse and arrow look onto `view`'s yaw and pitch in degrees; true on any look.
+// Apply zoom and look input to a view, and report whether the player looked.
 function consumeLookInput(view, minPitch, maxPitch, deltaSeconds) {
-	// Wheel down lengthens the arm, within the level's range.
-	if (lookInput.wheelDelta !== 0) {
+	const low  = minPitch.toDegrees();
+	const high = maxPitch.toDegrees();
+
+	// Zoom the arm a step per wheel notch, within the level's range.
+	if (lookInput.wheelNotches !== 0) {
 		const { min, max } = rig.distanceRange;
-		rig.distance.value = Clamp(rig.distance.value + Math.sign(lookInput.wheelDelta) * CONFIG.Camera.ZoomStep.value, min.value, max.value);
-		lookInput.wheelDelta = 0;
+		rig.distance.value = Clamp(rig.distance.value - lookInput.wheelNotches * CONFIG.Camera.ZoomStep, min.value, max.value);
+		lookInput.wheelNotches = 0;
 	}
 
 	// Apply mouse look.
+	const { yaw, pitch } = view;
 	const mouse = lookInput.lookDeltaX !== 0 || lookInput.lookDeltaY !== 0;
 	if (mouse) {
-		view.yaw -= lookInput.lookDeltaX * lookInput.sensitivity;
-		view.pitch = Clamp(view.pitch + lookInput.lookDeltaY * lookInput.sensitivity, minPitch, maxPitch);
+		yaw.value -= lookInput.lookDeltaX * mouseStep();
+		pitch.value = Clamp(pitch.value + lookInput.lookDeltaY * mouseStep(), low, high);
 		lookInput.lookDeltaX = 0;
 		lookInput.lookDeltaY = 0;
 	}
@@ -163,16 +161,15 @@ function consumeLookInput(view, minPitch, maxPitch, deltaSeconds) {
 	// Apply arrow key rotation.
 	const { ArrowLeft, ArrowRight, ArrowUp, ArrowDown } = lookInput.arrowKeyState;
 	const arrowSpeed = arrowStep(deltaSeconds);
-	if (ArrowLeft)  view.yaw += arrowSpeed;
-	if (ArrowRight) view.yaw -= arrowSpeed;
-	if (ArrowUp)    view.pitch = Clamp(view.pitch - arrowSpeed, minPitch, maxPitch);
-	if (ArrowDown)  view.pitch = Clamp(view.pitch + arrowSpeed, minPitch, maxPitch);
+	if (ArrowLeft)  yaw.value += arrowSpeed;
+	if (ArrowRight) yaw.value -= arrowSpeed;
+	if (ArrowUp)    pitch.value = Clamp(pitch.value - arrowSpeed, low, high);
+	if (ArrowDown)  pitch.value = Clamp(pitch.value + arrowSpeed, low, high);
 
 	return mouse || ArrowLeft || ArrowRight || ArrowUp || ArrowDown;
 }
 
-
-// The shown model's up against the camera's: 1 upright, −1 upside down; ramps never flip.
+// Measure how upright the shown model is to the camera (1 = upright. −1 = upside down).
 function modelFlip({ target, onRamp }) {
 	if (onRamp) return 1;
 	const rotation = CONFIG.Performance.Animations === "Disabled" 
@@ -181,47 +178,58 @@ function modelFlip({ target, onRamp }) {
 	return DotVector3(RotateByEuler(WORLD_NORMALS.Up, rotation), rig.up);
 }
 
-// The look point: `aimShare` of the target's height up from its feet, along the camera's eased up; flips with the model.
+// Find the spot on the player's body the camera looks at.
 function AimPoint(ctx) {
 	return ctx.target.collision.aabb.min.clone().set(AabbCenter(ctx.target.collision.aabb)).add(
-		ScaleVector3(rig.up, PlayerHeight(ctx.target) * (ctx.aimShare - 0.5) * modelFlip(ctx))
+		ScaleVector3(rig.up, PlayerHeight(ctx.target).value * (ctx.aimShare - 0.5) * modelFlip(ctx))
 	);
 }
 
-// Arm pitch that seats the camera the level's height above the target, `scale` of it; radians.
-const settlePitch = (scale) => Math.asin(Clamp((rig.heightOffset.value * scale) / rig.distanceRange.default.value, -1, 1));
+// Find the arm tilt that lifts the camera to the level's height above the player.
+const settlePitch = (scale) => new Unit(Math.asin(Clamp((rig.heightOffset.value * scale) / rig.distanceRange.default.value, -1, 1)), "radians");
 
-// The level's look pitch window around `settle`, degrees; a side past 90 is open, both open wraps.
+// Build the level's vertical camera angle limits around a resting tilt.
 function pitchWindow(settle) {
-	const reach = (limit) => limit.value > 90 ? Infinity : limit.value;
-	const top = reach(rig.pitchLimit.top);
+	const reach = (limit) => limit.toDegrees() > 90 ? Infinity : limit.toDegrees();
+	const top    = reach(rig.pitchLimit.top);
 	const bottom = reach(rig.pitchLimit.bottom);
+
+	// With no limit either way, let the look turn all the way over.
 	const wrap = top === Infinity && bottom === Infinity;
-	return { top, bottom, wrap, min: Math.max(settle - bottom, wrap ? -Infinity : -180), max: Math.min(settle + top, wrap ? Infinity : 180) };
+	const center = settle.toDegrees();
+	return {
+		top   : new Unit(top, "degrees"),
+		bottom: new Unit(bottom, "degrees"),
+		min   : new Unit(Math.max(center - bottom, wrap ? -Infinity : -180), "degrees"),
+		max   : new Unit(Math.min(center + top, wrap ? Infinity : 180), "degrees"),
+		wrap,
+	};
 }
 
-// The camera state seated on the rig: arm from the pivot, looking back along it.
-function seatCamera(cameraState) {
-	cameraState.position.set(AddVector3(rig.pivot, ScaleVector3(rig.direction, rig.currentDistance.value)));
-	cameraState.forward = ScaleVector3(rig.direction, -1);
-	cameraState.right = ResolveVector3Axis(CrossVector3(cameraState.forward, rig.up));
-	cameraState.up = ResolveVector3Axis(ProjectOntoPlane(rig.up, cameraState.forward));
-	cameraState.target.set(rig.pivot);
-}
-
-// Arm: seeded at level start, re-anchored from freeCam, carried between rig modes.
+// Set up the arm when a rig mode starts.
 function takeOverRig(ctx, seed) {
-	if (ctx.from === null) {
-		// No player: the arm stays on the opening view.
+	// Seed the arm at level start.
+	if (ctx.lastMode === null) {
 		if (ctx.target === null) return;
-		
+
 		rig.up = CloneVector3(WORLD_NORMALS.Up);
 		rig.direction = seed();
 		rig.pivot.set(AimPoint(ctx));
-		seatCamera(ctx.cameraState);
+
+		// Place the camera at the end of the arm, looking back at the pivot.
+		const cameraState = ctx.cameraState;
+		cameraState.position.set(AddVector3(rig.pivot, ScaleVector3(rig.direction, rig.currentDistance.value)));
+		cameraState.forward = ScaleVector3(rig.direction, -1);
+		cameraState.right = ResolveVector3Axis(CrossVector3(cameraState.forward, rig.up));
+		cameraState.up = ResolveVector3Axis(ProjectOntoPlane(rig.up, cameraState.forward));
+		cameraState.target.set(rig.pivot);
+
 		return;
 	}
-	if (CAMERA_MODES[ctx.from].rig) return;
+
+	if (CAMERA_MODES[ctx.lastMode].rig) return;
+
+	// Rebuild the arm from where freeCam left the camera.
 	rig.up = CloneVector3(WORLD_NORMALS.Up);
 	rig.pivot.set(AimPoint(ctx));
 	const arm = SubtractVector3(ctx.cameraState.position, rig.pivot);
@@ -229,34 +237,36 @@ function takeOverRig(ctx, seed) {
 	rig.currentDistance.value = Vector3Length(arm);
 }
 
-// Eases the rig's up toward `target`.
+// Ease the camera's roll to match the ground, or back to level.
 function rollToward(target, deltaSeconds) {
-	const step = AngleBetweenVector3(rig.up, target) * (1 - Math.exp(-4 * CAMERA_TUNING.Body.RollStrength * deltaSeconds));
-	rig.up = RotateTowardVector3(rig.up, target, step);
+	rig.up = RotateTowardVector3(rig.up, target, 
+		AngleBetweenVector3(rig.up, target) * (1 - Math.exp(-4 * CAMERA_TUNING.Body.RollStrength * deltaSeconds))
+	);
 }
 
-// The arm's heading around `up`; the camera's back when the arm lies along up.
+// Find which way the arm points, ignoring the verticality.
 function armHeading(cameraState, up) {
 	const projected = ProjectOntoPlane(rig.direction, up);
 	return ResolveVector3Axis(Vector3Length(projected) > EPSILON ? projected : CrossVector3(cameraState.right, up));
 }
 
-// The arm's pitch against `up`, radians.
-const armPitch = (up) => Math.asin(Clamp(DotVector3(rig.direction, up), -1, 1));
+const armPitch = (up) => new Unit(Math.asin(Clamp(DotVector3(rig.direction, up), -1, 1)), "radians");
 
-// The arm `yaw` around `up` from `heading`, at `pitch` against up; radians.
+// Build an arm direction from a heading, turn and tilt.
 function armAt(heading, yaw, pitch, up) {
-	const turned = AddVector3(ScaleVector3(heading, Math.cos(yaw)), ScaleVector3(CrossVector3(up, heading), Math.sin(yaw)));
-	return AddVector3(ScaleVector3(turned, Math.cos(pitch)), ScaleVector3(up, Math.sin(pitch)));
+	const yawRad   = yaw.toRadians();
+	const pitchRad = pitch.toRadians();
+	const turned   = AddVector3(ScaleVector3(heading, Math.cos(yawRad)), ScaleVector3(CrossVector3(up, heading), Math.sin(yawRad)));
+	return AddVector3(ScaleVector3(turned, Math.cos(pitchRad)), ScaleVector3(up, Math.sin(pitchRad)));
 }
 
-// The view the arm gives, turned back by `side`: forward back along it, up square to the rig's.
+// Build the camera's facing and screen top as if it sat directly behind the player.
 function armBasis(cameraState, side) {
-	const forward = ScaleVector3(armAt(armHeading(cameraState, rig.up), -side, armPitch(rig.up), rig.up), -1);
+	const forward = ScaleVector3(armAt(armHeading(cameraState, rig.up), new Unit(-side.toRadians(), "radians"), armPitch(rig.up), rig.up), -1);
 	return { forward, up: ResolveVector3Axis(ProjectOntoPlane(rig.up, forward)) };
 }
 
-// The rig frame for Master.js to place; `tangent` is the arm's way up along its pitch arc.
+// Fill in the aimed arm for Master.js to place.
 function aimedRig(scaledDistance, center, radius, holdArm, tangent) {
 	rigFrame.scaledDistance = scaledDistance;
 	rigFrame.center = center;
@@ -266,26 +276,26 @@ function aimedRig(scaledDistance, center, radius, holdArm, tangent) {
 	return rigFrame;
 }
 
-const wrapDegrees = (angle) => angle - 360 * Math.round(angle / 360);
-
-// The end of the loop's axis nearest `direction`.
+// Pick the end of the loop's axis on the same side as a direction.
 const loopSide = (direction, loop) => ScaleVector3(loop.axis, Math.sign(DotVector3(direction, loop.axis)) || 1);
 
-// Cone around the nearer axis end, clear of the loop's walls.
+// Keep a direction close enough to the loop's axis for the camera to clear its walls.
 function insideLoopCone(direction, loop, scaledDistance) {
 	return RotateTowardVector3(
 		loopSide(direction, loop), direction, 
-		Math.asin(Clamp((loop.radius - CAMERA_TUNING.Body.Radius.value) / scaledDistance, 0, 1))
+		Math.asin(Clamp((loop.radius.value - CAMERA_TUNING.Body.Radius.value) / scaledDistance, 0, 1))
 	);
 }
 
 /* === FREE CAM === */
 
-// Writes the free view onto the camera state; right follows yaw alone, so pitch passes over the top.
+// Point the camera from the free view's position and angles.
 function updateOrientationVectors(cameraState, view) {
-	const yaw = DegreesToRadians(view.yaw);
-	const pitch = DegreesToRadians(view.pitch);
+	const yaw = view.yaw.toRadians();
+	const pitch = view.pitch.toRadians();
 	cameraState.forward = ResolveVector3Axis({ x: Math.cos(pitch) * Math.cos(yaw), y: Math.sin(pitch), z: Math.cos(pitch) * Math.sin(yaw) });
+
+	// Base right on the turn alone, so looking up can pass over the top.
 	cameraState.right = ResolveVector3Axis({ x: -Math.sin(yaw), y: 0, z: Math.cos(yaw) });
 	cameraState.up = ResolveVector3Axis(CrossVector3(cameraState.right, cameraState.forward));
 	cameraState.position.set(view.position);
@@ -295,63 +305,65 @@ function updateOrientationVectors(cameraState, view) {
 function getMoveDirectionFromKeys(cameraState) {
 	let direction = ToVector3(0);
 	const keyState = freeCamRuntime.keyState;
-	if (keyState.KeyW) direction = AddVector3(direction, cameraState.forward);
-	if (keyState.KeyS) direction = AddVector3(direction, ScaleVector3(cameraState.forward, -1));
-	if (keyState.KeyD) direction = AddVector3(direction, cameraState.right);
-	if (keyState.KeyA) direction = AddVector3(direction, ScaleVector3(cameraState.right, -1));
+	if (keyState.KeyW)  direction = AddVector3(direction, cameraState.forward);
+	if (keyState.KeyS)  direction = AddVector3(direction, ScaleVector3(cameraState.forward, -1));
+	if (keyState.KeyD)  direction = AddVector3(direction, cameraState.right);
+	if (keyState.KeyA)  direction = AddVector3(direction, ScaleVector3(cameraState.right, -1));
 	if (keyState.Space) direction = AddVector3(direction, cameraState.up);
 	if (keyState.ShiftLeft || keyState.ShiftRight) direction = AddVector3(direction, ScaleVector3(cameraState.up, -1));
 
 	return Vector3Length(direction) <= EPSILON ? ToVector3(0) : ResolveVector3Axis(direction);
 }
 
-// Level start resumes this level's free view; a mode change starts it from the current camera.
+// Resume this level's free view, or start one from the current camera.
 function initializeFreeCam(ctx) {
 	Object.keys(freeCamRuntime.keyState).forEach(key => { freeCamRuntime.keyState[key] = false; });
 	lookInput.lookDeltaX = 0;
 	lookInput.lookDeltaY = 0;
-	lookInput.wheelDelta = 0;
+	lookInput.wheelNotches = 0;
 
-	// Keyed per level, and per stage when staged.
+	// Save views per level, and per stage when the level has stages.
 	const levelKey = ctx.payloadMeta.stageId ? `${ctx.payloadMeta.levelId}:${ctx.payloadMeta.stageId}` : ctx.payloadMeta.levelId;
 
-	if (ctx.from !== null || !persistedFreeCamViews.has(levelKey)) {
+	// Start a new view on a mode change or a first visit.
+	if (ctx.lastMode !== null || !persistedFreeCamViews.has(levelKey)) {
 		const forward = ctx.cameraState.forward;
 		persistedFreeCamViews.set(levelKey, {
 			position: ctx.cameraState.position.clone(),
-			yaw     : RadiansToDegrees(Math.atan2(forward.z, forward.x)),
-			pitch   : RadiansToDegrees(Math.asin(Clamp(forward.y, -1, 1))),
-			velocity: new UnitVector3(0, 0, 0, "cnu"),
+			yaw     : new Unit(RadiansToDegrees(Math.atan2(forward.z, forward.x)), "degrees"),
+			pitch   : new Unit(RadiansToDegrees(Math.asin(Clamp(forward.y, -1, 1))), "degrees"),
+			velocity: new UnitVector3(0, 0, 0, "cnu"),    // Per second
 		});
 	}
 	freeCamRuntime.view = persistedFreeCamViews.get(levelKey);
 	updateOrientationVectors(ctx.cameraState, freeCamRuntime.view);
 }
 
-// Steering yaw in radians, atan2(x, z).
+// Hand movement the camera's heading to steer by.
 function prepareFreeCam(ctx) {
 	const forward = ctx.cameraState.forward;
-	return { control: "carried", basis: { forward }, yaw: Math.atan2(forward.x, forward.z), held: false };
+	return { control: "carried", basis: { forward }, yaw: new Unit(Math.atan2(forward.x, forward.z), "radians") };
 }
 
 function updateFreeCam(ctx) {
 	const view = freeCamRuntime.view;
 	const settings = freeCamRuntime.settings;
 
-	// Mouse and arrow look, unclamped; pitch rises with ArrowUp, and yaw turns with the screen while upside down.
-	const turn = Math.cos(DegreesToRadians(view.pitch)) < 0 ? -1 : 1;
-	view.yaw += turn * lookInput.lookDeltaX * lookInput.sensitivity;
-	view.pitch -= lookInput.lookDeltaY * lookInput.sensitivity;
-	const arrowSpeed = arrowStep(ctx.deltaSeconds);
-	if (freeCamRuntime.keyState.ArrowLeft)  view.yaw += turn * arrowSpeed;
-	if (freeCamRuntime.keyState.ArrowRight) view.yaw -= turn * arrowSpeed;
-	if (freeCamRuntime.keyState.ArrowUp)    view.pitch += arrowSpeed;
-	if (freeCamRuntime.keyState.ArrowDown)  view.pitch -= arrowSpeed;
+	// Apply mouse and arrow look without limits.
+	const turn = Math.cos(view.pitch.toRadians()) < 0 ? -1 : 1;
+	view.yaw.value   += turn * lookInput.lookDeltaX * mouseStep();
+	view.pitch.value -= lookInput.lookDeltaY * mouseStep();
 
-	// Wheel up raises the top speed, within the level's range.
-	if (lookInput.wheelDelta !== 0) {
+	const arrowSpeed = arrowStep(ctx.deltaSeconds);
+	if (freeCamRuntime.keyState.ArrowLeft)  view.yaw.value   += turn * arrowSpeed;
+	if (freeCamRuntime.keyState.ArrowRight) view.yaw.value   -= turn * arrowSpeed;
+	if (freeCamRuntime.keyState.ArrowUp)    view.pitch.value += arrowSpeed;
+	if (freeCamRuntime.keyState.ArrowDown)  view.pitch.value -= arrowSpeed;
+
+	// Change the top speed a step per wheel notch, within the level's range.
+	if (lookInput.wheelNotches !== 0) {
 		freeCamRuntime.maxSpeed.value = Clamp(
-			freeCamRuntime.maxSpeed.value + (lookInput.wheelDelta < 0 ? 1 : -1) * settings.speedStep.value, 
+			freeCamRuntime.maxSpeed.value + lookInput.wheelNotches * settings.speedStep.value,
 			settings.speed.min.value, settings.speed.max.value
 		);
 		Log("ENGINE", `FreeCam top speed: ${freeCamRuntime.maxSpeed.value.toFixed(1)}`, "log", "Level");
@@ -359,7 +371,7 @@ function updateFreeCam(ctx) {
 
 	updateOrientationVectors(ctx.cameraState, view);
 
-	// Accelerates toward the held keys; brakes at the same rate without them.
+	// Speed up toward the held keys, or brake at the same rate without them.
 	const inputDirection = getMoveDirectionFromKeys(ctx.cameraState);
 	Vector3Length(inputDirection) > EPSILON
 		? view.velocity.add(ScaleVector3(inputDirection, settings.acceleration.value * ctx.deltaSeconds))
@@ -374,208 +386,220 @@ function updateFreeCam(ctx) {
 
 	lookInput.lookDeltaX = 0;
 	lookInput.lookDeltaY = 0;
-	lookInput.wheelDelta = 0;
+	lookInput.wheelNotches = 0;
 }
 
 /* === ORBIT CAM (Third-Person Follow) === */
 
 function orbitDirection() {
-	const yawRad = DegreesToRadians(orbitCamRuntime.yaw + orbitCamRuntime.autoYaw);
-	const pitchRad = DegreesToRadians(orbitCamRuntime.pitch);
+	const yawRad   = orbitCamRuntime.yaw.toRadians();
+	const pitchRad = orbitCamRuntime.pitch.toRadians();
 	return { x: Math.cos(pitchRad) * Math.sin(yawRad), y: Math.sin(pitchRad), z: Math.cos(pitchRad) * Math.cos(yawRad) };
-};
+}
 
-// The orbit arc's way up at its pitch, about the rig's up; points down past the top.
+// Find which way the camera moves as the orbit rises over the player.
 function orbitTangent() {
-	const yawRad = DegreesToRadians(orbitCamRuntime.yaw + orbitCamRuntime.autoYaw);
-	const pitchRad = DegreesToRadians(orbitCamRuntime.pitch);
+	const yawRad   = orbitCamRuntime.yaw.toRadians();
+	const pitchRad = orbitCamRuntime.pitch.toRadians();
 	return AddVector3(
-		ScaleVector3(rig.up, Math.cos(pitchRad)), 
+		ScaleVector3(rig.up, Math.cos(pitchRad)),
 		ScaleVector3({ x: Math.sin(yawRad), y: 0, z: Math.cos(yawRad) }, -Math.sin(pitchRad))
 	);
 }
 
 function initializeOrbitCam(ctx) {
-	orbitCamRuntime.autoYaw = 0;
-	orbitCamRuntime.steerOffset = 0;
-	orbitCamRuntime.sideView = false;
-	orbitCamRuntime.userTurned = false;
-	orbitCamRuntime.yaw = 0;
-	orbitCamRuntime.pitch = RadiansToDegrees(settlePitch(1));
-	takeOverRig(ctx, orbitDirection);
-	// Mid-level, the orbit angles come from the arm.
-	if (ctx.from !== null) {
-		orbitCamRuntime.yaw = RadiansToDegrees(Math.atan2(rig.direction.x, rig.direction.z));
-		orbitCamRuntime.pitch = RadiansToDegrees(Math.asin(Clamp(rig.direction.y, -1, 1)));
+	const { yaw, pitch } = orbitCamRuntime;
+	yaw.value = 0;
+	pitch.value = settlePitch(1).toDegrees();
+
+	// Start behind the player at level start.
+	takeOverRig(ctx, () => {
+		yaw.value = RadiansToDegrees(Math.atan2(-ctx.target.facing.x, -ctx.target.facing.z));
+		return orbitDirection();
+	});
+
+	// Take the orbit angles from the arm on a mode change.
+	if (ctx.lastMode !== null) {
+		yaw.value   = RadiansToDegrees(Math.atan2(rig.direction.x, rig.direction.z));
+		pitch.value = RadiansToDegrees(Math.asin(Clamp(rig.direction.y, -1, 1)));
 	}
 
-	Log("ENGINE", `OrbitCam initialized: distance=${rig.distance.value}, heightOffset=${rig.heightOffset.value}, sensitivity=${lookInput.sensitivity}`, "log", "Level");
+	Log(
+		"ENGINE", 
+		`
+			OrbitCam initialized: 
+			- Distance=${rig.distance.value} 
+			- HeightOffset=${rig.heightOffset.value}
+			- Yaw=${yaw.value.toFixed(0)}
+			- Sensitivity=${mouseStep()}
+		`, 
+		"log", 
+		"Level"
+	);
 }
 
-// Look input; a loop's side view holds the input basis as the camera was at engage.
+// Apply look input within the level's limits, then hand movement its steering.
 function prepareOrbitCam(ctx) {
-	const loop = ctx.loop;
-	const pitches = pitchWindow(RadiansToDegrees(settlePitch(1)));
-	if (loop.active && !orbitCamRuntime.sideView) orbitCamRuntime.inputYaw = orbitCamRuntime.yaw + orbitCamRuntime.autoYaw;
-	orbitCamRuntime.sideView = loop.active;
+	const { min, max, wrap } = pitchWindow(settlePitch(1));
+	consumeLookInput(orbitCamRuntime, min, max, ctx.deltaSeconds);
 
-	const yawBeforeInput = orbitCamRuntime.yaw;
-	consumeLookInput(orbitCamRuntime, pitches.min, pitches.max, ctx.deltaSeconds);
-	if (pitches.wrap) orbitCamRuntime.pitch = wrapDegrees(orbitCamRuntime.pitch);
+	// Keep the pitch between -180° and 180° when it can turn all the way around.
+	if (wrap) orbitCamRuntime.pitch.value -= 360 * Math.round(orbitCamRuntime.pitch.value / 360);
 
-	// Camera turns during a side view never steer.
-	orbitCamRuntime.userTurned = orbitCamRuntime.yaw !== yawBeforeInput;
-	if (loop.active) orbitCamRuntime.steerOffset += orbitCamRuntime.yaw - yawBeforeInput;
-
-	// Steering yaw in radians, atan2(x, z), minus the side view's swing and turns made during it.
-	const inputYaw = DegreesToRadians(orbitCamRuntime.inputYaw);
-	return {
-		control: "carried",
-		basis  : { forward: loop.active ? { x: -Math.sin(inputYaw), y: 0, z: -Math.cos(inputYaw) } : ctx.cameraState.forward },
-		yaw    : DegreesToRadians(orbitCamRuntime.yaw - orbitCamRuntime.steerOffset) + Math.PI,
-		held   : loop.active,
+	// Steer by the way the camera faces.
+	return { 
+		control: "carried", 
+		basis: { forward: ctx.cameraState.forward }, 
+		yaw: new Unit(orbitCamRuntime.yaw.toRadians() + Math.PI, "radians") 
 	};
 }
 
-// Aims the arm; tight loops orbit the loop's center with the look on the player.
+// Ease the arm onto the orbit and roll the camera upright.
 function updateOrbitCam(ctx) {
-	const loop = ctx.loop;
-
-	// Side-on: whenever the user isn't turning the camera, it eases back to the nearer end of the axis.
-	if (loop.active && !orbitCamRuntime.userTurned && Math.abs(loop.axis.y) < Math.SQRT1_2) {
-		const toAxis = wrapDegrees(RadiansToDegrees(Math.atan2(loop.axis.x, loop.axis.z)) - orbitCamRuntime.yaw - orbitCamRuntime.autoYaw);
-		const toSide = Math.abs(toAxis) <= 90 ? toAxis : wrapDegrees(toAxis + 180);
-		orbitCamRuntime.autoYaw += Math.sign(toSide) * Math.min(CAMERA_TUNING.Modes.Orbit.SideSwingSpeed.value * ctx.deltaSeconds, Math.abs(toSide) * ctx.follow);
-	}
-
-	const centered = ctx.cameraState.situation === "smallLoop";
-	const spherical = orbitDirection();
-	const aim = centered ? insideLoopCone(spherical, loop, rig.distance.value) : spherical;
-
-	// Eased from where the camera sits; rotation never shortens the arm.
-	const previousDirection = ResolveVector3Axis(SubtractVector3(ctx.cameraState.position, rig.pivot));
-	rig.direction = ResolveVector3Axis(LerpVector3(previousDirection, aim, ctx.follow));
+	rig.direction       = ResolveVector3Axis(
+		LerpVector3(ResolveVector3Axis(SubtractVector3(ctx.cameraState.position, rig.pivot)), orbitDirection(), ctx.follow)
+	);
 	rollToward(WORLD_NORMALS.Up, ctx.deltaSeconds);
 
-	// Check only the center ray for obstructions; the cone keeps clear of the loop walls.
-	return aimedRig(rig.distance.value, centered ? loop.center : null, centered ? 0 : CAMERA_TUNING.Body.Radius.value, false, orbitTangent());
+	return aimedRig(rig.distance.value, null, CAMERA_TUNING.Body.Radius.value, false, orbitTangent());
 }
 
-/* === CHASE CAM & SIDE CAM (Trail your facing, behind or to the side; freedom narrows with speed) === */
+/* === CHASE CAM & SIDE CAM (Follow behind or beside the player) === */
 
-// Look yaw allowed off the trail at speed share `s`, and the level's pitch window around the settle; radians.
+// The faster the player moves, the narrower the camera angle limit becomes.
 function chaseFreedom(s) {
-	const pitches = pitchWindow(RadiansToDegrees(chaseRuntime.settle));
 	return {
-		yaw     : Lerp(Math.PI, CAMERA_TUNING.Modes.Chase.MaxNarrowedYaw.toRadians(), s),
-		minPitch: DegreesToRadians(pitches.min),
-		maxPitch: DegreesToRadians(pitches.max),
-		top     : DegreesToRadians(pitches.top),
-		bottom  : DegreesToRadians(pitches.bottom),
-		wrap    : pitches.wrap,
+		...pitchWindow(chaseRuntime.settle),
+		yaw: new Unit(Lerp(Math.PI, CAMERA_TUNING.Modes.Chase.MaxNarrowedYaw.toRadians(), s), "radians"),
 	};
 }
 
-// Look away, resisted by `share` as `offset` nears `limit`; turning back stays free.
-function stiffen (delta, offset, limit, share) {
-	return Math.sign(delta) === Math.sign(offset)
-		? delta * (1 - share * Math.pow(Math.min(1, Math.abs(offset) / limit), CAMERA_TUNING.Modes.Chase.LookResistance)) 
-		: delta;
+// Slow look as it nears its limit.
+function stiffen(delta, offset, limit, share) {
+	const look = delta.toRadians(), away = offset.toRadians();
+	const resisted = Math.sign(look) === Math.sign(away)
+		? look * (1 - share * Math.pow(Math.min(1, Math.abs(away) / limit.toRadians()), CAMERA_TUNING.Modes.Chase.LookResistance))
+		: look;
+	return new Unit(resisted, "radians");
 }
 
-// The arm's pitch against `up`, carried past ±90° once look takes it over; radians.
+// Measure the arm's tilt.
 function chasePitch(up) {
 	const pitch = armPitch(up);
-	return chaseRuntime.flipped ? (Math.sign(pitch) || 1) * Math.PI - pitch : pitch;
+	if (chaseRuntime.flipped) pitch.value = (Math.sign(pitch.value) || 1) * Math.PI - pitch.value;
+	return pitch;
 }
 
-// The heading look and follow turn from; behind the arm once look takes it over.
+// Find which way the arm points.
 function chaseHeading(cameraState, up) {
 	const heading = armHeading(cameraState, up);
 	return chaseRuntime.flipped ? ScaleVector3(heading, -1) : heading;
 }
 
-// Turn carrying `heading` onto the trail: `side` radians off behind `facing`, about `up`.
+// Measure how far the arm must turn to reach its follow position.
 function gapToTrail(heading, facing, up, side) {
-	const trail = armAt(ScaleVector3(ResolveVector3Axis(facing), -1), side, 0, up);
-	return Math.atan2(DotVector3(CrossVector3(heading, trail), up), DotVector3(heading, trail));
+	const trail = armAt(ScaleVector3(ResolveVector3Axis(facing), -1), side, new Unit(0, "radians"), up);
+	return new Unit(Math.atan2(DotVector3(CrossVector3(heading, trail), up), DotVector3(heading, trail)), "radians");
 }
 
-// sideCam trails the side of your facing nearest the arm; chaseCam trails behind.
+// Put sideCam on whichever side of the player the arm is closest to, and chaseCam behind.
 function pickSide(heading, facing, up) {
 	chaseRuntime.repick = false;
-	chaseRuntime.side = chaseRuntime.mode === "sideCam" ? -(Math.sign(gapToTrail(heading, facing, up, 0)) || 1) * DegreesToRadians(90) : 0;
+	chaseRuntime.side.value = chaseRuntime.mode === "sideCam" ? -(Math.sign(gapToTrail(heading, facing, up, new Unit(0, "radians")).value) || 1) * DegreesToRadians(90) : 0;
 }
 
 function initializeChase(ctx, mode) {
-	chaseRuntime.mode = mode;
+	chaseRuntime.mode       = mode;
 	chaseRuntime.sinceInput = Infinity;
 	chaseRuntime.sinceChase = 0;
-	chaseRuntime.returning = false;
-	chaseRuntime.side = 0;
-	chaseRuntime.repick = false;
-	chaseRuntime.settle = settlePitch(1);
-	chaseRuntime.flipped = false;
+	chaseRuntime.returning  = false;
+	chaseRuntime.side.value = 0;
+	chaseRuntime.repick     = false;
+	chaseRuntime.settle     = settlePitch(1);
+	chaseRuntime.flipped    = false;
 
-	// Level start: on the trail, upright.
+	// Start upright at the follow position at level start.
 	takeOverRig(ctx, () => {
 		const up = WORLD_NORMALS.Up;
 		const facing = ProjectOntoPlane(ctx.target.facing, up);
 		pickSide(armHeading(ctx.cameraState, up), facing, up);
 		return armAt(ScaleVector3(ResolveVector3Axis(facing), -1), chaseRuntime.side, chaseRuntime.settle, up);
 	});
-	if (ctx.from !== null) pickSide(armHeading(ctx.cameraState, rig.up), ProjectOntoPlane(ctx.target.facing, rig.up), rig.up);
 
-	Log("ENGINE", `${mode} initialized: distance=${rig.distance.value}, heightOffset=${rig.heightOffset.value}, side=${RadiansToDegrees(chaseRuntime.side).toFixed(0)}, sensitivity=${lookInput.sensitivity}`, "log", "Level");
+	// Pick the side from where the arm already is on a mode change.
+	if (ctx.lastMode !== null) pickSide(armHeading(ctx.cameraState, rig.up), ProjectOntoPlane(ctx.target.facing, rig.up), rig.up);
+
+	Log(
+		"ENGINE", 
+		`
+			${mode} initialized: distance=${rig.distance.value}
+			- HeightOffset=${rig.heightOffset.value}
+			- Side=${chaseRuntime.side.toDegrees().toFixed(0)}
+			- Sensitivity=${mouseStep()}
+		`, 
+		"log", 
+		"Level"
+	);
 }
 
-// Look within the speed's freedom; then the input basis, or a loopControls lock.
+// Apply look input, then hand movement its controls.
 function prepareChase(ctx) {
+	// Swing back behind the player after leaving a loop.
 	if (ctx.leftLoop) {
 		chaseRuntime.returning = true;
 		chaseRuntime.exitFacing = CloneVector3(ctx.target.facing);
 	}
 
-	const loop = ctx.loop;
+	const loop   = ctx.loop;
 	const addons = ctx.set.addons[chaseRuntime.mode];
 
-	// loopCam framing looks freely; its cone bounds the arm.
+	// Let look roam freely while loopCam frames a loop.
 	const share = loop.active && addons.includes("loopCam") ? 0 : ctx.speedShare;
 	const freedom = chaseFreedom(share);
 	const startPitch = chasePitch(rig.up);
-	const view = { yaw: 0, pitch: RadiansToDegrees(startPitch) };
-	if (consumeLookInput(view, Math.min(RadiansToDegrees(freedom.minPitch), view.pitch), Math.max(RadiansToDegrees(freedom.maxPitch), view.pitch), ctx.deltaSeconds)) {
+	const view = chaseRuntime.look;
+
+	view.yaw.value = 0;
+	view.pitch.value = startPitch.toDegrees();
+
+	// Widen the limits to the current tilt so look never snaps the arm.
+	const low  = new Unit(Math.min(freedom.min.toDegrees(), view.pitch.value), "degrees");
+	const high = new Unit(Math.max(freedom.max.toDegrees(), view.pitch.value), "degrees");
+	if (consumeLookInput(view, low, high, ctx.deltaSeconds)) {
 		chaseRuntime.sinceInput = 0;
 		chaseRuntime.repick = true;
 
-		// Look cancels a return.
+		// Cancel the swing back when the player looks.
 		chaseRuntime.returning = false;
 		const heading = chaseHeading(ctx.cameraState, rig.up);
 		const facing = ProjectOntoPlane(ctx.target.facing, rig.up);
-		let yaw = DegreesToRadians(view.yaw);
+		let yaw = view.yaw.toRadians();
 
-		// Stiffens toward the speed's freedom; past it, look only turns back toward the trail.
-		if (freedom.yaw < Math.PI && Vector3Length(facing) > EPSILON) {
-			const gap = gapToTrail(heading, facing, rig.up, chaseRuntime.side);
-			yaw = stiffen(yaw, -gap, freedom.yaw, 1);
-			const allowed = Math.max(freedom.yaw, Math.abs(gap));
+		// Resist side look near its limit, and past it allow only turning back.
+		const reach = freedom.yaw.toRadians();
+		if (reach < Math.PI && Vector3Length(facing) > EPSILON) {
+			const gap = gapToTrail(heading, facing, rig.up, chaseRuntime.side).toRadians();
+			yaw = stiffen(view.yaw, new Unit(-gap, "radians"), freedom.yaw, 1).toRadians();
+			const allowed = Math.max(reach, Math.abs(gap));
 			yaw = gap - Clamp(gap - yaw, -allowed, allowed);
 		}
 
-		// Pitch stiffens toward the level's limits, more with speed.
-		const offset = startPitch - chaseRuntime.settle;
-		let pitch = startPitch + stiffen(DegreesToRadians(view.pitch) - startPitch, offset, offset > 0 ? freedom.top : freedom.bottom, share);
+		// Resist up and down look near the level's limits, more at speed.
+		const offset    = new Unit(startPitch.toRadians() - chaseRuntime.settle.toRadians(), "radians");
+		const lookPitch = new Unit(view.pitch.toRadians() - startPitch.toRadians(), "radians");
+		let pitch = startPitch.toRadians() + stiffen(lookPitch, offset, offset.value > 0 ? freedom.top : freedom.bottom, share).toRadians();
+
 		if (freedom.wrap) pitch -= 2 * Math.PI * Math.round(pitch / (2 * Math.PI));
 		chaseRuntime.flipped = Math.abs(pitch) > Math.PI * 0.5;
-		rig.direction = armAt(heading, yaw, pitch, rig.up);
+		rig.direction = armAt(heading, new Unit(yaw, "radians"), new Unit(pitch, "radians"), rig.up);
 	}
 	else chaseRuntime.sinceInput += ctx.deltaSeconds;
 
-	// sideCam's keys map as if from behind you.
+	// Map sideCam's controls as if the camera were behind the player.
 	const basis = armBasis(ctx.cameraState, chaseRuntime.side);
 	if (!addons.includes("loopControls") || !(loop.active || ctx.cameraState.situation === "slope")) return { control: "free", basis };
 	
-	// Locked to the loop's axis, or the slope's fall line.
+	// Lock controls to the loop's axis, or straight down the slope.
 	return {
 		control          : "loopLock",
 		axis             : loop.active ? loop.axis : ResolveVector3Axis(ProjectOntoPlane(WORLD_NORMALS.Down, ctx.target.alignedUp)),
@@ -585,56 +609,56 @@ function prepareChase(ctx) {
 	};
 }
 
-// Rolls, trails your facing and narrows to the speed's freedom; loopCam frames loops instead.
+// Follow the player with the arm, or frame the loop with loopCam.
 function updateChase(ctx) {
 	const { Gravity, Correction } = CONFIG.Physics;
 	const { Look, Loops, Modes, Body } = CAMERA_TUNING;
 
-	const loop = ctx.loop;
-	const target = ctx.target;
+	const loop = ctx.loop, target = ctx.target, up = rig.up;
 	const addons = ctx.set.addons[chaseRuntime.mode];
 	const settled = chaseRuntime.sinceInput >= Look.ReturnDelayMs / 1000;
-	const up = rig.up;
 
-	// loopCam: upright, eased onto the loop's axis, fitted to it; the side re-picks after.
+	// Frame the whole loop from along its axis, upright.
 	if (loop.active && addons.includes("loopCam")) {
 		chaseRuntime.sinceChase = 0;
 		chaseRuntime.repick = true;
 		chaseRuntime.flipped = false;
 		rollToward(WORLD_NORMALS.Up, ctx.deltaSeconds);
 
-		// Zooms out with speed, from the ceiling's grip speed up to top speed. Speed is read at the loop's bottom so it doesn't swing.
+		// Zoom out with speed, measured at the loop's bottom so the zoom stays steady.
 		const { waterFloatiness, airFloatiness, maxSpeed } = target.character.meta;
 
-		const floatiness = target.underwater ? waterFloatiness : airFloatiness;
-		const fall = (Gravity.Strength.value * target.gravityScale - target.buoyancyForce) / floatiness;
-		const height = target.transform.position.y - (loop.center.y - loop.radius);
+		const floatiness  = target.underwater ? waterFloatiness : airFloatiness;
+		const fall        = (Gravity.Strength * target.gravityScale - target.buoyancyForce) / floatiness;
+		const height      = target.transform.position.y - (loop.center.y - loop.radius.value);
 		const bottomSpeed = Math.sqrt(
 			Math.max(0, Vector3Length(ProjectOntoPlane(target.velocity, target.alignedUp)) ** 2 + 2 * fall * height)
 		);
 
-		const ceilingGrip = Correction.MinGripSpeed[target.underwater ? "Water" : "Air"];
-		const fitDistance = (Loops.TightFraming * loop.radius) / Math.sin(DegreesToRadians(ctx.cameraState.fov) * 0.5);
-		const speedZoom = 1 + (Loops.SpeedZoom - 1) * Clamp01((bottomSpeed / maxSpeed - ceilingGrip) / (1 - ceilingGrip));
+		const ceilingGrip    = Correction.MinGripSpeed[target.underwater ? "Water" : "Air"];
+		const fitDistance    = (Loops.TightFraming * loop.radius.value) / Math.sin(DegreesToRadians(CONFIG.Camera.Fov) * 0.5);
+		const speedZoom      = 1 + (Loops.SpeedZoom - 1) * Clamp01((bottomSpeed / maxSpeed.value - ceilingGrip) / (1 - ceilingGrip));
 		const scaledDistance = fitDistance * speedZoom;
-		
+
+		// Ease back onto the loop's axis once looking stops, otherwise keep the arm clear of the walls.
 		const aim = settled ? loopSide(rig.direction, loop) : insideLoopCone(rig.direction, loop, scaledDistance);
 		rig.direction = ResolveVector3Axis(LerpVector3(rig.direction, aim, ctx.follow));
 		
-		// Check only the center ray for obstructions; the cone keeps clear of the loop walls.
+		// Check only the center ray for obstructions, since the arm already clears the walls.
 		return aimedRig(scaledDistance, loop.center, 0, false, rig.up);
 	}
 
-	// Rolls with the surface in loops and on any real incline but a small loop's, unless an addon excludes it.
+	// Roll with the ground in large loops and on inclines.
 	const inclined = target.grounded && AngleBetweenVector3(target.alignedUp, WORLD_NORMALS.Up) > DegreesToRadians(Correction.FlatSnapDegrees);
 	const rolls = ctx.cameraState.looping 
 		? !addons.includes("noLoopRoll")
 		: inclined && !ctx.onSmallLoop && !addons.includes("noSlopeRoll") && !(ctx.onRamp && addons.includes("noRampRoll"));
 	rollToward(rolls ? target.alignedUp : WORLD_NORMALS.Up, ctx.deltaSeconds);
-	// Height lowers with an incline's roll and flips below an upside-down model; held while you look.
+
+	// Lower the camera as it rolls, and drop it below an upside-down model, once looking stops.
 	if (settled) chaseRuntime.settle = settlePitch((ctx.cameraState.looping ? 1 : Math.max(0, Math.cos(AngleBetweenVector3(up, WORLD_NORMALS.Up)))) * modelFlip(ctx));
 
-	// Follows while you move, or returning from a loop at any speed, once the look delay has passed.
+	// Follow while moving or swinging back from a loop, a short delay after the player stops looking.
 	const facing = ProjectOntoPlane(chaseRuntime.returning ? chaseRuntime.exitFacing : target.facing, up);
 	const facingKnown = Vector3Length(facing) > EPSILON;
 	const following = facingKnown && (ctx.speedShare > EPSILON || chaseRuntime.returning) && settled;
@@ -645,38 +669,39 @@ function updateChase(ctx) {
 		if (chaseRuntime.repick && settled) pickSide(heading, facing, up);
 		const trail = 1 - Math.exp(-ctx.deltaSeconds * Modes.Chase.TrailStrength / (250 / 1000));
 
-		// Trails the facing, scaled by speed; ramps in over FollowRampMs after a look.
+		// Follow harder with speed, easing in after the player looks.
 		const strength = chaseRuntime.returning ? 1 : Math.pow(ctx.speedShare, 0.5);
-		const step = following ? trail * SmoothStep(0, Modes.Chase.FollowRampMs / 1000, chaseRuntime.sinceChase) * strength : 0;
+		const step     = following ? trail * SmoothStep(0, Modes.Chase.FollowRampMs / 1000, chaseRuntime.sinceChase) * strength : 0;
 
-		// Around and up apart, so a half turn orbits onto the trail instead of passing overhead.
-		const gap = gapToTrail(heading, facing, up, chaseRuntime.side);
-		const pitch = chasePitch(up);
-		let turn = gap * step;
-		let nextPitch = pitch + (chaseRuntime.settle - pitch) * step;
-		
-		// Look past the speed's freedom eases back in.
+		// Turn and tilt separately, so a half turn swings around instead of over the top.
+		const gap       = gapToTrail(heading, facing, up, chaseRuntime.side).toRadians();
+		const lastPitch = chasePitch(up).toRadians();
+		let turn        = gap * step;
+		let pitch       = lastPitch + (chaseRuntime.settle.toRadians() - lastPitch) * step;
+
+		// Ease look back within the limits for this speed.
 		const freedom = chaseFreedom(ctx.speedShare);
-		const left = gap - turn;
-		
-		if (Math.abs(left) > freedom.yaw) turn += Math.sign(left) * (Math.abs(left) - freedom.yaw) * trail;
-		nextPitch += (Clamp(nextPitch, freedom.minPitch, freedom.maxPitch) - nextPitch) * trail;
-		chaseRuntime.flipped = Math.abs(nextPitch) > Math.PI * 0.5;
-		rig.direction = armAt(heading, turn, nextPitch, up);
+		const reach   = freedom.yaw.toRadians();
+		const left    = gap - turn;
+
+		if (Math.abs(left) > reach) turn += Math.sign(left) * (Math.abs(left) - reach) * trail;
+		pitch += (Clamp(pitch, freedom.min.toRadians(), freedom.max.toRadians()) - pitch) * trail;
+		chaseRuntime.flipped = Math.abs(pitch) > Math.PI * 0.5;
+		rig.direction = armAt(heading, new Unit(turn, "radians"), new Unit(pitch, "radians"), up);
 		if (chaseRuntime.returning && Math.abs(gap - turn) < DegreesToRadians(5)) chaseRuntime.returning = false;
 	}
 
-	// The arm's way up along its pitch arc; points down past the top.
+	// Hand over the arm, zoomed out in large loops, with the way it moves when rising over the player.
 	return aimedRig(
 		rig.distance.value * (ctx.cameraState.situation === "largeLoop" ? Loops.LargeLoopZoom : 1), 
 		null, Body.Radius.value, 
-		true, armAt(chaseHeading(ctx.cameraState, up), 0, chasePitch(up) + Math.PI * 0.5, up)
+		true, armAt(chaseHeading(ctx.cameraState, up), new Unit(0, "radians"), new Unit(chasePitch(up).toRadians() + Math.PI * 0.5, "radians"), up)
 	);
 }
 
 /* === MODES === */
 
-// Rig modes aim an arm that Master.js places; free places itself.
+// Each mode's steps. prepare runs before movement, and update after physics.
 const CAMERA_MODES = {
 	orbitCam: { rig: true,  initialize: initializeOrbitCam,                        prepare: prepareOrbitCam, update: updateOrbitCam, handleInput: handleRigInput     },
 	freeCam : { rig: false, initialize: initializeFreeCam,                         prepare: prepareFreeCam,  update: updateFreeCam,  handleInput: handleFreeCamInput },
@@ -684,9 +709,10 @@ const CAMERA_MODES = {
 	sideCam : { rig: true,  initialize: (ctx) => initializeChase(ctx, "sideCam"),  prepare: prepareChase,    update: updateChase,    handleInput: handleRigInput     },
 };
 
-// Level start: fresh look input, the level's framing and freeCam speed, and the arm on the opening view.
+// Reset every mode for a new level, with the arm on the opening view.
 function ResetCameraModes(cameraConfig, levelBase) {
 	resetLookInput();
+	
 	const distance = cameraConfig.distance;
 	rig.distanceRange = { min: distance.min.clone(), default: distance.default.clone(), max: distance.max.clone() };
 	rig.distance = distance.default.clone();
@@ -703,7 +729,7 @@ function ResetCameraModes(cameraConfig, levelBase) {
 	rig.direction = ResolveVector3Axis(SubtractVector3(levelBase.position, levelBase.target));
 }
 
-// Simulator framing; the zoom range scales with it.
+// Set the Simulator's framing, scaling the zoom range to match.
 function SetOrbitCamFraming({ distance, heightOffset }) {
 	const scale = distance / rig.distanceRange.default.value;
 	rig.distanceRange.min.value *= scale;
@@ -713,7 +739,7 @@ function SetOrbitCamFraming({ distance, heightOffset }) {
 	rig.heightOffset.value = heightOffset;
 	rig.currentDistance.value = distance;
 	rig.targetDistance.value = distance;
-	orbitCamRuntime.pitch = RadiansToDegrees(settlePitch(1));
+	orbitCamRuntime.pitch.value = settlePitch(1).toDegrees();
 }
 
 /* === EXPORTS === */

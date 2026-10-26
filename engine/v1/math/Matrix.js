@@ -1,5 +1,5 @@
-import { AddVector3, ArrayToVector3, CloneVector3, ScaleVector3 } from "./Vector3.js";
-import { Clamp, CNU_SCALE } from "./Utilities.js";
+import { ScaleVector3 } from "./Vector3.js";
+import { Clamp, CloneTransform, CNU_SCALE } from "./Utilities.js";
 
 function CreateIdentityMatrix() {
 	return [
@@ -171,13 +171,7 @@ function CreateRenderMatrix(transform) {
 
 // Matrix plus a by-value snapshot of its source fields; always fully populated.
 function CreateRenderMatrixCache(transform) {
-	return {
-		matrix  : new Float32Array(CreateRenderMatrix(transform)),
-		position: transform.position.clone(),
-		pivot   : transform.pivot.clone(),
-		rotation: transform.rotation.clone(),
-		scale   : CloneVector3(transform.scale),
-	};
+	return { matrix: new Float32Array(CreateRenderMatrix(transform)), ...CloneTransform(transform) };
 }
 
 // Undoes a rotate/scale/move matrix laid out like the render matrices.

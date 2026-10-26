@@ -278,13 +278,20 @@ async function Load(payload) {
 	else {
 		// Entities ground on the surface map, so a platform must exist before the object spawns.
 		if (simulatorRuntime.platformMesh === null) simulatorRuntime.platformMesh = spawnPlatform(sceneGraph, templateDisc.dimensions.x);
+		
 		const platformMesh = simulatorRuntime.platformMesh[0];
 		const platformTopY = platformMesh.transform.position.y + (platformMesh.dimensions.y * platformMesh.transform.scale.y * 0.5);
 
 		if (objectType === "player") {
 			// Built exactly as a level builds the player.
-			const playerData = { spawnPosition: new UnitVector3(0, platformTopY, 0, "cnu"), scale: ToVector3(1), animations: {}, customEvents: {}, hasCustomParts: false };
-			built      = AddEntityToScene(await BuildPlayerModel(definition, playerData), sceneGraph);
+			const rootTransform = {
+				position: new UnitVector3(0, platformTopY, 0, "cnu"),
+				rotation: new UnitVector3(0, 0, 0, "radians"),
+				scale   : ToVector3(1),
+				pivot   : new UnitVector3(0, 0, 0, "cnu"),
+			};
+			const playerData = { rootTransform, spawnSurfaceId: null, animations: {}, customEvents: {}, hasCustomParts: false };
+			built      = AddEntityToScene(await BuildPlayerModel(definition, playerData, sceneGraph.spawnSurfaces), sceneGraph);
 			objectType = "entity";
 		}
 		else built = SpawnIntoScene(definition, objectType, sceneGraph);

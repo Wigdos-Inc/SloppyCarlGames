@@ -1,10 +1,9 @@
-// Resolves a particle template plus per-call overrides into randomized particle groups.
-// Each group is an ordinary multi-part entity, so it reuses BuildEntity, the geometry cache
-// and — for physics mode "full" — the real physics pipeline.
+// Builds randomized particle groups from a particle template plus per-call overrides.
+// Each group is a normal multi-part entity that shares the entity build, geometry cache and ("full" mode) physics.
 
-// Called by NewLevel.js for level-authored generators and by handlers/game/Level.js for reseeding.
-// Owns the group lifetime classes; Level.js owns the frame loop that drives them.
-// Uses NewEntity.js for the groups and NewTemplate.js for part cloning.
+// Used by NewLevel.js for level-authored generators and by handlers/game/Level.js for reseeding.
+// Owns the group lifetime classes. Level.js runs the frame loop that drives them.
+// Uses NewEntity.js to build groups and NewTemplate.js to clone parts.
 
 import particleTemplates from "./templates/particles.json" with { type: "json" };
 import { BuildEntity, UpdateEntityModelFromTransform } from "./NewEntity.js";
@@ -16,7 +15,7 @@ import { Log } from "../core/meta.js";
 
 /* === SPAWN SURFACE === */
 
-// Particles spawn at absolute positions, using a builder surface at the world origin.
+// Spawn surface at the world origin to keep particle positions absolute.
 
 const particleSurfaceId = "particle-origin";
 
@@ -31,7 +30,7 @@ const particleSurfaceMap = {
 
 const maxGroupSize = 10;
 
-// Dimensionless multipliers of the part's own dimensions — proportional at any size, never unit space.
+// Hand-tuned particle offsets for small groups, in multiples of the part's size.
 const tunedLayouts = {
 	1: [{ x:  0,   y:  0,   z:  0   }],
 	2: [{ x: -0.8, y:  0.3, z:  0.2 }, { x:  0.8, y: -0.3, z: -0.2 }],
@@ -40,48 +39,37 @@ const tunedLayouts = {
 	5: [{ x:  0,   y:  1.1, z:  0   }, { x: -1,   y:  0.2, z:  0.9 }, { x:  1,   y:  0.3, z: -0.8 }, { x: -0.9, y: -0.8, z: -0.7 }, { x:  0.8, y: -0.9, z:  0.6 }],
 };
 
-// Golden-angle sphere: even coverage at any size, and identical every run.
+// Offsets spread evenly over a sphere for larger groups, the same every run.
 const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 const sphereLayout = (size) => Array.from({ length: size }, (_, index) => {
 	const y      = 1 - ((index + 0.5) / size) * 2;
-	const radius = Math.sqrt(1 - y * y);
+	const radius = Math.sqrt(1 - y ** 2);
 	const angle  = index * goldenAngle;
 	return { x: Math.cos(angle) * radius, y, z: Math.sin(angle) * radius };
 });
 
-// Built once at import; sizes past the tuned set are generated, then read by plain index like the rest.
+// Layout per group size, built once at import. Sizes past the tuned set use the sphere.
 const groupLayouts = {};
 for (let size = 1; size <= maxGroupSize; size++) {
 	groupLayouts[size] = size <= Object.keys(tunedLayouts).length ? tunedLayouts[size] : sphereLayout(size);
 }
 
-// Burst cone half-angles. Feel values; "max" is a full sphere, not a cone.
 const spreadHalfAngles = {
-	narrow: new Unit(10, "degrees").toRadians(true),
-	medium: new Unit(30, "degrees").toRadians(true),
-	wide  : new Unit(60, "degrees").toRadians(true),
+	narrow: new Unit( 10, "degrees").toRadians(true),
+	medium: new Unit( 30, "degrees").toRadians(true),
+	wide  : new Unit( 60, "degrees").toRadians(true),
 	max   : new Unit(180, "degrees").toRadians(true),
 };
-
-// Downward acceleration the tick applies in "simple" mode. Feel value.
-const arcRate = new Unit(9, "cnu");
-
-// Bigger emissions consolidate into chunkier groups; small ones keep their fine-grained spray.
-function minGroupSizeFor(count) {
-	if (count > 20) return 5;
-	if (count > 10) return 3;
-	return 2;
-}
 
 /* === RANDOMIZATION === */
 
 const randomRange = (min, max) => min + Math.random() * (max - min);
-const randomInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
+const randomInt =(min, max) => min + Math.floor(Math.random() * (max - min + 1));
 
-// One offset shared by r/g/b, keeping the hue (grey stays grey).
+// One offset shared by r/g/b to keep the hue (grey stays grey).
 const randomVariance = (variance) => randomRange(-variance, variance);
 
-// RGB only; duration.mode owns alpha. Writes in place — recycle runs every interval and must not allocate.
+// Write RGB in place to avoid allocating every frame. The caller sets alpha.
 function writeParticleRgb(target, start, end, factor, offset) {
 	target.r = Clamp01(Lerp(start.r, end.r, factor) + offset);
 	target.g = Clamp01(Lerp(start.g, end.g, factor) + offset);
@@ -89,7 +77,7 @@ function writeParticleRgb(target, start, end, factor, offset) {
 	return target;
 }
 
-// Random direction inside a cone about `axis`, magnitude 0.8–1.2x its length. A zero axis has no cone.
+// Random velocity within halfAngle of axis, at 0.8–1.2× its length. A zero axis gives zero.
 function randomInCone(axis, halfAngle) {
 	const length = Vector3Length(axis);
 	if (length === 0) return ToVector3(0);
@@ -109,17 +97,17 @@ function randomInCone(axis, halfAngle) {
 
 /* === REQUEST RESOLUTION === */
 
-// The six overridable keys — the sole authority both resolution and single-key replacement read.
+// Template keys a request may override.
 const overrideKeys = ["count", "spread", "physics", "color", "velocity", "duration"];
 
-// null (whole object or per key) = use the template. Only these six keys are overridable.
+// Merge overrides onto the template.
 function resolveRequest(template, overrides) {
 	const resolved = { amount: template.amount, part: template.part };
 	overrideKeys.forEach((key) => { resolved[key] = overrides === null || overrides[key] === null ? template[key] : overrides[key]; });
 	return resolved;
 }
 
-// Returns a complete override set with one key replaced, so a caller need not know the other five.
+// Copy overrides with one key replaced, keeping the rest without the caller listing them.
 function WithParticleOverride(overrides, key, value) {
 	const merged = {};
 	overrideKeys.forEach((name) => { merged[name] = overrides === null ? null : overrides[name]; });
@@ -127,18 +115,7 @@ function WithParticleOverride(overrides, key, value) {
 	return merged;
 }
 
-// physicsMode is the sole authority for the flag bag.
-function physicsFlagsFor(mode) {
-	return {
-		gravity   : mode === "full",
-		buoyancy  : false,
-		resistance: mode === "full",
-		correction: false,
-		collision : mode !== "none",
-	};
-}
-
-// Sizes as equal as possible, largest first.
+// Split total into near-equal group sizes, largest first.
 function balancedSplit(total, groups) {
 	const sizes = [];
 	let remaining = total;
@@ -150,7 +127,7 @@ function balancedSplit(total, groups) {
 	return sizes;
 }
 
-// Break up the even split with ±1 transfers that keep both ends in range.
+// Move single particles between groups to break up the even split, within size limits.
 function jitterGroupSizes(sizes, minSize) {
 	for (let i = 0; i < sizes.length; i++) {
 		const from = randomInt(0, sizes.length - 1);
@@ -162,19 +139,19 @@ function jitterGroupSizes(sizes, minSize) {
 	return sizes;
 }
 
-// <3 → singles. 3–7 → three near-equal groups. ≥8 → a random group count, sized by minGroupSizeFor.
+// Under 3 particles stay single, up to 7 form three groups, and more form a random number of groups.
 function resolveGroupSizes(count) {
-	if (count < 3) return new Array(count).fill(1);
+	if (count < 3)  return new Array(count).fill(1);
 	if (count <= 7) return balancedSplit(count, 3);
 
-	const minSize = minGroupSizeFor(count);
+	const minSize = count > 20 ? 5 : count > 10 ? 3 : 2;
 	const groups = randomInt(Math.max(3, Math.ceil(count / maxGroupSize)), Math.floor(count / minSize));
 	return jitterGroupSizes(balancedSplit(count, groups), minSize);
 }
 
 /* === DEFINITION SYNTHESIS === */
 
-// All parts are roots; center anchor + center attachment makes localPosition verbatim.
+// One root part per particle, centered to place it exactly at its layout offset.
 function synthesizeParts(templatePart, size) {
 	return groupLayouts[size].map((offset, index) => {
 		const part = CloneTemplatePart(templatePart);
@@ -187,6 +164,7 @@ function synthesizeParts(templatePart, size) {
 	});
 }
 
+// Entity definition for a particle group.
 function synthesizeGroupDefinition(templateId, resolved, position, size, index, velocity) {
 	return {
 		id               : `${templateId}@${position.x.toFixed(2)},${position.y.toFixed(2)},${position.z.toFixed(2)}#${index}`,
@@ -200,8 +178,6 @@ function synthesizeGroupDefinition(templateId, resolved, position, size, index, 
 		customEvents     : {},
 		collisionOverride: { physics: "aabb", hurtbox: null, hitbox: null },
 		velocity,
-
-		// Zero speed keeps the builder's movement lerp inert, so the spawn position survives.
 		movement: {
 			start       : position.clone(),
 			end         : position.clone(),
@@ -213,9 +189,14 @@ function synthesizeGroupDefinition(templateId, resolved, position, size, index, 
 			jumpOnSight : false,
 			disappear   : false,
 			chase       : false,
-			physics     : physicsFlagsFor(resolved.physics),
+			physics     : {
+				gravity   : mode === "full",
+				buoyancy  : false,
+				resistance: mode === "full",
+				correction: false,
+				collision : mode !== "none",
+			},
 		},
-
 		model: {
 			spawnSurfaceId: particleSurfaceId,
 			rootTransform : {
@@ -231,88 +212,83 @@ function synthesizeGroupDefinition(templateId, resolved, position, size, index, 
 
 /* === GROUP LIFETIME === */
 
-// Sole authority on the key format every producer and consumer of a target resolves through.
-const particleTargetKey = (target) => `${target.type}::${target.id}::${target.partId}`;
-
-// One built group's runtime state. Lifetime is frame-tracked: `total` accumulates deltaMs.
+// Runtime state for one particle group. `total` counts its age in ms.
 class particleGroup {
 	constructor(entity, request, resolved, halfAngle) {
 		this.entity      = entity;
-		// Reseeded siblings must never seed in turn, and the stored position outlives the caller's.
 		this.request     = { ...request, position: request.position.clone(), mode: "sibling" };
 		this.duration    = resolved.duration;
 		this.physicsMode = resolved.physics;
 		this.startColor  = resolved.color.start;
-		// null end = constant colour, resolved here so the per-frame write never branches.
 		this.endColor    = resolved.color.end === null ? resolved.color.start : resolved.color.end;
 		this.variance    = resolved.color.variance;
 		this.offsets     = entity.model.parts.map(() => randomVariance(this.variance));
 		this.halfAngle   = halfAngle;
-		// A key, not a scene reference — a despawned target must not stay pinned.
 		this.target      = request.target;
-		this.targetKey   = request.target === null ? null : particleTargetKey(request.target);
+		this.targetKey   = request.target === null ? null : `${request.target.type}::${request.target.id}::${request.target.partId}`;
 		this.offset      = request.offset === null ? null : request.offset.clone();
 		this.orphaned    = false;
 		this.spawnOrigin = entity.transform.position.clone();
-		// BuildEntity re-seats the group on the spawn plane, so the origin is not the request position.
 		this.originCorrection = this.spawnOrigin.clone().subtract(request.position);
 		this.spawnAxis   = resolved.velocity.clone();
-		// intervalMs is a recycle cadence; a one-shot ends when its decay does.
 		this.lifespan    = resolved.duration.intervalMs;
 		this.total       = 0;
 		this.decayStart  = null;
 		this.finished    = false;
 
-		// Tint rides on displayColor: baking it into texture.generated would key a canvas per particle.
+		// Tint through displayColor to avoid baking a texture per particle.
 		entity.model.parts.forEach((part, index) => {
 			part.mesh.displayColor = writeParticleRgb({ a: this.startColor.a }, this.startColor, this.endColor, 0, this.offsets[index]);
 		});
 	}
 
-	// Re-seats the origin on the live target each frame; `targets` is rebuilt by the driver.
+	// Move the spawn origin to the target's current transform.
 	follow(targets) {
 		const transform = targets[this.targetKey];
 
-		// The target died or was removed.
+		// Orphan the group if the target died or got removed.
 		if (transform === undefined) { 
 			this.orphan(); 
 			return; 
 		}
 
-		// Moves the stored request too, so new siblings spawn where the target is now.
+		// Move the request position and spawn origin with the target. New siblings spawn there too.
 		this.request.position.set(transform.position).add(RotateByEuler(this.offset, transform.rotation));
 		this.spawnOrigin.set(this.request.position).add(this.originCorrection);
 	}
 
-	// Ends the loop on the authored decay instead of the recycle cadence.
+	// Stop recycling and end the group when its decay finishes.
 	orphan() {
 		this.orphaned = true;
 		this.lifespan = this.duration.endTimeMs;
 	}
 
+	// Age, move and fade the group by one frame.
 	advance(deltaMs, deltaSeconds) {
 		this.total += deltaMs;
 
-		// "none" moves by its velocity alone; "simple" adds a light gravity arc.
+		// "none" moves itself by velocity. "simple" only adds a light gravity arc.
 		if (this.physicsMode === "none")   this.entity.transform.position.add(ScaleVector3(this.entity.velocity, deltaSeconds));
-		if (this.physicsMode === "simple") this.entity.velocity.y -= arcRate.value * deltaSeconds;
+		if (this.physicsMode === "simple") this.entity.velocity.y -= CONFIG.Physics.Gravity.Strength * deltaSeconds;
 
-		if (this.total >= this.lifespan) return this.expire();
+		// Expire at end of life, and hold full color until the decay begins.
+		if (this.total >= this.lifespan)           return this.expire();
 		if (this.total < this.duration.holdTimeMs) return;
 
 		if (this.decayStart === null) this.decayStart = this.total;
 		const decay = 1 - Clamp01((this.total - this.decayStart) / (this.duration.endTimeMs - this.decayStart));
 
-		// Fades from the starting alpha each frame (multiplying would compound).
+		// Blend toward the end color and fade from the start alpha.
 		const fadeAlpha = this.duration.mode === "fade" ? this.startColor.a * decay : this.startColor.a;
 		this.entity.model.parts.forEach((part, index) => {
 			writeParticleRgb(part.mesh.displayColor, this.startColor, this.endColor, 1 - decay, this.offsets[index]).a = fadeAlpha;
 		});
 
-		// Shrinks each particle in place; the spread between them stays the same.
+		// Shrink each particle in place. The spread between them stays the same.
 		if (this.duration.mode === "shrink") this.entity.transform.scale = ToVector3(Math.max(0.05, decay));
 	}
 
+	// Restart the group at its spawn origin with a fresh direction.
 	recycle() {
 		this.total      = 0;
 		this.decayStart = null;
@@ -321,27 +297,29 @@ class particleGroup {
 		this.entity.transform.scale = ToVector3(1);
 		this.entity.velocity.set(randomInCone(this.spawnAxis, this.halfAngle));
 
-		// A fresh life is entitled to its own first collision event.
+		// Clear the last collision key to let the new life fire its own collision event.
 		this.entity.physicsRuntime.lastPhysicsCollisionKey = "";
 
-		// Re-roll the jitter and restore the spawn alpha a fade has decayed.
+		// Re-roll each particle's color offset and restore the start color and alpha.
 		this.entity.model.parts.forEach((part, index) => {
 			this.offsets[index] = randomVariance(this.variance);
 			writeParticleRgb(part.mesh.displayColor, this.startColor, this.endColor, 0, this.offsets[index]).a = this.startColor.a;
 		});
 	}
 
-	// End of one emission: looping by default, so the burst subclass overrides instead.
+	// Recycle at end of life, or finish once orphaned. Bursts override this to always finish.
 	expire() {
 		if (this.orphaned) return this.finished = true;
 		this.recycle();
 	}
 
-	// Only the seeding subclass emits siblings; a base method keeps the driver's call guaranteed.
-	seedDue() { return false; }
+	// Never seed by default. Only the seeding subclass emits siblings.
+	seedDue() { 
+		return false; 
+	}
 }
 
-// The generator's first group. Seeds phase-offset siblings on a clock recycle does not reset.
+// A generator's first group. Seeds staggered siblings on its own clock, which recycling doesn't reset.
 class seedingParticleGroup extends particleGroup {
 	constructor(entity, request, resolved, halfAngle) {
 		super(entity, request, resolved, halfAngle);
@@ -350,25 +328,29 @@ class seedingParticleGroup extends particleGroup {
 		this.seeded    = 0;
 	}
 
-	// `amount - 1` siblings: an `amount`th would land in phase with this group's own recycle.
+	// Seed siblings spaced over the interval. One more would line up with this group.
 	seedDue(deltaMs) {
 		if (this.orphaned) return false;
+
 		this.seedClock += deltaMs;
 		if (this.seeded >= this.amount - 1) return false;
 		if (this.seedClock < (this.seeded + 1) * (this.duration.intervalMs / this.amount)) return false;
+
 		this.seeded += 1;
 		return true;
 	}
 }
 
-// A one-shot request. Extends the base, never the seeding class, so base seedDue() keeps it silent.
+// A one-shot group that finishes after its decay. Extends the base class to never seed.
 class burstParticleGroup extends particleGroup {
 	constructor(entity, request, resolved, halfAngle) {
 		super(entity, request, resolved, halfAngle);
 		this.lifespan = resolved.duration.endTimeMs;
 	}
 
-	expire() { this.finished = true; }
+	expire() { 
+		this.finished = true; 
+	}
 }
 
 /* === PUBLIC API === */
@@ -393,7 +375,7 @@ function GenerateParticles(request, textureScale, faceTextureStore, geometryCach
 
 	const groups = resolveGroupSizes(Math.max(1, Math.round(resolved.count * multiplier))).map((size, index) => {
 		const cone     = randomInCone(resolved.velocity, halfAngle);
-		const velocity = new UnitVector3(cone.x, cone.y, cone.z, "cnu");
+		const velocity = new UnitVector3(cone.x, cone.y, cone.z, "cnu"); // Per second
 
 		const { entity } = BuildEntity(
 			synthesizeGroupDefinition(request.templateId, resolved, request.position, size, index, velocity),
@@ -401,14 +383,16 @@ function GenerateParticles(request, textureScale, faceTextureStore, geometryCach
 			textureScale, faceTextureStore, geometryCache
 		);
 
-		// BuildEntity seats the model's AABB floor on the spawn plane; a burst is centered on it.
+		// Center the group vertically on the request position instead of standing on it.
 		entity.transform.position.y += request.position.y - (entity.collision.aabb.min.y + entity.collision.aabb.max.y) * 0.5;
 		UpdateEntityModelFromTransform(entity);
 
-		// Every group of a burst expires; only the first group of a generator sustains the effect.
-		if (request.mode === "burst") entity.particle = new burstParticleGroup(entity, request, resolved, halfAngle);
-		else if (request.mode === "generator" && index === 0) entity.particle = new seedingParticleGroup(entity, request, resolved, halfAngle);
-		else entity.particle = new particleGroup(entity, request, resolved, halfAngle);
+		// Bursts expire. Generators recycle.
+		entity.particle = request.mode === "burst"
+			? new burstParticleGroup(entity, request, resolved, halfAngle)
+			: request.mode === "generator" && index === 0
+				? entity.particle = new seedingParticleGroup(entity, request, resolved, halfAngle)
+				: new particleGroup(entity, request, resolved, halfAngle);
 
 		return entity;
 	});
@@ -416,12 +400,18 @@ function GenerateParticles(request, textureScale, faceTextureStore, geometryCach
 	return { groups };
 }
 
-// Sole authority on how a built carrier becomes generator requests — target keys must match `follow`.
+// Generator requests for every particle a built terrain, obstacle or entity carries.
+// Note: target type and partId must match what Level.js resolves for following.
 function ParticleGeneratorRequests(carrier, kind) {
-	const sources =
-		kind === "terrain"  ? [{ particle: carrier.meta.particle, transform: carrier.transform, target: { type: "terrain", id: carrier.id, partId: null } }] :
-		kind === "obstacle" ? carrier.parts.map((mesh) => ({ particle: mesh.meta.particle, transform: mesh.transform, target: { type: "obstacle", id: carrier.id, partId: mesh.id } })) :
-		                      carrier.model.parts.map((part) => ({ particle: part.mesh.meta.particle, transform: part.mesh.transform, target: { type: carrier.type, id: carrier.id, partId: part.id } }));
+	const sources = kind === "terrain"
+		? [{ particle: carrier.meta.particle, transform: carrier.transform, target: { type: "terrain", id: carrier.id, partId: null } }] 
+		: kind === "obstacle" 
+			? carrier.parts.map((mesh) => (
+				{ particle: mesh.meta.particle, transform: mesh.transform, target: { type: "obstacle", id: carrier.id, partId: mesh.id } }
+			)) 
+			: carrier.model.parts.map((part) => (
+				{ particle: part.mesh.meta.particle, transform: part.mesh.transform, target: { type: carrier.type, id: carrier.id, partId: part.id } }
+			));
 
 	return sources.filter((source) => source.particle !== null).map((source) => ({
 		templateId: source.particle.id,

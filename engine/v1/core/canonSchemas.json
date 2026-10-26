@@ -2122,17 +2122,33 @@
   },
   "levelPlayer": {
     "character": { "__meta": { "description": "Player character id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "chara", "deprecated": false } },
-    "spawnPosition": {
-      "__meta": { "description": "Spawn position", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
-      "x": { "__meta": { "description": "Spawn x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
-      "y": { "__meta": { "description": "Spawn y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
-      "z": { "__meta": { "description": "Spawn z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
-    },
-    "scale": {
-      "__meta": { "description": "Player scale", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
-      "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
-      "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
-      "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+    "spawnSurfaceId": { "__meta": { "description": "Spawn surface id; null places rootTransform in absolute coordinates", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "rootTransform": {
+      "__meta": { "description": "Spawn transform", "aliases": [], "dataType": "object", "isRequired": true, "isExpected": true, "fallback": {}, "deprecated": false },
+      "position": {
+        "__meta": { "description": "Spawn position", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+        "x": { "__meta": { "description": "Spawn x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "y": { "__meta": { "description": "Spawn y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "z": { "__meta": { "description": "Spawn z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+      },
+      "rotation": {
+        "__meta": { "description": "Spawn rotation degrees; y sets the spawn facing", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+        "x": { "__meta": { "description": "Spawn rot x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "y": { "__meta": { "description": "Spawn rot y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "z": { "__meta": { "description": "Spawn rot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+      },
+      "scale": {
+        "__meta": { "description": "Player scale", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
+        "x": { "__meta": { "description": "Scale x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+        "y": { "__meta": { "description": "Scale y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
+        "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
+      },
+      "pivot": {
+        "__meta": { "description": "Player pivot", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
+        "x": { "__meta": { "description": "Pivot x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "y": { "__meta": { "description": "Pivot y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
+        "z": { "__meta": { "description": "Pivot z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
+      }
     },
     "modelParts": { "__meta": { "description": "Custom model part list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
     "metaOverrides": { "__meta": { "description": "Meta override bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": { "list": [] }, "deprecated": false } },

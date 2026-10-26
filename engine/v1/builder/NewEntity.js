@@ -1,9 +1,11 @@
-// Creates Models for anything that should support being animated.
-// Builds entity models from the ground up with automatic grounding and
-// anchor/attachment-point–based part positioning.
+// Builds entities and keeps their models and collision bounds in step with their transforms.
 
-// Called by NewBoss.js, player/Model.js, helpers/game/Level.js and helpers/Cutscene.js for Entity Models
-// Uses NewObject.js for Model Parts
+// Used by NewLevel.js, NewParticles.js, handlers/game/Level.js and player/Model.js to build entities.
+// Used by many modules to reset the entity model.
+// Used by player/Master.js to reset the player's movement input memory.
+// Used by handlers/game/Animation.js to compose part transforms.
+// Uses NewObject.js to build model parts.
+// Uses NewTemplate.js to resolve blueprint sources.
 
 import { BuildObject, UpdateObjectWorldAabb, ComputeWorldAabbFromBounds } from "./NewObject.js";
 import { ResolveEntitySource } from "./NewTemplate.js";
@@ -23,12 +25,12 @@ import {
 } from "../math/Vector3.js";
 import { ComposeEulerRotations } from "../math/Matrix.js";
 import { AabbCenter, AabbHalfExtents, CapsuleFromAabb, ObbFromAabb, PointsAabb, SphereFromAabb } from "../math/Collision.js";
-import { BestMatchOf, Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
+import { Clamp01, CloneTransform, Unit, UnitVector3 } from "../math/Utilities.js";
 
-// Default model-pose turn rate, radians/second. Characters scale it by their control values.
-const defaultModelTurnRate = 8;
+// Default/Fallback model-pose turn rate. Per second.
+const defaultModelTurnRate = new Unit(450, "degrees").toRadians(true);
 
-// Returns the {x,y,z} offset from the box center to the center of the given face.
+// Get the offset from a box's center to the center of one of its faces.
 function getFaceCenterOffset(dimensions, faceType) {
 	switch (faceType) {
 		case "top":    return { x: 0, y:  dimensions.y * 0.5, z: 0 };
@@ -41,97 +43,16 @@ function getFaceCenterOffset(dimensions, faceType) {
 	}
 }
 
-// After a rotation, relabels each face by the world axis its normal lands nearest. Returns { original: new }.
-function remapFacesAfterRotation(rotation) {
-	const isNearZero = Math.abs(rotation.x) < 1e-6 && Math.abs(rotation.y) < 1e-6 && Math.abs(rotation.z) < 1e-6;
-	if (isNearZero) {
-		return { top: "top", bottom: "bottom", front: "front", back: "back", left: "left", right: "right" };
-	}
-
-	// World-axis directions and the face label they correspond to.
-	const worldAxes = [
-		{ label: "right",  dir: WORLD_NORMALS.Right },
-		{ label: "left",   dir: WORLD_NORMALS.Left },
-		{ label: "top",    dir: WORLD_NORMALS.Up },
-		{ label: "bottom", dir: WORLD_NORMALS.Down },
-		{ label: "front",  dir: WORLD_NORMALS.Forward },
-		{ label: "back",   dir: WORLD_NORMALS.Backward },
-	];
-
-	const remap = {};
-	const claimed = new Set();
-
-	// Rotate each canonical face normal → find the world axis it best aligns with.
-	const rotatedEntries = [
-		{ name: "top", rotated: RotateByEuler(WORLD_NORMALS.Up, rotation) },
-		{ name: "bottom", rotated: RotateByEuler(WORLD_NORMALS.Down, rotation) },
-		{ name: "front", rotated: RotateByEuler(WORLD_NORMALS.Forward, rotation) },
-		{ name: "back", rotated: RotateByEuler(WORLD_NORMALS.Backward, rotation) },
-		{ name: "left", rotated: RotateByEuler(WORLD_NORMALS.Left, rotation) },
-		{ name: "right", rotated: RotateByEuler(WORLD_NORMALS.Right, rotation) },
-	];
-
-	// Sort by best alignment (highest dot product first) to prevent ties from producing duplicates.
-	const assignments = [];
-	for (const entry of rotatedEntries) {
-		const alignment = (axis) => DotVector3(entry.rotated, axis.dir);
-		const bestAxis = BestMatchOf(worldAxes, (axis, best) => alignment(axis) > alignment(best), worldAxes[0]);
-		assignments.push({ name: entry.name, bestLabel: bestAxis.label, bestDot: alignment(bestAxis) });
-	}
-
-	// Greedy assignment: highest alignment first.
-	assignments.sort((a, b) => b.bestDot - a.bestDot);
-	for (const a of assignments) {
-		if (!claimed.has(a.bestLabel)) {
-			remap[a.name] = a.bestLabel;
-			claimed.add(a.bestLabel);
-		} 
-		else {
-			// Fallback: assign first unclaimed axis by dot product (approximate).
-			let fallbackLabel = a.name;
-			let fallbackDot = -Infinity;
-			for (const axis of worldAxes) {
-				if (!claimed.has(axis.label)) {
-					const d = a.bestDot;
-					if (d > fallbackDot) {
-						fallbackDot = d;
-						fallbackLabel = axis.label;
-					}
-				}
-			}
-			remap[a.name] = fallbackLabel;
-			claimed.add(fallbackLabel);
-		}
-	}
-
-	return remap;
-}
-
 /* === TRANSFORM UTILITIES === */
 
-function cloneRootTransform(transform) {
-	const position = transform.position.clone();
-	const rotation = transform.rotation.clone();
-	const scale = transform.scale;
-	const pivot = transform.pivot.clone();
-	return { position, rotation, scale, pivot };
-}
-
-function cloneLocalTransform(transform) {
-	const position = transform.position.clone();
-	const rotation = transform.rotation.clone();
-	const scale = transform.scale;
-	return { position, rotation, scale };
-}
-
-// model.posedTransform records what the mesh hierarchy currently reflects; equal means the re-pose is a no-op.
+// Check whether the model is already posed at this transform.
 const poseMatchesTransform = (model, transform) => {
 	return CompareVector3(model.posedTransform.position, transform.position) &&
 	CompareVector3(model.posedTransform.rotation, transform.rotation) &&
 	CompareVector3(model.posedTransform.scale, transform.scale);
 }
 
-// Orientation held means the pose only shifted, so it can be translated instead of recomposed.
+// Check whether only the position changed. Then the pose can be shifted instead of rebuilt.
 const poseOrientationMatches = (model, transform) => {
 	return CompareVector3(model.posedTransform.rotation, transform.rotation) && CompareVector3(model.posedTransform.scale, transform.scale);
 }
@@ -148,6 +69,9 @@ function ComposeTransform(parentTransform, localTransform) {
 
 const getSurfaceOrigin = (surface) => { return { x: surface.position.x, y: surface.topY, z: surface.position.z } };
 
+
+/* === MOVEMENT === */
+
 function resolveInitialMovementProgress(movement, currentPosition) {
 	const d = SubtractVector3(movement.end, movement.start);
 	const lengthSq = Vector3Sq(d);
@@ -158,10 +82,8 @@ function resolveInitialMovementProgress(movement, currentPosition) {
 	return Clamp01(projection);
 }
 
-/* === MOVEMENT === */
-
 function normalizeMovement(movement, surface) {
-	// Resolve surface-local start/end to world space; Y anchors to surfaceTopY.
+	// Move start and end from surface-local to world space, measured from the surface's top.
 	const surfaceOrigin = getSurfaceOrigin(surface);
 	return {
 		...movement,
@@ -173,48 +95,33 @@ function normalizeMovement(movement, surface) {
 /* === PART BUILDING === */
 
 function buildPart(source, textureScale, faceTextureStore, geometryCache, geometryCacheKeyPrefix) {
+	const { id, shape, complexity, dimensions, pivot, primitiveOptions, texture, detail, parentId, particle } = source;
 	const { mesh } = BuildObject(
 		{
-			id              : source.id,
-			shape           : source.shape,
-			complexity      : source.complexity,
-			dimensions      : source.dimensions,
+			id, shape, complexity, dimensions,
 			position        : new UnitVector3(0, 0, 0, "cnu"),
 			rotation        : new UnitVector3(0, 0, 0, "radians"),
 			scale           : ToVector3(1),
-			pivot           : source.pivot,
-			primitiveOptions: source.primitiveOptions,
-			texture         : source.texture,
-			detail          : source.detail,
+			pivot, primitiveOptions, texture, detail,
 			role            : "entity-part",
 			collisionShape  : "none",
-			parentId        : source.parentId,
-			particle        : source.particle,
-			textureScale, faceTextureStore, geometryCache,
+			parentId, particle, textureScale, faceTextureStore, geometryCache,
 			geometryCacheKey: `${geometryCacheKeyPrefix}::${source.id}`,
 		}
 	);
 
+	const { anchorPoint, attachmentPoint, addsToBounds } = source
 	return {
 		id             : mesh.id,
 		label          : source.label || null,
-		parentId       : source.parentId,
-		anchorPoint    : source.anchorPoint,
-		attachmentPoint: source.attachmentPoint,
-		addsToBounds   : source.addsToBounds,
-		children: [],
+		parentId, anchorPoint, attachmentPoint, addsToBounds, children: [],
 		localTransform: {
 			position: source.localPosition.clone(),
 			rotation: source.localRotation.clone(),
 			scale   : CloneVector3(source.localScale),
 		},
 		dimensions: source.dimensions.clone(),
-		// World-space built position/rotation/scale — computed by the pipeline, used for mesh output.
-		builtPosition  : new UnitVector3(0, 0, 0, "cnu"),
-		builtRotation  : new UnitVector3(0, 0, 0, "radians"),
-		builtScale     : ToVector3(0),
 		builtDimensions: source.dimensions.clone(),
-		faceMap        : null,
 		mesh,
 	};
 }
@@ -222,46 +129,37 @@ function buildPart(source, textureScale, faceTextureStore, geometryCache, geomet
 /* === MODEL BUILDING === */
 
 function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore, geometryCache) {
-	// --- Step 1: Resolve rootTransform from data ---
 	const rtScale = entityDefinition.model.rootTransform.scale;
+
+	// Share cached part geometry between entities of the same blueprint. Then build all parts.
 	const geometryCacheKeyPrefix = entityDefinition.blueprintId !== null 
 		? entityDefinition.blueprintId 
 		: entityDefinition.id;
-
-	// Build all parts (each part wraps its own values in Unit/UnitVector3).
 	const parts = entityDefinition.model.parts.map((part) => 
 		buildPart(part, textureScale, faceTextureStore, geometryCache, geometryCacheKeyPrefix)
 	);
 
-	// Build index and parent-child links in two passes so part order is unconstrained
+	// Index every part before linking children, letting parts be listed in any order.
 	const index = {};
-	parts.forEach((part) => { index[part.id] = part; });
-	parts.forEach((part) => { if (part.parentId !== "root") index[part.parentId].children.push(part.id) });
+	parts.forEach((part) => index[part.id] = part);
+	parts.forEach((part) => { 
+		if (part.parentId !== "root") index[part.parentId].children.push(part.id) 
+		});
 
-	// Identify root parts and non-root parts.
+	// Collect the root parts.
 	const rootPartIds = parts.filter((p) => p.parentId === "root").map((p) => p.id);
 
-	// Resolve spawn surface.
-	const surfaceOrigin = getSurfaceOrigin(surfaceMap[entityDefinition.model.spawnSurfaceId]);
-
-	// --- Root parts: build localTransform relative to rootTransform (model-local) ---
-	// Y = scaledHalfHeight (bottom at rootTransform.y, floor grounded after pose) + localPosition.
+	// Place each root part relative to the model's origin.
 	for (const rootPartId of rootPartIds) {
 		const rootPart = index[rootPartId];
 
-		// Face remapping after rotation.
-		rootPart.faceMap = remapFacesAfterRotation(rootPart.localTransform.rotation);
-
-		// Combined scale for dimensions computation.
+		// Store the scaled size for placing children on this part.
 		const combinedScale = MultiplyVector3(rtScale, rootPart.localTransform.scale);
-
-		// Set localTransform.position: grounding + localPosition (model-local, relative to rootTransform).
 		rootPart.localTransform.position.y += rootPart.dimensions.y * combinedScale.y * 0.5;
-
-		// Store builtDimensions (scaled) for child attachment offset computation.
 		rootPart.builtDimensions.set(MultiplyVector3(rootPart.dimensions, combinedScale));
 	}
 
+	// Place every other part on its parent, working down from the roots.
 	const processQueue = [];
 	for (const rootPartId of rootPartIds) for (const childId of index[rootPartId].children) processQueue.push(childId);
 
@@ -269,35 +167,30 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 	while (processQueue.length > 0) {
 		const partId = processQueue.shift();
 		if (processed.has(partId)) continue;
-
 		processed.add(partId);
 
 		const part = index[partId];
-
-		// Combined scale.
 		const combinedScale = MultiplyVector3(rtScale, part.localTransform.scale);
 
-		// Parent's attachment point offset (in parent's scaled dimensions).
+		// Find the attachment point on the parent and the part's own anchor point (scaled & rotated).
 		const attachOffset = getFaceCenterOffset(index[part.parentId].builtDimensions, part.attachmentPoint);
-
-		// Part's anchor point offset (in part's unscaled dimensions), then scaled.
 		const scaledAnchorOffset = MultiplyVector3(getFaceCenterOffset(part.dimensions, part.anchorPoint), combinedScale);
 		const rotatedAnchorOffset = RotateByEuler(scaledAnchorOffset, part.localTransform.rotation);
 
-		// Position: attachment offset on parent - rotated anchor offset on part + localPosition.
+		// Position the part's anchor against the parent's attachment point.
 		part.localTransform.position.add(SubtractVector3(attachOffset, rotatedAnchorOffset));
 
-		// Store builtDimensions (scaled) for child attachment offset computation.
+		// Store the scaled size for placing children on this part.
 		part.builtDimensions.set(MultiplyVector3(part.dimensions, combinedScale));
-		part.faceMap = remapFacesAfterRotation(part.localTransform.rotation);
 
 		// Enqueue children.
 		for (const childId of part.children) processQueue.push(childId);
 	}
 
-	// --- Model assembled with world-space rootTransform ---
-	// Factor 1 (spawn surface position) + Factor 2 (rootTransform.position) = world position.
+	// Resolve spawn surface.
+	const surfaceOrigin = getSurfaceOrigin(surfaceMap[entityDefinition.model.spawnSurfaceId]);
 
+	// Assemble & pose the model, placing its root on the spawn surface.
 	const model = {
 		rootTransform: {
 			position: entityDefinition.model.rootTransform.position.clone().add(surfaceOrigin),
@@ -310,20 +203,17 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 		parts, index,
 		roots: rootPartIds,
 	};
-
-	// Apply initial pose to set mesh transforms (like player Model.js).
 	applyModelPose(model);
 
-	// Seat the whole model's AABB floor on the plane (per-root grounding ignores parts below the root).
+	// Ground the whole model at the root parts.
 	model.rootTransform.position.y += model.rootTransform.position.y - computeEntityAabb(model).min.y;
-	applyModelPose(model);
 
-	// Snapshot default pose for ResetEntityToDefaultPose.
+	// Snapshot default pose for future reference.
 	model.defaultPose = {
-		rootTransform: cloneRootTransform(model.rootTransform),
+		rootTransform: CloneTransform(model.rootTransform),
 		parts: parts.map((part) => ({
 			id: part.id,
-			localTransform: cloneLocalTransform(part.localTransform),
+			localTransform: CloneTransform(part.localTransform),
 		})),
 	};
 
@@ -341,7 +231,7 @@ function applyModelPose(model) {
 		part.mesh.transform.rotation.set(worldTransform.rotation);
 		part.mesh.transform.scale = worldTransform.scale;
 
-		// Visual-only parts use a rough box instead of every vertex to reduce unecessary computations.
+		// Use a rough box for visual-only parts to skip fitting every vertex.
 		part.mesh.worldAabb = part.addsToBounds === false
 			? ComputeWorldAabbFromBounds(part.mesh.geometry.bounds, part.mesh.transform)
 			: UpdateObjectWorldAabb(part.mesh);
@@ -349,15 +239,8 @@ function applyModelPose(model) {
 		part.children.forEach((childId) => applyPart(childId, worldTransform));
 	};
 
-	const rootTransform = cloneRootTransform(model.rootTransform);
-	model.roots.forEach((rootId) => applyPart(rootId, rootTransform));
-
-	// cloneRootTransform copies position and rotation, aliases scale. Scale is cloned here.
-	model.posedTransform = {
-		position: rootTransform.position,
-		rotation: rootTransform.rotation,
-		scale   : CloneVector3(rootTransform.scale),
-	};
+	model.posedTransform = CloneTransform(model.rootTransform);
+	model.roots.forEach((rootId) => applyPart(rootId, model.posedTransform));
 }
 
 /* === AABB === */
@@ -365,8 +248,10 @@ function applyModelPose(model) {
 function computeEntityAabb(model) {
 	const corners  = model.parts.flatMap((part) => part.addsToBounds === false ? [] : [part.mesh.worldAabb.min, part.mesh.worldAabb.max]);
 	const { min, max } = PointsAabb(corners);
-	const rootAabb = model.parts[0].mesh.worldAabb;
-	return { min: rootAabb.min.clone().set(min), max: rootAabb.max.clone().set(max) };
+	return { 
+		min: model.parts[0].mesh.worldAabb.min.clone().set(min), 
+		max: model.parts[0].mesh.worldAabb.max.clone().set(max) 
+	};
 }
 
 function computeExpandedAabb(aabb, padding) {
@@ -376,7 +261,7 @@ function computeExpandedAabb(aabb, padding) {
 	};
 }
 
-// sin/cos for one rotation, computed once.
+// Compute a rotation's sines and cosines once, for reuse across many points.
 function computeRotationTrig(rotation) {
 	return {
 		cx: Math.cos(rotation.x), sx: Math.sin(rotation.x),
@@ -385,7 +270,7 @@ function computeRotationTrig(rotation) {
 	};
 }
 
-// RotateByEuler's composition (Z, X, Y) on precomputed trig.
+// Rotate a point (Z, then X, then Y), using precomputed sines and cosines.
 function rotateWithTrig(point, trig) {
 	const p1x = point.x * trig.cz - point.y * trig.sz;
 	const p1y = point.x * trig.sz + point.y * trig.cz;
@@ -400,13 +285,13 @@ function rotateWithTrig(point, trig) {
 	};
 }
 
-// Local offset through scale then rotation — CreateModelMatrix's R·S order.
+// Scale then rotate a local offset, in the same order as CreateModelMatrix.
 const transformOffset = (point, scale, trig) => rotateWithTrig(MultiplyVector3(point, scale), trig);
 
-// A scaled clone of a Unit, preserving its type.
-const scaleUnit = (u, f) => new Unit(u.value * f, u.type);
+// Copy a Unit with its value scaled.
+const scaleUnit = (u, f) => u.clone().math((u, f) => u * f, f);
 
-// World enclosure of a local box scaled and rotated by the transform.
+// Fit a world box around a local box after scaling, rotating and moving it.
 function placeAabbEnclosure(aabb, position, scale, trig) {
 	const corners = Array.from({ length: 8 }, (_, corner) => ({
 		x: (corner & 1) === 0 ? aabb.min.x : aabb.max.x,
@@ -431,55 +316,48 @@ function computeCompoundSpheresFromModel(model) {
 			partId: part.id,
 		});
 	});
-	return { type: "compound-sphere", spheres: spheres };
+	return { type: "compound-sphere", spheres };
 }
 
 function computeScaledBounds(bounds, scaleFactor) {
 	switch (bounds.type) {
 		case "sphere":
-			const sphereRadius = bounds.radius.clone(); sphereRadius.value *= scaleFactor;
 			return {
-				type: "sphere",
+				type  : "sphere",
 				center: bounds.center.clone(),
-				radius: sphereRadius,
+				radius: scaleUnit(bounds.radius, scaleFactor),
 			};
 		case "aabb":
 			const center = AabbCenter(bounds);
 			const half = ScaleVector3(AabbHalfExtents(bounds), scaleFactor);
 			return {
 				type: "aabb",
-				min: bounds.min.clone().set(SubtractVector3(center, half)),
-				max: bounds.max.clone().set(AddVector3(center, half)),
+				min : bounds.min.clone().set(SubtractVector3(center, half)),
+				max : bounds.max.clone().set(AddVector3(center, half)),
 			};
 		case "capsule":
-			const capsuleRadius = bounds.radius.clone(); capsuleRadius.value *= scaleFactor;
-			const capsuleHalfHeight = bounds.halfHeight.clone(); capsuleHalfHeight.value *= scaleFactor;
 			return {
-				type: "capsule",
-				radius: capsuleRadius,
-				halfHeight: capsuleHalfHeight,
+				type        : "capsule",
+				radius      : scaleUnit(bounds.radius, scaleFactor),
+				halfHeight  : scaleUnit(bounds.halfHeight, scaleFactor),
 				segmentStart: bounds.segmentStart.clone(),
-				segmentEnd: bounds.segmentEnd.clone(),
+				segmentEnd  : bounds.segmentEnd.clone(),
 			};
 		case "compound-sphere":
 			return {
 				type: "compound-sphere",
 				spheres: bounds.spheres.map((s) => ({
 					center: s.center.clone(),
-					radius: (() => {
-						const radius = s.radius.clone(); 
-						radius.value *= scaleFactor;
-						return radius;
-					})(),
+					radius: scaleUnit(s.radius, scaleFactor),
 					partId: s.partId,
 				})),
 			};
 		case "obb":
 			return {
-				type: "obb",
-				center: bounds.center.clone(),
+				type       : "obb",
+				center     : bounds.center.clone(),
 				halfExtents: bounds.halfExtents.clone().scale(scaleFactor),
-				axes: bounds.axes,
+				axes       : bounds.axes,
 			};
 	}
 }
@@ -490,7 +368,7 @@ function resolvePhysicsShape(shape, aabb) {
 	return dim.y > Math.max(dim.x, dim.z) ? "capsule" : "sphere";
 }
 
-// Builds the bounds for a shape type from the entity AABB or model.
+// Build bounds of the given shape from the entity's box or model.
 function buildBoundsForShape(shape, aabb, model) {
 	switch (shape) {
 		case "sphere"         : return SphereFromAabb(aabb, true);
@@ -501,7 +379,7 @@ function buildBoundsForShape(shape, aabb, model) {
 	}
 }
 
-// Places frozen rest-pose bounds into world space. Compound-sphere is rebuilt from the posed model instead.
+// Place rest-pose bounds in world space. Compound spheres are rebuilt from the posed model instead.
 function placeBoundsForShape(bounds, transform, model, trig) {
 	const { type, center, radius, segmentStart, segmentEnd, halfExtents, halfHeight, axes } = bounds;
 	const { position, scale } = transform;
@@ -510,7 +388,7 @@ function placeBoundsForShape(bounds, transform, model, trig) {
 	switch (type) {
 		case "sphere":
 			return {
-				type: "sphere",
+				type  : "sphere",
 				center: center.clone().set(AddVector3(transformOffset(center, scale, trig), position)),
 				radius: scaleUnit(radius, widest),
 			};
@@ -518,69 +396,67 @@ function placeBoundsForShape(bounds, transform, model, trig) {
 			return { type: "aabb", ...placeAabbEnclosure(bounds, position, scale, trig) };
 		case "capsule":
 			return {
-				type: "capsule",
-				radius: scaleUnit(radius, widest),
-				halfHeight: scaleUnit(halfHeight, scale.y),
+				type        : "capsule",
+				radius      : scaleUnit(radius, widest),
+				halfHeight  : scaleUnit(halfHeight, scale.y),
 				segmentStart: segmentStart.clone().set(AddVector3(transformOffset(segmentStart, scale, trig), position)),
-				segmentEnd: segmentEnd.clone().set(AddVector3(transformOffset(segmentEnd, scale, trig), position)),
+				segmentEnd  : segmentEnd.clone().set(AddVector3(transformOffset(segmentEnd, scale, trig), position)),
 			};
 		case "obb":
 			return {
-				type: "obb",
-				center: center.clone().set(AddVector3(transformOffset(center, scale, trig), position)),
+				type       : "obb",
+				center     : center.clone().set(AddVector3(transformOffset(center, scale, trig), position)),
 				halfExtents: halfExtents.clone().set(MultiplyVector3(halfExtents, scale)),
-				axes: axes.map((axis) => rotateWithTrig(axis, trig)),
+				axes       : axes.map((axis) => rotateWithTrig(axis, trig)),
 			};
 		case "compound-sphere": return computeCompoundSpheresFromModel(model);
 	}
 }
 
-// Builds the physics, hurtbox and hitbox bounds for an entity. detailedBounds is the physics bounds.
+// Build an entity's physics (detailedBounds), hurtbox and hitbox bounds.
 function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverride) {
-
-	// "auto" resolves to a concrete shape here.
-	const physicsShape = resolvePhysicsShape(collisionOverride.physics, aabb);
-	const physicsBounds = buildBoundsForShape(physicsShape, aabb, model);
 
 	// Hurtbox bounds (null = immune to damage).
 	let hurtbox = null;
 	if (collisionOverride.hurtbox !== null) {
-		const hurtboxShape = collisionOverride.hurtbox;
-		const baseBounds = buildBoundsForShape(hurtboxShape, aabb, model);
+		const shape  = collisionOverride.hurtbox;
+		const bounds = buildBoundsForShape(shape, aabb, model);
 
-		// Player hurtbox is 0.9× radius; boss compound hurtbox is 1.05× radii.
+		// Shrink the player's hurtbox to 0.9× and grow a boss's to 1.05×.
 		switch(entityType) {
-			case "player": hurtbox = { shape: hurtboxShape, bounds: computeScaledBounds(baseBounds, 0.9) };  break;
-			case "boss"  : hurtbox = { shape: hurtboxShape, bounds: computeScaledBounds(baseBounds, 1.05) }; break;
-			default      : hurtbox = { shape: hurtboxShape, bounds: baseBounds };                            break;
+			case "player": hurtbox = { shape, bounds: computeScaledBounds(bounds, 0.9) };  break;
+			case "boss"  : hurtbox = { shape, bounds: computeScaledBounds(bounds, 1.05) }; break;
+			default      : hurtbox = { shape, bounds };                                    break;
 		}
 	}
 
 	// Hitbox bounds (null = can't deal damage).
 	let hitbox = null;
 	if (collisionOverride.hitbox !== null) {
-		const hitboxShape = collisionOverride.hitbox;
-		const baseBounds = buildBoundsForShape(hitboxShape, aabb, model);
+		const shape  = collisionOverride.hitbox;
+		const bounds = buildBoundsForShape(shape, aabb, model);
 
-		// Player hitbox is 1.1× radius.
-		if (entityType === "player") hitbox = { shape: hitboxShape, bounds: computeScaledBounds(baseBounds, 1.1) };
-		else hitbox = { shape: hitboxShape, bounds: baseBounds };
+		// Grow the player's hitbox to 1.1×.
+		hitbox = entityType === "player" ? { shape, bounds: computeScaledBounds(bounds, 1.1) } : { shape, bounds };
 	}
 
+
+	// Resolve "auto" to a sphere or capsule.
+	const shape  = resolvePhysicsShape(collisionOverride.physics, aabb);
+	const bounds = buildBoundsForShape(shape, aabb, model);
+	
 	return {
-		collisionShape: physicsShape,
-		detailedBounds: physicsBounds,
-		physics: { shape: physicsShape, bounds: physicsBounds },
+		collisionShape: shape,
+		detailedBounds: bounds,
+		physics: { shape, bounds },
 		hurtbox, hitbox,
 	};
 }
 
-// Freezes every collider in local space, measured with the model posed at the origin, then restored.
+// Measure every collider at rest by posing the model at the origin, then restore its transform.
 function captureRestCollision(definition, model) {
 	const rootTransform = model.rootTransform;
-	const position = rootTransform.position.clone();
-	const rotation = rootTransform.rotation.clone();
-	const scale = rootTransform.scale;
+	const saved = CloneTransform(rootTransform);
 
 	rootTransform.position.set(ToVector3(0));
 	rootTransform.rotation.set(ToVector3(0));
@@ -590,9 +466,9 @@ function captureRestCollision(definition, model) {
 	const aabb = computeEntityAabb(model);
 	const detailed = computeDetailedBoundsForEntity(definition.type, aabb, model, definition.collisionOverride);
 
-	rootTransform.position.set(position);
-	rootTransform.rotation.set(rotation);
-	rootTransform.scale = scale;
+	rootTransform.position.set(saved.position);
+	rootTransform.rotation.set(saved.rotation);
+	rootTransform.scale = saved.scale;
 	applyModelPose(model);
 
 	return {
@@ -607,38 +483,37 @@ function captureRestCollision(definition, model) {
 
 /* === PUBLIC API === */
 
-// Fresh movement input memory, read by player/Movement.js.
-const NewInputFrame = () => ({
-	carriedForward   : CloneVector3(WORLD_NORMALS.Forward),
-	previousCameraYaw: 0,
-	previousHasInput : false,
-	previousGrounded : false,
-	previousUp       : CloneVector3(WORLD_NORMALS.Up),
-	previousHeld     : false,
-	previousKeys     : { forward: 0, right: 0 },
-	previousControl  : "free",
-	remapPending     : false,
-	holding          : false,
-	locked           : false,
-	lockAngle        : 0,
-	lockSign         : 1,
-	lockThrottle     : 0,
-});
+// Create fresh movement input memory for an entity.
+function NewInputFrame() {
+	return {
+		carriedForward: CloneVector3(WORLD_NORMALS.Forward),
+		lastCameraYaw : new Unit(0, "radians"),
+		hadInput      : false,
+		wasGrounded   : false,
+		lastUp        : CloneVector3(WORLD_NORMALS.Up),
+		lastKeys      : { forward: 0, right: 0 },
+		lastControl   : "free",
+		remapPending  : false,
+		holding       : false,
+		locked        : false,
+		lockAngle     : new Unit(0, "radians"),
+		lockSign      : 1,
+		lockThrottle  : 0,
+	}
+};
 
 /**
  * Build an entity from a merged definition.
  * @param {object} definition — merged blueprint + level overrides.
  * @param {object} surfaceMap — { [surfaceId]: { position, dimensions, scale, topY } }
  * @param {number} textureScale — world texture scale (px per CNU) for per-face generated textures.
- * @param {object} faceTextureStore — content-signature-keyed store the per-face bake dedups against
- *   (a build-scoped accumulator at level build, the live textureRegistry at runtime spawn).
- * @param {Map} geometryCache — (blueprintId::partId)-keyed store of frozen part geometry templates,
- *   shared by reference across all same-blueprint instances (level-scoped, persists for runtime spawns); null builds uncached.
+ * @param {object} faceTextureStore — baked face textures, reused when a face's contents match.
+ * @param {Map} geometryCache — part geometry shared by same-blueprint entities. null builds uncached.
  */
 function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geometryCache) {
 	definition = ResolveEntitySource(definition);
 
-	// Resolve spawn surface for movement localization.
+	// Place the movement path relative to the spawn surface.
 	const movement = normalizeMovement(definition.movement, surfaceMap[definition.model.spawnSurfaceId]);
 	const { model } = buildModel(definition, surfaceMap, textureScale, faceTextureStore, geometryCache);
 	const rootTrans = model.rootTransform;
@@ -646,48 +521,40 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 
 	if (movement.speed.value > 0) {
 		rootTrans.position.set(LerpVector3(movement.start, movement.end, initialMovementProgress));
-		applyModelPose(model);
 	}
 
 	const rest = captureRestCollision(definition, model);
 	const simRadiusPadding = new Unit(8, "cnu");
 
+	const { id, type, hp, attacks, hardcoded, platform, collisionOverride, customEvents, velocity, animations } = definition;
+	const { position, rotation, scale } = rootTrans;
 	const entity = {
-		id: definition.id,
-		type: definition.type,
-		hp: definition.hp,
-		attacks: definition.attacks,
-		hardcoded: definition.hardcoded,
-		platform: definition.platform,
-		collisionOverride: definition.collisionOverride,
-		customEvents: definition.customEvents,
-		movement: movement,
-		transform: {
-			position: rootTrans.position,
-			rotation: rootTrans.rotation,
-			scale: rootTrans.scale,
-		},
-		velocity: definition.velocity,
-		submergence: 0,
-		underwater: false,
-		buoyancyForce: 0,
-		action: "Idle",
-		grounded: false,
-		launched: false,
-		contactGrace: 0,
-		gripDemand: 0,
-		gravityScale: 1,
-		dragFree: false,
-		staticFriction: 0,
-		surfaceContact: "none",
-		surfaceNormal: CloneVector3(WORLD_NORMALS.Up),
-		alignedUp: CloneVector3(WORLD_NORMALS.Up),
+		id, type, hp, attacks, hardcoded, platform, collisionOverride, customEvents, movement,
+		transform: { position, rotation, scale },
+		velocity,
+		submergence    : 0,
+		underwater     : false,
+		buoyancyForce  : 0,
+		action         : "Idle",
+		grounded       : false,
+		launched       : false,
+		contactGrace   : 0,
+		gripDemand     : 0,
+		gravityScale   : 1,
+		dragFree       : false,
+		staticFriction : 0,
+		surfaceContact : "none",
+		surfaceNormal  : CloneVector3(WORLD_NORMALS.Up),
+		alignedUp      : CloneVector3(WORLD_NORMALS.Up),
 		referenceNormal: CloneVector3(WORLD_NORMALS.Up),
-		modelTurnRate: { air: defaultModelTurnRate, water: defaultModelTurnRate },
-		facing: RotateByEuler(WORLD_NORMALS.Forward, rootTrans.rotation),
+		modelTurnRate  : { 
+			air  : defaultModelTurnRate.clone(), 
+			water: defaultModelTurnRate.clone() 
+		},
+		facing    : RotateByEuler(WORLD_NORMALS.Forward, rootTrans.rotation),
 		inputFrame: NewInputFrame(),
 		model,
-		mesh: model.parts[0].mesh,
+		mesh     : model.parts[0].mesh,
 		collision: {
 			rest, simRadiusPadding,
 			aabb          : null,
@@ -699,22 +566,22 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 			hitbox        : null,
 		},
 		hitboxActive: rest.hitbox !== null,
-		performance: { physics: true, rendering: true, animatedTexture: true, collision: false },
-		animations: definition.animations,
+		performance : { physics: true, rendering: true, animatedTexture: true, collision: false },
+		animations,
 		particle: null,
-		state: {
+		state   : {
 			movementProgress: initialMovementProgress,
-			direction: 1,
-			lastJumpMs: 0,
-			activeAnimation: "idle",
+			direction       : 1,
+			lastJumpMs      : 0,
+			activeAnimation : "idle",
 		},
 		physicsRuntime: {
-			previousPosition: rootTrans.position.clone(),
-			previousRotation: rootTrans.rotation.clone(),
+			lastPosition            : rootTrans.position.clone(),
+			lastRotation            : rootTrans.rotation.clone(),
 			hasUnresolvedPenetration: false,
-			cachePrimed: false,
-			lastPhysicsCollisionKey: "",
-			groundSurfaceId: null,
+			cachePrimed             : false,
+			lastPhysicsCollisionKey : "",
+			groundSurfaceId         : null,
 		},
 	};
 
@@ -722,19 +589,23 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 	return { entity };
 }
 
-// Every collision layer: the frozen rest shape, placed by the transform.
+// Place every collision layer's rest shape at the entity's transform.
 function assignCollisionBounds(entity) {
-	const rest = entity.collision.rest;
-	const transform = entity.transform;
+	const { aabb, physics, hurtbox, hitbox, shape } = entity.collision.rest;
+	const { collision, model, transform } = entity;
 	const trig = computeRotationTrig(transform.rotation);
 
-	entity.collision.aabb = placeAabbEnclosure(rest.aabb, transform.position, transform.scale, trig);
-	entity.collision.simRadiusAabb = computeExpandedAabb(entity.collision.aabb, entity.collision.simRadiusPadding);
-	entity.collision.shape = rest.shape;
-	entity.collision.physics = { shape: rest.physics.shape, bounds: placeBoundsForShape(rest.physics.bounds, transform, entity.model, trig) };
+	entity.collision.aabb = placeAabbEnclosure(aabb, transform.position, transform.scale, trig);
+	entity.collision.simRadiusAabb = computeExpandedAabb(collision.aabb, collision.simRadiusPadding);
+	entity.collision.shape = shape;
+	entity.collision.physics = { shape: physics.shape, bounds: placeBoundsForShape(physics.bounds, transform, model, trig) };
 	entity.collision.detailedBounds = entity.collision.physics.bounds;
-	entity.collision.hurtbox = rest.hurtbox === null ? null : { shape: rest.hurtbox.shape, bounds: placeBoundsForShape(rest.hurtbox.bounds, transform, entity.model, trig) };
-	entity.collision.hitbox = rest.hitbox === null ? null : { shape: rest.hitbox.shape, bounds: placeBoundsForShape(rest.hitbox.bounds, transform, entity.model, trig) };
+	entity.collision.hurtbox = hurtbox === null 
+		? null 
+		: { shape: hurtbox.shape, bounds: placeBoundsForShape(hurtbox.bounds, transform, model, trig) };
+	entity.collision.hitbox  = hitbox  === null 
+		? null 
+		: { shape: hitbox.shape,  bounds: placeBoundsForShape(hitbox.bounds, transform, model, trig) };
 }
 
 function refreshEntityDerivedState(entity) {
@@ -742,7 +613,7 @@ function refreshEntityDerivedState(entity) {
 	assignCollisionBounds(entity);
 }
 
-// Shifts the posed hierarchy by delta. Exact while orientation holds, since every part moves together.
+// Shift every posed part by delta. Only valid while rotation and scale are unchanged.
 function translateEntityDerivedState(entity, delta) {
 	entity.model.parts.forEach((part) => {
 		part.mesh.transform.position.add(delta);
@@ -756,7 +627,7 @@ function translateEntityDerivedState(entity, delta) {
 function UpdateEntityModelFromTransform(entity) {
 	if (poseMatchesTransform(entity.model, entity.transform)) return;
 
-	// rootTransform shares entity.transform's position/rotation objects; only scale is ever re-pointed.
+	// Note: rootTransform shares position and rotation with entity.transform. Only scale needs copying.
 	entity.model.rootTransform.scale = entity.transform.scale;
 
 	if (poseOrientationMatches(entity.model, entity.transform)) {
@@ -767,7 +638,7 @@ function UpdateEntityModelFromTransform(entity) {
 }
 
 function ResetEntityToDefaultPose(entity) {
-	// Mutate existing instances to preserve object identity (avoid breaking references).
+	// Write into the existing vectors so other references to them stay valid.
 	const defaultRoot = entity.model.defaultPose.rootTransform;
 	const targetRoot = entity.model.rootTransform;
 

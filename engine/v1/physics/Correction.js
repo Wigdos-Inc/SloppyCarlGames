@@ -5,30 +5,27 @@
 
 import { CONFIG, GROUNDING } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";
-import { AngleBetweenVector3, TransportVector3, DotVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, CompareVector3, RotateTowardVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
+import { AngleBetweenVector3, TransportVector3, DotVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, CompareVector3, RotateTowardVector3, Vector3Length, WORLD_NORMALS, AbsoluteVector3 } from "../math/Vector3.js";
 import { AabbCenter, SurfaceAlignedRotation } from "../math/Collision.js";
-import { Clamp } from "../math/Utilities.js";
+import { Clamp, DegreesToRadians } from "../math/Utilities.js";
 
-function hasMeaningfulVectorDelta(currentVector, nextVector) {
-	return (
-		Math.abs(nextVector.x - currentVector.x) > EPSILON ||
-		Math.abs(nextVector.y - currentVector.y) > EPSILON ||
-		Math.abs(nextVector.z - currentVector.z) > EPSILON
-	);
+function hasMeaningfulVectorDelta(vector, corrected) {
+	const { x, y, z } = AbsoluteVector3(SubtractVector3(corrected, vector));
+	return x > EPSILON || y > EPSILON || z > EPSILON;
 }
 
 const CORRECTION_DISABLED = Object.freeze({
-	changedContact: false,
+	changedContact    : false,
 	changedOrientation: false,
-	changedPosition: false,
-	changedVelocity: false,
-	anyChanged: false,
+	changedPosition   : false,
+	changedVelocity   : false,
+	anyChanged        : false,
 });
 
 // Contact-less orientation: world up, velocity untouched. The last surface pose holds through the grace.
 function releasedSurface(entity) {
 	const changedContact = entity.surfaceContact !== "none";
-	let contactGrace = entity.contactGrace;
+	let contactGrace     = entity.contactGrace;
 	if (entity.launched) contactGrace = 0;
 	else if (changedContact) contactGrace = GROUNDING.ContactGraceMs / 1000;
 
@@ -83,13 +80,11 @@ function GetGripDemand(entity, groundContact, deltaSeconds) {
 
 // Off every surface the reference decays toward world up; moving on walkable ground adopts that surface.
 function GetReferenceNormal(entity, deltaSeconds) {
-	if (entity.surfaceContact === "none" && entity.contactGrace <= EPSILON) {
-		return RotateTowardVector3(entity.referenceNormal, WORLD_NORMALS.Up, CONFIG.Physics.Correction.ReferenceReleaseRate * deltaSeconds);
-	}
-	if (entity.surfaceContact === "walkable" && !CompareVector3(entity.transform.position, entity.physicsRuntime.previousPosition)) {
-		return CloneVector3(entity.surfaceNormal);
-	}
-	return entity.referenceNormal;
+	return entity.surfaceContact === "none" && entity.contactGrace <= EPSILON
+		? RotateTowardVector3(entity.referenceNormal, WORLD_NORMALS.Up, DegreesToRadians(CONFIG.Physics.Correction.ReferenceReleaseRate) * deltaSeconds)
+		: entity.surfaceContact === "walkable" && !CompareVector3(entity.transform.position, entity.physicsRuntime.lastPosition)
+			? CloneVector3(entity.surfaceNormal)
+			: entity.referenceNormal;
 }
 
 /**
@@ -99,19 +94,18 @@ function GetReferenceNormal(entity, deltaSeconds) {
  * @returns {"walkable" | "sliding" | "wall"}
  */
 function ClassifySurface(referenceNormal, candidate, currentContact, underwater, speedRatio, gripDemand) {
-	const limits = angleLimitsFor(underwater);
+	const limits        = angleLimitsFor(underwater);
 	const walkableLimit = currentContact === "sliding" ? limits.Recover : limits.Ground;
-	const incline = angleBetweenDegrees(candidate, WORLD_NORMALS.Up);
-	const walkable = incline <= limits.Ground || speedRatio >= gripDemand ? "walkable" : "sliding";
+	const incline       = angleBetweenDegrees(candidate, WORLD_NORMALS.Up);
+	const walkable      = incline <= limits.Ground || speedRatio >= gripDemand ? "walkable" : "sliding";
 
 	if (incline <= CONFIG.Physics.Correction.FlatSnapDegrees) return "walkable";
+
 	// Not steeper than the reference: incline alone decides.
 	if (candidate.y >= referenceNormal.y && incline <= walkableLimit) return walkable;
 
 	const delta = angleBetweenDegrees(referenceNormal, candidate);
-	if (delta <= walkableLimit)  return walkable;
-	if (delta <= limits.Sliding) return "sliding";
-	return "wall";
+	return delta <= walkableLimit ? walkable : delta <= limits.Sliding ? "sliding" : "wall";
 }
 
 /**
@@ -122,7 +116,6 @@ function ClassifySurface(referenceNormal, candidate, currentContact, underwater,
  * @param {{ surfaceId: string | null }} frameStart — the last surface stood on, frozen for this frame.
  */
 function GetSurfaceCorrection(entity, groundContact, frameStart) {
-	// Correction off: the entity's surface state is left as it is.
 	if (CONFIG.Physics.Correction.Enabled === false) {
 		const { surfaceContact, contactGrace, surfaceNormal, alignedUp, velocity } = entity;
 		return { surfaceContact, contactGrace, surfaceNormal, alignedUp, velocity, ...CORRECTION_DISABLED };
@@ -130,20 +123,24 @@ function GetSurfaceCorrection(entity, groundContact, frameStart) {
 
 	if (!groundContact.hit) return releasedSurface(entity);
 
-	const normal = ResolveVector3Axis(groundContact.normal);
+	const normal  = ResolveVector3Axis(groundContact.normal);
 	const incline = angleBetweenDegrees(normal, WORLD_NORMALS.Up);
 	const contact = groundContact.contact;
 
 	const changedContact = entity.surfaceContact !== contact;
-	let changedVelocity = false;
+	let changedVelocity  = false, velocity = entity.velocity, alongNormal = DotVector3(normal, velocity);
 
-	let velocity = entity.velocity;
-	let alongNormal = DotVector3(normal, velocity);
 	// Pinned only with kept footing (same surface, or reached while grounded); a new surface's first touch stays a collision.
 	const keptFooting = entity.grounded || groundContact.surfaceId === frameStart.surfaceId;
 
 	// Grounded is judged on the new contact.
-	const onContact = { surfaceContact: contact, launched: entity.launched, velocity, alignedUp: entity.alignedUp, buoyancyForce: entity.buoyancyForce };
+	const onContact = { 
+		surfaceContact: contact, 
+		launched: entity.launched, 
+		velocity, 
+		alignedUp: entity.alignedUp, 
+		buoyancyForce: entity.buoyancyForce 
+	};
 	const pinned = keptFooting && !entity.launched && ResolveGrounded(onContact);
 
 	// Over a walkable crest, velocity turns onto the new facet instead of losing its lift-off; concave folds turn in the collision slide.
@@ -173,7 +170,12 @@ function GetSurfaceCorrection(entity, groundContact, frameStart) {
 	if (!isFlat && (changedOrientation || changedVelocity)) {
 		Log(
 			"ENGINE",
-			`Slope correction applied: normal=(${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)}) orientationChanged=${changedOrientation} velocityChanged=${changedVelocity}`,
+			`
+				Slope correction applied: 
+				- Normal=(${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)}) 
+				- OrientationChanged=${changedOrientation} 
+				- VelocityChanged=${changedVelocity}
+			`,
 			"log",
 			"Level"
 		);
@@ -193,9 +195,10 @@ function GetSurfaceCorrection(entity, groundContact, frameStart) {
 // Offset straight off the ground that seats the capsule on the surface it stands on.
 function GetGroundSnap(entity, groundContact, groundSnapTolerance) {
 	if (CONFIG.Physics.Correction.Enabled === false || !entity.grounded) return CORRECTION_DISABLED;
-	const normal = ResolveVector3Axis(groundContact.normal);
 
+	const normal = ResolveVector3Axis(groundContact.normal);
 	const delta = groundContact.restDelta;
+
 	if (Math.abs(delta) > groundSnapTolerance) return CORRECTION_DISABLED;
 
 	const changedPosition = Math.abs(delta) > EPSILON;
@@ -210,8 +213,7 @@ function GetGroundSnap(entity, groundContact, groundSnapTolerance) {
 
 // Pivot about the contact cap while touching a surface; about the body's center when releasing one.
 function PoseAnchor(entity) {
-	const rest = entity.collision.rest;
-	const local = entity.surfaceContact !== "none" ? rest.groundCapsule.segmentStart : AabbCenter(rest.aabb);
+	const local = entity.surfaceContact !== "none" ? entity.collision.rest.groundCapsule.segmentStart : AabbCenter(entity.collision.rest.aabb);
 	return MultiplyVector3(local, entity.transform.scale);
 }
 
@@ -221,6 +223,7 @@ function GetSurfaceOrientation(entity) {
 	if (CONFIG.Physics.Correction.Enabled === false || entity.contactGrace > EPSILON) return CORRECTION_DISABLED;
 
 	const rotation = entity.transform.rotation;
+	
 	// The exact standing rotation; the collider, ground probe and pivot all follow it.
 	const solved = SurfaceAlignedRotation(entity.alignedUp, entity.facing, rotation, entity.surfaceContact === "sliding");
 	const changedOrientation = hasMeaningfulVectorDelta(rotation, solved);
@@ -240,7 +243,7 @@ function GetSurfaceOrientation(entity) {
 function ResolveGrounded({ surfaceContact, launched, velocity, alignedUp, buoyancyForce }) {
 	return surfaceContact === "walkable" &&
 		!(launched && DotVector3(velocity, alignedUp) > EPSILON) &&
-		buoyancyForce <= CONFIG.Physics.Gravity.Strength.value;
+		buoyancyForce <= CONFIG.Physics.Gravity.Strength;
 }
 
 /* === EXPORTS === */

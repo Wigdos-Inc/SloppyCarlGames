@@ -1082,7 +1082,9 @@ function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 		}
 		if (part.particle !== null) {
 			part.particle.position = toUnitVector3(part.particle.position, "cnu");
-			if (part.particle.overrides !== null && part.particle.overrides.velocity !== null) part.particle.overrides.velocity = toUnitVector3(part.particle.overrides.velocity, "cnu");
+			if (part.particle.overrides !== null && part.particle.overrides.velocity !== null) {
+				part.particle.overrides.velocity = toUnitVector3(part.particle.overrides.velocity, "cnu");
+			}
 		}
 		return part;
 	});
@@ -1310,11 +1312,20 @@ async function LevelPayload(payload) {
 	const playerSource = normalizeObject(rawPayload.player);
 	if (playerSource.bool) {
 		normalized.player = normalizePayloadSchema(playerSource.value, "levelPlayer");
-		normalized.player.spawnPosition = toUnitVector3(normalized.player.spawnPosition, "cnu");
-		normalized.player.scale = CloneVector3(normalized.player.scale);
+		normalized.player.rootTransform = normalizeRootTransform(normalized.player.rootTransform, true);
+		if (normalized.player.spawnSurfaceId !== null && ctx.surfaceIds.has(normalized.player.spawnSurfaceId) === false) {
+			warnLog(`level.player.spawnSurfaceId: '${normalized.player.spawnSurfaceId}' missing, using absolute coordinates.`);
+			normalized.player.spawnSurfaceId = null;
+		}
 		normalized.player.modelParts = normalizeArray(playerSource.value.modelParts).value.map((part) => normalizePart(part, ctx));
 		normalized.player.metaOverrides = structuredClone(normalized.player.metaOverrides);
 		if (!Array.isArray(normalized.player.metaOverrides.list)) normalized.player.metaOverrides.list = [];
+		// Instance spatial meta overrides the same way as the character's own meta.
+		const metaOverrides = normalized.player.metaOverrides;
+		for (const key of ["jumpHeight", "maxSpeed", "acceleration", "deceleration"]) {
+			if (key in metaOverrides) metaOverrides[key] = new Unit(metaOverrides[key], "cnu");
+		}
+		if ("momentumTurnRate" in metaOverrides) metaOverrides.momentumTurnRate = new Unit(metaOverrides.momentumTurnRate, "degrees").toRadians(true);
 		if (characterIds.includes(normalized.player.character) === false) {
 			warnLog(`level.player.character: '${normalized.player.character}' missing, using '${characterIds[0]}'.`);
 			normalized.player.character = characterIds[0];

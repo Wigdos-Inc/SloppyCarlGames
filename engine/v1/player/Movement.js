@@ -22,6 +22,7 @@ import {
 } from "../math/Vector3.js";
 import { ApplyAcceleration, ApplyDeceleration, ClampVelocity, ProjectOntoPlane } from "../math/Collision.js";
 import { ComputeStepVelocity } from "../math/Forces.js";
+import { Unit } from "../math/Utilities.js";
 import { SetPlayerAction, ConsumeJumpPress } from "./Master.js";
 
 const jumpVelocityCache = { jumpHeight: -1, medium: "", floatiness: -1, v0: 0 };
@@ -40,7 +41,7 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
 	const simForces = {
 		gravity: true,
 		resistance: { submergence: medium === "water" ? 1 : 0 },
-		...(buoyancyEnabled ? { buoyancy: { position: { y: 0 }, waterLevel: { value: 0 }, submergence: 1 } } : {}),
+		...(buoyancyEnabled ? { buoyancy: { position: { y: 0 }, waterLevel: 0, submergence: 1 } } : {}),
 	};
 
 	const simApex = (v0) => {
@@ -93,23 +94,25 @@ function carryAcross(forward, from, to) {
  * Steers the carried tangent by camera yaw delta; reseeds from the camera on press, grounding change, upright, remap or collapse.
  * @param {object} frame — `playerState.inputFrame`.
  * @param {{ x, y, z }} cameraForward — camera forward; flattened to XZ only when seeding.
- * @param {number} cameraYaw — radians, `atan2(x, z)` convention.
+ * @param {Unit} cameraYaw — `atan2(x, z)` convention.
  * @param {{ x, y, z }} up — surface-aligned up.
- * @param {boolean} remap — held keys changed after the camera handed input back.
+ * @param {boolean} remap — held keys changed after a lock handed input back.
  * @returns {{ x: number, y: number, z: number }} — unit, in the surface plane.
  */
 function advanceCarriedForward(frame, cameraForward, cameraYaw, up, grounded, remap) {
 	// Carry unless upright or up flipped half a turn.
 	if (
-		!remap && frame.previousHasInput && grounded === frame.previousGrounded && 
-		up.y < 1 - EPSILON && DotVector3(frame.previousUp, up) > EPSILON - 1
+		!remap && frame.hadInput && grounded === frame.wasGrounded && 
+		up.y < 1 - EPSILON && DotVector3(frame.lastUp, up) > EPSILON - 1
 	) {
-		const raw = cameraYaw - frame.previousCameraYaw;
-		const yawDelta = Math.atan2(Math.sin(raw), Math.cos(raw));
+		const raw      = cameraYaw.toRadians() - frame.lastCameraYaw.toRadians();
 
 		// Transport keeps the heading's angle to the fold.
-		const carried = carryAcross(frame.carriedForward, frame.previousUp, up);
-		const transported = ProjectOntoPlane(RotateByEuler(carried, { x: 0, y: yawDelta, z: 0 }), up);
+		const transported = ProjectOntoPlane(RotateByEuler(
+			carryAcross(frame.carriedForward, frame.lastUp, up, 
+			{ x: 0, y: Math.atan2(Math.sin(raw), Math.cos(raw)), z: 0 }), 
+			up
+		));
 		if (Vector3Length(transported) >= minTangent) return ResolveVector3Axis(transported);
 	}
 
@@ -129,17 +132,20 @@ function viewForward(basis, up) {
 // The last input forward, carried onto this surface; the facing where that collapses.
 function heldForward(playerState, up) {
 	const frame = playerState.inputFrame;
-	const carried = DotVector3(frame.previousUp, up) > EPSILON - 1 ? ProjectOntoPlane(carryAcross(frame.carriedForward, frame.previousUp, up), up) : ToVector3(0);
+	const carried = DotVector3(frame.lastUp, up) > EPSILON - 1 ? ProjectOntoPlane(carryAcross(frame.carriedForward, frame.lastUp, up), up) : ToVector3(0);
 	return ResolveVector3Axis(Vector3Length(carried) >= minTangent ? carried : ProjectOntoPlane(playerState.facing, up));
 }
 
-// Travel `angle` radians off around the lock toward its axis; `sign` picks the way around.
-const lockedDirection = (loop, sign, angle) => AddVector3(ScaleVector3(loop.around, sign * Math.cos(angle)), ScaleVector3(loop.along, Math.sin(angle)));
+// Travel `angle` off around the lock toward its axis; `sign` picks the way around.
+function lockedDirection(loop, sign, angle) {
+	const radians = angle.toRadians();
+	return AddVector3(ScaleVector3(loop.around, sign * Math.cos(radians)), ScaleVector3(loop.along, Math.sin(radians)));
+}
 
 // The lock's way around and angle to its axis, from `heading`.
 function holdHeading(frame, loop, heading) {
 	frame.lockSign = Math.sign(DotVector3(heading, loop.around)) || 1;
-	frame.lockAngle = Math.atan2(DotVector3(heading, loop.along), Math.abs(DotVector3(heading, loop.around)));
+	frame.lockAngle.value = Math.atan2(DotVector3(heading, loop.along), Math.abs(DotVector3(heading, loop.around)));
 }
 
 // Lock angle from the velocity, else the press as seen from the camera, else the facing.
@@ -180,6 +186,7 @@ function getPrimaryOppositeHeld(input, velocityDirection, basis) {
 /**
  * Rate-limit the world-space heading toward `target` within the surface plane.
  * @param {{ x, y, z }} target — unit travel direction, already in the plane of `up`.
+ * @param {Unit} maxStep — this frame's turn limit.
  */
 function turnFacingToward(playerState, target, maxStep) {
 	const planar = ProjectOntoPlane(playerState.facing, playerState.alignedUp);
@@ -190,7 +197,7 @@ function turnFacingToward(playerState, target, maxStep) {
 		return;
 	}
 
-	playerState.facing = RotateTowardVector3(ResolveVector3Axis(planar), target, maxStep);
+	playerState.facing = RotateTowardVector3(ResolveVector3Axis(planar), target, maxStep.toRadians());
 }
 
 /**
@@ -211,14 +218,16 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 
 	const onSlidingSurface = playerState.surfaceContact === "sliding";
 	const up = playerState.alignedUp;
+
 	// cos(incline), floored: a wall must still brake, an overhang must not accelerate.
 	const support = Math.max(Math.abs(up.y), MOVEMENT_TUNING.MinSupport);
+	
 	// Unpowered deceleration, scaled by surface support and air control.
-	const friction = meta.deceleration * support * controlMultiplier;
+	const friction = meta.deceleration.value * support * controlMultiplier;
 
 	// Resolve effective stats.
-	const maxSpeed = meta.maxSpeed     * (playerState.boost.active ? playerState.boost.maxSpeedMultiplier : 1);
-	const accel    = meta.acceleration * (playerState.boost.active ? playerState.boost.accelMultiplier    : 1);
+	const maxSpeed = meta.maxSpeed.value     * (playerState.boost.active ? playerState.boost.maxSpeedMultiplier : 1);
+	const accel    = meta.acceleration.value * (playerState.boost.active ? playerState.boost.accelMultiplier    : 1);
 	const stoppingThreshold = maxSpeed * meta.stoppingThresholdRatio;
 	// Uphill input damped on a slide.
 	const inputAcceleration = (direction) => accel * controlMultiplier * (onSlidingSurface && DotVector3(direction, ProjectOntoPlane(WORLD_NORMALS.Down, up)) < 0 ? MOVEMENT_TUNING.SlideUphillScale : 1);
@@ -233,15 +242,17 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	const carried = control === "carried";
 	const inLoop = control === "loopLock";
 	const frame = playerState.inputFrame;
-	const enteredLoop = inLoop && frame.previousControl !== "loopLock";
+	const enteredLoop = inLoop && frame.lastControl !== "loopLock";
+
 	// Held keys keep their meaning until they change.
-	const keysChanged = Math.sign(input.forward) !== frame.previousKeys.forward || Math.sign(input.right) !== frame.previousKeys.right;
-	// Remap pending after a camera hold or a lock.
-	if (carried) frame.remapPending = !modeData.held && (frame.remapPending || frame.previousHeld || frame.previousControl === "loopLock");
+	const keysChanged = Math.sign(input.forward) !== frame.lastKeys.forward || Math.sign(input.right) !== frame.lastKeys.right;
+	// Remap pending after a lock.
+	if (carried) frame.remapPending = frame.remapPending || frame.lastControl === "loopLock";
 	const remap = carried && frame.remapPending && keysChanged;
 	if (remap) frame.remapPending = false;
+
 	// No turn on carried control's first frame.
-	if (carried && frame.previousControl !== "carried") frame.previousCameraYaw = modeData.yaw;
+	if (carried && frame.lastControl !== "carried") frame.lastCameraYaw.value = modeData.yaw.toRadians();
 
 	// Held keys carry into a lock; a fresh press locks inside, frees outside.
 	const loop = inLoop ? { around: ResolveVector3Axis(CrossVector3(modeData.axis, up)), along: ResolveVector3Axis(ProjectOntoPlane(modeData.axis, up)) } : null;
@@ -254,11 +265,15 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 		// Past the lock, its direction carries on until a fresh press.
 		const direction = inLoop ? lockedDirection(loop, frame.lockSign, frame.lockAngle) : heldForward(playerState, up);
 		frame.carriedForward = direction;
-		if (inLoop && input.right !== 0 && Vector3Length(tVel) > minTangent) frame.lockThrottle = Math.sign(DotVector3(ScaleVector3(CrossVector3(modeData.view, up), input.right), tVel));
+		if (inLoop && input.right !== 0 && Vector3Length(tVel) > minTangent) {
+			frame.lockThrottle = Math.sign(DotVector3(ScaleVector3(CrossVector3(modeData.view, up), input.right), tVel));
+		}
 		if (input.right !== 0 && frame.lockThrottle > 0) tVel = ApplyAcceleration(tVel, direction, inputAcceleration(direction), deltaSeconds);
-		// Against travel brakes as a reversal does.
-		else if (input.right !== 0) tVel = ApplyDeceleration(tVel, (meta.deceleration + inputAcceleration(direction) * MOVEMENT_TUNING.ReversalBrakeScale) * support, deltaSeconds);
+		else if (input.right !== 0) {
+			tVel = ApplyDeceleration(tVel, (meta.deceleration.value + inputAcceleration(direction) * MOVEMENT_TUNING.ReversalBrakeScale) * support, deltaSeconds);
+		}
 		else if (!inLoop) tVel = ApplyDeceleration(tVel, friction, deltaSeconds);
+
 		// W steers away from the camera, S toward it; the lock holds the new angle.
 		if (inLoop && input.forward !== 0) {
 			const side = CrossVector3(direction, up);
@@ -279,12 +294,12 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 
 		// Detects the player pressing against their direction of travel to brake.
 		const velocityDirection = currentSpeed > 0.001 ? ResolveVector3Axis(tVel) : ToVector3(0);
-		const canReverse = hasInput && currentSpeed > 0.001;
+		const canReverse        = hasInput && currentSpeed > 0.001;
 		
 		// Back with a turn carves on acceleration alone; no braking.
-		const tangentDirection = hasInput ? basis.direction : ToVector3(0);
-		const carving = input.forward < 0 && input.right !== 0;
-		const reverseIntent = canReverse && !carving && DotVector3(velocityDirection, tangentDirection) < 0;
+		const tangentDirection    = hasInput ? basis.direction : ToVector3(0);
+		const carving             = input.forward < 0 && input.right !== 0;
+		const reverseIntent       = canReverse && !carving && DotVector3(velocityDirection, tangentDirection) < 0;
 		const primaryOppositeHeld = canReverse && getPrimaryOppositeHeld(input, velocityDirection, basis);
 
 		playerState.stoppingActive =
@@ -303,7 +318,7 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 		if (hasInput) {
 			const effectiveAcceleration = inputAcceleration(tangentDirection);
 			if (playerState.grounded && reverseIntent) {
-				tVel = ApplyDeceleration(tVel, (meta.deceleration + (effectiveAcceleration * MOVEMENT_TUNING.ReversalBrakeScale)) * support, deltaSeconds);
+				tVel = ApplyDeceleration(tVel, (meta.deceleration.value + (effectiveAcceleration * MOVEMENT_TUNING.ReversalBrakeScale)) * support, deltaSeconds);
 				if (Vector3Length(tVel) <= stoppingThreshold || !playerState.stoppingActive) {
 					tVel = ApplyAcceleration(tVel, tangentDirection, effectiveAcceleration, deltaSeconds);
 				}
@@ -321,6 +336,7 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	const coasting = inLoop && frame.locked && input.right === 0;
 	playerState.gravityScale = coasting ? modeData.coastGravityScale : 1;
 	playerState.dragFree = coasting;
+
 	// Idle on walkable footing, friction holds the slope's pull.
 	playerState.staticFriction = !hasInput && !inLoop && playerState.surfaceContact === "walkable" ? friction : 0;
 
@@ -335,7 +351,7 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	if (ConsumeJumpPress()) jumpWindow.buffer = GROUNDING.JumpBufferMs / 1000;
 	else jumpWindow.buffer -= deltaSeconds;
 
-	const leftGround = playerState.inputFrame.previousGrounded && !playerState.grounded;
+	const leftGround = playerState.inputFrame.wasGrounded && !playerState.grounded;
 	if (leftGround && !noCoyoteActions.has(playerState.action)) jumpWindow.coyote = GROUNDING.CoyoteMs / 1000;
 	else jumpWindow.coyote -= deltaSeconds;
 
@@ -347,6 +363,7 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	) {
 		jumpWindow.buffer = 0;
 		jumpWindow.coyote = 0;
+
 		// Launch along the surface normal; halved on a slide.
 		const launchSpeed = solveJumpLaunchVelocity(
 			meta.jumpHeight.value,
@@ -355,6 +372,7 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 		) * (onSlidingSurface ? 0.5 : 1);
 		playerState.velocity.set(AddVector3(tVel, ScaleVector3(up, launchSpeed)));
 		playerState.launched = true;
+
 		// Player jump Y values are Unit instances—mutate their `.value`.
 		playerState.jumpStartY.value = playerState.transform.position.y;
 		playerState.jumpApexY.value = playerState.transform.position.y;
@@ -364,17 +382,16 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	// === FACE MOMENTUM DIRECTION ===
 	// Heading follows surface momentum.
 	if (Vector3Length(tVel) > minTangent) {
-		turnFacingToward(playerState, ResolveVector3Axis(tVel), meta.momentumTurnRate * deltaSeconds);
+		turnFacingToward(playerState, ResolveVector3Axis(tVel), new Unit(meta.momentumTurnRate.toRadians() * deltaSeconds, "radians"));
 	}
 
-	if (carried) frame.previousCameraYaw = modeData.yaw;
-	frame.previousHasInput = hasInput;
-	frame.previousGrounded = playerState.grounded;
-	frame.previousUp = up;
-	frame.previousHeld = carried && modeData.held;
-	frame.previousControl = control;
-	frame.previousKeys.forward = Math.sign(input.forward);
-	frame.previousKeys.right = Math.sign(input.right);
+	if (carried) frame.lastCameraYaw.value = modeData.yaw.toRadians();
+	frame.hadInput         = hasInput;
+	frame.wasGrounded      = playerState.grounded;
+	frame.lastUp           = up;
+	frame.lastControl      = control;
+	frame.lastKeys.forward = Math.sign(input.forward);
+	frame.lastKeys.right   = Math.sign(input.right);
 }
 
 /* === EXPORTS === */

@@ -5,26 +5,24 @@ import { Log } from "../core/meta.js";
 import { Clamp01 } from "./Utilities.js";
 import { CloneVector3 } from "./Vector3.js";
 
-const airDragCoefficient = CONFIG.Physics.Gravity.Strength.value / CONFIG.Physics.Gravity.TerminalVelocity.Air.value;
-const waterDragCoefficient = CONFIG.Physics.Gravity.Strength.value / CONFIG.Physics.Gravity.TerminalVelocity.Water.value;
+const airDragCoefficient   = () => CONFIG.Physics.Gravity.Strength / CONFIG.Physics.Gravity.TerminalVelocity.Air;
+const waterDragCoefficient = () => CONFIG.Physics.Gravity.Strength / CONFIG.Physics.Gravity.TerminalVelocity.Water;
 
 const logFlags = { gravity: false, resistance: false, buoyancy: false };
 
 // --- Scalar helpers (axis-agnostic, pure arithmetic, no Enabled checks) ---
 
-const gravityScalar = (v, dt) => v - CONFIG.Physics.Gravity.Strength.value * dt;
-const resistanceScalar = (v, sub, dt) => v * (1 - (airDragCoefficient + (waterDragCoefficient - airDragCoefficient) * sub) * dt);
+const gravityScalar = (v, dt) => v - CONFIG.Physics.Gravity.Strength * dt;
+const resistanceScalar = (v, sub, dt) => v * (1 - (airDragCoefficient() + (waterDragCoefficient() - airDragCoefficient()) * sub) * dt);
 
 // buoyancy legitimately takes more inputs than the others; returns per-frame ΔV (not force).
 function buoyancyScalar(position, waterLevel, submergence, dt) {
 	if (submergence <= 0) return 0;
-	const config = CONFIG.Physics.Buoyancy;
+
+	const { GradientDepth, Force } = CONFIG.Physics.Buoyancy;
 	let gradientForce;
-	if (config.GradientDepth.value === 0) gradientForce = config.Force.Max.value;
-	else {
-		const t = Math.min(1, (waterLevel.value - position.y) / config.GradientDepth.value);
-		gradientForce = config.Force.Min.value + (config.Force.Max.value - config.Force.Min.value) * t;
-	}
+	if (GradientDepth === 0) gradientForce = Force.Max;
+	else gradientForce = Force.Min + (Force.Max - Force.Min) * Math.min(1, (waterLevel - position.y) / GradientDepth);
 	return gradientForce * submergence * dt;
 }
 
@@ -39,7 +37,8 @@ function buoyancyScalar(position, waterLevel, submergence, dt) {
 function ComputeGravity(velocity, deltaSeconds) {
 	if (CONFIG.Physics.Gravity.Enabled === false) {
 		if (!logFlags.gravity) { 
-			Log("ENGINE", "Gravity disabled — ComputeGravity is a no-op", "warn", "Level"); logFlags.gravity = true; 
+			Log("ENGINE", "Gravity disabled — ComputeGravity is a no-op", "warn", "Level"); 
+			logFlags.gravity = true; 
 		}
 		return CloneVector3(velocity);
 	}
@@ -72,7 +71,7 @@ function ComputeResistance(velocity, deltaSeconds, submergence) {
  * Compute buoyancy velocity change and effective force for this frame.
  * GradientDepth blends force from Force.Min (surface) to Force.Max (depth), scaled by submergence.
  * @param {{ x: number, y: number, z: number }} position — entity position.
- * @param {Unit} waterLevel — world water level Y as a Unit instance.
+ * @param {number | null} waterLevel — world water level Y in CNU, or null if no water.
  * @param {number} submergence — fraction of capsule below waterLevel (0–1).
  * @param {number} deltaSeconds
  * @returns {{ velocityChange: number, buoyancyForce: number }}
@@ -81,15 +80,15 @@ function ComputeBuoyancy(position, waterLevel, submergence, deltaSeconds) {
 	const { Force, Enabled, GradientDepth } = CONFIG.Physics.Buoyancy;
 	if (Enabled === false || submergence <= 0) {
 		if (!logFlags.buoyancy) { 
-			Log("ENGINE", "Buoyancy disabled or no submergence — ComputeBuoyancy is a no-op", "warn", "Level"); 
+			Log("ENGINE", "Buoyancy disabled or entity is not submerged — ComputeBuoyancy is a no-op", "warn", "Level"); 
 			logFlags.buoyancy = true; 
 		}
 		return { velocityChange: 0, buoyancyForce: 0 };
 	}
 	
-	const gradientForce = GradientDepth.value === 0
-		? Force.Max.value
-		: Force.Min.value + (Force.Max.value - Force.Min.value) * Math.min(1, (waterLevel.value - position.y) / GradientDepth.value);
+	const gradientForce = GradientDepth === 0
+		? Force.Max
+		: Force.Min + (Force.Max - Force.Min) * Math.min(1, (waterLevel - position.y) / GradientDepth);
 	return { velocityChange: buoyancyScalar(position, waterLevel, submergence, deltaSeconds), buoyancyForce: gradientForce * submergence };
 }
 
@@ -108,11 +107,11 @@ function ComputeBuoyancy(position, waterLevel, submergence, deltaSeconds) {
  */
 const ComputeStepVelocity = {
 	scalar(v, forces, dt, vertical) {
-		const vBefore = v;
+		const lastV = v;
 		if (forces.gravity) {
 			if (CONFIG.Physics.Gravity.Enabled !== false) v = gravityScalar(v, dt);
 			else if (!logFlags.gravity) {
-				Log("ENGINE", "Gravity disabled — scalar gravity skipped", "warn", "Level");
+				Log("ENGINE", "Gravity disabled in CONFIG — scalar gravity skipped", "warn", "Level");
 				logFlags.gravity = true;
 			}
 		}
@@ -121,19 +120,18 @@ const ComputeStepVelocity = {
 				v += buoyancyScalar(forces.buoyancy.position, forces.buoyancy.waterLevel, forces.buoyancy.submergence, dt);
 			}
 			else if (!logFlags.buoyancy) {
-				Log("ENGINE", "Buoyancy disabled — scalar buoyancy skipped", "warn", "Level");
+				Log("ENGINE", "Buoyancy disabled in CONFIG — scalar buoyancy skipped", "warn", "Level");
 				logFlags.buoyancy = true;
 			}
 		}
 		if (forces.resistance) {
 			if (CONFIG.Physics.Resistance.Enabled !== false) v = resistanceScalar(v, forces.resistance.submergence, dt);
 			else if (!logFlags.resistance) {
-				Log("ENGINE", "Resistance disabled — scalar resistance skipped", "warn", "Level");
+				Log("ENGINE", "Resistance disabled in CONFIG — scalar resistance skipped", "warn", "Level");
 				logFlags.resistance = true;
 			}
 		}
-		if (vertical.flag) return vBefore + (v - vBefore) / vertical.floatiness;
-		return v;
+		return vertical.flag ? lastV + (v - lastV) / vertical.floatiness : v;
 	},
 
 	sim(velocity, submergence, position, waterLevel, deltaSeconds, vertical) {
@@ -154,10 +152,10 @@ const ComputeStepVelocity = {
  * Compute the 0–1 submergence ratio of a volume in water.
  * @param {number} bottom — world-space Y of the volume's lowest point.
  * @param {number} height — total height of the volume.
- * @param {Unit | null} waterLevel — world water level, or null if no water.
+ * @param {number | null} waterLevel — world water level Y in CNU, or null if no water.
  * @returns {number} — fraction of volume below waterLevel (0–1).
  */
-const ComputeSubmergence = (bottom, height, waterLevel) => waterLevel === null ? 0 : Clamp01((waterLevel.value - bottom) / height);
+const ComputeSubmergence = (bottom, height, waterLevel) => waterLevel === null ? 0 : Clamp01((waterLevel - bottom) / height);
 
 /* === EXPORTS === */
 

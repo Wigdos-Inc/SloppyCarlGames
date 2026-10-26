@@ -21,14 +21,14 @@ function shouldSkipCollisionPipeline(entity, displacement) {
 		entity.physicsRuntime.cachePrimed === true &&
 		entity.physicsRuntime.hasUnresolvedPenetration === false &&
 		CompareVector3(AbsoluteVector3(displacement), ToVector3(EPSILON), "lesser-loose") &&
-		CompareVector3(entity.transform.position, entity.physicsRuntime.previousPosition) &&
-		CompareVector3(entity.transform.rotation, entity.physicsRuntime.previousRotation)
+		CompareVector3(entity.transform.position, entity.physicsRuntime.lastPosition) &&
+		CompareVector3(entity.transform.rotation, entity.physicsRuntime.lastRotation)
 	);
 }
 
 function updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration) {
-	entity.physicsRuntime.previousPosition.set(entity.transform.position);
-	entity.physicsRuntime.previousRotation.set(entity.transform.rotation);
+	entity.physicsRuntime.lastPosition.set(entity.transform.position);
+	entity.physicsRuntime.lastRotation.set(entity.transform.rotation);
 	entity.physicsRuntime.hasUnresolvedPenetration = hasUnresolvedPenetration;
 	entity.physicsRuntime.cachePrimed = true;
 }
@@ -187,16 +187,16 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 		displacement: null,
 		gravity: {
 			enabled              : CONFIG.Physics.Gravity.Enabled && entityPhysics.gravity,
-			strength             : CONFIG.Physics.Gravity.Strength.value,
-			airTerminalVelocity  : CONFIG.Physics.Gravity.TerminalVelocity.Air.value,
-			waterTerminalVelocity: CONFIG.Physics.Gravity.TerminalVelocity.Water.value,
+			strength             : CONFIG.Physics.Gravity.Strength,
+			airTerminalVelocity  : CONFIG.Physics.Gravity.TerminalVelocity.Air,
+			waterTerminalVelocity: CONFIG.Physics.Gravity.TerminalVelocity.Water,
 			result               : null,
 		},
 		buoyancy: {
 			enabled      : CONFIG.Physics.Buoyancy.Enabled && entityPhysics.buoyancy,
-			gradientDepth: CONFIG.Physics.Buoyancy.GradientDepth.value,
-			forceMin     : CONFIG.Physics.Buoyancy.Force.Min.value,
-			forceMax     : CONFIG.Physics.Buoyancy.Force.Max.value,
+			gradientDepth: CONFIG.Physics.Buoyancy.GradientDepth,
+			forceMin     : CONFIG.Physics.Buoyancy.Force.Min,
+			forceMax     : CONFIG.Physics.Buoyancy.Force.Max,
 			result       : null,
 		},
 		resistance: {
@@ -267,7 +267,11 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 
 	updatePhysicsRuntimeCache(entity, physicsState.collision.hasUnresolvedPenetration);
 
-	if (isPlayer && entity.grounded !== wasGrounded && entity.customEvents.groundedChange && CONFIG.CustomEvents.Entities.GroundedChange) {
+	if (
+		isPlayer && entity.grounded !== wasGrounded && 
+		entity.customEvents.groundedChange && 
+		CONFIG.CustomEvents.Entities.GroundedChange
+	) {
 		SendEvent("PLAYER_GROUNDED_CHANGE", {
 			id      : entity.id,
 			type    : entity.type,

@@ -880,8 +880,12 @@ function CapsuleFromAabb(aabb) {
 	const dim          = SubtractVector3(aabb.max, aabb.min);
 	const radius       = Math.max(0.0001, Math.max(dim.x, dim.z) * 0.5);
 	const halfHeight   = Math.max(0, (dim.y * 0.5) - radius);
-	const segmentStart = aabb.min.clone().set(AabbCenter(aabb)); segmentStart.y -= halfHeight;
-	const segmentEnd   = segmentStart.clone();                   segmentEnd.y   += halfHeight;
+
+	const segmentStart = aabb.min.clone().set(AabbCenter(aabb));
+	const segmentEnd   = segmentStart.clone();
+	segmentStart.y -= halfHeight;
+	segmentEnd.y   += halfHeight;
+	
 	return {
 		type      : "capsule",
 		radius    : new Unit(radius, "cnu"),

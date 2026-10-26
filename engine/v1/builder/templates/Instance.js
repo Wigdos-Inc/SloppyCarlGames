@@ -1,7 +1,9 @@
-// Boot-time Unit-instancing of engine-owned template JSON, run after ini.js clones the
-// raw singletons for ENGINE.Blueprints.* — not at import, which would corrupt the API.
+// Instances engine-owned template JSON at boot.
 
-import playerCharactersImport from "../../player/characters.json" with { type: "json" };
+// Used by core/ini.js to instance the templates and keep raw copies for ENGINE.Blueprints.
+// Uses core/normalize.js to load image decals.
+
+import playerData from "../../player/characters.json" with { type: "json" };
 import texturesImport from "./textures.json" with { type: "json" };
 import terrainImport from "./terrain.json" with { type: "json" };
 import obstacleImport from "./obstacles.json" with { type: "json" };
@@ -15,76 +17,70 @@ import { NormalizeImage } from "../../core/normalize.js";
 
 const toUnitVector3 = (vector, type) => new UnitVector3(vector.x, vector.y, vector.z, type);
 
-// Shared by instanceModelPart and instanceScatterTemplates — canonicalizes decal placement fields.
-function canonicalizeDecalTransforms(customTextures) {
+function instanceDecalTransforms(customTextures) {
 	customTextures.forEach((decal) => {
 		decal.localTransform.position = toUnitVector3(decal.localTransform.position, "cnu");
 		decal.localTransform.rotation = new Unit(decal.localTransform.rotation, "degrees").toRadians(true);
 	});
 }
 
-function canonicalizePartTransform(part) {
-	part.dimensions    = toUnitVector3(part.dimensions,    "cnu");
-	part.localPosition = toUnitVector3(part.localPosition, "cnu");
-	part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
-	part.pivot         = toUnitVector3(part.pivot,         "cnu");
-}
-
-// Absent repeat canonicalizes to null; authored offsets instance once.
+// Instance the transforms offset between a part's repeats.
 function instancePartRepeat(part) {
 	if (part.repeat === undefined) return part.repeat = null;
 	part.repeat.offset.position = toUnitVector3(part.repeat.offset.position, "cnu");
 	part.repeat.offset.rotation = toUnitVector3(part.repeat.offset.rotation, "degrees").toRadians(true);
 }
 
-// Shared by player-character, entity-template and object-template parts.
-// Object template parts may author texture: null (shared texture baked in afterwards).
 function instanceModelPart(part) {
-	canonicalizePartTransform(part);
+	part.dimensions    = toUnitVector3(part.dimensions,    "cnu");
+	part.localPosition = toUnitVector3(part.localPosition, "cnu");
+	part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
+	part.pivot         = toUnitVector3(part.pivot,         "cnu");
 
-	// Engine templates author no generators; absent canonicalizes to null.
 	if (part.particle === undefined) part.particle = null;
-
-	if (part.texture !== null) canonicalizeDecalTransforms(part.texture.custom);
+	if (part.texture !== null) instanceDecalTransforms(part.texture.custom);
 
 	if (part.shape === "tube") {
-		// Tube parts carry a bone chain of world-space nodes
 		part.primitiveOptions.thickness = new Unit(part.primitiveOptions.thickness, "cnu");
+
+		// Instance each node of a tube.
 		part.primitiveOptions.nodes.forEach((node) => {
 			node.dimensions    = toUnitVector3(node.dimensions,    "cnu");
 			node.localPosition = toUnitVector3(node.localPosition, "cnu");
 			node.localRotation = toUnitVector3(node.localRotation, "degrees").toRadians(true);
-			node.thickness     = new Unit(node.thickness,          "cnu");
+			node.thickness     = new Unit(node.thickness, "cnu");
 		});
 	}
 }
 
 function instanceCharacterTemplates() {
-	for (const characterId in playerCharactersImport) {
-		const character = playerCharactersImport[characterId];
-		character.meta.jumpHeight = new Unit(character.meta.jumpHeight, "cnu");
+	for (const characterId in playerData) {
+		const character = playerData[characterId];
+		const meta = character.meta;
+		meta.jumpHeight       = new Unit(meta.jumpHeight, "cnu");
+		meta.maxSpeed         = new Unit(meta.maxSpeed, "cnu");                             // Per second
+		meta.acceleration     = new Unit(meta.acceleration, "cnu");                         // Per second (squared)
+		meta.deceleration     = new Unit(meta.deceleration, "cnu");                         // Per second (squared)
+		meta.momentumTurnRate = new Unit(meta.momentumTurnRate, "degrees").toRadians(true); // Per second
 		character.model.parts.forEach((part) => instanceModelPart(part));
 	}
 }
 
-const toCnuVector    = (vector) => toUnitVector3(vector, "cnu");
-const toRadianVector = (vector) => toUnitVector3(vector, "degrees").toRadians(true);
-
-// Scatter-only: a quality-tiered field is keyed low/medium/high, so each tier instances in place.
-function instanceScatterField(part, field, instancer) {
-	const value = part[field];
-	if (value.low === undefined) return part[field] = instancer(value);
-	for (const tier in value) value[tier] = instancer(value[tier]);
-}
-
-// Scatter parts carry no pivot, and localScale stays a raw vector at every tier.
+// Instance scatter part transforms and decals.
 function instanceScatterTemplates() {
+	// Instance a field, or each of its tiers if split by complexity (low/medium/high).
+	function instanceTiers(part, field, instance) {
+		const value = part[field];
+		if (value.low === undefined) return part[field] = instance(value);
+		for (const tier in value) value[tier] = instance(value[tier]);
+	}
+
 	for (const key in texturesImport.scatterTypes) {
 		texturesImport.scatterTypes[key].parts.forEach((part) => {
-			instanceScatterField(part, "dimensions",    toCnuVector);
-			instanceScatterField(part, "localPosition", toCnuVector);
-			instanceScatterField(part, "localRotation", toRadianVector);
-			canonicalizeDecalTransforms(part.texture.custom);
+			instanceTiers(part, "dimensions",    (vector) => toUnitVector3(vector, "cnu"));
+			instanceTiers(part, "localPosition", (vector) => toUnitVector3(vector, "cnu"));
+			instanceTiers(part, "localRotation", (vector) => toUnitVector3(vector, "degrees").toRadians(true));
+			instanceDecalTransforms(part.texture.custom);
 		});
 	}
 }
@@ -113,9 +109,9 @@ function instanceEntityTemplates() {
 			const movement = template.movement;
 			movement.start = toUnitVector3(movement.start, "cnu");
 			movement.end   = toUnitVector3(movement.end,   "cnu");
-			movement.speed = new Unit(movement.speed, "cnu");
+			movement.speed = new Unit(movement.speed, "cnu");            // Per second
 			movement.jump  = new Unit(movement.jump,  "cnu");
-			template.velocity = toUnitVector3(template.velocity, "cnu");
+			template.velocity = toUnitVector3(template.velocity, "cnu"); // Per second
 
 			const rootTransform = template.model.rootTransform;
 			rootTransform.position = toUnitVector3(rootTransform.position, "cnu");
@@ -130,11 +126,11 @@ function instanceEntityTemplates() {
 	});
 }
 
-// Group velocity is the burst axis; the single prototype part reuses the shared part instancer.
+// Instance each particle template's initial velocity and the part it emits.
 function instanceParticleTemplates() {
 	for (const templateId in particleImport) {
 		const template = particleImport[templateId];
-		template.velocity = toUnitVector3(template.velocity, "cnu");
+		template.velocity = toUnitVector3(template.velocity, "cnu"); // Per second
 		instanceModelPart(template.part);
 	}
 }
@@ -147,8 +143,9 @@ function instanceSimulatorTemplates() {
 	disc.pivot      = toUnitVector3(disc.pivot,      "cnu");
 }
 
-// Image decal paths resolve relative to templates/.
+// Load the bitmaps for every template's image decals. Paths are relative to templates/.
 function loadTemplateDecalBitmaps() {
+	// Register all textures.
 	const textures = new Set();
 	[characterImport, enemyImport, projectileImport].forEach((collection) => {
 		for (const templateId in collection) collection[templateId].model.parts.forEach((part) => textures.add(part.texture));
@@ -159,6 +156,7 @@ function loadTemplateDecalBitmaps() {
 	for (const templateId in particleImport) textures.add(particleImport[templateId].part.texture);
 	for (const key in texturesImport.scatterTypes) texturesImport.scatterTypes[key].parts.forEach((part) => textures.add(part.texture));
 
+	// Load each texture's bitmap.
 	textures.forEach((texture) => texture.custom.forEach((decal) => {
 		if (decal.decalType !== "image") return;
 		NormalizeImage(new URL(decal.imagePath, import.meta.url).href, decal.sourceType, "webgl").then((result) => {
@@ -167,10 +165,10 @@ function loadTemplateDecalBitmaps() {
 	}));
 }
 
-// Clone authored singletons for the API, then instance them in place for engine use.
 function InstanceEngineTemplates() {
+	// Clone raw for the API.
 	const raw = {
-		PlayerCharacters: structuredClone(playerCharactersImport),
+		PlayerCharacters: structuredClone(playerData),
 		Terrain         : structuredClone(terrainImport),
 		Obstacles       : structuredClone(obstacleImport),
 		Characters      : structuredClone(characterImport),
@@ -180,6 +178,7 @@ function InstanceEngineTemplates() {
 		Scatter         : structuredClone(texturesImport.scatterTypes),
 	};
 
+	// Canonicalize all engine-owned data.
 	instanceCharacterTemplates();
 	instanceScatterTemplates();
 	instanceObjectTemplates();
@@ -189,7 +188,7 @@ function InstanceEngineTemplates() {
 	loadTemplateDecalBitmaps();
 
 	const instanced = {
-		PlayerCharacters: playerCharactersImport,
+		PlayerCharacters: playerData,
 		Terrain         : terrainImport,
 		Obstacles       : obstacleImport,
 		Characters      : characterImport,

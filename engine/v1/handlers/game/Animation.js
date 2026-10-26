@@ -11,7 +11,7 @@ import { ComposeTransform } from "../../builder/NewEntity.js";
 import { PoseAnchor } from "../../physics/Correction.js";
 import { AddVector3, SubtractVector3, MultiplyVector3, LerpVector3, CloneVector3, CrossVector3, ResolveVector3Axis, RotateByEuler, RotateTowardVector3, ToVector3, WORLD_NORMALS } from "../../math/Vector3.js";
 import { EulerFromBasis } from "../../math/Matrix.js";
-import { Lerp, Clamp } from "../../math/Utilities.js";
+import { Lerp, Clamp, CloneTransform, Unit } from "../../math/Utilities.js";
 import { ApplyEasing } from "../../math/Curves.js";
 
 /* === IDENTITY OFFSETS (module-scoped constants; consumed read-only by lerpOffset) === */
@@ -23,25 +23,16 @@ const identityOffsetDecal = Object.freeze({ position: Object.freeze(ToVector3(0)
 
 function buildRestLocals(model) {
 	const restLocals = {};
-	model.defaultPose.parts.forEach((part) => { restLocals[part.id] = part.localTransform; });
+	model.defaultPose.parts.forEach((part) => restLocals[part.id] = part.localTransform);
 	return restLocals;
 }
 
 function buildDecalIndex(model) {
 	const decalIndex = new Map();
-	model.parts.forEach((part) => part.mesh.customTextures.forEach((decal) => { if (decal.id) decalIndex.set(decal.id, decal); }));
+	model.parts.forEach((part) => part.mesh.customTextures.forEach((decal) => { 
+		if (decal.id) decalIndex.set(decal.id, decal); 
+	}));
 	return decalIndex;
-}
-
-/* === MODEL POSE (whole-model transform, eased independently of per-part tracks) === */
-
-// Seeded from the body so a freshly built model starts already settled on its surface.
-function buildModelPose(entity) {
-	return {
-		position: entity.transform.position.clone(),
-		rotation: entity.transform.rotation.clone(),
-		scale   : entity.transform.scale,
-	};
 }
 
 // Settles within a tolerance; converting through the basis and back adds tiny float rounding errors.
@@ -49,8 +40,9 @@ const poseSettled = (a, b) => Math.abs(a.x - b.x) <= EPSILON && Math.abs(a.y - b
 
 // Turns the model toward the target rotation by up to maxStep, easing its up and forward directions (raw angles tear on walls).
 function stepModelRotation(current, target, maxStep) {
-	const up      = RotateTowardVector3(RotateByEuler(WORLD_NORMALS.Up,      current), RotateByEuler(WORLD_NORMALS.Up,      target), maxStep);
-	const forward = RotateTowardVector3(RotateByEuler(WORLD_NORMALS.Forward, current), RotateByEuler(WORLD_NORMALS.Forward, target), maxStep);
+	const step    = maxStep.toRadians();
+	const up      = RotateTowardVector3(RotateByEuler(WORLD_NORMALS.Up,      current), RotateByEuler(WORLD_NORMALS.Up,      target), step);
+	const forward = RotateTowardVector3(RotateByEuler(WORLD_NORMALS.Forward, current), RotateByEuler(WORLD_NORMALS.Forward, target), step);
 	const right   = ResolveVector3Axis(CrossVector3(up, forward));
 	return EulerFromBasis(right, up, CrossVector3(right, up), current.z);
 }
@@ -61,8 +53,9 @@ function stepModelRotation(current, target, maxStep) {
  */
 function resolveModelPose(entity, runtime, deltaSeconds) {
 	const pose = runtime.modelPose;
+	// Water resists turning, even on the ground.
 	const rate = entity.underwater ? entity.modelTurnRate.water : entity.modelTurnRate.air;
-	pose.rotation.set(stepModelRotation(pose.rotation, entity.transform.rotation, rate * deltaSeconds));
+	pose.rotation.set(stepModelRotation(pose.rotation, entity.transform.rotation, new Unit(rate.toRadians() * deltaSeconds, "radians")));
 
 	if (poseSettled(pose.rotation, entity.transform.rotation)) return null;
 
@@ -113,7 +106,7 @@ function EnsureAnimationRuntime(entity) {
 			colorDisplays    : new Map(),  // mesh|decalEntry → persistent {r,g,b,a} display color
 			restLocals       : buildRestLocals(entity.model),
 			decalIndex       : buildDecalIndex(entity.model),
-			modelPose        : buildModelPose(entity),
+			modelPose        : CloneTransform(entity.transform),
 		};
 		entity.animationRuntime = runtime;
 	}
@@ -190,7 +183,7 @@ function applyPartLocal(runtime, partId, offset) {
 	const rest = runtime.restLocals[partId];
 	let local = runtime.partLocals.get(partId);
 	if (local === undefined) {
-		local = { position: rest.position.clone(), rotation: rest.rotation.clone(), scale: CloneVector3(rest.scale) };
+		local = CloneTransform(rest);
 		runtime.partLocals.set(partId, local);
 	}
 	local.position.set(AddVector3(rest.position, offset.position));

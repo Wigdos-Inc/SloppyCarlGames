@@ -38,7 +38,7 @@ import {
 	Vector3SqDistanceToAabb, 
 	Vector3ToArray 
 } from "../math/Vector3.js";
-import { Clamp } from "../math/Utilities.js";
+import { Clamp, CNUtoWorldUnit } from "../math/Utilities.js";
 import CreateShader from "./utilities/Shaders.js";
 
 /* === INTERNALS === */
@@ -228,7 +228,7 @@ function DecalSurfaceUv(point, placement, shapeCode, halfExtents, rounding, refe
 	};
 }
 
-// Flat host: the placed quad is exact.
+// Flat host: the placed quad, grown by the animation margin.
 const flatDecalCorners = [
 	{ x: -0.5, y: -0.5, z: 0 }, 
 	{ x: -0.5, y: 0.5, z: 0 }, 
@@ -237,21 +237,22 @@ const flatDecalCorners = [
 ];
 const flatDecalOrder   = [0, 2, 1, 1, 2, 3];
 
-function flatDecalFacets(placement) {
+function flatDecalFacets(placement, margin) {
 	const positions = new Float32Array(flatDecalOrder.length * 3);
 	const uvs       = new Float32Array(flatDecalOrder.length * 2);
-	flatDecalOrder.forEach((corner, slot) => {
-		const point = TransformPointByMatrix(flatDecalCorners[corner], placement);
+	flatDecalOrder.forEach((cornerIndex, slot) => {
+		const corner = ScaleVector3(flatDecalCorners[cornerIndex], margin);
+		const point  = TransformPointByMatrix(corner, placement);
 		positions[slot * 3] = point.x; positions[slot * 3 + 1] = point.y; positions[slot * 3 + 2] = point.z;
-		uvs[slot * 2] = flatDecalCorners[corner].x; 
-		uvs[slot * 2 + 1] = flatDecalCorners[corner].y;
+		uvs[slot * 2] = corner.x;
+		uvs[slot * 2 + 1] = corner.y;
 	});
 	return { positions, uvs };
 }
 
 // Whole facets, each padded by its own uv extent; the fragment shader does the exact cut.
 function SelectDecalFacets(geometry, placement, shapeCode, halfExtents, rounding, margin) {
-	if (shapeCode === DECAL_SHAPE_CODES.Flat) return flatDecalFacets(placement);
+	if (shapeCode === DECAL_SHAPE_CODES.Flat) return flatDecalFacets(placement, margin);
 
 	const half = 0.5 * margin;
 	const { positions, indices } = geometry;
@@ -571,7 +572,7 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 	sceneGraph.debugBoundingBoxes.forEach((record) => {
 		if (!isBoundingBoxDebugEnabled(record.type)) return;
 
-		const vertices = createGridLineVertices(record, CONFIG.Debug.Levels.BoundingBox.Grid.Size.toWorldUnit());
+		const vertices = createGridLineVertices(record, CNUtoWorldUnit(CONFIG.Debug.Levels.BoundingBox.Grid.Size));
 		if (!vertices) return;
 
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
@@ -1050,7 +1051,7 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	root.appendChild(canvas);
 
 	// alpha: false — stops the white page bleeding through via framebuffer alpha.
-	const msaa = !CONFIG.Debug.All || CONFIG.Debug.Levels.Performance.MSAA;
+	const msaa = !(CONFIG.Debug.All && CONFIG.Debug.Levels.Performance.NoMSAA);
 	const flatShading = CONFIG.Debug.All && CONFIG.Debug.Levels.Performance.FlatShading;
 	const gl = canvas.getContext("webgl2", { alpha: false, antialias: msaa });
 	if (!gl) {
@@ -1183,8 +1184,9 @@ const meshUsesTriplanar = (mesh) => mesh.geometry.triplanar === true;
 
 // Box around everything an entity draws: all its parts, or its single mesh.
 function entityRenderBounds(entity) {
-	return !entity.model ? entity.mesh.worldAabb : PointsAabb(entity.model.parts.flatMap((part) => [part.mesh.worldAabb.min, part.mesh.worldAabb.max]));
-	return 
+	return !entity.model 
+		? entity.mesh.worldAabb 
+		: PointsAabb(entity.model.parts.flatMap((part) => [part.mesh.worldAabb.min, part.mesh.worldAabb.max]));
 }
 
 // Hides anything fully off screen until the next distance check turns it back on.
@@ -1285,7 +1287,7 @@ function ensureMeshBuffer(renderer, mesh, shader) {
 
 // Don't cull planes.
 function setFaceCulling(gl, cull) {
-	return cull && (!CONFIG.Debug.All || CONFIG.Debug.Levels.Performance.BackfaceCulling) ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE);
+	return cull && CONFIG.Performance.BackfaceCulling ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE);
 }
 
 const keepWholeMesh = { level: 0, side: 0 };
@@ -1394,7 +1396,7 @@ function drawTranslucentPass(renderer, sceneGraph, meshes, passState, cameraPosi
 function decalAnimationMargin(entity, partId, decalEntry) {
 	if (entity === null) return 1;
 
-	let scale = 1, offset = 0;
+	let scale = 1, offset = 0, spins = false;
 	for (const setName in entity.animations) {
 		const partTrack = entity.animations[setName].parts[partId];
 		if (partTrack === undefined) continue;
@@ -1406,13 +1408,14 @@ function decalAnimationMargin(entity, partId, decalEntry) {
 			const value = keyframe.value;
 			if (value.scale !== undefined)    scale  = Math.max(scale, Math.abs(value.scale.x), Math.abs(value.scale.y));
 			if (value.position !== undefined) offset = Math.max(offset, Vector3Length(value.position));
+			if (value.rotation !== undefined && value.rotation.value !== 0) spins = true;
 		}
 	}
-	if (scale === 1 && offset === 0) return 1;
+	if (scale === 1 && offset === 0 && !spins) return 1;
 
-	// Position offset in rest half-extents.
+	// A spun decal reaches its corners. Position offset is in rest half-extents.
 	const rest = decalEntry.localTransform.scale;
-	return (scale + offset / (Math.min(Math.abs(rest.x), Math.abs(rest.y)) * 0.5)) * 1.15;
+	return (scale * (spins ? Math.SQRT2 : 1) + offset / (Math.min(Math.abs(rest.x), Math.abs(rest.y)) * 0.5)) * 1.15;
 }
 
 // One VAO per (mesh, decal), never rebuilt.
@@ -1691,7 +1694,7 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 	occlusion.hidden.clear();
 	occlusion.useful.clear();
 
-	if (CONFIG.Debug.All && !CONFIG.Debug.Levels.Performance.OcclusionCulling) return;
+	if (!CONFIG.Performance.OcclusionCulling) return;
 
 	// A big camera move, turn or mode change ends any pause and drops last run's blocker ranking.
 	const { ResumeDistance, ResumeTurn, IdleBackoffMs, EntityPadding } = PERFORMANCE_SCALING.Culling;
@@ -1721,7 +1724,6 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 	// Grows a box by its pad plus a margin that widens with distance, then checks it against each blocker, cheapest test first.
 	function behindBlocker(aabb, pad) {
 		const d = MaxVector3(SubtractVector3(aabb.min, camera), MaxVector3(ToVector3(0), SubtractVector3(camera, aabb.max)));
-		console.error(d, aabb.min, camera, aabb.max);
 		const grow = pad + 0.05 + Math.sqrt(Vector3Sq(d)) * 0.002;
 		for (let k = 0; k < 8; k++) {
 			wx[k] = k & 1 ? aabb.max.x + grow : aabb.min.x - grow;
@@ -1864,7 +1866,7 @@ function drawScene(renderer, sceneGraph) {
 	const cameraState = sceneGraph.cameraConfig.state;
 
 	const projection = new Float32Array(createPerspectiveMatrix(
-		cameraState.fov,
+		CONFIG.Camera.Fov,
 		renderer.canvas.width / renderer.canvas.height,
 		cameraState.near.value,
 		cameraState.far.value

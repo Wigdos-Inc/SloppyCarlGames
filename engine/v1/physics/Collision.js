@@ -468,7 +468,8 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 			continue;
 		}
 
-		if (!AabbOverlap(entity.collision.aabb, candidateAabb(candidate))) continue;
+		const aabb = candidateAabb(candidate);
+		if (!AabbOverlap(entity.collision.aabb, aabb)) continue;
 
 		const detailedBounds = candidateBounds(candidate);
 		const cachedPair = isPlayer || detailedBounds.type === "triangle-soup"
@@ -484,8 +485,11 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 		}
 		if (!isPlayer) cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
 
-		// Overlaps push back out by the contact's full depth.
-		fillSolidResult(candidate, 0, contact, contact.depth);
+		// Push out by whichever is shallower: the collider overlap or the box overlap.
+		const axis     = AbsoluteVector3(contact.normal);
+		const boxDepth = DotVector3(AabbHalfExtents(entity.collision.aabb), axis) + DotVector3(AabbHalfExtents(aabb), axis)
+			- Math.abs(DotVector3(SubtractVector3(AabbCenter(aabb), AabbCenter(entity.collision.aabb)), contact.normal));
+		fillSolidResult(candidate, 0, contact, Math.min(contact.depth, boxDepth));
 	}
 
 	return detectionResult;
@@ -679,8 +683,8 @@ function GatherGroundHits(entity, sceneGraph, groundSnapTolerance) {
 
 // Surface class of a hit; the player's grip depends on its speed along the surface, while sticky hits and other entities always grip.
 function groundHitContact(entity, hit, frameStart) {
-	const tangent = SubtractVector3(entity.velocity, ScaleVector3(hit.normal, DotVector3(entity.velocity, hit.normal)));
-	const speedRatio = entity.type === "player" && !hit.sticky ? Math.sqrt(Vector3Sq(tangent)) / entity.character.meta.maxSpeed : Infinity;
+	const tangent    = SubtractVector3(entity.velocity, ScaleVector3(hit.normal, DotVector3(entity.velocity, hit.normal)));
+	const speedRatio = entity.type === "player" && !hit.sticky ? Math.sqrt(Vector3Sq(tangent)) / entity.character.meta.maxSpeed.value : Infinity;
 	return ClassifySurface(frameStart.referenceNormal, hit.normal, entity.surfaceContact, entity.underwater, speedRatio, entity.gripDemand);
 }
 

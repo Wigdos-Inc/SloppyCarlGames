@@ -13,7 +13,7 @@ import CharacterData from "./characters.json" with { type: "json" };
 
 /* === SPAWN SURFACE === */
 
-// Player spawn is absolute, so hand the builder a zero-origin surface (world pos = rootTransform pos).
+// Without a spawn surface the player spawns in absolute coordinates, on a zero-origin surface.
 
 const playerSurfaceId = "player-origin";
 
@@ -39,9 +39,11 @@ function filterDeadDecals(parts) {
  * Build the entity definition the player is assembled from. The character template supplies the
  * model and collider shapes; the level payload supplies placement and per-level concerns.
  * @param {object} character — a characters.json entry, already merged with any meta overrides.
- * @param {object} playerData — { spawnPosition, scale, animations, customEvents }.
+ * @param {object} playerData — { rootTransform, spawnSurfaceId, animations, customEvents }.
  */
 function synthesizeDefinition(character, playerData) {
+	const { position, rotation, scale, pivot } = playerData.rootTransform;
+
 	return {
 		id               : "player",
 		type             : "player",
@@ -53,23 +55,18 @@ function synthesizeDefinition(character, playerData) {
 		collisionOverride: character.collisionOverride,
 		customEvents     : playerData.customEvents,
 		animations       : playerData.animations,
-		velocity         : new UnitVector3(0, 0, 0, "cnu"),
+		velocity         : new UnitVector3(0, 0, 0, "cnu"), // Per second
 
 		// Zero speed keeps the builder's movement track from moving the player; input does that.
 		movement: {
-			speed: new Unit(0, "cnu"),
-			start: playerData.spawnPosition.clone(),
-			end  : playerData.spawnPosition.clone(),
+			speed: new Unit(0, "cnu"), // Per second
+			start: position.clone(),
+			end  : position.clone(),
 		},
 
 		model: {
-			spawnSurfaceId: playerSurfaceId,
-			rootTransform : {
-				position: playerData.spawnPosition,
-				rotation: new UnitVector3(0, 0, 0, "radians"),
-				scale   : playerData.scale,
-				pivot   : new UnitVector3(0, 0, 0, "cnu"),
-			},
+			spawnSurfaceId: playerData.spawnSurfaceId ?? playerSurfaceId,
+			rootTransform : { position, rotation: rotation.clone(), scale, pivot },
 			parts: filterDeadDecals(character.model.parts),
 		},
 	};
@@ -100,14 +97,15 @@ async function loadDecalBitmaps(parts) {
 /**
  * Assemble the player entity from a character template.
  * @param {object} character — a characters.json entry, already merged with any meta overrides.
- * @param {object} playerData — { spawnPosition, scale, animations, customEvents, hasCustomParts }.
+ * @param {object} playerData — { rootTransform, spawnSurfaceId, animations, customEvents, hasCustomParts }.
+ * @param {object} surfaceMap — the level's spawn surfaces, { [surfaceId]: { position, topY } }.
  * @returns {object} — the built entity, ready for Master.js to extend into player state.
  */
-async function BuildPlayerModel(character, playerData) {
+async function BuildPlayerModel(character, playerData, surfaceMap) {
 	if (playerData.hasCustomParts === false) await loadDecalBitmaps(character.model.parts);
 
 	// Null geometryCache: the player's parts build uncached, textured like any entity's.
-	const { entity } = BuildEntity(synthesizeDefinition(character, playerData), playerSurfaceMap, null, null, null);
+	const { entity } = BuildEntity(synthesizeDefinition(character, playerData), { ...surfaceMap, ...playerSurfaceMap }, null, null, null);
 
 	Log(
 		"ENGINE",

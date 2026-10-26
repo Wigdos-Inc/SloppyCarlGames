@@ -17,7 +17,7 @@ import { Start, Load, Cache as SimulatorCache, Clear, Exit, Download, GetModelSt
 import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
 import { PlayerAPI as Player } from "../player/Master.js";
-import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, Unit, UnitVector3, CNU_SCALE, Clamp, Clamp01 } from "../math/Utilities.js"
+import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, CNU_SCALE, Clamp, Clamp01, CloneTransform } from "../math/Utilities.js"
 import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3, MinVector3, MaxVector3, CompareVector3 } from "../math/Vector3.js";
 import { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence } from "../math/Forces.js";
 
@@ -47,7 +47,7 @@ function Initialize() {
       Logging: { LogAll, Cache: LogCache, AddChannel: AddLogChannel },
       ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
       SessionKey, CNU_SCALE, DeepFreeze,
-      Version: "0.35.1",
+      Version: "0.35.4",
     },
     Controls,
     Input   : Object.freeze({ Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, }),
@@ -59,9 +59,8 @@ function Initialize() {
     Math    : {
       Convert   : { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU },
       Vector3   : { AddVector3, DivideVector3, MultiplyVector3, ScaleVector3, DotVector3, MinVector3, MaxVector3, CompareVector3 },
-      Instancing: { Unit, UnitVector3 },
       Physics   : { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence },
-      Other     : { Clamp, Clamp01 }
+      Other     : { Clamp, Clamp01, CloneTransform }
     },
     Simulator : { Start, Load, Cache: SimulatorCache, Clear, Exit, Download, GetModelState, GetFullState },
     Blueprints: InstanceEngineTemplates().raw,

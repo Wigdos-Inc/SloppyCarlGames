@@ -6,7 +6,7 @@
 // End of player pipeline(s) to determine position.
 // Uses Render.js for rendering level state per frame.
 
-import { BuildLevel, RefreshSceneBoundingBoxes } from "../../builder/NewLevel.js";
+import { BuildLevel, RefreshDebugBoundingBoxes } from "../../builder/NewLevel.js";
 import { RenderLevel, RemoveRoot, ClearLevelRenderer, SetElementText } from "../Render.js";
 import { CreateUI } from "../UI.js";
 import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS, ENTITY_TYPES, ReleasePointerLock, IsPointerLocked } from "../../core/meta.js";
@@ -84,14 +84,12 @@ function buildIncomingPayloadSummary(payload) {
 	].join("\n");
 }
 
-// Gates RefreshSceneBoundingBoxes, which rebuilds debugBoundingBoxes and debug.detailedBounds.
 function shouldRefreshBoundingBoxes() {
-	if (CONFIG.Debug.All !== true) return false;
-	if (CONFIG.Debug.Levels.BoundingBox.Grid.Visible === true) return true;
-	if (Object.values(CONFIG.Debug.Levels.DetailedBounds).some(Boolean)) return true;
-
-	// Grid is a nested config object, not a flag.
-	return Object.entries(CONFIG.Debug.Levels.BoundingBox).some(([type, enabled]) => type !== "Grid" && enabled === true);
+	return CONFIG.Debug.All !== true 
+		? false 
+		: CONFIG.Debug.Levels.BoundingBox.Grid.Visible === true || Object.values(CONFIG.Debug.Levels.DetailedBounds).some(Boolean)
+			? true
+			: Object.entries(CONFIG.Debug.Levels.BoundingBox).some(([type, enabled]) => type !== "Grid" && enabled === true);
 }
 
 function updateEntityMovement(entity, deltaSeconds) {
@@ -344,12 +342,12 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 	InitializeTextureAnimation(sceneGraph);
 
 	levelRuntimeState.sceneGraph = sceneGraph;
-	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
+	if (shouldRefreshBoundingBoxes()) RefreshDebugBoundingBoxes(sceneGraph);
 
 	if (CONFIG.Debug.All && CONFIG.Debug.Levels.BoundingBox.Grid.Visible) {
 		Log(
 			"ENGINE",
-			`Debug Grid Enabled — scale: ${CONFIG.Debug.Levels.BoundingBox.Grid.Size.value} units`,
+			`Debug Grid Enabled — scale: ${CONFIG.Debug.Levels.BoundingBox.Grid.Size} units`,
 			"log",
 			"Level"
 		);
@@ -424,7 +422,7 @@ function updateParticles(sceneGraph, deltaMs, deltaSeconds) {
 function runFrameTail(sceneGraph, deltaMs) {
 	UpdateTextureAnimation(sceneGraph, deltaMs);
 	syncEntityMeshes(sceneGraph);
-	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
+	if (shouldRefreshBoundingBoxes()) RefreshDebugBoundingBoxes(sceneGraph);
 }
 
 function Update(deltaMs) {
@@ -567,7 +565,7 @@ function findSceneTarget(sceneGraph, id, partId) {
 function finalizeSpawn(result, objectType, sceneGraph) {
 	(Array.isArray(result) ? result : [result]).forEach((mesh) => AddToVisualResources(mesh, objectType, sceneGraph));
 	SyncTextureAnimation(sceneGraph);
-	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
+	if (shouldRefreshBoundingBoxes()) RefreshDebugBoundingBoxes(sceneGraph);
 	return result;
 }
 
@@ -622,7 +620,7 @@ function DespawnFromScene(target, objectType, sceneGraph) {
 		if (index >= 0) array.splice(index, 1);
 	});
 	SyncTextureAnimation(sceneGraph);
-	if (shouldRefreshBoundingBoxes()) RefreshSceneBoundingBoxes(sceneGraph);
+	if (shouldRefreshBoundingBoxes()) RefreshDebugBoundingBoxes(sceneGraph);
 	return target;
 }
 

@@ -54,15 +54,15 @@ function createDefaultPlayerState(baseEntity, playerData) {
 		active             : true,
 		character          : playerData.character,
 		modelTurnRate      : {
-			air  : baseEntity.modelTurnRate.air   * playerData.character.meta.airControl,
-			water: baseEntity.modelTurnRate.water * playerData.character.meta.underwaterAirControl,
+			air  : baseEntity.modelTurnRate.air,
+			water: new Unit(baseEntity.modelTurnRate.water.toRadians() * playerData.character.meta.underwaterAirControl, "radians"),
 		},
 		jumpStartY         : new Unit(playerData.spawnPosition.y, "cnu"),
 		jumpApexY          : new Unit(playerData.spawnPosition.y, "cnu"),
 		jumpWindow         : { buffer: 0, coyote: 0 },
 		stoppingActive     : false,
 		primaryOppositeHeld: false,
-		previousAction     : "Idle",
+		lastAction         : "Idle",
 		collectibles       : playerData.collectibles,
 		maxCollectibles    : 100,
 		attackFlag         : false,
@@ -88,7 +88,7 @@ function createDefaultPlayerState(baseEntity, playerData) {
 
 /**
  * Initialize the player entity for a level.
- * @param {object} payload — { spawnPosition, character, modelParts, collectibles }
+ * @param {object} payload — { rootTransform, spawnSurfaceId, character, modelParts, collectibles }
  * @param {object} sceneGraph — the active scene graph.
  * @returns {object} — the initialized playerState.
  */
@@ -106,18 +106,17 @@ async function InitializePlayer(payload, sceneGraph) {
 	Log("ENGINE", `Player meta overrides applied:\n- ${metaOverrideList.join('\n- ')}`, "log", "Player");
 
 	// Assemble as an entity, then extend it.
+	const { rootTransform, spawnSurfaceId, customEvents, animations } = payload;
 	const baseEntity = await BuildPlayerModel(effectiveCharacter, {
-		spawnPosition : payload.spawnPosition,
-		scale         : payload.scale,
-		customEvents  : payload.customEvents,
-		animations    : payload.animations,
-		hasCustomParts,
-	});
+		rootTransform, spawnSurfaceId, customEvents, animations, hasCustomParts,
+	}, sceneGraph.spawnSurfaces);
 
+	// Respawns return to the authored point, in world space.
+	const spawnPosition = payload.rootTransform.position.clone().add(baseEntity.model.surfacePosition);
 	playerState = createDefaultPlayerState(baseEntity, {
-		character    : effectiveCharacter,
-		spawnPosition: payload.spawnPosition,
-		collectibles : payload.collectibles,
+		character   : effectiveCharacter,
+		spawnPosition,
+		collectibles: payload.collectibles,
 	});
 
 	// Re-derive bounds to apply widened sim-radius.
@@ -125,6 +124,7 @@ async function InitializePlayer(payload, sceneGraph) {
 
 	// Insert player as entity into sceneGraph for rendering.
 	sceneGraph.player = playerState;
+
 	// Place entities in array so the renderer and bounding box system see it.
 	sceneGraph.entities.push(playerState);
 
@@ -134,8 +134,8 @@ async function InitializePlayer(payload, sceneGraph) {
 		"ENGINE", 
 		`
 			Player initialized: 
-			character="${effectiveCharacter.name}" 
-			source="${sourceType}" at (${payload.spawnPosition.x}, ${payload.spawnPosition.y}, ${payload.spawnPosition.z})
+			- Character="${effectiveCharacter.name}" 
+			- Source="${sourceType}" at (${spawnPosition.x}, ${spawnPosition.y}, ${spawnPosition.z}) surface=${payload.spawnSurfaceId}
 		`, 
 		"log", 
 		"Player"
@@ -163,23 +163,22 @@ function UpdatePlayerModel() {
 }
 
 // Updates & logs playerState.action
-function SetPlayerAction(newAction) {
-	const oldAction = playerState.action;
-	if (newAction === oldAction) return;
+function SetPlayerAction(action) {
+	const lastAction = playerState.action;
+	if (action === lastAction) return;
 
-	playerState.previousAction = oldAction;
-	playerState.action = newAction;
+	playerState.lastAction = lastAction;
+	playerState.action     = action;
 
-	Log("ENGINE", `Player action: ${oldAction} → ${newAction}`, "log", "Player");
+	Log("ENGINE", `Player action: ${lastAction} → ${action}`, "log", "Player");
 
 	if (playerState.customEvents.actionChange && CONFIG.CustomEvents.Entities.ActionChange) {
 		SendEvent("PLAYER_ACTION_CHANGE", {
-			id      : playerState.id,
-			type    : playerState.type,
-			position: CloneVector3(playerState.transform.position),
-			velocity: CloneVector3(playerState.velocity),
-			from    : oldAction,
-			to      : newAction,
+			id        : playerState.id,
+			type      : playerState.type,
+			position  : CloneVector3(playerState.transform.position),
+			velocity  : CloneVector3(playerState.velocity),
+			lastAction, action,
 		});
 	}
 }
@@ -189,13 +188,8 @@ function SetPlayerAction(newAction) {
  * Called from Level.js after the full pipeline.
  */
 function ResolvePlayerState() {
-	if (!playerState.active)           return;
-	if (playerState.action === "Dead") return;
+	if (!playerState.active || playerState.action === "Dead" || playerState.action === "Stunned") return;
 
-	const speed = Math.sqrt(playerState.velocity.x * playerState.velocity.x + playerState.velocity.z * playerState.velocity.z);
-
-	// Action transitions (priority order).
-	if (playerState.action === "Stunned") return;
 
 	if (playerState.surfaceContact === "sliding") SetPlayerAction("Sliding");
 	else if (playerState.underwater && playerState.action !== "Swimming") {
@@ -204,7 +198,7 @@ function ResolvePlayerState() {
 	}
 	else if (!playerState.grounded && playerState.action !== "Flying") {
 		if (playerState.action === "Jumping") {
-			playerState.jumpApexY.value = Math.max(playerState.jumpApexY.value, playerState.transform.position.y);
+			playerState.jumpApexY.math(Math.max, playerState.transform.position.y);
 
 			// Switch to Falling after descending below jump start height by 1 unit.
 			if (playerState.transform.position.y <= playerState.jumpStartY.value - 1) SetPlayerAction("Falling");
@@ -213,9 +207,8 @@ function ResolvePlayerState() {
 	}
 	else {
 		// Grounded actions.
-		if (playerState.stoppingActive) SetPlayerAction("Stopping");
-		else if (speed > 0.5)           SetPlayerAction("Running");
-		else                            SetPlayerAction("Idle");
+		const speed = Math.sqrt(playerState.velocity.x * playerState.velocity.x + playerState.velocity.z * playerState.velocity.z);
+		SetPlayerAction(playerState.stoppingActive ? "Stopping" : speed > 0.5 ? "Running" : "Idle");
 	}
 }
 
@@ -270,7 +263,6 @@ function RespawnPlayer() {
 	playerState.primaryOppositeHeld = false;
 	playerState.modelOpacity = 1.0;
 	snapOrientationUpright();
-	// Respawn keeps the body's yaw, so the heading has to keep it too.
 	playerState.facing = RotateByEuler(WORLD_NORMALS.Forward, playerState.transform.rotation);
 	playerState.gravityScale = 1;
 	playerState.dragFree = false;
@@ -285,7 +277,7 @@ function RespawnPlayer() {
 
 const GetPlayerState = () => playerState;
 const GetPlayerInput = () => playerInputFlags;
-const PlayerHeight = (playerState) => (playerState.collision.rest.aabb.max.y - playerState.collision.rest.aabb.min.y) * playerState.transform.scale.y;
+const PlayerHeight = (playerState) => new Unit((playerState.collision.rest.aabb.max.y - playerState.collision.rest.aabb.min.y) * playerState.transform.scale.y, "cnu");
 
 /* === ENGINE API === */
 // Attached to ENGINE.Level.Player by ini.js.

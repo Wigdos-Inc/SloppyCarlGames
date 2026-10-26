@@ -64,7 +64,7 @@ function preprocessWorld(world, cnuScale) {
 
 function preprocessPlayer(player, cnuScale) {
 	const nextPlayer = structuredClone(player);
-	nextPlayer.spawnPosition = divideVector3(nextPlayer.spawnPosition, cnuScale);
+	nextPlayer.rootTransform.position = divideVector3(nextPlayer.rootTransform.position, cnuScale);
 	return nextPlayer;
 }
 

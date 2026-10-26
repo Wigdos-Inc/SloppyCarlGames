@@ -11,7 +11,7 @@
 			"stoppingThresholdRatio": 0.35,
 			"airControl": 0.2,
 			"underwaterAirControl": 0.5,
-			"momentumTurnRate": 14,
+			"momentumTurnRate": 802.14,
 			"jumpHeight": 2,
 			"airFloatiness": 1,
 			"waterFloatiness": 1
@@ -233,7 +233,7 @@
 			"stoppingThresholdRatio": 0.35,
 			"airControl": 0.3,
 			"underwaterAirControl": 0.7,
-			"momentumTurnRate": 14,
+			"momentumTurnRate": 802.14,
 			"jumpHeight": 2,
 			"airFloatiness": 5,
 			"waterFloatiness": 3
@@ -473,7 +473,7 @@
 			"stoppingThresholdRatio": 0.35,
 			"airControl": 0.5,
 			"underwaterAirControl": 0.8,
-			"momentumTurnRate": 14,
+			"momentumTurnRate": 802.14,
 			"jumpHeight": 2.5,
 			"airFloatiness": 0.8,
 			"waterFloatiness": 1
@@ -1469,7 +1469,7 @@
 			"stoppingThresholdRatio": 0.35,
 			"airControl": 0.5,
 			"underwaterAirControl": 0.25,
-			"momentumTurnRate": 14,
+			"momentumTurnRate": 802.14,
 			"jumpHeight": 2,
 			"airFloatiness": 1,
 			"waterFloatiness": 1

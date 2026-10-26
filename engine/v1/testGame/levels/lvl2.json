@@ -42,8 +42,10 @@
 					},
 					"player": {
 						"character": "carl",
-						"spawnPosition": {"x":650,"y":12,"z":491.127},
-						"scale": {"x":1,"y":1,"z":1}
+						"rootTransform": {
+							"position": {"x":650,"y":12,"z":491.127},
+							"scale": {"x":1,"y":1,"z":1}
+						}
 					},
 					"terrain": {
 						"objects": [
