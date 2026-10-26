@@ -137,19 +137,20 @@ Version Goals:
 - 0.35 Occlusion Culling & CPU Optimizations [PATCHING]
     - Built: blocker culling in Render.js hideOccluded, helpers in math/Collision.js, occluder records from NewTerrain.js. ARGUS: 0 false hides on lvl2, stress grid, LSM. Scope: docs/scoping/render/culling-scope.md §4.5.
   1. Crash Fixes [DONE]
-  2. orbitCam Rework [DONE]
+  2/3/4. orbitCam Rework & Code Cleanup 10 & Rule Enforcement 14 [DONE]
     - Games can't set the initial camera yaw or the player's spawn facing (LSM rotated its whole level 180° to work around it).
     - Mouse sensitivity is read once at level start, so a settings change mid-level does nothing until the next level.
     - Look into problem where hideOccluded only runs when Debug Mode is disabled (occlusion culling should run regardless)
-  3. Sprite/Bilboard Support (rotating images that resize based on distance) [PENDING]
+  5. Sprite/Bilboard Support (rotating images that resize based on distance) [PENDING]
     - Look into adding mipmaps to remove the weird rounded artifacts at a distance.
-  4. Movement Enhancements. [PENDING]
+  6. Movement Enhancements. [PENDING]
     - Release jump early for quicker falloff.
     - Solve over-rotation in above-water tunnel.
     - Store medium (Water/Air) on entity definition (e.g. playerState)
     - If holding "A", then pressing and releasing "D", "A" stops working until it's pressed again. This must be fixed.
     - Jumping off a sloped surface doesn't feel correct because you keep so much upwards momentum. It can feel like you're still jumping "up" while you're rotated 80 degrees, which is not how jumping should feel.
-  5. Look into why moving and running through voids causes performance drops. [PENDING]
+    - Loops currently emit logs. I'd prefer them running events when engaged and disengaged so the game can actually do something with that data.
+  7. Look into why moving and running through voids causes performance drops. [PENDING]
 - 0.36: Workers (Multi-Threading) [PENDING]
   - Needs a full scoping pass.
   - Consider a coordinator/state manager. If small, an exported "Workforce" object in meta.js acting as the state manager could work quite well. It'd check if workers are available and assign them.
@@ -171,6 +172,8 @@ Version Goals:
   - Look into unifying capsule and cylinder.
     - Add "topRounding" and "bottomRounding" primitiveOptions, which equate to how much of the cylinder the cap replaces.
   1. Allow voids on entities (they'll act as carving). Void walls must start supporting decals.
+    - Refactor the shape of entity definitions in NewEntity.js (including the player's definition)
+      - Group the loose runtime fields under physics.runtime/correction/collision/forces. Scope: docs/scoping/builder/entity-runtime-shape-scope.md
 - 0.38: Entity AI
   - Blueprint movement fields chase, jump, jumpOnSight, disappear and aggroRange validate but do nothing; devs read them as the AI API.
   - Make SimRadius a calculation rather than authorable.

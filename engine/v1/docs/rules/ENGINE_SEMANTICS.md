@@ -89,6 +89,7 @@ Taken from the author's review of real engine comments.
 | `// The key is omitted rather than set false, so absence means UV.` | `// Triplanar only when the mesh is flagged. Unflagged meshes use UVs.` |
 | A 3-line block on float precision at coincident boundary planes | `// Extra height on void bounds, so a ground point sitting exactly on a void's bottom still counts.` |
 | A 2-line block naming `UNPACK_PREMULTIPLY_ALPHA_WEBGL` | `// Premultiply alpha at load to match how WebGL blends decals.` |
+| `// True off tubes, or when the tube's nearest centerline runs along the axis (within 45°).` above a dense function with no comments inside | `// Check a tube runs along the axis (non-tubes pass).` above it, with step comments at the search and the 45° check |
 
 Over-compression is also a failure. These were rejected:
 - `// Returns 0 for a point inside the box.` says what but not why it's there.
@@ -356,7 +357,32 @@ const scaledDistance = fitDistance * speedZoom;
 
 ---
 
-## 6. Relationship to Other Rules
+## 6. Last and Next
+
+### 6.1 Core Rule
+
+A name that holds how something was before (last frame, last mode, last step) uses the `last` prefix. Never `previous`, `prev`, `old` or a bare `from`.
+
+A boolean that holds whether something was true before uses the past tense instead: `wasLooping`, `wasGrounded`, `hadInput`. It reads at a glance as a quick check.
+
+`next` must be deliberate: the next item in a sequence, or a value purposefully calculated ahead from current data. Only when a current value exists alongside it. With no current value, it takes no prefix. A value that only lands next frame because of update order is not `next`.
+
+A value for this frame takes no prefix. When a function reads the old value and writes the new one in the same frame, the old one is `last` and the new one is unprefixed.
+
+### 6.2 Bad vs Good
+
+| Bad | Good |
+|---|---|
+| `previousUp`, `previousPosition` | `lastUp`, `lastPosition` |
+| `frame.from` (the mode switched away from) | `frame.lastMode` |
+| `const lastLooping = cameraState.looping;` | `const wasLooping = cameraState.looping;` |
+| `lastHasInput` | `hadInput` |
+| `const pitch = chasePitch(up); let nextPitch = pitch + …;` | `const lastPitch = chasePitch(up); let pitch = lastPitch + …;` |
+| Event payload `{ from, to }` for an action change | `{ lastAction, action }` |
+
+---
+
+## 7. Relationship to Other Rules
 
 - §2 is a design-level extension of `rules/FORBIDDEN_DEFENSIVE_CHECKS.md`. Read that first.
 - `rules/MODULE_GROUPS.md` governs *where* a justified helper belongs; §2 governs *whether* it should exist.
@@ -381,3 +407,5 @@ const scaledDistance = fitDistance * speedZoom;
 | Does a declared function span lines? | Declare it with `function` |
 | Does a braced loop or statement body sit on one line? | Split it across lines; only short `return`s are exempt |
 | Is a long property path repeated throughout this scope? | Destructure it at the top |
+| Does this name hold how something was before? | Prefix it `last`; a boolean uses the past tense (`wasGrounded`) |
+| Is this name deliberately the next in a sequence, beside a current one? | Prefix it `next`; this frame's value takes no prefix |

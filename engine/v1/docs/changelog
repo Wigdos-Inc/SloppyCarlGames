@@ -71,3 +71,54 @@
 **What:** The player's `modelTurnRate.air` (out of water) is the base rate with no `airControl` scaling. `water` still scales by `underwaterAirControl`. The `modelTurnRate.ground` key from the previous entry is removed again, and `resolveModelPose` uses water when underwater and air otherwise.
 
 **Where:** [player/Master.js](engine/v1/player/Master.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [Animation.js](engine/v1/handlers/game/Animation.js)
+
+## Dead face-remapping code removed from entity parts
+
+**What:** Removed `remapRotatedFaces`, the `faceMap` part field and its writes in `buildModel`, and the unused `builtPosition`/`builtRotation`/`builtScale` part fields. `builtDimensions` stays. The `BestMatchOf` import is dropped.
+
+**Where:** [NewEntity.js](engine/v1/builder/NewEntity.js)
+
+## Entity bounds scaling and rest-pose save use shared helpers
+
+**What:** `computeScaledBounds` scales sphere, capsule and compound-sphere radii (and the capsule half-height) with `scaleUnit`. `captureRestCollision` saves the root transform with one `CloneTransform` call.
+
+**Where:** [NewEntity.js](engine/v1/builder/NewEntity.js)
+
+## Loop-surface detection split out of surface chunking
+
+**What:** Loop-surface detection moved from `buildSurfaceChunks` into a new `findLoopSurfaces(pieces, owner, facets, links)`, which also computes the per-facet incline. `buildSurfaceChunks` builds pieces, links and chunks, then calls it. Its `{ chunks, loopSurfaces }` return is unchanged.
+
+**Where:** [NewLevel.js](engine/v1/builder/NewLevel.js)
+
+## Chase camera's post-loop return works again
+
+**What:** `PrepareCamera` reads `cameraState.looping` into `wasLooping` before the situation updates, and sets `frame.leftLoop = wasLooping && !cameraState.looping`. `leftLoop` is true again on the frame a loop situation ends, so `prepareChase` starts its return.
+
+**Where:** [camera/Master.js](engine/v1/camera/Master.js)
+
+## "last" prefix for state from before
+
+**What:** Names holding earlier state now use `last`:
+- `loop.lastUp`/`lastPosition`, `frame.lastMode` (was `from`) and `lastLooping` in the camera.
+- orbitCam's `lastDirection`, and chase's `lastPitch`/`pitch` (was `pitch`/`nextPitch`).
+- The entity input frame's `lastCameraYaw`/`lastHasInput`/`lastGrounded`/`lastUp`/`lastKeys`/`lastControl`.
+- `physicsRuntime.lastPosition`/`lastRotation`, and physics' `lastGrounded`.
+- `playerState.lastAction`.
+- `hasMeaningfulVectorDelta(vector, corrected)`.
+- `MeasureRefreshRate`'s `lastTime`.
+
+The player action event's `from`/`to` keys are unchanged. ENGINE_SEMANTICS gained §6 "Last and Next". The old §6 is now §7.
+
+**Where:** [camera/Master.js](engine/v1/camera/Master.js), [Modes.js](engine/v1/camera/Modes.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [Movement.js](engine/v1/player/Movement.js), [player/Master.js](engine/v1/player/Master.js), [physics/Master.js](engine/v1/physics/Master.js), [Correction.js](engine/v1/physics/Correction.js), [Performance.js](engine/v1/handlers/game/Performance.js), [ENGINE_SEMANTICS.md](engine/v1/docs/rules/ENGINE_SEMANTICS.md)
+
+## Past-tense booleans and the action event's keys
+
+**What:** Booleans that hold whether something was true now use the past tense:
+- `wasLooping` in `PrepareCamera` and `wasGrounded` in physics, replacing `lastLooping`/`lastGrounded`.
+- The entity input frame's `wasGrounded` and `hadInput`, replacing `lastGrounded`/`lastHasInput`.
+
+The `PLAYER_ACTION_CHANGE` payload's `from`/`to` keys are now `lastAction`/`action`, and `SetPlayerAction` takes `action`.
+
+ENGINE_SEMANTICS §6 now covers the was/had form for booleans and limits `next` to deliberate use: the next item in a sequence, or a value calculated ahead.
+
+**Where:** [camera/Master.js](engine/v1/camera/Master.js), [physics/Master.js](engine/v1/physics/Master.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [Movement.js](engine/v1/player/Movement.js), [player/Master.js](engine/v1/player/Master.js), [ENGINE_SEMANTICS.md](engine/v1/docs/rules/ENGINE_SEMANTICS.md)
