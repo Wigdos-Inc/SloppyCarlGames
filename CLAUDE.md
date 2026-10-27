@@ -2,34 +2,49 @@
 
 This project's active codebase is `engine/v1/`. All rule documents live in `engine/v1/docs/rules/`. Read the rules that govern any module you touch before making changes. Read only the rules relevant to the module being edited — not all rules at once — unless doing a broad review.
 
-MOST OF THIS DOES NOT APPLY IF YOU'RE A GAME DEV AGENT/SESSION.
+Custom agents load this file but not the main session's memory. Anything an agent must follow belongs here or in the rule docs.
+
+## Game Dev Sessions
+
+A game dev agent or session works outside the engine. It gets its engine information from the `sage` agent, not from engine source, and is exempt from most of this file. One rule it keeps strictly: **no unnecessary checks, above all on the engine.** The engine is a stable presence. Never check that `ENGINE`, an API path, a return value or an event field exists, and never wrap engine calls in fallbacks. (testGame currently does this wrong. Don't copy it.)
 
 ## Rule Priority
 
 1. `FORBIDDEN_DEFENSIVE_CHECKS.md` — highest priority. No defensive guards on guaranteed engine-owned symbols.
-2. `UNIT_INSTANCING.md` — second highest. Instance `Unit`/`UnitVector3` once at entry; never re-instance; assume pre-instanced downstream.
-3. `CASING.md` — third. `lowerCamelCase` (non-exported), `UpperCamelCase` (exported), `FULL_CAPS` (exported constants).
-4. `MODULE_GROUPS.md` and `ENGINE_GAME_COMMUNICATION.md` as supporting context.
+2. `UNIT_INSTANCING.md` — Instance `Unit`/`UnitVector3` once at entry; never re-instance; assume pre-instanced downstream.
+3. `CASING.md` — `lowerCamelCase` (non-exported), `UpperCamelCase` (exported), `FULL_CAPS` (exported constants).
+4. `ENGINE_SEMANTICS.md` — comment quality, structure as defense, tuning constants, no re-exports, constant chains, `last`/`next` naming.
+5. `MODULE_GROUPS.md`, `ENGINE_GAME_COMMUNICATION.md` and `CNU_VS_WORLDUNITS.md` as supporting context.
 
 These rules apply during both feature development and debugging. Debugging is not an exception path.
 
 ## Development Principles
 
-- Fix problems at the correct boundary (`validate.js` / `normalize.js` for payloads; builder contracts for scene/entity; `ini.js` / boot for initialization). Do not mask downstream.
-- Keep changes narrowly scoped to the actual issue.
+- Fix problems at the correct boundary (`validate.js` / `normalize.js` for incoming payloads; `builder/templates/Instance.js` for engine data; builder contracts for scene/entity; `ini.js` / boot for initialization). Do not mask downstream.
+- Keep changes narrowly scoped to the actual issue. "Put it in X" authorizes X only.
 - Never create new engine modules unless explicitly requested.
 - When a rule appears to conflict with required functionality, call out the tradeoff clearly before proceeding. Do not silently violate rules.
-- Refrain from adding verbose comments. Any comment that reads as a long sentence failed it's job. A comment should be obvious at a glance, and NEVER be a paragraph.
+- Comments follow `ENGINE_SEMANTICS.md` §1. `camera/Modes.js` is the reference for correct comments.
+
+## Engine Conventions
+
+- **Logging is never cut for performance.** Don't remove, gate or reduce logs as a perf fix, or offer it as an option. What gets logged is settled at 1.0.
+- **Engine-owned assets are guaranteed.** Anything under `engine/v1/assets/` referenced by engine JSON loads. Don't filter, drop or fall back on load failure.
+- **ENGINE-exposed utilities get no type guards.** Exposure is not a boundary. If a game passes bad input, it throws.
+- **`API_CONFIG` only grows on the author's explicit request.** Feel-tuning constants go in `config.js` outside `API_CONFIG` (§3). Functional constants (sample counts, thresholds, tolerances) stay inline.
+- **No backwards compatibility before 1.0.** Game-facing names, events and payloads change like internal ones.
+- **Helpers must read at a glance.** No generic helpers driven by callbacks. Inline a function exported for a single caller. Never add a parameter to avoid an import.
+- **Check your own side effects.** When a change can alter values flowing onward (sign, precision, shape, null vs missing), trace the consumers before reporting. If that can't be closed cheaply, keep the output identical to before. Never report a risk as "unchecked".
 
 ## Logging
 
 Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentation.
 
-- Keep messages short and descriptive: `Log("ENGINE", "converting player position to world units", "debug", "Camera")`.
-- Source is either "ENGINE" or "GAME"
-- Use a channel that matches the subsystem being worked on. Check config.js to ensure the channel is supported. A non-supported channel is silently ignored.
+- Keep messages short and descriptive: `Log("ENGINE", "converting player position to world units", "debug", "Player")`.
+- Source is either "ENGINE" or "GAME".
+- Use a channel that matches the subsystem. Channels are listed in `CONFIG.Debug.Logging.Channel` in `config.js`. An unlisted channel doesn't print and logs an error instead.
 - Avoid logging inside hot loops unless temporarily needed to isolate a bug.
-- Remove debug-only logs after the issue is resolved unless they provide ongoing diagnostic value.
+- Remove temporary debug logs after the issue is resolved unless they provide ongoing diagnostic value.
 
 ## Custom Agents and Skills
 
@@ -42,54 +57,46 @@ Use `Log(source, message, level, channel)` from `core/meta.js` for instrumentati
 - **`era`** — Engine Rules Auditor. Audits engine/v1/ for rule violations. Add "fixes authorized" to the prompt to allow edits; "rule updates authorized" to allow rule doc edits.
 - **`dryad`** — DRY Agent for Deduplication. Identifies duplication, unnecessary complexity, and performance issues. Add "implementation authorized" to allow edits.
 - **`sage`** — Read-only engine Q&A for agents building games on CNE (ENGINE API, payloads, events). Never logs or edits; the `sage` skill below remains the docs/log writer.
-- **`ed`** — Engine Developer. Full implementation authority. Pass a concrete task description as the prompt. ED is hard-blocked from destructive or risky shell commands (git mutations like `checkout`/`reset`/`restore`, and bulk/in-place data rewrites or file deletes) — it returns any such operation to you with an explanation instead of running it. Prefer to perform risky data/JSON operations (reverts, wholesale transforms, deletions) yourself rather than delegating them to ED, and never ask ED to undo work via git.
+- **`ed`** — Engine Developer. Full implementation authority. Pass a concrete task description as the prompt.
 
 ### Skills — `Skill` tool, `skill: "<name>"`
 
-- **`argus`** — Automated Runtime Game-testing & User Simulation. Browser-based testing via MCP chrome-devtools. Invoked conditionally by main Claude after ED completes — never by ED itself.
-- **`sage`** — System Analysis for Game Engines. Designated as 'engine librarian'. Writes and maintains engine documentation (`system_map/`, `structure.txt`, rule doc descriptive content) and is the sole writer for the status logs (`engine/v1/docs/changelog`, `engine/v1/docs/status/DEFERRED.md`, `engine/v1/docs/status/AGENT_LOG.md`). Also answers Q&A questions about the engine. Invoke with a question, `init map`, `update map for <system>`, or `log <raw facts>` to record a change/deferral/agent outcome — see "Status Logging" below.
-- **`rigor`** — Rig Iteration & Geometric Output Review. Authors and edits entity/character model JSON. Then goes back-and-forth with user. Also may verify larger visual changes.
+- **`argus`** — Automated Runtime Game-testing & User Simulation. Functional browser testing of testGame via MCP chrome-devtools. Invoked conditionally by main Claude after ED completes — never by ED itself.
+- **`sage`** — System Analysis for Game Engines. Designated as 'engine librarian'. Writes and maintains engine documentation (`system_map/`, `structure.txt`, rule doc descriptive content) and is the sole writer for the status logs (`engine/v1/docs/changelog`, `engine/v1/docs/status/DEFERRED.md`, `engine/v1/docs/status/AGENT_LOG.md`). Also answers Q&A questions about the engine. Invoke with a question, `update documentation`, or `log <raw facts>` to record a change/deferral/agent outcome — see "Status Logging" below.
+- **`rigor`** — Rig Iteration & Geometric Output Review. Authors and edits entity/character model JSON, then iterates with the author on Simulator App screenshots.
 
-## Autonomous Agent and Skill Use
+## Agent and Skill Use
 
-Use judgment — small fixes, debugging, and code migrations do not warrant agents. Feature additions, refactors, and research can warrant agents.
+Agents are expensive. Most work — fixes, debugging, migrations, lookups, logging changes, and anything confined to `engine/v1/testGame/` — is done directly.
 
-**When to invoke autonomously:**
+- **ED** — only for a big pass: a **lot** of code **and** multiple engine systems. Both must hold. File count is never the argument, and neither is how delicate the change feels. Never for testGame-only work. On a genuine borderline, ask.
+- **ERA / DRYAD** — only after an ED pass, or when the user asks. Never after your own direct edits, and don't offer them afterwards.
+- **ARGUS** — functional runtime verification in testGame after significant engine work. Never for visual or content-only changes. Visual sign-off is always the author's.
+- **SAGE** — for researching systems in the codebase, initiating docs updates, and logging.
+- **RIGOR** — when entity/character model JSON needs to be authored or iterated on in the Simulator App.
 
-- **ED** — When new functionality is being implemented (new features, non-trivial extensions to existing systems or notable refactors). Invoke via `Agent` tool with `subagent_type: "ed"`.
-- **DRYAD** — When any task involves performance, deduplication, line count reduction, or efficiency concerns. Invoke via `Agent` tool with `subagent_type: "dryad"`. Large additions or refactors should always be reviewed.
-- **ERA** — When the task involves rule adherence, compliance review, or you are uncertain whether a change satisfies engine rules. Invoke via `Agent` tool with `subagent_type: "era"`. Large additions or refactors should always be reviewed.
-- **ARGUS** — When browser-based verification is needed (changes that may cause runtime errors or behavioral changes) in testGame. Invoke via `Skill` tool with `skill: "argus"`. Invoked conditionally by main Claude after ED's turn ends — never by ED itself. See post-ED rules below.
-- **SAGE** — When researching systems in the codebase. Invoke via `Skill` tool with `skill: "sage"`. Invoked by main Claude during codebase exploration, or for initiating docs updates.
-- **RIGOR** — When entity/character model JSON needs to be authored, iterated on, or visually verified in the Simulator App. Invoke via `Skill` tool with `skill: "rigor"`.
+**After an ED pass:**
 
-**Post-ED audit requirement:**
-
-After any ED pass that results in a significant amount of new or edited code — judged by scope (new functions, structural changes, multi-file edits) rather than a fixed line count — invoke both ERA and DRYAD as custom agents on the changed code. ERA and DRYAD can run in parallel.
-
-After ERA and DRYAD return, apply the following ARGUS rules:
-- Judge whether the logical regression risk is great enough to warrant invoking ARGUS. If unsure, ask the user.
-- If ERA and DRYAD both returned clean (no genuine violations): invoke ARGUS via the `Skill` tool to verify the change in the browser. Ask the user before committing to this.
-- If ERA and/or DRYAD flagged genuine issues: report the findings to the user and offer an ARGUS run once those findings have been reviewed. Do not invoke ARGUS until the issues are resolved.
-- If browser verification is not warranted for the change (no risk of runtime errors or behavioral changes), skip ARGUS regardless of audit results.
-- Never autonomously invoke ARGUS on primarily visual changes. If there are notable visual AND behavioral changes, then ask the user directly.
+1. If ED changed a significant amount of code (new functions, structural changes), run ERA and DRYAD on it, in parallel.
+2. ARGUS:
+   - If the change carries no risk of runtime errors or behavior changes, skip it.
+   - If ERA or DRYAD flagged genuine issues, report them first. Offer ARGUS only once they're resolved.
+   - Otherwise, ask the user before running ARGUS.
 
 **When ARGUS returns bugs:**
 - Investigate all reported issues.
-- Very simple, self-contained fixes may be applied autonomously.
-- Fixes that may affect multiple modules or systems must be handled by ED (treated as a full ED pass with ERA/DRYAD follow-up).
+- Very simple, self-contained fixes may be applied directly.
+- Fixes needing a lot of code across multiple systems go to ED (a full ED pass with ERA/DRYAD follow-up).
 - After resolving issues, report to the user: what ARGUS tested, what was found, what was resolved and how, and any bigger architectural issues that were not fixed.
 - If no unresolved architectural issues remain but ARGUS did not complete its full test scope (it was blocked), suggest letting ARGUS continue testing now that the blocker is resolved.
 
-**What does not require agents:**
-
-Small isolated fixes, debugging sessions, logging changes, code migrations (e.g. moving a declaration between files), and one-off lookups. These are handled directly.
-
-Small visual changes are also handled by the user.
-
 ## Status Logging
 
-Three files track engine history outside of git: `engine/v1/docs/changelog` (completed changes, what/why/where), `engine/v1/docs/status/DEFERRED.md` (work raised or started and consciously postponed — not general backlog ideas, those go in `engine/v1/docs/todo`), and `engine/v1/docs/status/AGENT_LOG.md` (Short, concise summaries of non-trivial findings and work done by agents).
+Three files track history outside of git:
+
+- `engine/v1/docs/changelog` — completed engine changes. What changed and where, nothing else. No reasoning, and nothing outside `engine/v1/`. Emptied after a SAGE docs update run.
+- `engine/v1/docs/status/DEFERRED.md` — engine work raised or started and consciously postponed. Not general backlog ideas; those go in `engine/v1/docs/todo`.
+- `engine/v1/docs/status/AGENT_LOG.md` — findings, outcomes and reasoning (why, rejected alternatives, root causes, measurements) for all SloppyCarlGames work, including testGame and main-agent passes (`MAIN`). Emptied every friday at 9 PM.
 
 SAGE is the only agent that writes to these files. The main agent never edits them directly.
 
@@ -97,7 +104,7 @@ SAGE is the only agent that writes to these files. The main agent never edits th
 
 **What qualifies as deferred.** Only pass something to SAGE as a deferral if it was actually raised and postponed during the pass. Missing-but-out-of-scope qualifies. **Explicitly disabled does not** — a hardcoded `false`, a flag left off, or a capability a design deliberately withholds is a decision already made, not work waiting to happen. `buoyancy: false` in `physicsFlagsFor` is disabled, not deferred. If you cannot point to where something was considered and pushed off, it is not a deferral: treat an unexplained absence as intentional until source proves otherwise, and if it still looks wrong, ask rather than logging it. A speculative entry is worse than no entry — it bloats the file and reads as a real obligation.
 
-**When to check:** at the end of any pass that involved a code change, a custom-agent invocation, or a substantive design discussion — even if no code changed. Decide whether anything meaningful happened that belongs in one or more of the three files. Do not log routine invocations, trivial fixes, or discussions that didn't reach a decision. Do this automatically; don't wait for the user to ask.
+**When to log:** once per real checkpoint — a shipped change, an agent run (log each agent's actions), or a discussion that settles a significant design decision. Batch a multi-turn discussion into one log when it resolves. Don't log individual Q&A turns, trivial fixes, one-line crash fixes, or reviews of the author's own drafts. Do this automatically; don't wait for the user to ask.
 
 **How to log:** invoke SAGE via `Skill` tool with `skill: "sage"` and argument `log <raw facts>`. Pass the facts as they actually happened — what was done, by which agent if any, the outcome, and anything deferred and why. Let SAGE decide which file(s) apply and how to phrase/format the entry; do not pre-format entries yourself.
 
@@ -131,6 +138,8 @@ Report this at the end of any response where source files were edited.
 `node --check <file>` (syntax checking) works on any engine module and should be used after edits.
 Please separate these checks from any other bash commands, and do them per module so I can grant project-wide permission. Ensure to use a local path for these commands, NOT the global one.
 
+There is no `"type": "module"` package.json, so `node --check` parses engine files as CommonJS and misses module-only errors such as a stray top-level `return`. After multi-line edits, or before a browser run, also copy each changed file to a `.mjs` file in the scratchpad and `node --check` that copy.
+
 **Importing or executing engine modules in Node does not work** and must not be attempted. Two permanent blockers:
 1. **Browser APIs** — `localStorage`, `sessionStorage`, WebGL (`gl.*`), `createImageBitmap`, etc. are referenced at module scope throughout the engine.
 2. **Module load cycle** — `config.js` (and others) instantiate `Unit` at the top level while `Utilities.js` hasn't finished initializing, causing a TDZ crash on any import chain that reaches `config.js` or modules with similar dependencies.
@@ -146,5 +155,3 @@ Do not write Node harnesses or attempt `node -e "import(...)"` on engine modules
 If you can't find evidence that supports a claim, don't make that claim. Just tell me you don't know, what you looked through, and what you think might be going on. But don't present a guess as a real finding.
 
 Prefer asking questions about intended design or actions taken instead of assuming.
-
-Any time you run, and a non-trivial conclusion about something is reached (regardless on if any code is actually changed), you must call SAGE to log it into AGENT_LOG. If you called any subagents in that pass, also make SAGE log their individual actions in AGENT_LOG.
