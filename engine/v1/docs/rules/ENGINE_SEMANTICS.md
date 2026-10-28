@@ -99,8 +99,8 @@ Over-compression is also a failure. These were rejected:
 
 | Content | Home |
 |---|---|
-| Why a change was made | `docs/changelog` |
-| Why an alternative was rejected | `docs/changelog` |
+| Why a change was made | `docs/status/AGENT_LOG.md` |
+| Why an alternative was rejected | `docs/status/AGENT_LOG.md` |
 | How a system fits together | `docs/system_map/` |
 | Work postponed | `docs/status/DEFERRED.md` |
 | What this line does | the comment |

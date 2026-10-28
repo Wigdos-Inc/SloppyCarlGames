@@ -1,10 +1,10 @@
 # Entity Runtime Shape: Scope
 
-0.37.1 (todo: "Refactor the shape of entity definitions in NewEntity.js"), written 2026-10-25. This is a scope only, and building any of it needs a separate go-ahead.
+0.35.9 (todo: "Refactor Parts & Models Shapes"; moved there from 0.37.1 on 2026-10-27), written 2026-10-25. This is a scope only, and building any of it needs a separate go-ahead.
 
-It covers the runtime entity object that [`BuildEntity`](../../../builder/NewEntity.js#L531) returns, and the player fields [`createDefaultPlayerState`](../../../player/Master.js#L49) adds. Voids on entities (the main 0.37.1 item) are not covered here.
+It covers the runtime entity object that [`BuildEntity`](../../../builder/NewEntity.js) returns, and the player fields [`createDefaultPlayerState`](../../../player/Master.js#L49) adds.
 
-It lands right before Entity AI (0.38), so the shape should leave room for AI state. See section 5.
+Entity AI (0.38) follows later, so the shape should leave room for AI state. See section 5.
 
 Section 6 lists the decisions still open.
 
@@ -87,7 +87,7 @@ These items from the 0.38 todo touch the same object, so the shape should have r
 
 ## 6. Open decisions
 
-- **D1. `physics.collision`.** Today's `collision` holds physics bounds (`aabb`, `simRadiusAabb`, `shape`, `detailedBounds`, `physics`, `rest`), and also the combat `hurtbox` and `hitbox`.
+- **D1. `physics.collision`.** Today's `collision` holds physics bounds (`aabb`, `simRadiusAabb`, `physics`, `rest`), and also the combat `hurtbox` and `hitbox`. It is null when no part adds to bounds. The entity's full box (`fullAabb`, every part) sits outside it. Its inner `physics` is the solid layer from the 0.13 physics/hurtbox/hitbox split. The todo plans to rename it (e.g. `solid`), which also removes the `physics.collision.physics` problem below.
   - Does the whole group move under `physics`? Its inner `physics` field would then read `physics.collision.physics`.
   - Or do only the physics bounds move, with hurtbox, hitbox and `hitboxActive` in a combat group?
 - **D2. `state` → `movement`.** The entity already has a `movement` field: the authored path (`start`, `end`, `speed`, `jump`).

@@ -54,3 +54,161 @@ Examples:
   - **Booleans:** past-state booleans take the past tense (`wasLooping`, `wasGrounded`, `hadInput`). It reads at a glance as a quick check, and `lastLooping` reads oddly.
   - **Compatibility:** before 1.0, game-facing names carry no backwards-compatibility concern, because games on the current engine accept that anything can change. From 1.0 on, changes must keep existing functionality working or provide compatibility. So the `PLAYER_ACTION_CHANGE` `from`/`to` keys were renamed too.
   - **`next`:** it must be deliberate. Counting next frame by update order would make nearly everything "next". The sequence-sense names stay as they are.
+- [2026-10-26] ED: implemented 0.35.5 (sprite part shape, mipmaps, particle shape override, content-keyed decal textures, particle spawn and blueprint bitmap fixes) from the approved plan. Uncommitted and not yet browser-verified.
+  - Departures from the plan:
+    - The decal key carries a `decal::` prefix so the existing `::customTexture::` checks still match.
+    - The key is computed at build in `InitializeDecalDisplay`, not in `collectCustomTextures`, because seeded particle siblings never pass through collection.
+    - `mutable` is part of the decal signature, because mutable shape decals bake with their colours stripped.
+    - Scatter decals switched to `textureKey`.
+    - A `u_premultiplied` uniform was added, because generated textures upload straight-alpha while sprite images are premultiplied.
+    - The particle shape override excludes capsule, tube and ramp-complex, whose option bags the template's `{}` lacks.
+    - A sprite override gets default sprite options.
+    - `clonePrimitiveOptions` gained a sprite case so the range Units survive cloning.
+  - Risks it flagged: sprite bounds rotate with the entity, and static decals now sample mipmaps after a conditional `discard`.
+- [2026-10-26] ERA: audited 0.35.5. No high-severity violations: ranges are instanced once at the boundary, the clone rebuild follows the tube precedent, and the `Unit` import in Shaders.js is allowed.
+  - Open, pending the author: the sprite feel constants (10 CNU reference distance, 0.85 fade start) are inline, and ENGINE_SEMANTICS §3 may want them in config.js outside API_CONFIG.
+  - Fixed by MAIN: a comment chain in `ensureSceneTexture`, and the glTF sampler for `sprite::` textures.
+  - Left as is: image loads queue for sprite parts on level objects before those parts are dropped. This only happens with invalid payloads.
+- [2026-10-26] DRYAD: reviewed 0.35.5.
+  - Fixed by MAIN: `drawSpriteThroughWalls` allocated per frame and computed each distance twice. It now uses inline distances and sorts only with 2+ sprites.
+  - Not applied, optional: a shared sprite-range instancing helper, setting the texture-unit uniform once per pass, and a shared fog/sky uniform-name table across programs.
+- [2026-10-26] MAIN: replaced ED's blueprint-bitmap fix. ED had moved the entity merge after the image-load await, which made `structuredClone` copy each `ImageBitmap`'s pixels into every merged entity.
+  - The merge is back where it was. `shareBlueprintBitmaps` now points merged parts at the blueprint's loaded bitmaps by index, before failed loads are filtered.
+  - `SimulatorPayload` still merges after its await, as before this pass.
+  - Also removed the redundant `entity.particle` assignment inside the particle-group ternary.
+  - Design limits accepted with the plan:
+    - `range` is capped by the entity render cutoff (simDistance × 1.5).
+    - Screen-size sprites can frustum-cull early at screen edges.
+    - Sprites over the sky aren't comic-posterized.
+  - `ini.js` Version is still 0.35.4.
+- [2026-10-26] ARGUS: tested 0.35.5 in testGame with sprite and decal content built in the browser console. All checks passed, with no console or WebGL errors:
+  - particle spawns work again, and the shape override applies;
+  - sprite entities build, move and face the camera, including the image sprite's texture;
+  - `occludedRange` 40 draws through a wall, while `occludedRange` 3 stays hidden;
+  - the `range` fade, constant screen size, and horizontal vs full follow all behave as designed;
+  - the blueprint image decal gets its bitmap;
+  - same-id parts keep separate decals;
+  - mipmaps render.
+  - It observed one sprite entity pushing another upward through collision.
+- [2026-10-26] MAIN: 0.35.5 follow-ups.
+  - The author ruled that sprites, like particles, don't collide. Sprite parts now stay out of entity collision boxes, unless every part is a sprite, so distance culling still works for those. Non-particle sprite-only entities (`spriteOnly`) don't collide. Sprite particles keep their physics mode.
+  - The author ruled that both sprite constants are feel values, so they moved to `SPRITE_TUNING` in config.js. `ScreenSizeDistance` is the distance whose apparent size constant-size sprites keep. It is not a culling margin, as first assumed.
+  - testGame level0/stage1: added an irregular black-decal hole on `scale-wall-right`'s inner face, with sprite smoke emitting at an angle beside the 3D smoke torch. Verified in the browser: 24 sprite groups, no collision, no errors.
+- [2026-10-26] MAIN: scoped game-authored templates, the author's general answer to why particles were override-only.
+  - **Why particles were override-only:** game-side particle definitions would repeat across every generator. Templates authored by the game remove that repetition, for every template type at once.
+  - **Decided:** level payloads get an optional `templates` object covering the engine's collections, except `levels`, which stays engine-only. Templates validate and normalize first, and are failure-prone because the rest of the payload depends on them. Valid templates register and are then referenced like engine templates. Postponed to 0.35.6.
+  - **Owned mistake:** the 0.35.5 particle `shape` override was added in MAIN's plan without checking system_map/builder.md, which records that a particle's `part` is template-owned.
+  - **Generators:** they emit from one point offset from the carrier's center. The author called that an oversight and wants decal-style attachment.
+  - **Finding:** there is no single template registry. About ten modules import `builder/templates` JSON directly, and engine templates skip validate/normalize, so game templates must normalize into exactly what Instance.js produces.
+  - Scope doc: [game-templates-scope.md](engine/v1/docs/scoping/builder/game-templates-scope.md), with open decisions D1–D8.
+- [2026-10-27] MAIN: audited CLAUDE.md, the four custom agents and three skills against the repo and the author's feedback, then applied the author's decisions.
+  - **Rulings:** feedback overrules everything else. Log examples use existing channels. Reasoning goes to AGENT_LOG, never the changelog. ED's ban on destructive commands becomes a real block.
+  - **Stale facts found:**
+    - RIGOR's file of record, `carlGames/simulator/entities.json`, was deleted in e034d67 (2026-07-26). The Simulator App now lists `ENGINE.Blueprints`, from player/characters.json and builder/templates/*.json.
+    - The Log examples used channels that don't exist (`Camera`, `Physics`), and CLAUDE.md said unknown channels are silently ignored. meta.js now logs an error for them.
+    - CLAUDE.md listed a SAGE mode, `update map for <system>`, that doesn't exist.
+    - ED.md told ED to write changelog entries with a Why.
+    - DRYAD's two-line comment limit and its `const cfg = ...config` alias allowance contradicted ENGINE_SEMANTICS §1 and §5.
+  - **Why the conventions moved into CLAUDE.md:** per the Claude Code docs, custom agents load CLAUDE.md but not the main session's memory. CLAUDE.md now has an "Engine Conventions" section covering:
+    - logging is never cut for performance
+    - engine assets are guaranteed
+    - no guards on ENGINE-exposed utilities
+    - `API_CONFIG` grows only on request
+    - no compatibility before 1.0
+    - helpers must be readable
+    - trace your own side effects
+  - **CLAUDE.md, other changes:**
+    - A game-dev section: game sessions get engine info from the sage agent and keep one strict rule, no unnecessary checks on the stable engine. testGame currently breaks that rule.
+    - ENGINE_SEMANTICS is rule priority 4.
+    - camera/Modes.js is named as the reference for comments.
+    - The agent-use rules now match the author's feedback, and the post-ED ARGUS steps are shorter.
+    - It now notes that `node --check` misses module-only errors, so a `.mjs` copy needs checking too.
+  - **ED guard:** new `.claude/hooks/ed-guard.cjs`, a PreToolUse hook in ED's frontmatter.
+    - It blocks git mutations, rm/mv/find -delete, sed/perl -i, redirects onto files, tee/powershell, and file writes from `node -e`.
+    - Tested directly against 20 commands: every destructive one was blocked and every read-only one passed. Not yet exercised in a live ED run.
+  - **Agent and skill versions:**
+    - ED 1.6: slimmed down.
+    - ERA 2.3 and DRYAD 2.6: point to CLAUDE.md for rule priority. DRYAD also gained the §2 extraction test, no callback helpers, inlining single-use exports, and never cutting logs.
+    - SAGE agent 1.6: never suggests existence checks on `ENGINE`.
+    - ARGUS 1.6: functional-only, the engine simulator is in scope but the Simulator App is not, never resizes the page.
+    - RIGOR 1.3: the real files of record, uses the sage agent, the author judges visuals, no baked lighting.
+  - **ENGINE_SEMANTICS §1.6** now sends "why" and rejected alternatives to AGENT_LOG.
+  - **Left as is:** the author declined removing the `resize_page` allow from settings.local.json. SAGE's `init map` mode stays because no decision was made on it.
+- [2026-10-27] MAIN: planned the 0.35.5 plane rework with the author, who judged the shipped sprite shape a design flaw: it added sprite exceptions to generic code (entity box, `spriteOnly`, level-object filter, particle defaults). Sprites became a plane option and collision became authorable.
+  - **Settled:**
+    - Nested `sprite` object.
+    - `follow` is none/horizontal/vertical/full. Vertical tilts toward the camera but keeps its heading.
+    - Every plane is authored x by y, upright. The author rejected separate authoring styles for the same shape.
+    - Crossed planes cross at ±45° so a following one shows both quads.
+    - Sprite and crossed planes work everywhere: moving terrain and triangle-soup cover collision.
+    - Plane images are sprite-only. Regular planes use decals.
+    - Entities may have no collision box, given a separate visual box.
+    - Scatter gets crossed now; sprites in scatter are deferred.
+  - **Particle shape override:** removed. The author refused a new template "for a shape change", so the testGame hole smoke is 3D until game particle templates (0.35.6).
+- [2026-10-27] ED: implemented the plane rework from the approved plan.
+  - **Deviations:**
+    - Grass parts got `sprite: null`, because engine JSON isn't normalized.
+    - The crossed/sprite blocker exclusion lives in `InscribedBox` rather than `buildOccluder`. A zero-thickness box would over-claim what an X hides, and `buildOccluder` crashed on invisible terrain.
+    - Vertical follow keeps the front toward the camera's side, flipping the image when the camera passes straight over or under. The author will judge it in action.
+  - **Bug introduced:** it gated `performance.physics` on collision, which would have frozen collision-less particle groups and movement paths.
+- [2026-10-27] ERA: audited the rework, audit only.
+  - **Rejected:** dropping the broadphase `!detailedBounds` guard. Entity `collisionOverride.physics` allows `"triangle-soup"`, which `buildBoundsForShape` has no case for, so the guard is live. This is an older gap the author has not postponed.
+  - **Valid, fixed by MAIN:** two multi-line const arrows in NewEntity; the `BuildGeometry` `primitiveOptions = {}` default, which would silently build a sprite plane; about 60 comment violations, old and new.
+- [2026-10-27] DRYAD: reviewed the rework, review only.
+  - **Valid, fixed by MAIN:**
+    - `drawSpriteThroughWalls` re-walked the scene every frame.
+    - `ComputeWorldAabbFromBounds` duplicated the geometry version.
+    - Duplicate `collision.shape`/`detailedBounds` aliases.
+    - Small tidy-ups.
+  - **Rejected by the author:** a math/Utilities.js helper for the repeated "plane with a sprite" check, because it isn't math. The checks stay inline.
+- [2026-10-27] MAIN: fixed the audit findings and ED's freeze bug.
+  - **Freeze bug:** `performance.physics` is distance-only again. The author ruled physics optional by design; an entity with no colliding parts instead has its body-dependent stages (buoyancy, resistance, correction, collision) switched off at build, and combat and collectibles skip it.
+  - **Plane depth:** zeroed at normalize. With z unused, front/back decals and attachments floated half of z off the face.
+  - **Cleanup:** one `computeWorldAabb` with a rough-box parameter; terrain texture span uses x/y for planes; water top rebuilt as a rotated plane.
+  - **Comments:** swept ERA's list plus every 0.35.5 comment, taking the 0.35.4 rule-enforcement modules as the style reference. The author was frustrated that ED keeps writing rule-breaking comments despite the rules.
+  - **Checks:** all changed modules pass `node --check` and `.mjs` checks. ARGUS not yet run.
+- [2026-10-27] MAIN: split entity boxes into collision and full, by author decision.
+  - **Collision box:** `collision.aabb`, now only for collision and surface correction.
+  - **Full box:** `fullAabb`, every part, present on every entity regardless of collision. Non-collision readers use it.
+  - **Submergence** moved to the full box, so buoyancy and drag no longer need a collision box. Carl's 33 parts outside his collision box (27 tentacle segments, snout, nose, brows, ears) now count toward his submergence, a feel change to check in water.
+  - **Camera:** the aim point, obstruction body and `PlayerHeight` stay on the collision box, because they aim at the body.
+  - **Why `collision.physics` is nested:** found in history. 0.13 "Model Bounds Expansion Deluxe" (`f03db86`) split entity collision into physics (solid), hurtbox and hitbox layers, and kept `collisionShape`/`detailedBounds` as backward-compat aliases.
+  - **Todo:** the author moved the entity runtime shape refactor from 0.37.1 into a new 0.35.9 "Refactor Parts & Models Shapes". MAIN added to it:
+    - a per-part flags field, set at the boundary;
+    - renaming the "physics" collision layer.
+  - **0.38:** gained the entity triangle-soup `collisionOverride` gap.
+  - **Checks:** `node --check` and `.mjs` pass. ARGUS not yet run.
+- [2026-10-27] MAIN: sprite follow fixes, approved by the author after viewing the new testGame sprite showcase. The showcase is in Scale Tester: seven sprite blueprints plus a quest-marker part on `entity.cnu-fall-cube`, and seven spawns.
+  - **Follow snap:**
+    - **Problem:** horizontal and vertical follow snapped 180° when the camera passed over the axis they don't turn on, and vertical showed its mirrored back because of ED's sign flip.
+    - **Decision:** the author chose a side limit over gradual turning, which would need stateful per-sprite facing on the CPU. A sprite turns toward the camera until its front is 90° from the authored front, then holds; from behind it thins to its edge, where the switch happens unseen, so it never snaps or mirrors.
+  - **Crossed sprites:**
+    - **Problem:** one half always drew over the other, because the translucent pass draws without depth writes and both halves are one mesh.
+    - **Fix:** sprite runs now write depth. The shared fragment shader already discards alpha ≤ 0.01.
+    - **Side effects checked:**
+      - Back-to-front order keeps other translucents correct.
+      - The through-walls pass still skips a sprite's own visible pixels.
+      - Sprites over the sky now get the comic filter, previously a known limit.
+  - **Check:** the stage loads in the browser with no errors, and the shader compiles.
+- [2026-10-27] MAIN: corrected the sprite follow fix. The side-limit version misread the author and was a regression.
+  - **Required:** full 360° following with no visible 180° flip and no added delay. "Flat from the side" meant the sprite is edge-on where the flip happens: from straight above for horizontal, along its hinge for vertical. It did not mean holding still behind the sprite.
+  - **Root cause of the flip:** aiming at the camera's position makes that direction swing 180° when the camera passes over (horizontal) or beside the hinge (vertical).
+  - **Fix:** the standard view-plane billboard, aligned to the camera's viewing direction. The facing changes only when the camera turns. The one remaining switch happens when the camera looks straight down or along the hinge, where the sprite is edge-on and the switch is invisible.
+  - **Checks:** the stage loads, the shader compiles, no errors. The author confirmed the crossed-sprite depth fix.
+- [2026-10-27] MAIN: fixed vertical sprite follow. The author confirmed horizontal view-aligned follow works.
+  - **Problem:** vertical still flipped, and from behind it could show its image upside down, because tilting around a fixed hinge carries the image over the top.
+  - **Fix:** the hinge reverses whenever it points against the camera's right. The image stays upright and unmirrored on screen, and the swap happens when looking along the hinge, where the sprite is edge-on.
+  - **Remaining case, reported to the author:** looking straight down or up with the hinge lined up with the screen's vertical swaps the image while it lies face-on.
+  - **Checks:** the stage loads, the shader compiles, no errors.
+- [2026-10-28] MAIN: slide-jump drift on the level-one pyramid — fixed, author confirmed in play (direct edit, no agent)
+  - **Symptom:** jumping off the pyramid while sliding, with the model not aligned to the face (mid-turn after landing), drifted the player rapidly sideways and down.
+  - **Root cause, measured per frame in the browser:** while `launched` stayed on (velocity still pointing off the surface, e.g. an underwater jump with positive vertical speed), `releasedSurface` zeroed the contact grace, so every release snapped the pose upright at once. The upright snap pivots about the body AABB center (0.65 up) and the slide pose about the ground capsule cap (0.34 up), so each contact/release pair netted (slide rotation − upright rotation)·(0, 0.31, 0) of drift. The onBack slide pose points the head opposite the facing, so the drift is sideways when facing along the face. The snap's downward shift re-touched the face, so contact flipped every frame until the launch velocity died. The measured net drift matched the formula to the hundredth.
+  - **Fix:** a ground hit while launched and moving away from that surface's normal counts as released ([Correction.js](engine/v1/physics/Correction.js) `GetSurfaceCorrection`). Fix B, one pivot for both pose changes, was offered as the alternative and rejected: the author ruled the cap-vs-body-center pivot is by design and may not be altered.
+  - **Still open, under discussion with the author:** the by-design pivot still gives ~0.65 sideways snaps on a jump off a face. `launched` clears on the jump frame when vertical speed is already negative, which leaves one re-touch. Landings moving uphill (not launched) still flicker contact, with a 1.28 drop. The camera snaps down on engaging a slide, because `AimPoint` aims at the collision AABB center and the onBack pose puts that center ~0.6–0.9 below the feet when facing uphill at contact.
+- [2026-10-28] MAIN: crash in `ProjectOntoPlane` on non-flat terrain — fixed (direct edit). The 0.35.4 inlining in `advanceCarriedForward` ([Movement.js](engine/v1/player/Movement.js)) misplaced parentheses: the yaw rotation went to `carryAcross`, `up` went to `RotateByEuler` as the angles, and `ProjectOntoPlane` lost its normal. The order is restored to carry, rotate by yaw, project onto up. Steering on slopes had also been dropping the camera-yaw turn since 0.35.4.
+- [2026-10-28] MAIN: camera snapped down when the player engaged a slide — fixed, author-approved (direct edit, no agent)
+  - **Root cause, measured in the browser:** `AimPoint` ([Modes.js](engine/v1/camera/Modes.js)) aimed at the physics collision box center. On the contact frame the physics body snaps into the onBack slide pose, which dropped the box center 0.47 in world space (~0.9 relative to the feet when facing uphill). The shown model meanwhile eases toward the body pose (`resolveModelPose` in [Animation.js](engine/v1/handlers/game/Animation.js), turning about `PoseAnchor`).
+  - **Fix:** aim at the box center as the shown model holds it, mirroring `resolveModelPose`. This is identical to before whenever the shown pose has caught up with the body.
+  - **Measured:** the contact-frame aim drop went from 0.47 to 0.04 on an uphill landing. A straight drop is unchanged (0.11). No console errors.
+  - **Still visible, reported to the author, no decision yet:** on an uphill landing, contact flickers off ~40 ms after touching. On that frame the shown model itself drops ~0.52, because the pivot it turns about switches from the capsule cap to the body center while it is mid-turn. The camera now follows that drop. The `PoseAnchor` cap/body-center pivot is by design per the author and must not be altered.
+  - **Correction:** an earlier log this session wrongly added a DEFERRED entry for the slide jump direction. The author had only queued it for later in the same chat, and the entry was removed.

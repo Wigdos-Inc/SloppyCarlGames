@@ -122,3 +122,133 @@ The `PLAYER_ACTION_CHANGE` payload's `from`/`to` keys are now `lastAction`/`acti
 ENGINE_SEMANTICS §6 now covers the was/had form for booleans and limits `next` to deliberate use: the next item in a sequence, or a value calculated ahead.
 
 **Where:** [camera/Master.js](engine/v1/camera/Master.js), [physics/Master.js](engine/v1/physics/Master.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [Movement.js](engine/v1/player/Movement.js), [player/Master.js](engine/v1/player/Master.js), [ENGINE_SEMANTICS.md](engine/v1/docs/rules/ENGINE_SEMANTICS.md)
+
+## Sprite part shape (0.35.5)
+
+**What:**
+- New `"sprite"` shape for entity parts and particle parts: a camera-facing quad. On terrain or obstacle parts it is dropped with a warning.
+- Options come from the new `spriteOptions` schema: `distanceScaling`, `follow` (`full` | `horizontal`), `range`, `occludedRange` and `image` (`{ path, sourceType }`).
+- Sprite bounds are a cube of half-side `hypot(x, y)/2`, so they enclose every facing.
+- `SpriteProgram` faces the quad in the vertex shader. It holds a constant screen size when `distanceScaling` is false, using a 10 CNU reference, and fades on distance over the last 15% of `range`/`occludedRange`.
+- Sprites always draw in the sorted translucent pass. `drawSortedRuns` groups by program (uv/triplanar/sprite).
+- `drawSpriteThroughWalls` runs after the translucents with `depthFunc(GREATER)` for sprites within `occludedRange`. `hideOccluded` skips entities flagged `showsThroughWalls`.
+- Sprite images load in normalize and Instance, and register as `sprite::<path>` textures.
+
+**Where:** [NewPrimitive.js](engine/v1/builder/NewPrimitive.js), [NewObject.js](engine/v1/builder/NewObject.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [NewTemplate.js](engine/v1/builder/NewTemplate.js), [NewTexture.js](engine/v1/builder/NewTexture.js), [Instance.js](engine/v1/builder/templates/Instance.js), [normalize.js](engine/v1/core/normalize.js), [canonSchemas.json](engine/v1/core/canonSchemas.json), [Shaders.js](engine/v1/handlers/utilities/Shaders.js), [Render.js](engine/v1/handlers/Render.js), [Simulator.js](engine/v1/handlers/game/Simulator.js)
+
+## Mipmaps on static scene textures
+
+**What:** Every non-animated scene texture gets `generateMipmap` and `LINEAR_MIPMAP_LINEAR`. Animated textures stay `LINEAR`.
+
+**Where:** [Render.js](engine/v1/handlers/Render.js) (`ensureSceneTexture`)
+
+## Particle shape override
+
+**What:**
+- Particle requests and authored particles accept a `shape` override. All six override schema copies list it; capsule, tube and ramp-complex are excluded.
+- A sprite override without sprite options gets the defaults.
+- The entity geometry cache key now includes the part shape.
+
+**Where:** [NewParticles.js](engine/v1/builder/NewParticles.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [canonSchemas.json](engine/v1/core/canonSchemas.json)
+
+## Content-keyed decal textures
+
+**What:**
+- Decal texture keys are now `decal::customTexture::` + the decal's content signature (including its `mutable` flag) + its face size. They are computed once at build as `ct.textureKey`.
+- Entities and particle groups that share part ids no longer overwrite each other's decals. Scatter decals use the same key.
+
+**Where:** [NewTexture.js](engine/v1/builder/NewTexture.js), [NewObject.js](engine/v1/builder/NewObject.js), [NewScatter.js](engine/v1/builder/NewScatter.js), [Render.js](engine/v1/handlers/Render.js), [Simulator.js](engine/v1/handlers/game/Simulator.js)
+
+## Particle spawns no longer throw
+
+**What:** `synthesizeGroupDefinition` reads `resolved.physics` in place of an undefined `mode`.
+
+**Where:** [NewParticles.js](engine/v1/builder/NewParticles.js)
+
+## Level blueprint image decals receive their bitmaps
+
+**What:** After image loads finish, `shareBlueprintBitmaps` points each merged entity's image decals, decal sources and sprite images at its blueprint's loaded bitmaps. Failed loads are then filtered on the merged parts too.
+
+**Where:** [normalize.js](engine/v1/core/normalize.js)
+
+## Sprites don't collide
+
+**What:**
+- `computeEntityAabb` leaves sprite parts out of the entity box, unless every part is a sprite.
+- Entities carry a build-time `spriteOnly` flag. A sprite-only entity that isn't a particle gets no collision candidates, is skipped as a broadphase candidate for others, and is skipped in the combat hurtbox loop.
+- Sprite particles keep their particle physics mode.
+
+**Where:** [NewEntity.js](engine/v1/builder/NewEntity.js), [Performance.js](engine/v1/handlers/game/Performance.js), [physics/Collision.js](engine/v1/physics/Collision.js)
+
+## Sprite tuning in config
+
+**What:** `SPRITE_TUNING` in config.js (outside `API_CONFIG`) holds `FadeStart` (0.85) and `ScreenSizeDistance` (10 CNU). `SpriteProgram` reads both instead of inline values.
+
+**Where:** [config.js](engine/v1/core/config.js), [Shaders.js](engine/v1/handlers/utilities/Shaders.js)
+
+## Sprites become plane options; crossed planes; entity visual bounds (0.35.5 rework)
+
+**What:**
+- `"sprite"` is no longer a shape. Planes take `primitiveOptions { crossed, sprite }` (new `planeOptions` schema). `sprite` is null or `{ follow, distanceScaling, range, occludedRange, image }`, and `follow` now accepts `none | horizontal | vertical | full`.
+- Every plane is an upright x-by-y quad facing +Z. Normalize zeroes a plane's `dimensions.z`. Crossed planes are two quads at ±45° around the height.
+- Sprite and crossed planes work on entity parts, terrain, obstacles and obstacle parts. They default to `aabb` collision, and their decals are dropped with a warning. Scatter grass parts use `crossed: true`, the automatic scatter twin is gone, and the low tier lost its 90° tilt and ×10 scale.
+- Every mesh carries `mesh.sprite` (sprite options or null), which drives shader choice, translucency, the through-walls pass and occlusion exemption for terrain, obstacles and entities. A following sprite's bounds are a cube of half-size `hypot(x, y)/2`.
+- `SpriteProgram` builds per-mode axes (follow codes 0–3) from the model's own right/up/front.
+- Entities carry `visualBounds`, the box around every part, and the distance cull, frustum and occlusion culling, Simulator framing and particle centering read it. `entity.collision` is null when no part adds to bounds; such an entity's buoyancy, resistance, correction and collision stages are switched off at build, and combat and collectibles skip it. `spriteOnly` and `entityRenderBounds` are removed. `collision.shape` and `collision.detailedBounds` are removed in favour of `collision.physics.shape`/`.bounds`.
+- The particle `shape` override is removed from `overrideKeys` and all six schema copies.
+- `computeWorldAabb` + `boxCorners` replace `ComputeWorldAabbFromBounds`; `UpdateObjectWorldAabb(mesh, rough)` takes the rough-box choice.
+- `drawSpriteThroughWalls` filters the sorted translucent list. Terrain texture size reads x and y for planes. The water top is built as a plane rotated −90° on x. `InscribedBox` treats z as a plane's flat axis and gives crossed and sprite planes no blocker.
+- Comment cleanup across the touched modules.
+
+**Where:** [NewPrimitive.js](engine/v1/builder/NewPrimitive.js), [NewObject.js](engine/v1/builder/NewObject.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [NewTexture.js](engine/v1/builder/NewTexture.js), [NewTemplate.js](engine/v1/builder/NewTemplate.js), [NewParticles.js](engine/v1/builder/NewParticles.js), [NewScatter.js](engine/v1/builder/NewScatter.js), [NewLevel.js](engine/v1/builder/NewLevel.js), [Instance.js](engine/v1/builder/templates/Instance.js), [textures.json](engine/v1/builder/templates/textures.json), [normalize.js](engine/v1/core/normalize.js), [canonSchemas.json](engine/v1/core/canonSchemas.json), [Shaders.js](engine/v1/handlers/utilities/Shaders.js), [Render.js](engine/v1/handlers/Render.js), [Performance.js](engine/v1/handlers/game/Performance.js), [Simulator.js](engine/v1/handlers/game/Simulator.js), [Collectible.js](engine/v1/handlers/game/Collectible.js), [physics/Collision.js](engine/v1/physics/Collision.js), [Correction.js](engine/v1/physics/Correction.js), [math/Collision.js](engine/v1/math/Collision.js), [player/Model.js](engine/v1/player/Model.js)
+
+## Entity full box and collision box
+
+**What:**
+- `entity.visualBounds` is renamed `entity.fullAabb` (the box around every part), and `model.restBounds` is renamed `model.restFullAabb`.
+- `GetSubmergence` reads `fullAabb` instead of `collision.aabb`. Buoyancy and resistance therefore work on entities without a collision box.
+- For entities with no colliding parts, `BuildEntity` turns off only correction and collision. It warns only when correction was authored on.
+
+**Where:** [NewEntity.js](engine/v1/builder/NewEntity.js), [physics/Forces.js](engine/v1/physics/Forces.js), [Correction.js](engine/v1/physics/Correction.js), [Performance.js](engine/v1/handlers/game/Performance.js), [Render.js](engine/v1/handlers/Render.js), [Simulator.js](engine/v1/handlers/game/Simulator.js), [NewParticles.js](engine/v1/builder/NewParticles.js)
+
+## Sprite follow side limit; sprites write depth
+
+**What:**
+- Horizontal and vertical sprite follow turn toward the camera only until the front is 90° from the authored front. Past that they hold at the side limit (GLSL `limitFacing` in `SpriteProgram`). Horizontal measures from the model's front projected flat. Vertical tilts around the model's right, limited by the model's front.
+- Sprite runs in the translucent pass write depth (`drawSortedRuns`), so crossed sprite halves hide each other.
+
+**Where:** [Shaders.js](engine/v1/handlers/utilities/Shaders.js), [Render.js](engine/v1/handlers/Render.js)
+
+## Sprite follow aligns to the camera's view
+
+**What:**
+- Horizontal and vertical sprite follow now align to the camera's viewing direction (`cameraBack`, from the view matrix) rather than the direction to the camera's position. This replaces the side-limit `limitFacing`, which is removed.
+  - Horizontal faces `cameraBack` flattened to the ground.
+  - Vertical faces `cameraBack` minus its component along the part's right.
+- The `u_cameraPosition` sprite uniform and its upload are removed.
+
+**Where:** [Shaders.js](engine/v1/handlers/utilities/Shaders.js), [Render.js](engine/v1/handlers/Render.js)
+
+## Vertical sprite hinge follows the screen
+
+**What:** Vertical follow reverses its hinge (the part's right) whenever it points against the camera's right. `cameraRight` is now computed once alongside `cameraBack`.
+
+**Where:** [Shaders.js](engine/v1/handlers/utilities/Shaders.js)
+
+## Launch off a surface releases it
+
+**What:** In `GetSurfaceCorrection`, a ground hit while the entity is `launched` and its velocity points away from that surface's normal now returns `releasedSurface`.
+
+**Where:** [Correction.js](engine/v1/physics/Correction.js)
+
+## Carried forward argument order restored
+
+**What:** `advanceCarriedForward` again carries the heading across (`carryAcross`), rotates it by the camera yaw delta, then projects it onto `up`.
+
+**Where:** [Movement.js](engine/v1/player/Movement.js)
+
+## Camera aims at the shown model
+
+**What:** `AimPoint` aims at the collision box center as the shown model holds it: the body position, plus the pose anchor turned by the body rotation, plus the scaled rest box center minus the anchor, turned by the shown rotation. A new `shownRotation` helper (the model pose rotation, or the transform rotation with animations disabled) is shared with `modelFlip`. Modes.js now imports `PoseAnchor` from physics/Correction.js.
+
+**Where:** [Modes.js](engine/v1/camera/Modes.js)

@@ -89,6 +89,11 @@ Additions to Level API:
   - GetPosition
   - GetDirection — aim-where-you-look needs camera forward; today it's GetActiveLevel().cameraConfig.state.forward.
   - Snapshot
+- Sprites:
+  - Add
+  - SetPosition
+  - Show / Hide
+  - Remove
 - Trigger(triggerId)
 - Do:
   -
@@ -141,23 +146,35 @@ Version Goals:
     - Games can't set the initial camera yaw or the player's spawn facing (LSM rotated its whole level 180° to work around it).
     - Mouse sensitivity is read once at level start, so a settings change mid-level does nothing until the next level.
     - Look into problem where hideOccluded only runs when Debug Mode is disabled (occlusion culling should run regardless)
-  5. Sprite/Bilboard Support (rotating images that resize based on distance) [PENDING]
+  5. Sprite/Bilboard Support (rotating images that resize based on distance) [CURRENT]
+    - Could be useful as an object type, and as a particle type.
     - Look into adding mipmaps to remove the weird rounded artifacts at a distance.
-  6. Movement Enhancements. [PENDING]
+    - Add a "crossed" boolean to the "plane" primitiveOptions.
+  6. Game-Authored Templates [PENDING]
+    - Level payloads get an optional "templates" object with every engine template collection except levels. Validated and normalized first, then referenced like engine templates.
+    - Carries sprite smoke for the testGame hole (via a game particle template) and decal-style generator attachment (side, face-relative position, area).
+    - Scope: docs/scoping/builder/game-templates-scope.md
+  7. Movement Enhancements. [PENDING]
     - Release jump early for quicker falloff.
     - Solve over-rotation in above-water tunnel.
     - Store medium (Water/Air) on entity definition (e.g. playerState)
     - If holding "A", then pressing and releasing "D", "A" stops working until it's pressed again. This must be fixed.
     - Jumping off a sloped surface doesn't feel correct because you keep so much upwards momentum. It can feel like you're still jumping "up" while you're rotated 80 degrees, which is not how jumping should feel.
     - Loops currently emit logs. I'd prefer them running events when engaged and disengaged so the game can actually do something with that data.
-  7. Look into why moving and running through voids causes performance drops. [PENDING]
+  8. Look into why moving and running through voids causes performance drops. [PENDING]
+  9. Refactor Parts & Models Shapes.
+    - Refactor the shape of entity definitions in NewEntity.js (including the player's definition)
+      - Group the loose runtime fields under physics.runtime/correction/collision/forces. Scope: docs/scoping/builder/entity-runtime-shape-scope.md
+    - Review the shape of other builder definitions as well.
+    - Add a per-part flags field, set once at the boundary (normalize.js for payloads, Instance.js for engine templates) and kept for the part's lifetime. First flags: "has a sprite" and "crossed or sprite", each of which is re-derived in several places today. Other niche part fields may move into it.
+    - Rename the collision layer named "physics" (collision.physics, from the 0.13 physics/hurtbox/hitbox split) to something like "solid".
 - 0.36: Workers (Multi-Threading) [PENDING]
   - Needs a full scoping pass.
   - Consider a coordinator/state manager. If small, an exported "Workforce" object in meta.js acting as the state manager could work quite well. It'd check if workers are available and assign them.
   - Candidates for Worker Tasks:
     - Build-time Texture generation/baking (lvl2 water face bake is ~1.3/~3.4s of the load time). Speeds up level build.
       - Could contain runtime noise-rebaking. Candidate for permanent worker slot.
-    - Entity Pathfinding (0.36). Candidate for a permanent worker slot (cannot be assigned to other tasks).
+    - Entity Pathfinding (0.38). Candidate for a permanent worker slot (cannot be assigned to other tasks).
     - think of more candidates just in case...
 - 0.37: Primitive Expansion
   - Options:
@@ -172,10 +189,9 @@ Version Goals:
   - Look into unifying capsule and cylinder.
     - Add "topRounding" and "bottomRounding" primitiveOptions, which equate to how much of the cylinder the cap replaces.
   1. Allow voids on entities (they'll act as carving). Void walls must start supporting decals.
-    - Refactor the shape of entity definitions in NewEntity.js (including the player's definition)
-      - Group the loose runtime fields under physics.runtime/correction/collision/forces. Scope: docs/scoping/builder/entity-runtime-shape-scope.md
 - 0.38: Entity AI
   - Blueprint movement fields chase, jump, jumpOnSight, disappear and aggroRange validate but do nothing; devs read them as the AI API.
+  - Entity collisionOverride.physics accepts "triangle-soup", but buildBoundsForShape (NewEntity.js) has no case for it, so such an entity silently gets no physics bounds and never collides.
   - Make SimRadius a calculation rather than authorable.
     - Entities will replace velocity with velocity.start, and gain velocity.max (including the player, losing maxSpeed)
     - SimRadius will equal: (velocity.max / 10) * (60 / CONFIG.Performance.FrameRate)
