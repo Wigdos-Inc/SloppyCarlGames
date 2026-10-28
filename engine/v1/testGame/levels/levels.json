@@ -993,10 +993,23 @@
                                     "generated": {
                                         "id": "default-tiles"
                                     },
-                                    "custom": []
+                                    "custom": [
+                                        { "decalType": "shape", "shape": "circle",   "color": { "r": 0.03, "g": 0.03, "b": 0.04, "a": 1 }, "side": "left", "localTransform": { "position": { "x": 0, "y": 0.3,  "z": -1    }, "rotation": 0,   "scale": { "x": 1,    "y": 0.85, "z": 1 } } },
+                                        { "decalType": "shape", "shape": "circle",   "color": { "r": 0.03, "g": 0.03, "b": 0.04, "a": 1 }, "side": "left", "localTransform": { "position": { "x": 0, "y": 0.45, "z": -0.6  }, "rotation": 0,   "scale": { "x": 0.55, "y": 0.5,  "z": 1 } } },
+                                        { "decalType": "shape", "shape": "circle",   "color": { "r": 0.03, "g": 0.03, "b": 0.04, "a": 1 }, "side": "left", "localTransform": { "position": { "x": 0, "y": 0.1,  "z": -1.4  }, "rotation": 0,   "scale": { "x": 0.6,  "y": 0.45, "z": 1 } } },
+                                        { "decalType": "shape", "shape": "pill",     "color": { "r": 0.03, "g": 0.03, "b": 0.04, "a": 1 }, "side": "left", "localTransform": { "position": { "x": 0, "y": 0.1,  "z": -0.8  }, "rotation": 25,  "scale": { "x": 0.9,  "y": 0.35, "z": 1 } } },
+                                        { "decalType": "shape", "shape": "triangle", "color": { "r": 0.03, "g": 0.03, "b": 0.04, "a": 1 }, "side": "left", "localTransform": { "position": { "x": 0, "y": 0.6,  "z": -1.25 }, "rotation": 160, "scale": { "x": 0.4,  "y": 0.35, "z": 1 } } }
+                                    ]
                                 },
                                 "detail": {
                                     "scatter": []
+                                },
+                                "particle": {
+                                    "id": "smoke",
+                                    "position": { "x": -0.35, "y": 0.3, "z": -1 },
+                                    "overrides": {
+                                        "velocity": { "x": -0.3, "y": 0.28, "z": 0 }
+                                    }
                                 }
                             },
                             {
@@ -1292,6 +1305,55 @@
                                 "scale": { "x": 1, "y": 1, "z": 1 },
                                 "pivot": { "x": 0, "y": 0, "z": 0 }
                             }
+                        },
+                        {
+                            "id": "sprite-follow-none",
+                            "type": "entity",
+                            "blueprintId": "entity.sprite-follow-none",
+                            "spawnSurfaceId": "scale-floor",
+                            "rootTransform": { "position": { "x": 1, "y": 1, "z": 4 } }
+                        },
+                        {
+                            "id": "sprite-follow-horizontal",
+                            "type": "entity",
+                            "blueprintId": "entity.sprite-follow-horizontal",
+                            "spawnSurfaceId": "scale-floor",
+                            "rootTransform": { "position": { "x": 3, "y": 1, "z": 4 } }
+                        },
+                        {
+                            "id": "sprite-follow-vertical",
+                            "type": "entity",
+                            "blueprintId": "entity.sprite-follow-vertical",
+                            "spawnSurfaceId": "scale-floor",
+                            "rootTransform": { "position": { "x": 5, "y": 1, "z": 4 } }
+                        },
+                        {
+                            "id": "sprite-follow-full",
+                            "type": "entity",
+                            "blueprintId": "entity.sprite-follow-full",
+                            "spawnSurfaceId": "scale-floor",
+                            "rootTransform": { "position": { "x": 7, "y": 1, "z": 4 } }
+                        },
+                        {
+                            "id": "sprite-crossed-bush",
+                            "type": "entity",
+                            "blueprintId": "entity.sprite-crossed-bush",
+                            "spawnSurfaceId": "scale-floor",
+                            "rootTransform": { "position": { "x": -3, "y": 0, "z": 4 } }
+                        },
+                        {
+                            "id": "sprite-cardboard",
+                            "type": "entity",
+                            "blueprintId": "entity.sprite-cardboard",
+                            "spawnSurfaceId": "scale-floor",
+                            "rootTransform": { "position": { "x": 1, "y": 3, "z": 7 } }
+                        },
+                        {
+                            "id": "sprite-through-wall",
+                            "type": "entity",
+                            "blueprintId": "entity.sprite-through-wall",
+                            "spawnSurfaceId": "scale-floor",
+                            "rootTransform": { "position": { "x": 13, "y": 1.5, "z": 4 } }
                         }
                     ]
                 }

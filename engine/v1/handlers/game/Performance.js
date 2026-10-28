@@ -24,7 +24,7 @@ function UpdatePerformanceFlags(sceneGraph) {
 	obstacles.forEach((obstacle) => obstacle.performance.rendering = withinRender(obstacle.worldAabb));
 
 	entities.forEach((entity) => {
-		const distanceSq = Vector3SqDistanceToAabb(cameraConfig.state.position, entity.collision.aabb);
+		const distanceSq = Vector3SqDistanceToAabb(cameraConfig.state.position, entity.fullAabb);
 		entity.performance.rendering       = distanceSq <= renderReachSq;
 		entity.performance.animatedTexture = distanceSq <= bakeReachSq;
 

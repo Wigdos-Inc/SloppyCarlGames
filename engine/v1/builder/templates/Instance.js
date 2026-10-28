@@ -1,7 +1,7 @@
 // Instances engine-owned template JSON at boot.
 
 // Used by core/ini.js to instance the templates and keep raw copies for ENGINE.Blueprints.
-// Uses core/normalize.js to load image decals.
+// Uses core/normalize.js to load image decals and sprite images.
 
 import playerData from "../../player/characters.json" with { type: "json" };
 import texturesImport from "./textures.json" with { type: "json" };
@@ -50,6 +50,12 @@ function instanceModelPart(part) {
 			node.localRotation = toUnitVector3(node.localRotation, "degrees").toRadians(true);
 			node.thickness     = new Unit(node.thickness, "cnu");
 		});
+	}
+
+	if (part.shape === "plane" && part.primitiveOptions.sprite !== null) {
+		const sprite = part.primitiveOptions.sprite;
+		if (sprite.range !== null) sprite.range = new Unit(sprite.range, "cnu");
+		if (sprite.occludedRange !== null) sprite.occludedRange = new Unit(sprite.occludedRange, "cnu");
 	}
 }
 
@@ -143,26 +149,33 @@ function instanceSimulatorTemplates() {
 	disc.pivot      = toUnitVector3(disc.pivot,      "cnu");
 }
 
-// Load the bitmaps for every template's image decals. Paths are relative to templates/.
+// Load the bitmaps for every template's image decals and sprite images. Paths are relative to templates/.
 function loadTemplateDecalBitmaps() {
-	// Register all textures.
-	const textures = new Set();
+	// Register all textures and sprite plane images.
+	const textures = new Set(), spriteImages = [];
+	const addPart = (part) => {
+		textures.add(part.texture);
+		if (part.shape === "plane" && part.primitiveOptions.sprite !== null && part.primitiveOptions.sprite.image !== null) {
+			spriteImages.push(part.primitiveOptions.sprite.image);
+		}
+	};
 	[characterImport, enemyImport, projectileImport].forEach((collection) => {
-		for (const templateId in collection) collection[templateId].model.parts.forEach((part) => textures.add(part.texture));
+		for (const templateId in collection) collection[templateId].model.parts.forEach(addPart);
 	});
 	[terrainImport, obstacleImport].forEach((collection) => {
-		for (const templateId in collection) collection[templateId].parts.forEach((part) => textures.add(part.texture));
+		for (const templateId in collection) collection[templateId].parts.forEach(addPart);
 	});
-	for (const templateId in particleImport) textures.add(particleImport[templateId].part.texture);
+	for (const templateId in particleImport) addPart(particleImport[templateId].part);
 	for (const key in texturesImport.scatterTypes) texturesImport.scatterTypes[key].parts.forEach((part) => textures.add(part.texture));
 
-	// Load each texture's bitmap.
+	// Load the bitmap of every image decal and sprite image.
+	const loadBitmap = (owner, path) => NormalizeImage(new URL(path, import.meta.url).href, owner.sourceType, "webgl").then((result) => {
+		owner.bitmap = result.value;
+	});
 	textures.forEach((texture) => texture.custom.forEach((decal) => {
-		if (decal.decalType !== "image") return;
-		NormalizeImage(new URL(decal.imagePath, import.meta.url).href, decal.sourceType, "webgl").then((result) => {
-			decal.bitmap = result.value;
-		});
+		if (decal.decalType === "image") loadBitmap(decal, decal.imagePath);
 	}));
+	spriteImages.forEach((image) => loadBitmap(image, image.path));
 }
 
 function InstanceEngineTemplates() {

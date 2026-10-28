@@ -146,7 +146,7 @@ Version Goals:
     - Games can't set the initial camera yaw or the player's spawn facing (LSM rotated its whole level 180° to work around it).
     - Mouse sensitivity is read once at level start, so a settings change mid-level does nothing until the next level.
     - Look into problem where hideOccluded only runs when Debug Mode is disabled (occlusion culling should run regardless)
-  5. Sprite/Bilboard Support (rotating images that resize based on distance) [CURRENT]
+  5. Sprite/Bilboard Support (rotating images that resize based on distance) [DONE]
     - Could be useful as an object type, and as a particle type.
     - Look into adding mipmaps to remove the weird rounded artifacts at a distance.
     - Add a "crossed" boolean to the "plane" primitiveOptions.

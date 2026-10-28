@@ -2,7 +2,8 @@
 
 // Used by camera/Master.js to run the active mode
 // Used by handlers/game/Simulator.js to set orbitCam framing.
-// Uses player/Master.js to aim at the player's height.
+// Uses player/Master.js to aim at the player's height
+// Uses physics/Correction.js for the pivot the shown model turns about.
 
 import { CONFIG, CAMERA_TUNING } from "../core/config.js";
 import { EPSILON, IsPointerLocked, Log, ReleasePointerLock, RequestPointerLock } from "../core/meta.js";
@@ -21,8 +22,10 @@ import {
 	ToVector3,
 	WORLD_NORMALS,
 	LerpVector3,
+	MultiplyVector3,
 } from "../math/Vector3.js";
 import { AabbCenter, ApplyDeceleration, ClampVelocity, ProjectOntoPlane } from "../math/Collision.js";
+import { PoseAnchor } from "../physics/Correction.js";
 import { Clamp, Clamp01, DegreesToRadians, Lerp, RadiansToDegrees, SmoothStep, Unit, UnitVector3 } from "../math/Utilities.js";
 import { PlayerHeight } from "../player/Master.js";
 
@@ -169,20 +172,28 @@ function consumeLookInput(view, minPitch, maxPitch, deltaSeconds) {
 	return mouse || ArrowLeft || ArrowRight || ArrowUp || ArrowDown;
 }
 
+// Get the shown model's rotation, which eases into each new pose.
+const shownRotation = (target) => CONFIG.Performance.Animations === "Disabled"
+	? target.transform.rotation
+	: target.animationRuntime.modelPose.rotation;
+
 // Measure how upright the shown model is to the camera (1 = upright. −1 = upside down).
 function modelFlip({ target, onRamp }) {
 	if (onRamp) return 1;
-	const rotation = CONFIG.Performance.Animations === "Disabled" 
-		? target.transform.rotation 
-		: target.animationRuntime.modelPose.rotation;
-	return DotVector3(RotateByEuler(WORLD_NORMALS.Up, rotation), rig.up);
+	return DotVector3(RotateByEuler(WORLD_NORMALS.Up, shownRotation(target)), rig.up);
 }
 
-// Find the spot on the player's body the camera looks at.
+// Find the spot on the shown model's body the camera looks at.
 function AimPoint(ctx) {
-	return ctx.target.collision.aabb.min.clone().set(AabbCenter(ctx.target.collision.aabb)).add(
+	const { transform, collision } = ctx.target;
+	const anchor = PoseAnchor(ctx.target);
+
+	// Place the body's center where the shown model holds it.
+	const center = SubtractVector3(MultiplyVector3(AabbCenter(collision.rest.aabb), transform.scale), anchor);
+	return transform.position.clone().add(AddVector3(
+		AddVector3(RotateByEuler(anchor, transform.rotation), RotateByEuler(center, shownRotation(ctx.target))),
 		ScaleVector3(rig.up, PlayerHeight(ctx.target).value * (ctx.aimShare - 0.5) * modelFlip(ctx))
-	);
+	));
 }
 
 // Find the arm tilt that lifts the camera to the level's height above the player.

@@ -193,18 +193,19 @@
                 {
                     "level": 0,
                     "primitive": { "high": "cylinder", "medium": "cube", "low": "plane" },
+                    "primitiveOptions": { "crossed": true, "sprite": null },
                     "complexity": "low",
                     "dimensions": { "x": 0.02, "y": 0.2, "z": 0.02 },
                     "localPosition": { "x": 0, "y": -0.05, "z": 0 },
                     "localRotation": {
                         "high": { "x": 0, "y": 0, "z": 1 },
                         "medium": { "x": 0, "y": 0, "z": 1 },
-                        "low": { "x": 90, "y": 0, "z": 1 }
+                        "low": { "x": 0, "y": 0, "z": 1 }
                     },
                     "localScale": {
                         "high": { "x": 1, "y": 1, "z": 1 },
                         "medium": { "x": 1, "y": 1, "z": 1 },
-                        "low": { "x": 1, "y": 1, "z": 10 }
+                        "low": { "x": 1, "y": 1, "z": 1 }
                     },
                     "texture": {
                         "generated": { "compositeMode": null, "id": "grass-blade", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 0.2, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
@@ -214,18 +215,19 @@
                 {
                     "level": 0,
                     "primitive": { "high": "cylinder", "medium": "cube", "low": "plane" },
+                    "primitiveOptions": { "crossed": true, "sprite": null },
                     "complexity": "low",
                     "dimensions": { "x": 0.02, "y": 0.2, "z": 0.02 },
                     "localPosition": { "x": 0.13, "y": -0.05, "z": 0.17 },
                     "localRotation": {
                         "high": { "x": 0, "y": 0, "z": 6 },
                         "medium": { "x": 0, "y": 0, "z": 6 },
-                        "low": { "x": 90, "y": 0, "z": 6 }
+                        "low": { "x": 0, "y": 0, "z": 6 }
                     },
                     "localScale": {
                         "high": { "x": 1, "y": 1, "z": 1 },
                         "medium": { "x": 1, "y": 1, "z": 1 },
-                        "low": { "x": 1, "y": 1, "z": 10 }
+                        "low": { "x": 1, "y": 1, "z": 1 }
                     },
                     "texture": {
                         "generated": { "compositeMode": null, "id": "grass-blade", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 0.2, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
@@ -235,18 +237,19 @@
                 {
                     "level": 0,
                     "primitive": { "high": "cylinder", "medium": "cube", "low": "plane" },
+                    "primitiveOptions": { "crossed": true, "sprite": null },
                     "complexity": "low",
                     "dimensions": { "x": 0.02, "y": 0.2, "z": 0.02 },
                     "localPosition": { "x": -0.08, "y": -0.05, "z": 0.14 },
                     "localRotation": {
                         "high": { "x": 0, "y": 0, "z": -12 },
                         "medium": { "x": 0, "y": 0, "z": -12 },
-                        "low": { "x": 90, "y": 0, "z": -12 }
+                        "low": { "x": 0, "y": 0, "z": -12 }
                     },
                     "localScale": {
                         "high": { "x": 1, "y": 1, "z": 1 },
                         "medium": { "x": 1, "y": 1, "z": 1 },
-                        "low": { "x": 1, "y": 1, "z": 10 }
+                        "low": { "x": 1, "y": 1, "z": 1 }
                     },
                     "texture": {
                         "generated": { "compositeMode": null, "id": "grass-blade", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 0.2, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
@@ -256,18 +259,19 @@
                 {
                     "level": 0,
                     "primitive": { "high": "cylinder", "medium": "cube", "low": "plane" },
+                    "primitiveOptions": { "crossed": true, "sprite": null },
                     "complexity": "low",
                     "dimensions": { "x": 0.02, "y": 0.2, "z": 0.02 },
                     "localPosition": { "x": 0.18, "y": -0.05, "z": -0.07 },
                     "localRotation": {
                         "high": { "x": 0, "y": 0, "z": -4 },
                         "medium": { "x": 0, "y": 0, "z": -4 },
-                        "low": { "x": 90, "y": 0, "z": -4 }
+                        "low": { "x": 0, "y": 0, "z": -4 }
                     },
                     "localScale": {
                         "high": { "x": 1, "y": 1, "z": 1 },
                         "medium": { "x": 1, "y": 1, "z": 1 },
-                        "low": { "x": 1, "y": 1, "z": 10 }
+                        "low": { "x": 1, "y": 1, "z": 1 }
                     },
                     "texture": {
                         "generated": { "compositeMode": null, "id": "grass-blade", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 0.2, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
@@ -277,18 +281,19 @@
                 {
                     "level": 0,
                     "primitive": { "high": "cylinder", "medium": "cube", "low": "plane" },
+                    "primitiveOptions": { "crossed": true, "sprite": null },
                     "complexity": "low",
                     "dimensions": { "x": 0.02, "y": 0.2, "z": 0.02 },
                     "localPosition": { "x": -0.13, "y": -0.05, "z": -0.17 },
                     "localRotation": {
                         "high": { "x": 0, "y": 0, "z": 3 },
                         "medium": { "x": 0, "y": 0, "z": 3 },
-                        "low": { "x": 90, "y": 0, "z": 3 }
+                        "low": { "x": 0, "y": 0, "z": 3 }
                     },
                     "localScale": {
                         "high": { "x": 1, "y": 1, "z": 1 },
                         "medium": { "x": 1, "y": 1, "z": 1 },
-                        "low": { "x": 1, "y": 1, "z": 10 }
+                        "low": { "x": 1, "y": 1, "z": 1 }
                     },
                     "texture": {
                         "generated": { "compositeMode": null, "id": "grass-blade", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 0.2, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },

@@ -387,18 +387,17 @@ function generateForScene(request, sceneGraph) {
 }
 
 // Drives every group's lifetime and emits the siblings a seeding group asks for.
-// Note: Loops backwards so finished groups can be removed mid-loop.
 function updateParticles(sceneGraph, deltaMs, deltaSeconds) {
 	const seedRequests = [];
 	const targets = resolveGeneratorTargets(sceneGraph);
 
+	// Note: Loops backwards so finished groups can be removed mid-loop.
 	for (let i = sceneGraph.entities.length - 1; i >= 0; i--) {
-		const entity = sceneGraph.entities[i];
-		const group = entity.particle;
+		const group = sceneGraph.entities[i].particle;
 		if (group === null) continue;
 
 		// Frozen beyond draw distance.
-		if (!entity.performance.physics) continue;
+		if (!sceneGraph.entities[i].performance.physics) continue;
 
 		// Mode test: a burst has no target to ride.
 		if (group.targetKey !== null) group.follow(targets);

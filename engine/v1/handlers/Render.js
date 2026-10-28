@@ -13,9 +13,8 @@ import {
 	AabbOutsideFrustum, 
 	BeyondFrontFaces, 
 	ConvexHull2D, 
-	CornersInsideHull, 
-	PointsAabb, 
-	ProjectBoxCorners, 
+	CornersInsideHull,
+	ProjectBoxCorners,
 	TriangleArea 
 } from "../math/Collision.js";
 import { 
@@ -328,7 +327,7 @@ function ensureSharedGeometry(renderer, sceneGraph, primitiveKey) {
 }
 
 /* === SCATTER INSTANCE BUFFERS === */
-// Builds per-batch VAOs and instance buffers from scatterBatches on the sceneGraph.
+// Build each scatter batch's vertex arrays and instance buffers.
 
 // Shared position/uv/index + per-instance model-matrix rows, optional trailing tint.
 function buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBuffer, includeTint, instanceOffset = 0) {
@@ -438,7 +437,7 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 		// Scatter decals are static: built once, shared by every instance.
 		const { dimensions, primitive, primitiveOptions, customTextures, textureID } = batch;
 		const rounding = DecalRounding(primitive, primitiveOptions);
-		const decalDraws = customTextures.map((decalEntry, index) => {
+		const decalDraws = customTextures.map((decalEntry) => {
 			const shapeCode = ResolveDecalShapeCode(primitive, decalEntry.side);
 			const placement = BuildDecalPlacementMatrix(dimensions, decalEntry.displayTransform, decalEntry.side);
 			const facets    = SelectDecalFacets(primitiveGeometry, placement, shapeCode, ScaleVector3(dimensions, 0.5), rounding, 1);
@@ -452,7 +451,7 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 				placement  : new Float32Array(placement),
 				cellVaos   : cells.map((cell) => buildInstancedVao(gl, positionBuffer, null, null, instanceBuffer, false, cell.start * 80)),
 				vertexCount: facets.positions.length / 3,
-				textureKey : `${batchKey}::customTexture::${index}`,
+				textureKey : decalEntry.textureKey,
 			};
 		});
 
@@ -596,8 +595,8 @@ function createObbLineVertices(bounds) {
 }
 
 function createCapsuleLineVertices(bounds, longitudinalSegments = 8) {
-	const start = bounds.segmentStart.toWorldUnit();
-	const end = bounds.segmentEnd.toWorldUnit();
+	const start  = bounds.segmentStart.toWorldUnit();
+	const end    = bounds.segmentEnd.toWorldUnit();
 	const radius = bounds.radius.toWorldUnit();
 
 	const lines = [];
@@ -631,8 +630,8 @@ function createCapsuleLineVertices(bounds, longitudinalSegments = 8) {
 
 function createSphereLineVertices(bounds, radialSegments = 16) {
 	const center = bounds.center.toWorldUnit();
-	const r = bounds.radius.toWorldUnit();
-	const lines = [];
+	const r      = bounds.radius.toWorldUnit();
+	const lines  = [];
 
 	// Three orthogonal circle rings (XY, XZ, YZ planes).
 	for (let i = 0; i < radialSegments; i++) {
@@ -643,8 +642,10 @@ function createSphereLineVertices(bounds, radialSegments = 16) {
 
 		// XZ ring (horizontal).
 		lines.push(center.x + c0 * r, center.y, center.z + s0 * r, center.x + c1 * r, center.y, center.z + s1 * r);
+
 		// XY ring (front).
 		lines.push(center.x + c0 * r, center.y + s0 * r, center.z, center.x + c1 * r, center.y + s1 * r, center.z);
+
 		// YZ ring (side).
 		lines.push(center.x, center.y + c0 * r, center.z + s0 * r, center.x, center.y + c1 * r, center.z + s1 * r);
 	}
@@ -709,9 +710,9 @@ function classifyEntityTrailType(entity) {
 }
 
 function drawVelocityTrails(renderer, sceneGraph, projection, view) {
-	if (!CONFIG.Debug.All) return;
+	if (!CONFIG.Debug.All)                                        return;
 	if (!Object.values(CONFIG.Debug.Levels.Trails).some(Boolean)) return;
-	if (sceneGraph.entities.length === 0) return;
+	if (sceneGraph.entities.length === 0)                         return;
 
 	const gl = renderer.gl;
 	if (!renderer.debugLineShader || !renderer.debugLineBuffer) return;
@@ -729,12 +730,11 @@ function drawVelocityTrails(renderer, sceneGraph, projection, view) {
 
 		// Convert CNU positions to world units for rendering.
 		const position = transform.position.toWorldUnit();
-		const end = AddVector3(position, ScaleVector3(velocity, trailScale));
-		const vertices = new Float32Array([...Vector3ToArray(position), ...Vector3ToArray(end)]);
-		const color = DEBUG_COLORS.Trails[trailType];
+		const end      = AddVector3(position, ScaleVector3(velocity, trailScale));
+		const color    = DEBUG_COLORS.Trails[trailType];
 
 		gl.uniform4f(renderer.debugLineShader.uniforms.color, color.r, color.g, color.b, color.a);
-		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([...Vector3ToArray(position), ...Vector3ToArray(end)]), gl.DYNAMIC_DRAW);
 		gl.drawArrays(gl.LINES, 0, 2);
 	});
 }
@@ -826,14 +826,21 @@ function ensureSceneTexture(renderer, sceneGraph, textureID) {
 	const texture = gl.createTexture();
 	if (!texture) return renderer.fallbackTexture;
 
-	const wrapMode = (textureID.includes("::face=") || textureID.includes("::customTexture::"))
+	const entry = sceneGraph.visualResources.textureRegistry[textureID];
+
+	// Stop face textures, decals and sprites from repeating at their edges. Every other texture tiles.
+	const wrapMode =(textureID.includes("::face=") || textureID.includes("::customTexture::") || textureID.startsWith("sprite::"))
 		? gl.CLAMP_TO_EDGE
 		: gl.REPEAT;
 	gl.bindTexture(gl.TEXTURE_2D, texture);
-	uploadTextureImage(gl, textureID, sceneGraph.visualResources.textureRegistry[textureID].source, true);
+	uploadTextureImage(gl, textureID, entry.source, true);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+	// Mipmap static textures to stop distant shimmer. Skip animated ones, which re-upload every swap.
+	const animated = entry.definition !== null && entry.definition.animation.able === true;
+	if (!animated) gl.generateMipmap(gl.TEXTURE_2D);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, animated ? gl.LINEAR : gl.LINEAR_MIPMAP_LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
 	renderer.textures.set(textureID, texture);
@@ -843,7 +850,7 @@ function ensureSceneTexture(renderer, sceneGraph, textureID) {
 function ensureFullscreenQuad(renderer, cacheKey, shader, label) {
 	if (renderer[cacheKey]) return renderer[cacheKey];
 
-	const gl = renderer.gl;
+	const gl             = renderer.gl;
 	const positionBuffer = gl.createBuffer(), indexBuffer = gl.createBuffer();
 	if (!positionBuffer || !indexBuffer) {
 		Log("ENGINE", `${label} quad buffer creation failed`, "error", "Render");
@@ -1086,6 +1093,12 @@ function ensureLevelRenderer(rootId, rootStyles) {
 		return null;
 	}
 
+	const spriteShader = CreateShader.SpriteProgram(gl);
+	if (!spriteShader) {
+		Log("ENGINE", "Failed to create sprite shader.", "error", "Render");
+		return null;
+	}
+
 	const skyShader = CreateShader.SkyProgram(gl);
 	if (!skyShader) {
 		Log("ENGINE", "Failed to create sky shader.", "error", "Render");
@@ -1117,8 +1130,8 @@ function ensureLevelRenderer(rootId, rootStyles) {
 	}
 
 	const renderer = {
-		rootId, root, canvas, gl, msaa, flatShading, shader, scatterShader, decalShader, scatterDecalShader, entityTriplanarShader, 
-		skyShader, blendShader, blendFramebuffer, filterShader, inkShader,
+		rootId, root, canvas, gl, msaa, flatShading, shader, scatterShader, decalShader, scatterDecalShader, entityTriplanarShader,
+		spriteShader, skyShader, blendShader, blendFramebuffer, filterShader, inkShader,
 		blendQuad              : null,
 		skyQuad                : null,
 		filterQuad             : null,
@@ -1176,20 +1189,25 @@ function syncCanvasSize(renderer) {
 	renderer.canvas.height = height;
 }
 
-// displayColor.a is authoritative when present — particle texture opacity is always 1.
-const isTranslucentMesh = (mesh) => mesh.displayColor !== null ? mesh.displayColor.a < 1 : mesh.material.transparent;
+// Check whether a mesh draws in the translucent pass.
+function isTranslucentMesh(mesh) {
+	// Sprites always do, for their soft edges.
+	if (mesh.sprite !== null) return true;
+
+	// displayColor.a is authoritative when present — particle texture opacity is always 1.
+	return mesh.displayColor !== null ? mesh.displayColor.a < 1 : mesh.material.transparent;
+}
 
 // Triplanar only when the mesh is flagged. Unflagged meshes use UVs.
 const meshUsesTriplanar = (mesh) => mesh.geometry.triplanar === true;
 
-// Box around everything an entity draws: all its parts, or its single mesh.
-function entityRenderBounds(entity) {
-	return !entity.model 
-		? entity.mesh.worldAabb 
-		: PointsAabb(entity.model.parts.flatMap((part) => [part.mesh.worldAabb.min, part.mesh.worldAabb.max]));
-}
+// Pick the shader a mesh draws with: sprite, triplanar or uv.
+const meshProgram = (mesh) => mesh.sprite !== null ? "sprite" : meshUsesTriplanar(mesh) ? "triplanar" : "uv";
 
-// Hides anything fully off screen until the next distance check turns it back on.
+// Check a mesh is a sprite that shows through walls.
+const showsThroughWalls = (mesh) => mesh.sprite !== null && mesh.sprite.occludedRange !== null;
+
+// Hide anything fully off screen until the next distance check turns it back on.
 function hideOffscreen(sceneGraph, frustum) {
 	const hide = (target, aabb, padding = 0) => {
 		if (target.performance.rendering && AabbOutsideFrustum(frustum, aabb, padding)) target.performance.rendering = false;
@@ -1197,40 +1215,38 @@ function hideOffscreen(sceneGraph, frustum) {
 
 	sceneGraph.terrain.forEach((mesh) => hide(mesh, mesh.worldAabb));
 	sceneGraph.obstacles.forEach((record) => hide(record, record.worldAabb));
-	sceneGraph.entities.forEach((entity) => hide(entity, entityRenderBounds(entity), PERFORMANCE_SCALING.Culling.EntityPadding.value));
+	sceneGraph.entities.forEach((entity) => hide(entity, entity.fullAabb, PERFORMANCE_SCALING.Culling.EntityPadding.value));
 }
 
 function collectRenderableMeshes(sceneGraph) {
 	const terrain = [], obstacles = [];
-	const entitiesUv = [], entitiesTriplanar = [], entitiesTranslucent = [];
+	const entitiesUv = [], entitiesTriplanar = [], translucent = [];
 
 	const collectEntityPart = (mesh) => {
-		if (isTranslucentMesh(mesh)) { 
-			entitiesTranslucent.push(mesh); 
-			return; 
+		if (isTranslucentMesh(mesh)) {
+			translucent.push(mesh);
+			return;
 		}
 		(meshUsesTriplanar(mesh) ? entitiesTriplanar : entitiesUv).push(mesh);
 	};
 
-	// Scatter and triggers are excluded — scatter via instanced path, triggers via post-scatter pass.
+	// Skip scatter and triggers. Sprites join the translucent list.
 	sceneGraph.terrain.forEach((mesh) => {
 		if (mesh.meta.mode !== "default" || !mesh.performance.rendering) return;
-		terrain.push(mesh);
+		(mesh.sprite === null ? terrain : translucent).push(mesh);
 	});
 	sceneGraph.obstacles.forEach((record) => {
 		if (record.mode !== "default" || !record.performance.rendering) return;
-		record.parts.forEach((part) => obstacles.push(part));
+		record.parts.forEach((part) => (part.sprite === null ? obstacles : translucent).push(part));
 	});
 	sceneGraph.entities.forEach((entity) => {
-		if (!entity.performance.rendering) return;
-		if (entity.model) return entity.model.parts.forEach((part) => collectEntityPart(part.mesh));
-		collectEntityPart(entity.mesh);
+		if (entity.performance.rendering) entity.model.parts.forEach((part) => collectEntityPart(part.mesh));
 	});
 
-	return { terrain, obstacles, entitiesUv, entitiesTriplanar, entitiesTranslucent };
+	return { terrain, obstacles, entitiesUv, entitiesTriplanar, translucent };
 }
 
-// Sorts meshes far-to-near from the camera, measuring each distance only once.
+// Sort meshes far to near from the camera, measuring each distance once.
 function sortBackToFront(meshes, cameraPosition) {
 	const distancesSq = new Map();
 	for (const mesh of meshes) distancesSq.set(mesh, Vector3Sq(SubtractVector3(mesh.displayTransform.position, cameraPosition)));
@@ -1254,7 +1270,7 @@ function configureTexturedMeshPass(gl, shader, passState) {
 	applySkyUniforms(gl, shader, passState);
 }
 
-// Draws the sky with depth test off so it never blocks later geometry.
+// Draw the sky with depth testing off.
 function drawSkyPass(renderer, passState) {
 	const gl = renderer.gl;
 	const quad = ensureSkyQuad(renderer);
@@ -1285,26 +1301,43 @@ function ensureMeshBuffer(renderer, mesh, shader) {
 	return meshBuffer;
 }
 
-// Don't cull planes.
-function setFaceCulling(gl, cull) {
-	return cull && CONFIG.Performance.BackfaceCulling ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE);
-}
+// Cull back faces when asked and the settings allow it.
+const setFaceCulling = (gl, cull) => cull && CONFIG.Performance.BackfaceCulling ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE);
 
 const keepWholeMesh = { level: 0, side: 0 };
+
+// Shader codes for each way a sprite can follow the camera.
+const spriteFollowCodes = { none: 0, horizontal: 1, vertical: 2, full: 3 };
+
+// Set the sprite shader's facing, scaling, fade and image settings for one sprite.
+function applySpriteUniforms(gl, uniforms, mesh, throughWalls) {
+	const { follow, distanceScaling, range, occludedRange, image } = mesh.sprite;
+	const fadeRange = throughWalls ? occludedRange : range;
+	gl.uniform1f(uniforms.follow, spriteFollowCodes[follow]);
+	gl.uniform1f(uniforms.distanceScaling, distanceScaling ? 1 : 0);
+	gl.uniform1f(uniforms.fadeRange, fadeRange === null ? -1 : fadeRange.toWorldUnit());
+	gl.uniform1f(uniforms.premultiplied, image === null ? 0 : 1);
+}
 
 function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 	if (meshes.length === 0) return;
 
 	const gl = renderer.gl;
-	const disableDepthWriteForPass = options.depthMask === false;
-
-	const shader = options.triplanar ? renderer.entityTriplanarShader : renderer.shader;
+	const program = options.program === undefined ? "uv" : options.program;
+	const shader = program === "sprite" ? renderer.spriteShader : program === "triplanar" ? renderer.entityTriplanarShader : renderer.shader;
 
 	configureTexturedMeshPass(gl, shader, passState);
-	if (disableDepthWriteForPass) gl.depthMask(false);
-	if (!options.triplanar) {
+	if (options.depthMask === false) gl.depthMask(false);
+	if (program === "uv") {
 		const waterClip = options.waterClip === undefined ? keepWholeMesh : options.waterClip;
 		gl.uniform2f(shader.uniforms.waterClip, waterClip.level, waterClip.side);
+	}
+
+	// Give sprites the camera position to lean toward, and blend their premultiplied color.
+	if (program === "sprite") {
+		const camera = passState.cameraPosition.toWorldUnit();
+		gl.uniform3f(shader.uniforms.cameraPosition, camera.x, camera.y, camera.z);
+		gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 	}
 
 	for (const mesh of meshes) {
@@ -1321,7 +1354,8 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 			mesh.displayColor !== null ? mesh.displayColor.b : mesh.material.color.b,
 			mesh.displayColor !== null ? mesh.displayColor.a : mesh.material.opacity
 		);
-		if (options.triplanar) gl.uniform1f(shader.uniforms.texScale, mesh.material.textureScale);
+		if (program === "triplanar") gl.uniform1f(shader.uniforms.texScale, mesh.material.textureScale);
+		if (program === "sprite")    applySpriteUniforms(gl, shader.uniforms, mesh, options.throughWalls === true);
 
 		if (mesh.geometry.faceTextureGroups) {
 			for (const group of mesh.geometry.faceTextureGroups) {
@@ -1340,10 +1374,13 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		gl.bindVertexArray(null);
 	}
 
-	if (disableDepthWriteForPass) gl.depthMask(true);
+	if (options.depthMask === false) gl.depthMask(true);
+
+	// Restore the blend mode the frame started with.
+	if (program === "sprite") gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 }
 
-// Don't cull the water mesh's faces as you're meant to be inside them.
+// Draw the water body and top surface with both sides showing. You can be inside them.
 function drawWaterPass(renderer, sceneGraph, passState) {
 	// Skip water under flat shading, where it would be an opaque slab hiding everything below it.
 	if (renderer.flatShading) return;
@@ -1351,26 +1388,28 @@ function drawWaterPass(renderer, sceneGraph, passState) {
 	drawMeshList(renderer, sceneGraph, meshes, passState, { depthMask: false, cull: false });
 }
 
-// Issued as runs of consecutive same-shader meshes so global sort order survives.
+// Draw sorted meshes in runs of the same shader, keeping the sort order.
 function drawSortedRuns(renderer, sceneGraph, meshes, passState) {
 	let start = 0;
 	while (start < meshes.length) {
-		const triplanar = meshUsesTriplanar(meshes[start]);
+		const program = meshProgram(meshes[start]);
 		let end = start + 1;
-		while (end < meshes.length && meshUsesTriplanar(meshes[end]) === triplanar) end++;
+		while (end < meshes.length && meshProgram(meshes[end]) === program) end++;
 		const run = start === 0 && end === meshes.length ? meshes : meshes.slice(start, end);
-		drawMeshList(renderer, sceneGraph, run, passState, { depthMask: false, triplanar });
+
+		// Let sprites write depth, so the two halves of a crossed sprite hide each other. Their see-through pixels are discarded.
+		drawMeshList(renderer, sceneGraph, run, passState, { depthMask: program === "sprite", program });
 		start = end;
 	}
 }
 
-// Color filter over solid geometry. No depth-write and never culled.
+// Draw the trigger volumes as a color filter over solid geometry, without depth writes or culling.
 function drawTriggerOverlay(renderer, sceneGraph, passState, waterClip = keepWholeMesh) {
 	if (!sceneGraph.debug.showTriggerVolumes) return;
 	drawMeshList(renderer, sceneGraph, sceneGraph.triggers, passState, { depthMask: false, cull: false, waterClip });
 }
 
-// Water is a fixed anchor: far side of the camera draws first, near side last.
+// Draw translucent meshes back to front, with the water drawn between those above and below it.
 function drawTranslucentPass(renderer, sceneGraph, meshes, passState, cameraPosition, waterLevelCnu, underwater) {
 	sortBackToFront(meshes, cameraPosition);
 
@@ -1390,6 +1429,25 @@ function drawTranslucentPass(renderer, sceneGraph, meshes, passState, cameraPosi
 	drawWaterPass(renderer, sceneGraph, passState);
 	drawTriggerOverlay(renderer, sceneGraph, passState, passState.nearWaterClip);
 	drawSortedRuns(renderer, sceneGraph, underwater ? below : above, passState);
+}
+
+// Draw the parts of sprites hidden behind walls, when the camera is close enough to see through.
+// Note: translucent must already be sorted back to front by drawTranslucentPass.
+function drawSpriteThroughWalls(renderer, sceneGraph, translucent, passState) {
+	const sprites = [];
+	for (const mesh of translucent) {
+		if (!showsThroughWalls(mesh)) continue;
+
+		const pos = mesh.displayTransform.position, range = mesh.sprite.occludedRange.value;
+		if (Vector3Sq(SubtractVector3(pos, passState.cameraPosition)) <= range ** 2) sprites.push(mesh);
+	}
+	if (sprites.length === 0) return;
+
+	// Draw only behind what's already drawn. The normal sprite draw covers the rest.
+	const gl = renderer.gl;
+	gl.depthFunc(gl.GREATER);
+	drawMeshList(renderer, sceneGraph, sprites, passState, { depthMask: false, program: "sprite", throughWalls: true });
+	gl.depthFunc(gl.LESS);
 }
 
 // Widest animated footprint in rest-footprint units; 1 when untracked.
@@ -1478,7 +1536,7 @@ function endDecalState(gl) {
 	gl.depthMask(true);
 	gl.disable(gl.POLYGON_OFFSET_FILL);
 	
-	// Restore the frame-init straight-alpha blend.
+	// Restore the blend mode the frame started with.
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 }
 
@@ -1544,8 +1602,7 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 			}
 			else gl.uniform4f(uniforms.tint, 1, 1, 1, 1);
 
-			const baseKey = `${mesh.id}::customTexture::${index}`;
-			const textureKey = decalEntry.activeSourceKey !== null ? `${baseKey}::${decalEntry.activeSourceKey}` : baseKey;
+			const textureKey = decalEntry.activeSourceKey !== null ? `${decalEntry.textureKey}::${decalEntry.activeSourceKey}` : decalEntry.textureKey;
 			gl.activeTexture(gl.TEXTURE0);
 			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, textureKey));
 			gl.drawArrays(gl.TRIANGLES, 0, geometry.vertexCount);
@@ -1553,7 +1610,7 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	};
 
 	sceneGraph.entities.forEach((entity) => {
-		if (!entity.model || !entity.performance.rendering) return;
+		if (!entity.performance.rendering) return;
 		entity.model.parts.forEach((part) => drawDecalsForMesh(part.mesh, entity, part.id));
 	});
 	sceneGraph.obstacles.forEach((obstacle) => {
@@ -1629,7 +1686,7 @@ function ensureVoidWallMeshes(renderer, sceneGraph) {
 function drawVoidWalls(renderer, sceneGraph, passState) {
 	const onScreen = (mesh) => !AabbOutsideFrustum(passState.frustum, mesh.worldAabb) && !mesh.occluded;
 	drawMeshList(renderer, sceneGraph, renderer.voidWallUvMeshes.filter(onScreen),        passState);
-	drawMeshList(renderer, sceneGraph, renderer.voidWallTriplanarMeshes.filter(onScreen), passState, { triplanar: true });
+	drawMeshList(renderer, sceneGraph, renderer.voidWallTriplanarMeshes.filter(onScreen), passState, { program: "triplanar" });
 }
 
 /* === OCCLUSION === */
@@ -1721,7 +1778,7 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 	const { viewProjection, frustum, cameraPosition: camera } = passState;
 	const { wx, wy, wz, sx, sy, rect } = occlusion.scratch;
 
-	// Grows a box by its pad plus a margin that widens with distance, then checks it against each blocker, cheapest test first.
+	// Grow a box by its pad plus a margin that widens with distance, then check it against each blocker, cheapest test first.
 	function behindBlocker(aabb, pad) {
 		const d = MaxVector3(SubtractVector3(aabb.min, camera), MaxVector3(ToVector3(0), SubtractVector3(camera, aabb.max)));
 		const grow = pad + 0.05 + Math.sqrt(Vector3Sq(d)) * 0.002;
@@ -1743,7 +1800,7 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 		return false;
 	}
 
-	// Objects turn off until the next distance check; scatter squares and void walls are flagged until the next run.
+	// Turn objects off until the next distance check. Flag scatter squares and void walls until the next run.
 	function hideTarget(target) {
 		target.performance.rendering = false;
 		occlusion.hidden.add(target);
@@ -1754,14 +1811,18 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 	}
 
 	if (blockers.length > 0) {
+		// Skip terrain, obstacles and entities that show sprites through walls.
 		for (const mesh of sceneGraph.terrain) {
-			if (mesh.meta.mode === "default" && stillOn(mesh, lastHidden) && behindBlocker(mesh.worldAabb, 0)) hideTarget(mesh);
+			if (mesh.meta.mode !== "default" || showsThroughWalls(mesh) || !stillOn(mesh, lastHidden)) continue;
+			if (behindBlocker(mesh.worldAabb, 0)) hideTarget(mesh);
 		}
 		for (const record of sceneGraph.obstacles) {
-			if (record.mode === "default" && stillOn(record, lastHidden) && behindBlocker(record.worldAabb, 0)) hideTarget(record);
+			if (record.mode !== "default" || record.parts.some(showsThroughWalls) || !stillOn(record, lastHidden)) continue;
+			if (behindBlocker(record.worldAabb, 0)) hideTarget(record);
 		}
 		for (const entity of sceneGraph.entities) {
-			if (stillOn(entity, lastHidden) && behindBlocker(entityRenderBounds(entity), EntityPadding.value)) hideTarget(entity);
+			if (entity.showsThroughWalls || !stillOn(entity, lastHidden)) continue;
+			if (behindBlocker(entity.fullAabb, EntityPadding.value)) hideTarget(entity);
 		}
 		for (const mesh of renderer.voidWallMeshes) {
 			if (!AabbOutsideFrustum(frustum, mesh.worldAabb) && behindBlocker(mesh.worldAabb, 0)) flagSurface(mesh);
@@ -1771,7 +1832,7 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 		}
 	}
 
-	// Something hidden keeps checks running every frame; nothing hidden pauses them for a window that doubles each time.
+	// Check every frame while something is hidden. Otherwise pause for a window that doubles each time.
 	if (occlusion.hidden.size > 0 || occlusion.flagged.length > 0) {
 		occlusion.idleWindow  = 1;
 		occlusion.pauseFrames = 0;
@@ -1812,9 +1873,9 @@ function drawInkPass(renderer, passState, cameraState) {
 	gl.enable(gl.DEPTH_TEST);
 }
 
-// Draws the filtered scene to the screen, writing its depth too so the debug overlays still hide behind geometry.
+// Draw the filtered scene to the screen with its depth, letting the debug overlays still hide behind geometry.
 function drawFilterPass(renderer, passState) {
-	const gl = renderer.gl;
+	const gl   = renderer.gl;
 	const quad = ensureFilterQuad(renderer);
 	if (!quad) return;
 
@@ -1841,8 +1902,8 @@ function drawFilterPass(renderer, passState) {
 }
 
 function drawScene(renderer, sceneGraph) {
-	const gl = renderer.gl;
-	const filters = CONFIG.Rendering.Filters;
+	const gl       = renderer.gl;
+	const filters  = CONFIG.Rendering.Filters;
 	const filtered = filters.ToonLines || filters.Comic;
 
 	syncCanvasSize(renderer);
@@ -1875,16 +1936,12 @@ function drawScene(renderer, sceneGraph) {
 	const viewProjection = MultiplyMatrix4(projection, view);
 	const frustum = FrustumPlanes(viewProjection);
 
-	const waterLevelCnu = sceneGraph.world.water.level === null ? null : sceneGraph.world.water.level.value;
-	const underwater = waterLevelCnu !== null && cameraState.position.y < waterLevelCnu;
-	const colorShift = underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 };
-	const underwaterValue = underwater ? 1 : 0;
-	const simDistance = PERFORMANCE_SCALING.SimDistance.Tiers[CONFIG.Performance.SimDistance].toWorldUnit();
-	const worldInstances = PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances;
-	const fogPercent = underwater ? CONFIG.Rendering.Fog.Water : CONFIG.Rendering.Fog.Air;
-	const fogFull = simDistance * worldInstances.Cull * worldInstances.Fog * (fogPercent / 100);
-	const cullRadius = simDistance * PERFORMANCE_SCALING.SimDistance.Fractions.Scatter.Cull;
-	const skyStops = sceneGraph.world.skybox.stops;
+	const waterLevelCnu   = sceneGraph.world.water.level === null ? null : sceneGraph.world.water.level.value;
+	const underwater      = waterLevelCnu !== null && cameraState.position.y < waterLevelCnu;
+	const simDistance     = PERFORMANCE_SCALING.SimDistance.Tiers[CONFIG.Performance.SimDistance].toWorldUnit();
+	const worldInstances  = PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances;
+	const fogPercent      = underwater ? CONFIG.Rendering.Fog.Water : CONFIG.Rendering.Fog.Air;
+	const skyStops        = sceneGraph.world.skybox.stops;
 
 	// Keeps only what's on the camera's side of the water surface.
 	const nearWaterClip = waterLevelCnu === null
@@ -1892,12 +1949,17 @@ function drawScene(renderer, sceneGraph) {
 		: { level: sceneGraph.world.water.level.toWorldUnit(), side: underwater ? -1 : 1 };
 
 	const passState = {
-		projection, view, viewProjection, frustum, fogFull, colorShift, underwaterValue, cullRadius, nearWaterClip,
-		cameraPosition: cameraState.position,
-		comic       : filters.Comic ? 1 : 0,
-		skyStops    : fillSkyStops(renderer, skyStops),
-		skyStopCount: skyStops.length,
-		waterTint   : sceneGraph.world.water.tint,
+		projection, view, viewProjection, frustum, 
+		fogFull        : simDistance * worldInstances.Cull * worldInstances.Fog * (fogPercent / 100), 
+		colorShift     : underwater ? { r: -0.06, g: 0.02, b: 0.08 } : { r: 0, g: 0, b: 0 },
+		underwaterValue: underwater ? 1 : 0, 
+		cullRadius     : simDistance * PERFORMANCE_SCALING.SimDistance.Fractions.Scatter.Cull, 
+		nearWaterClip,
+		cameraPosition : cameraState.position,
+		comic          : filters.Comic ? 1 : 0,
+		skyStops       : fillSkyStops(renderer, skyStops),
+		skyStopCount   : skyStops.length,
+		waterTint      : sceneGraph.world.water.tint,
 	};
 
 	drawSkyPass(renderer, passState);
@@ -1916,7 +1978,7 @@ function drawScene(renderer, sceneGraph) {
 	if (!renderer.scatterInstancesBuilt) buildScatterInstanceBuffers(renderer, sceneGraph);
 	ensureVoidWallMeshes(renderer, sceneGraph);
 	hideOccluded(renderer, sceneGraph, passState, cameraState);
-	const { terrain, obstacles, entitiesUv, entitiesTriplanar, entitiesTranslucent } = collectRenderableMeshes(sceneGraph);
+	const { terrain, obstacles, entitiesUv, entitiesTriplanar, translucent } = collectRenderableMeshes(sceneGraph);
 
 	// === PASS 2.5: Void walls (textured interior surfaces inside void holes) ===
 	drawVoidWalls(renderer, sceneGraph, passState);
@@ -1925,7 +1987,7 @@ function drawScene(renderer, sceneGraph) {
 	drawMeshList(renderer, sceneGraph, terrain,           passState);
 	drawMeshList(renderer, sceneGraph, obstacles,         passState);
 	drawMeshList(renderer, sceneGraph, entitiesUv,        passState);
-	drawMeshList(renderer, sceneGraph, entitiesTriplanar, passState, { triplanar: true });
+	drawMeshList(renderer, sceneGraph, entitiesTriplanar, passState, { program: "triplanar" });
 
 	// === PASS E: Decal quads (custom textures, alpha-blended on top of geometry) ===
 	drawDecalPass(renderer, sceneGraph, passState);
@@ -1956,7 +2018,10 @@ function drawScene(renderer, sceneGraph) {
 	drawScatterDecalPass(renderer, sceneGraph, passState);
 
 	// === PASS D: Translucent meshes and trigger overlay, water-anchored (sorted back-to-front, no depth write) ===
-	drawTranslucentPass(renderer, sceneGraph, entitiesTranslucent, passState, cameraState.position, waterLevelCnu, underwater);
+	drawTranslucentPass(renderer, sceneGraph, translucent, passState, cameraState.position, waterLevelCnu, underwater);
+
+	// === PASS D2: Sprites seen through walls, after everything they can hide behind ===
+	drawSpriteThroughWalls(renderer, sceneGraph, translucent, passState);
 
 	// === PASS F: Comic color, onto the canvas ===
 	if (filtered) drawFilterPass(renderer, passState);
@@ -1976,12 +2041,12 @@ function RenderLevel(sceneGraph, options) {
 /* === ELEMENTS === */
 // Utility helpers for updating rendered elements.
 
-const GetElement = (elementId) => UIElement.get(elementId).element;
-const SetElementText = (elementId, text) => UIElement.get(elementId).setText(text, true);
-const SetElementSource = (elementId, src) => UIElement.get(elementId).setSource(src, true);
-const SetElementStyle = (elementId, styles) => UIElement.get(elementId).setStyle(styles, true);
-const FadeElement = (elementId, targetOpacity, durationSeconds) => UIElement.get(elementId).fadeTo(targetOpacity, durationSeconds);
-const RemoveRoot = (rootId) => UIElement.removeRoot(rootId);
+const GetElement         = (elementId) => UIElement.get(elementId).element;
+const SetElementText     = (elementId, text) => UIElement.get(elementId).setText(text, true);
+const SetElementSource   = (elementId, src) => UIElement.get(elementId).setSource(src, true);
+const SetElementStyle    = (elementId, styles) => UIElement.get(elementId).setStyle(styles, true);
+const FadeElement        = (elementId, targetOpacity, durationSeconds) => UIElement.get(elementId).fadeTo(targetOpacity, durationSeconds);
+const RemoveRoot         = (rootId) => UIElement.removeRoot(rootId);
 const ClearLevelRenderer = (rootId) => levelRendererCache.delete(rootId);
 
 /* === EXPORTS === */

@@ -1,4 +1,6 @@
-// Contains all available different primitives and returns those to NewObject.js
+// Builds the geometry of every primitive shape.
+
+// Used by NewObject.js and NewScatter.js to build geometry.
 
 import { EPSILON } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateModelMatrix, MultiplyMatrix4, TransformPointByMatrix } from "../math/Matrix.js";
@@ -19,7 +21,7 @@ function resolveCylinderSegments(complexity) {
 	}
 }
 
-// Odd stacks put a flat band across the equator; slices are multiples of 4 like cylinder segments.
+// Odd stacks put a flat band across the equator. Slices are multiples of 4, like cylinder segments.
 function resolveSphereResolution(complexity) {
 	switch(complexity) {
 		case "low" : return { stacks: 7, slices: 8 };
@@ -159,27 +161,36 @@ function buildPyramid(size) {
 	return { positions, indices, faceGroups };
 }
 
-function buildPlane(size) {
-	const sx = size.x * 0.5;
-	const sz = size.z * 0.5;
+// Build an upright plane facing forward OR an X-cross for cheap 3D. A sprite stretches its image over each one.
+function buildPlane(size, options) {
+	const sx = size.x * 0.5, sy = size.y * 0.5;
+	const positions = [], indices = [], faceGroups = [], uvs = [];
 
-	return {
-		positions: [
-			-sx, 0, sz,
-			sx, 0, sz,
-			sx, 0, -sz,
-			-sx, 0, -sz,
-		],
-		indices: [0, 1, 2, 0, 2, 3],
-		faceGroups: [{ normal: WORLD_NORMALS.Up, vertexIndices: [0, 1, 2, 3], indexStart: 0, indexCount: 6 }],
-	};
+	// Turn crossed planes 45° each way around their height, and a single plane not at all.
+	const angles = options.crossed ? [Math.PI * 0.25, -Math.PI * 0.25] : [0];
+
+	// Lay out each plane's corners, turned by its angle.
+	angles.forEach((angle, index) => {
+		const c = Math.cos(angle), s = Math.sin(angle), start = index * 4;
+		positions.push(-sx * c, -sy, sx * s,  sx * c, -sy, -sx * s,  sx * c, sy, -sx * s,  -sx * c, sy, sx * s);
+		indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
+		faceGroups.push({ 
+			normal: { x: s, y: 0, z: c }, 
+			vertexIndices: [start, start + 1, start + 2, start + 3], 
+			indexStart: index * 6, 
+			indexCount: 6 
+		});
+		uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
+	});
+
+	return options.sprite === null ? { positions, indices, faceGroups } : { positions, indices, faceGroups, uvs };
 }
 
 function buildCylinder(size, complexity) {
 	const radius = size.clone().scale(0.5);
 	const segments = resolveCylinderSegments(complexity);
 
-	// Half-segment turn so the cylinder lies on a flat side when rotated 90°.
+	// Half-segment turn to ensure the cylinder lies on a flat side when rotated 90°.
 	const angleOffset = Math.PI / segments;
 
 	const positions = [];
@@ -369,7 +380,7 @@ function buildCapsule(size, complexity, options) {
 	};
 }
 
-// Reads a tube node's center, axes and ring radii from its frame matrix (Y is the forward axis).
+// Define one tube node: where it sits, which way the tube runs through it, and how wide its ring is.
 function makeTubeNode(frame, dimensionX, dimensionZ, thickness, curved, smoothness) {
 	return {
 		frame,
@@ -380,7 +391,7 @@ function makeTubeNode(frame, dimensionX, dimensionZ, thickness, curved, smoothne
 	};
 }
 
-// Walks the bone chain from an identity root frame, applying each node's transform on top of the previous frame.
+// Place every tube node relative to the one before it, starting from the tube's own origin.
 function resolveTubeNodes(size, options) {
 	const nodes = [makeTubeNode(CreateIdentityMatrix(), size.x, size.z, options.thickness.value, options.curved, options.smoothness)];
 	let frame = nodes[0].frame;
@@ -396,7 +407,7 @@ function resolveTubeNodes(size, options) {
 	return nodes;
 }
 
-// One cross-section in local X-Z, placed by the frame matrix. Solid omits the inner ring.
+// Add the ring of vertices around one tube node. Hollow tubes have an inner ring.
 function appendTubeRing(positions, matrix, radiusX, radiusZ, thickness, segments, solid) {
 	const pushRing = (ringRadiusX, ringRadiusZ) => {
 		const local = [];
@@ -433,7 +444,7 @@ function rollTubeFrame(frame, angle) {
 	return { tangent: frame.tangent, normal, binormal: CrossVector3(frame.tangent, normal) };
 }
 
-// Carries the cross-section along the connector, then spreads a roll so the end lines up with the target node's axis.
+// Carry the cross-section along the connector, then spreads a roll so the end lines up with the target node's axis.
 function orientConnectorFrames(points, startAxis, targetAxis) {
 	const frames = ParallelTransportFrames(points, startAxis);
 	const last = frames.length - 1;
@@ -463,7 +474,7 @@ function stitchTubeRings(indices, ringA, ringB, segments, solid) {
 	}
 }
 
-// Solid caps with a disc instead of an annulus.
+// Cap a tube end. A solid tube gets a disc instead of a ring.
 function capTubeRing(indices, ring, segments, forward, solid) {
 	if (solid) {
 		const apex = ring.outerIndices[0];
@@ -489,7 +500,7 @@ function capTubeRing(indices, ring, segments, forward, solid) {
 	}
 }
 
-// Face groups per connector: angular sectors with radial normals, like buildTorus.
+// Add a connector's face groups, split into sectors around it.
 function appendTubeConnectorFaceGroups(faceGroups, rings, node, segments, solid) {
 	const sectorCount = Math.min(8, segments);
 	for (let sector = 0; sector < sectorCount; sector++) {
@@ -502,7 +513,7 @@ function appendTubeConnectorFaceGroups(faceGroups, rings, node, segments, solid)
 			}
 		}
 
-		// Matches the ring's half-segment turn.
+		// Match the ring's half-segment turn.
 		const angle = midAngle + (Math.PI / segments);
 		const radial = AddVector3(ScaleVector3(node.xAxis, Math.cos(angle)), ScaleVector3(node.zAxis, Math.sin(angle)));
 		faceGroups.push({ normal: radial, vertexIndices: outerVertices });
@@ -528,7 +539,7 @@ function buildTube(size, complexity, options) {
 		const nodeB = nodes[i + 1];
 		const rings = [nodeRings[i]];
 
-		// Zero-length segments have no centerline to curve; their end rings stitch directly.
+		// Stitch a zero-length segment's end rings directly. It has no centerline to curve.
 		if (nodeA.curved && Vector3Distance(nodeA.center, nodeB.center) > EPSILON) {
 			const points = SampleConnectorCenterline(nodeA.center, nodeA.forward, nodeB.center, ScaleVector3(nodeB.forward, -1), nodeA.smoothness, segments);
 			const frames = orientConnectorFrames(points, nodeA.xAxis, nodeB.xAxis);
@@ -566,15 +577,13 @@ function buildTube(size, complexity, options) {
 }
 
 function buildTorus(size, complexity, options) {
-	const majorRadius = Math.max(0.0002, ToNumber(options.radius, size.x * 0.5));
-	const minorRadius = Math.max(0.0001, Math.min(ToNumber(options.thickness, size.y * 0.25), majorRadius * 0.95));
-	const resolution = resolveTorusResolution(complexity);
+	const majorRadius   = Math.max(0.0002, ToNumber(options.radius, size.x * 0.5));
+	const resolution    = resolveTorusResolution(complexity);
 	const majorSegments = resolution.majorSegments;
 	const minorSegments = resolution.minorSegments;
+	const positions = [], indices = [];
 
-	const positions = [];
-	const indices = [];
-
+	const minorRadius   = Math.max(0.0001, Math.min(ToNumber(options.thickness, size.y * 0.25), majorRadius * 0.95));
 	for (let major = 0; major <= majorSegments; major++) {
 		const u = (major / majorSegments) * Math.PI * 2;
 		for (let minor = 0; minor <= minorSegments; minor++) {
@@ -589,10 +598,8 @@ function buildTorus(size, complexity, options) {
 		for (let minor = 0; minor < minorSegments; minor++) {
 			const a = major * stride + minor;
 			const b = (major + 1) * stride + minor;
-			const c = a + 1;
-			const d = b + 1;
-			indices.push(a, c, b);
-			indices.push(c, d, b);
+			indices.push(a,   a+1, b);
+			indices.push(a+1, b+1, b);
 		}
 	}
 
@@ -661,7 +668,7 @@ function buildRampComplex(size, complexity, options) {
 	const positions = [], indices = [];
 	const topLeftIndices = [], topRightIndices = [], bottomLeftIndices = [], bottomRightIndices = [];
 
-	// Quadratic Bezier toe-to-crest; depth slides the control point toward the bottom-back corner.
+	// Curve from the toe to the crest. depth pulls the curve toward the bottom-back corner.
 	const curveZ = (t) => ramp.halfDepth * (((2 * t) - 1) + (2 * depth * t * (1 - t)));
 
 	for (let index = 0; index <= segments; index++) {
@@ -695,7 +702,7 @@ function buildRampComplex(size, complexity, options) {
 		indices.push(bottomLeft, bottomRight, nextBottomRight);
 		indices.push(bottomLeft, nextBottomRight, nextBottomLeft);
 
-		// Toe column has no thickness — one triangle closes each side wall.
+		// Close each side wall at the toe with one triangle. The toe has no thickness.
 		indices.push(bottomLeft, nextBottomLeft, nextTopLeft);
 		if (index > 0) indices.push(bottomLeft, nextTopLeft, topLeft);
 
@@ -730,7 +737,7 @@ function buildRampComplex(size, complexity, options) {
 	};
 }
 
-function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
+function BuildGeometry(shape, size, complexity, primitiveOptions) {
 	switch (shape) {
 		case "cube"        : return buildCube(size);
 		case "cylinder"    : return buildCylinder(size, complexity);
@@ -742,7 +749,7 @@ function BuildGeometry(shape, size, complexity, primitiveOptions = {}) {
 		case "tube"        : return buildTube(size, complexity, primitiveOptions);
 		case "torus"       : return buildTorus(size, complexity, primitiveOptions);
 		case "pyramid"     : return buildPyramid(size);
-		case "plane"       : return buildPlane(size);
+		case "plane"       : return buildPlane(size, primitiveOptions);
 	}
 }
 

@@ -204,7 +204,7 @@ async function Start() {
 	Log("ENGINE", "simulator environment ready", "log", "Simulator");
 }
 
-// Rebuilds a fresh, correctly-sized disc platform through the terrain spawn path.
+// Rebuild the disc platform at the right size through the terrain spawn path.
 function spawnPlatform(sceneGraph, footprintXZ) {
 	const disc = {
 		...templateDisc,
@@ -219,10 +219,11 @@ function spawnPlatform(sceneGraph, footprintXZ) {
 	};
 	disc.dimensions.x = footprintXZ;
 	disc.dimensions.z = footprintXZ;
+
 	return SpawnIntoScene(disc, "terrain", sceneGraph);
 }
 
-// Fits OrbitCam framing and follow target to the loaded object's bounds; returns its extent.
+// Fit OrbitCam framing and the follow target to the loaded object's bounds.
 function frameLoadedObject(aabb) {
 	const ext = SubtractVector3(aabb.max, aabb.min);
 	SetOrbitCamFraming({ 
@@ -236,7 +237,7 @@ function frameLoadedObject(aabb) {
 	return ext;
 }
 
-// Despawns every live particle group; only the loaded object can emit here.
+// Despawn every live particle group. Only the loaded object can emit here.
 const clearParticles = (sceneGraph) => DespawnFromScene(sceneGraph.entities.filter((entity) => entity.particle !== null), "entity", sceneGraph);
 
 async function Load(payload) {
@@ -305,7 +306,7 @@ async function Load(payload) {
 				part.transform.position.x += deltaX;
 				part.transform.position.y += deltaY;
 				part.transform.position.z += deltaZ;
-				UpdateObjectWorldAabb(part);
+				UpdateObjectWorldAabb(part, false);
 			});
 			built.worldAabb      = built.parts.reduce((accumulator, part) => MergeAabb(accumulator, part.worldAabb), null);
 			built.detailedBounds = CreateDetailedBoundsFromParts(built, built.parts, built.worldAabb);
@@ -317,7 +318,7 @@ async function Load(payload) {
 			UpdateEntityModelFromTransform(built);
 		}
 
-		aabb  = ENTITY_TYPES.includes(objectType) ? built.collision.aabb : built.worldAabb;
+		aabb  = ENTITY_TYPES.includes(objectType) ? built.fullAabb : built.worldAabb;
 	}
 
 	simulatorRuntime.builtObject = built;
@@ -413,8 +414,7 @@ const decalMaxSubdivision = 16;
 
 const alignTo4 = (value) => (value + 3) & ~3;
 
-// Loaded object only; sceneGraph.terrain would include the disc platform.
-// Mode filter mirrors the renderer: terrain by mesh, obstacles by record, entity parts never.
+// List the loaded object's meshes for export, leaving out the disc platform and non-default terrain and obstacles.
 function exportMeshList() {
 	const built = simulatorRuntime.builtObject;
 	if (simulatorRuntime.objectType === "terrain")  return built.filter((mesh) => mesh.meta.mode === "default");
@@ -522,7 +522,7 @@ function clipToDecalSquare(polygon) {
 	return polygon;
 }
 
-// Host facets, lifted by a fixed epsilon since glTF has no polygon offset.
+// Build the host's facets, lifted by a small fixed amount since glTF has no polygon offset.
 function buildDecalVertices(mesh, decalEntry, lift) {
 	const halfExtents = mesh.dimensions.clone().scale(0.5);
 	const rounding    = DecalRounding(mesh.shape, mesh.detail.primitiveOptions);
@@ -533,9 +533,8 @@ function buildDecalVertices(mesh, decalEntry, lift) {
 	const corner    = (index) => ({ point: ArrayToVector3(positions, index, true), u: uvs[index * 2], v: uvs[index * 2 + 1] });
 	const windingOf = (first) => Math.sign((uvs[first * 2 + 2] - uvs[first * 2]) * (uvs[first * 2 + 5] - uvs[first * 2 + 1]) - (uvs[first * 2 + 4] - uvs[first * 2]) * (uvs[first * 2 + 3] - uvs[first * 2 + 1]));
 
-	// Uv winding flips only across a sphere's antipodal fold; the facet nearest the center sets the true one.
+	// Take the winding from the facet nearest the decal center. It only flips across the far side of a sphere.
 	let winding = 0, nearest = Infinity;
-	const decalCenter = ArrayToVector3(placement, 12);
 	const centerDistanceSq = (index) => Vector3Sq(SubtractVector3(
 		ArrayToVector3(positions, index, true), 
 		ArrayToVector3(placement, 12)
@@ -625,12 +624,12 @@ function collectTextureIds(meshes) {
 	}
 	meshes.forEach((mesh) => {
 		meshPrimitiveSpans(mesh).forEach((span) => add(span.textureID));
-		for (let index = 0; index < mesh.customTextures.length; index++) add(`${mesh.id}::customTexture::${index}`);
+		mesh.customTextures.forEach((decalEntry) => add(decalEntry.textureKey));
 	});
 	return ids;
 }
 
-// Pad every piece to a 4-byte boundary; PNG data isn't padded.
+// Pad each piece to a 4-byte boundary, except PNG data.
 function pushBinaryView(writer, bytes, target) {
 	const byteOffset = writer.binaryLength;
 	const view       = { buffer: 0, byteOffset, byteLength: bytes.byteLength };
@@ -660,7 +659,7 @@ function pushFloatAccessor(writer, values, type, count, min, max) {
 function pushTexture(writer, textureID, image) {
 	writer.images.push({ bufferView: pushBinaryView(writer, image.bytes, null), mimeType: "image/png" });
 	writer.textures.push({
-		sampler: textureID.includes("::face=") || textureID.includes("::customTexture::") ? 1 : 0,
+		sampler: textureID.includes("::face=") || textureID.includes("::customTexture::") || textureID.startsWith("sprite::") ? 1 : 0,
 		source : writer.images.length - 1,
 	});
 	return writer.textures.length - 1;
@@ -787,7 +786,7 @@ async function Download() {
 		mesh.customTextures.forEach((decalEntry, index) => primitives.push(pushVertexPrimitive(
 			writer,
 			buildDecalVertices(mesh, decalEntry, decalSurfaceOffset + index * decalLayerStep),
-			decalMaterialFor(`${mesh.id}::customTexture::${index}`, decalEntry)
+			decalMaterialFor(decalEntry.textureKey, decalEntry)
 		)));
 		writer.meshes.push({ name: mesh.id, primitives });
 		writer.nodes.push({ name: mesh.id, mesh: writer.meshes.length - 1, matrix: CreateModelMatrix(mesh.transform) });

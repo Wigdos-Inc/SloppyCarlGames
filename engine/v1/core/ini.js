@@ -47,7 +47,7 @@ function Initialize() {
       Logging: { LogAll, Cache: LogCache, AddChannel: AddLogChannel },
       ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
       SessionKey, CNU_SCALE, DeepFreeze,
-      Version: "0.35.4",
+      Version: "0.35.5",
     },
     Controls,
     Input   : Object.freeze({ Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, }),

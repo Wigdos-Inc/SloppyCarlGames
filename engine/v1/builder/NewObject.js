@@ -1,10 +1,21 @@
-// Single Object (shape) Generator
+// Builds single 3D objects with their geometry, bounds, collision and textures.
 
-// Called by anything that wants any 3D object or wants to build models.
+// Used by NewTerrain.js, NewObstacle.js, NewEntity.js, NewScatter.js, NewLevel.js and handlers/game/Level.js to build objects.
+// Used by NewEntity.js and handlers/game/Simulator.js to refit moved objects' boxes.
+// Used by NewScatter.js and NewVoid.js to generate UVs.
+// Uses NewPrimitive.js to build geometry, NewTexture.js to set up textures and NewScatter.js to scatter detail.
 
 import { BuildGeometry } from "./NewPrimitive.js";
 import { BuildScatter } from "./NewScatter.js";
-import { BuildFaceTextureData, BuildNoiseAnimationOptions, ResolveTextureBlueprint, FREQUENCY_PATTERN_CONFIG, ComputeGeneratedTextureID, IsTextureTransparent, InitializeDecalDisplay } from "./NewTexture.js";
+import { 
+	BuildFaceTextureData, 
+	BuildNoiseAnimationOptions, 
+	ResolveTextureBlueprint, 
+	FREQUENCY_PATTERN_CONFIG, 
+	ComputeGeneratedTextureID, 
+	IsTextureTransparent, 
+	InitializeDecalDisplay 
+} from "./NewTexture.js";
 import VISUAL_TEMPLATES from "./templates/textures.json" with { type: "json" };
 import { CONFIG } from "../core/config.js";
 import { DeepFreeze } from "../core/meta.js";
@@ -15,7 +26,6 @@ import {
 	AbsoluteVector3,
 	AddVector3,
 	ArrayToVector3,
-	CloneVector3,
 	MaxVector3,
 	ResolveVector3Axis,
 	ScaleVector3,
@@ -46,7 +56,6 @@ function computeAabbFromMesh(mesh) {
 }
 
 function computeTriangleSoupFromMesh(mesh) {
-	// One matrix for the whole buffer — the transform is fixed across the sweep.
 	const modelMatrix = CreateModelMatrix(mesh.transform);
 	const readVertex = (vertexIndex) => {
 		const vertex = TransformPointByMatrix(
@@ -133,7 +142,7 @@ function GenerateFaceProjectedUvs(positions, faceGroups, normalize = false) {
 		return uvs;
 	}
 
-	// normalize = true: per-face [0,1] UVs; also collect uSpan/vSpan per group.
+	// Stretch the UVs from 0 to 1 across each face, and record each face's size.
 	const faceSpans = [];
 	for (const group of faceGroups) {
 		const [uAxis, vAxis] = getProjectedAxesFromNormal(group.normal);
@@ -183,8 +192,16 @@ function computeBounds(positions) {
 	return bounds;
 }
 
-function computeWorldAabbFromGeometry(positions, transform) {
-	// One matrix for the whole buffer — the transform is fixed across the sweep.
+// Fit bounds around the geometry. Camera-following sprites use a cube to fit every angle.
+function computeMeshBounds(positions, dimensions, sprite) {
+	if (sprite === null || sprite.follow === "none") return computeBounds(positions);
+
+	const half = Math.hypot(dimensions.x, dimensions.y) * 0.5;
+	return { min: new UnitVector3(-half, -half, -half, "cnu"), max: new UnitVector3(half, half, half, "cnu") };
+}
+
+// Fit a world box around local points (x,y,z).
+function computeWorldAabb(positions, transform) {
 	const matrix = CreateModelMatrix(transform);
 	const first  = TransformPointByMatrix(ArrayToVector3(positions, 0, true), matrix);
 	const bounds = {
@@ -201,8 +218,8 @@ function computeWorldAabbFromGeometry(positions, transform) {
 	return bounds;
 }
 
-// A tube's centerline in world space.
-function computeWorldCenterline(shape, geometry, transform) {
+// Place a tube's centerline in the world.
+function computeCenterLine(shape, geometry, transform) {
 	if (shape !== "tube") return null;
 
 	const matrix = CreateModelMatrix(transform);
@@ -212,50 +229,40 @@ function computeWorldCenterline(shape, geometry, transform) {
 	});
 }
 
-function ComputeWorldAabbFromBounds(localBounds, transform) {
-	const mn = localBounds.min, mx = localBounds.max;
-	const corners = [
-		{ x: mn.x, y: mn.y, z: mn.z }, { x: mx.x, y: mn.y, z: mn.z },
-		{ x: mn.x, y: mx.y, z: mn.z }, { x: mx.x, y: mx.y, z: mn.z },
-		{ x: mn.x, y: mn.y, z: mx.z }, { x: mx.x, y: mn.y, z: mx.z },
-		{ x: mn.x, y: mx.y, z: mx.z }, { x: mx.x, y: mx.y, z: mx.z },
+// List a box's 8 corners as flat x, y, z values.
+function boxCorners({ min, max }) {
+	return [
+		min.x, min.y, min.z,  max.x, min.y, min.z,  min.x, max.y, min.z,  max.x, max.y, min.z,
+		min.x, min.y, max.z,  max.x, min.y, max.z,  min.x, max.y, max.z,  max.x, max.y, max.z,
 	];
-
-	const matrix = CreateModelMatrix(transform);
-	const first  = TransformPointByMatrix(corners[0], matrix);
-	const bounds = {
-		min: new UnitVector3(first.x, first.y, first.z, "cnu"),
-		max: new UnitVector3(first.x, first.y, first.z, "cnu")
-	};
-	for (let i = 1; i < 8; i++) {
-		const w = TransformPointByMatrix(corners[i], matrix);
-		bounds.min.min(w);
-		bounds.max.max(w);
-	}
-	return bounds;
 }
 
-// Builds+Freezes the geometry template for (blueprintId::partId), shared by ref across same-blueprint instances.
-function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiveOptions, texture) {
+// Fit a mesh's world box around its vertices. A rough box or camera-following sprite uses its bounds.
+function computeMeshWorldAabb(mesh, rough) {
+	const fromBounds = rough || (mesh.sprite !== null && mesh.sprite.follow !== "none");
+	return computeWorldAabb(fromBounds ? boxCorners(mesh.geometry.bounds) : mesh.geometry.positions, mesh.transform);
+}
+
+// Build and freeze a part's geometry template, shared by every instance of its blueprint.
+function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiveOptions, texture, sprite) {
 	const geometry = BuildGeometry(shape, dimensions, complexity, primitiveOptions);
 	const textureBlueprint = VISUAL_TEMPLATES.textures[texture.id];
 
-	// Noise parts use triplanar mapping. Default UVs stay so the UV buffer layout is unchanged.
+	// Noise parts use triplanar mapping, but sprites keep their own UVs.
 	let uvs = GenerateUVs(geometry.positions, geometry);
-	const triplanar = textureBlueprint !== undefined && textureBlueprint.pattern === "noise";
+	const triplanar = sprite === null && textureBlueprint !== undefined && textureBlueprint.pattern === "noise";
 
-	if (!triplanar) {
-		// Sphere pre-scale: de-tile-lock curved parts by scaling normalized UVs to physical span.
+	if (!triplanar && sprite === null) {
+		// Scale a sphere's UVs to its real size. Its texture then repeats at the same rate as on flat parts.
 		if (geometry.uvMode === "sphere") {
-			const uSpan = Math.PI * dimensions.x;
-			const vSpan = Math.PI * dimensions.y * 0.5;
+			const uSpan = Math.PI * dimensions.x, vSpan = Math.PI * dimensions.y * 0.5;
 			for (let i = 0; i < uvs.length; i += 2) {
 				uvs[i + 0] *= uSpan;
 				uvs[i + 1] *= vSpan;
 			}
 		}
 
-		// Frequency patterns: scale UVs by composed frequency. textureBlueprint absent for material-only parts.
+		// Repeat frequency patterns as often as their densities ask. Material-only parts have no pattern.
 		const frequencyConfigKey = textureBlueprint === undefined ? undefined : FREQUENCY_PATTERN_CONFIG[textureBlueprint.pattern];
 		if (frequencyConfigKey !== undefined) {
 			const uvScale = textureBlueprint.density * CONFIG.Rendering.Texture[frequencyConfigKey].Density * texture.density;
@@ -267,10 +274,9 @@ function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiv
 		positions: new Float32Array(geometry.positions),
 		indices  : new Uint16Array(geometry.indices),
 		uvs      : new Float32Array(uvs),
-		bounds   : computeBounds(geometry.positions),
+		bounds   : computeMeshBounds(geometry.positions, dimensions, sprite),
 	};
 
-	// Only set the triplanar flag when true. Unflagged meshes use UVs.
 	if (triplanar) template.triplanar = true;
 
 	return DeepFreeze(template);
@@ -281,12 +287,13 @@ function BuildObject(source) {
 	const { trigger, platform, parentId, sticky, nullable, particle } = source;
 	const shape = source.shape.toLowerCase();
 	const transform = { position, rotation, scale, pivot };
+	const sprite = shape === "plane" ? primitiveOptions.sprite : null;
 
-	// Fields every mesh carries; each mode adds its own below.
+	// Set the fields every mesh carries. Each mode adds its own below.
 	const mesh = {
 		id, type: "mesh3d",
 		meta: { trigger, platform, parentId, sticky, mode, nullable, particle },
-		transform, dimensions, collisionShape,
+		transform, dimensions, collisionShape, sprite,
 		worldAabb     : null,
 		detailedBounds: null,
 		customTextures: [],
@@ -294,19 +301,19 @@ function BuildObject(source) {
 	};
 
 	if (mode === "invisible") {
-		// Invisible meshes carry no geometry; triangle-soup builds one only for its collision bounds.
+		// Give invisible meshes no geometry, except triangle-soup, which needs one for its collision.
 		let geometry = null;
 		if (collisionShape === "triangle-soup") {
 			geometry         = BuildGeometry(shape, dimensions, complexity, primitiveOptions);
 			mesh.localBounds = computeBounds(geometry.positions);
-			mesh.worldAabb   = computeWorldAabbFromGeometry(geometry.positions, transform);
+			mesh.worldAabb   = computeWorldAabb(geometry.positions, transform);
 		}
 		else {
 			mesh.localBounds = { min: dimensions.clone().scale(-0.5), max: dimensions.clone().scale(0.5) };
-			mesh.worldAabb   = ComputeWorldAabbFromBounds(mesh.localBounds, transform);
+			mesh.worldAabb   = computeWorldAabb(boxCorners(mesh.localBounds), transform);
 		}
 		mesh.detailedBounds = computeDetailedBounds({ ...mesh, geometry });
-		mesh.centerline     = geometry === null ? null : computeWorldCenterline(shape, geometry, transform);
+		mesh.centerline     = geometry === null ? null : computeCenterLine(shape, geometry, transform);
 		return { mesh };
 	}
 
@@ -314,14 +321,15 @@ function BuildObject(source) {
 		const geometry = BuildGeometry(shape, dimensions, complexity, primitiveOptions);
 		mesh.geometry       = { positions: geometry.positions, indices: geometry.indices, indexCount: geometry.indices.length };
 		mesh.localBounds    = computeBounds(geometry.positions);
-		mesh.worldAabb      = computeWorldAabbFromGeometry(geometry.positions, transform);
+		mesh.worldAabb      = computeWorldAabb(geometry.positions, transform);
 		mesh.detailedBounds = computeDetailedBounds(mesh);
-		mesh.centerline     = computeWorldCenterline(shape, geometry, transform);
+		mesh.centerline     = computeCenterLine(shape, geometry, transform);
 		return { mesh };
 	}
 
-	// Material and detail read from the generated base texture. Decals go in mesh.customTextures.
+	// Read material and detail from the generated texture or a sprite's image.
 	const texture = source.texture.generated;
+	const spriteImage = sprite === null ? null : sprite.image;
 	Object.assign(mesh, {
 		shape, complexity,
 		displayTransform : transform,
@@ -330,7 +338,7 @@ function BuildObject(source) {
 		primitive        : shape,
 		role             : source.role,
 		material: {
-			textureID  : ComputeGeneratedTextureID(texture),
+			textureID  : spriteImage !== null ? `sprite::${spriteImage.path}` : ComputeGeneratedTextureID(texture),
 			color      : { r: 1, g: 1, b: 1, a: 1 },
 			opacity    : 1,
 			transparent: IsTextureTransparent(texture),
@@ -342,19 +350,17 @@ function BuildObject(source) {
 		customTextures: source.texture.custom,
 	});
 
-	// Entity parts share one geometry per (blueprintId::partId). A null cache builds uncached (player model).
-	const isEntityPart = source.role === "entity-part";
+	// Share geometry between the same part across same-entity-instances.
 	let geometry = null;
-	if (isEntityPart) {
-		// Memoization gate (mirrors the face-texture dedup gate): undefined === genuine cache miss.
+	if (source.role === "entity-part") {
 		let geometryTemplate = source.geometryCache === null ? undefined : source.geometryCache.get(source.geometryCacheKey);
 		if (geometryTemplate === undefined) {
-			geometryTemplate = buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiveOptions, texture);
+			geometryTemplate = buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiveOptions, texture, sprite);
 			if (source.geometryCache !== null) source.geometryCache.set(source.geometryCacheKey, geometryTemplate);
 		}
 		mesh.geometry = geometryTemplate;
 
-		// Set triplanar scale per mesh, so each instance's texture.density applies individually.
+		// Set the triplanar scale per mesh, letting each instance's own texture density apply.
 		if (geometryTemplate.triplanar) {
 			mesh.material.textureScale = VISUAL_TEMPLATES.textures[texture.id].density * CONFIG.Rendering.Texture.Noise.Density * texture.density;
 		}
@@ -365,16 +371,16 @@ function BuildObject(source) {
 			positions: geometry.positions,
 			indices  : geometry.indices,
 			uvs      : GenerateUVs(geometry.positions, geometry),
-			bounds   : computeBounds(geometry.positions),
+			bounds   : computeMeshBounds(geometry.positions, dimensions, sprite),
 		};
 		mesh.localBounds = mesh.geometry.bounds;
-		mesh.centerline  = computeWorldCenterline(shape, geometry, transform);
+		mesh.centerline  = computeCenterLine(shape, geometry, transform);
 	}
 
-	mesh.worldAabb      = computeWorldAabbFromGeometry(mesh.geometry.positions, transform);
+	mesh.worldAabb      = computeMeshWorldAabb(mesh, false);
 	mesh.detailedBounds = computeDetailedBounds(mesh);
 
-	InitializeDecalDisplay(mesh.customTextures);
+	InitializeDecalDisplay(mesh.customTextures, dimensions);
 
 	const scatterContext = source.scatterContext;
 	if (scatterContext && mesh.detail.scatter.length > 0) {
@@ -393,32 +399,32 @@ function BuildObject(source) {
 			scatterContext.onScatterGenerated?.(mesh, generatedScatter);
 		}
 	}
-	if (isEntityPart) return { mesh };
 
-	// Per-face noise (terrain/obstacle/water). Entity parts use buildEntityPartGeometryTemplate.
+	// Entity parts skip UV work, they already have their own. Sprites skip as their images must not tile.
+	if (source.role === "entity-part" || sprite !== null) return { mesh };
+
+	// Bake noise per face on terrain, obstacles and water.
 	const textureBlueprint = VISUAL_TEMPLATES.textures[texture.id];
 	if (
 		["terrain", "obstacle", "water"].includes(source.role) && 
 		textureBlueprint.pattern === "noise" && 
 		!geometry.uvs && geometry.faceGroups.every(g => g.indexStart !== undefined)
 	) {
-		const textureScale = source.textureScale;
 		const { uvs: normalizedUvs, faceSpans } = GenerateFaceProjectedUvs(geometry.positions, geometry.faceGroups, true);
 		mesh.geometry.uvs = normalizedUvs;
 
 		mesh.geometry.faceTextureGroups = BuildFaceTextureData(
 			source.faceTextureStore, mesh.material.textureID, 
 			ResolveTextureBlueprint(textureBlueprint, texture), 
-			geometry.faceGroups, faceSpans, textureScale, 
+			geometry.faceGroups, faceSpans, source.textureScale, 
 			BuildNoiseAnimationOptions(textureBlueprint, texture)
 		);
 		return { mesh };
 	}
 
-	// Frequency patterns: scale UVs by composed frequency. textureBlueprint absent for scatter/material-only parts.
+	// Repeat frequency patterns based on their density. Scatter and material-only parts have no pattern.
 	const frequencyConfigKey = textureBlueprint === undefined ? undefined : FREQUENCY_PATTERN_CONFIG[textureBlueprint.pattern];
 	if (frequencyConfigKey !== undefined) {
-		// visible periods per CNU = blueprint.density × cfg.Density × part.density
 		const uvScale = textureBlueprint.density * CONFIG.Rendering.Texture[frequencyConfigKey].Density * texture.density;
 		for (let i = 0; i < mesh.geometry.uvs.length; i++) mesh.geometry.uvs[i] *= uvScale;
 	}
@@ -426,10 +432,11 @@ function BuildObject(source) {
 	return { mesh };
 }
 
-function UpdateObjectWorldAabb(mesh) {
-	mesh.worldAabb = computeWorldAabbFromGeometry(mesh.geometry.positions, mesh.transform);
+// Refit a moved mesh's world box and collision bounds. A rough box only places its local bounds.
+function UpdateObjectWorldAabb(mesh, rough) {
+	mesh.worldAabb      = computeMeshWorldAabb(mesh, rough);
 	mesh.detailedBounds = computeDetailedBounds(mesh);
 	return mesh.worldAabb;
 }
 
-export { BuildObject, UpdateObjectWorldAabb, ComputeWorldAabbFromBounds, GenerateUVs, GenerateFaceProjectedUvs };
+export { BuildObject, UpdateObjectWorldAabb, GenerateUVs, GenerateFaceProjectedUvs };

@@ -102,7 +102,7 @@ function resetCollisionPools() {
 
 const buildActivePairKey = (candidate) => `${candidate.type}|${candidate.pairId}`;
 
-// The entity's own cached pairs, created on first use.
+// Get the entity's cached pairs, creating them on first use.
 function entityPairs(entity) {
 	if (!activeCollisionPairCache.has(entity)) activeCollisionPairCache.set(entity, new Map());
 	return activeCollisionPairCache.get(entity);
@@ -118,7 +118,7 @@ function cacheActiveCollisionPair(entity, candidate, normal, depth) {
 		dominantAxis,
 		positionAxisValue: entity.transform.position[dominantAxis],
 		rotationAxisValue: entity.transform.rotation[dominantAxis],
-		normal: CloneVector3(normal),
+		normal           : CloneVector3(normal),
 		depth,
 	});
 }
@@ -149,9 +149,9 @@ function buildContactFromCachedPair(entry) {
  * CANDIDATES
  * ======================================================================== */
 
-// Entity candidates read the entity's current bounds; world candidates carry their own.
+// Read an entity candidate's current bounds. World candidates carry their own.
 const candidateAabb   = (candidate) => candidate.type === "entity" ? candidate.ref.collision.aabb : candidate.aabb;
-const candidateBounds = (candidate) => candidate.type === "entity" ? candidate.ref.collision.detailedBounds : candidate.detailedBounds;
+const candidateBounds = (candidate) => candidate.type === "entity" ? candidate.ref.collision.physics.bounds : candidate.detailedBounds;
 
 // Terrain keeps its flags on the mesh meta, obstacles on the record.
 const surfaceFlags = (source, isTerrain) => isTerrain ? source.meta : source;
@@ -159,7 +159,7 @@ const surfaceFlags = (source, isTerrain) => isTerrain ? source.meta : source;
 // The voids that carve terrain, or the ones that carve obstacles.
 const HostVoids = (sceneGraph, isTerrain) => isTerrain ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles;
 
-// True when the point is farther than reach outside the box on x or z.
+// Check whether a point is farther than reach outside the box on x or z.
 function outsideReachXZ(point, aabb, reach) {
 	return point.x < aabb.min.x - reach || point.x > aabb.max.x + reach || point.z < aabb.min.z - reach || point.z > aabb.max.z + reach;
 }
@@ -203,8 +203,7 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 		});
 	});
 
-	// Floor and wall faces enter as separate candidates.
-	// sourceType is the category they resolve under, matching the ground probe.
+	// Add floor and wall faces as separate candidates, under the category they resolve as in the ground probe.
 	function collectVoidWalls(entries, sourceType) {
 		for (const entry of entries) for (const id in entry.relations) {
 			for (const voidWall of entry.relations[id].voidWallMeshes) {
@@ -253,10 +252,10 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 		});
 	}
 
-	// Other solid entities; particles are skipped so an emitter can't block its own burst.
+	// Add solid entities. Skip particles, which would block their own burst, and entities without collision.
 	if (includeEntities) {
 		sceneGraph.entities.forEach(ent => {
-			if (ent.type === "player" || ent.type === "particle" || !ent.collision.detailedBounds) return;
+			if (ent.type === "player" || ent.type === "particle" || ent.collision === null || !ent.collision.physics.bounds) return;
 			if (!withinSimRadius(ent.collision.aabb)) return;
 			candidates.push({ id: ent.id, pairId: ent.id, isTrigger: false, type: "entity", ref: ent });
 		});
@@ -265,7 +264,7 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 	return candidates;
 }
 
-// The body is tested where bodyAabb and bodyBounds place it; a void cancels a contact only where the material behind it was carved away.
+// Check whether a void carved away the material behind a body's contact.
 function isVoidCancelled(candidate, sceneGraph, bodyAabb, bodyBounds, contact) {
 	if (candidate.type !== "terrain" && candidate.type !== "obstacle") return false;
 
@@ -307,7 +306,7 @@ function IsPointInSuppressingVoid(supportPt, candidateId, voids) {
  * RESULT HELPERS
  * ======================================================================== */
 
-// pushDepth is how far the contact pushes the body back out; swept hits push none.
+// Fill a pooled solid result. pushDepth is how far to push the body back out, and swept hits use 0.
 function fillSolidResult(candidate, tEntry, contact, pushDepth) {
 	const item      = poolPush(solidResultPool);
 	item.tEntry     = tEntry;
@@ -339,27 +338,22 @@ const GetEntityPhysicsFlags = (e) => e.type === "player" ? e.character.physics :
  * @returns {{ solids: {items, count}, triggers: {items, count} }}
  */
 function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
-	const isPlayer = entity.type === "player";
-
-	// Determine swept mode from entity physics shape.
-	const useSphereSwept = entity.collision.physics.shape === "sphere";
-
 	// For sphere swept: get radius from physics bounds.
 	let sphereCenter = null, sphereRadius = 0;
-	if (useSphereSwept) {
+	if (entity.collision.physics.shape === "sphere") {
 		sphereCenter = entity.collision.physics.bounds.center;
 		sphereRadius = entity.collision.physics.bounds.radius.value;
 	}
 
 	// Trace the body's path when moving fast, to prevent phasing through triangle-soup surfaces.
-	const bodyHalf = AabbHalfExtents(entity.collision.aabb);
-	const reach = Math.min(bodyHalf.x, bodyHalf.y, bodyHalf.z);
-	const moveLength = Math.sqrt(Vector3Sq(displacement));
-	const bodyCenter = AabbCenter(entity.collision.aabb);
+	const bodyHalf       = AabbHalfExtents(entity.collision.aabb);
+	const reach          = Math.min(bodyHalf.x, bodyHalf.y, bodyHalf.z);
+	const moveLength     = Math.sqrt(Vector3Sq(displacement));
+	const bodyCenter     = AabbCenter(entity.collision.aabb);
 	const traceDirection = moveLength > reach ? ScaleVector3(displacement, 1 / moveLength) : null;
-	const tracePath = SegmentQueryBox(bodyCenter, AddVector3(bodyCenter, displacement), 0);
+	const tracePath      = SegmentQueryBox(bodyCenter, AddVector3(bodyCenter, displacement), 0);
 
-	// The body moved through the whole displacement, placed once on first need.
+	// Place the body at the end of the move, once, on first use.
 	let endBody = null;
 	function bodyAtEnd() {
 		if (endBody === null) {
@@ -386,11 +380,11 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 		const detailedBounds = candidateBounds(candidate);
 
 		// Swept test.
-		const swept = useSphereSwept
+		const swept = entity.collision.physics.shape === "sphere"
 			? SweptSphereBounds(sphereCenter, displacement, sphereRadius, detailedBounds, aabb)
 			: SweptAABB(bodyCenter, displacement, bodyHalf, aabb);
 
-		// Stops the body short of the first surface its path would pass through.
+		// Stop the body short of the first surface its path would pass through.
 		if (traceDirection !== null && detailedBounds.type === "triangle-soup" && AabbOverlap(tracePath, aabb)) {
 			let crossing = null;
 			for (const triangle of detailedBounds.triangles) {
@@ -410,18 +404,18 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 		}
 
 		if (swept.hit && swept.tEntry >= 0 && swept.tEntry <= 1) {
-			// The player's contact is taken at the end of the move, else at the swept entry.
-			if (isPlayer) {
-				const end = bodyAtEnd();
+			// Take the player's contact at the end of the move, else at the swept entry.
+			if (entity.type === "player") {
+				const end   = bodyAtEnd();
 				let contact = NarrowphaseContact(end.bounds, detailedBounds);
 				if (!contact.hit) contact = NarrowphaseContact(OffsetDetailedBounds(entity.collision.physics.bounds, ScaleVector3(displacement, swept.tEntry)), detailedBounds);
 				if (contact.hit && !isVoidCancelled(candidate, sceneGraph, end.aabb, end.bounds, contact)) fillSolidResult(candidate, swept.tEntry, contact, 0);
 				continue;
 			}
 
-			// Other entities reuse this candidate's cached contact until they move along its push axis.
+			// Reuse the cached contact for other entities until they move along its push axis.
 			const cachedPair = readReusableActiveCollisionPair(entity, candidate);
-			const contact = cachedPair
+			const contact    = cachedPair
 				? buildContactFromCachedPair(cachedPair)
 				: NarrowphaseContact(OffsetDetailedBounds(entity.collision.physics.bounds, ScaleVector3(displacement, swept.tEntry)), detailedBounds);
 			if (!contact.hit) {
@@ -443,8 +437,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 	// Sort solids by time of entry (closest first).
 	const solidSlice = solidResultPool.items;
 	for (let i = 1; i < solidResultPool.count; i++) {
-		const key = solidSlice[i];
-		const keyT = key.tEntry;
+		const key = solidSlice[i], keyT = key.tEntry;
 		let j = i - 1;
 		while (j >= 0 && solidSlice[j].tEntry > keyT) {
 			solidSlice[j + 1] = solidSlice[j];
@@ -514,7 +507,7 @@ function DetectCombatOverlaps(playerState, entities) {
 
 	for (const entity of entities) {
 		if (entity === playerState || entity.type === "collectible" || entity.type === "particle") continue;
-		if (!entity.performance.physics) continue;
+		if (!entity.performance.physics || entity.collision === null) continue;
 
 		// Broadphase: player AABB vs entity AABB.
 		if (!AabbOverlap(playerState.collision.aabb, entity.collision.aabb)) continue;
@@ -526,8 +519,8 @@ function DetectCombatOverlaps(playerState, entities) {
 		) {
 			const item = poolPush(hurtboxResultPool);
 			item.attacker = playerState;
-			item.target = entity;
-			item.type = "player-attacks";
+			item.target   = entity;
+			item.type     = "player-attacks";
 		}
 
 		// Entity hitbox active → entity attacks player.
@@ -535,10 +528,10 @@ function DetectCombatOverlaps(playerState, entities) {
 			entity.hitboxActive && Hurtbox && entity.collision.hitbox && playerState.collision.hurtbox &&
 			NarrowphaseContact(entity.collision.hitbox.bounds, playerState.collision.hurtbox.bounds).hit
 		) {
-			const item = poolPush(hurtboxResultPool);
+			const item    = poolPush(hurtboxResultPool);
 			item.attacker = entity;
-			item.target = playerState;
-			item.type = "entity-attacks";
+			item.target   = playerState;
+			item.type     = "entity-attacks";
 		}
 	}
 
@@ -577,9 +570,9 @@ function ResolveCollisions(velocity, displacement, solids, fold) {
 	for (let i = 0; i < solids.count; i++) {
 		const collision = solids.items[i];
 		// A voidWall resolves under its source category
-		const surfaceType = collision.sourceType || collision.type;
+		const surfaceType        = collision.sourceType || collision.type;
 		const isSurfaceCandidate = surfaceType === "terrain" || surfaceType === "obstacle";
-		const wallApproach = isSurfaceCandidate ? HorizontalApproach(velocity, collision.normal) : 0;
+		const wallApproach       = isSurfaceCandidate ? HorizontalApproach(velocity, collision.normal) : 0;
 
 		if (isSurfaceCandidate && collision.normal.y > 0.5) {
 			if (
@@ -618,7 +611,7 @@ function ResolveCollisions(velocity, displacement, solids, fold) {
  * ======================================================================== */
 
 /**
- * Ground probe from the capsule cylinder bottom: the nearest point on each surface in reach, not yet classified.
+ * Probe for ground from the bottom of the capsule's cylinder, finding the nearest point on each surface in reach before classifying them.
  *
  * @param {object} entity — the probe capsule is its frozen rest capsule, placed and rotated.
  * @param {object} sceneGraph
@@ -635,18 +628,19 @@ function GatherGroundHits(entity, sceneGraph, groundSnapTolerance) {
 	const maxDist       = radius + groundSnapTolerance;
 	const hits = [];
 
-	// Tests each terrain and obstacle candidate gathered for this step.
+	// Test each terrain and obstacle candidate gathered for this step.
 	for (const candidate of entity.performance.collision) {
 		const isTerrain = candidate.type === "terrain";
 		if (!isTerrain && candidate.type !== "obstacle") continue;
 
 		const bounds = candidate.detailedBounds;
 		let hit = null;
-		if      (bounds.type === "aabb") hit = PointAabbFaceGap(probe, bounds, maxDist);
-		else if (bounds.type === "obb")  hit = PointObbFaceGap(probe, bounds, maxDist);
-		else if (bounds.type === "triangle-soup") {
-			if (outsideReachXZ(probe, candidate.aabb, maxDist)) continue;
-			hit = NearestFrontTriangle(probe, bounds, maxDist);
+		switch (bounds.type) {
+			case "aabb": hit = PointAabbFaceGap(probe, bounds, maxDist); break;
+			case "obb" : hit = PointObbFaceGap(probe, bounds, maxDist);  break;
+			case "triangle-soup": 
+				if (outsideReachXZ(probe, candidate.aabb, maxDist)) continue;
+				hit = NearestFrontTriangle(probe, bounds, maxDist); break;
 		}
 		if (hit === null) continue;
 
@@ -655,14 +649,13 @@ function GatherGroundHits(entity, sceneGraph, groundSnapTolerance) {
 		hits.push({ t: hit.t, normal: hit.normal, surfaceId: candidate.ref.id, sticky: flags.sticky });
 	}
 
-	// Keeps a lining soup's nearest front-facing triangle as a hit.
+	// Keep a lining soup's nearest front-facing triangle as a hit.
 	function pushSoupHit(soup, surfaceId, sticky) {
 		const hit = NearestFrontTriangle(probe, soup, maxDist);
 		if (hit) hits.push({ t: hit.t, normal: hit.normal, surfaceId, sticky });
 	}
 
-	// Void-wall lining, both soups.
-	// A lining is its own surface: it carries the void's id and stickiness, not its host's.
+	// Probe both soups of each void-wall lining, as the void's own surface with its id and stickiness.
 	function probeVoidWalls(entries, isTerrain) {
 		for (const entry of entries) {
 			const sticky = surfaceFlags(entry, isTerrain).sticky;
@@ -670,7 +663,7 @@ function GatherGroundHits(entity, sceneGraph, groundSnapTolerance) {
 				for (const voidWall of entry.relations[id].voidWallMeshes) {
 					if (outsideReachXZ(probe, voidWall.worldAabb, maxDist)) continue;
 					pushSoupHit(voidWall.floorBounds, entry.id, sticky);
-					pushSoupHit(voidWall.wallBounds, entry.id, sticky);
+					pushSoupHit(voidWall.wallBounds,  entry.id, sticky);
 				}
 			}
 		}
@@ -681,22 +674,20 @@ function GatherGroundHits(entity, sceneGraph, groundSnapTolerance) {
 	return { radius, hits };
 }
 
-// Surface class of a hit; the player's grip depends on its speed along the surface, while sticky hits and other entities always grip.
+// Classify a ground hit. The player grips by its speed along the surface, while sticky hits and other entities always grip.
 function groundHitContact(entity, hit, frameStart) {
 	const tangent    = SubtractVector3(entity.velocity, ScaleVector3(hit.normal, DotVector3(entity.velocity, hit.normal)));
 	const speedRatio = entity.type === "player" && !hit.sticky ? Math.sqrt(Vector3Sq(tangent)) / entity.character.meta.maxSpeed.value : Infinity;
 	return ClassifySurface(frameStart.referenceNormal, hit.normal, entity.surfaceContact, entity.underwater, speedRatio, entity.gripDemand);
 }
 
-// Whether a hit beats the one chosen so far: walkable over sliding, then nearest; the coupled surface only breaks ties.
+// Check whether a hit beats the one chosen so far: walkable over sliding, then nearest, with the coupled surface breaking ties.
 function outranks(hit, contact, chosen, chosenContact, coupledId) {
-	if (contact !== chosenContact)            return contact === "walkable";
-	if (Math.abs(hit.t - chosen.t) > EPSILON) return hit.t < chosen.t;
-	return hit.surfaceId === coupledId;
+	return contact !== chosenContact ? contact === "walkable" : Math.abs(hit.t - chosen.t) > EPSILON ? hit.t < chosen.t : hit.surfaceId === coupledId;
 }
 
 /**
- * Classifies the probe's hits on the entity's current state and picks the ground among them.
+ * Classify the probe's hits on the entity's current state and pick the ground among them.
  * This is the sole authority on player grounding state, surface class and snap target.
  * Penetration pushout is unaffected — the capsule narrowphase handles that separately.
  *
@@ -706,7 +697,7 @@ function outranks(hit, contact, chosen, chosenContact, coupledId) {
  * @returns {{ hit: boolean, normal?: object, contact?: string, restDelta?: number, surfaceId: string | null }}
  */
 function PickGroundContact(entity, probe, frameStart) {
-	// Picks the best-ranked hit; walls never ground.
+	// Pick the best-ranked hit. Walls never ground.
 	let chosen = null, chosenContact = null;
 	for (const hit of probe.hits) {
 		const contact = groundHitContact(entity, hit, frameStart);

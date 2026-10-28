@@ -109,10 +109,9 @@ function advanceCarriedForward(frame, cameraForward, cameraYaw, up, grounded, re
 
 		// Transport keeps the heading's angle to the fold.
 		const transported = ProjectOntoPlane(RotateByEuler(
-			carryAcross(frame.carriedForward, frame.lastUp, up, 
-			{ x: 0, y: Math.atan2(Math.sin(raw), Math.cos(raw)), z: 0 }), 
-			up
-		));
+			carryAcross(frame.carriedForward, frame.lastUp, up),
+			{ x: 0, y: Math.atan2(Math.sin(raw), Math.cos(raw)), z: 0 }
+		), up);
 		if (Vector3Length(transported) >= minTangent) return ResolveVector3Axis(transported);
 	}
 

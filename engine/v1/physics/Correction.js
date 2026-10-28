@@ -22,7 +22,7 @@ const CORRECTION_DISABLED = Object.freeze({
 	anyChanged        : false,
 });
 
-// Contact-less orientation: world up, velocity untouched. The last surface pose holds through the grace.
+// Release the entity from its surface. Orient to world up, keep its velocity, and hold the last pose through the contact grace.
 function releasedSurface(entity) {
 	const changedContact = entity.surfaceContact !== "none";
 	let contactGrace     = entity.contactGrace;
@@ -33,23 +33,22 @@ function releasedSurface(entity) {
 	const changedOrientation = !held && hasMeaningfulVectorDelta(entity.alignedUp, WORLD_NORMALS.Up);
 
 	return {
-		surfaceContact: "none",
+		surfaceContact : "none",
 		contactGrace,
-		surfaceNormal : held ? entity.surfaceNormal : CloneVector3(WORLD_NORMALS.Up),
-		alignedUp     : held ? entity.alignedUp : CloneVector3(WORLD_NORMALS.Up),
-		velocity      : entity.velocity,
+		surfaceNormal  : held ? entity.surfaceNormal : CloneVector3(WORLD_NORMALS.Up),
+		alignedUp      : held ? entity.alignedUp : CloneVector3(WORLD_NORMALS.Up),
+		velocity       : entity.velocity,
 		changedContact, changedOrientation,
 		changedPosition: false,
 		changedVelocity: false,
-		anyChanged: changedContact || changedOrientation,
+		anyChanged     : changedContact || changedOrientation,
 	};
 }
 
 const angleBetweenDegrees = (a, b) => (AngleBetweenVector3(a, b) * 180) / Math.PI;
+const angleLimitsFor      = (underwater) => CONFIG.Physics.Correction.MaxAngleDelta[underwater ? "Water" : "Air"];
 
-const angleLimitsFor = (underwater) => CONFIG.Physics.Correction.MaxAngleDelta[underwater ? "Water" : "Air"];
-
-// What the correction loop keeps fixed for the whole step, plus this step's decayed contact grace.
+// Capture what the correction loop keeps fixed for the step, plus this step's decayed contact grace.
 function GetCorrectionFrame(entity, physicsState) {
 	const groundLimit = angleLimitsFor(entity.underwater).Ground;
 	const keptFooting = entity.grounded && !entity.launched;
@@ -66,19 +65,19 @@ function GetCorrectionFrame(entity, physicsState) {
 }
 
 /**
- * Eases the grip demand toward the contact surface's share of top speed; held while airborne.
+ * Ease the grip demand toward the contact surface's share of top speed, holding it while airborne.
  * The target grows with gravity support lost past `Ground`: none there, full `MinGripSpeed` upside down.
  */
 function GetGripDemand(entity, groundContact, deltaSeconds) {
 	if (!groundContact.hit) return entity.gripDemand;
-	const minGrip = CONFIG.Physics.Correction.MinGripSpeed[entity.underwater ? "Water" : "Air"];
+
+	const minGrip       = CONFIG.Physics.Correction.MinGripSpeed[entity.underwater ? "Water" : "Air"];
 	const groundSupport = Math.cos((angleLimitsFor(entity.underwater).Ground * Math.PI) / 180);
-	const target = Math.max(0, minGrip * (groundSupport - groundContact.normal.y) / (groundSupport + 1));
-	const step = (minGrip / GROUNDING.GripRampMs) * deltaSeconds * 1000;
-	return entity.gripDemand + Clamp(target - entity.gripDemand, -step, step);
+	const step          = (minGrip / GROUNDING.GripRampMs) * deltaSeconds * 1000;
+	return entity.gripDemand + Clamp(Math.max(0, minGrip * (groundSupport - groundContact.normal.y) / (groundSupport + 1)) - entity.gripDemand, -step, step);
 }
 
-// Off every surface the reference decays toward world up; moving on walkable ground adopts that surface.
+// Decay the reference toward world up off every surface, or adopt the surface while moving on walkable ground.
 function GetReferenceNormal(entity, deltaSeconds) {
 	return entity.surfaceContact === "none" && entity.contactGrace <= EPSILON
 		? RotateTowardVector3(entity.referenceNormal, WORLD_NORMALS.Up, DegreesToRadians(CONFIG.Physics.Correction.ReferenceReleaseRate) * deltaSeconds)
@@ -88,8 +87,8 @@ function GetReferenceNormal(entity, deltaSeconds) {
 }
 
 /**
- * Pure surface classification: `incline` gates standing, `delta` gates transitioning steeper.
- * `currentContact` tightens the walkable limit to `Recover` mid-slide — hysteresis.
+ * Classify a surface as walkable, sliding or wall. `incline` gates standing, and `delta` gates moving onto something steeper.
+ * `currentContact` tightens the walkable limit to `Recover` mid-slide, to stop it flickering between states.
  * Past the `Ground` incline, `speedRatio` (speed along the surface / top speed) below `gripDemand` slides instead.
  * @returns {"walkable" | "sliding" | "wall"}
  */
@@ -124,6 +123,10 @@ function GetSurfaceCorrection(entity, groundContact, frameStart) {
 	if (!groundContact.hit) return releasedSurface(entity);
 
 	const normal  = ResolveVector3Axis(groundContact.normal);
+
+	// Release a surface that a launch is still moving away from.
+	if (entity.launched && DotVector3(normal, entity.velocity) > EPSILON) return releasedSurface(entity);
+
 	const incline = angleBetweenDegrees(normal, WORLD_NORMALS.Up);
 	const contact = groundContact.contact;
 
@@ -157,13 +160,15 @@ function GetSurfaceCorrection(entity, groundContact, frameStart) {
 		let newVelocity = SubtractVector3(velocity, ScaleVector3(normal, alongNormal));
 
 		// A fold's lift, already turned by the collision slide, keeps its speed.
-		if (alongNormal > 0 && contact === "walkable" && Vector3Length(newVelocity) > EPSILON) newVelocity = ScaleVector3(ResolveVector3Axis(newVelocity), Vector3Length(velocity));
+		if (alongNormal > 0 && contact === "walkable" && Vector3Length(newVelocity) > EPSILON) {
+			newVelocity = ScaleVector3(ResolveVector3Axis(newVelocity), Vector3Length(velocity));
+		}
 		changedVelocity = changedVelocity || hasMeaningfulVectorDelta(velocity, newVelocity);
 		velocity = newVelocity;
 	}
 
-	const isFlat = incline <= CONFIG.Physics.Correction.FlatSnapDegrees;
 	// Near-flat stands upright; the real normal is still kept for tracking.
+	const isFlat = incline <= CONFIG.Physics.Correction.FlatSnapDegrees;
 	const targetUp = isFlat ? WORLD_NORMALS.Up : normal;
 	const changedOrientation = hasMeaningfulVectorDelta(entity.alignedUp, targetUp);
 
@@ -211,9 +216,12 @@ function GetGroundSnap(entity, groundContact, groundSnapTolerance) {
 	};
 }
 
-// Pivot about the contact cap while touching a surface; about the body's center when releasing one.
+// Pivot about the contact cap while touching a surface, the body's center when releasing one, or the full box's center without collision.
 function PoseAnchor(entity) {
-	const local = entity.surfaceContact !== "none" ? entity.collision.rest.groundCapsule.segmentStart : AabbCenter(entity.collision.rest.aabb);
+	const { collision, surfaceContact } = entity;
+	const local = collision === null
+		? AabbCenter(entity.model.restFullAabb)
+		: surfaceContact !== "none" ? collision.rest.groundCapsule.segmentStart : AabbCenter(collision.rest.aabb);
 	return MultiplyVector3(local, entity.transform.scale);
 }
 

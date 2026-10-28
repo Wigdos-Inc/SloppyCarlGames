@@ -286,6 +286,12 @@ const FILTER_TUNING = DeepFreeze({
   },
 });
 
+// Sprite look.
+const SPRITE_TUNING = DeepFreeze({
+  FadeStart         : 0.85,                               // Fraction of a sprite's range where its fade begins
+  ScreenSizeDistance: new Unit(10, "cnu"),                // Constant-size sprites always look as big as they would from this far
+});
+
 // Debug overlay colors per object type.
 const DEBUG_COLORS = DeepFreeze({
   BoundingBoxes: {
@@ -393,6 +399,7 @@ export {
   MOVEMENT_TUNING, 
   CAMERA_TUNING,
   FILTER_TUNING,
+  SPRITE_TUNING,
   DEBUG_COLORS,
   SKY_STOP_LIMIT,
   CARVE_GRID_TRIANGLES_PER_CELL 

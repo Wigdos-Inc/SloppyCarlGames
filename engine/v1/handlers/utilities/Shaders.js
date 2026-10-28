@@ -1,6 +1,6 @@
 // Defines and exports all applicable shaders for Render.js
 
-import { CONFIG, DEBUG_COLORS, FILTER_TUNING, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../../core/config.js";
+import { CONFIG, DEBUG_COLORS, FILTER_TUNING, PERFORMANCE_SCALING, SKY_STOP_LIMIT, SPRITE_TUNING } from "../../core/config.js";
 import { Log } from "../../core/meta.js";
 import { ResolveVector3Axis } from "../../math/Vector3.js";
 
@@ -269,6 +269,120 @@ function EntityTriplanarProgram(gl) {
 	});
 }
 
+function SpriteProgram(gl) {
+	const referenceDistance = SPRITE_TUNING.ScreenSizeDistance.toWorldUnit();
+
+	// Turn the plane around its center to follow the camera.
+	const vertexShaderSource = `#version 300 es
+		in vec3 a_position;
+		in vec2 a_uv;
+		uniform mat4 u_projection;
+		uniform mat4 u_view;
+		uniform mat4 u_model;
+		uniform vec3 u_cameraPosition;
+		uniform float u_follow;
+		uniform float u_distanceScaling;
+		out vec2 v_uv;
+		out vec3 v_viewPos;
+		out float v_centerDistance;
+		void main() {
+			vec3 center = (u_model * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+			float centerDistance = length((u_view * vec4(center, 1.0)).xyz);
+
+			// Follow the camera's orientation, not its position. Passing over or beside a sprite then never turns it.
+			vec3 cameraRight = vec3(u_view[0][0], u_view[1][0], u_view[2][0]);
+			vec3 cameraBack  = vec3(u_view[0][2], u_view[1][2], u_view[2][2]);
+
+			// Start from the part's own right, up and front, each as long as its scale. Not following keeps them.
+			vec3 size = vec3(length(u_model[0].xyz), length(u_model[1].xyz), length(u_model[2].xyz));
+			mat3 axes = mat3(u_model);
+
+			// Full: take the camera's right, up and backward, laying the plane flat on the screen.
+			if (u_follow > 2.5) {
+				vec3 cameraUp = vec3(u_view[0][1], u_view[1][1], u_view[2][1]);
+				axes = mat3(cameraRight * size.x, cameraUp * size.y, cameraBack * size.z);
+			}
+
+			// Vertical: tilt around the part's right toward the camera's height, measured from where the camera is.
+			else if (u_follow > 1.5) {
+				vec3 right = u_model[0].xyz / size.x;
+				vec3 up    = u_model[1].xyz / size.y;
+				vec3 front = cross(right, up);
+				vec3 toCamera = u_cameraPosition - center;
+				float ahead = dot(toCamera, front);
+				float level = length(vec2(ahead, dot(toCamera, right)));
+
+				// Turn to whichever side the camera is on, keeping the image upright. The swap happens at the side, where it's edge-on.
+				float side = ahead < 0.0 ? -1.0 : 1.0;
+
+				// Lean toward the camera's height, easing to upright as the camera reaches the side.
+				float tilt = level > 1e-5 ? atan(dot(toCamera, up), level) * abs(ahead) / level : sign(dot(toCamera, up)) * 1.5707963;
+				vec3 face = front * side * cos(tilt) + up * sin(tilt);
+				axes = mat3(right * side * size.x, cross(face, right * side) * size.y, face * size.z);
+			}
+
+			// Horizontal: stand on world up and turn around it with the camera. Seen from straight above, it's edge-on.
+			else if (u_follow > 0.5) {
+				vec3 face = vec3(cameraBack.x, 0.0, cameraBack.z);
+				face = length(face) > 1e-5 ? normalize(face) : vec3(0.0, 0.0, 1.0);
+				axes = mat3(vec3(face.z, 0.0, -face.x) * size.x, vec3(0.0, size.y, 0.0), face * size.z);
+			}
+
+			// Without distance scaling, grow with distance to hold one size on screen.
+			vec3 offset = axes * a_position;
+			offset *= u_distanceScaling > 0.5 ? 1.0 : centerDistance / ${referenceDistance.toFixed(4)};
+			vec4 viewPos = u_view * vec4(center + offset, 1.0);
+
+			gl_Position = u_projection * viewPos;
+			v_uv = a_uv;
+			v_viewPos = viewPos.xyz;
+			v_centerDistance = centerDistance;
+		}
+	`;
+
+	// Fade out over the end of the fade range, and premultiply generated textures. A negative range never fades.
+	const fadeTexel = `float fade = u_fadeRange < 0.0 ? 1.0 : 1.0 - smoothstep(u_fadeRange * ${SPRITE_TUNING.FadeStart.toFixed(4)}, u_fadeRange, v_centerDistance);
+			vec4 texel = texture(u_texture, v_uv);
+			texel.rgb *= mix(texel.a, 1.0, u_premultiplied);`;
+
+	// Output premultiplied color, blended like decals.
+	return createLinkedProgram(gl, {
+		vertexShaderSource: vertexShaderSource,
+		fragmentShaderSource: createFoggedTextureFragmentShader(
+			"uniform vec4 u_tint; uniform float u_fadeRange; uniform float u_premultiplied;",
+			"vec4(texel.rgb * u_tint.rgb, texel.a) * (u_tint.a * fade)",
+			true,
+			"in vec2 v_uv; in float v_centerDistance;",
+			fadeTexel
+		),
+		attributeNames: {
+			position: "a_position",
+			uv      : "a_uv",
+		},
+		uniformNames: {
+			projection     : "u_projection",
+			view           : "u_view",
+			model          : "u_model",
+			texture        : "u_texture",
+			tint           : "u_tint",
+			cameraPosition : "u_cameraPosition",
+			follow         : "u_follow",
+			distanceScaling: "u_distanceScaling",
+			fadeRange      : "u_fadeRange",
+			premultiplied  : "u_premultiplied",
+			fogFull        : "u_fogFull",
+			colorShift     : "u_colorShift",
+			underwater     : "u_underwater",
+			skyStops       : "u_skyStops[0]",
+			skyStopCount   : "u_skyStopCount",
+			waterTint      : "u_waterTint",
+			comic          : "u_comic",
+		},
+		createError    : "WebGL sprite program creation failed",
+		linkErrorPrefix: "Sprite program link error",
+	});
+}
+
 function LineProgram(gl) {
 	const vertexShaderSource = `#version 300 es
 		in vec3 a_position;
@@ -320,16 +434,7 @@ const scatterCullGLSL = `
 `;
 
 function ScatterProgram(gl) {
-	// Instanced scatter shader: per-instance model matrix + tint via vertex attributes.
-	// Attribute layout:
-	//   0 = a_position (vec3)
-	//   1 = a_uv (vec2)
-	//   2 = a_instanceRow0 (vec4) — model matrix column 0
-	//   3 = a_instanceRow1 (vec4) — model matrix column 1
-	//   4 = a_instanceRow2 (vec4) — model matrix column 2
-	//   5 = a_instanceRow3 (vec4) — model matrix column 3
-	//   6 = a_instanceTint (vec4) — per-instance tint/opacity
-
+	// Draw scatter instances, each with its own model matrix and tint from vertex attributes.
 	const vertexShaderSource = `#version 300 es
 		layout(location = 0) in vec3 a_position;
 		layout(location = 1) in vec2 a_uv;
@@ -762,6 +867,7 @@ function FilterProgram(gl) {
 export default {
 	Program,
 	EntityTriplanarProgram,
+	SpriteProgram,
 	LineProgram,
 	ScatterProgram,
 	DecalProgram,

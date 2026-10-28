@@ -10,6 +10,7 @@ import characterTemplates from "./templates/characters.json" with { type: "json"
 import enemyTemplates from "./templates/enemies.json" with { type: "json" };
 import projectileTemplates from "./templates/projectiles.json" with { type: "json" };
 import { CloneVector3, ScaleVector3 } from "../math/Vector3.js";
+import { CloneTransform } from "../math/Utilities.js";
 
 /* === TEMPLATE CLONING === */
 // Field-wise clones keep the instanced template singletons pristine across placements.
@@ -27,6 +28,18 @@ function clonePrimitiveOptions(part) {
 				thickness    : node.thickness.clone(),
 			})),
 		};
+		case "plane": {
+			const { crossed, sprite } = part.primitiveOptions;
+			if (sprite === null) return { crossed, sprite };
+			return {
+				crossed,
+				sprite: {
+					...sprite,
+					range        : sprite.range === null ? null : sprite.range.clone(),
+					occludedRange: sprite.occludedRange === null ? null : sprite.occludedRange.clone(),
+				},
+			};
+		}
 		default: return structuredClone(part.primitiveOptions);
 	}
 }
@@ -36,11 +49,7 @@ function cloneTexture(texture) {
 		generated: structuredClone(texture.generated),
 		custom: texture.custom.map((decal) => ({
 			...decal,
-			localTransform: {
-				position: decal.localTransform.position.clone(),
-				rotation: decal.localTransform.rotation.clone(),
-				scale   : CloneVector3(decal.localTransform.scale),
-			},
+			localTransform: CloneTransform(decal.localTransform),
 		})),
 	};
 }
@@ -83,7 +92,7 @@ function cloneMovement(movement) {
 
 /* === OVERRIDES & REPEAT EXPANSION === */
 
-// Payload precedence: part override > ref-level override > template value.
+// Part override beats ref override. Ref override beats template.
 function applyPartOverride(part, override) {
 	if (override === undefined) return;
 	if (override.texture !== null) part.texture.generated = structuredClone(override.texture.generated);
@@ -92,8 +101,7 @@ function applyPartOverride(part, override) {
 	if (override.particle !== null) part.particle = cloneParticle(override.particle);
 }
 
-// count = additional copies. Copy i: position/rotation offset by i steps, scale multiplicative.
-// parentId copies verbatim — copies are siblings; children attach to the authored instance.
+// Turn each part's repeats into numbered sibling copies. Child parts stay on the original.
 function expandRepeats(parts) {
 	const expanded = [];
 	parts.forEach((part) => {
@@ -102,6 +110,7 @@ function expandRepeats(parts) {
 		expanded.push(part);
 		if (repeat === null) return;
 
+		// Move each copy one offset further than the last. Scale multiplies instead of adding.
 		const offset = repeat.offset;
 		for (let i = 1; i <= repeat.count; i++) {
 			const copy = CloneTemplatePart(part);
@@ -122,12 +131,12 @@ function expandRepeats(parts) {
 // Overrides apply to the authored part before expansion so repeat copies inherit them.
 function resolveParts(templateParts, overrides, refColor, refTexture) {
 	const overridesById = {};
-	overrides.forEach((entry) => { overridesById[entry.id] = entry; });
+	overrides.forEach((entry) => overridesById[entry.id] = entry);
 
 	const parts = templateParts.map((templatePart) => {
 		const part = CloneTemplatePart(templatePart);
 		if (refTexture !== null) part.texture.generated = structuredClone(refTexture.generated);
-		if (refColor !== null) part.texture.generated.primary = { ...refColor };
+		if (refColor !== null)   part.texture.generated.primary = { ...refColor };
 		applyPartOverride(part, overridesById[part.id]);
 		return part;
 	});

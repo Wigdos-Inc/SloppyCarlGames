@@ -109,7 +109,7 @@ async function BuildPlayerModel(character, playerData, surfaceMap) {
 
 	Log(
 		"ENGINE",
-		`Player model built: ${entity.model.parts.length} parts, collider=${entity.collision.shape}.`,
+		`Player model built: ${entity.model.parts.length} parts, collider=${entity.collision.physics.shape}.`,
 		"log",
 		"Level"
 	);

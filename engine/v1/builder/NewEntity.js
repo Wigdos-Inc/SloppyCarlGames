@@ -7,7 +7,7 @@
 // Uses NewObject.js to build model parts.
 // Uses NewTemplate.js to resolve blueprint sources.
 
-import { BuildObject, UpdateObjectWorldAabb, ComputeWorldAabbFromBounds } from "./NewObject.js";
+import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
 import { ResolveEntitySource } from "./NewTemplate.js";
 import {
 	AddVector3,
@@ -26,6 +26,7 @@ import {
 import { ComposeEulerRotations } from "../math/Matrix.js";
 import { AabbCenter, AabbHalfExtents, CapsuleFromAabb, ObbFromAabb, PointsAabb, SphereFromAabb } from "../math/Collision.js";
 import { Clamp01, CloneTransform, Unit, UnitVector3 } from "../math/Utilities.js";
+import { Log } from "../core/meta.js";
 
 // Default/Fallback model-pose turn rate. Per second.
 const defaultModelTurnRate = new Unit(450, "degrees").toRadians(true);
@@ -46,15 +47,16 @@ function getFaceCenterOffset(dimensions, faceType) {
 /* === TRANSFORM UTILITIES === */
 
 // Check whether the model is already posed at this transform.
-const poseMatchesTransform = (model, transform) => {
+function poseMatchesTransform(model, transform) {
 	return CompareVector3(model.posedTransform.position, transform.position) &&
-	CompareVector3(model.posedTransform.rotation, transform.rotation) &&
-	CompareVector3(model.posedTransform.scale, transform.scale);
+		CompareVector3(model.posedTransform.rotation, transform.rotation) &&
+		CompareVector3(model.posedTransform.scale, transform.scale);
 }
 
 // Check whether only the position changed. Then the pose can be shifted instead of rebuilt.
-const poseOrientationMatches = (model, transform) => {
-	return CompareVector3(model.posedTransform.rotation, transform.rotation) && CompareVector3(model.posedTransform.scale, transform.scale);
+function poseOrientationMatches(model, transform) {
+	return CompareVector3(model.posedTransform.rotation, transform.rotation) &&
+		CompareVector3(model.posedTransform.scale, transform.scale);
 }
 
 function ComposeTransform(parentTransform, localTransform) {
@@ -63,7 +65,7 @@ function ComposeTransform(parentTransform, localTransform) {
 	return {
 		position: localPosition.set(AddVector3(parentTransform.position, rotatedChildPos)),
 		rotation: localTransform.rotation.clone().set(ComposeEulerRotations(parentTransform.rotation, localTransform.rotation)),
-		scale: MultiplyVector3(parentTransform.scale, localTransform.scale),
+		scale   : MultiplyVector3(parentTransform.scale, localTransform.scale),
 	};
 }
 
@@ -82,8 +84,8 @@ function resolveInitialMovementProgress(movement, currentPosition) {
 	return Clamp01(projection);
 }
 
+// Move start and end from surface-local to world space, measured from the surface's top.
 function normalizeMovement(movement, surface) {
-	// Move start and end from surface-local to world space, measured from the surface's top.
 	const surfaceOrigin = getSurfaceOrigin(surface);
 	return {
 		...movement,
@@ -205,8 +207,9 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 	};
 	applyModelPose(model);
 
-	// Ground the whole model at the root parts.
-	model.rootTransform.position.y += model.rootTransform.position.y - computeEntityAabb(model).min.y;
+	// Ground the model by its collision box (no collidable parts = use full box instead).
+	const colliding = collidingParts(model);
+	model.rootTransform.position.y += model.rootTransform.position.y - computeEntityAabb(colliding.length > 0 ? colliding : parts).min.y;
 
 	// Snapshot default pose for future reference.
 	model.defaultPose = {
@@ -232,9 +235,7 @@ function applyModelPose(model) {
 		part.mesh.transform.scale = worldTransform.scale;
 
 		// Use a rough box for visual-only parts to skip fitting every vertex.
-		part.mesh.worldAabb = part.addsToBounds === false
-			? ComputeWorldAabbFromBounds(part.mesh.geometry.bounds, part.mesh.transform)
-			: UpdateObjectWorldAabb(part.mesh);
+		UpdateObjectWorldAabb(part.mesh, part.addsToBounds === false);
 
 		part.children.forEach((childId) => applyPart(childId, worldTransform));
 	};
@@ -245,12 +246,15 @@ function applyModelPose(model) {
 
 /* === AABB === */
 
-function computeEntityAabb(model) {
-	const corners  = model.parts.flatMap((part) => part.addsToBounds === false ? [] : [part.mesh.worldAabb.min, part.mesh.worldAabb.max]);
-	const { min, max } = PointsAabb(corners);
-	return { 
-		min: model.parts[0].mesh.worldAabb.min.clone().set(min), 
-		max: model.parts[0].mesh.worldAabb.max.clone().set(max) 
+// Collect parts with collision bounds.
+const collidingParts = (model) => model.parts.filter((part) => part.addsToBounds !== false);
+
+// Fit a box around the given parts' world boxes.
+function computeEntityAabb(parts) {
+	const { min, max } = PointsAabb(parts.flatMap((part) => [part.mesh.worldAabb.min, part.mesh.worldAabb.max]));
+	return {
+		min: parts[0].mesh.worldAabb.min.clone().set(min),
+		max: parts[0].mesh.worldAabb.max.clone().set(max)
 	};
 }
 
@@ -309,6 +313,7 @@ function computeCompoundSpheresFromModel(model) {
 	const spheres = [];
 	model.parts.forEach((part) => {
 		if (part.addsToBounds === false) return;
+
 		const sphere = SphereFromAabb(part.mesh.worldAabb, true);
 		spheres.push({
 			center: sphere.center,
@@ -413,7 +418,7 @@ function placeBoundsForShape(bounds, transform, model, trig) {
 	}
 }
 
-// Build an entity's physics (detailedBounds), hurtbox and hitbox bounds.
+// Build an entity's physics, hurtbox and hitbox bounds.
 function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverride) {
 
 	// Hurtbox bounds (null = immune to damage).
@@ -424,7 +429,7 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverri
 
 		// Shrink the player's hurtbox to 0.9× and grow a boss's to 1.05×.
 		switch(entityType) {
-			case "player": hurtbox = { shape, bounds: computeScaledBounds(bounds, 0.9) };  break;
+			case "player": hurtbox = { shape, bounds: computeScaledBounds(bounds, 0.90) }; break;
 			case "boss"  : hurtbox = { shape, bounds: computeScaledBounds(bounds, 1.05) }; break;
 			default      : hurtbox = { shape, bounds };                                    break;
 		}
@@ -444,41 +449,35 @@ function computeDetailedBoundsForEntity(entityType, aabb, model, collisionOverri
 	// Resolve "auto" to a sphere or capsule.
 	const shape  = resolvePhysicsShape(collisionOverride.physics, aabb);
 	const bounds = buildBoundsForShape(shape, aabb, model);
-	
-	return {
-		collisionShape: shape,
-		detailedBounds: bounds,
-		physics: { shape, bounds },
-		hurtbox, hitbox,
-	};
+	return { physics: { shape, bounds }, hurtbox, hitbox };
 }
 
-// Measure every collider at rest by posing the model at the origin, then restore its transform.
-function captureRestCollision(definition, model) {
-	const rootTransform = model.rootTransform;
-	const saved = CloneTransform(rootTransform);
+// Measure the full box and every collider at rest, with the model posed at the origin.
+function captureRestBounds(definition, model) {
+	const rt = model.rootTransform;
+	const saved = CloneTransform(rt);
 
-	rootTransform.position.set(ToVector3(0));
-	rootTransform.rotation.set(ToVector3(0));
-	rootTransform.scale = ToVector3(1);
+	rt.position.set(ToVector3(0));
+	rt.rotation.set(ToVector3(0));
+	rt.scale = ToVector3(1);
 	applyModelPose(model);
 
-	const aabb = computeEntityAabb(model);
-	const detailed = computeDetailedBoundsForEntity(definition.type, aabb, model, definition.collisionOverride);
-
-	rootTransform.position.set(saved.position);
-	rootTransform.rotation.set(saved.rotation);
-	rootTransform.scale = saved.scale;
-	applyModelPose(model);
-
-	return {
+	// Box the colliding parts, reusing the full box when every part collides.
+	const full      = computeEntityAabb(model.parts);
+	const colliding = collidingParts(model);
+	const aabb      = colliding.length === model.parts.length ? full : colliding.length > 0 ? computeEntityAabb(colliding) : null;
+	const collision = aabb === null ? null : {
 		aabb,
-		shape        : detailed.collisionShape,
-		physics      : detailed.physics,
-		hurtbox      : detailed.hurtbox,
-		hitbox       : detailed.hitbox,
 		groundCapsule: CapsuleFromAabb(aabb),
+		...computeDetailedBoundsForEntity(definition.type, aabb, model, definition.collisionOverride),
 	};
+
+	rt.position.set(saved.position);
+	rt.rotation.set(saved.rotation);
+	rt.scale = saved.scale;
+	applyModelPose(model);
+
+	return { full, collision };
 }
 
 /* === PUBLIC API === */
@@ -502,19 +501,11 @@ function NewInputFrame() {
 	}
 };
 
-/**
- * Build an entity from a merged definition.
- * @param {object} definition — merged blueprint + level overrides.
- * @param {object} surfaceMap — { [surfaceId]: { position, dimensions, scale, topY } }
- * @param {number} textureScale — world texture scale (px per CNU) for per-face generated textures.
- * @param {object} faceTextureStore — baked face textures, reused when a face's contents match.
- * @param {Map} geometryCache — part geometry shared by same-blueprint entities. null builds uncached.
- */
 function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geometryCache) {
 	definition = ResolveEntitySource(definition);
 
 	// Place the movement path relative to the spawn surface.
-	const movement = normalizeMovement(definition.movement, surfaceMap[definition.model.spawnSurfaceId]);
+	const movement  = normalizeMovement(definition.movement, surfaceMap[definition.model.spawnSurfaceId]);
 	const { model } = buildModel(definition, surfaceMap, textureScale, faceTextureStore, geometryCache);
 	const rootTrans = model.rootTransform;
 	const initialMovementProgress = resolveInitialMovementProgress(movement, rootTrans.position);
@@ -523,8 +514,17 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		rootTrans.position.set(LerpVector3(movement.start, movement.end, initialMovementProgress));
 	}
 
-	const rest = captureRestCollision(definition, model);
-	const simRadiusPadding = new Unit(8, "cnu");
+	const rest = captureRestBounds(definition, model);
+	model.restFullAabb = rest.full;
+
+	// Turn off collision and surface correction when no part collides.
+	if (rest.collision === null) {
+		if (movement.physics.correction) Log("ENGINE", `Entity ${definition.id} has no colliding parts. Turning off its correction.`, "warn", "Level");
+		movement.physics = { ...movement.physics, correction: false, collision: false };
+	}
+
+	// Flag entities whose sprites show through walls. Occlusion culling never hides them.
+	const showsThroughWalls = model.parts.some(({ mesh }) => mesh.sprite !== null && mesh.sprite.occludedRange !== null);
 
 	const { id, type, hp, attacks, hardcoded, platform, collisionOverride, customEvents, velocity, animations } = definition;
 	const { position, rotation, scale } = rootTrans;
@@ -555,20 +555,21 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		inputFrame: NewInputFrame(),
 		model,
 		mesh     : model.parts[0].mesh,
-		collision: {
-			rest, simRadiusPadding,
-			aabb          : null,
-			simRadiusAabb : null,
-			shape         : null,
-			detailedBounds: null,
-			physics       : null,
-			hurtbox       : null,
-			hitbox        : null,
+		collision: rest.collision === null ? null : {
+			rest            : rest.collision,
+			simRadiusPadding: new Unit(8, "cnu"),
+			aabb            : null,
+			simRadiusAabb   : null,
+			physics         : null,
+			hurtbox         : null,
+			hitbox          : null,
 		},
-		hitboxActive: rest.hitbox !== null,
+		fullAabb    : null,
+		hitboxActive: rest.collision !== null && rest.collision.hitbox !== null,
 		performance : { physics: true, rendering: true, animatedTexture: true, collision: false },
 		animations,
 		particle: null,
+		showsThroughWalls,
 		state   : {
 			movementProgress: initialMovementProgress,
 			direction       : 1,
@@ -585,32 +586,36 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		},
 	};
 
-	assignCollisionBounds(entity);
+	assignEntityBounds(entity);
 	return { entity };
 }
 
-// Place every collision layer's rest shape at the entity's transform.
-function assignCollisionBounds(entity) {
-	const { aabb, physics, hurtbox, hitbox, shape } = entity.collision.rest;
+// Place the different bounds layers at the entity's transform.
+function assignEntityBounds(entity) {
 	const { collision, model, transform } = entity;
 	const trig = computeRotationTrig(transform.rotation);
 
-	entity.collision.aabb = placeAabbEnclosure(aabb, transform.position, transform.scale, trig);
-	entity.collision.simRadiusAabb = computeExpandedAabb(collision.aabb, collision.simRadiusPadding);
-	entity.collision.shape = shape;
-	entity.collision.physics = { shape: physics.shape, bounds: placeBoundsForShape(physics.bounds, transform, model, trig) };
-	entity.collision.detailedBounds = entity.collision.physics.bounds;
-	entity.collision.hurtbox = hurtbox === null 
-		? null 
+	entity.fullAabb = placeAabbEnclosure(model.restFullAabb, transform.position, transform.scale, trig);
+	if (collision === null) return;
+
+	const { aabb, physics, hurtbox, hitbox } = collision.rest;
+
+	// Reuse the full box when it's also the collision box.
+	collision.aabb = aabb === model.restFullAabb ? entity.fullAabb : placeAabbEnclosure(aabb, transform.position, transform.scale, trig);
+
+	collision.simRadiusAabb = computeExpandedAabb(collision.aabb, collision.simRadiusPadding);
+	collision.physics = { shape: physics.shape, bounds: placeBoundsForShape(physics.bounds, transform, model, trig) };
+	collision.hurtbox = hurtbox === null
+		? null
 		: { shape: hurtbox.shape, bounds: placeBoundsForShape(hurtbox.bounds, transform, model, trig) };
-	entity.collision.hitbox  = hitbox  === null 
-		? null 
+	collision.hitbox  = hitbox  === null
+		? null
 		: { shape: hitbox.shape,  bounds: placeBoundsForShape(hitbox.bounds, transform, model, trig) };
 }
 
 function refreshEntityDerivedState(entity) {
 	applyModelPose(entity.model);
-	assignCollisionBounds(entity);
+	assignEntityBounds(entity);
 }
 
 // Shift every posed part by delta. Only valid while rotation and scale are unchanged.
@@ -621,7 +626,7 @@ function translateEntityDerivedState(entity, delta) {
 		part.mesh.worldAabb.max.add(delta);
 	});
 	entity.model.posedTransform.position.add(delta);
-	assignCollisionBounds(entity);
+	assignEntityBounds(entity);
 }
 
 function UpdateEntityModelFromTransform(entity) {
@@ -649,7 +654,7 @@ function ResetEntityToDefaultPose(entity) {
 
 	entity.model.defaultPose.parts.forEach((posePart) => {
 		const part = entity.model.index[posePart.id];
-		const src = posePart.localTransform;
+		const src  = posePart.localTransform;
 		part.localTransform.position.set(src.position);
 		part.localTransform.rotation.set(src.rotation);
 		part.localTransform.scale = src.scale;
@@ -658,13 +663,10 @@ function ResetEntityToDefaultPose(entity) {
 	refreshEntityDerivedState(entity);
 }
 
-const SampleMovementPoint = (entity, normalizedTime) => LerpVector3(entity.movement.start, entity.movement.end, normalizedTime);
-
 export {
 	NewInputFrame,
 	BuildEntity,
 	UpdateEntityModelFromTransform,
 	ResetEntityToDefaultPose,
-	SampleMovementPoint,
 	ComposeTransform,
 };

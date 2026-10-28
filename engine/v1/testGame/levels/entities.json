@@ -493,6 +493,19 @@
 						"detail": {
 							"scatter": []
 						}
+					},
+					{
+						"id": "questMarker",
+						"parentId": "body",
+						"anchorPoint": "bottom",
+						"attachmentPoint": "top",
+						"addsToBounds": false,
+						"shape": "plane",
+						"dimensions": { "x": 0.6, "y": 0.6, "z": 0 },
+						"localPosition": { "x": 0, "y": 0.6, "z": 0 },
+						"color": { "r": 1, "g": 0.85, "b": 0.2, "a": 1 },
+						"texture": { "generated": { "id": "default-grid" } },
+						"primitiveOptions": { "crossed": false, "sprite": { "follow": "full", "distanceScaling": false, "range": 25 } }
 					}
 				]
 			}
@@ -563,6 +576,186 @@
 						"particle": {
 							"id": "smoke",
 							"position": { "x": 0, "y": 1.1, "z": 0 }
+						}
+					}
+				]
+			}
+		},
+		{
+			"id": "entity.sprite-follow-none",
+			"type": "entity",
+			"movement": { "physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false } },
+			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
+			"model": {
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				"parts": [
+					{
+						"id": "sign",
+						"parentId": "root",
+						"shape": "plane",
+						"dimensions": { "x": 1.2, "y": 1.2, "z": 0 },
+						"primitiveOptions": {
+							"crossed": false,
+							"sprite": { "follow": "none", "image": { "path": "../assets/carlStudios/sloppyCarl.png", "sourceType": "local" } }
+						}
+					}
+				]
+			}
+		},
+		{
+			"id": "entity.sprite-follow-horizontal",
+			"type": "entity",
+			"movement": { "physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false } },
+			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
+			"model": {
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				"parts": [
+					{
+						"id": "sign",
+						"parentId": "root",
+						"shape": "plane",
+						"dimensions": { "x": 1.2, "y": 1.2, "z": 0 },
+						"primitiveOptions": {
+							"crossed": false,
+							"sprite": { "follow": "horizontal", "image": { "path": "../assets/carlStudios/sloppyCarl.png", "sourceType": "local" } }
+						}
+					}
+				]
+			}
+		},
+		{
+			"id": "entity.sprite-follow-vertical",
+			"type": "entity",
+			"movement": { "physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false } },
+			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
+			"model": {
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				"parts": [
+					{
+						"id": "sign",
+						"parentId": "root",
+						"shape": "plane",
+						"dimensions": { "x": 1.2, "y": 1.2, "z": 0 },
+						"primitiveOptions": {
+							"crossed": false,
+							"sprite": { "follow": "vertical", "image": { "path": "../assets/carlStudios/sloppyCarl.png", "sourceType": "local" } }
+						}
+					}
+				]
+			}
+		},
+		{
+			"id": "entity.sprite-follow-full",
+			"type": "entity",
+			"movement": { "physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false } },
+			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
+			"model": {
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				"parts": [
+					{
+						"id": "sign",
+						"parentId": "root",
+						"shape": "plane",
+						"dimensions": { "x": 1.2, "y": 1.2, "z": 0 },
+						"primitiveOptions": {
+							"crossed": false,
+							"sprite": { "follow": "full", "distanceScaling": false, "image": { "path": "../assets/carlStudios/sloppyCarl.png", "sourceType": "local" } }
+						}
+					}
+				]
+			}
+		},
+		{
+			"id": "entity.sprite-crossed-bush",
+			"type": "entity",
+			"movement": { "physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false } },
+			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
+			"model": {
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				"parts": [
+					{
+						"id": "bush",
+						"parentId": "root",
+						"shape": "plane",
+						"dimensions": { "x": 1.4, "y": 1.2, "z": 0 },
+						"color": { "r": 0.3, "g": 0.6, "b": 0.3, "a": 1 },
+						"texture": { "generated": { "id": "default-tiles" } },
+						"primitiveOptions": { "crossed": true, "sprite": { "follow": "horizontal" } }
+					}
+				]
+			}
+		},
+		{
+			"id": "entity.sprite-cardboard",
+			"type": "entity",
+			"movement": { "physics": { "gravity": true, "buoyancy": false, "resistance": false, "correction": false, "collision": true } },
+			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
+			"model": {
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				"parts": [
+					{
+						"id": "cutout",
+						"parentId": "root",
+						"shape": "plane",
+						"dimensions": { "x": 1.6, "y": 2, "z": 0 },
+						"color": { "r": 0.75, "g": 0.6, "b": 0.4, "a": 1 },
+						"texture": { "generated": { "id": "default-grid" } },
+						"primitiveOptions": { "crossed": false, "sprite": { "follow": "horizontal" } }
+					}
+				]
+			}
+		},
+		{
+			"id": "entity.sprite-through-wall",
+			"type": "entity",
+			"movement": { "physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false } },
+			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
+			"model": {
+				"rootTransform": {
+					"position": { "x": 0, "y": 0, "z": 0 },
+					"rotation": { "x": 0, "y": 0, "z": 0 },
+					"scale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 }
+				},
+				"parts": [
+					{
+						"id": "sign",
+						"parentId": "root",
+						"shape": "plane",
+						"dimensions": { "x": 1.5, "y": 1.5, "z": 0 },
+						"primitiveOptions": {
+							"crossed": false,
+							"sprite": { "follow": "full", "occludedRange": 15, "image": { "path": "../assets/carlStudios/sloppyCarl.png", "sourceType": "local" } }
 						}
 					}
 				]

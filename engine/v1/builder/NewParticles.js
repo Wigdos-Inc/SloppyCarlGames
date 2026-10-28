@@ -103,7 +103,7 @@ const overrideKeys = ["count", "spread", "physics", "color", "velocity", "durati
 // Merge overrides onto the template.
 function resolveRequest(template, overrides) {
 	const resolved = { amount: template.amount, part: template.part };
-	overrideKeys.forEach((key) => { resolved[key] = overrides === null || overrides[key] === null ? template[key] : overrides[key]; });
+	overrideKeys.forEach((key) => resolved[key] = overrides === null || overrides[key] === null ? template[key] : overrides[key]);
 	return resolved;
 }
 
@@ -151,7 +151,7 @@ function resolveGroupSizes(count) {
 
 /* === DEFINITION SYNTHESIS === */
 
-// One root part per particle, centered to place it exactly at its layout offset.
+// Make one root part per particle, centered on its layout offset.
 function synthesizeParts(templatePart, size) {
 	return groupLayouts[size].map((offset, index) => {
 		const part = CloneTemplatePart(templatePart);
@@ -164,7 +164,7 @@ function synthesizeParts(templatePart, size) {
 	});
 }
 
-// Entity definition for a particle group.
+// Build the entity definition for a particle group.
 function synthesizeGroupDefinition(templateId, resolved, position, size, index, velocity) {
 	return {
 		id               : `${templateId}@${position.x.toFixed(2)},${position.y.toFixed(2)},${position.z.toFixed(2)}#${index}`,
@@ -190,11 +190,11 @@ function synthesizeGroupDefinition(templateId, resolved, position, size, index, 
 			disappear   : false,
 			chase       : false,
 			physics     : {
-				gravity   : mode === "full",
+				gravity   : resolved.physics === "full",
 				buoyancy  : false,
-				resistance: mode === "full",
+				resistance: resolved.physics === "full",
 				correction: false,
-				collision : mode !== "none",
+				collision : resolved.physics !== "none",
 			},
 		},
 		model: {
@@ -212,7 +212,7 @@ function synthesizeGroupDefinition(templateId, resolved, position, size, index, 
 
 /* === GROUP LIFETIME === */
 
-// Runtime state for one particle group. `total` counts its age in ms.
+// Hold the runtime state for one particle group. `total` counts its age in ms.
 class particleGroup {
 	constructor(entity, request, resolved, halfAngle) {
 		this.entity      = entity;
@@ -319,7 +319,7 @@ class particleGroup {
 	}
 }
 
-// A generator's first group. Seeds staggered siblings on its own clock, which recycling doesn't reset.
+// Run a generator's first group, seeding staggered siblings on its own clock. Recycling doesn't reset that clock.
 class seedingParticleGroup extends particleGroup {
 	constructor(entity, request, resolved, halfAngle) {
 		super(entity, request, resolved, halfAngle);
@@ -341,7 +341,7 @@ class seedingParticleGroup extends particleGroup {
 	}
 }
 
-// A one-shot group that finishes after its decay. Extends the base class to never seed.
+// Run a one-shot group that finishes after its decay and never seeds.
 class burstParticleGroup extends particleGroup {
 	constructor(entity, request, resolved, halfAngle) {
 		super(entity, request, resolved, halfAngle);
@@ -384,14 +384,14 @@ function GenerateParticles(request, textureScale, faceTextureStore, geometryCach
 		);
 
 		// Center the group vertically on the request position instead of standing on it.
-		entity.transform.position.y += request.position.y - (entity.collision.aabb.min.y + entity.collision.aabb.max.y) * 0.5;
+		entity.transform.position.y += request.position.y - (entity.fullAabb.min.y + entity.fullAabb.max.y) * 0.5;
 		UpdateEntityModelFromTransform(entity);
 
 		// Bursts expire. Generators recycle.
 		entity.particle = request.mode === "burst"
 			? new burstParticleGroup(entity, request, resolved, halfAngle)
 			: request.mode === "generator" && index === 0
-				? entity.particle = new seedingParticleGroup(entity, request, resolved, halfAngle)
+				? new seedingParticleGroup(entity, request, resolved, halfAngle)
 				: new particleGroup(entity, request, resolved, halfAngle);
 
 		return entity;
@@ -400,7 +400,7 @@ function GenerateParticles(request, textureScale, faceTextureStore, geometryCach
 	return { groups };
 }
 
-// Generator requests for every particle a built terrain, obstacle or entity carries.
+// Collect generator requests for every particle a built terrain, obstacle or entity carries.
 // Note: target type and partId must match what Level.js resolves for following.
 function ParticleGeneratorRequests(carrier, kind) {
 	const sources = kind === "terrain"

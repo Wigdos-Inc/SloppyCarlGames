@@ -1757,6 +1757,21 @@
   "capsuleOptions": {
     "rounding": { "__meta": { "description": "Share of each half-height taken by its cap (capsule only)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0.75, "range": { "min": 0.05, "max": 0.95 }, "deprecated": false } }
   },
+  "planeOptions": {
+    "crossed": { "__meta": { "description": "Add a second plane crossing the first in an X (plane only)", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+    "sprite": { "__meta": { "description": "Sprite options, see spriteOptions (null = regular plane)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } }
+  },
+  "spriteOptions": {
+    "distanceScaling": { "__meta": { "description": "Shrink with distance (false = constant screen size)", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } },
+    "follow": { "__meta": { "description": "Camera facing: none (authored), horizontal (turn about world up), vertical (tilt toward the camera, keep heading) or full (face it)", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "full", "allowedValues": ["none", "horizontal", "vertical", "full"], "deprecated": false } },
+    "range": { "__meta": { "description": "Visible within this distance in CNU, fading at the edge (null = always)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 0.01, "max": 1000000 }, "deprecated": false } },
+    "occludedRange": { "__meta": { "description": "Shows through geometry within this distance in CNU (null = never)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 0.01, "max": 1000000 }, "deprecated": false } },
+    "image": {
+      "__meta": { "description": "Image shown instead of the generated texture (null = generated)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "path":       { "__meta": { "description": "Asset path or URL", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": null, "deprecated": false } },
+      "sourceType": { "__meta": { "description": "Source kind",       "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true, "fallback": null, "allowedValues": ["local", "url"], "deprecated": false } }
+    }
+  },
   "levelCustomTexture": {
     "id":         { "__meta": { "description": "Decal id (animation targeting)", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null,    "deprecated": false } },
     "decalType":  { "__meta": { "description": "Decal kind",                 "aliases": [], "dataType": "string", "isRequired": false, "isExpected": true,  "fallback": null,    "allowedValues": ["image","shape"], "deprecated": false } },

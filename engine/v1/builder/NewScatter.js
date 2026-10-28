@@ -1,9 +1,9 @@
-// NewScatter.js
-// Responsibilities:
-// - Generate per-object scatter instances and instance batches
-// - Preserve Unit/UnitVector3 instances (do not re-instance downstream)
-// - Assume payload is canonical (normalized at the boundary); avoid defensive checks
-// - Centralize sampling logic in `iterateScatterInstances`
+// Generates scatter instances on objects and batches them for instanced drawing.
+
+// Used by NewObject.js to add scatter to an object.
+// Used by NewLevel.js to build scatter batches and their visual resources.
+// Uses NewObject.js and NewPrimitive.js to build scatter geometry
+// Uses NewTexture.js to key scatter's textures.
 
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
@@ -126,7 +126,7 @@ function resolveRootPart(parts, uniformScale) {
 	return selected;
 }
 
-// Computes stack positions from part levels. localPosition is added afterwards as a per-part offset.
+// Compute stack positions from part levels. localPosition is added afterwards as a per-part offset.
 function applyHierarchicalOffsets(parts, uniformScale) {
 	if (parts.length === 0) return parts;
 
@@ -215,8 +215,7 @@ function isFootprintOverOpening(parts, worldX, worldZ, uniformScale, seed, openi
 	return false;
 }
 
-// Iterate scatter instances and invoke a handler with pre-computed per-part contexts.
-// Handler receives an object: { scatterType, request, scatterTypeIndex, instanceIndex, partContexts, samplePosition, sampleDimensions }
+// Place each scatter instance and hand its per-part placements to handler, one call per instance.
 function iterateScatterInstances(params, handler) {
 	const { objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces } = params;
 	if (scatterMultiplier <= 0) return { totalParts: 0, typeCounts: 0, modelCounts: 0 };
@@ -328,14 +327,6 @@ function iterateScatterInstances(params, handler) {
 				}
 
 				partContexts.push({ part, partIndex, position, rotation, scale });
-
-				// Crossed pair: the twin reuses this rotation; its own partIndex would reseed the yaw.
-				if (part.primitive === "plane") {
-					const crossRotation = rotation.clone();
-					crossRotation.y += Math.PI * 0.5;
-					partContexts.push({ part, partIndex, position: position.clone(), rotation: crossRotation, scale });
-					typeCount++;
-				}
 			});
 
 			if (partContexts.length === 0) continue;
@@ -396,10 +387,15 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 		}
 	);
 
-	// Engine diagnostic: summary of generated scatter
+	// Log a summary of the generated scatter.
 	Log(
 		"ENGINE",
-		`Scatter diagnostics: source=${objectMesh.id}, models=${stats.modelCounts}, parts=${stats.typeCounts}`,
+		`
+			Scatter diagnostics: 
+			- Source=${objectMesh.id}
+			- Models=${stats.modelCounts}
+			- Parts=${stats.typeCounts}
+		`,
 		"log",
 		"Level"
 	);
@@ -418,12 +414,11 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 			processPart: (ctx, partContext) => {
 				const { part, position, rotation, scale } = partContext;
 				const textureID = ComputeGeneratedTextureID(part.texture.generated);
-				const customSignature = ComputeCustomTextureSignature(part.texture.custom);
 				const primitiveKey = primitiveGeometryKey(part.primitive, part.dimensions, part.complexity, part.primitiveOptions);
-				const batchKey = `${primitiveKey}_${textureID}_${customSignature}`;
+				const batchKey = `${primitiveKey}_${textureID}_${ComputeCustomTextureSignature(part.texture.custom)}`;
 				if (!batchMap.has(batchKey)) {
 					const customTextures = part.texture.custom.map(cloneScatterDecal);
-					InitializeDecalDisplay(customTextures);
+					InitializeDecalDisplay(customTextures, part.dimensions);
 					batchMap.set(batchKey, {
 						primitive: part.primitive.toLowerCase(),
 						dimensions: part.dimensions.clone(),
@@ -435,8 +430,8 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 						instanceData: null,
 					});
 				}
-				const modelMatrix = CreateRenderMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot });
 
+				const modelMatrix = CreateRenderMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot });
 				batchMap.get(batchKey).instances.push({ modelMatrix, tint: [1, 1, 1, 1] });
 				totalParts++;
 
@@ -457,10 +452,13 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 		}
 	);
 
-	// Engine diagnostic: summary of batch creation
 	Log(
 		"ENGINE",
-		`Scatter batch diagnostics: source=${objectMesh.id}, requestedParts=${stats.typeCounts}, createdParts=${totalParts}`,
+		`
+			Scatter batch diagnostics: 
+			- Source=${objectMesh.id}
+			- RequestedParts=${stats.typeCounts}
+			- CreatedParts=${totalParts}`,
 		"log",
 		"Level"
 	);
@@ -474,32 +472,11 @@ function packScatterBatchInstances(batch) {
 	for (let i = 0; i < batch.instances.length; i++) {
 		const instance = batch.instances[i];
 		const offset = i * 20;
-		const matrix = instance.modelMatrix;
-
-		data[offset + 0] = matrix[0];
-		data[offset + 1] = matrix[1];
-		data[offset + 2] = matrix[2];
-		data[offset + 3] = matrix[3];
-		data[offset + 4] = matrix[4];
-		data[offset + 5] = matrix[5];
-		data[offset + 6] = matrix[6];
-		data[offset + 7] = matrix[7];
-		data[offset + 8] = matrix[8];
-		data[offset + 9] = matrix[9];
-		data[offset + 10] = matrix[10];
-		data[offset + 11] = matrix[11];
-		data[offset + 12] = matrix[12];
-		data[offset + 13] = matrix[13];
-		data[offset + 14] = matrix[14];
-		data[offset + 15] = matrix[15];
-		data[offset + 16] = instance.tint[0];
-		data[offset + 17] = instance.tint[1];
-		data[offset + 18] = instance.tint[2];
-		data[offset + 19] = instance.tint[3];
+		for (let add = 0; add < 20; add++) data[offset + add] = add <= 15 ? instance.modelMatrix[add] : instance.tint[add - 16];
 	}
 
 	batch.instanceCount = batch.instances.length;
-	batch.instanceData = data;
+	batch.instanceData  = data;
 }
 
 function BuildScatterVisualResources(scatterBatches) {

@@ -68,7 +68,7 @@ function resolveTriggerColor(triggerType) {
 function buildTriggerMesh(triggerDefinition, world) {
 	const { id, start, end, type, payload, activateOnce } = triggerDefinition;
 
-	// Trigger volume over the authored footprint, from its start height up to the world ceiling.
+	// Build a trigger volume over the authored footprint, from its start height up to the world ceiling.
 	const triggerHeight = world.height.value - start.y;
 	const position = start.clone().add(end).scale(0.5); 
 	position.y = start.y + triggerHeight * 0.5;
@@ -113,9 +113,9 @@ function buildTriggerMesh(triggerDefinition, world) {
 	return mesh;
 }
 
-// World-wide water body and animated top surface.
+// Build the world-wide water body and its animated top surface.
 function buildWaterVisualMeshes(world, faceTextureStore) {
-	// Levels without a water level don't have water.
+	// Levels without a water level don't have water. Shocking, I know.
 	if (!world.water.level) return null;
 
 	const centerX     = world.length.value * 0.5;
@@ -162,12 +162,12 @@ function buildWaterVisualMeshes(world, faceTextureStore) {
 			id              : `water-top-${world.length.value}-${world.width.value}-${world.water.level.value}`,
 			shape           : "plane", 
 			complexity      : "",
-			dimensions      : new UnitVector3(world.length.value, 1, world.width.value, "cnu"),
-			position        : new UnitVector3(centerX, world.water.level.value + 0.02, centerZ, "cnu"), // Just above the body so the two don't flicker.
-			rotation        : new UnitVector3(0, 0, 0, "radians"),
+			dimensions      : new UnitVector3(world.length.value, world.width.value, 0, "cnu"),
+			position        : new UnitVector3(centerX, world.water.level.value + 0.02, centerZ, "cnu"), // Sit just above the body to avoid flicker.
+			rotation        : new UnitVector3(-90, 0, 0, "degrees").toRadians(true),                     // Lay the upright plane flat, facing up.
 			scale           : ToVector3(1),
 			pivot           : new UnitVector3(0, 0, 0, "cnu"),
-			primitiveOptions: {},
+			primitiveOptions: { crossed: false, sprite: null },
 			texture         : {
 				generated: {
 					id            : "sea-surface", 
@@ -209,7 +209,7 @@ function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
 	return map;
 }
 
-// Debug bounding boxes for every scene object.
+// Build debug bounding boxes for every scene object.
 function buildDebugBoundingBoxes(sceneGraph) {
 	const bounds = [];
 	const classifyEntityType = (entity) => {
@@ -244,14 +244,14 @@ function buildDebugBoundingBoxes(sceneGraph) {
 
 	sceneGraph.entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
-		push(category.whole, entity.id, entity.collision.aabb);
+		if (entity.collision !== null) push(category.whole, entity.id, entity.collision.aabb);
 		entity.model.parts.forEach((part) => push(category.part, `${entity.id}:${part.id}`, part.mesh.worldAabb));
 	});
 
 	return bounds;
 }
 
-// Debug wireframes of each object's exact collision shape.
+// Build debug wireframes of each object's exact collision shape.
 function buildDebugDetailedBounds(sceneGraph) {
 	const detailed = [];
 	const classifyEntityType = (entity) => {
@@ -287,6 +287,8 @@ function buildDebugDetailedBounds(sceneGraph) {
 	sceneGraph.voids.obstacles.forEach(pushVoid);
 
 	sceneGraph.entities.forEach((entity) => {
+		if (entity.collision === null) return;
+		
 		const category = classifyEntityType(entity);
 		const { type, radius, halfHeight, segmentStart, segmentEnd } = entity.collision.physics.bounds;
 		if (type === "capsule") {
@@ -321,7 +323,7 @@ function boxFacets({ center, axes, halfExtents }) {
 	return facets;
 }
 
-// Triangles of a collision shape. Shapes without flat faces give none.
+// List a collision shape's triangles. Shapes without flat faces give none.
 function boundsFacets(bounds) {
 	if (bounds === null) return [];
 	switch (bounds.type) {
@@ -350,7 +352,7 @@ function foldRadius(a, b, fold) {
 	return (width(a) + width(b)) / (4 * Math.tan(fold * 0.5));
 }
 
-// Loop surfaces per medium: the steep parts of a smooth inward curve that runs from floor to ceiling.
+// Find each medium's loop surfaces: the steep parts of a smooth inward curve that runs from floor to ceiling.
 function findLoopSurfaces(pieces, owner, facets, links) {
 	const loopSurfaces = { Air: new Map(), Water: new Map() };
 	const loopIncline  = CAMERA_TUNING.Loops.MinCurveThreshold.toRadians();
@@ -389,7 +391,7 @@ function findLoopSurfaces(pieces, owner, facets, links) {
 			foldRadii.get(root).push(foldRadius(facets[a], facets[b], fold));
 		});
 
-		// Median fold radius. A loop without folds counts as infinitely wide.
+		// Take the median fold radius. A loop without folds counts as infinitely wide.
 		const loopRadius = (root) => {
 			const radii = (foldRadii.get(root) || [Infinity]).sort((x, y) => x - y);
 			return radii[radii.length >> 1];
@@ -413,7 +415,7 @@ function findLoopSurfaces(pieces, owner, facets, links) {
 function buildSurfaceChunks(terrain, obstacles, voids) {
 	const started = performance.now();
 
-	// One piece per surface: its triangles outside voids, plus each void's wall lining.
+	// Make one piece per surface: its triangles outside voids, plus each void's wall lining.
 	const pieces = [];
 	const centroid = (f) => TriangleCentroid(f.a, f.b, f.c);
 	const addHost = (id, aabb, bounds, flags, hostVoids) => pieces.push({
@@ -491,7 +493,7 @@ function buildSurfaceChunks(terrain, obstacles, voids) {
 		}
 	}
 
-	// Pieces linked by any facet form one chunk.
+	// Join pieces linked by any facet into one chunk.
 	links.forEach(({ a, b }) => joinRoots(pieceRoots, owner[a], owner[b]));
 	const chunkByRoot = new Map();
 	pieces.forEach((piece, index) => {

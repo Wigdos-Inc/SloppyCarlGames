@@ -320,7 +320,7 @@ const SegmentQueryBox = (start, end, radius) => ({
 const sphereQueryBox  = (center, radius) => SegmentQueryBox(center, center, radius.value);
 const capsuleQueryBox = (capsule) => SegmentQueryBox(capsule.segmentStart, capsule.segmentEnd, capsule.radius.value);
 
-// Whether a triangle's box touches the query box, compared without allocating per triangle.
+// Check whether a triangle's box touches the query box, without allocating per triangle.
 function TriangleInQueryBox(triangle, box) {
 	const { a, b, c } = triangle;
 	return (
@@ -340,15 +340,12 @@ function deepestContactInBox(triangles, box, contactWith) {
 	return best;
 }
 
-const sphereTriangleSoupContact = (center, radius, soup) => deepestContactInBox(soup.triangles, sphereQueryBox(center, radius), (triangle) => sphereTriangleContact(center, radius, triangle));
+function sphereTriangleSoupContact(center, radius, soup) {
+	return deepestContactInBox(soup.triangles, sphereQueryBox(center, radius), (triangle) => sphereTriangleContact(center, radius, triangle));
+}
 
 function capsuleCapsuleContact(capsuleA, capsuleB) {
-	const closest = closestPointsOnSegments(
-		capsuleA.segmentStart,
-		capsuleA.segmentEnd,
-		capsuleB.segmentStart,
-		capsuleB.segmentEnd
-	);
+	const closest = closestPointsOnSegments(capsuleA.segmentStart, capsuleA.segmentEnd, capsuleB.segmentStart, capsuleB.segmentEnd);
 	const radiusSum = capsuleA.radius.value + capsuleB.radius.value;
 	if (closest.distanceSq > radiusSum ** 2) return noContact();
 	if (closest.distanceSq <= EPSILON) {
@@ -664,9 +661,9 @@ const ProjectOntoPlane = (v, n) => SubtractVector3(v, ScaleVector3(n, DotVector3
 // How head-on a velocity meets a wall, measured on the ground plane: 1 is straight in, 0 is along it or no horizontal part.
 function HorizontalApproach(velocity, normal) {
 	const horizontalVelocity = { x: velocity.x, y: 0, z: velocity.z };
-	const horizontalNormal = { x: normal.x, y: 0, z: normal.z };
-	const velocityLengthSq = Vector3Sq(horizontalVelocity);
-	const normalLengthSq = Vector3Sq(horizontalNormal);
+	const horizontalNormal   = { x: normal.x, y: 0, z: normal.z };
+	const velocityLengthSq   = Vector3Sq(horizontalVelocity);
+	const normalLengthSq     = Vector3Sq(horizontalNormal);
 	if (velocityLengthSq <= EPSILON || normalLengthSq <= EPSILON) return 0;
 	return -DotVector3(horizontalVelocity, horizontalNormal) / Math.sqrt(velocityLengthSq * normalLengthSq);
 }
@@ -696,8 +693,8 @@ function SlideAlongContacts(velocity, displacement, contacts, fold) {
 		let velDotN = DotVector3(vel, collision.normal);
 		if (velDotN < -EPSILON && footing !== null && DotVector3(footing, collision.normal) >= fold.minCos) {
 			vel = TransportVector3(vel, footing, collision.normal);
-			footing = collision.normal;
-			velDotN = DotVector3(vel, collision.normal);
+			footing         = collision.normal;
+			velDotN         = DotVector3(vel, collision.normal);
 			changedVelocity = true;
 		}
 		if (velDotN < 0) {
@@ -707,19 +704,19 @@ function SlideAlongContacts(velocity, displacement, contacts, fold) {
 
 		// Swept hits move to the impact point first, then clip only the travel left over; overlap hits were already pushed out above.
 		if (collision.pushDepth <= EPSILON && collision.tEntry > 0) {
-			const entryDisplacement = ScaleVector3(disp, collision.tEntry);
+			const entryDisplacement   = ScaleVector3(disp, collision.tEntry);
 			let remainingDisplacement = SubtractVector3(disp, entryDisplacement);
 			const remainingDotN = DotVector3(remainingDisplacement, collision.normal);
 			if (remainingDotN < 0) {
 				remainingDisplacement = SubtractVector3(remainingDisplacement, ScaleVector3(collision.normal, remainingDotN));
-				changedPosition = changedPosition || Math.abs(remainingDotN) > EPSILON;
+				changedPosition       = changedPosition || Math.abs(remainingDotN) > EPSILON;
 			}
 			disp = AddVector3(entryDisplacement, remainingDisplacement);
 		}
 		else {
 			const dispDotN = DotVector3(disp, collision.normal);
 			if (dispDotN < 0) {
-				disp = SubtractVector3(disp, ScaleVector3(collision.normal, dispDotN));
+				disp            = SubtractVector3(disp, ScaleVector3(collision.normal, dispDotN));
 				changedPosition = changedPosition || Math.abs(dispDotN) > EPSILON;
 			}
 		}
@@ -837,7 +834,7 @@ function AabbOverlap(aabbA, aabbB, strict = false) {
 		: CompareVector3(aabbA.min, aabbB.max, "lesser-loose") && CompareVector3(aabbA.max, aabbB.min, "greater-loose");
 }
 
-// Returns a copy of an AABB expanded by epsilon on the y axis only (x/z untouched).
+// Copy a box, grown by epsilon on the y axis only.
 function ExpandAabbY(aabb, epsilon) {
 	return {
 		min: { x: aabb.min.x, y: aabb.min.y - epsilon, z: aabb.min.z },
@@ -845,7 +842,7 @@ function ExpandAabbY(aabb, epsilon) {
 	};
 }
 
-// True when the box, grown by `padding` on every side, is fully behind one of the view's walls.
+// Check whether the box, grown by padding on every side, is fully behind one of the view's walls.
 function AabbOutsideFrustum(planes, aabb, padding = 0) {
 	for (const [x, y, z, offset] of planes) {
 		const reach = 
@@ -940,7 +937,7 @@ function TriangleDistanceSq(t1, t2) {
 	return best;
 }
 
-// Whether the fixed tilted ray from the point crosses the triangle.
+// Check whether the fixed tilted ray from the point crosses the triangle.
 function insideRayCrosses(point, triangle) {
 	// Skip triangles wholly below the point on any axis; the ray only heads toward +x, +y and +z.
 	const { a, b, c } = triangle;
@@ -1133,7 +1130,8 @@ function MeshesIntersect(solidA, solidB) {
 
 // Largest box that fits inside a shape, centred and before scale, sized to the flat sides a round shape is built from.
 function InscribedBox(primitive, dimensions, primitiveOptions) {
-	const r = { x: dimensions.x / 2, y: primitive === "plane" ? 0 : dimensions.y / 2, z: dimensions.z / 2 };
+	const r = ScaleVector3(dimensions, ToVector3(0.5));
+	if (primitive === "plane") r.z = 0;
 	function box(x0, x1, y0, y1, z0, z1) {
 		return { min: { x: x0 * r.x, y: y0 * r.y, z: z0 * r.z }, max: { x: x1 * r.x, y: y1 * r.y, z: z1 * r.z } };
 	}
@@ -1141,7 +1139,10 @@ function InscribedBox(primitive, dimensions, primitiveOptions) {
 	const round = 0.92 / Math.SQRT2, faceted = 0.88;
 	const ball = faceted / Math.sqrt(3), coneHalf = round * 2 / 3;
 	switch (primitive) {
-		case "cube": case "plane": return box(-1, 1, -1, 1, -1, 1);
+		case "cube": return box(-1, 1, -1, 1, -1, 1);
+
+		// Leave crossed and sprite planes without a box. Neither keeps one flat side.
+		case "plane"      : return primitiveOptions.crossed || primitiveOptions.sprite !== null ? null : box(-1, 1, -1, 1, -1, 1);
 		case "cylinder"   : return box(-round, round, -1, 1, -round, round);
 		case "sphere"     : return box(-ball, ball, -ball, ball, -ball, ball);
 		case "cone"       : return box(-coneHalf, coneHalf, -1, -1 / 3, -coneHalf, coneHalf);
@@ -1151,7 +1152,8 @@ function InscribedBox(primitive, dimensions, primitiveOptions) {
 			// Widest box that still reaches into the capsule's rounded ends.
 			const cap = primitiveOptions.rounding, straight = 1 - cap;
 			if (cap <= 0) return box(-round, round, -1, 1, -round, round);
-			const s = straight / cap, e = (Math.sqrt(s * s + 3) - s) / 3, a = faceted * Math.sqrt((1 - e * e) / 2);
+
+			const s = straight / cap, e = (Math.sqrt(s**2 + 3) - s) / 3, a = faceted * Math.sqrt((1 - e**2) / 2);
 			const reach = straight + faceted * e * cap;
 			return box(-a, a, -reach, reach, -a, a);
 		}
@@ -1230,13 +1232,11 @@ function SolidBoxes(inner, cuts, scale, minSize) {
 
 	// The shorter side of a piece's largest face, at its true scaled size.
 	function largestFaceWidth(piece) {
-		const sides = ["x", "y", "z"].map((axis) => (piece.max[axis] - piece.min[axis]) * Math.abs(scale[axis]));
-		return sides.sort((a, b) => a - b)[1];
+		return ["x", "y", "z"].map((axis) => (piece.max[axis] - piece.min[axis]) * Math.abs(scale[axis])).sort((a, b) => a - b)[1];
 	}
 
-	const scrap = 0.01 * AabbLargestFace(inner);
 	return mergeTouching(pieces)
-		.filter((piece) => AabbLargestFace(piece) >= scrap && largestFaceWidth(piece) >= minSize.value)
+		.filter((piece) => AabbLargestFace(piece) >= 0.01 * AabbLargestFace(inner) && largestFaceWidth(piece) >= minSize.value)
 		.sort((a, b) => AabbLargestFace(b) - AabbLargestFace(a))
 		.slice(0, 8);
 }
@@ -1273,7 +1273,7 @@ function ConvexHull2D(xs, ys) {
 	return half(sorted).slice(0, -1).concat(half([...sorted].reverse()).slice(0, -1));
 }
 
-// True when all 8 screen points sit inside a counter-clockwise outline.
+// Check whether all 8 screen points sit inside a counter-clockwise outline.
 function CornersInsideHull(hull, xs, ys) {
 	for (let i = 0; i < hull.length; i++) {
 		const a = hull[i], b = hull[(i + 1) % hull.length];
@@ -1282,7 +1282,7 @@ function CornersInsideHull(hull, xs, ys) {
 	return true;
 }
 
-// True when the box hides all 8 world points: each lies past every side of the box that faces the camera.
+// Check whether the box hides all 8 world points, each past every side of the box that faces the camera.
 function BeyondFrontFaces(min, max, inverse, cameraLocal, wx, wy, wz) {
 	const m = inverse, c = cameraLocal;
 	for (let k = 0; k < 8; k++) {
@@ -1297,8 +1297,7 @@ function BeyondFrontFaces(min, max, inverse, cameraLocal, wx, wy, wz) {
 }
 
 /* === SWEPT AABB === */
-// Continuous collision detection for moving AABB against static AABB.
-// Returns { hit, tEntry, tExit, normal }.
+// Sweep a moving box against a still one, returning { hit, tEntry, tExit, normal }.
 
 // A swept box that hits nothing.
 const noSweptHit = Object.freeze({ hit: false, tEntry: 1, tExit: 1, normal: Object.freeze(ToVector3(0)) });
@@ -1311,7 +1310,7 @@ function SweptAABB(position, velocity, halfExtents, staticAabb) {
 		const bMin = staticAabb.min[axis] - halfExtents[axis];
 		const bMax = staticAabb.max[axis] + halfExtents[axis];
 
-			// Ray is parallel to slab — no collision possible unless already inside.
+		// Ray is parallel to slab — no collision possible unless already inside.
 		if (Math.abs(v) < EPSILON) {
 			if (p < bMin || p > bMax) return noSweptHit;
 			continue;
@@ -1383,7 +1382,6 @@ function RayAABBIntersect(origin, direction, aabb) {
 			hitNormal[axis] = nearSign;
 		}
 		if (t2 < tMax) tMax = t2;
-
 		if (tMin > tMax) return result;
 	}
 
@@ -1398,19 +1396,19 @@ function RayAABBIntersect(origin, direction, aabb) {
 		return result;
 	}
 
-	result.hit = true;
-	result.t = tMin;
+	result.hit    = true;
+	result.t      = tMin;
 	result.normal = hitNormal;
 	return result;
 }
 
 function RaySphereIntersect(origin, direction, sphere, maxDistance = Infinity) {
 	const offset = SubtractVector3(origin, sphere.center);
-	const b = DotVector3(offset, direction);
-	const c = DotVector3(offset, offset) - (sphere.radius.value * sphere.radius.value);
+	const b      = DotVector3(offset, direction);
+	const c      = DotVector3(offset, offset) - (sphere.radius.value * sphere.radius.value);
 	if (c > 0 && b > 0) return noRayHit();
 
-	const discriminant = (b * b) - c;
+	const discriminant = (b**2) - c;
 	if (discriminant < 0) return noRayHit();
 
 	const root = Math.sqrt(discriminant);
@@ -1453,17 +1451,16 @@ function RayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity)
 	const segmentDotDirection = DotVector3(segment, direction);
 	const segmentDotOrigin    = DotVector3(segment, originOffset);
 	const originLengthSq      = Vector3Sq(originOffset);
-	const a = segmentLengthSq - (segmentDotDirection ** 2);
+	const a = segmentLengthSq - (segmentDotDirection**2);
 	const b = (segmentLengthSq * DotVector3(direction, originOffset)) - (segmentDotOrigin * segmentDotDirection);
 	const c = 
-		(segmentLengthSq * originLengthSq) - 
-		(segmentDotOrigin * segmentDotOrigin) - 
+		(segmentLengthSq * originLengthSq) - (segmentDotOrigin * segmentDotOrigin) - 
 		(capsule.radius.value * capsule.radius.value * segmentLengthSq);
 
 	let best = noRayHit();
 
 	if (Math.abs(a) > EPSILON) {
-		const discriminant = (b * b) - (a * c);
+		const discriminant = (b**2) - (a * c);
 		if (discriminant >= 0) {
 			const root = Math.sqrt(discriminant);
 			const roots = [(-b - root) / a, (-b + root) / a];
@@ -1494,15 +1491,15 @@ function RayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity)
 }
 
 function RayTriangleIntersect(origin, direction, triangle, maxDistance = Infinity) {
-	const edgeAB = SubtractVector3(triangle.b, triangle.a);
-	const edgeAC = SubtractVector3(triangle.c, triangle.a);
-	const p = CrossVector3(direction, edgeAC);
+	const edgeAB      = SubtractVector3(triangle.b, triangle.a);
+	const edgeAC      = SubtractVector3(triangle.c, triangle.a);
+	const p           = CrossVector3(direction, edgeAC);
 	const determinant = DotVector3(edgeAB, p);
 	if (Math.abs(determinant) <= EPSILON) return noRayHit();
 
 	const invDet = 1 / determinant;
-	const tvec = SubtractVector3(origin, triangle.a);
-	const u = DotVector3(tvec, p) * invDet;
+	const tvec   = SubtractVector3(origin, triangle.a);
+	const u      = DotVector3(tvec, p) * invDet;
 	if (u < 0 || u > 1) return noRayHit();
 
 	const q = CrossVector3(tvec, edgeAB);
@@ -1521,7 +1518,7 @@ function RayTriangleIntersect(origin, direction, triangle, maxDistance = Infinit
 function RayTriangleSoupIntersect(origin, direction, triangleSoup, maxDistance = Infinity) {
 	// A ray with a length only reaches triangles inside its own box.
 	const reach = maxDistance === Infinity ? null : SegmentQueryBox(origin, AddVector3(origin, ScaleVector3(direction, maxDistance)), 0);
-	let best = noRayHit();
+	let best    = noRayHit();
 	for (const triangle of triangleSoup.triangles) {
 		if (reach !== null && !TriangleInQueryBox(triangle, reach)) continue;
 		best = chooseClosestRayHit(best, RayTriangleIntersect(origin, direction, triangle, Math.min(best.t, maxDistance)));
@@ -1551,12 +1548,12 @@ function RayAABBDetailedBoundsIntersect(origin, direction, aabb, detailedBounds,
 }
 
 const rayDetailedBoundsIntersectors = {
-	aabb: (bounds, origin, direction, maxDistance) => limitRayHit(RayAABBIntersect(origin, direction, bounds), maxDistance),
-	obb: (bounds, origin, direction, maxDistance) => RayOBBIntersect(origin, direction, bounds, maxDistance),
-	sphere: (bounds, origin, direction, maxDistance) => RaySphereIntersect(origin, direction, bounds, maxDistance),
-	capsule: (bounds, origin, direction, maxDistance) => RayCapsuleIntersect(origin, direction, bounds, maxDistance),
-	"triangle-soup": (bounds, origin, direction, maxDistance) => RayTriangleSoupIntersect(origin, direction, bounds, maxDistance),
-	"voidWall"      : (bounds, origin, direction, maxDistance) => RayTriangleSoupIntersect(origin, direction, bounds, maxDistance),
+	aabb             : (bounds, origin, direction, maxDistance) => limitRayHit(RayAABBIntersect(origin, direction, bounds), maxDistance),
+	obb              : (bounds, origin, direction, maxDistance) => RayOBBIntersect(origin, direction, bounds, maxDistance),
+	sphere           : (bounds, origin, direction, maxDistance) => RaySphereIntersect(origin, direction, bounds, maxDistance),
+	capsule          : (bounds, origin, direction, maxDistance) => RayCapsuleIntersect(origin, direction, bounds, maxDistance),
+	"triangle-soup"  : (bounds, origin, direction, maxDistance) => RayTriangleSoupIntersect(origin, direction, bounds, maxDistance),
+	"voidWall"       : (bounds, origin, direction, maxDistance) => RayTriangleSoupIntersect(origin, direction, bounds, maxDistance),
 	"compound-sphere": (bounds, origin, direction, maxDistance) => rayCompoundSphereIntersect(origin, direction, bounds, maxDistance),
 };
 
@@ -1565,8 +1562,7 @@ function RayDetailedBoundsIntersect(bounds, origin, direction, maxDistance = Inf
 }
 
 /* === SWEPT SPHERE-AABB === */
-// Expand AABB by sphere radius, ray-march center.
-// Returns { hit, tEntry, normal }.
+// Sweep a sphere against a box by growing the box by its radius, returning { hit, tEntry, normal }.
 
 function sweptSphereAABB(center, velocity, radius, aabb) {
 	const grow = ToVector3(radius);
@@ -1581,6 +1577,7 @@ function sweptSphereOBB(center, velocity, radius, obb) {
 		{ min: ScaleVector3(CloneVector3(obb.halfExtents), -1), max: CloneVector3(obb.halfExtents) }
 	);
 	if (!result.hit) return result;
+	
 	return {
 		hit: true, t: result.t,
 		normal: projectObbNormalToWorld(result.normal, obb),
