@@ -69,14 +69,14 @@ export const Fireplace = (id, origin, yaw) => Prop(id, origin, yaw, [
 	{ name: "hole", at: [0, 0, 0.21], size: [1.8, 1.4, 0.02], color: rgb(0.06, 0.04, 0.04), tex: T.plain },
 	{ name: "mantel", at: [0, 2.4, -0.1], size: [3.6, 0.18, 1.0], color: DARK_WOOD, tex: T.wood },
 	{ name: "log0", shape: "cylinder", at: [0, 0.12, 0.35], size: [0.22, 1.1, 0.22], color: rgb(0.3, 0.18, 0.08), tex: T.wood, rot: [0, 0, 90],
-		particle: { id: "smoke", position: { x: 0, y: 0.6, z: 0 }, overrides: { color: { start: { r: 0.25, g: 0.22, b: 0.24, a: 0.55 }, variance: 0.1, end: null } } } },
+		particle: { id: "smoke", side: "top", position: { x: 0, y: 0.05, z: 0 }, overrides: { velocity: { x: 0.35, y: 0, z: 0 }, color: { start: { r: 0.25, g: 0.22, b: 0.24, a: 0.55 }, variance: 0.1, end: null } } } },
 ]);
 
 export const Candelabra = (id, origin) => Prop(id, origin, 0, [
 	{ name: "base", shape: "cylinder", at: [0, 0, 0], size: [0.22, 0.05, 0.22], color: BRASS, tex: T.metal },
 	{ name: "stem", shape: "cylinder", at: [0, 0.05, 0], size: [0.05, 0.45, 0.05], color: BRASS, tex: T.metal },
 	{ name: "candle", shape: "cylinder", at: [0, 0.5, 0], size: [0.07, 0.2, 0.07], color: rgb(0.95, 0.92, 0.8), tex: T.plain,
-		particle: { id: "spark", position: { x: 0, y: 0.2, z: 0 }, overrides: { count: 2, physics: "none", spread: "narrow", velocity: { x: 0, y: 0.25, z: 0 }, color: { start: { r: 1, g: 0.75, b: 0.25, a: 1 }, variance: 0.05, end: { r: 1, g: 0.3, b: 0.05 } } } } },
+		particle: { id: "spark", side: "top", position: { x: 0, y: 0.1, z: 0 }, overrides: { count: 2, physics: "none", spread: "narrow", velocity: { x: 0, y: 0.25, z: 0 }, color: { start: { r: 1, g: 0.75, b: 0.25, a: 1 }, variance: 0.05, end: { r: 1, g: 0.3, b: 0.05 } } } } },
 ]);
 
 export const Chandelier = (id, origin) => Prop(id, origin, 0, [
@@ -138,7 +138,7 @@ export const Stove = (id, origin, yaw) => Prop(id, origin, yaw, [
 	{ name: "burner0", shape: "cylinder", at: [-0.25, 0.95, 0.15], size: [0.3, 0.03, 0.3], color: rgb(0.08, 0.08, 0.08), tex: T.plain },
 	{ name: "burner1", shape: "cylinder", at: [0.25, 0.95, -0.15], size: [0.3, 0.03, 0.3], color: rgb(0.08, 0.08, 0.08), tex: T.plain },
 	{ name: "pot", shape: "cylinder", at: [-0.25, 0.98, 0.15], size: [0.42, 0.38, 0.42], color: rgb(0.45, 0.47, 0.5), tex: T.metal,
-		particle: { id: "smoke", position: { x: 0, y: 0.45, z: 0 }, overrides: { color: { start: { r: 0.42, g: 0.52, b: 0.24, a: 0.5 }, variance: 0.08, end: null } } } },
+		particle: { id: "smoke", side: "top", position: { x: 0, y: 0.26, z: 0 }, overrides: { color: { start: { r: 0.42, g: 0.52, b: 0.24, a: 0.5 }, variance: 0.08, end: null } } } },
 ]);
 
 export const Fridge = (id, origin, yaw) => Prop(id, origin, yaw, [
