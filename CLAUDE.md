@@ -13,7 +13,7 @@ A game dev agent or session works outside the engine. It gets its engine informa
 1. `FORBIDDEN_DEFENSIVE_CHECKS.md` — highest priority. No defensive guards on guaranteed engine-owned symbols.
 2. `UNIT_INSTANCING.md` — Instance `Unit`/`UnitVector3` once at entry; never re-instance; assume pre-instanced downstream.
 3. `CASING.md` — `lowerCamelCase` (non-exported), `UpperCamelCase` (exported), `FULL_CAPS` (exported constants).
-4. `ENGINE_SEMANTICS.md` — comment quality, structure as defense, tuning constants, no re-exports, constant chains, `last`/`next` naming.
+4. `ENGINE_SEMANTICS.md` — comment quality, structure as defense, tuning constants, no re-exports, constant chains, `last`/`next` naming, short names (three words at most).
 5. `MODULE_GROUPS.md`, `ENGINE_GAME_COMMUNICATION.md` and `CNU_VS_WORLDUNITS.md` as supporting context.
 
 These rules apply during both feature development and debugging. Debugging is not an exception path.
