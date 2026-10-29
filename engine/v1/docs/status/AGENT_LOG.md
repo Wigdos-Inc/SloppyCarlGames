@@ -212,3 +212,80 @@ Examples:
   - **Measured:** the contact-frame aim drop went from 0.47 to 0.04 on an uphill landing. A straight drop is unchanged (0.11). No console errors.
   - **Still visible, reported to the author, no decision yet:** on an uphill landing, contact flickers off ~40 ms after touching. On that frame the shown model itself drops ~0.52, because the pivot it turns about switches from the capsule cap to the body center while it is mid-turn. The camera now follows that drop. The `PoseAnchor` cap/body-center pivot is by design per the author and must not be altered.
   - **Correction:** an earlier log this session wrongly added a DEFERRED entry for the slide jump direction. The author had only queued it for later in the same chat, and the entry was removed.
+- [2026-10-28] MAIN: 0.35.6 Game-Authored Templates scoping — every open decision settled with the author and written into [game-templates-scope.md](engine/v1/docs/scoping/builder/game-templates-scope.md). No source changed, and implementation is not yet approved. The next step is deciding how to implement.
+  - **D1 collections:** every engine collection except `levels`. Characters and enemies become one game-side collection, `npcs`, with no per-type behaviour. The engine keeps its own Characters/Enemies split until 0.38 Entity AI.
+  - **D2 failures:** an invalid template rejects the whole level. Validity follows the same validate.js rules as the rest of the payload, and optional fields get their normal fallbacks. Rejected: drop with fallback, and dropping every reference.
+  - **D3 id collisions:** a game template overrides the engine template with the same id for that level, including fallback ids such as texture `none`. Rejected: dropping the game template, and namespacing.
+  - **D4 lifetime:** per level, registered at CreateLevel and cleared at ClearLevel. Rejected: session-wide, because a level could then work or break depending on which levels loaded first.
+  - **D5:** `entityBlueprints` kept.
+  - **D6 registry:** merge in place. Instance.js gets register/clear and writes game templates into the instanced collection objects all ~10 importers already hold. It stashes any overridden engine entry and restores it on clear. normalize's id sets ([normalize.js:805-806](engine/v1/core/normalize.js#L805-L806)) become live lookups. Rejected: a separate lookup at every import site.
+  - **MAIN's proposals, stated in the scope for the author to check:** game `npcs` register into both Characters and Enemies, so a ref of either `type` finds them while `type` keeps setting the collision default. Templates normalize in dependency order: textures, scatter, particles, then the part-built collections and player characters.
+  - **D7 generator attachment:** `side` is required in the engine, expected from games, and falls back to `top`. Center emission is removed. Generators are placed exactly like child parts. `side` works like `attachmentPoint` and picks the face center. `position` offsets from it in the carrier's own axes, like `localPosition`. `area` is an `{x, y, z}` box in carrier axes centered on the generator, like part dimensions (a zero axis is flat). Velocity rotates with the carrier, so +Y rises on every face. The testGame hole uses a −x velocity override, which now turns with the wall. The author first picked a face frame (+Y out of the face), having assumed child parts work that way. On learning that parts use parent axes, they reversed it so generators don't become another unique placement system. Rejected: the face frame, a flat `{x, z}` area, and a disc area. Runtime `SpawnParticles` generators with a target get the same placement. Existing generators migrate: testGame's torch and hole, and LSM `furniture.js`.
+  - **D8:** `ENGINE.Blueprints` stays engine-only.
+- [2026-10-29] MAIN: 0.35.6 part A, generator attachment like child parts. Implemented directly, and content migrated. Not yet browser-tested.
+  - **Placement:** `side` picks the face center, the same as `attachmentPoint`. `position` and `area` are in carrier axes, and velocity rotates with the carrier.
+  - **Carrier size:** built size is the mesh's `dimensions × transform.scale`, which is uniform across terrain, obstacle and entity-part meshes. An entity root target (`partId: null`) has no box of its own. It follows the root transform but takes its size from `entity.mesh`, its first part.
+  - **LSM log0:** it is rotated 90° on z, so carrier-relative velocity would have blown its smoke sideways. It got a `{x: 0.35}` override: RotateByEuler applies Z, then X, then Y, so local +x maps to world up whatever the yaw.
+  - **testGame:**
+    - Torches moved to `side: "top"`.
+    - The hole uses a game `hole_smoke` sprite template, a gray plane with `area` {0, 0.4, 0.7}. Its look is the author's to tune by eye.
+    - The scatter-quality slider is now Low/High, and the Medium preset maps it to High.
+- [2026-10-29] ED: 0.35.6 part B, scatter tier removal plus game-authored templates — implemented and syntax-checked; not browser-tested. The first run was interrupted when the process was terminated, with nothing landed, and the resumed run completed it.
+  - **Registration flow (author's design):** normalized templates ride on the payload, and `NewLevel.BuildLevel` registers them. normalize.js never calls builder code (MODULE_GROUPS). Normalize resolves ids game-first from `ctx.templates`.
+  - **Beyond the brief:**
+    - An `objectTemplate` root that requires at least one part, because a template has no shape of its own.
+    - Engine JSON keys added per FORBIDDEN §4.
+    - `Object.hasOwn` lookups, so an id like `toString` can't match a prototype member.
+    - Scatter template planes can't be sprites.
+    - Low-quality planes get depth 0, so decals sit on the sheet.
+    - Simulator caches engine entries after clearing the level, so a running level's game ids aren't cached.
+    - Fixed `normalizeAttacks`, whose map callback returned nothing (no runtime reader).
+  - **Reported limitations:**
+    - Model.js reloads player decal images relative to `player/`, so game player-character image decals at page-relative paths are dropped.
+    - Back-to-back CreateLevel has a stale-template gap.
+    - Leaves become near-invisible 0.01-tall planes at Low quality.
+- [2026-10-29] ERA: audit of 0.35.6 — 1 high, 1 medium, 5 low (report only).
+  - **High, open for the author:** CreateLevel without ClearLevel validates the new payload against the previous level's still-registered templates. BuildLevel's register then clears them, so the build can crash. Clearing at the top of CreateLevel would break the old level if the new payload is invalid, because seeded siblings look up the cleared templates.
+  - **Medium, pre-existing, not fixed:** Instance.js defaults `part.repeat` / `part.particle` when the engine JSON omits them.
+  - **Low, fixed by MAIN:** a redundant `toLowerCase`, overlong `findSceneTarget` lines, texture/detail re-normalized from canonical containers, and runtime comment jargon.
+  - **Kept by MAIN:** `particleRequest.side` stays not-expected, because bursts ignore it.
+- [2026-10-29] DRYAD: review of 0.35.6 — about −196 lines possible (report only).
+  - **Top finding, open for the author:** the generator block is duplicated across five canonSchemas roots. A `particleGenerator` root would save about 170 lines.
+  - **Applied by MAIN:**
+    - A `follow()` rotation cache, so carriers that never turn allocate nothing per frame.
+    - Simplifications: `validatePartList`, a `findSceneTarget` loop, `GeneratorPlacement`, an `instanceParticle` helper, and two single-use validators inlined.
+    - Small cleanups: a zero-area early return, a shared `noGameTemplates`, and the register log count fixed (npcs were counted twice).
+  - **Rejected by DRYAD:** reusing `levelEntityBlueprint` for entity templates (its id is required), and shared normalize helpers that only move lines.
+- [2026-10-29] MAIN: fixed an object template part that authors `color` but no texture. It was inheriting `shared.texture` and losing the colour; it now tints a copy of the shared texture.
+- [2026-10-29] MAIN: 0.35.6 follow-up — the author's three decisions on the open ERA/DRYAD/ED items, implemented directly. Syntax-checked, not browser-tested.
+  - **CreateLevel clears first:** this resolves ERA's high finding. The previous level's still-registered game templates could satisfy the new payload's checks, and then the build crashed once registration cleared them. The author accepted the tradeoff: if the new payload is invalid, the old level is already gone. The old mid-function loop stop was dead code, because the loop only starts after the scene graph is set.
+  - **particleGenerator root:** this is DRYAD's top finding. validate.js needed no hooks. `validatePayloadSchema` only reports errors for `isRequired` fields and no generator field is required, so making the blocks opaque loses no validation; DRYAD had assumed it would.
+  - **Player decals at boot:** Model.js resolved every decal path against `player/`, so a game player character's image decal at a page-relative path was dropped. Engine decals now load at boot from the folder of their JSON. Model.js's dead-decal filter went with the reload: engine assets are guaranteed, and normalize already drops failed game images. Player sprite-plane images were not loaded by Model.js before, and still aren't.
+- [2026-10-29] ARGUS: functional run of 0.35.6 in testGame — all 9 checks passed. It found one content regression, fixed by MAIN.
+  - **Stage 2 load:** it loads cleanly and logs "Game templates registered: 1".
+  - **Generator placement:** measured in the browser. The hole offset (−0.35, 0.3, −1) is the left face center plus the authored position, 0.1 outside the wall. Particles spread across the area and drift out along −x. The torch and moving torch offsets are the top face plus 0.1, and the moving torch's spawn point follows its post.
+  - **Runtime generator:** a `front`-side generator lands at z 0.225 (0.125 + 0.1). Bursts carry no area and no rotation.
+  - **Clearing between levels:** after ClearLevel, `hole_smoke` is rejected as an unknown template, and stage 2 reloads fine.
+  - **Invalid template:** CreateLevel rejects it and returns null.
+  - **Id override:** a game `smoke` override is used for that level, and the engine's `smoke` is back after clearing.
+  - **Scatter:** Low draws all 6 batches as crossed planes (leaves 0.8 × 0.01); High draws authored shapes. Quality was set through `ENGINE.Config`, not the testGame slider.
+  - **Player decals:** Chara's and Carl's image decals all have bitmaps from the boot load.
+  - **CreateLevel over a running level:** it clears the old level, warns and builds without a crash. `Simulator.Exit` restores the level.
+  - **Regression (MAIN fix):** stage 0's six `rock-*` falling_pebbles generators had been missed in the content migration. Under the `top` fallback they spawned inside the rocks, 0.05 below each center, instead of 0.05 below each bottom. They are now `side: "bottom"` with `position.y` −0.05. The rocks are unrotated, so velocity is unchanged.
+  - **Expected, not a bug:** the title-screen Simulator cache normalizes `scale-wall-right` without any level templates. It warns that `hole_smoke` is unknown, and the cached entry has no generator.
+- [2026-10-29] MAIN: 0.35.6 Low-quality scatter fixes from the author's visual review, done directly. Syntax-checked; not browser-tested.
+  - **Per-part spin was an oversight (author).** Parts of one object ended up at different angles, which showed once they became planes. It's now one spin per model. Because Y is applied last in the Euler order, adding the spin to rotation.y is a world spin. This also changes High: grass and leaf clumps now turn as one unit.
+  - **Decals on converted parts.** A plane only has a front and a back, so decals on other faces rendered wrong (branch end caps drew as full circles).
+    - Flat parts now lie down as one sheet. Their top decals are remapped (x, y, z) → (x, −z, y), which matches the renderer's top-face rotation.
+    - Exact only for flat parts with no x/z rotation. A flat sheet's footprint at Low has depth 0.
+  - **`skipLow`.** Branches without their caps stop reading as branches, so the author asked for a per-type flag. A four-word name was rejected. Leaves and branches skip Low.
+  - **Spheres.** The author rejected exempting spheres from conversion as a regression. Turning spheres into sprites is noted in the todo under 0.37, pointing at the 2026-10-27 scatter-sprites DEFERRED entry.
+- [2026-10-29] MAIN: fixed a bug in its own Low-quality scatter change, from the author's screenshot showing pebbles gone or glitching and bushes gone — verified in the browser.
+  - **Root cause (measured):** the flat test `y < x && y < z` also matched squashed spheres and cylinders. Pebbles, the bush sphere and the bush stem became uncrossed sheets with half height 0, lying at ground level and z-fighting the surface.
+  - **Fix:** a part is flat only when y ≤ 0.1 × min(x, z); leaves qualify at 0.01 against 0.5. A flat sheet is lifted to where its top face was.
+  - **Result at Low:** pebbles and both bush parts are crossed pairs again. Leaves and branches are skipped, leaving 4 batches. No console errors.
+- [2026-10-29] MAIN: scatter models with root parts hanging off the parent's edge are now rejected, at the author's request. The author called it a months-old problem. Verified in the browser.
+  - **Root cause:** the parent's real outline only ever checked the sample center. Root-part footprints were only checked against the parent's world AABB. testGame stage 0's `ground-main` is a 120×80 cube turned 45°, so at the diagonal edges its AABB reaches far past the surface, and grass blades offset from a center just inside floated over the void.
+  - **Fix:** all four corners of each turned root-part footprint are now checked against the parent's detailed bounds.
+  - **Measured:** stage 0 at High has 120,676 instances on the ground, none outside the turned outline. The only two outside are pebbles sitting on platform-a.
+  - **Open, author not yet asked:** `isPointInDetailedBoundsXZ` only knows aabb and obb and returns true for every other bounds type (triangle-soup, sphere, capsule). Parents of those types still get no outline check, for centers or parts.

@@ -1,12 +1,12 @@
 # Game-Authored Templates: Scope
 
-0.35.6, written 2026-10-26. This is a scope only, and building any of it needs a separate go-ahead.
+0.35.6, written 2026-10-26, decisions settled 2026-10-28. This is a scope only, and building any of it needs a separate go-ahead.
 
 **Origin.** 0.35.5 added sprite particles. The only way to make one was a `shape` particle override. That broke a standing decision: a particle's `part` is template-owned ([system_map/builder.md](../../system_map/builder.md)), because shape is part of its core definition.
 
 Particles were never game-authorable because each generator would have to repeat the full definition. Game-side templates solve that repetition for every template type, not only particles.
 
-Section 4 carries over two particle items that wait on this. Section 6 lists the decisions still open.
+Section 4 carries over two particle items that wait on this. Section 6 records the decisions.
 
 ---
 
@@ -15,7 +15,7 @@ Section 4 carries over two particle items that wait on this. Section 6 lists the
 - **A `templates` object.** Level payloads get an optional `templates` object. It accepts the same collections the engine ships with, except `levels`, which stays engine-only (Simulator-only today).
 - **Templates go first.** `templates` is validated and normalized before the rest of the payload.
   - It is especially failure-prone, because the rest of the payload may depend on it being correct.
-  - How strict that failure is remains open (D2).
+  - An invalid template rejects the level (D2).
 - **Registered like engine templates.** Valid templates are registered in the engine. The payload then references them exactly the way it references engine-owned templates.
 
 ---
@@ -39,7 +39,7 @@ Section 4 carries over two particle items that wait on this. Section 6 lists the
 
 **There is no single registry.**
 - About ten modules import the template JSON directly: normalize, NewTemplate, NewObject, NewTexture, NewScatter, NewVoid, NewParticles, Simulator, player/Master and player/Model.
-- At boot, [`InstanceEngineTemplates`](../../../builder/templates/Instance.js#L185) instances that imported data in place, so every importer sees the instanced objects.
+- At boot, [`InstanceEngineTemplates`](../../../builder/templates/Instance.js#L181) instances that imported data in place, so every importer sees the instanced objects.
 - `ENGINE.Blueprints` exposes raw clones of them.
 
 **Engine templates bypass the payload boundary.** They are authored already compliant, and only Instance.js converts their units. Game templates are payload data, so they must go through validate.js and normalize.js. They must come out in exactly the same shape Instance.js produces, so nothing downstream can tell the two apart.
@@ -48,17 +48,25 @@ Section 4 carries over two particle items that wait on this. Section 6 lists the
 - Collections built from parts (terrain, obstacles, characters, enemies, projectiles, particle `part`) can reuse the existing `levelPart`/`levelObject`/blueprint schemas.
 - Textures, scatter types, player characters and the particle template's own tuning fields have no payload schema today.
 
-**Overlap with `entityBlueprints`.** A level's `entityBlueprints` buckets are already game-authored, reusable entity definitions, and `level.entities` references them by `blueprintId`. That covers most of what Characters, Enemies and Projectiles templates would do. See D5.
+**Template ref `type` does two jobs.** On an `entityBlueprints` ref it picks the collection and sets the collision default (`character` → `"entity"`, `enemy` → `"enemy"`, [normalize.js:809](../../../core/normalize.js#L809)).
+
+**Generators today.** A generator's `position` is an offset from the carrier's center that rotates with the carrier. Its velocity is world-space and does not rotate ([NewParticles.js:233](../../../builder/NewParticles.js#L233), [:418](../../../builder/NewParticles.js#L418)). That is why the hole smoke needs a velocity override to point out of the wall.
 
 ---
 
 ## 3. Work involved
 
-- **One lookup path.** Every module that reads a template collection goes through a single lookup: game templates first, then engine templates. That touches the ten import sites above, plus the id sets normalize builds from `templateCollections` ([normalize.js:784](../../../core/normalize.js#L784)). Where the registry lives is D6.
-- **Normalizing templates.** Each collection needs a normalize path that produces Instance.js's output: unit instancing, decal and sprite image loads, scatter quality tiers. Collections without a schema get one.
-- **Order.** In `LevelPayload`, `templates` normalizes and registers first. The rest of the payload's id checks (the table's last column) then see the game ids.
-- **Lifetime.** Registration and its clearing are tied to CreateLevel/ClearLevel. See D4.
-- **Docs.** The builder and core system_map entries, plus MODULE_GROUPS if the registry changes who imports `builder/templates/`.
+- **Validation first.** validate.js validates `templates` before the rest of the level payload. Any error in it rejects the level (D2).
+- **Normalizing templates.** Each collection needs a normalize path that produces Instance.js's output: unit instancing, decal and sprite image loads, scatter quality tiers. Collections without a schema get one. Optional fields get their normal payload fallbacks.
+- **Dependency order.** Templates can reference each other: a game terrain template can use a game texture, a scatter type or a game particle generator. They normalize and register in order: textures, scatter, particles, then the part-built collections and player characters.
+- **Registration in place (D6).** Instance.js gets a register and a clear function.
+  - Register writes normalized game templates into the instanced collection objects every importer already holds, so none of the ten import sites change.
+  - Where a game id matches an engine id, register stashes the engine entry and the game one replaces it (D3). Clear removes game entries and restores the stashed engine ones.
+  - normalize's id sets ([normalize.js:805-806](../../../core/normalize.js#L805-L806)) are built once at load today. They become live lookups, including the runtime `SpawnParticles` path.
+- **npcs (D1).** `templates.npcs` is one collection. Its entries register into both the Characters and Enemies collections, so a blueprint ref of either `type` finds them. The ref's `type` keeps setting the collision default until 0.38.
+- **Lifetime (D4).** Register at CreateLevel, after `templates` normalizes and before the rest of the payload's id checks. Clear at ClearLevel.
+- **Generator attachment (D7).** See section 4. Existing generators migrate: testGame's torch (`entities.json`, `levels.json`) and hole, and LSM's `furniture.js`.
+- **Docs.** The builder and core system_map entries, plus MODULE_GROUPS if normalize starts importing Instance.js.
 
 ---
 
@@ -66,39 +74,31 @@ Section 4 carries over two particle items that wait on this. Section 6 lists the
 
 These wait on game-authored particle templates. (The `shape` particle override was already removed in the 0.35.5 plane rework.)
 - **Give the testGame hole sprite smoke.** Level 1 stage 2's `scale-wall-right` generator emits the engine's 3D `smoke`. It would reference a game particle template whose part is a sprite plane.
-- **Attach generators like decals.** Today a generator's `position` is an offset from the carrier's center.
-  - It would instead pick a `side`, with `position` moving it along that face.
-  - It would gain an `area` (like a decal's `scale`) so particles start anywhere on a patch of the face, not from one point.
-  - It should use face-relative axes from the start. Decal `position` axes still change with `side`; that fix is in DEFERRED.
+- **Attach generators by face.**
+  - **`side`** picks a face of the carrier: `top`, `bottom`, `front`, `back`, `left`, `right`. It is required in the engine, expected from games, and falls back to `top`. Center emission goes away.
+  - **Placed like child parts.** `side` works like a part's `attachmentPoint`, and everything else uses the carrier's own axes, which rotate with it ([NewEntity.js:178-183](../../../builder/NewEntity.js#L178-L183)). There is no per-face frame.
+  - **`position`** offsets the generator from that face's center, like a part's `localPosition`.
+  - **`area`** is a box `{x, y, z}` centered on the generator, like a part's dimensions. Particles spawn uniformly inside it. A zero axis is flat along that axis, so a patch on the `left` face is `{ x: 0, y: 0.4, z: 0.6 }`. A zero box is a single point.
+  - **Velocity** rotates with the carrier. A template authored with +Y velocity rises on every face, and the hole points its smoke out of the wall with a velocity override (−x on `scale-wall-right`), which now turns with the wall.
+  - **Runtime generators.** A `SpawnParticles` request with a `target` takes the same `side`, `position` and `area` in place of its center `offset`.
 
 ---
 
 ## 5. Out of scope
 
-- Session-wide registration through the ENGINE API, i.e. templates registered once and shared by every level. Only relevant if D4 picks per-level.
+- Session-wide registration through the ENGINE API, i.e. templates registered once and shared by every level.
+- Merging the engine's Characters and Enemies collections into one, and replacing the ref `type` collision default. Both belong to 0.38 Entity AI.
 - Sprite ENGINE API (todo, Level API "Sprites").
 
 ---
 
-## 6. Open decisions
+## 6. Decisions (author, 2026-10-28)
 
-- **D1. Which collections.**
-  - The author's list was player characters, textures, scatter, npcs, projectiles, terrain and obstacles. That leaves out **Enemies** and **Particles**, though particles are the reason this exists.
-  - "npcs" maps to the engine's **Characters** collection. Is the payload key `npcs`, `characters`, or both?
-- **D2. How strict template failures are.**
-  - **(a)** Any invalid template rejects the whole level payload.
-  - **(b)** An invalid template is dropped. Each reference to it then falls back the way an unknown id does today: warn, then drop or substitute (section 2 table).
-  - **(c)** As (b), but every reference to a dropped template is also dropped, even where a fallback exists today (e.g. textures).
-  - Also: do fields inside a template get per-field fallbacks like the rest of the payload, or must a template be complete to count as valid?
-- **D3. Id collisions with engine templates.** Does a game id replace the engine template of the same id, fail validation, or live under a namespace?
-- **D4. Lifetime.** Are templates registered per level, so ClearLevel drops them? Or do they persist for the session, so a later level can reference an earlier level's templates?
-- **D5. `entityBlueprints`.** Keep both mechanisms, or should `entityBlueprints` become entity templates?
-- **D6. Where the registry lives.** No new modules unless requested. Candidates:
-  - [NewTemplate.js](../../../builder/NewTemplate.js) already resolves templates at build;
-  - normalize.js holds the id sets.
-  - core/ importing builder/ is an approved exception today, limited to template data.
-- **D7. Generator attachment.**
-  - Is `side` required, or does it default?
-  - Is `area` a box on the face, or a disc?
-  - Should the template's velocity be read relative to the face, so "out of the wall" survives any carrier rotation?
-- **D8. `ENGINE.Blueprints`.** Does it show registered game templates, or stay engine-only?
+- **D1. Collections.** Every engine collection except `levels`. Characters and enemies merge into one game-side collection, `npcs`, with no per-type behaviour. The engine keeps its own Characters/Enemies split until 0.38.
+- **D2. Failures.** An invalid template rejects the whole level payload. "Invalid" means the same validate.js rules as the rest of the payload (required fields, types, structure). A template does not need to spell out every optional field.
+- **D3. Id collisions.** A game template overrides the engine template with the same id for the level, including fallback ids such as texture `none`.
+- **D4. Lifetime.** Per level. ClearLevel drops them, and a game reuses templates across levels by passing the same object in each payload.
+- **D5. `entityBlueprints`.** Kept. Blueprints can reference game `npcs` and `projectiles` the same way they reference engine templates.
+- **D6. Registry.** Merged in place into the instanced collections by Instance.js (section 3).
+- **D7. Generator attachment.** `side` required (games: expected, fallback `top`), `area` is a `{x, y, z}` box, and `position`, `area` and velocity all use the carrier's axes, consistent with child parts. Runtime generators with a `target` place the same way (section 4).
+- **D8. `ENGINE.Blueprints`.** Engine-only. Its raw clones are separate objects, so the in-place merge never reaches them.

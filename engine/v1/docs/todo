@@ -150,7 +150,7 @@ Version Goals:
     - Could be useful as an object type, and as a particle type.
     - Look into adding mipmaps to remove the weird rounded artifacts at a distance.
     - Add a "crossed" boolean to the "plane" primitiveOptions.
-  6. Game-Authored Templates [PENDING]
+  6. Game-Authored Templates [CURRENT]
     - Level payloads get an optional "templates" object with every engine template collection except levels. Validated and normalized first, then referenced like engine templates.
     - Carries sprite smoke for the testGame hole (via a game particle template) and decal-style generator attachment (side, face-relative position, area).
     - Scope: docs/scoping/builder/game-templates-scope.md
@@ -188,6 +188,7 @@ Version Goals:
   - Move more non-standard fields to primitiveOptions
   - Look into unifying capsule and cylinder.
     - Add "topRounding" and "bottomRounding" primitiveOptions, which equate to how much of the cylinder the cap replaces.
+  - Low-quality scatter should turn spheres into sprites, not square crossed planes. Needs sprite planes in scatter first: DEFERRED [2026-10-27] "Sprite planes in scatter".
   1. Allow voids on entities (they'll act as carving). Void walls must start supporting decals.
 - 0.38: Entity AI
   - Blueprint movement fields chase, jump, jumpOnSight, disappear and aggroRange validate but do nothing; devs read them as the AI API.

@@ -252,3 +252,83 @@ ENGINE_SEMANTICS §6 now covers the was/had form for booleans and limits `next` 
 **What:** `AimPoint` aims at the collision box center as the shown model holds it: the body position, plus the pose anchor turned by the body rotation, plus the scaled rest box center minus the anchor, turned by the shown rotation. A new `shownRotation` helper (the model pose rotation, or the transform rotation with animations disabled) is shared with `modelFlip`. Modes.js now imports `PoseAnchor` from physics/Correction.js.
 
 **Where:** [Modes.js](engine/v1/camera/Modes.js)
+
+## Particle generators attach to a carrier face
+
+**What:**
+- **Generator fields.** Every generator `particle` block, and `particleRequest`, gains `side` (a face; expected, fallback `top`) and `area` (a spawn box). `position` now offsets from that face's center, in carrier axes.
+- **Placement.** `GeneratorPlacement` returns a generator's offset, world position and carrier rotation. Groups spawn at a random point in the area and launch with velocity turned by the carrier. `follow()` refreshes the rotation, and re-turns the offset only when the carrier turned. Bursts keep world axes and have no area. Center emission is gone.
+- **Exports and targets.** `GetFaceCenterOffset` is exported (renamed from `getFaceCenterOffset`). `findSceneTarget` also returns the target mesh, through the new `targetMesh`.
+
+**Where:** [canonSchemas.json](engine/v1/core/canonSchemas.json), [normalize.js](engine/v1/core/normalize.js), [NewParticles.js](engine/v1/builder/NewParticles.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [NewTemplate.js](engine/v1/builder/NewTemplate.js), [Level.js](engine/v1/handlers/game/Level.js)
+
+## Scatter quality tiers removed
+
+**What:**
+- **Quality setting.** `Performance.Scatter.Quality` is `"High"` or `"Low"`. Low draws every scatter part that isn't already a crossed plane as a crossed plane, keeping its x/y size and decals.
+- **Engine scatter data.** Scatter parts no longer split fields by tier, and their `primitive` field is renamed `shape`. `resolveTier` and `instanceTiers` are gone.
+- **Engine JSON keys.** Scatter parts carry `primitiveOptions`, leaves and branches carry `complexity`, and the halfpipe's `shared` carries `destructible`/`hp`/`static`.
+
+**Where:** [textures.json](engine/v1/builder/templates/textures.json), [terrain.json](engine/v1/builder/templates/terrain.json), [Instance.js](engine/v1/builder/templates/Instance.js), [NewScatter.js](engine/v1/builder/NewScatter.js), [config.js](engine/v1/core/config.js)
+
+## Game-authored templates
+
+**What:**
+- **Payload field.** Level payloads take an optional `templates` object with `textures`, `scatter`, `particles`, `terrain`, `obstacles`, `npcs`, `projectiles` and `playerCharacters`, each keyed by id.
+- **New schema roots.** `textureTemplate`, `scatterTemplate`, `scatterTemplatePart`, `particleTemplate`, `objectTemplate`, `objectTemplateShared`, `partRepeat`, `entityTemplate`, `playerCharacterTemplate`.
+- **Validation.** `validateTemplates` runs first in `ValidateLevelPayload`.
+- **Normalization.** `normalizeGameTemplates` runs first in `LevelPayload`, in dependency order, into the same shape Instance.js produces. The result is stored on `normalized.templates` and `ctx.templates`.
+- **Lookups.** `findTemplate` resolves every template lookup game-first, then engine. The load-time `templateIds` sets are removed.
+- **Registration.** `RegisterGameTemplates` / `ClearGameTemplates` write game templates into the instanced engine collections and restore any engine entries they replaced. `npcs` fill both characters and enemies. `BuildLevel` registers and `ClearLevel` clears.
+- **Simulator.** `Simulator.Start` caches engine entries after clearing the active level.
+- **Fixes in the same files.**
+  - `normalizeAttacks` returns its normalized entries.
+  - Validation shares a `validatePartList` helper.
+  - An object template part with `color` but no texture tints a copy of the shared texture.
+
+**Where:** [canonSchemas.json](engine/v1/core/canonSchemas.json), [validate.js](engine/v1/core/validate.js), [normalize.js](engine/v1/core/normalize.js), [Instance.js](engine/v1/builder/templates/Instance.js), [NewLevel.js](engine/v1/builder/NewLevel.js), [Level.js](engine/v1/handlers/game/Level.js), [Simulator.js](engine/v1/handlers/game/Simulator.js)
+
+## CreateLevel clears a running level first
+
+**What:** `CreateLevel` calls `ClearLevel(false)` before validating whenever a level is running, and keeps the "end levels naturally" warning. The later stop of a still-active loop is removed.
+
+**Where:** [Level.js](engine/v1/handlers/game/Level.js)
+
+## Shared particleGenerator schema
+
+**What:** A new `particleGenerator` root holds the generator fields (`id`, `side`, `area`, `position`, `overrides`). The `particle` field of `levelPart`, `levelObject`, `templateObjectRef` (root and `parts[]`) and `templateEntityRef` `model.parts[]` is now a plain object field that refers to it. `normalizeGenerator` fills authored generators from that root before `normalizeParticle`, which no longer accepts null.
+
+**Where:** [canonSchemas.json](engine/v1/core/canonSchemas.json), [normalize.js](engine/v1/core/normalize.js)
+
+## Engine player decals load at boot
+
+**What:** `loadTemplateDecalBitmaps` also loads the image decals of `player/characters.json`, resolving their paths from `player/`, and `loadBitmap` takes the folder paths start from. Model.js no longer loads or filters decals: `loadDecalBitmaps`, `filterDeadDecals` and its `NormalizeImage` import are removed. `BuildPlayerModel` is no longer async, and `hasCustomParts` is no longer passed to it.
+
+**Where:** [Instance.js](engine/v1/builder/templates/Instance.js), [Model.js](engine/v1/player/Model.js), [Master.js](engine/v1/player/Master.js), [Simulator.js](engine/v1/handlers/game/Simulator.js)
+
+## Scatter models spin as a whole
+
+**What:** Each scatter model draws one random spin (`modelYaw`) instead of one per part. Part offsets turn around the model origin with it, in the placement loop and in the root-part footprint checks (`rootPartFootprintAabbXZ` now takes `modelYaw`).
+
+**Where:** [NewScatter.js](engine/v1/builder/NewScatter.js)
+
+## Low-quality scatter decals and skipLow
+
+**What:**
+- **Flat parts.** At Low quality, a flat part (thinnest along y) becomes one horizontal sheet. Its `top` decals move to the sheet's front, with their position turned to match.
+- **Other parts.** Every other part becomes a crossed pair that keeps only its front and back decals.
+- **`skipLow`.** A new scatter type flag; when true, the type is skipped entirely at Low. Leaves and branches set it, and `scatterTemplate` accepts it.
+
+**Where:** [NewScatter.js](engine/v1/builder/NewScatter.js), [textures.json](engine/v1/builder/templates/textures.json), [canonSchemas.json](engine/v1/core/canonSchemas.json)
+
+## Low-quality flat part test narrowed
+
+**What:** At Low quality, a scatter part only counts as flat when its height is at most a tenth of the smaller of its width and depth. The flat sheet sits where the part's top face was. This replaces the "thinnest along y" test from the entry above.
+
+**Where:** [NewScatter.js](engine/v1/builder/NewScatter.js)
+
+## Scatter root parts must stand on the parent
+
+**What:** `areRootPartsWithinParentBounds` now also rejects a model when any corner of a root part's footprint lies outside the parent's detailed bounds. The check is the new `isFootprintOnParent`, using the part yaw plus the model yaw.
+
+**Where:** [NewScatter.js](engine/v1/builder/NewScatter.js)

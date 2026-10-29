@@ -382,7 +382,25 @@ A value for this frame takes no prefix. When a function reads the old value and 
 
 ---
 
-## 7. Relationship to Other Rules
+## 7. Name Length
+
+### 7.1 Core Rule
+
+Names stay short: functions, variables, payload fields, flags and schema keys alike. One or two words is the aim. Three is the limit. Nothing needs four.
+
+A name too long for three words is over-describing. Drop what the surrounding module, object or call already says. A helper with only one caller doesn't need a name at all: fold it into the caller.
+
+### 7.2 Bad vs Good
+
+| Bad | Good |
+|---|---|
+| `areRootPartsWithinParentBounds` | `fitsParent` |
+| `isFootprintOnParent` (one caller) | Folded into `fitsParent` |
+| `skipAtLowQuality` | `skipLow` |
+
+---
+
+## 8. Relationship to Other Rules
 
 - §2 is a design-level extension of `rules/FORBIDDEN_DEFENSIVE_CHECKS.md`. Read that first.
 - `rules/MODULE_GROUPS.md` governs *where* a justified helper belongs; §2 governs *whether* it should exist.
@@ -409,3 +427,4 @@ A value for this frame takes no prefix. When a function reads the old value and 
 | Is a long property path repeated throughout this scope? | Destructure it at the top |
 | Does this name hold how something was before? | Prefix it `last`; a boolean uses the past tense (`wasGrounded`) |
 | Is this name deliberately the next in a sequence, beside a current one? | Prefix it `next`; this frame's value takes no prefix |
+| Does this name need four words or more? | Shorten it to one to three; fold a single-caller helper into its caller |
