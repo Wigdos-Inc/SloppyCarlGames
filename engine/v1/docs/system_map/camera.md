@@ -28,7 +28,7 @@ Runs the in-level camera. Each frame it detects the player's situation, maps it 
   - **Per frame.** Sets `frame.follow = min(1, 15 × Body.LagStrength × dt)` and eases `frame.aimShare` toward 0.5 while looping, otherwise toward the level's `aimHeight`.
   - **Rig modes.** The mode's `update` returns a rig frame, which `placeOnRig` places:
     - **Target.** The target point is `AimPoint`, or the follow target's position while simulating.
-    - **Obstruction.** `checkCameraObstruction` (skipped while simulating) shares one `BroadphaseCollectCandidates` call across a center ray plus four rays offset by the rig's radius. Void-wall candidates are tested with `RayDetailedBoundsIntersect` once the ray reaches their box, since the ray can start inside it. It discards hits flagged `inside`, and host surface carved away by a void (`IsPointInSuppressingVoid` against `HostVoids`). A hit pulls the arm in by `Body.Radius`, but never closer than the camera radius plus the target body's extent along the arm.
+    - **Obstruction.** `checkCameraObstruction` (skipped while simulating) shares one `BroadphaseCollectCandidates` call across a center ray plus four rays offset by the rig's radius. Void-wall candidates are tested with `RayDetailedBoundsIntersect` once the ray reaches their box, since the ray can start inside it. It discards hits flagged `inside`, and host surface carved away by a void (`IsCutByVoid` against `HostVoids`). A hit pulls the arm in by `Body.Radius`, but never closer than the camera radius plus the target body's extent along the arm.
     - **Arm distance.** `settleArmDistance` snaps in on obstruction and eases back out after `Walls.ReturnDelayMs`.
     - **Pivot lag.** The pivot lerps toward the center by `follow`. A `holdArm` rig lengthens the arm so the lag never shortens it below the flat-ground equivalent.
     - **View vectors.** Built from the arm. The view's up flips past the top of the arm's pitch arc, using the rig's `tangent`.
@@ -59,7 +59,7 @@ Runs the in-level camera. Each frame it detects the player's situation, maps it 
 - `core/ini.js`: `GetCameraPosition`.
 - `core/validate.js`/`normalize.js`: `Sets.json` only.
 
-**Calls into:** `physics/Collision.js` (`BroadphaseCollectCandidates`, `IsPointInSuppressingVoid`, `HostVoids`); `player/Master.js` (`PlayerHeight`); `math/`; `core/` (config, meta).
+**Calls into:** `physics/Collision.js` (`BroadphaseCollectCandidates`, `IsCutByVoid`, `HostVoids`); `player/Master.js` (`PlayerHeight`); `math/`; `core/` (config, meta).
 **Does not:** Import `handlers/`; write player velocity or position; read the Simulator's state (the Simulator passes `simulating` in).
 
 ## Invariants

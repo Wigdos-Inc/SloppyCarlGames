@@ -332,3 +332,134 @@ ENGINE_SEMANTICS §6 now covers the was/had form for booleans and limits `next` 
 **What:** `areRootPartsWithinParentBounds` now also rejects a model when any corner of a root part's footprint lies outside the parent's detailed bounds. The check is the new `isFootprintOnParent`, using the part yaw plus the model yaw.
 
 **Where:** [NewScatter.js](engine/v1/builder/NewScatter.js)
+
+## math/Geometry.js split out of math/Collision.js
+
+**What:**
+- **New `math/Geometry.js`.** Exports `TriangleNormal`, `TriangleArea`, `TriangleCentroid`, `TriangleAabb`, `MeshTriangles`, `AabbCenter`, `AabbHalfExtents`, `PointsAabb`, `BoxCorners`, `SphereFromAabb`, `CapsuleFromAabb`, `ObbFromAabb`, `OffsetDetailedBounds`, `SplitPolygonByPlane`, `ClosestPointOnSegment` (was private `closestPointOnSegment`) and `ClosestPointOnTriangle`.
+  - `MeshTriangles(positions, indices, matrix)` is new. It places each corner once and shares it between triangles. It replaces the loops in NewObject's `computeTriangleSoupFromMesh` and NewVoid's `buildWorldTriangles`.
+  - `BoxCorners(box)` is new. It returns the 8 corners with x changing fastest, then y, then z. It replaces NewObject's `boxCorners` and the corner lists in NewEntity's `placeAabbEnclosure` and NewTerrain's `occluderPiece`.
+- **`math/Collision.js` exports** are now `AabbOverlap`, `AabbOutsideFrustum`, `TriangleDistanceSq`, `PointInsideMesh`, `BuildTriangleGrid`, `TriangleGridCandidates`, `PointInsideTriangleGrid`, `MeshesIntersect`, `SweptAABB`, `RayAABBIntersect`, `RayAABBDetailedBoundsIntersect`, `RayTriangleIntersect`, `SegmentQueryBox`, `TriangleInQueryBox`, `RayDetailedBoundsIntersect`, `SweptSphereBounds` and `NarrowphaseContact`. `raySphereIntersect`, `rayOBBIntersect`, `rayCapsuleIntersect` and `rayTriangleSoupIntersect` are now private.
+- **Velocity math.** `ApplyDeceleration` is now `ComputeDeceleration` in `math/Forces.js`. `ClampVelocity` and `ProjectOntoPlane` moved to `math/Vector3.js`. `ApplyAcceleration` is now private `applyAcceleration` in `player/Movement.js`.
+- **Moved into their only consumer as private functions:**
+  - `physics/Collision.js`: `expandAabbY`, `horizontalApproach`, `slideAlongContacts`, `pointAabbFaceGap`, `pointObbFaceGap`, `reachesTriangle`, `nearestFrontTriangle`.
+  - `physics/Correction.js`: `surfaceAlignedRotation`.
+  - `builder/NewTerrain.js`: `inscribedBox`, `voidCutBoxes`, `subtractBox`, `aabbLargestFace`, `mergeTouching`, `solidBoxes`.
+  - `handlers/Render.js`: `projectBoxCorners`, `convexHull2D`, `cornersInsideHull`, `beyondFrontFaces`.
+
+**Where:** [Geometry.js](engine/v1/math/Geometry.js), [Collision.js](engine/v1/math/Collision.js), [Vector3.js](engine/v1/math/Vector3.js), [Forces.js](engine/v1/math/Forces.js), [physics/Collision.js](engine/v1/physics/Collision.js), [Correction.js](engine/v1/physics/Correction.js), [physics/Forces.js](engine/v1/physics/Forces.js), [Movement.js](engine/v1/player/Movement.js), [camera/Master.js](engine/v1/camera/Master.js), [Modes.js](engine/v1/camera/Modes.js), [Render.js](engine/v1/handlers/Render.js), [Simulator.js](engine/v1/handlers/game/Simulator.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [NewObject.js](engine/v1/builder/NewObject.js), [NewObstacle.js](engine/v1/builder/NewObstacle.js), [NewLevel.js](engine/v1/builder/NewLevel.js), [NewVoid.js](engine/v1/builder/NewVoid.js), [NewTerrain.js](engine/v1/builder/NewTerrain.js), [NewPrimitive.js](engine/v1/builder/NewPrimitive.js)
+
+## Terrain blocker inscribed box no longer NaN
+
+**What:** `inscribedBox` scales the dimensions by `0.5` instead of by `ToVector3(0.5)`, which made every component NaN. Terrain blockers get through the size filter again.
+
+**Where:** [NewTerrain.js](engine/v1/builder/NewTerrain.js)
+
+## Scatter parent outline checks fixed
+
+**What:** `isPointInDetailedBoundsXZ` destructures `center` for its OBB branch. `fitsParent` multiplies the part's dimensions by the `localScale` vector before scaling by the uniform scale.
+
+**Where:** [NewScatter.js](engine/v1/builder/NewScatter.js)
+
+## Box folds go through PointsAabb
+
+**What:**
+- **NewObject.** New private `readVertices` (vertex objects from a flat x, y, z list) and `unitBox` (a plain box as UnitVector3 corners). `generateSphereUvs`, `computeBounds` and `computeWorldAabb` fold through `PointsAabb`.
+- **`MergeAabb(boxes)`** now takes a list of boxes instead of `(accumulator, box)`. `BuildObstacle` and the Simulator's two calls pass mapped lists.
+- **`processScatterModels`** merges every part's box with `PointsAabb`. The checks for a missing box or an empty model are gone.
+- **`occluderPiece`** builds its world box with `PointsAabb`.
+
+**Where:** [NewObject.js](engine/v1/builder/NewObject.js), [NewObstacle.js](engine/v1/builder/NewObstacle.js), [Simulator.js](engine/v1/handlers/game/Simulator.js), [NewScatter.js](engine/v1/builder/NewScatter.js), [NewTerrain.js](engine/v1/builder/NewTerrain.js)
+
+## Level build sub-processes: blockers, terrain chunks, loops
+
+**What:**
+- New directory `builder/subProcesses/`.
+- **Occlusion.js.** Takes the terrain blocker code from NewTerrain. `BuildOccluders(terrain, voidTerrain)` replaces `CarveOccluders` and the blocker pass in `BuildTerrain`, building each mesh's blockers once with its voids cut out. Log: "Terrain blockers built: meshes=, carved=".
+- **Chunks.js.** `AssembleTerrainChunks(terrain, voidTerrain)` replaces `buildSurfaceChunks`. It covers terrain and terrain-void linings only, and returns `{ chunks, pieces, owner, facets, links }`. `boxFacets` and `boundsFacets` moved with it. Log: "Terrain chunks: Chunks, Links, Ms".
+- **Loops.js.** `FindLoops(terrainChunks, meshes)` returns `{ loopSurfaces, tubeCenterlines }` from the chunk links. Obstacles are no longer loop surfaces, and `tubeCenterlines` holds terrain and void-terrain centerlines only. Log: "Loop surfaces: Air, Water, Tubes, Ms".
+- **math/Utilities.js.** New exports `MakeRoots`, `FindRoot`, `JoinRoots`.
+- **NewLevel.** Calls `BuildOccluders`, `AssembleTerrainChunks` and `FindLoops` after `BuildVoidWalls`. `sceneGraph.chunks` is the chunk list.
+- **NewTerrain.** Builds terrain only.
+- **Level.js.** `SpawnIntoScene` calls `BuildOccluders(terrain, [])` for spawned terrain.
+
+**Where:** [Occlusion.js](engine/v1/builder/subProcesses/Occlusion.js), [Chunks.js](engine/v1/builder/subProcesses/Chunks.js), [Loops.js](engine/v1/builder/subProcesses/Loops.js), [Utilities.js](engine/v1/math/Utilities.js), [NewLevel.js](engine/v1/builder/NewLevel.js), [NewTerrain.js](engine/v1/builder/NewTerrain.js), [Level.js](engine/v1/handlers/game/Level.js)
+
+## IsPointInSuppressingVoid renamed to IsCutByVoid
+
+**What:**
+- `physics/Collision.js` export `IsPointInSuppressingVoid` is now `IsCutByVoid`. Callers in physics/Collision.js, camera/Master.js and Chunks.js updated.
+- Chunks.js: `boundsFacets` inlined into the terrain loop of `AssembleTerrainChunks`.
+
+**Where:** [physics/Collision.js](engine/v1/physics/Collision.js), [camera/Master.js](engine/v1/camera/Master.js), [Chunks.js](engine/v1/builder/subProcesses/Chunks.js)
+
+## destructible, hp and static are obstacle-only
+
+**What:**
+- **canonSchemas.json.** `destructible`, `hp` and `static` removed from `levelObject` and `objectTemplateShared`. New schema `obstacleFields` holds the three.
+- **normalize.js.** `normalizeLevelObject(rawObject, ctx, role)` replaces the `multipartFallbackShape` parameter. Obstacles get `obstacleFields` merged on, and the multi-part `"triangle-soup"` collision fallback keys off `role === "obstacle"`. `normalizeObjectTemplate(rawTemplate, ctx, collection)` merges `obstacleFields` onto `shared` for the `obstacles` collection.
+- **NewTemplate.js.** `ResolveObjectSource` copies the three fields only for role `"obstacle"`.
+- **Engine JSON.** The three keys removed from the halfpipe's `shared` in terrain.json and the sim-disc terrain object in levels.json.
+
+**Where:** [canonSchemas.json](engine/v1/core/canonSchemas.json), [normalize.js](engine/v1/core/normalize.js), [NewTemplate.js](engine/v1/builder/NewTemplate.js), [terrain.json](engine/v1/builder/templates/terrain.json), [levels.json](engine/v1/builder/templates/levels.json)
+
+## normalize warns on unrecognized fields
+
+**What:**
+- **`normalizePayloadSchema`** warns "`<path>.<field>`: not recognized, dropped." for every payload field its schema doesn't list, at every nested layer, with full paths (array entries get `[index]`).
+- **`normalizePayloadSchema(payload, rootKey, extraKey = null)`** merges a second schema's fields. Obstacles use it for `levelObject` + `obstacleFields` and `objectTemplateShared` + `obstacleFields`, replacing the two-call `Object.assign` merge.
+- **`SimulatorPayload`** takes `payloadType` out of the payload before normalizing.
+
+**Where:** [normalize.js](engine/v1/core/normalize.js)
+
+## Scatter High quality no longer draws planes
+
+**What:** The Low-quality conversion check in `BuildScatterVisualResources`' part setup is `Quality !== "Low"`. It read `!Quality === "Low"`, which was never true. `sampleDimensions` is `part.dimensions.clone().scale(uniformScale)`.
+
+**Where:** [NewScatter.js](engine/v1/builder/NewScatter.js)
+
+## Template and override resolution shortened
+
+**What:**
+- **`ResolveEntitySource`.** `platform`, `attacks`, `hardcoded`, `animations` and `customEvents` are cloned in one spread `structuredClone`. `hp` and `collisionOverride` use `??`. The root transform takes each field from the ref, or from the template where the ref is null, then goes through `CloneTransform`.
+- **`ResolveObjectSource`** and **`ResolveTextureBlueprint`** use `??` for override-or-template fields.
+- **`resolveCollisionOverride`.** `hurtbox` and `hitbox` are `source.x === null ? null : collisionOverride.x ?? defaults.x`.
+- **`mergeTemplateRefEntity`.** `spawnSurfaceId` uses `??`. `dialogue` is destructured.
+
+**Where:** [NewTemplate.js](engine/v1/builder/NewTemplate.js), [NewTexture.js](engine/v1/builder/NewTexture.js), [normalize.js](engine/v1/core/normalize.js)
+
+## Obstacle, terrain and void mesh builders shortened
+
+**What:**
+- **NewObstacle.** The single-part path passes `...source` with its own `position` and `texture`. The multi-part path destructures the root fields like `buildTerrainParts`. The `scatterContext` blocks and the `index` parameter are removed. `BuildObstacle(source, options)` replaces `BuildObstacle(source, index, options)`.
+- **NewTerrain.** `buildSingleTerrain` raises the terrain once, through `raisePartPosition`.
+- **NewVoid.** `buildVoidMesh` builds one mesh; each texture branch sets only `geometry` and `material` (`{ ...defaultMesh.material }`, plus `textureScale: 1` on the tiled branch).
+
+**Where:** [NewObstacle.js](engine/v1/builder/NewObstacle.js), [NewTerrain.js](engine/v1/builder/NewTerrain.js), [NewVoid.js](engine/v1/builder/NewVoid.js)
+
+## Index grouping moved to Geometry.js
+
+**What:** `MakeRoots`, `FindRoot` and `JoinRoots` moved from math/Utilities.js to a new LINKED GROUPS section in math/Geometry.js. Chunks.js and Loops.js import them from Geometry.js.
+
+**Where:** [Geometry.js](engine/v1/math/Geometry.js), [Utilities.js](engine/v1/math/Utilities.js), [Chunks.js](engine/v1/builder/subProcesses/Chunks.js), [Loops.js](engine/v1/builder/subProcesses/Loops.js)
+
+## CloneTransform moved to Vector3.js
+
+**What:** `CloneTransform` moved from math/Utilities.js to math/Vector3.js, next to `CloneVector3`. Vector3.js imports `UnitVector3` from Utilities.js for its `instanceof` check. NewEntity, NewScatter, NewTemplate, ini.js, Animation, Simulator and Matrix.js import it from Vector3.js. NewScatter's unused `CloneVector3` import is removed.
+
+**Where:** [Vector3.js](engine/v1/math/Vector3.js), [Utilities.js](engine/v1/math/Utilities.js), [Matrix.js](engine/v1/math/Matrix.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [NewScatter.js](engine/v1/builder/NewScatter.js), [NewTemplate.js](engine/v1/builder/NewTemplate.js), [ini.js](engine/v1/core/ini.js), [Animation.js](engine/v1/handlers/game/Animation.js), [Simulator.js](engine/v1/handlers/game/Simulator.js)
+
+## Chunk bounds, grid inside test and scatter opening boxes fixed
+
+**What:**
+- **`AssembleTerrainChunks`.** Void-lining pieces store their box as `worldAabb`, like terrain pieces, and the bounds reach reads `piece.worldAabb`.
+- **`PointInsideTriangleGrid`.** The ray's grid entry is `(min − pad − point) / ray` again.
+- **`iterateScatterInstances`.** The open-face box corners are named `faceMin`/`faceMax`.
+
+**Where:** [Chunks.js](engine/v1/builder/subProcesses/Chunks.js), [math/Collision.js](engine/v1/math/Collision.js), [NewScatter.js](engine/v1/builder/NewScatter.js)
+
+## Frustum test picks the box corner per axis
+
+**What:** `AabbOutsideFrustum` picks each axis of the tested box corner from the sign of that axis of the view wall's normal, as plain arithmetic. It no longer makes one `CompareVector3` choice for all three axes.
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js)

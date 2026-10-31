@@ -156,7 +156,15 @@ These checks may only appear once on arrival or first usage and should never be 
 
 If a guard is intentionally retained for initialization bootstrap (for example, controlled cache bootstrap in core meta state), it is allowed only where explicitly approved by the project owner. In practice, this exception has never been invoked — it exists as a formal escape hatch for bootstrap edge cases only.
 
-### C. Bootup Browser Capability Gate
+### C. Choosing Between Real Values
+
+`??` and `||` are allowed wherever a ternary would be: picking between two values that can both genuinely occur, such as an optional override and the template value it replaces. They are forbidden only as guards or fallbacks on canonical data (§1, §3).
+
+```js
+const hp = source.hp ?? template.hp; // null hp means "use the template"
+```
+
+### D. Bootup Browser Capability Gate
 
 `Bootup.js` may perform the one-time browser capability and environment checks needed to verify that the engine is running in a modern browser that supports all required engine features.
 

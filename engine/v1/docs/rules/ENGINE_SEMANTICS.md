@@ -18,7 +18,8 @@ When the reason a line exists isn't obvious, fold a short why into the same line
 
 Read only the comment, at speed. You should know what the code below does, and why if it isn't obvious. If you had to slow down, rewrite it.
 
-- **One line is the norm.** A second line is allowed only to explain a term the first line needs.
+- **One line, always.** Multi-line comments are forbidden. File headers are the only exception (§1.3).
+- **Under 100 characters, indentation included.** Complex code may stretch to 150. Never past 150: the reader would have to scroll.
 - **Plain words.** Jargon that stops the reader ("ulp", "coincident boundary plane") fails, even in one line.
 - **Readable, not compressed.** Squeezing a comment into a cryptic fragment fails as badly as an essay. Don't drop the nuance the reader needs, but communicate it directly.
 - **About this code.** The comment relates to the code directly below it. Mentions of other modules or systems that this code doesn't touch don't belong.
@@ -44,6 +45,7 @@ Read only the comment, at speed. You should know what the code below does, and w
   // Note: Inlined to prevent over-allocation per triangle.
   ```
 - **Trailing comments on object properties and fields only.** Everywhere else the comment goes above the line.
+- **Switch cases are a ladder, like object fields.** No comment lines or blank lines between cases. A case that needs a note gets a trailing comment.
 - **Order-critical lines** stand apart: blank lines around them, the comment above, naming the specific things involved.
 - **Reference tables**, such as a shader attribute layout.
 - **File headers are exempt.** Line 1 is the module's one-line purpose; the lines below say what it uses and what uses it.
@@ -275,6 +277,22 @@ A loop or statement never shares its line with more than one action. If its body
 - One action followed by an early return folds into the return: `if (!replace) return drawFn();`, not a braced body holding `drawFn(); return;`. Assignments fold the same way (`return this.finished = true;`). Don't fold when the function returns values elsewhere, since the folded value would change its result.
 - No line runs past ~150 characters, so it reads without scrolling. A fold or one-liner that would go past that stays multiline.
 
+Consecutive ifs with the same result are one check and get one `if`. A condition too long for one line opens with `if (` on its own line. Each part goes on its own line with its `||` or `&&` at the end, and `) {` closes the condition on its own line. The body always takes braces, even a single `return`. A line never starts with `||` or `&&`, since that's the ternary layout.
+
+```js
+// Bad
+if ((c.x < min.x && x <= min.x) || (c.x > max.x && x >= max.x)) return false;
+if ((c.y < min.y && y <= min.y) || (c.y > max.y && y >= max.y)) return false;
+
+// Good
+if (
+	(c.x < min.x && x <= min.x) || (c.x > max.x && x >= max.x) ||
+	(c.y < min.y && y <= min.y) || (c.y > max.y && y >= max.y)
+) {
+	return false;
+}
+```
+
 ```js
 // Bad
 const contactWith = (triangle) => {
@@ -424,6 +442,7 @@ A name too long for three words is over-describing. Drop what the surrounding mo
 | Does this constant span lines without being an array, object or ternary? | Split it into one-line constants |
 | Does a declared function span lines? | Declare it with `function` |
 | Does a braced loop or statement body sit on one line? | Split it across lines; only short `return`s are exempt |
+| Do consecutive ifs share the same result? | Merge them into one `if`; a long condition opens with `if (` alone, ends each line on its operator and closes with `) {` and a braced body |
 | Is a long property path repeated throughout this scope? | Destructure it at the top |
 | Does this name hold how something was before? | Prefix it `last`; a boolean uses the past tense (`wasGrounded`) |
 | Is this name deliberately the next in a sequence, beside a current one? | Prefix it `next`; this frame's value takes no prefix |

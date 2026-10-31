@@ -33,7 +33,8 @@ All math helper functions needed by multiple files.
 - **May import/export**: Anywhere at will — math is a global helper layer on par with `core/`.
 - **Contains**: Vector operations, unit conversion helpers (`CNUtoWorldUnit`, `DegreesToRadians`), interpolation functions (`Lerp`, `SmoothStep`), clamping (`Clamp`), number parsing (`ToNumber`), physics math (ray-AABB intersection), curve utilities.
 - **Does not**: Hold state of its own, or use `Unit`/`UnitVector3`. Math stays stateless even when it imports shared engine primitives or constants. It may change data passed into it, such as a caller-owned scratch buffer. Math takes and returns plain numbers and `{x, y, z}` vectors, so games can call it.
-- **Note**: `Unit` and `UnitVector3` are defined in `Utilities.js` only as engine-private convenience. They are engine-exclusive: games never receive them, and using them anywhere else in `math/` breaks statelessness.
+- **`Utilities.js` has no subject.** It holds only helpers that work on any data: unit conversion, number handling, interpolation, generic picks. A helper about a specific kind of data goes in that data's module: shapes, meshes and their triangles in `Geometry.js`, vectors in `Vector3.js`. Never park a specific helper in `Utilities.js` because it has no obvious home. Find or ask for its home.
+- **Note**: `Unit` and `UnitVector3` are defined in `Utilities.js` only as engine-private convenience. They are engine-exclusive: games never receive them, and using them anywhere else in `math/` breaks statelessness. The one exception is `CloneTransform` in `Vector3.js`, which checks `instanceof UnitVector3` so a transform clone keeps engine vectors instanced and game vectors plain. Transforms cross most module groups and the ENGINE API, so it has to take both.
 
 ---
 
@@ -88,7 +89,7 @@ Anything of critical importance to the functionality of the engine.
 All logic for building anything visuals-related.
 
 - **Called by**: Handlers.
-- **Contains**: Mesh construction (`NewObject.js`), primitive shape geometry (`NewPrimitive.js`), entity building (`NewEntity.js`), obstacle building (`NewObstacle.js`), scatter/detail generation (`NewScatter.js`), particle group generation (`NewParticles.js`), texture/material management (`NewTexture.js`), level assembly (`NewLevel.js`), UI building (`NewUI.js`).
+- **Contains**: Mesh construction (`NewObject.js`), primitive shape geometry (`NewPrimitive.js`), entity building (`NewEntity.js`), obstacle building (`NewObstacle.js`), scatter/detail generation (`NewScatter.js`), particle group generation (`NewParticles.js`), texture/material management (`NewTexture.js`), level assembly (`NewLevel.js`), UI building (`NewUI.js`), and level build sub-processes that derive data without building meshes (`subProcesses/`: `Occlusion.js`, `Chunks.js`, `Loops.js`).
 - **The rendering pipeline depends on these** — builders produce the mesh and scene data that the renderer consumes.
 - **Does not**: Manage state or drive update loops. Builders are called, produce output, and return.
 
