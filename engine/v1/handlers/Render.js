@@ -9,14 +9,8 @@ import { UIElement } from "../builder/NewUI.js";
 import { CONFIG, DEBUG_COLORS, FILTER_TUNING, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateRenderMatrix, FrustumPlanes, MultiplyMatrix4, TransformPointByMatrix } from "../math/Matrix.js";
-import { 
-	AabbOutsideFrustum, 
-	BeyondFrontFaces, 
-	ConvexHull2D, 
-	CornersInsideHull,
-	ProjectBoxCorners,
-	TriangleArea 
-} from "../math/Collision.js";
+import { AabbOutsideFrustum } from "../math/Collision.js";
+import { TriangleArea } from "../math/Geometry.js";
 import { 
 	AddVector3, 
 	AngleBetweenVector3, 
@@ -1690,19 +1684,79 @@ function drawVoidWalls(renderer, sceneGraph, passState) {
 }
 
 /* === OCCLUSION === */
-// Hides what sits fully behind solid terrain, testing only what the distance and view checks left on.
+// Hide what sits fully behind solid terrain. Test only what the distance and view checks left on.
 
-// Left on by the distance and view checks. Last run's hidden objects stay on until the next update.
-function stillOn(target, lastHidden) {
-	return target.performance.rendering || lastHidden.has(target);
+// Check whether the distance and view checks left a target on. 
+const stillOn = (target, lastHidden) => target.performance.rendering || lastHidden.has(target);
+
+// Put the 8 scratch points on screen and record the rectangle around them.
+function projectBoxCorners(viewProjection, near, scratch) {
+	const m = viewProjection, { wx, wy, wz, sx, sy, rect } = scratch;
+	rect.fill(Infinity, 0, 2);
+	rect.fill(-Infinity, 2);
+	for (let k = 0; k < 8; k++) {
+		const w = m[3] * wx[k] + m[7] * wy[k] + m[11] * wz[k] + m[15];
+
+		// Drop the box if a point is at or behind the camera's near limit.
+		if (w <= near) return false;
+		
+		sx[k] = (m[0] * wx[k] + m[4] * wy[k] + m[8] * wz[k] + m[12]) / w;
+		sy[k] = (m[1] * wx[k] + m[5] * wy[k] + m[9] * wz[k] + m[13]) / w;
+		rect[0] = Math.min(rect[0], sx[k]);
+		rect[1] = Math.min(rect[1], sy[k]);
+		rect[2] = Math.max(rect[2], sx[k]);
+		rect[3] = Math.max(rect[3], sy[k]);
+	}
+	return true;
 }
 
-// The terrain pieces most likely to hide things this frame, put on screen. Pieces that hid something last run go first.
+// Trace a counter-clockwise outline around 8 screen points.
+function convexHull2D(xs, ys) {
+	const sorted = Array.from({ length: 8 }, (_, k) => ({ x: xs[k], y: ys[k] })).sort((a, b) => a.x - b.x || a.y - b.y);
+	const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+	function half(list) {
+		return list.reduce((chain, p) => {
+			while (chain.length >= 2 && cross(chain[chain.length - 2], chain[chain.length - 1], p) <= 0) chain.pop();
+			chain.push(p);
+			return chain;
+		}, []);
+	}
+	return half(sorted).slice(0, -1).concat(half([...sorted].reverse()).slice(0, -1));
+}
+
+// Check whether all 8 screen points sit inside a counter-clockwise outline.
+function cornersInsideHull(hull, xs, ys) {
+	for (let i = 0; i < hull.length; i++) {
+		const a = hull[i], b = hull[(i + 1) % hull.length];
+		for (let k = 0; k < 8; k++) if ((b.x - a.x) * (ys[k] - a.y) - (b.y - a.y) * (xs[k] - a.x) < 0) return false;
+	}
+	return true;
+}
+
+// Check whether all 8 world points are farther from the camera than every side of the box it can see.
+function beyondFrontFaces(min, max, inverse, cameraLocal, wx, wy, wz) {
+	const m = inverse, c = cameraLocal;
+	for (let k = 0; k < 8; k++) {
+		const x = m[0] * wx[k] + m[4] * wy[k] + m[8] * wz[k] + m[12];
+		const y = m[1] * wx[k] + m[5] * wy[k] + m[9] * wz[k] + m[13];
+		const z = m[2] * wx[k] + m[6] * wy[k] + m[10] * wz[k] + m[14];
+		if (
+			(c.x < min.x && x <= min.x) || (c.x > max.x && x >= max.x) ||
+			(c.y < min.y && y <= min.y) || (c.y > max.y && y >= max.y) ||
+			(c.z < min.z && z <= min.z) || (c.z > max.z && z >= max.z)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+// Pick the terrain pieces most likely to hide things this frame. Pieces that hid something last run go first.
 function chooseBlockers(sceneGraph, passState, near, occlusion) {
 	const { frustum, viewProjection, cameraPosition: camera } = passState;
 	const { scratch, lastUseful, lastHidden } = occlusion;
 
-	// Pieces in view, scored by size over distance without putting them on screen.
+	// Score each piece in view by its size over its distance, before putting any on screen.
 	const candidates = [];
 	for (const mesh of sceneGraph.terrain) {
 		if (mesh.meta.mode !== "default" || !stillOn(mesh, lastHidden)) continue;
@@ -1714,7 +1768,7 @@ function chooseBlockers(sceneGraph, passState, near, occlusion) {
 	}
 	candidates.sort((a, b) => b.score - a.score);
 
-	// Only the best few go on screen; a piece crossing the camera's near limit is left out.
+	// Put only the best few on screen. Leave out a piece crossing the camera's near limit.
 	const blockers = [];
 	for (const { piece, occluder } of candidates) {
 		if (blockers.length >= PERFORMANCE_SCALING.Culling.BlockerBudget) break;
@@ -1723,9 +1777,9 @@ function chooseBlockers(sceneGraph, passState, near, occlusion) {
 			scratch.wy[k] = piece.corners[k].y;
 			scratch.wz[k] = piece.corners[k].z;
 		}
-		if (!ProjectBoxCorners(viewProjection, near, scratch)) continue;
+		if (!projectBoxCorners(viewProjection, near, scratch)) continue;
 
-		const hull = ConvexHull2D(scratch.sx, scratch.sy);
+		const hull = convexHull2D(scratch.sx, scratch.sy);
 		if (hull.length < 3) continue;
 		blockers.push({ 
 			piece, hull, 
@@ -1737,15 +1791,15 @@ function chooseBlockers(sceneGraph, passState, near, occlusion) {
 	return blockers;
 }
 
-// Turns off objects fully behind the chosen terrain pieces, then sets the next idle pause.
+// Turn off objects fully behind the chosen terrain pieces.
 function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 	const occlusion = renderer.occlusion;
 
-	// Last run's hidden scatter squares and void walls draw again unless this run hides them.
+	// Draw last run's hidden scatter squares and void walls again unless this run hides them.
 	for (const surface of occlusion.flagged) surface.occluded = false;
 	occlusion.flagged.length = 0;
 
-	// This run's results start empty; the previous run's become last run's.
+	// Start this run's results empty and keep the previous run's as last run's.
 	[occlusion.hidden, occlusion.lastHidden] = [occlusion.lastHidden, occlusion.hidden];
 	[occlusion.useful, occlusion.lastUseful] = [occlusion.lastUseful, occlusion.useful];
 	occlusion.hidden.clear();
@@ -1753,7 +1807,7 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 
 	if (!CONFIG.Performance.OcclusionCulling) return;
 
-	// A big camera move, turn or mode change ends any pause and drops last run's blocker ranking.
+	// End any pause and drop last run's blocker ranking after a big camera move, turn or mode change.
 	const { ResumeDistance, ResumeTurn, IdleBackoffMs, EntityPadding } = PERFORMANCE_SCALING.Culling;
 	const forward = ResolveVector3Axis(SubtractVector3(cameraState.target, cameraState.position));
 	const moved   = Vector3Sq(SubtractVector3(cameraState.position, occlusion.lastPosition)) > ResumeDistance.value ** 2;
@@ -1763,7 +1817,7 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 		occlusion.lastUseful.clear();
 	}
 
-	// While paused, nothing is hidden.
+	// Hide nothing while paused.
 	if (occlusion.pauseFrames > 0 && performance.now() - occlusion.idleSince < IdleBackoffMs) {
 		occlusion.pauseFrames--;
 		return;
@@ -1787,13 +1841,13 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 			wy[k] = k & 2 ? aabb.max.y + grow : aabb.min.y - grow;
 			wz[k] = k & 4 ? aabb.max.z + grow : aabb.min.z - grow;
 		}
-		if (!ProjectBoxCorners(viewProjection, near, occlusion.scratch)) return false;
+		if (!projectBoxCorners(viewProjection, near, occlusion.scratch)) return false;
 
 		for (const blocker of blockers) {
 			const outer = blocker.rect;
 			if (rect[0] < outer[0] || rect[1] < outer[1] || rect[2] > outer[2] || rect[3] > outer[3]) continue;
-			if (!CornersInsideHull(blocker.hull, sx, sy)) continue;
-			if (!BeyondFrontFaces(blocker.piece.min, blocker.piece.max, blocker.inverse, blocker.cameraLocal, wx, wy, wz)) continue;
+			if (!cornersInsideHull(blocker.hull, sx, sy)) continue;
+			if (!beyondFrontFaces(blocker.piece.min, blocker.piece.max, blocker.inverse, blocker.cameraLocal, wx, wy, wz)) continue;
 			occlusion.useful.add(blocker.piece);
 			return true;
 		}

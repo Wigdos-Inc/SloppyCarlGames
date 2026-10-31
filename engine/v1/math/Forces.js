@@ -1,9 +1,9 @@
-// Pure force calculation: gravity, buoyancy, resistance, and step-velocity composition
+// Pure force calculation: gravity, buoyancy, resistance, deceleration, and step-velocity composition
 
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { Clamp01 } from "./Utilities.js";
-import { CloneVector3 } from "./Vector3.js";
+import { CloneVector3, ResolveVector3Axis, ScaleVector3, ToVector3, Vector3Length } from "./Vector3.js";
 
 const airDragCoefficient   = () => CONFIG.Physics.Gravity.Strength / CONFIG.Physics.Gravity.TerminalVelocity.Air;
 const waterDragCoefficient = () => CONFIG.Physics.Gravity.Strength / CONFIG.Physics.Gravity.TerminalVelocity.Water;
@@ -92,6 +92,15 @@ function ComputeBuoyancy(position, waterLevel, submergence, deltaSeconds) {
 	return { velocityChange: buoyancyScalar(position, waterLevel, submergence, deltaSeconds), buoyancyForce: gradientForce * submergence };
 }
 
+// Slow a velocity by a set speed per second, stopping at zero instead of reversing.
+function ComputeDeceleration(velocity, deceleration, dt) {
+	const speed = Vector3Length(velocity);
+	if (speed <= 0.0001) return ToVector3(0);
+
+	const newSpeed = Math.max(0, speed - deceleration * dt);
+	return newSpeed <= 0.0001 ? ToVector3(0) : ScaleVector3(ResolveVector3Axis(velocity), newSpeed);
+}
+
 /**
  * Composable step-velocity computer. Two entry points:
  *   scalar — one velocity component, configurable forces, optional floatiness.
@@ -159,4 +168,4 @@ const ComputeSubmergence = (bottom, height, waterLevel) => waterLevel === null ?
 
 /* === EXPORTS === */
 
-export { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence };
+export { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeDeceleration, ComputeStepVelocity, ComputeSubmergence };

@@ -5,8 +5,26 @@
 
 import { CONFIG, GROUNDING } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";
-import { AngleBetweenVector3, TransportVector3, DotVector3, MultiplyVector3, RotateByEuler, ScaleVector3, SubtractVector3, ResolveVector3Axis, CloneVector3, CompareVector3, RotateTowardVector3, Vector3Length, WORLD_NORMALS, AbsoluteVector3 } from "../math/Vector3.js";
-import { AabbCenter, SurfaceAlignedRotation } from "../math/Collision.js";
+import { 
+	AngleBetweenVector3, 
+	TransportVector3, 
+	DotVector3, 
+	CrossVector3, 
+	MultiplyVector3, 
+	ProjectOntoPlane, 
+	RotateByEuler, 
+	ScaleVector3, 
+	SubtractVector3, 
+	ResolveVector3Axis, 
+	CloneVector3, 
+	CompareVector3, 
+	RotateTowardVector3, 
+	Vector3Length, 
+	WORLD_NORMALS, 
+	AbsoluteVector3 
+} from "../math/Vector3.js";
+import { AabbCenter } from "../math/Geometry.js";
+import { EulerFromBasis } from "../math/Matrix.js";
 import { Clamp, DegreesToRadians } from "../math/Utilities.js";
 
 function hasMeaningfulVectorDelta(vector, corrected) {
@@ -225,6 +243,31 @@ function PoseAnchor(entity) {
 	return MultiplyVector3(local, entity.transform.scale);
 }
 
+/**
+ * Stand the entity upright on the surface, steered by its current heading.
+ * @param {{ x, y, z }} alignedUp — unit target up-vector.
+ * @param {{ x, y, z }} facing — unit world-space heading.
+ * @param {{ x, y, z }} rotation — the entity's current rotation in radians, for the roll and a last-resort heading.
+ * @param {boolean} onBack — lay the body on its back for the sliding pose.
+ * @returns {{ x: number, y: number, z: number }}
+ */
+function surfaceAlignedRotation(alignedUp, facing, rotation, onBack) {
+	let planar = ProjectOntoPlane(facing, alignedUp);
+	if (Vector3Length(planar) <= 0.05) {
+		// Aim uphill if possible, otherwise keep the flat heading.
+		const uphill = ProjectOntoPlane(WORLD_NORMALS.Up, alignedUp);
+		planar = Vector3Length(uphill) > EPSILON ? uphill : { x: Math.sin(rotation.y), y: 0, z: Math.cos(rotation.y) };
+	}
+
+	const right   = ResolveVector3Axis(CrossVector3(alignedUp, planar));
+	const forward = CrossVector3(right, alignedUp);
+
+	// Lay a sliding body on its back, its front facing away from the surface.
+	return onBack
+		? EulerFromBasis(right, ScaleVector3(forward, -1), alignedUp, rotation.z)
+		: EulerFromBasis(right, alignedUp, forward, rotation.z);
+}
+
 // Rotation that stands the entity on its surface, and the position shift that keeps it pivoting about its anchor.
 function GetSurfaceOrientation(entity) {
 	// The contact grace holds the whole pose, sliding included.
@@ -233,7 +276,7 @@ function GetSurfaceOrientation(entity) {
 	const rotation = entity.transform.rotation;
 	
 	// The exact standing rotation; the collider, ground probe and pivot all follow it.
-	const solved = SurfaceAlignedRotation(entity.alignedUp, entity.facing, rotation, entity.surfaceContact === "sliding");
+	const solved = surfaceAlignedRotation(entity.alignedUp, entity.facing, rotation, entity.surfaceContact === "sliding");
 	const changedOrientation = hasMeaningfulVectorDelta(rotation, solved);
 
 	if (changedOrientation === false) return CORRECTION_DISABLED;

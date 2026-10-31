@@ -20,17 +20,19 @@ import VISUAL_TEMPLATES from "./templates/textures.json" with { type: "json" };
 import { CONFIG } from "../core/config.js";
 import { DeepFreeze } from "../core/meta.js";
 import { CreateModelMatrix, CreateRenderMatrixCache, TransformPointByMatrix } from "../math/Matrix.js";
-import { AabbCenter, AabbHalfExtents, CapsuleFromAabb, SphereFromAabb, TriangleNormal } from "../math/Collision.js";
+import { AabbCenter, AabbHalfExtents, BoxCorners, CapsuleFromAabb, MeshTriangles, PointsAabb, SphereFromAabb } from "../math/Geometry.js";
 import { Clamp, UnitVector3 } from "../math/Utilities.js";
 import {
 	AbsoluteVector3,
 	AddVector3,
 	ArrayToVector3,
+	DivideVector3,
 	MaxVector3,
 	ResolveVector3Axis,
 	ScaleVector3,
 	SubtractVector3,
-	ToVector3
+	ToVector3,
+	Vector3ToArray
 } from "../math/Vector3.js";
 
 function computeObbFromMesh(mesh) {
@@ -56,24 +58,9 @@ function computeAabbFromMesh(mesh) {
 }
 
 function computeTriangleSoupFromMesh(mesh) {
-	const modelMatrix = CreateModelMatrix(mesh.transform);
-	const readVertex = (vertexIndex) => {
-		const vertex = TransformPointByMatrix(
-			ArrayToVector3(mesh.geometry.positions, vertexIndex, true), 
-			modelMatrix
-		);
-		return new UnitVector3(vertex.x, vertex.y, vertex.z, "cnu");
-	};
-
-	const triangles = [];
-	const indices = mesh.geometry.indices;
-	for (let index = 0; index < indices.length; index += 3) {
-		const a = readVertex(indices[index]);
-		const b = readVertex(indices[index + 1]);
-		const c = readVertex(indices[index + 2]);
-		triangles.push({ a, b, c, normal: TriangleNormal(a, b, c) });
-	}
-
+	const toUnit = (vertex) => new UnitVector3(vertex.x, vertex.y, vertex.z, "cnu");
+	const placed = MeshTriangles(mesh.geometry.positions, mesh.geometry.indices, CreateModelMatrix(mesh.transform));
+	const triangles = placed.map(({ a, b, c, normal }) => ({ a: toUnit(a), b: toUnit(b), c: toUnit(c), normal }));
 	return { type: "triangle-soup", triangles };
 }
 
@@ -88,31 +75,25 @@ function computeDetailedBounds(mesh) {
 	}
 }
 
-function generateSphereUvs(positions) {
-	const min = ToVector3(Infinity);
-	const max = ToVector3(-Infinity);
+// Read each vertex out of a flat x, y, z position list.
+const readVertices = (positions) => Array.from({ length: positions.length / 3 }, (_, index) => ArrayToVector3(positions, index, true));
 
-	const vertexCount = positions.length / 3;
-	for (let index = 0; index < vertexCount; index++) {
-		const { x, y, z } = ArrayToVector3(positions, index, true);
-		if (x < min.x) min.x = x;
-		if (y < min.y) min.y = y;
-		if (z < min.z) min.z = z;
-		if (x > max.x) max.x = x;
-		if (y > max.y) max.y = y;
-		if (z > max.z) max.z = z;
-	}
+// Instance a plain box into UnitVector3 corners.
+const unitBox = ({ min, max }) => ({ min: new UnitVector3(min.x, min.y, min.z, "cnu"), max: new UnitVector3(max.x, max.y, max.z, "cnu") });
+
+function generateSphereUvs(positions) {
+	const vertices = readVertices(positions);
+	const { min, max } = PointsAabb(vertices);
 
 	const center = ScaleVector3(AddVector3(min, max), 0.5);
 	const radius = MaxVector3(0.0001, ScaleVector3(SubtractVector3(max, min), 0.5));
 
 	const uvs = [];
-	for (let index = 0; index < vertexCount; index++) {
-		const point = ArrayToVector3(positions, index, true);
-		const theta = Math.atan2(((point.z - center.z) / radius.z), ((point.x - center.x) / radius.x));
+	for (const point of vertices) {
+		const { x, y, z } = DivideVector3(SubtractVector3(point, center), radius);
 		uvs.push(
-			(theta + Math.PI) / (Math.PI * 2), 
-			Math.acos(Clamp((point.y - center.y) / radius.y, -1, 1)) / Math.PI
+			(Math.atan2(z, (x)) + Math.PI) / (Math.PI * 2), 
+			Math.acos(Clamp(y, -1, 1)) / Math.PI
 		);
 	}
 
@@ -177,20 +158,7 @@ function GenerateUVs(positions, geometry) {
 	return GenerateFaceProjectedUvs(positions, geometry.faceGroups);
 }
 
-function computeBounds(positions) {
-	const bounds = {
-		min: new UnitVector3(positions[0], positions[1], positions[2], "cnu"),
-		max: new UnitVector3(positions[0], positions[1], positions[2], "cnu")
-	};
-
-	for (let index = 1; index < positions.length / 3; index++) {
-		const local = ArrayToVector3(positions, index, true);
-		bounds.min.min(local);
-		bounds.max.max(local);
-	}
-
-	return bounds;
-}
+const computeBounds = (positions) => unitBox(PointsAabb(readVertices(positions)));
 
 // Fit bounds around the geometry. Camera-following sprites use a cube to fit every angle.
 function computeMeshBounds(positions, dimensions, sprite) {
@@ -203,19 +171,7 @@ function computeMeshBounds(positions, dimensions, sprite) {
 // Fit a world box around local points (x,y,z).
 function computeWorldAabb(positions, transform) {
 	const matrix = CreateModelMatrix(transform);
-	const first  = TransformPointByMatrix(ArrayToVector3(positions, 0, true), matrix);
-	const bounds = {
-		min: new UnitVector3(first.x, first.y, first.z, "cnu"),
-		max: new UnitVector3(first.x, first.y, first.z, "cnu")
-	};
-
-	for (let index = 1; index < positions.length / 3; index++) {
-		const world = TransformPointByMatrix(ArrayToVector3(positions, index, true), matrix);
-		bounds.min.min(world);
-		bounds.max.max(world);
-	}
-
-	return bounds;
+	return unitBox(PointsAabb(readVertices(positions), ToVector3(Infinity), ToVector3(-Infinity), (point) => TransformPointByMatrix(point, matrix)));
 }
 
 // Place a tube's centerline in the world.
@@ -229,27 +185,19 @@ function computeCenterLine(shape, geometry, transform) {
 	});
 }
 
-// List a box's 8 corners as flat x, y, z values.
-function boxCorners({ min, max }) {
-	return [
-		min.x, min.y, min.z,  max.x, min.y, min.z,  min.x, max.y, min.z,  max.x, max.y, min.z,
-		min.x, min.y, max.z,  max.x, min.y, max.z,  min.x, max.y, max.z,  max.x, max.y, max.z,
-	];
-}
-
 // Fit a mesh's world box around its vertices. A rough box or camera-following sprite uses its bounds.
 function computeMeshWorldAabb(mesh, rough) {
 	const fromBounds = rough || (mesh.sprite !== null && mesh.sprite.follow !== "none");
-	return computeWorldAabb(fromBounds ? boxCorners(mesh.geometry.bounds) : mesh.geometry.positions, mesh.transform);
+	return computeWorldAabb(fromBounds ? BoxCorners(mesh.geometry.bounds).flatMap(Vector3ToArray) : mesh.geometry.positions, mesh.transform);
 }
 
 // Build and freeze a part's geometry template, shared by every instance of its blueprint.
 function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiveOptions, texture, sprite) {
-	const geometry = BuildGeometry(shape, dimensions, complexity, primitiveOptions);
+	const geometry         = BuildGeometry(shape, dimensions, complexity, primitiveOptions);
 	const textureBlueprint = VISUAL_TEMPLATES.textures[texture.id];
 
 	// Noise parts use triplanar mapping, but sprites keep their own UVs.
-	let uvs = GenerateUVs(geometry.positions, geometry);
+	let uvs         = GenerateUVs(geometry.positions, geometry);
 	const triplanar = sprite === null && textureBlueprint !== undefined && textureBlueprint.pattern === "noise";
 
 	if (!triplanar && sprite === null) {
@@ -285,9 +233,9 @@ function buildEntityPartGeometryTemplate(shape, dimensions, complexity, primitiv
 function BuildObject(source) {
 	const { id, complexity, position, rotation, scale, pivot, mode, collisionShape, dimensions, primitiveOptions } = source;
 	const { trigger, platform, parentId, sticky, nullable, particle } = source;
-	const shape = source.shape.toLowerCase();
+	const shape     = source.shape.toLowerCase();
 	const transform = { position, rotation, scale, pivot };
-	const sprite = shape === "plane" ? primitiveOptions.sprite : null;
+	const sprite    = shape === "plane" ? primitiveOptions.sprite : null;
 
 	// Set the fields every mesh carries. Each mode adds its own below.
 	const mesh = {
@@ -310,7 +258,7 @@ function BuildObject(source) {
 		}
 		else {
 			mesh.localBounds = { min: dimensions.clone().scale(-0.5), max: dimensions.clone().scale(0.5) };
-			mesh.worldAabb   = computeWorldAabb(boxCorners(mesh.localBounds), transform);
+			mesh.worldAabb   = computeWorldAabb(BoxCorners(mesh.localBounds).flatMap(Vector3ToArray), transform);
 		}
 		mesh.detailedBounds = computeDetailedBounds({ ...mesh, geometry });
 		mesh.centerline     = geometry === null ? null : computeCenterLine(shape, geometry, transform);

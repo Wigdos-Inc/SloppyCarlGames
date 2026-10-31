@@ -190,6 +190,11 @@ function ValidateLevelPayload(payload) {
 		validateDetail(partSource.detail, `${path}.detail`);
 	}
 
+	function validatePartList(rawParts, path) {
+		if (!Array.isArray(rawParts)) return;
+		rawParts.forEach((rawPart, index) => validatePart(rawPart, `${path}[${index}]`));
+	}
+
 	function validateObjectList(rawObjects, path) {
 		if (!Array.isArray(rawObjects)) return;
 
@@ -205,11 +210,7 @@ function ValidateLevelPayload(payload) {
 			const objectSource = isPlainObject(rawObject) ? rawObject : {};
 			validateTexture(objectSource.texture, `${objectPath}.texture`);
 			validateDetail(objectSource.detail, `${objectPath}.detail`);
-			if (Array.isArray(objectSource.parts)) {
-				objectSource.parts.forEach((rawPart, partIndex) => {
-					validatePart(rawPart, `${objectPath}.parts[${partIndex}]`);
-				});
-			}
+			validatePartList(objectSource.parts, `${objectPath}.parts`);
 		});
 	}
 
@@ -275,14 +276,96 @@ function ValidateLevelPayload(payload) {
 		errors.push(...validatePayloadSchema(rawPlayer, "levelPlayer", path));
 
 		const playerSource = isPlainObject(rawPlayer) ? rawPlayer : {};
-		if (Array.isArray(playerSource.modelParts)) {
-			playerSource.modelParts.forEach((rawPart, index) => {
-				validatePart(rawPart, `${path}.modelParts[${index}]`);
-			});
+		validatePartList(playerSource.modelParts, `${path}.modelParts`);
+	}
+
+	// Note: Object and entity template parts may repeat, unlike payload parts.
+	function validateTemplateParts(rawParts, path) {
+		if (!Array.isArray(rawParts)) return;
+
+		rawParts.forEach((rawPart, index) => {
+			validatePart(rawPart, `${path}[${index}]`);
+			if (isPlainObject(rawPart) && isPlainObject(rawPart.repeat)) {
+				errors.push(...validatePayloadSchema(rawPart.repeat, "partRepeat", `${path}[${index}].repeat`));
+			}
+		});
+	}
+
+	function validateScatterTemplate(rawTemplate, path) {
+		errors.push(...validatePayloadSchema(rawTemplate, "scatterTemplate", path));
+
+		const parts = isPlainObject(rawTemplate) && Array.isArray(rawTemplate.parts) ? rawTemplate.parts : [];
+		parts.forEach((rawPart, index) => {
+			errors.push(...validatePayloadSchema(rawPart, "scatterTemplatePart", `${path}.parts[${index}]`));
+			validateTexture(rawPart?.texture, `${path}.parts[${index}].texture`);
+		});
+	}
+
+	function validateObjectTemplate(rawTemplate, path) {
+		errors.push(...validatePayloadSchema(rawTemplate, "objectTemplate", path));
+
+		const templateSource = isPlainObject(rawTemplate) ? rawTemplate : {};
+		if (isPlainObject(templateSource.shared)) {
+			errors.push(...validatePayloadSchema(templateSource.shared, "objectTemplateShared", `${path}.shared`));
+			validateTexture(templateSource.shared.texture, `${path}.shared.texture`);
+			validateDetail(templateSource.shared.detail, `${path}.shared.detail`);
+		}
+		
+		// Require at least one part. A template has no shape of its own.
+		if (Array.isArray(templateSource.parts) && templateSource.parts.length === 0) errors.push(`${path}.parts: needs at least one part.`);
+		validateTemplateParts(templateSource.parts, `${path}.parts`);
+	}
+
+	function validateEntityTemplate(rawTemplate, path) {
+		errors.push(...validatePayloadSchema(rawTemplate, "entityTemplate", path));
+
+		const templateSource = isPlainObject(rawTemplate) ? rawTemplate : {};
+		validateMovement(templateSource.movement, `${path}.movement`);
+		validateAttacks(templateSource.attacks, `${path}.attacks`);
+		validateCollisionOverride(templateSource.collisionOverride, `${path}.collisionOverride`);
+		if (isPlainObject(templateSource.model)) validateTemplateParts(templateSource.model.parts, `${path}.model.parts`);
+	}
+
+	// Check every game template in each collection by its id.
+	function validateTemplates(rawTemplates) {
+		const templates = isPlainObject(rawTemplates) ? rawTemplates : {};
+		const collection = (name) => isPlainObject(templates[name]) ? templates[name] : {};
+		const path = (name, id) => `level.templates.${name}.${id}`;
+
+		const textures = collection("textures");
+		for (const id in textures) errors.push(...validatePayloadSchema(textures[id], "textureTemplate", path("textures", id)));
+
+		const scatter = collection("scatter");
+		for (const id in scatter) validateScatterTemplate(scatter[id], path("scatter", id));
+
+		const particles = collection("particles");
+		for (const id in particles) {
+			errors.push(...validatePayloadSchema(particles[id], "particleTemplate", path("particles", id)));
+			if (isPlainObject(particles[id]?.part)) validatePart(particles[id].part, `${path("particles", id)}.part`);
+		}
+
+		for (const name of ["terrain", "obstacles"]) {
+			const objects = collection(name);
+			for (const id in objects) validateObjectTemplate(objects[id], path(name, id));
+		}
+
+		for (const name of ["npcs", "projectiles"]) {
+			const entities = collection(name);
+			for (const id in entities) validateEntityTemplate(entities[id], path(name, id));
+		}
+
+		const playerCharacters = collection("playerCharacters");
+		for (const id in playerCharacters) {
+			errors.push(...validatePayloadSchema(playerCharacters[id], "playerCharacterTemplate", path("playerCharacters", id)));
+			validatePartList(playerCharacters[id]?.model?.parts, `${path("playerCharacters", id)}.model.parts`);
 		}
 	}
 
 	const rawPayload = isPlainObject(payload) ? payload : {};
+
+	// Note: Templates go first. The rest of the payload may reference them.
+	validateTemplates(rawPayload.templates);
+
 	validateSkybox(rawPayload.world, "level.world.skybox");
 	validateCamera(rawPayload.camera, "level.camera");
 	validateObjectList(rawPayload.terrain?.objects, "level.terrain.objects");
@@ -309,13 +392,7 @@ function ValidateLevelPayload(payload) {
 			validateMovement(blueprintSource.movement, `${path}.movement`);
 			validateAttacks(blueprintSource.attacks, `${path}.attacks`);
 			validateCollisionOverride(blueprintSource.collisionOverride, `${path}.collisionOverride`);
-
-			const modelSource = isPlainObject(blueprintSource.model) ? blueprintSource.model : null;
-			if (modelSource !== null && Array.isArray(modelSource.parts)) {
-				modelSource.parts.forEach((rawPart, index) => {
-					validatePart(rawPart, `${path}.model.parts[${index}]`);
-				});
-			}
+			validatePartList(blueprintSource.model?.parts, `${path}.model.parts`);
 		});
 	});
 

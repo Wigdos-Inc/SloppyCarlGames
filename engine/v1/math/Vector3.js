@@ -1,7 +1,7 @@
 // Advanced Math Stuff
 
 import { EPSILON } from "../core/meta.js";
-import { Clamp, Clamp01 } from "./Utilities.js";
+import { Clamp, Clamp01, UnitVector3 } from "./Utilities.js";
 
 /* === MATH === */
 // Perform math operations on canonized vectors.
@@ -81,7 +81,24 @@ function ResolveVector3Axis(vector) {
 	return length <= EPSILON ? ToVector3(0) : DivideVector3(vector, ToVector3(length));
 }
 
+// Flatten a vector onto a plane, given the direction the plane faces.
+const ProjectOntoPlane = (v, n) => SubtractVector3(v, ScaleVector3(n, DotVector3(v, n)));
+
+// Cap a velocity's speed, keeping its direction.
+function ClampVelocity(velocity, maxSpeed) {
+	const speed = Vector3Length(velocity);
+	return (speed <= maxSpeed || speed <= 0.0001) ? velocity : ScaleVector3(ResolveVector3Axis(velocity), maxSpeed);
+}
+
 const CloneVector3 = (vector) => { return { x: vector.x, y: vector.y, z: vector.z } };
+
+// Copy a transform. Engine vectors stay instanced and game vectors stay plain.
+function CloneTransform(transform) {
+	const copy = (vector) => vector instanceof UnitVector3 ? vector.clone() : CloneVector3(vector);
+	const clone = { position: copy(transform.position), rotation: copy(transform.rotation), scale: CloneVector3(transform.scale) };
+	if ("pivot" in transform) clone.pivot = copy(transform.pivot);
+	return clone;
+}
 
 const MinVector3 = (a, b) => { return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), z: Math.min(a.z, b.z) } }
 const MaxVector3 = (a, b) => { return { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y), z: Math.max(a.z, b.z) } }
@@ -147,13 +164,24 @@ const ArrayToVector3 = (array, index, multiplied) => {
 	return { x: array[index], y: array[index + 1], z: array[index + 2] };
 };
 
-function CompareVector3(a, b, method) {
-	switch(method) {
-		case "lesser"       : return a.x   < b.x && a.y   < b.y && a.z   < b.z;
-		case "lesser-loose" : return a.x  <= b.x && a.y  <= b.y && a.z  <= b.z;
-		case "greater"      : return a.x   > b.x && a.y   > b.y && a.z   > b.z;
-		case "greater-loose": return a.x  >= b.x && a.y  >= b.y && a.z  >= b.z;
-		default             : return a.x === b.x && a.y === b.y && a.z === b.z;
+function CompareVector3(a, b, method, any = false) {
+	if (any) {
+		switch(method) {
+			case "lesser"       : return a.x   < b.x || a.y   < b.y || a.z   < b.z;
+			case "lesser-loose" : return a.x  <= b.x || a.y  <= b.y || a.z  <= b.z;
+			case "greater"      : return a.x   > b.x || a.y   > b.y || a.z   > b.z;
+			case "greater-loose": return a.x  >= b.x || a.y  >= b.y || a.z  >= b.z;
+			default             : return a.x === b.x || a.y === b.y || a.z === b.z;
+		}
+	}
+	else {
+		switch(method) {
+			case "lesser"       : return a.x   < b.x && a.y   < b.y && a.z   < b.z;
+			case "lesser-loose" : return a.x  <= b.x && a.y  <= b.y && a.z  <= b.z;
+			case "greater"      : return a.x   > b.x && a.y   > b.y && a.z   > b.z;
+			case "greater-loose": return a.x  >= b.x && a.y  >= b.y && a.z  >= b.z;
+			default             : return a.x === b.x && a.y === b.y && a.z === b.z;
+		}
 	}
 }
 
@@ -181,11 +209,14 @@ export {
 	DotVector3,
 	CrossVector3,
 	CloneVector3,
+	CloneTransform,
 	Vector3Sq,
 	Vector3Length,
 	Vector3Distance,
 	Vector3SqDistanceToAabb,
 	ResolveVector3Axis,
+	ProjectOntoPlane,
+	ClampVelocity,
 	LerpVector3,
 	AngleBetweenVector3,
 	RotateByEuler,

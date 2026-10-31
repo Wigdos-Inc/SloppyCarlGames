@@ -100,6 +100,7 @@ function buildCreateLevelPayload(level, stage, entitiesData, cnuScale) {
 	return {
 		id: processedStage.id,
 		title: processedStage.title || level.title,
+		templates: processedStage.templates,
 		world: processedStage.world,
 		terrain: processedStage.terrain,
 		obstacles: processedStage.obstacles,

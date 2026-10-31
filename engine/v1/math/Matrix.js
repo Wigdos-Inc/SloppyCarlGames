@@ -1,5 +1,5 @@
-import { ScaleVector3 } from "./Vector3.js";
-import { Clamp, CloneTransform, CNU_SCALE } from "./Utilities.js";
+import { CloneTransform, ScaleVector3 } from "./Vector3.js";
+import { Clamp, CNU_SCALE } from "./Utilities.js";
 
 function CreateIdentityMatrix() {
 	return [

@@ -642,13 +642,13 @@ async function PrepareLevelVisualResources(sceneGraph) {
 // Merge a preset with per-mesh or per-decal values and overrides (null = no override).
 function ResolveTextureBlueprint(textureBlueprint, textureDetail) {
 	return {
-		...textureBlueprint,
-		density  : textureBlueprint.density    * textureDetail.density,
-		speckSize: textureBlueprint.speckSize  * textureDetail.speckSize,
-		shape        : textureDetail.shape !== null ? textureDetail.shape : textureBlueprint.shape,
-		compositeMode: textureDetail.compositeMode !== null ? textureDetail.compositeMode : textureBlueprint.compositeMode,
-		...(textureDetail.primary   !== null && { primary:   textureDetail.primary   }),
-		...(textureDetail.secondary !== null && { secondary: textureDetail.secondary }),
+		...textureBlueprint, 
+		density      : textureDetail.density        * textureBlueprint.density, 
+		speckSize    : textureDetail.speckSize      * textureBlueprint.speckSize,
+		shape        : textureDetail.shape         ?? textureBlueprint.shape,
+		compositeMode: textureDetail.compositeMode ?? textureBlueprint.compositeMode,
+		primary      : textureDetail.primary       ?? textureBlueprint.primary,
+		secondary    : textureDetail.secondary     ?? textureBlueprint.secondary
 	};
 }
 
@@ -670,7 +670,7 @@ function BeginNoiseBake(blueprint, pixelW, pixelH, textureScale) {
 		draw(x, y, speck, speck);
 		const wrapX = x + speck > pixelW;
 		const wrapY = y + speck > pixelH;
-		if (wrapX)          draw(x - pixelW, y,         speck, speck);
+		if (wrapX)          draw(x - pixelW, y,          speck, speck);
 		if (wrapY)          draw(x,          y - pixelH, speck, speck);
 		if (wrapX && wrapY) draw(x - pixelW, y - pixelH, speck, speck);
 	};
@@ -678,7 +678,7 @@ function BeginNoiseBake(blueprint, pixelW, pixelH, textureScale) {
 	ctx.fillStyle = rgbaToCss(blueprint.secondary);
 	return {
 		canvas, pixelW, pixelH, drawWrapped,
-		speckCount: Math.floor((pixelW * pixelH * (blueprint.density   * CONFIG.Rendering.Texture.Noise.Density)) / (speck**2)),
+		speckCount: Math.floor((pixelW * pixelH * (blueprint.density * CONFIG.Rendering.Texture.Noise.Density)) / (speck**2)),
 		drawn     : 0,
 	};
 }
@@ -740,7 +740,7 @@ function buildFaceTextureSignature(baseTextureID, resolvedBlueprint, pixelW, pix
 function BuildFaceTextureData(store, textureID, resolvedBlueprint, faceGroupData, faceSpans, textureScale, animationOptions = null) {
 	const faceTextureGroups = [];
 	for (let i = 0; i < faceGroupData.length; i++) {
-		const group  = faceGroupData[i];
+		const { indexStart, indexCount } = faceGroupData[i];
 		const pixelW = Math.max(1, Math.round(faceSpans[i].uSpan * textureScale));
 		const pixelH = Math.max(1, Math.round(faceSpans[i].vSpan * textureScale));
 		const faceID = buildFaceTextureSignature(textureID, resolvedBlueprint, pixelW, pixelH, textureScale, animationOptions);
@@ -758,7 +758,7 @@ function BuildFaceTextureData(store, textureID, resolvedBlueprint, faceGroupData
 
 			return { id: faceID, source, definition };
 		});
-		faceTextureGroups.push({ indexStart: group.indexStart, indexCount: group.indexCount, textureID: faceID });
+		faceTextureGroups.push({ indexStart, indexCount, textureID: faceID });
 	}
 	return faceTextureGroups;
 }

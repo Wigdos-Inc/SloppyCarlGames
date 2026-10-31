@@ -18,10 +18,11 @@ import {
 	AzimuthTurnVector3,
 	Vector3Length,
 	ToVector3,
+	ProjectOntoPlane,
+	ClampVelocity,
 	WORLD_NORMALS,
 } from "../math/Vector3.js";
-import { ApplyAcceleration, ApplyDeceleration, ClampVelocity, ProjectOntoPlane } from "../math/Collision.js";
-import { ComputeStepVelocity } from "../math/Forces.js";
+import { ComputeDeceleration, ComputeStepVelocity } from "../math/Forces.js";
 import { Unit } from "../math/Utilities.js";
 import { SetPlayerAction, ConsumeJumpPress } from "./Master.js";
 
@@ -199,6 +200,9 @@ function turnFacingToward(playerState, target, maxStep) {
 	playerState.facing = RotateTowardVector3(ResolveVector3Axis(planar), target, maxStep.toRadians());
 }
 
+// Speed a velocity up along a direction for one step.
+const applyAcceleration = (vel, dir, acc, dt) => AddVector3(vel, ScaleVector3(dir, acc * dt));
+
 /**
  * Update player velocity based on input, character stats, and movement context.
  * Does NOT modify position. Position is applied later after physics.
@@ -267,17 +271,17 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 		if (inLoop && input.right !== 0 && Vector3Length(tVel) > minTangent) {
 			frame.lockThrottle = Math.sign(DotVector3(ScaleVector3(CrossVector3(modeData.view, up), input.right), tVel));
 		}
-		if (input.right !== 0 && frame.lockThrottle > 0) tVel = ApplyAcceleration(tVel, direction, inputAcceleration(direction), deltaSeconds);
+		if (input.right !== 0 && frame.lockThrottle > 0) tVel = applyAcceleration(tVel, direction, inputAcceleration(direction), deltaSeconds);
 		else if (input.right !== 0) {
-			tVel = ApplyDeceleration(tVel, (meta.deceleration.value + inputAcceleration(direction) * MOVEMENT_TUNING.ReversalBrakeScale) * support, deltaSeconds);
+			tVel = ComputeDeceleration(tVel, (meta.deceleration.value + inputAcceleration(direction) * MOVEMENT_TUNING.ReversalBrakeScale) * support, deltaSeconds);
 		}
-		else if (!inLoop) tVel = ApplyDeceleration(tVel, friction, deltaSeconds);
+		else if (!inLoop) tVel = ComputeDeceleration(tVel, friction, deltaSeconds);
 
 		// W steers away from the camera, S toward it; the lock holds the new angle.
 		if (inLoop && input.forward !== 0) {
 			const side = CrossVector3(direction, up);
 			const lateral = ScaleVector3(side, Math.sign(input.forward * DotVector3(side, modeData.view)) || 1);
-			tVel = ApplyAcceleration(tVel, lateral, inputAcceleration(lateral), deltaSeconds);
+			tVel = applyAcceleration(tVel, lateral, inputAcceleration(lateral), deltaSeconds);
 			if (Vector3Length(tVel) > minTangent) holdHeading(frame, loop, tVel);
 		}
 		// Velocity held at the lock's angle, keeping its speed and way around.
@@ -317,15 +321,15 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 		if (hasInput) {
 			const effectiveAcceleration = inputAcceleration(tangentDirection);
 			if (playerState.grounded && reverseIntent) {
-				tVel = ApplyDeceleration(tVel, (meta.deceleration.value + (effectiveAcceleration * MOVEMENT_TUNING.ReversalBrakeScale)) * support, deltaSeconds);
+				tVel = ComputeDeceleration(tVel, (meta.deceleration.value + (effectiveAcceleration * MOVEMENT_TUNING.ReversalBrakeScale)) * support, deltaSeconds);
 				if (Vector3Length(tVel) <= stoppingThreshold || !playerState.stoppingActive) {
-					tVel = ApplyAcceleration(tVel, tangentDirection, effectiveAcceleration, deltaSeconds);
+					tVel = applyAcceleration(tVel, tangentDirection, effectiveAcceleration, deltaSeconds);
 				}
 			}
-			else tVel = ApplyAcceleration(tVel, tangentDirection, effectiveAcceleration, deltaSeconds);
+			else tVel = applyAcceleration(tVel, tangentDirection, effectiveAcceleration, deltaSeconds);
 		}
 		else {
-			tVel = ApplyDeceleration(tVel, friction, deltaSeconds);
+			tVel = ComputeDeceleration(tVel, friction, deltaSeconds);
 			playerState.stoppingActive = false;
 			playerState.primaryOppositeHeld = false;
 		}
@@ -357,8 +361,7 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	if (
 		jumpWindow.buffer > 0 &&
 		(playerState.grounded || onSlidingSurface || jumpWindow.coyote > 0) &&
-		playerState.action !== "Stunned" &&
-		playerState.action !== "Dead"
+		playerState.action !== "Stunned" && playerState.action !== "Dead"
 	) {
 		jumpWindow.buffer = 0;
 		jumpWindow.coyote = 0;
@@ -374,11 +377,10 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 
 		// Player jump Y values are Unit instances—mutate their `.value`.
 		playerState.jumpStartY.value = playerState.transform.position.y;
-		playerState.jumpApexY.value = playerState.transform.position.y;
+		playerState.jumpApexY.value  = playerState.transform.position.y;
 		SetPlayerAction("Jumping");
 	}
 
-	// === FACE MOMENTUM DIRECTION ===
 	// Heading follows surface momentum.
 	if (Vector3Length(tVel) > minTangent) {
 		turnFacingToward(playerState, ResolveVector3Axis(tVel), new Unit(meta.momentumTurnRate.toRadians() * deltaSeconds, "radians"));

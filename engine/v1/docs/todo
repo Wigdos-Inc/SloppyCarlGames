@@ -149,7 +149,7 @@ Version Goals:
     - Could be useful as an object type, and as a particle type.
     - Look into adding mipmaps to remove the weird rounded artifacts at a distance.
     - Add a "crossed" boolean to the "plane" primitiveOptions.
-  6. Game-Authored Templates [CURRENT]
+  6. Game-Authored Templates [DONE]
     - Level payloads get an optional "templates" object with every engine template collection except levels. Validated and normalized first, then referenced like engine templates.
     - Carries sprite smoke for the testGame hole (via a game particle template) and decal-style generator attachment (side, face-relative position, area).
     - Scope: docs/scoping/builder/game-templates-scope.md

@@ -107,9 +107,7 @@ async function InitializePlayer(payload, sceneGraph) {
 
 	// Assemble as an entity, then extend it.
 	const { rootTransform, spawnSurfaceId, customEvents, animations } = payload;
-	const baseEntity = await BuildPlayerModel(effectiveCharacter, {
-		rootTransform, spawnSurfaceId, customEvents, animations, hasCustomParts,
-	}, sceneGraph.spawnSurfaces);
+	const baseEntity = BuildPlayerModel(effectiveCharacter, { rootTransform, spawnSurfaceId, customEvents, animations }, sceneGraph.spawnSurfaces);
 
 	// Respawns return to the authored point, in world space.
 	const spawnPosition = payload.rootTransform.position.clone().add(baseEntity.model.surfacePosition);

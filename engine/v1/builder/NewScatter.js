@@ -8,27 +8,26 @@
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateRenderMatrix } from "../math/Matrix.js";
+import { PointsAabb } from "../math/Geometry.js";
 import { BuildObject, GenerateUVs } from "./NewObject.js";
 import { BuildGeometry } from "./NewPrimitive.js";
 import { ComputeGeneratedTextureID, ComputeCustomTextureSignature, InitializeDecalDisplay } from "./NewTexture.js";
-import { RotateByEuler, MultiplyVector3, ScaleVector3, CloneVector3, WORLD_NORMALS, DotVector3, AbsoluteVector3 } from "../math/Vector3.js";
+import { RotateByEuler, MultiplyVector3, ScaleVector3, CloneTransform, WORLD_NORMALS, DotVector3, AbsoluteVector3, AddVector3, MaxVector3, MinVector3 } from "../math/Vector3.js";
 import visualTemplates from "./templates/textures.json" with { type: "json" };
 
 function isPointInDetailedBoundsXZ(worldX, worldZ, detailedBounds) {
-	if (detailedBounds.type === "aabb") return (
-		worldX >= detailedBounds.min.x && worldX <= detailedBounds.max.x &&
-		worldZ >= detailedBounds.min.z && worldZ <= detailedBounds.max.z
-	);
-	if (detailedBounds.type === "obb") {
-		const dx = worldX - detailedBounds.center.x;
-		const dz = worldZ - detailedBounds.center.z;
-		return (
-			Math.abs(dx * detailedBounds.axes[0].x + dz * detailedBounds.axes[0].z) <= detailedBounds.halfExtents.x &&
-		    Math.abs(dx * detailedBounds.axes[1].x + dz * detailedBounds.axes[1].z) <= detailedBounds.halfExtents.y &&
-		    Math.abs(dx * detailedBounds.axes[2].x + dz * detailedBounds.axes[2].z) <= detailedBounds.halfExtents.z
-		);
+	const { type, min, max, axes, halfExtents, center } = detailedBounds;
+	switch (type) {
+		case "aabb": return (worldX >= min.x && worldX <= max.x && worldZ >= min.z && worldZ <= max.z);
+		case "obb" : 
+			const dx = worldX - center.x, dz = worldZ - center.z;
+			return (
+				Math.abs(dx * axes[0].x + dz * axes[0].z) <= halfExtents.x &&
+			    Math.abs(dx * axes[1].x + dz * axes[1].z) <= halfExtents.y &&
+			    Math.abs(dx * axes[2].x + dz * axes[2].z) <= halfExtents.z
+			);
+		default: return true;
 	}
-	return true;
 }
 
 function hashNoise(x, z, seed) {
@@ -36,34 +35,15 @@ function hashNoise(x, z, seed) {
 	return value - Math.floor(value);
 }
 
-function primitiveGeometryKey(prim, dim, comp, primOptions) {
-	return `${prim}_${dim.x}_${dim.y}_${dim.z}_${comp}_${JSON.stringify(primOptions)}`;
-}
-
-// A quality-tiered field is an object keyed low/medium/high; anything else is a constant.
-const resolveTier = (value, tier) => (value.low === undefined ? value : value[tier]);
-
-// Field-wise decal clone, mirroring cloneTexture in NewTemplate.js
-function cloneScatterDecal(decal) {
-	return {
-		...decal,
-		localTransform: {
-			position: decal.localTransform.position.clone(),
-			rotation: decal.localTransform.rotation.clone(),
-			scale   : CloneVector3(decal.localTransform.scale),
-		},
-	};
-}
-
 function logScatterBounds(message, objectMesh) {
 	Log(
 		"ENGINE",
 		`
-			${message}: \n
-			- source=${objectMesh.id}, \n
-			- minX=${objectMesh.worldAabb.min.x.toFixed(2)}, \n
-			- maxX=${objectMesh.worldAabb.max.x.toFixed(2)}, \n
-			- minZ=${objectMesh.worldAabb.min.z.toFixed(2)}, \n
+			${message}:
+			- source=${objectMesh.id}
+			- minX=${objectMesh.worldAabb.min.x.toFixed(2)}
+			- maxX=${objectMesh.worldAabb.max.x.toFixed(2)}
+			- minZ=${objectMesh.worldAabb.min.z.toFixed(2)}
 			- maxZ=${objectMesh.worldAabb.max.z.toFixed(2)}
 		`,
 		"log",
@@ -77,25 +57,16 @@ function processScatterModels(params, handlers) {
 		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces },
 		(ctx) => {
 			const modelState = handlers.beginModel ? handlers.beginModel(ctx) : null;
-			let modelAabb = null;
+			const boxes = ctx.partContexts.map((partContext, partIndex) => handlers.processPart(ctx, partContext, partIndex, modelState));
 
-			ctx.partContexts.forEach((partContext, partIndex) => {
-				const bounds = handlers.processPart(ctx, partContext, partIndex, modelState);
-				if (bounds) {
-					if (!modelAabb) modelAabb = { min: bounds.min.clone(), max: bounds.max.clone() }
-					else {
-						modelAabb.min.min(bounds.min);
-						modelAabb.max.max(bounds.max);
-					}
-				}
-			});
-
-			if (modelAabb) handlers.finishModel(ctx, modelAabb, modelState);
+			// Merge all parts' boxes.
+			const { min, max } = PointsAabb(boxes.flatMap((box) => [box.min, box.max]));
+			handlers.finishModel(ctx, { min: boxes[0].min.clone().set(min), max: boxes[0].max.clone().set(max) }, modelState);
 		}
 	);
 }
 
-// Half the part's height after localRotation, scaled by uniformScale.
+// Measure half a rotated part's height.
 function getPartHalfHeight(part, uniformScale) {
 	// How much each rotated axis points up.
 	const col = {
@@ -103,9 +74,7 @@ function getPartHalfHeight(part, uniformScale) {
 		y: RotateByEuler(WORLD_NORMALS.Up, part.localRotation).y,
 		z: RotateByEuler(WORLD_NORMALS.Forward, part.localRotation).y
 	}
-
-	const h = ScaleVector3(MultiplyVector3(part.dimensions, part.localScale), uniformScale * 0.5);
-	return Math.max(0, DotVector3(AbsoluteVector3(col), h));
+	return Math.max(0, DotVector3(AbsoluteVector3(col), ScaleVector3(MultiplyVector3(part.dimensions, part.localScale), uniformScale * 0.5)));
 }
 
 function resolveRootPart(parts, uniformScale) {
@@ -114,11 +83,8 @@ function resolveRootPart(parts, uniformScale) {
 
 	let selected = roots[0];
 	roots.forEach(candidate => {
-		if (candidate.stackY < selected.stackY) {
-			selected = candidate;
-			return;
-		}
-		if (candidate.stackY === selected.stackY) {
+		if (candidate.stackY < selected.stackY) selected = candidate;
+		else if (candidate.stackY === selected.stackY) {
 			if (getPartHalfHeight(candidate, uniformScale) > getPartHalfHeight(selected, uniformScale)) selected = candidate;
 		}
 	});
@@ -139,7 +105,7 @@ function applyHierarchicalOffsets(parts, uniformScale) {
 
 	const levels = [...partsByLevel.keys()].sort((a, b) => a - b);
 	const adjustedByLevel = new Map();
-	let cumulativeTop = null;
+	let cumulativeTop     = null;
 
 	levels.forEach((level) => {
 		const adjustedParts = partsByLevel.get(level).map((part) => {
@@ -162,35 +128,46 @@ function applyHierarchicalOffsets(parts, uniformScale) {
 	return levels.flatMap((level) => adjustedByLevel.get(level));
 }
 
-// Rotated XZ footprint box of a root part around the sample center. Shared by the parent-bounds and opening checks.
-function rootPartFootprintAabbXZ(part, worldX, worldZ, uniformScale, yaw) {
+// Fit a flat box around a root part's footprint, turned with the model.
+function rootPartFootprintAabbXZ(part, worldX, worldZ, uniformScale, modelYaw) {
+	const yaw    = part.localRotation.y + modelYaw;
+	const offset = RotateByEuler(part.localPosition, { x: 0, y: modelYaw, z: 0 });
 	const cosYaw = Math.abs(Math.cos(yaw));
 	const sinYaw = Math.abs(Math.sin(yaw));
+	
+	const scaled = part.dimensions.clone().multiply(part.localScale).scale(uniformScale);
+	const halfWidth   = (scaled.x * cosYaw + scaled.z * sinYaw) * 0.5;
+	const halfDepth   = (scaled.x * sinYaw + scaled.z * cosYaw) * 0.5;
 
-	const scaledWidth = part.dimensions.x * part.localScale.x * uniformScale;
-	const scaledDepth = part.dimensions.z * part.localScale.z * uniformScale;
-	const halfWidth   = (scaledWidth * cosYaw + scaledDepth * sinYaw) * 0.5;
-	const halfDepth   = (scaledWidth * sinYaw + scaledDepth * cosYaw) * 0.5;
-
-	const centerX = worldX + part.localPosition.x;
-	const centerZ = worldZ + part.localPosition.z;
+	const centerX = worldX + offset.x, centerZ = worldZ + offset.z;
 	return {
 		minX: centerX - halfWidth, maxX: centerX + halfWidth,
 		minZ: centerZ - halfDepth, maxZ: centerZ + halfDepth,
 	};
 }
 
-function areRootPartsWithinParentBounds(parts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ) {
+// Reject a model unless every root part stands on the parent.
+function fitsParent(parts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ, detailedBounds) {
 	if (parts.length === 0) return true;
 
+	const modelYaw = hashNoise(worldX, worldZ, seed) * Math.PI * 2;
 	for (let partIndex = 0; partIndex < parts.length; partIndex++) {
 		const part = parts[partIndex];
 		if (part.level !== 0) continue;
 
-		const yaw = part.localRotation.y + hashNoise(worldX, worldZ, seed + partIndex) * Math.PI * 2;
-		const fp = rootPartFootprintAabbXZ(part, worldX, worldZ, uniformScale, yaw);
+		const fp = rootPartFootprintAabbXZ(part, worldX, worldZ, uniformScale, modelYaw);
 
 		if (fp.minX < minX || fp.maxX > maxX || fp.minZ < minZ || fp.maxZ > maxZ) return false;
+		if (!detailedBounds) continue;
+
+		// Check whether each footprint corner falls within the parent's detailedBounds.
+		const partYaw   = { x: 0, y: part.localRotation.y + modelYaw, z: 0 };
+		const offset    = RotateByEuler(part.localPosition, { x: 0, y: modelYaw, z: 0 });
+		const half      = part.dimensions.clone().multiply(part.localScale).scale(uniformScale * 0.5);
+		for (const [signX, signZ] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+			const corner = RotateByEuler({ x: signX * half.x, y: 0, z: signZ * half.z }, partYaw);
+			if (!isPointInDetailedBoundsXZ(worldX + offset.x + corner.x, worldZ + offset.z + corner.z, detailedBounds)) return false;
+		}
 	}
 
 	return true;
@@ -200,12 +177,12 @@ function areRootPartsWithinParentBounds(parts, worldX, worldZ, uniformScale, see
 function isFootprintOverOpening(parts, worldX, worldZ, uniformScale, seed, openingAabbsXZ) {
 	if (openingAabbsXZ.length === 0) return false;
 
+	const modelYaw = hashNoise(worldX, worldZ, seed) * Math.PI * 2;
 	for (let partIndex = 0; partIndex < parts.length; partIndex++) {
 		const part = parts[partIndex];
 		if (part.level !== 0) continue;
 
-		const yaw = part.localRotation.y + hashNoise(worldX, worldZ, seed + partIndex) * Math.PI * 2;
-		const fp = rootPartFootprintAabbXZ(part, worldX, worldZ, uniformScale, yaw);
+		const fp = rootPartFootprintAabbXZ(part, worldX, worldZ, uniformScale, modelYaw);
 
 		for (const o of openingAabbsXZ) {
 			if (fp.minX <= o.maxX && fp.maxX >= o.minX && fp.minZ <= o.maxZ && fp.maxZ >= o.minZ) return true;
@@ -222,55 +199,68 @@ function iterateScatterInstances(params, handler) {
 
 	// Choose explicit requests if provided, otherwise use the canonicalized scatter list
 	const scatterRequests = explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter;
-	
-	// If there are no requests, nothing to do
 	if (scatterRequests.length === 0) return { totalParts: 0, typeCounts: 0, modelCounts: 0 };
 
-	const minX = objectMesh.worldAabb.min.x;
-	const maxX = objectMesh.worldAabb.max.x;
-	const minZ = objectMesh.worldAabb.min.z;
-	const maxZ = objectMesh.worldAabb.max.z;
-	const topY = objectMesh.worldAabb.max.y;
-	const width = Math.max(1, maxX - minX);
-	const depth = Math.max(1, maxZ - minZ);
-	const approxArea = width * depth;
-	const scatterScale = Math.max(0.05, world.scatterScale);
+	const { min, max } = objectMesh.worldAabb;
+	const width        = Math.max(1, max.x - min.x);
+	const depth        = Math.max(1, max.z - min.z);
 
-	// Open faces reaching topY, projected to XZ AABBs (slope-agnostic overlap test).
-	const openingEpsilon = 0.5;
-	const openingAabbsXZ = [];
+	// Fit a flat box around each open face that reaches the parent's top, to keep scatter off openings.
+	const openingEpsilon = 0.5, openingAabbsXZ = [];
 	for (const face of openFaces) {
-		const faceMinY = Math.min(face.a.y, face.b.y, face.c.y);
-		const faceMaxY = Math.max(face.a.y, face.b.y, face.c.y);
-		if (faceMaxY < topY - openingEpsilon || faceMinY > topY + openingEpsilon) continue;
-		openingAabbsXZ.push({
-			minX: Math.min(face.a.x, face.b.x, face.c.x), maxX: Math.max(face.a.x, face.b.x, face.c.x),
-			minZ: Math.min(face.a.z, face.b.z, face.c.z), maxZ: Math.max(face.a.z, face.b.z, face.c.z),
-		});
+		if (Math.max(face.a.y, face.b.y, face.c.y) < max.y - openingEpsilon || Math.min(face.a.y, face.b.y, face.c.y) > max.y + openingEpsilon) {
+			continue;
+		}
+
+		const faceMin = MinVector3(MinVector3(face.a, face.b), face.c), faceMax = MaxVector3(MaxVector3(face.a, face.b), face.c)
+		openingAabbsXZ.push({ minX: faceMin.x, minZ: faceMin.z, maxX: faceMax.x, maxZ: faceMax.z });
 	}
 
-	let totalParts = 0;
-	let globalTypeCount = 0;
-	let globalModelCount = 0;
-
-	const qualityTier = CONFIG.Performance.Scatter.Quality.toLowerCase();
-
+	let totalParts = 0, globalTypeCount = 0, globalModelCount = 0;
 	scatterRequests.forEach((request, scatterTypeIndex) => {
 		const scatterType = visualTemplates.scatterTypes[request.typeID];
+		if (CONFIG.Performance.Scatter.Quality === "Low" && scatterType.skipLow) return;
+
 		const canonicalParts = scatterType.parts.map((part) => {
-			return {
+			const canonical = {
 				...part,
-				primitive: resolveTier(part.primitive, qualityTier),
-				dimensions: resolveTier(part.dimensions, qualityTier).clone(),
-				localPosition: resolveTier(part.localPosition, qualityTier).clone(),
-				localRotation: resolveTier(part.localRotation, qualityTier).clone(),
-				localScale: resolveTier(part.localScale, qualityTier),
+				dimensions   : part.dimensions.clone(),
+				localPosition: part.localPosition.clone(),
+				localRotation: part.localRotation.clone(),
 			};
+
+			// Low quality draws crossed-planes, which only display front and back decals.
+			if (CONFIG.Performance.Scatter.Quality !== "Low" || part.shape === "plane" && part.primitiveOptions.crossed) return canonical;
+
+			const { x, y, z } = part.dimensions;
+			canonical.shape = "plane";
+
+			// Lay a flat part down as one sheet at its top face. Its top decals go on the front.
+			if (y <= Math.min(x, z) * 0.1) {
+				canonical.primitiveOptions = { crossed: false, sprite: null };
+				canonical.dimensions.set({ x, y: z, z: 0 });
+				canonical.localRotation.x -= Math.PI / 2;
+				canonical.localPosition.y += y;
+
+				canonical.texture = { 
+					...part.texture, 
+					custom: part.texture.custom.filter((decal) => decal.side === "top").map((decal) => {
+						const sheetPosition = decal.localTransform.clone(); sheetPosition.y *= -1;
+						return { ...decal, side: "front", localTransform: { ...decal.localTransform, position: sheetPosition } };
+					}) 
+				};
+				return canonical;
+			}
+
+			// Stand any other part as a crossed pair. Front and back decals sit on both sheets.
+			canonical.primitiveOptions = { crossed: true, sprite: null };
+			canonical.dimensions.z     = 0;
+			canonical.texture = { ...part.texture, custom: part.texture.custom.filter((decal) => decal.side === "front" || decal.side === "back") };
+			return canonical;
 		});
 
-		const maxCount = Math.max(0, Math.floor((approxArea / 18) * request.density * scatterMultiplier));
-		let typeCount = 0;
-		let modelCount = 0;
+		const maxCount = Math.max(0, Math.floor(((width * depth) / 18) * request.density * scatterMultiplier));
+		let typeCount = 0, modelCount = 0;
 
 		for (let instanceIndex = 0; instanceIndex < maxCount; instanceIndex++) {
 			const seed = indexSeed * 97 + scatterTypeIndex * 59 + instanceIndex * 17;
@@ -280,12 +270,12 @@ function iterateScatterInstances(params, handler) {
 			// Cluster sampling to create natural clumping
 			if (hashNoise(nx * 64, nz * 64, seed + 7) < scatterType.clusterThreshold) continue;
 
-			const worldX = minX + nx * width;
-			const worldZ = minZ + nz * depth;
-			const worldY = topY;
+			const worldX = min.x + nx * width;
+			const worldZ = min.z + nz * depth;
+			const worldY = max.y;
 
 			// Bounds and height checks keep instances inside the parent and within allowed heights
-			if (worldX < minX || worldX > maxX || worldZ < minZ || worldZ > maxZ) continue;
+			if (worldX < min.x || worldX > max.x || worldZ < min.z || worldZ > max.z) continue;
 			if (worldY < scatterType.heightMin || worldY > scatterType.heightMax) continue;
 			if (objectMesh.detailedBounds && !isPointInDetailedBoundsXZ(worldX, worldZ, objectMesh.detailedBounds)) continue;
 
@@ -293,40 +283,42 @@ function iterateScatterInstances(params, handler) {
 			if (Math.abs(Math.sin((worldX + worldZ) * scatterType.noiseScale)) * 0.25 > scatterType.slopeMax) continue;
 
 			const scaleNoise = hashNoise(worldX * 0.5, worldZ * 0.5, seed + 19);
-			const uniformScale = (scatterType.scaleRange.min + (scatterType.scaleRange.max - scatterType.scaleRange.min) * scaleNoise) * scatterScale;
+			const scaleRangeDiff = scatterType.scaleRange.max - scatterType.scaleRange.min;
+			const uniformScale   = (scatterType.scaleRange.min + scaleRangeDiff * scaleNoise) * Math.max(0.05, world.scatterScale);
 
 			// Compute per-part offsets for stacking / levels and validate spatial fit
 			const offsetParts = applyHierarchicalOffsets(canonicalParts, uniformScale);
-			if (!areRootPartsWithinParentBounds(offsetParts, worldX, worldZ, uniformScale, seed, minX, maxX, minZ, maxZ)) continue;
+			if (!fitsParent(offsetParts, worldX, worldZ, uniformScale, seed, min.x, max.x, min.z, max.z, objectMesh.detailedBounds)) {
+				continue;
+			}
 			if (isFootprintOverOpening(offsetParts, worldX, worldZ, uniformScale, seed, openingAabbsXZ)) continue;
 
 			const rootPart = resolveRootPart(offsetParts, uniformScale);
 			const modelRootY = rootPart ? worldY + getPartHalfHeight(rootPart, uniformScale) - rootPart.stackY : worldY;
 
 			const partContexts = [];
-			let samplePosition = null;
-			let sampleDimensions = null;
+			let samplePosition = null, sampleDimensions = null;
+
+			// Spin the whole model to keep its parts at their authored angles to each other.
+			const modelYaw = hashNoise(worldX, worldZ, seed) * Math.PI * 2;
 
 			offsetParts.forEach((part, partIndex) => {
 				typeCount++;
 
-				// Calculate World Position
-				const position = part.localPosition.clone().add({ x: worldX, y: modelRootY + part.stackY, z: worldZ });
-
-				// Calculate World Rotation
-				const rotation = part.localRotation.clone();
-				rotation.y += hashNoise(worldX, worldZ, seed + partIndex) * Math.PI * 2;
-
-				// Calculate World Scale
-				const scale = ScaleVector3(part.localScale, uniformScale);
+				// Calculate world position and rotation.
+				const position = part.localPosition.clone().set(AddVector3(
+					RotateByEuler(part.localPosition, { x: 0, y: modelYaw, z: 0 }),
+					{ x: worldX, y: modelRootY + part.stackY, z: worldZ }
+				));
+				const rotation = part.localRotation.clone(); 
+				rotation.y += modelYaw;
 
 				if (!samplePosition) {
 					samplePosition = position.clone();
-					sampleDimensions = part.dimensions.clone();
-					sampleDimensions.set(ScaleVector3(part.dimensions, uniformScale));
+					sampleDimensions = part.dimensions.clone().scale(uniformScale);
 				}
 
-				partContexts.push({ part, partIndex, position, rotation, scale });
+				partContexts.push({ part, partIndex, position, rotation, scale: ScaleVector3(part.localScale, uniformScale) });
 			});
 
 			if (partContexts.length === 0) continue;
@@ -337,7 +329,7 @@ function iterateScatterInstances(params, handler) {
 			totalParts += partContexts.length;
 		}
 
-		globalTypeCount += typeCount;
+		globalTypeCount  += typeCount;
 		globalModelCount += modelCount;
 	});
 
@@ -345,32 +337,24 @@ function iterateScatterInstances(params, handler) {
 }
 
 function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces) {
-	if (scatterMultiplier <= 0) return [];
-
-	const scatterRequests = explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter;
-	if (scatterRequests.length === 0) return [];
+	if (scatterMultiplier <= 0 || (explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter).length === 0) return [];
 
 	logScatterBounds("Scatter bounds", objectMesh);
 
 	const meshes = [];
-
 	const stats = processScatterModels(
 		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces },
 		{
 			beginModel: () => meshes.length,
 			processPart: (ctx, partContext, partIndex) => {
-				const { scatterType, instanceIndex } = ctx;
 				const { part, position, rotation, scale } = partContext;
+				const { shape, complexity, dimensions, primitiveOptions, texture } = part;
 				const { mesh: scatterMesh } = BuildObject(
 					{
-						id: `${objectMesh.id}-scatter-${scatterType.id}-${instanceIndex}-${partIndex}`,
-						shape: part.primitive,
-						complexity: part.complexity,
-						dimensions: part.dimensions,
-						position, rotation, scale,
+						id: `${objectMesh.id}-scatter-${ctx.scatterType.id}-${ctx.instanceIndex}-${partIndex}`,
+						shape, complexity, dimensions, position, rotation, scale,
 						pivot: objectMesh.transform.pivot,
-						primitiveOptions: part.primitiveOptions,
-						texture       : part.texture,
+						primitiveOptions, texture,
 						detail        : { scatter: [] },
 						role          : "scatter",
 					}
@@ -403,6 +387,9 @@ function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, 
 	return meshes;
 }
 
+const shapeGeometryKey = (prim, dim, comp, primOptions) => `${prim}_${dim.x}_${dim.y}_${dim.z}_${comp}_${JSON.stringify(primOptions)}`;
+const cloneScatterDecal = (decal) => { return { ...decal, localTransform: CloneTransform(decal.localTransform) } }
+
 function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, batchMap, debugBboxAccumulator, openFaces) {
 	logScatterBounds("Scatter batch bounds", objectMesh);
 
@@ -413,17 +400,20 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 		{
 			processPart: (ctx, partContext) => {
 				const { part, position, rotation, scale } = partContext;
+				const { shape, dimensions, complexity, primitiveOptions, texture } = part;
 				const textureID = ComputeGeneratedTextureID(part.texture.generated);
-				const primitiveKey = primitiveGeometryKey(part.primitive, part.dimensions, part.complexity, part.primitiveOptions);
-				const batchKey = `${primitiveKey}_${textureID}_${ComputeCustomTextureSignature(part.texture.custom)}`;
+				const primitiveKey = shapeGeometryKey(shape, dimensions, complexity, primitiveOptions);
+				const batchKey = `${primitiveKey}_${textureID}_${ComputeCustomTextureSignature(texture.custom)}`;
+
 				if (!batchMap.has(batchKey)) {
-					const customTextures = part.texture.custom.map(cloneScatterDecal);
-					InitializeDecalDisplay(customTextures, part.dimensions);
+					const customTextures = texture.custom.map(cloneScatterDecal);
+					InitializeDecalDisplay(customTextures, dimensions);
+
 					batchMap.set(batchKey, {
-						primitive: part.primitive.toLowerCase(),
-						dimensions: part.dimensions.clone(),
-						complexity: part.complexity, primitiveOptions: part.primitiveOptions, primitiveKey, textureID,
-						texture: part.texture.generated,
+						primitive: shape,
+						dimensions: dimensions.clone(),
+						complexity, primitiveOptions, primitiveKey, textureID,
+						texture: texture.generated,
 						customTextures,
 						instances: [],
 						instanceCount: 0,
@@ -431,8 +421,10 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 					});
 				}
 
-				const modelMatrix = CreateRenderMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot });
-				batchMap.get(batchKey).instances.push({ modelMatrix, tint: [1, 1, 1, 1] });
+				batchMap.get(batchKey).instances.push({ 
+					modelMatrix: CreateRenderMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot }), 
+					tint: [1, 1, 1, 1] 
+				});
 				totalParts++;
 
 				const half = part.dimensions.clone().multiply(scale).scale(0.5);

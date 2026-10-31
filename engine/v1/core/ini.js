@@ -17,8 +17,8 @@ import { Start, Load, Cache as SimulatorCache, Clear, Exit, Download, GetModelSt
 import { PlayEngineCutscene, PlayRenderedCutscene } from "../handlers/Cutscene.js";
 import { ProvideSplashScreenPayload } from "../handlers/menu/Splash.js";
 import { PlayerAPI as Player } from "../player/Master.js";
-import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, CNU_SCALE, Clamp, Clamp01, CloneTransform } from "../math/Utilities.js"
-import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3, MinVector3, MaxVector3, CompareVector3 } from "../math/Vector3.js";
+import { DegreesToRadians, RadiansToDegrees, CNUtoWorldUnit, WorldUnitToCNU, CNU_SCALE, Clamp, Clamp01 } from "../math/Utilities.js"
+import { AddVector3, DivideVector3, DotVector3, MultiplyVector3, ScaleVector3, MinVector3, MaxVector3, CompareVector3, CloneTransform } from "../math/Vector3.js";
 import { ComputeGravity, ComputeResistance, ComputeBuoyancy, ComputeStepVelocity, ComputeSubmergence } from "../math/Forces.js";
 
 // Boot-time engine template instancing (owns the blueprint/template JSON imports).
@@ -47,7 +47,7 @@ function Initialize() {
       Logging: { LogAll, Cache: LogCache, AddChannel: AddLogChannel },
       ExitGame, SendEvent, Wait, IsPointerLocked, RequestPointerLock, PushToSession, ReadFromSession,
       SessionKey, CNU_SCALE, DeepFreeze,
-      Version: "0.35.5",
+      Version: "0.35.6",
     },
     Controls,
     Input   : Object.freeze({ Router, StartInputRouter, IsPointerLocked, RequestPointerLock, ReleasePointerLock, Cursor, }),

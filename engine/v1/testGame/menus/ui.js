@@ -46,7 +46,7 @@ const SETTING_KEY_BY_ID = {
 
 // Scatter quality and sim distance are always-on grades; the rest can be switched off.
 const TIER_LEVELS = ["Disabled", "Low", "Medium", "High"];
-const GRADED_LEVELS = ["Low", "Medium", "High"];
+const GRADED_LEVELS = ["Low", "High"];
 const DISTANCE_LEVELS = ["Low", "Medium", "High", "Ultra"];
 const PRESET_LEVELS = ["Low", "Medium", "High", "Custom"];
 const TIER_LEVELS_BY_ID = {

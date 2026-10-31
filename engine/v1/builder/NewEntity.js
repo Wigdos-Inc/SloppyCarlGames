@@ -4,6 +4,7 @@
 // Used by many modules to reset the entity model.
 // Used by player/Master.js to reset the player's movement input memory.
 // Used by handlers/game/Animation.js to compose part transforms.
+// Used by NewParticles.js to attach generators to a carrier's face.
 // Uses NewObject.js to build model parts.
 // Uses NewTemplate.js to resolve blueprint sources.
 
@@ -11,6 +12,7 @@ import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
 import { ResolveEntitySource } from "./NewTemplate.js";
 import {
 	AddVector3,
+	CloneTransform,
 	CloneVector3,
 	CompareVector3,
 	DotVector3,
@@ -24,15 +26,15 @@ import {
 	WORLD_NORMALS,
 } from "../math/Vector3.js";
 import { ComposeEulerRotations } from "../math/Matrix.js";
-import { AabbCenter, AabbHalfExtents, CapsuleFromAabb, ObbFromAabb, PointsAabb, SphereFromAabb } from "../math/Collision.js";
-import { Clamp01, CloneTransform, Unit, UnitVector3 } from "../math/Utilities.js";
+import { AabbCenter, AabbHalfExtents, BoxCorners, CapsuleFromAabb, ObbFromAabb, PointsAabb, SphereFromAabb } from "../math/Geometry.js";
+import { Clamp01, Unit, UnitVector3 } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
 
 // Default/Fallback model-pose turn rate. Per second.
 const defaultModelTurnRate = new Unit(450, "degrees").toRadians(true);
 
 // Get the offset from a box's center to the center of one of its faces.
-function getFaceCenterOffset(dimensions, faceType) {
+function GetFaceCenterOffset(dimensions, faceType) {
 	switch (faceType) {
 		case "top":    return { x: 0, y:  dimensions.y * 0.5, z: 0 };
 		case "bottom": return { x: 0, y: -dimensions.y * 0.5, z: 0 };
@@ -175,8 +177,8 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 		const combinedScale = MultiplyVector3(rtScale, part.localTransform.scale);
 
 		// Find the attachment point on the parent and the part's own anchor point (scaled & rotated).
-		const attachOffset = getFaceCenterOffset(index[part.parentId].builtDimensions, part.attachmentPoint);
-		const scaledAnchorOffset = MultiplyVector3(getFaceCenterOffset(part.dimensions, part.anchorPoint), combinedScale);
+		const attachOffset = GetFaceCenterOffset(index[part.parentId].builtDimensions, part.attachmentPoint);
+		const scaledAnchorOffset = MultiplyVector3(GetFaceCenterOffset(part.dimensions, part.anchorPoint), combinedScale);
 		const rotatedAnchorOffset = RotateByEuler(scaledAnchorOffset, part.localTransform.rotation);
 
 		// Position the part's anchor against the parent's attachment point.
@@ -297,12 +299,7 @@ const scaleUnit = (u, f) => u.clone().math((u, f) => u * f, f);
 
 // Fit a world box around a local box after scaling, rotating and moving it.
 function placeAabbEnclosure(aabb, position, scale, trig) {
-	const corners = Array.from({ length: 8 }, (_, corner) => ({
-		x: (corner & 1) === 0 ? aabb.min.x : aabb.max.x,
-		y: (corner & 2) === 0 ? aabb.min.y : aabb.max.y,
-		z: (corner & 4) === 0 ? aabb.min.z : aabb.max.z,
-	}));
-	const placed = PointsAabb(corners, ToVector3(Infinity), ToVector3(-Infinity), (corner) => transformOffset(corner, scale, trig));
+	const placed = PointsAabb(BoxCorners(aabb), ToVector3(Infinity), ToVector3(-Infinity), (corner) => transformOffset(corner, scale, trig));
 	return { 
 		min: aabb.min.clone().set(placed.min).add(position), 
 		max: aabb.max.clone().set(placed.max).add(position) 
@@ -314,12 +311,8 @@ function computeCompoundSpheresFromModel(model) {
 	model.parts.forEach((part) => {
 		if (part.addsToBounds === false) return;
 
-		const sphere = SphereFromAabb(part.mesh.worldAabb, true);
-		spheres.push({
-			center: sphere.center,
-			radius: sphere.radius,
-			partId: part.id,
-		});
+		const { center, radius } = SphereFromAabb(part.mesh.worldAabb, true);
+		spheres.push({ center, radius, partId: part.id });
 	});
 	return { type: "compound-sphere", spheres };
 }
@@ -666,6 +659,7 @@ function ResetEntityToDefaultPose(entity) {
 export {
 	NewInputFrame,
 	BuildEntity,
+	GetFaceCenterOffset,
 	UpdateEntityModelFromTransform,
 	ResetEntityToDefaultPose,
 	ComposeTransform,

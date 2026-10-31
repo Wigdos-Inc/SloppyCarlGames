@@ -9,8 +9,7 @@ import obstacleTemplates from "./templates/obstacles.json" with { type: "json" }
 import characterTemplates from "./templates/characters.json" with { type: "json" };
 import enemyTemplates from "./templates/enemies.json" with { type: "json" };
 import projectileTemplates from "./templates/projectiles.json" with { type: "json" };
-import { CloneVector3, ScaleVector3 } from "../math/Vector3.js";
-import { CloneTransform } from "../math/Utilities.js";
+import { CloneTransform, CloneVector3, MultiplyVector3, ScaleVector3, ToVector3 } from "../math/Vector3.js";
 
 /* === TEMPLATE CLONING === */
 // Field-wise clones keep the instanced template singletons pristine across placements.
@@ -60,6 +59,7 @@ function cloneParticle(particle) {
 	return {
 		...particle,
 		position : particle.position.clone(),
+		area     : particle.area.clone(),
 		overrides: particle.overrides === null ? null
 			: { ...particle.overrides, velocity: particle.overrides.velocity === null ? null : particle.overrides.velocity.clone() },
 	};
@@ -95,10 +95,10 @@ function cloneMovement(movement) {
 // Part override beats ref override. Ref override beats template.
 function applyPartOverride(part, override) {
 	if (override === undefined) return;
-	if (override.texture !== null) part.texture.generated = structuredClone(override.texture.generated);
-	if (override.color !== null) part.texture.generated.primary = { ...override.color };
-	if (override.scale !== null) part.localScale = CloneVector3(override.scale);
-	if (override.particle !== null) part.particle = cloneParticle(override.particle);
+	if (override.texture !== null)  part.texture.generated         = structuredClone(override.texture.generated);
+	if (override.color !== null)    part.texture.generated.primary = { ...override.color };
+	if (override.scale !== null)    part.localScale                = CloneVector3(override.scale);
+	if (override.particle !== null) part.particle                  = cloneParticle(override.particle);
 }
 
 // Turn each part's repeats into numbered sibling copies. Child parts stay on the original.
@@ -111,17 +111,16 @@ function expandRepeats(parts) {
 		if (repeat === null) return;
 
 		// Move each copy one offset further than the last. Scale multiplies instead of adding.
-		const offset = repeat.offset;
+		let scaleMultiplier = ToVector3(1);
 		for (let i = 1; i <= repeat.count; i++) {
 			const copy = CloneTemplatePart(part);
 			copy.id = `${part.id}-r${i}`;
-			copy.localPosition.add(ScaleVector3(offset.position, i));
-			copy.localRotation.add(ScaleVector3(offset.rotation, i));
-			copy.localScale = {
-				x: part.localScale.x * Math.pow(offset.scale.x, i),
-				y: part.localScale.y * Math.pow(offset.scale.y, i),
-				z: part.localScale.z * Math.pow(offset.scale.z, i),
-			};
+			copy.localPosition.add(ScaleVector3(repeat.offset.position, i));
+			copy.localRotation.add(ScaleVector3(repeat.offset.rotation, i));
+
+			scaleMultiplier = MultiplyVector3(scaleMultiplier, repeat.offset.scale);
+			copy.localScale = MultiplyVector3(part.localScale, scaleMultiplier);
+			
 			expanded.push(copy);
 		}
 	});
@@ -137,6 +136,7 @@ function resolveParts(templateParts, overrides, refColor, refTexture) {
 		const part = CloneTemplatePart(templatePart);
 		if (refTexture !== null) part.texture.generated = structuredClone(refTexture.generated);
 		if (refColor !== null)   part.texture.generated.primary = { ...refColor };
+
 		applyPartOverride(part, overridesById[part.id]);
 		return part;
 	});
@@ -150,58 +150,53 @@ function ResolveObjectSource(source, role) {
 	if (source.shape !== "template") return source;
 
 	const template = { terrain: terrainTemplates, obstacle: obstacleTemplates }[role][source.template];
-	const shared = template.shared;
+	const { id, position, rotation, sticky, particle } = source;
+	const { dimensions, pivot, nullable, detail } = template.shared;
 
-	return {
-		id            : source.id,
-		dimensions    : shared.dimensions.clone(),
-		position      : source.position,
-		rotation      : source.rotation,
-		scale         : source.scale !== null ? source.scale : CloneVector3(shared.scale),
-		pivot         : shared.pivot.clone(),
-		detail        : structuredClone(shared.detail),
-		collisionShape: source.collisionShape !== null ? source.collisionShape : shared.collisionShape,
-		destructible  : shared.destructible,
-		hp            : shared.hp,
-		static        : shared.static,
-		mode          : source.mode !== null ? source.mode : shared.mode,
-		nullable      : shared.nullable,
-		sticky        : source.sticky,
-		particle      : source.particle,
+	const resolved = {
+		id,
+		dimensions    : dimensions.clone(),
+		position, rotation,
+		scale         : source.scale ?? CloneVector3(template.shared.scale),
+		pivot         : pivot.clone(),
+		detail        : structuredClone(detail),
+		collisionShape: source.collisionShape ?? template.shared.collisionShape,
+		mode          : source.mode ?? template.shared.mode,
+		nullable, sticky, particle,
 		parts         : resolveParts(template.parts, source.parts, source.color, source.texture),
 	};
+
+	// Only obstacles can break, take damage or move.
+	if (role === "obstacle") {
+		const { destructible, hp } = template.shared;
+		Object.assign(resolved, { destructible, hp, static: template.shared.static });
+	}
+	return resolved;
 }
 
 function ResolveEntitySource(source) {
 	if (source.shape !== "template") return source;
 
 	const template = { character: characterTemplates, enemy: enemyTemplates, projectile: projectileTemplates }[source.type][source.template];
-	const templateTransform = template.model.rootTransform;
-	const refTransform = source.model.rootTransform;
+	const { id, blueprintId, dialogue } = source;
+	const { platform, attacks, hardcoded, animations, customEvents, type } = template;
+
+	// Take each root transform field from the ref, or from the template where the ref leaves it null.
+	const templateTransform = template.model.rootTransform, rootTransform = {};
+	for (const key in templateTransform) rootTransform[key] = source.model.rootTransform[key] ?? templateTransform[key];
 
 	return {
-		id               : source.id,
-		blueprintId      : source.blueprintId,
-		type             : template.type,
-		hp               : source.hp !== null ? source.hp : template.hp,
+		id, blueprintId, dialogue,
+		...structuredClone({ platform, attacks, hardcoded, animations, customEvents }),
+		type,
+		hp               : source.hp ?? template.hp,
 		movement         : cloneMovement(template.movement),
 		velocity         : template.velocity.clone(),
-		platform         : structuredClone(template.platform),
-		attacks          : structuredClone(template.attacks),
-		hardcoded        : structuredClone(template.hardcoded),
-		animations       : structuredClone(template.animations),
-		collisionOverride: source.collisionOverride !== null ? { ...source.collisionOverride } : { ...template.collisionOverride },
-		customEvents     : structuredClone(template.customEvents),
-		dialogue         : source.dialogue,
+		collisionOverride: { ...(source.collisionOverride ?? template.collisionOverride) },
 		model: {
 			spawnSurfaceId: source.model.spawnSurfaceId,
-			rootTransform: {
-				position: refTransform.position !== null ? refTransform.position.clone() : templateTransform.position.clone(),
-				rotation: refTransform.rotation !== null ? refTransform.rotation.clone() : templateTransform.rotation.clone(),
-				scale   : refTransform.scale    !== null ? CloneVector3(refTransform.scale) : CloneVector3(templateTransform.scale),
-				pivot   : refTransform.pivot    !== null ? refTransform.pivot.clone() : templateTransform.pivot.clone(),
-			},
-			parts: resolveParts(template.model.parts, source.model.parts, null, null),
+			rootTransform : CloneTransform(rootTransform),
+			parts         : resolveParts(template.model.parts, source.model.parts, null, null),
 		},
 	};
 }

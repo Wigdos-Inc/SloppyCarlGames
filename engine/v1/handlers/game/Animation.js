@@ -9,9 +9,22 @@ import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
 import { Log, EPSILON } from "../../core/meta.js";
 import { ComposeTransform } from "../../builder/NewEntity.js";
 import { PoseAnchor } from "../../physics/Correction.js";
-import { AddVector3, SubtractVector3, MultiplyVector3, LerpVector3, CloneVector3, CrossVector3, ResolveVector3Axis, RotateByEuler, RotateTowardVector3, ToVector3, WORLD_NORMALS } from "../../math/Vector3.js";
+import { 
+	AddVector3, 
+	SubtractVector3, 
+	MultiplyVector3, 
+	LerpVector3, 
+	CloneTransform, 
+	CloneVector3, 
+	CrossVector3, 
+	ResolveVector3Axis, 
+	RotateByEuler, 
+	RotateTowardVector3, 
+	ToVector3, 
+	WORLD_NORMALS 
+} from "../../math/Vector3.js";
 import { EulerFromBasis } from "../../math/Matrix.js";
-import { Lerp, Clamp, CloneTransform, Unit } from "../../math/Utilities.js";
+import { Lerp, Clamp, Unit } from "../../math/Utilities.js";
 import { ApplyEasing } from "../../math/Curves.js";
 
 /* === IDENTITY OFFSETS (module-scoped constants; consumed read-only by lerpOffset) === */
@@ -372,7 +385,7 @@ function ResolveEntityAnimation(entity, deltaSeconds) {
 		return;
 	}
 
-	resolveAnimationStep(entity.model, runtime, entity.animations[runtime.currentSetName], deltaSeconds, leaning !== null ? leaning : entity.model.rootTransform);
+	resolveAnimationStep(entity.model, runtime, entity.animations[runtime.currentSetName], deltaSeconds, leaning ?? entity.model.rootTransform);
 }
 
 export { EnsureAnimationRuntime, ResolveEntityAnimation };

@@ -115,7 +115,7 @@ function runPhysicsLoop(entity, sceneGraph, physicsState) {
 	UpdateEntityModelFromTransform(entity);
 
 	for (loop.iterations = 0; loop.iterations < 3; loop.iterations++) {
-		const overlaps = detectOverlaps(entity, sceneGraph, collision);
+		const overlaps          = detectOverlaps(entity, sceneGraph, collision);
 		const overlapResolution = ResolveCollisions(entity.velocity, ToVector3(0), overlaps.solids, correction.fold);
 
 		entity.velocity.set(overlapResolution.resolvedVelocity);

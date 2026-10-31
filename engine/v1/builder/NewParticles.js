@@ -6,9 +6,19 @@
 // Uses NewEntity.js to build groups and NewTemplate.js to clone parts.
 
 import particleTemplates from "./templates/particles.json" with { type: "json" };
-import { BuildEntity, UpdateEntityModelFromTransform } from "./NewEntity.js";
+import { BuildEntity, GetFaceCenterOffset, UpdateEntityModelFromTransform } from "./NewEntity.js";
 import { CloneTemplatePart } from "./NewTemplate.js";
-import { AddVector3, CrossVector3, MultiplyVector3, RotateByEuler, ScaleVector3, ToVector3, Vector3Length, WORLD_NORMALS } from "../math/Vector3.js";
+import { 
+	AddVector3, 
+	CompareVector3, 
+	CrossVector3, 
+	MultiplyVector3, 
+	RotateByEuler, 
+	ScaleVector3, 
+	ToVector3, 
+	Vector3Length, 
+	WORLD_NORMALS 
+} from "../math/Vector3.js";
 import { Clamp01, Lerp, Unit, UnitVector3 } from "../math/Utilities.js";
 import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
 import { Log } from "../core/meta.js";
@@ -93,6 +103,16 @@ function randomInCone(axis, halfAngle) {
 	const radial = AddVector3(ScaleVector3(right, Math.cos(phi)), ScaleVector3(up, Math.sin(phi)));
 
 	return AddVector3(ScaleVector3(direction, Math.cos(theta) * magnitude), ScaleVector3(radial, Math.sin(theta) * magnitude));
+}
+
+// Turn a velocity into the carrier's axes. Bursts have no carrier and keep world axes.
+const carrierAxis = (velocity, rotation) => rotation === null ? velocity : RotateByEuler(velocity, rotation);
+
+// Pick a point in the area box, turned into the carrier's axes. Bursts and zero areas spawn at the center.
+function randomInArea(area, rotation) {
+	return area === null || Vector3Length(area) === 0
+		? ToVector3(0)
+		: RotateByEuler(MultiplyVector3(area, { x: randomRange(-0.5, 0.5), y: randomRange(-0.5, 0.5), z: randomRange(-0.5, 0.5) }), rotation);
 }
 
 /* === REQUEST RESOLUTION === */
@@ -215,26 +235,28 @@ function synthesizeGroupDefinition(templateId, resolved, position, size, index, 
 // Hold the runtime state for one particle group. `total` counts its age in ms.
 class particleGroup {
 	constructor(entity, request, resolved, halfAngle) {
-		this.entity      = entity;
-		this.request     = { ...request, position: request.position.clone(), mode: "sibling" };
-		this.duration    = resolved.duration;
-		this.physicsMode = resolved.physics;
-		this.startColor  = resolved.color.start;
-		this.endColor    = resolved.color.end === null ? resolved.color.start : resolved.color.end;
-		this.variance    = resolved.color.variance;
-		this.offsets     = entity.model.parts.map(() => randomVariance(this.variance));
-		this.halfAngle   = halfAngle;
-		this.target      = request.target;
-		this.targetKey   = request.target === null ? null : `${request.target.type}::${request.target.id}::${request.target.partId}`;
-		this.offset      = request.offset === null ? null : request.offset.clone();
-		this.orphaned    = false;
-		this.spawnOrigin = entity.transform.position.clone();
+		this.entity           = entity;
+		this.request          = { ...request, position: request.position.clone(), mode: "sibling" };
+		this.duration         = resolved.duration;
+		this.physicsMode      = resolved.physics;
+		this.startColor       = resolved.color.start;
+		this.endColor         = resolved.color.end === null ? resolved.color.start : resolved.color.end;
+		this.variance         = resolved.color.variance;
+		this.offsets          = entity.model.parts.map(() => randomVariance(this.variance));
+		this.halfAngle        = halfAngle;
+		this.target           = request.target;
+		this.targetKey        = request.target === null ? null : `${request.target.type}::${request.target.id}::${request.target.partId}`;
+		this.offset           = request.offset === null ? null : request.offset.clone();
+		this.followedRotation = null;
+		this.rotatedOffset    = null;
+		this.orphaned         = false;
+		this.spawnOrigin      = entity.transform.position.clone();
 		this.originCorrection = this.spawnOrigin.clone().subtract(request.position);
-		this.spawnAxis   = resolved.velocity.clone();
-		this.lifespan    = resolved.duration.intervalMs;
-		this.total       = 0;
-		this.decayStart  = null;
-		this.finished    = false;
+		this.spawnAxis        = resolved.velocity.clone();
+		this.lifespan         = resolved.duration.intervalMs;
+		this.total            = 0;
+		this.decayStart       = null;
+		this.finished         = false;
 
 		// Tint through displayColor to avoid baking a texture per particle.
 		entity.model.parts.forEach((part, index) => {
@@ -252,8 +274,15 @@ class particleGroup {
 			return; 
 		}
 
-		// Move the request position and spawn origin with the target. New siblings spawn there too.
-		this.request.position.set(transform.position).add(RotateByEuler(this.offset, transform.rotation));
+		// Rotate the generator's offset from the target by the target's rotation.
+		if (this.followedRotation === null || !CompareVector3(this.followedRotation, transform.rotation)) {
+			this.followedRotation = transform.rotation.clone();
+			this.rotatedOffset    = RotateByEuler(this.offset, transform.rotation);
+		}
+
+		// Move the request position, rotation and spawn origin with the target. New siblings spawn there too.
+		this.request.position.set(transform.position).add(this.rotatedOffset);
+		this.request.rotation = transform.rotation;
 		this.spawnOrigin.set(this.request.position).add(this.originCorrection);
 	}
 
@@ -288,14 +317,14 @@ class particleGroup {
 		if (this.duration.mode === "shrink") this.entity.transform.scale = ToVector3(Math.max(0.05, decay));
 	}
 
-	// Restart the group at its spawn origin with a fresh direction.
+	// Restart the group within it's authored area with a fresh direction.
 	recycle() {
 		this.total      = 0;
 		this.decayStart = null;
 
-		this.entity.transform.position.set(this.spawnOrigin);
+		this.entity.transform.position.set(this.spawnOrigin).add(randomInArea(this.request.area, this.request.rotation));
 		this.entity.transform.scale = ToVector3(1);
-		this.entity.velocity.set(randomInCone(this.spawnAxis, this.halfAngle));
+		this.entity.velocity.set(randomInCone(carrierAxis(this.spawnAxis, this.request.rotation), this.halfAngle));
 
 		// Clear the last collision key to let the new life fire its own collision event.
 		this.entity.physicsRuntime.lastPhysicsCollisionKey = "";
@@ -355,14 +384,7 @@ class burstParticleGroup extends particleGroup {
 
 /* === PUBLIC API === */
 
-/**
- * Generate the particle groups for one request.
- * @param {object} request — { templateId, position (absolute UnitVector3 cnu), offset (target-local, un-rotated), overrides, mode, target }.
- * @param {number} textureScale — world texture scale (px per CNU).
- * @param {object} faceTextureStore — content-signature-keyed store the per-face bake dedups against.
- * @param {Map} geometryCache — (blueprintId::partId)-keyed frozen part geometry templates.
- * @returns {object} — { groups } — built entities, one per group.
- */
+// Generate the particle group for an incoming request.
 function GenerateParticles(request, textureScale, faceTextureStore, geometryCache) {
 	const multiplier = PERFORMANCE_SCALING.Density.Particles[CONFIG.Performance.Particles];
 	if (multiplier === 0) {
@@ -372,9 +394,10 @@ function GenerateParticles(request, textureScale, faceTextureStore, geometryCach
 
 	const resolved  = resolveRequest(particleTemplates[request.templateId], request.overrides);
 	const halfAngle = spreadHalfAngles[resolved.spread].value;
+	const axis      = carrierAxis(resolved.velocity, request.rotation);
 
 	const groups = resolveGroupSizes(Math.max(1, Math.round(resolved.count * multiplier))).map((size, index) => {
-		const cone     = randomInCone(resolved.velocity, halfAngle);
+		const cone     = randomInCone(axis, halfAngle);
 		const velocity = new UnitVector3(cone.x, cone.y, cone.z, "cnu"); // Per second
 
 		const { entity } = BuildEntity(
@@ -385,7 +408,6 @@ function GenerateParticles(request, textureScale, faceTextureStore, geometryCach
 
 		// Center the group vertically on the request position instead of standing on it.
 		entity.transform.position.y += request.position.y - (entity.fullAabb.min.y + entity.fullAabb.max.y) * 0.5;
-		UpdateEntityModelFromTransform(entity);
 
 		// Bursts expire. Generators recycle.
 		entity.particle = request.mode === "burst"
@@ -394,33 +416,50 @@ function GenerateParticles(request, textureScale, faceTextureStore, geometryCach
 				? new seedingParticleGroup(entity, request, resolved, halfAngle)
 				: new particleGroup(entity, request, resolved, halfAngle);
 
+		// Spawn randomly within it's authored area.
+		entity.transform.position.add(randomInArea(request.area, request.rotation));
+		UpdateEntityModelFromTransform(entity);
+
 		return entity;
 	});
 
 	return { groups };
 }
 
+// Place a generator on its carrier.
+function GeneratorPlacement(generator, mesh, transform) {
+	const offset = generator.position.clone().add(GetFaceCenterOffset(MultiplyVector3(mesh.dimensions, mesh.transform.scale), generator.side));
+	return {
+		offset,
+		position: transform.position.clone().add(RotateByEuler(offset, transform.rotation)),
+		rotation: transform.rotation,
+	};
+}
+
 // Collect generator requests for every particle a built terrain, obstacle or entity carries.
 // Note: target type and partId must match what Level.js resolves for following.
 function ParticleGeneratorRequests(carrier, kind) {
 	const sources = kind === "terrain"
-		? [{ particle: carrier.meta.particle, transform: carrier.transform, target: { type: "terrain", id: carrier.id, partId: null } }] 
-		: kind === "obstacle" 
+		? [{ particle: carrier.meta.particle, mesh: carrier, target: { type: "terrain", id: carrier.id, partId: null } }]
+		: kind === "obstacle"
 			? carrier.parts.map((mesh) => (
-				{ particle: mesh.meta.particle, transform: mesh.transform, target: { type: "obstacle", id: carrier.id, partId: mesh.id } }
-			)) 
+				{ particle: mesh.meta.particle, mesh, target: { type: "obstacle", id: carrier.id, partId: mesh.id } }
+			))
 			: carrier.model.parts.map((part) => (
-				{ particle: part.mesh.meta.particle, transform: part.mesh.transform, target: { type: carrier.type, id: carrier.id, partId: part.id } }
+				{ particle: part.mesh.meta.particle, mesh: part.mesh, target: { type: carrier.type, id: carrier.id, partId: part.id } }
 			));
 
-	return sources.filter((source) => source.particle !== null).map((source) => ({
-		templateId: source.particle.id,
-		position  : source.transform.position.clone().add(RotateByEuler(source.particle.position, source.transform.rotation)),
-		offset    : source.particle.position,
-		overrides : source.particle.overrides,
-		mode      : "generator",
-		target    : source.target,
-	}));
+	return sources.filter((source) => source.particle !== null).map((source) => {
+		const { offset, position, rotation } = GeneratorPlacement(source.particle, source.mesh, source.mesh.transform);
+		return {
+			templateId: source.particle.id,
+			position, offset, rotation,
+			area      : source.particle.area,
+			overrides : source.particle.overrides,
+			mode      : "generator",
+			target    : source.target,
+		};
+	});
 }
 
-export { GenerateParticles, ParticleGeneratorRequests, WithParticleOverride };
+export { GenerateParticles, GeneratorPlacement, ParticleGeneratorRequests, WithParticleOverride };

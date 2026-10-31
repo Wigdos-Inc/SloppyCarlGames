@@ -5,18 +5,21 @@
 // Builds enemies and collectibles using builder/NewEntity.js
 // End of player pipeline(s) to determine position.
 // Uses Render.js for rendering level state per frame.
+// Uses builder/templates/Instance.js to drop the level's game templates when it clears.
 
 import { BuildLevel, RefreshDebugBoundingBoxes } from "../../builder/NewLevel.js";
+import { ClearGameTemplates } from "../../builder/templates/Instance.js";
 import { RenderLevel, RemoveRoot, ClearLevelRenderer, SetElementText } from "../Render.js";
 import { CreateUI } from "../UI.js";
 import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS, ENTITY_TYPES, ReleasePointerLock, IsPointerLocked } from "../../core/meta.js";
 import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
 import { InitializeCameraState, PrepareCamera, UpdateCamera } from "../../camera/Master.js";
-import { Vector3Distance, LerpVector3, CloneVector3, RotateByEuler } from "../../math/Vector3.js";
+import { Vector3Distance, LerpVector3, CloneVector3 } from "../../math/Vector3.js";
 import { BuildEntity, UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
-import { GenerateParticles } from "../../builder/NewParticles.js";
+import { GenerateParticles, GeneratorPlacement } from "../../builder/NewParticles.js";
 import { BuildObstacles } from "../../builder/NewObstacle.js";
 import { BuildTerrain } from "../../builder/NewTerrain.js";
+import { BuildOccluders } from "../../builder/subProcesses/Occlusion.js";
 import { BuildObject } from "../../builder/NewObject.js";
 import { UpdateInputEventTypes } from "../Controls.js";
 import { ValidateLevelPayload, ValidateRuntime } from "../../core/validate.js";
@@ -251,6 +254,7 @@ function ClearLevel(clearCache = true) {
 	ClearLevelRenderer(levelRuntimeState.renderOptions.rootId);
 	RemoveRoot(levelRuntimeState.renderOptions.rootId);
 	levelRuntimeState.sceneGraph = null;
+	ClearGameTemplates();
 	if (clearCache) {
 		Cache.Level.lastPayload = null;
 		PushToSession(SESSION_KEYS.Cache, Cache);
@@ -285,6 +289,13 @@ function ResumeLevelLoop(triggeredByEscape = false) {
 const ToggleLevelLoopPause = (triggeredByEscape = false) => levelLoop.paused ? ResumeLevelLoop(triggeredByEscape) : PauseLevelLoop();
 
 async function CreateLevel(payload, options, simulatorOverride = false) {
+	// Clear if a level was still running.
+	if (levelRuntimeState.sceneGraph !== null) {
+		ClearLevel(false);
+		Log("ENGINE", "Previous level cleared before new level creation.", "log", "Level");
+		Log("ENGINE", "Please end levels naturally before starting new ones.", "warn", "Level");
+	}
+
 	const rawPayload = structuredClone(payload);
 	payload = await ValidateLevelPayload(payload);
 	if (!payload) {
@@ -311,12 +322,6 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 		...levelRuntimeState.renderOptions,
 		...(options.renderOptions ?? {}),
 	};
-
-	if (levelLoop.active) {
-		StopLevelLoop();
-		Log("ENGINE", "Previous level loop stopped before new level creation.", "log", "Level");
-		Log("ENGINE", "Please end levels naturally before starting new ones.", "warn", "Level");
-	}
 
 	// Measured before the build, while nothing else is drawing.
 	await MeasureRefreshRate();
@@ -516,15 +521,22 @@ function indexById(collection) {
 	return index;
 }
 
-// A null partId anchors to the object's own transform; a named part that is gone resolves to undefined.
-function targetTransform(owner, partId, collection) {
-	if (collection === "terrain") return owner.transform;
-	if (collection === "obstacle") return partId === null ? owner.parts[0].transform : owner.parts.find((part) => part.id === partId)?.transform;
-	return partId === null ? owner.transform : owner.model.parts.find((part) => part.id === partId)?.mesh.transform;
+// Find a target's mesh by part id. A null partId picks the object's mesh (an entity's first part).
+function targetMesh(owner, partId, collection) {
+	switch (collection) {
+		case "terrain" : return owner;
+		case "obstacle": return partId === null ? owner.parts[0] : owner.parts.find((part)       => part.id === partId);
+		default        : return partId === null ? owner.mesh     : owner.model.parts.find((part) => part.id === partId)?.mesh;
+	}
 }
 
-// Builds the followed transforms once per frame so every group sees the same ones; null when no group follows anything.
-// Values are live transform references — the map is discarded at the end of the frame.
+// Find a target's transform by part id. With a null partId, an entity follows its root, not its first part.
+function targetTransform(owner, partId, collection) {
+	if (collection === "entity" && partId === null) return owner.transform;
+	return targetMesh(owner, partId, collection)?.transform;
+}
+
+// Build the followed transforms once per frame to give every group the same ones.
 function resolveGeneratorTargets(sceneGraph) {
 	const wanted = new Map();
 	sceneGraph.entities.forEach((entity) => {
@@ -532,6 +544,8 @@ function resolveGeneratorTargets(sceneGraph) {
 		if (group === null || group.targetKey === null) return;
 		wanted.set(group.targetKey, group.target);
 	});
+
+	// Skip the frame's targets when no group follows anything.
 	if (wanted.size === 0) return null;
 
 	const indexes = {};
@@ -551,14 +565,15 @@ function resolveGeneratorTargets(sceneGraph) {
 
 // Flattens the three collections' differing shapes for core/ validators. undefined = no such id.
 function findSceneTarget(sceneGraph, id, partId) {
-	const entity = sceneGraph.entities.find((candidate) => candidate.id === id);
-	if (entity !== undefined) return { type: entity.type, transform: targetTransform(entity, partId, "entity") };
-
-	const obstacle = sceneGraph.obstacles.find((candidate) => candidate.id === id);
-	if (obstacle !== undefined) return { type: "obstacle", transform: targetTransform(obstacle, partId, "obstacle") };
-
-	const mesh = sceneGraph.terrain.find((candidate) => candidate.id === id);
-	return mesh === undefined ? undefined : { type: "terrain", transform: mesh.transform };
+	for (const collection of ["entity", "obstacle", "terrain"]) {
+		const owner = generatorCollections[collection](sceneGraph).find((candidate) => candidate.id === id);
+		if (owner === undefined) continue;
+		return {
+			type     : collection === "entity" ? owner.type : collection,
+			transform: targetTransform(owner, partId, collection),
+			mesh     : targetMesh(owner, partId, collection),
+		};
+	}
 }
 
 function finalizeSpawn(result, objectType, sceneGraph) {
@@ -599,6 +614,7 @@ function SpawnIntoScene(definition, objectType, sceneGraph) {
 
 	if (objectType === "terrain") {
 		const { terrain } = BuildTerrain([definition], sceneGraph.world, faceTextureStore);
+		BuildOccluders(terrain, []);
 		terrain.forEach((mesh) => sceneGraph.terrain.push(mesh));
 		return finalizeSpawn(terrain, objectType, sceneGraph);
 	}
@@ -635,9 +651,8 @@ function SpawnParticles(request, generator) {
 	if (normalized === null) return;
 
 	if (normalized.mode === "generator") {
-		const { transform } = resolveTarget(normalized.target.id, normalized.target.partId);
-		normalized.offset   = normalized.position;
-		normalized.position = transform.position.clone().add(RotateByEuler(normalized.offset, transform.rotation));
+		const { transform, mesh } = resolveTarget(normalized.target.id, normalized.target.partId);
+		Object.assign(normalized, GeneratorPlacement(normalized, mesh, transform));
 	}
 
 	// A far burst would sit frozen and play late once the player arrives.

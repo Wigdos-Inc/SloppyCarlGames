@@ -1,8 +1,7 @@
 // Assembly layer: engine-shaped per-force functions that call math/Forces.js and return complete results.
 
-import { ComputeGravity, ComputeBuoyancy, ComputeResistance, ComputeSubmergence } from "../math/Forces.js";
-import { ApplyDeceleration, ProjectOntoPlane } from "../math/Collision.js";
-import { ScaleVector3, SubtractVector3, WORLD_NORMALS } from "../math/Vector3.js";
+import { ComputeGravity, ComputeBuoyancy, ComputeResistance, ComputeDeceleration, ComputeSubmergence } from "../math/Forces.js";
+import { ProjectOntoPlane, ScaleVector3, SubtractVector3, WORLD_NORMALS } from "../math/Vector3.js";
 
 // Water level as a plain number for math/, or null when the level has no water.
 const waterLevelOf = (waterLevel) => waterLevel === null ? null : waterLevel.value;
@@ -14,12 +13,8 @@ function GetGravity(entity, physics) {
 }
 
 function GetBuoyancy(entityState, physicsState) {
-	return ComputeBuoyancy(
-		entityState.transform.position,
-		waterLevelOf(physicsState.waterLevel),
-		physicsState.submergence,
-		physicsState.deltaSeconds
-	);
+	const { waterLevel, submergence, deltaSeconds } = physicsState;
+	return ComputeBuoyancy(entityState.transform.position, waterLevelOf(waterLevel), submergence, deltaSeconds);
 }
 
 const GetResistance = (entity, physics) => ComputeResistance(entity.velocity, physics.deltaSeconds, physics.submergence);
@@ -42,7 +37,7 @@ function GetFloatiness(entity, yBefore) {
 // Static friction cancels the pull along the footing.
 function GetStaticFriction(entity, physics, yBefore) {
 	const pull = ProjectOntoPlane(ScaleVector3(WORLD_NORMALS.Up, entity.velocity.y - yBefore), entity.alignedUp);
-	return SubtractVector3(entity.velocity, SubtractVector3(pull, ApplyDeceleration(pull, entity.staticFriction, physics.deltaSeconds)));
+	return SubtractVector3(entity.velocity, SubtractVector3(pull, ComputeDeceleration(pull, entity.staticFriction, physics.deltaSeconds)));
 }
 
 /* === EXPORTS === */

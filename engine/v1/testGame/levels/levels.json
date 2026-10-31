@@ -312,7 +312,8 @@
                                     "addsToBounds": true,
                                     "particle": {
                                         "id": "falling_pebbles",
-                                        "position": { "x": 0, "y": -1.75, "z": 0 },
+                                        "side": "bottom",
+                                        "position": { "x": 0, "y": -0.05, "z": 0 },
                                         "overrides": {
                                             "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 4200 }
                                         }
@@ -381,7 +382,8 @@
                                     "addsToBounds": true,
                                     "particle": {
                                         "id": "falling_pebbles",
-                                        "position": { "x": 0, "y": -1.90, "z": 0 },
+                                        "side": "bottom",
+                                        "position": { "x": 0, "y": -0.05, "z": 0 },
                                         "overrides": {
                                             "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 5100 }
                                         }
@@ -450,7 +452,8 @@
                                     "addsToBounds": true,
                                     "particle": {
                                         "id": "falling_pebbles",
-                                        "position": { "x": 0, "y": -1.85, "z": 0 },
+                                        "side": "bottom",
+                                        "position": { "x": 0, "y": -0.05, "z": 0 },
                                         "overrides": {
                                             "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 6300 }
                                         }
@@ -550,7 +553,8 @@
                                     "addsToBounds": true,
                                     "particle": {
                                         "id": "falling_pebbles",
-                                        "position": { "x": 0, "y": -1.70, "z": 0 },
+                                        "side": "bottom",
+                                        "position": { "x": 0, "y": -0.05, "z": 0 },
                                         "overrides": {
                                             "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 7200 }
                                         }
@@ -619,7 +623,8 @@
                                     "addsToBounds": true,
                                     "particle": {
                                         "id": "falling_pebbles",
-                                        "position": { "x": 0, "y": -1.95, "z": 0 },
+                                        "side": "bottom",
+                                        "position": { "x": 0, "y": -0.05, "z": 0 },
                                         "overrides": {
                                             "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 8100 }
                                         }
@@ -688,7 +693,8 @@
                                     "addsToBounds": true,
                                     "particle": {
                                         "id": "falling_pebbles",
-                                        "position": { "x": 0, "y": -1.75, "z": 0 },
+                                        "side": "bottom",
+                                        "position": { "x": 0, "y": -0.05, "z": 0 },
                                         "overrides": {
                                             "duration": { "mode": "shrink", "holdTimeMs": 700, "endTimeMs": 1500, "intervalMs": 9000 }
                                         }
@@ -893,6 +899,30 @@
                             }
                         }
                     },
+                    "templates": {
+                        "particles": {
+                            "hole_smoke": {
+                                "count": 3,
+                                "spread": "narrow",
+                                "physics": "none",
+                                "color": {
+                                    "start": { "r": 0.48, "g": 0.48, "b": 0.5, "a": 0.68 },
+                                    "variance": 0.14,
+                                    "end": null
+                                },
+                                "velocity": { "x": 0, "y": 0.35, "z": 0 },
+                                "duration": { "mode": "fade", "holdTimeMs": 300, "endTimeMs": 2400, "intervalMs": 2400 },
+                                "amount": 8,
+                                "part": {
+                                    "id": "particle",
+                                    "shape": "plane",
+                                    "complexity": "low",
+                                    "dimensions": { "x": 0.3, "y": 0.3, "z": 0 },
+                                    "primitiveOptions": { "crossed": false, "sprite": { "follow": "full" } }
+                                }
+                            }
+                        }
+                    },
                     "terrain": {
                         "objects": [
                             {
@@ -1005,8 +1035,10 @@
                                     "scatter": []
                                 },
                                 "particle": {
-                                    "id": "smoke",
-                                    "position": { "x": -0.35, "y": 0.3, "z": -1 },
+                                    "id": "hole_smoke",
+                                    "side": "left",
+                                    "position": { "x": -0.1, "y": 0.3, "z": -1 },
+                                    "area": { "x": 0, "y": 0.4, "z": 0.7 },
                                     "overrides": {
                                         "velocity": { "x": -0.3, "y": 0.28, "z": 0 }
                                     }
@@ -1277,7 +1309,8 @@
                             },
                             "particle": {
                                 "id": "smoke",
-                                "position": { "x": 0, "y": 1.1, "z": 0 }
+                                "side": "top",
+                                "position": { "x": 0, "y": 0.1, "z": 0 }
                             }
                         }
                     ],

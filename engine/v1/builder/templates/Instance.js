@@ -1,7 +1,10 @@
-// Instances engine-owned template JSON at boot.
+// Instances engine-owned template JSON at boot, and registers a level's game templates beside it.
 
 // Used by core/ini.js to instance the templates and keep raw copies for ENGINE.Blueprints.
+// Used by NewLevel.js to register a level's game templates.
+// Used by handlers/game/Level.js to clear them.
 // Uses core/normalize.js to load image decals and sprite images.
+// Uses core/meta.js for logging.
 
 import playerData from "../../player/characters.json" with { type: "json" };
 import texturesImport from "./textures.json" with { type: "json" };
@@ -14,6 +17,7 @@ import particleImport from "./particles.json" with { type: "json" };
 import simulatorLevelsImport from "./levels.json" with { type: "json" };
 import { Unit, UnitVector3 } from "../../math/Utilities.js";
 import { NormalizeImage } from "../../core/normalize.js";
+import { Log } from "../../core/meta.js";
 
 const toUnitVector3 = (vector, type) => new UnitVector3(vector.x, vector.y, vector.z, type);
 
@@ -74,18 +78,11 @@ function instanceCharacterTemplates() {
 
 // Instance scatter part transforms and decals.
 function instanceScatterTemplates() {
-	// Instance a field, or each of its tiers if split by complexity (low/medium/high).
-	function instanceTiers(part, field, instance) {
-		const value = part[field];
-		if (value.low === undefined) return part[field] = instance(value);
-		for (const tier in value) value[tier] = instance(value[tier]);
-	}
-
 	for (const key in texturesImport.scatterTypes) {
 		texturesImport.scatterTypes[key].parts.forEach((part) => {
-			instanceTiers(part, "dimensions",    (vector) => toUnitVector3(vector, "cnu"));
-			instanceTiers(part, "localPosition", (vector) => toUnitVector3(vector, "cnu"));
-			instanceTiers(part, "localRotation", (vector) => toUnitVector3(vector, "degrees").toRadians(true));
+			part.dimensions    = toUnitVector3(part.dimensions,    "cnu");
+			part.localPosition = toUnitVector3(part.localPosition, "cnu");
+			part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
 			instanceDecalTransforms(part.texture.custom);
 		});
 	}
@@ -149,7 +146,7 @@ function instanceSimulatorTemplates() {
 	disc.pivot      = toUnitVector3(disc.pivot,      "cnu");
 }
 
-// Load the bitmaps for every template's image decals and sprite images. Paths are relative to templates/.
+// Load bitmaps for image decals and sprites.
 function loadTemplateDecalBitmaps() {
 	// Register all textures and sprite plane images.
 	const textures = new Set(), spriteImages = [];
@@ -169,13 +166,18 @@ function loadTemplateDecalBitmaps() {
 	for (const key in texturesImport.scatterTypes) texturesImport.scatterTypes[key].parts.forEach((part) => textures.add(part.texture));
 
 	// Load the bitmap of every image decal and sprite image.
-	const loadBitmap = (owner, path) => NormalizeImage(new URL(path, import.meta.url).href, owner.sourceType, "webgl").then((result) => {
+	const loadBitmap = (owner, path, folder) => NormalizeImage(new URL(path, folder).href, owner.sourceType, "webgl").then((result) => {
 		owner.bitmap = result.value;
 	});
 	textures.forEach((texture) => texture.custom.forEach((decal) => {
-		if (decal.decalType === "image") loadBitmap(decal, decal.imagePath);
+		if (decal.decalType === "image") loadBitmap(decal, decal.imagePath, import.meta.url);
 	}));
-	spriteImages.forEach((image) => loadBitmap(image, image.path));
+	spriteImages.forEach((image) => loadBitmap(image, image.path, import.meta.url));
+
+	const playerFolder = new URL("../../player/", import.meta.url);
+	for (const characterId in playerData) playerData[characterId].model.parts.forEach((part) => part.texture.custom.forEach((decal) => {
+		if (decal.decalType === "image") loadBitmap(decal, decal.imagePath, playerFolder);
+	}));
 }
 
 function InstanceEngineTemplates() {
@@ -214,4 +216,47 @@ function InstanceEngineTemplates() {
 	return { raw, instanced };
 }
 
-export { InstanceEngineTemplates };
+/* === GAME TEMPLATES === */
+
+// Engine collections each game collection registers into. 
+// Note: npcs fill both characters and enemies.
+const gameTemplateTargets = {
+	textures        : [texturesImport.textures],
+	scatter         : [texturesImport.scatterTypes],
+	particles       : [particleImport],
+	terrain         : [terrainImport],
+	obstacles       : [obstacleImport],
+	npcs            : [characterImport, enemyImport],
+	projectiles     : [projectileImport],
+	playerCharacters: [playerData],
+};
+
+// Every registered game id, with the engine entry it replaced (undefined = none).
+const registeredGameTemplates = [];
+
+// Register a level's game templates. 
+// Note: Engine templates can be overridden by game templates.
+function RegisterGameTemplates(templates) {
+	ClearGameTemplates();
+
+	let count = 0;
+	for (const name in gameTemplateTargets) for (const id in templates[name]) {
+		count++;
+		for (const collection of gameTemplateTargets[name]) {
+			registeredGameTemplates.push({ collection, id, engineEntry: Object.hasOwn(collection, id) ? collection[id] : undefined });
+			collection[id] = templates[name][id];
+		}
+	}
+
+	if (count > 0) Log("ENGINE", `Game templates registered: ${count}.`, "log", "Level");
+}
+
+// Remove the registered game templates and reset any overridden engine templates.
+function ClearGameTemplates() {
+	registeredGameTemplates.forEach(({ collection, id, engineEntry }) => {
+		engineEntry === undefined ? delete collection[id] : collection[id] = engineEntry;
+	});
+	registeredGameTemplates.length = 0;
+}
+
+export { InstanceEngineTemplates, RegisterGameTemplates, ClearGameTemplates };

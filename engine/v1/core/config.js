@@ -98,7 +98,7 @@ const API_CONFIG = {
     Cutscene: settings?.cutscene ?? 1
   },
   Performance: {
-    Scatter         : { Density: "High", Quality: "High" }, // Amount of scatter, and how expensive the shapes are.
+    Scatter         : { Density: "High", Quality: "High" }, // Density = Amount. Quality = Normal vs Crossed-planes
     Particles       : "High",                               // The amount of particles generators emit.
     SimDistance     : "High",                               // Umbrella definition for both rendering and simulation distance.
     Animations      : "High",                               // Smoothness of animations.

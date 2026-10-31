@@ -71,9 +71,6 @@
                     },
                     "detail": { "scatter": [] },
                     "collisionShape": "none",
-                    "destructible": false,
-                    "hp": 1,
-                    "static": true,
                     "mode": "default",
                     "nullable": true
                 }

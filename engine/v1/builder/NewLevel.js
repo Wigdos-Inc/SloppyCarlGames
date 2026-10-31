@@ -9,32 +9,27 @@
 // Uses NewEntity.js for level entities.
 // Uses NewParticles.js for level-authored particle generators.
 // Uses NewTemplate.js to resolve template refs.
+// Uses templates/Instance.js to register the level's game templates.
+// Uses subProcesses/Chunks.js to group touching terrain into chunks.
+// Uses subProcesses/Occlusion.js for terrain blockers.
+// Uses subProcesses/Loops.js to find loop surfaces.
 
 import { BuildObject } from "./NewObject.js";
+import { RegisterGameTemplates } from "./templates/Instance.js";
 import { BuildEntity } from "./NewEntity.js";
 import { GenerateParticles, ParticleGeneratorRequests } from "./NewParticles.js";
 import { BuildObstacles } from "./NewObstacle.js";
-import { BuildTerrain, CarveOccluders } from "./NewTerrain.js";
+import { BuildTerrain } from "./NewTerrain.js";
 import { ResolveObjectSource } from "./NewTemplate.js";
 import { BuildScatterBatches, BuildScatterVisualResources } from "./NewScatter.js";
 import { BuildVoidWalls } from "./NewVoid.js";
-import { CONFIG, PERFORMANCE_SCALING, CAMERA_TUNING } from "../core/config.js";
-import { EPSILON, Log } from "../core/meta.js";
-import { Clamp, DegreesToRadians, Unit, UnitVector3 } from "../math/Utilities.js";
-import { 
-	AddVector3, 
-	AngleBetweenVector3, 
-	CrossVector3, 
-	DotVector3, 
-	ResolveVector3Axis, 
-	ScaleVector3, 
-	SubtractVector3, 
-	ToVector3, 
-	Vector3ToArray, 
-	WORLD_NORMALS 
-} from "../math/Vector3.js";
-import { AabbOverlap, ObbFromAabb, TriangleAabb, TriangleCentroid, TriangleDistanceSq } from "../math/Collision.js";
-import { IsPointInSuppressingVoid } from "../physics/Collision.js";
+import { AssembleTerrainChunks } from "./subProcesses/Chunks.js";
+import { FindLoops } from "./subProcesses/Loops.js";
+import { BuildOccluders } from "./subProcesses/Occlusion.js";
+import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
+import { Log } from "../core/meta.js";
+import { Clamp, UnitVector3 } from "../math/Utilities.js";
+import { ToVector3 } from "../math/Vector3.js";
 
 // Blueprints by id, across every blueprint category.
 function resolveEntityBlueprintMap(payload) {
@@ -302,224 +297,6 @@ function buildDebugDetailedBounds(sceneGraph) {
 	return detailed;
 }
 
-/* === SURFACE CHUNKS === */
-
-// Split a box into 12 triangles facing outward.
-function boxFacets({ center, axes, halfExtents }) {
-	const facets = [];
-	const extents = Vector3ToArray(halfExtents);
-	for (let axis = 0; axis < 3; axis++) {
-		const u = (axis + 1) % 3;
-		const v = (axis + 2) % 3;
-		for (const sign of [-1, 1]) {
-			const normal = ScaleVector3(axes[axis], sign);
-			const [p0, p1, p2, p3] = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([su, sv]) => AddVector3(
-				AddVector3(center, ScaleVector3(normal, extents[axis])), 
-				AddVector3(ScaleVector3(axes[u], su * extents[u]), ScaleVector3(axes[v], sv * extents[v]))
-			));
-			facets.push({ a: p0, b: p1, c: p2, normal }, { a: p0, b: p2, c: p3, normal });
-		}
-	}
-	return facets;
-}
-
-// List a collision shape's triangles. Shapes without flat faces give none.
-function boundsFacets(bounds) {
-	if (bounds === null) return [];
-	switch (bounds.type) {
-		case "triangle-soup": return bounds.triangles;
-		case "obb"          : return boxFacets(bounds);
-		case "aabb"         : return boxFacets(ObbFromAabb(bounds));
-		default             : return [];
-	}
-}
-
-// Merge indices into groups and find the group each one belongs to.
-const makeRoots = (count) => Array.from({ length: count }, (_, index) => index);
-function findRoot(roots, index) {
-	while (roots[index] !== index) index = roots[index] = roots[roots[index]];
-	return index;
-}
-const joinRoots = (roots, a, b) => roots[findRoot(roots, a)] = findRoot(roots, b);
-
-// Estimate a loop's radius.
-function foldRadius(a, b, fold) {
-	const edge = ResolveVector3Axis(CrossVector3(a.normal, b.normal));
-	const width = (facet) => {
-		const reach = [facet.a, facet.b, facet.c].map((point) => DotVector3(point, CrossVector3(edge, facet.normal)));
-		return Math.max(...reach) - Math.min(...reach);
-	};
-	return (width(a) + width(b)) / (4 * Math.tan(fold * 0.5));
-}
-
-// Find each medium's loop surfaces: the steep parts of a smooth inward curve that runs from floor to ceiling.
-function findLoopSurfaces(pieces, owner, facets, links) {
-	const loopSurfaces = { Air: new Map(), Water: new Map() };
-	const loopIncline  = CAMERA_TUNING.Loops.MinCurveThreshold.toRadians();
-	const incline      = facets.map((facet) => AngleBetweenVector3(facet.normal, WORLD_NORMALS.Up));
-
-	for (const medium in loopSurfaces) {
-		// Join facets that curve inward up to the medium's ground angle limit.
-		const limit  = DegreesToRadians(CONFIG.Physics.Correction.MaxAngleDelta[medium].Ground);
-		const smooth = links.filter((l) => l.concave && l.fold <= limit);
-		const roots  = makeRoots(facets.length);
-
-		smooth.forEach(({ a, b }) => joinRoots(roots, a, b));
-
-		// Steep facets count only on curves that hold both a floor and a ceiling.
-		const floors = new Set(), ceilings = new Set();
-		incline.forEach((angle, index) => {
-			if (angle <= limit) floors.add(findRoot(roots, index));
-			if (angle >= loopIncline) ceilings.add(findRoot(roots, index));
-		});
-		const steep = (index) => incline[index] > limit && floors.has(findRoot(roots, index)) && ceilings.has(findRoot(roots, index));
-
-		// Group the steep facets. Groups that reach the ceiling count as loops.
-		const steepRoots = makeRoots(facets.length);
-		smooth.forEach(({ a, b }) => { if (steep(a) && steep(b)) joinRoots(steepRoots, a, b); });
-		const loopRoots = new Set();
-		incline.forEach((angle, index) => {
-			if (angle >= loopIncline && steep(index)) loopRoots.add(findRoot(steepRoots, index));
-		});
-
-		// Collect each loop's fold radii.
-		const foldRadii = new Map();
-		smooth.forEach(({ a, b, fold }) => {
-			if (fold <= EPSILON || !steep(a) || !steep(b)) return;
-			const root = findRoot(steepRoots, a);
-			if (!foldRadii.has(root)) foldRadii.set(root, []);
-			foldRadii.get(root).push(foldRadius(facets[a], facets[b], fold));
-		});
-
-		// Take the median fold radius. A loop without folds counts as infinitely wide.
-		const loopRadius = (root) => {
-			const radii = (foldRadii.get(root) || [Infinity]).sort((x, y) => x - y);
-			return radii[radii.length >> 1];
-		};
-
-		// Store each surface's tightest loop radius.
-		incline.forEach((_, index) => {
-			const root = findRoot(steepRoots, index);
-			if (!steep(index) || !loopRoots.has(root)) return;
-
-			const id = pieces[owner[index]].id;
-			loopSurfaces[medium].set(id, Math.min(loopSurfaces[medium].get(id) ?? Infinity, loopRadius(root)));
-		});
-		loopSurfaces[medium].forEach((radius, id) => loopSurfaces[medium].set(id, new Unit(radius, "cnu")));
-	}
-
-	return loopSurfaces;
-}
-
-// Group touching surfaces into chunks and find their loop surfaces.
-function buildSurfaceChunks(terrain, obstacles, voids) {
-	const started = performance.now();
-
-	// Make one piece per surface: its triangles outside voids, plus each void's wall lining.
-	const pieces = [];
-	const centroid = (f) => TriangleCentroid(f.a, f.b, f.c);
-	const addHost = (id, aabb, bounds, flags, hostVoids) => pieces.push({
-		id, aabb,
-		facets: boundsFacets(bounds).filter((facet) => !(flags.nullable !== false && IsPointInSuppressingVoid(centroid(facet), id, hostVoids))),
-	});
-	terrain.forEach((mesh) => addHost(mesh.id, mesh.worldAabb, mesh.detailedBounds, mesh.meta, voids.terrain));
-	obstacles.forEach((record) => addHost(record.id, record.worldAabb, record.detailedBounds, record, voids.obstacles));
-	for (const entry of [...voids.terrain, ...voids.obstacles]) {
-		const lining = [];
-		for (const hostId in entry.relations) {
-			for (const wall of entry.relations[hostId].voidWallMeshes) {
-				for (const triangle of wall.floorBounds.triangles) lining.push(triangle);
-				for (const triangle of wall.wallBounds.triangles)  lining.push(triangle);
-			}
-		}
-		if (lining.length > 0) pieces.push({ id: entry.id, aabb: entry.worldAabb, facets: lining });
-	}
-
-	// Grow bounds by a hair so touching surfaces overlap.
-	const expand = (aabb) => ({ min: SubtractVector3(aabb.min, ToVector3(EPSILON)), max: AddVector3(aabb.max, ToVector3(EPSILON)) });
-	const facets = [], owner = [], links = [];
-	// Link two facets, marking whether they bend inward like a loop or outward like a crest.
-	const link = (a, b) => {
-		const across  = SubtractVector3(centroid(facets[b]), centroid(facets[a]));
-		const concave = DotVector3(facets[a].normal, across) - DotVector3(facets[b].normal, across) >= -EPSILON;
-		links.push({ a, b, concave, fold: AngleBetweenVector3(facets[a].normal, facets[b].normal) });
-	};
-
-	// Link facets within a piece that share an edge.
-	const vertexKey = (p) => `${p.x},${p.y},${p.z}`;
-	pieces.forEach((piece, pieceIndex) => {
-		const edgeOwners = new Map();
-		piece.first = facets.length;
-
-		for (const facet of piece.facets) {
-			const index = facets.length;
-			facets.push(facet);
-			owner.push(pieceIndex);
-
-			const keys = [vertexKey(facet.a), vertexKey(facet.b), vertexKey(facet.c)];
-			for (let edge = 0; edge < 3; edge++) {
-				const [k1, k2] = [keys[edge], keys[(edge + 1) % 3]].sort();
-				if (k1 === k2) continue;
-
-				const shared = edgeOwners.get(`${k1}|${k2}`);
-				if (!shared) {
-					edgeOwners.set(`${k1}|${k2}`, [index]);
-					continue;
-				}
-				shared.forEach((other) => link(other, index));
-				shared.push(index);
-			}
-		}
-	});
-
-	// Link touching facets between pieces whose bounds touch. Pieces without triangles join on bounds alone.
-	const pieceRoots = makeRoots(pieces.length);
-	const reach      = pieces.map((piece) => expand(piece.aabb));
-	const facetReach = facets.map((facet) => expand(TriangleAabb(facet)));
-
-	function nearFacets(piece, bounds) {
-		return piece.facets.map((_, offset) => piece.first + offset).filter((index) => AabbOverlap(facetReach[index], bounds));
-	}
-
-	for (let i = 0; i < pieces.length; i++) for (let j = i + 1; j < pieces.length; j++) {
-		if (!AabbOverlap(reach[i], reach[j])) continue;
-		if (pieces[i].facets.length === 0 || pieces[j].facets.length === 0) {
-			joinRoots(pieceRoots, i, j);
-			continue;
-		}
-
-		for (const a of nearFacets(pieces[i], reach[j])) for (const b of nearFacets(pieces[j], reach[i])) {
-			if (AabbOverlap(facetReach[a], facetReach[b]) && TriangleDistanceSq(facets[a], facets[b]) <= EPSILON ** 2) link(a, b);
-		}
-	}
-
-	// Join pieces linked by any facet into one chunk.
-	links.forEach(({ a, b }) => joinRoots(pieceRoots, owner[a], owner[b]));
-	const chunkByRoot = new Map();
-	pieces.forEach((piece, index) => {
-		const root = findRoot(pieceRoots, index);
-		if (!chunkByRoot.has(root)) chunkByRoot.set(root, { id: `chunk-${chunkByRoot.size}`, surfaceIds: [] });
-		chunkByRoot.get(root).surfaceIds.push(piece.id);
-	});
-
-	const chunks       = [...chunkByRoot.values()];
-	const loopSurfaces = findLoopSurfaces(pieces, owner, facets, links);
-	Log(
-		"ENGINE", 
-		`
-			Surface chunks: 
-			- Chunks=${chunks.length} 
-			- LoopAir=${loopSurfaces.Air.size} 
-			- LoopWater=${loopSurfaces.Water.size} 
-			- Ms=${(performance.now() - started).toFixed(1)}
-		`, 
-		"log", 
-		"Level"
-	);
-
-	return { chunks, loopSurfaces };
-}
-
 // Rebuild after scene changes.
 function RefreshDebugBoundingBoxes(sceneGraph) {
 	sceneGraph.debugBoundingBoxes = buildDebugBoundingBoxes(sceneGraph);
@@ -529,6 +306,8 @@ function RefreshDebugBoundingBoxes(sceneGraph) {
 
 // Build the persistent sceneGraph from a level payload.
 async function BuildLevel(payload) {
+	RegisterGameTemplates(payload.templates);
+
 	const scatterBatches = new Map(), scatterDebugBounds = [];
 	const enqueueScatterBatches = (objectMesh, indexSeed, openFaces) => {
 		if (objectMesh.detail.scatter.length === 0) return;
@@ -553,26 +332,19 @@ async function BuildLevel(payload) {
 	const { terrain, voidTerrain, meshes: allTerrain } = BuildTerrain(terrainDefinitions, payload.world, faceTextureStore);
 
 	const { built: allObstacleRecords } = BuildObstacles(obstacleDefinitions, { textureScale: payload.world.textureScale, faceTextureStore });
-	const obstacleRecords     = allObstacleRecords.filter((r) => r.mode !== "void");
+	const obstacles     = allObstacleRecords.filter((r) => r.mode !== "void");
 	const voidObstacleRecords = allObstacleRecords.filter((r) => r.mode === "void");
 
-	// Void walls run before scatter so scatter can avoid openings.
+	// Cut each void into the terrain and obstacles it overlaps.
 	const voids = { terrain: voidTerrain, obstacles: voidObstacleRecords };
-	BuildVoidWalls({ terrain, obstacles: obstacleRecords, voids }, payload.world.textureScale);
+	BuildVoidWalls({ terrain, obstacles, voids }, payload.world.textureScale);
 
-	// Rebuild terrain blockers so void openings stay clear.
-	CarveOccluders(terrain, voidTerrain);
+	// Fit each terrain mesh occlusion boxes (for occlusion culling).
+	BuildOccluders(terrain, voidTerrain);
 
-	const { chunks, loopSurfaces } = buildSurfaceChunks(terrain, obstacleRecords, voids);
-
-	// Store centerlines by surface id for improved loop detection in tubes.
-	const tubeCenterlines = new Map();
-	const addCenterlines = (id, meshes) => {
-		const lines = meshes.filter((mesh) => mesh.centerline !== null).map((mesh) => mesh.centerline);
-		if (lines.length > 0) tubeCenterlines.set(id, lines);
-	};
-	[...terrain, ...voidTerrain].forEach((mesh) => addCenterlines(mesh.id, [mesh]));
-	allObstacleRecords.forEach((record) => addCenterlines(record.id, record.parts));
+	// Group touching terrain into chunks, then identify navigable loops.
+	const terrainChunks = AssembleTerrainChunks(terrain, voidTerrain);
+	const { loopSurfaces, tubeCenterlines } = FindLoops(terrainChunks, [...terrain, ...voidTerrain]);
 
 	// Gather each object's open faces from every void that cuts into it.
 	const openFacesByObjectId = new Map();
@@ -580,9 +352,7 @@ async function BuildLevel(payload) {
 		for (const entry of entries) {
 			for (const id in entry.relations) {
 				if (!openFacesByObjectId.has(id)) openFacesByObjectId.set(id, []);
-
-				const openFaces = openFacesByObjectId.get(id);
-				for (const face of entry.relations[id].openFaces) openFaces.push(face);
+				for (const face of entry.relations[id].openFaces) openFacesByObjectId.get(id).push(face);
 			}
 		}
 	};
@@ -593,7 +363,7 @@ async function BuildLevel(payload) {
 	allTerrain.forEach((terrainMesh, index) => {
 		if (terrainMesh.meta.mode === "default") enqueueScatterBatches(terrainMesh, index + 1, openFacesByObjectId.get(terrainMesh.id) ?? []);
 	});
-	obstacleRecords.forEach((record, index) => {
+	obstacles.forEach((record, index) => {
 		if (record.mode === "default") enqueueScatterBatches(record.mesh, payload.terrain.objects.length + index + 1, openFacesByObjectId.get(record.id) ?? []);
 	});
 
@@ -614,7 +384,7 @@ async function BuildLevel(payload) {
 	if (triggers.length > 0) Log("ENGINE", `Trigger group created: count=${triggers.length}`, "log", "Level");
 
 	const spawnSurfaces = buildSurfaceMap(terrainDefinitions, obstacleDefinitions);
-	const entities = payload.entities.map((entity) => {
+	const entities      = payload.entities.map((entity) => {
 		const { entity: built } = BuildEntity(
 			buildEntityInput(entity, resolveEntityBlueprintMap(payload)),
 			spawnSurfaces,
@@ -647,13 +417,11 @@ async function BuildLevel(payload) {
 	});
 	if (particleGroups > 0) Log("ENGINE", `Particle group created: count=${particleGroups}`, "log", "Level");
 
-	const waterVisual = buildWaterVisualMeshes(payload.world, faceTextureStore);
-
 	const sceneGraph = {
 		world: payload.world,
-		terrain, entities, triggers, scatter: [], scatterBatches,
-		obstacles: obstacleRecords,
-		voids, waterVisual, chunks, loopSurfaces, tubeCenterlines,
+		terrain, entities, triggers, scatter: [], scatterBatches, obstacles, voids, 
+		waterVisual: buildWaterVisualMeshes(payload.world, faceTextureStore), 
+		chunks: terrainChunks.chunks, loopSurfaces, tubeCenterlines,
 		scatterPrimitiveGeometry: BuildScatterVisualResources(scatterBatches),
 		debug                   : {
 			showTriggerVolumes: CONFIG.Debug.All === true && CONFIG.Debug.Levels.Triggers === true,
@@ -680,7 +448,7 @@ async function BuildLevel(payload) {
 		`
 			Level generation complete: 
 			- Terrain=${terrain.length}
-			- Obstacles=${obstacleRecords.length}, 
+			- Obstacles=${obstacles.length}, 
 			- VoidTerrain=${voidTerrain.length}, 
 			- VoidObstacles=${voidObstacleRecords.length}, 
 			- Entities=${entities.length}, 

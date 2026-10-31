@@ -20,10 +20,11 @@ import {
 	SubtractVector3,
 	ToVector3,
 	Vector3Length,
+	ProjectOntoPlane,
 	WORLD_NORMALS,
 } from "../math/Vector3.js";
-import { ProjectOntoPlane, RayAABBIntersect, RayAABBDetailedBoundsIntersect, RayDetailedBoundsIntersect } from "../math/Collision.js";
-import { BroadphaseCollectCandidates, IsPointInSuppressingVoid, HostVoids } from "../physics/Collision.js";
+import { RayAABBIntersect, RayAABBDetailedBoundsIntersect, RayDetailedBoundsIntersect } from "../math/Collision.js";
+import { BroadphaseCollectCandidates, IsCutByVoid, HostVoids } from "../physics/Collision.js";
 import { Clamp, DegreesToRadians, Lerp, Unit, UnitVector3 } from "../math/Utilities.js";
 import { PlayerHeight } from "../player/Master.js";
 import { ResolveCameraSet } from "./Sets.js";
@@ -340,11 +341,7 @@ function checkCameraObstruction(origin, desiredCamPos, sceneGraph, radius, bodyA
 
 		// Skip hits on parts of a surface that a void has cut away.
 		if (candidate.type !== "voidWall") {
-			if (IsPointInSuppressingVoid(
-				AddVector3(rayOrigin, ScaleVector3(dir, hit.t)), 
-				candidate.id, 
-				HostVoids(sceneGraph, candidate.type === "terrain")
-			)) {
+			if (IsCutByVoid(AddVector3(rayOrigin, ScaleVector3(dir, hit.t)), candidate.id, HostVoids(sceneGraph, candidate.type === "terrain"))) {
 				continue;
 			}
 		}
@@ -356,8 +353,7 @@ function checkCameraObstruction(origin, desiredCamPos, sceneGraph, radius, bodyA
 	if (obstructed) {
 		// Pull the camera in front of the hit, but never inside the target's body.
 		const cameraRadius = CAMERA_TUNING.Body.Radius.value;
-		const bodyReach = DotVector3(AbsoluteVector3(dir), SubtractVector3(bodyAabb.max, bodyAabb.min)) * 0.5;
-		closestT = Math.max(cameraRadius + bodyReach, closestT - cameraRadius);
+		closestT = Math.max(cameraRadius + DotVector3(AbsoluteVector3(dir), SubtractVector3(bodyAabb.max, bodyAabb.min)) * 0.5, closestT - cameraRadius);
 	}
 
 	return { obstructed, clippedDistance: closestT };
@@ -482,7 +478,7 @@ function PrepareCamera(sceneGraph, deltaSeconds, target, simulating) {
 
 	// A custom set leaves unmapped situations on the running mode.
 	if (cameraState.situation in frame.set.situations) setMode = frame.set.situations[cameraState.situation];
-	const mode = freeCamOverride() ? "freeCam" : simulating ? "orbitCam" : triggers.forced !== null ? triggers.forced : setMode;
+	const mode = freeCamOverride() ? "freeCam" : simulating ? "orbitCam" : triggers.forced ?? setMode;
 	if (mode !== cameraState.activeMode) activateMode(mode);
 	cameraState.modeData = CAMERA_MODES[mode].prepare(frame);
 }

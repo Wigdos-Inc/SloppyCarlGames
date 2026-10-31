@@ -57,7 +57,7 @@ const DEFAULT_SETTINGS = {
 // Scatter quality and sim distance are always-on grades; the rest can be switched off.
 // Ultra sits outside PRESET_TIERS, so selecting it always resolves the preset to Custom.
 const TIER_LEVELS = ["Disabled", "Low", "Medium", "High"];
-const GRADED_LEVELS = ["Low", "Medium", "High"];
+const GRADED_LEVELS = ["Low", "High"];
 const DISTANCE_LEVELS = ["Low", "Medium", "High", "Ultra"];
 const PRESET_LEVELS = ["Low", "Medium", "High", "Custom"];
 const PRESET_TIERS = PRESET_LEVELS.slice(0, -1);
@@ -353,10 +353,13 @@ const TIER_SLIDER_MAP = [
 
 const PRESET_SLIDER_ID = "setting-performance-preset";
 
+// Map a preset tier a slider lacks (Medium on scatter quality) to High.
+const presetLevel = (entry, tier) => entry.levels.includes(tier) ? tier : "High";
+
 // Presets only span Low/Medium/High, so a Disabled tier always reads as Custom.
 function derivePerformancePreset(settings) {
 	const matchedTier = PRESET_TIERS.find(
-		(tier) => TIER_SLIDER_MAP.every((entry) => settings[entry.key] === tier)
+		(tier) => TIER_SLIDER_MAP.every((entry) => settings[entry.key] === presetLevel(entry, tier))
 	);
 	return matchedTier || "Custom";
 }
@@ -364,8 +367,8 @@ function derivePerformancePreset(settings) {
 function applyPerformancePreset(presetName, settings) {
 	if (presetName === "Custom") return;
 	TIER_SLIDER_MAP.forEach((entry) => {
-		settings[entry.key] = presetName;
-		updateLeveledSliderVisual(entry.id, entry.levels, presetName);
+		settings[entry.key] = presetLevel(entry, presetName);
+		updateLeveledSliderVisual(entry.id, entry.levels, settings[entry.key]);
 	});
 }
 

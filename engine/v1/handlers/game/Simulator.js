@@ -23,8 +23,9 @@ import characterTemplates from "../../builder/templates/characters.json" with { 
 import enemyTemplates from "../../builder/templates/enemies.json" with { type: "json" };
 import projectileTemplates from "../../builder/templates/projectiles.json" with { type: "json" };
 import { 
-	ArrayToVector3, 
-	CloneVector3, 
+	ArrayToVector3,
+	CloneTransform,
+	CloneVector3,
 	SubtractVector3, 
 	AddVector3, 
 	ScaleVector3, 
@@ -36,7 +37,7 @@ import {
 	Vector3Sq 
 } from "../../math/Vector3.js";
 import { CreateModelMatrix } from "../../math/Matrix.js";
-import { TriangleNormal } from "../../math/Collision.js";
+import { TriangleNormal } from "../../math/Geometry.js";
 
 const templateDisc   = simulatorTemplates.simulatorLevel.terrain.objects[0];
 const templateCamera = simulatorTemplates.simulatorLevel.camera;
@@ -174,13 +175,14 @@ function clearEnvironmentState() {
 }
 
 async function Start() {
-	if (!EngineInitialized) return Log("ENGINE", "Simulator.Start: engine not yet initialized.", "error", "Simulator");
+	if (!EngineInitialized)      return Log("ENGINE", "Simulator.Start: engine not yet initialized.", "error", "Simulator");
 	if (simulatorRuntime.active) return Log("ENGINE", "Simulator.Start: already active.", "error", "Simulator");
-	if (!engineEntriesCached) await cacheEngineEntries();
 
 	simulatorRuntime.hadLevel = GetActiveLevel() !== null;
-	if (simulatorRuntime.hadLevel) ClearLevel(false);
-	else StopLevelLoop();
+	simulatorRuntime.hadLevel ? ClearLevel(false) : StopLevelLoop();
+
+	// Cache after the level clears to list only engine templates.
+	if (!engineEntriesCached) await cacheEngineEntries();
 
 	if (!simulatorRuntime.uiCleared && Cache.UI.lastPayload && document.getElementById(Cache.UI.lastPayload.rootId)) {
 		ClearUI(Cache.UI.lastPayload.rootId, false);
@@ -206,20 +208,12 @@ async function Start() {
 
 // Rebuild the disc platform at the right size through the terrain spawn path.
 function spawnPlatform(sceneGraph, footprintXZ) {
+	const { texture, detail, primitiveOptions, dimensions } = templateDisc;
 	const disc = {
-		...templateDisc,
-		dimensions      : templateDisc.dimensions.clone(),
-		position        : templateDisc.position.clone(),
-		rotation        : templateDisc.rotation.clone(),
-		scale           : CloneVector3(templateDisc.scale),
-		pivot           : templateDisc.pivot.clone(),
-		texture         : structuredClone(templateDisc.texture),
-		detail          : structuredClone(templateDisc.detail),
-		primitiveOptions: structuredClone(templateDisc.primitiveOptions),
+		...templateDisc, ...CloneTransform(templateDisc),
+		dimensions: dimensions.clone().set({ x: footprintXZ, y: dimensions.y, z: footprintXZ }),
+		...structuredClone({ texture, detail, primitiveOptions }),
 	};
-	disc.dimensions.x = footprintXZ;
-	disc.dimensions.z = footprintXZ;
-
 	return SpawnIntoScene(disc, "terrain", sceneGraph);
 }
 
@@ -231,9 +225,9 @@ function frameLoadedObject(aabb) {
 		heightOffset: Math.max(templateCamera.heightOffset, ext.y * 0.5)
 	});
 
-	const center = aabb.max.clone().add(aabb.min).scale(0.5); 
-	center.y = aabb.min.y + ext.y * templateCamera.aimHeight;
-	simulatorRuntime.followTarget = { transform: { position: center } };
+	const position = aabb.max.clone().add(aabb.min).scale(0.5); 
+	position.y = aabb.min.y + ext.y * templateCamera.aimHeight;
+	simulatorRuntime.followTarget = { transform: { position } };
 	return ext;
 }
 
@@ -274,10 +268,10 @@ async function Load(payload) {
 		if (simulatorRuntime.platformMesh !== null) DespawnFromScene(simulatorRuntime.platformMesh, "terrain", sceneGraph);
 		simulatorRuntime.platformMesh = null;
 		built = SpawnIntoScene(definition, objectType, sceneGraph);
-		aabb  = built.reduce((accumulator, mesh) => MergeAabb(accumulator, mesh.worldAabb), null);
+		aabb  = MergeAabb(built.map((mesh) => mesh.worldAabb));
 	}
 	else {
-		// Entities ground on the surface map, so a platform must exist before the object spawns.
+		// Ground entities on the surface map to guarantee a platform exists.
 		if (simulatorRuntime.platformMesh === null) simulatorRuntime.platformMesh = spawnPlatform(sceneGraph, templateDisc.dimensions.x);
 		
 		const platformMesh = simulatorRuntime.platformMesh[0];
@@ -291,24 +285,23 @@ async function Load(payload) {
 				scale   : ToVector3(1),
 				pivot   : new UnitVector3(0, 0, 0, "cnu"),
 			};
-			const playerData = { rootTransform, spawnSurfaceId: null, animations: {}, customEvents: {}, hasCustomParts: false };
-			built      = AddEntityToScene(await BuildPlayerModel(definition, playerData, sceneGraph.spawnSurfaces), sceneGraph);
-			objectType = "entity";
+			const playerData = { rootTransform, spawnSurfaceId: null, animations: {}, customEvents: {} };
+			built            = AddEntityToScene(BuildPlayerModel(definition, playerData, sceneGraph.spawnSurfaces), sceneGraph);
+			objectType       = "entity";
 		}
 		else built = SpawnIntoScene(definition, objectType, sceneGraph);
 
 		if (objectType === "obstacle") {
 			// Obstacles have no self-grounding step; center on the platform and snap onto it here.
-			const deltaY       = platformTopY - built.worldAabb.min.y;
-			const deltaX       = platformMesh.transform.position.x - (built.worldAabb.min.x + built.worldAabb.max.x) * 0.5;
-			const deltaZ       = platformMesh.transform.position.z - (built.worldAabb.min.z + built.worldAabb.max.z) * 0.5;
+			const { min, max } = built.worldAabb;
+			const delta = platformMesh.transform.position.clone().subtract(ScaleVector3(AddVector3(min, max), 0.5));
+			delta.y = platformTopY - min.y;
+
 			built.parts.forEach((part) => {
-				part.transform.position.x += deltaX;
-				part.transform.position.y += deltaY;
-				part.transform.position.z += deltaZ;
+				part.transform.position.add(delta);
 				UpdateObjectWorldAabb(part, false);
 			});
-			built.worldAabb      = built.parts.reduce((accumulator, part) => MergeAabb(accumulator, part.worldAabb), null);
+			built.worldAabb      = MergeAabb(built.parts.map((part) => part.worldAabb));
 			built.detailedBounds = CreateDetailedBoundsFromParts(built, built.parts, built.worldAabb);
 		}
 		else {
@@ -318,7 +311,7 @@ async function Load(payload) {
 			UpdateEntityModelFromTransform(built);
 		}
 
-		aabb  = ENTITY_TYPES.includes(objectType) ? built.fullAabb : built.worldAabb;
+		aabb = ENTITY_TYPES.includes(objectType) ? built.fullAabb : built.worldAabb;
 	}
 
 	simulatorRuntime.builtObject = built;
@@ -692,25 +685,19 @@ function pushVertexPrimitive(writer, data, materialIndex) {
 
 // glTF requires JSON padded with spaces and binary padded with zeros.
 function writeGlbBinary(writer) {
+	const { nodes, meshes, materials, textures, samplers, images, accessors, bufferViews, binaryLength: byteLength } = writer;
 	const json = JSON.stringify({
-		asset      : { version: "2.0", generator: "CarlNet Engine v1 - Sloppy Carl Games" },
-		scene      : 0,
-		scenes     : [{ nodes: writer.nodes.map((_, index) => index) }],
-		nodes      : writer.nodes,
-		meshes     : writer.meshes,
-		materials  : writer.materials,
-		textures   : writer.textures,
-		samplers   : writer.samplers,
-		images     : writer.images,
-		accessors  : writer.accessors,
-		bufferViews: writer.bufferViews,
-		buffers    : [{ byteLength: writer.binaryLength }],
+		asset   : { version: "2.0", generator: "CarlNet Engine v1 - Sloppy Carl Games" },
+		scene   : 0,
+		scenes  : [{ nodes: nodes.map((_, index) => index) }],
+		nodes, meshes, materials, textures, samplers, images, accessors, bufferViews,
+		buffers : [{ byteLength }],
 	});
 
 	const jsonBytes  = new TextEncoder().encode(json);
 	const jsonPadded = alignTo4(jsonBytes.length);
 	const binHeader  = 20 + jsonPadded;
-	const total      = binHeader + 8 + writer.binaryLength;
+	const total      = binHeader + 8 + binaryLength;
 
 	const buffer = new ArrayBuffer(total);
 	const view   = new DataView(buffer);
@@ -723,7 +710,7 @@ function writeGlbBinary(writer) {
 	view.setUint32(16, glbJsonChunkType, true);
 	bytes.fill(0x20, 20, binHeader);
 	bytes.set(jsonBytes, 20);
-	view.setUint32(binHeader, writer.binaryLength, true);
+	view.setUint32(binHeader, binaryLength, true);
 	view.setUint32(binHeader + 4, glbBinChunkType, true);
 	writer.binaryParts.forEach((part) => bytes.set(part.bytes, binHeader + 8 + part.byteOffset));
 
@@ -736,12 +723,13 @@ function triggerFileDownload(buffer, fileName) {
 	link.href     = url;
 	link.download = fileName;
 	link.click();
+
 	// The fetch runs on a queued task; the URL must outlive this one.
 	setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 async function Download() {
-	if (!simulatorRuntime.active) return Log("ENGINE", "Simulator.Download: simulator not active.", "error", "Simulator");
+	if (!simulatorRuntime.active)              return Log("ENGINE", "Simulator.Download: simulator not active.", "error", "Simulator");
 	if (simulatorRuntime.builtObject === null) return Log("ENGINE", "Simulator.Download: no object loaded.", "error", "Simulator");
 
 	SetElementText("sim-hud-export", "Export: baking…");

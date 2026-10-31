@@ -4,7 +4,7 @@
 
 import { EPSILON } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateModelMatrix, MultiplyMatrix4, TransformPointByMatrix } from "../math/Matrix.js";
-import { TriangleNormal } from "../math/Collision.js";
+import { TriangleNormal } from "../math/Geometry.js";
 import { SampleConnectorCenterline, ParallelTransportFrames } from "../math/Curves.js";
 import { ToNumber } from "../math/Utilities.js";
 import {
@@ -121,12 +121,9 @@ function buildPyramid(size) {
 	const baseFrontRight = { x:  s.x, y: -s.y, z:  s.z };
 	const baseBackRight  = { x:  s.x, y: -s.y, z: -s.z };
 	const baseBackLeft   = { x: -s.x, y: -s.y, z: -s.z };
-	const apex = { x: 0, y: s.y, z: 0 };
+	const apex           = { x: 0, y: s.y, z: 0 };
 
-	const positions = [];
-	const indices = [];
-	const faceGroups = [];
-
+	const positions = [], indices = [], faceGroups = [];
 	const pushVertex = (vertex) => {
 		positions.push(...Vector3ToArray(vertex));
 		return (positions.length / 3) - 1;
@@ -149,7 +146,12 @@ function buildPyramid(size) {
 		pushVertex(b);
 		pushVertex(c);
 		indices.push(start, start + 1, start + 2);
-		faceGroups.push({ normal: TriangleNormal(a, b, c), vertexIndices: [start, start + 1, start + 2], indexStart, indexCount: 3 });
+		faceGroups.push({ 
+			normal       : TriangleNormal(a, b, c), 
+			vertexIndices: [start, start + 1, start + 2], 
+			indexStart, 
+			indexCount   : 3 
+		});
 	};
 
 	addQuadFace(baseBackLeft, baseBackRight, baseFrontRight, baseFrontLeft, WORLD_NORMALS.Down);
@@ -175,10 +177,10 @@ function buildPlane(size, options) {
 		positions.push(-sx * c, -sy, sx * s,  sx * c, -sy, -sx * s,  sx * c, sy, -sx * s,  -sx * c, sy, sx * s);
 		indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
 		faceGroups.push({ 
-			normal: { x: s, y: 0, z: c }, 
+			normal       : { x: s, y: 0, z: c }, 
 			vertexIndices: [start, start + 1, start + 2, start + 3], 
-			indexStart: index * 6, 
-			indexCount: 6 
+			indexStart   : index * 6, 
+			indexCount   : 6 
 		});
 		uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
 	});
@@ -187,7 +189,7 @@ function buildPlane(size, options) {
 }
 
 function buildCylinder(size, complexity) {
-	const radius = size.clone().scale(0.5);
+	const radius   = size.clone().scale(0.5);
 	const segments = resolveCylinderSegments(complexity);
 
 	// Half-segment turn to ensure the cylinder lies on a flat side when rotated 90°.
@@ -204,12 +206,12 @@ function buildCylinder(size, complexity) {
 
 	for (let index = 0; index < segments; index++) {
 		const startAngle = ((index / segments) * Math.PI * 2) + angleOffset;
-		const endAngle = (((index + 1) / segments) * Math.PI * 2) + angleOffset;
-		const startX = Math.cos(startAngle) * radius.x;
-		const startZ = Math.sin(startAngle) * radius.z;
-		const endX = Math.cos(endAngle) * radius.x;
-		const endZ = Math.sin(endAngle) * radius.z;
-		const start = pushVertex(startX, -radius.y, startZ);
+		const endAngle   = (((index + 1) / segments) * Math.PI * 2) + angleOffset;
+		const startX     = Math.cos(startAngle) * radius.x;
+		const startZ     = Math.sin(startAngle) * radius.z;
+		const endX       = Math.cos(endAngle) * radius.x;
+		const endZ       = Math.sin(endAngle) * radius.z;
+		const start      = pushVertex(startX, -radius.y, startZ);
 		pushVertex(startX, radius.y, startZ);
 		pushVertex(endX, radius.y, endZ);
 		pushVertex(endX, -radius.y, endZ);
@@ -267,11 +269,11 @@ function buildSphere(size, complexity) {
 
 	for (let stack = 0; stack < resolution.stacks; stack++) {
 		for (let slice = 0; slice < resolution.slices; slice++) {
-			const first = stack * (resolution.slices + 1) + slice;
+			const first  = stack * (resolution.slices + 1) + slice;
 			const second = first + resolution.slices + 1;
 
 			// Squares touching a pole only need one of their two triangles.
-			if (stack !== 0) indices.push(first, first + 1, second);
+			if (stack !== 0)                     indices.push(first, first + 1, second);
 			if (stack !== resolution.stacks - 1) indices.push(second, first + 1, second + 1);
 		}
 	}
@@ -283,10 +285,7 @@ function buildCone(size, complexity) {
 	const radius = size.clone().scale(0.5);
 	const segments = resolveCylinderSegments(complexity);
 
-	const positions = [];
-	const indices = [];
-	const sideVertexIndices = [];
-	const baseVertexIndices = [];
+	const positions = [], indices = [], sideVertexIndices = [], baseVertexIndices = [];
 
 	const apexIndex = positions.length / 3;
 	positions.push(0, radius.y, 0);
@@ -319,11 +318,11 @@ function buildCone(size, complexity) {
 
 // rounding: share of each half-height taken by its cap.
 function buildCapsule(size, complexity, options) {
-	const radius = size.clone().scale(0.5);
-	const capHeight = radius.y * options.rounding;
+	const radius       = size.clone().scale(0.5);
+	const capHeight    = radius.y * options.rounding;
 	const cylinderHalf = radius.y - capHeight;
-	const segments = resolveCylinderSegments(complexity);
-	const capStacks = resolveCapsuleCapStacks(complexity);
+	const segments     = resolveCylinderSegments(complexity);
+	const capStacks    = resolveCapsuleCapStacks(complexity);
 
 	// Half-segment turn so the capsule lies on a flat side when rotated 90°.
 	const angleOffset = Math.PI / segments;
@@ -350,9 +349,7 @@ function buildCapsule(size, complexity, options) {
 		pushRing(-cylinderHalf - Math.sin(angle) * capHeight, radius.x * ringScale, radius.z * ringScale, "bottom");
 	}
 
-	const topVertices = [];
-	const bodyVertices = [];
-	const bottomVertices = [];
+	const topVertices = [], bodyVertices = [], bottomVertices = [];
 
 	for (let ring = 0; ring < rings.length - 1; ring++) {
 		for (let index = 0; index < segments; index++) {
@@ -364,7 +361,7 @@ function buildCapsule(size, complexity, options) {
 			indices.push(a, b, c);
 			indices.push(b, d, c);
 
-			if (rings[ring].group === "top" && rings[ring + 1].group === "top") topVertices.push(a, b, c, d);
+			if      (rings[ring].group === "top" && rings[ring + 1].group === "top")       topVertices.push(a, b, c, d);
 			else if (rings[ring].group === "bottom" && rings[ring + 1].group === "bottom") bottomVertices.push(a, b, c, d);
 			else bodyVertices.push(a, b, c, d);
 		}

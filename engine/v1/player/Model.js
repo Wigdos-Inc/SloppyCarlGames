@@ -6,7 +6,6 @@
 // Used by Master.js, which orchestrates the built entity as player state.
 
 import { BuildEntity, UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
-import { NormalizeImage } from "../core/normalize.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
 import CharacterData from "./characters.json" with { type: "json" };
@@ -25,15 +24,6 @@ const playerSurfaceMap = {
 };
 
 /* === DEFINITION SYNTHESIS === */
-
-// Drops image decals that failed to load; copies affected parts instead of mutating the shared template.
-function filterDeadDecals(parts) {
-	return parts.map((part) => {
-		const alive = part.texture.custom.filter((decal) => decal.decalType !== "image" || decal.bitmap !== null);
-		if (alive.length === part.texture.custom.length) return part;
-		return { ...part, texture: { ...part.texture, custom: alive } };
-	});
-}
 
 /**
  * Build the entity definition the player is assembled from. The character template supplies the
@@ -67,29 +57,9 @@ function synthesizeDefinition(character, playerData) {
 		model: {
 			spawnSurfaceId: playerData.spawnSurfaceId ?? playerSurfaceId,
 			rootTransform : { position, rotation: rotation.clone(), scale, pivot },
-			parts: filterDeadDecals(character.model.parts),
+			parts: character.model.parts,
 		},
 	};
-}
-
-/* === DECALS === */
-
-// Loads image decals to bitmaps on the shared template; relative paths resolve from player/.
-async function loadDecalBitmaps(parts) {
-	const imageLoads = [];
-
-	parts.forEach((part) => {
-		part.texture.custom.forEach((decal) => {
-			if (decal.decalType !== "image") return;
-			imageLoads.push(
-				NormalizeImage(new URL(decal.imagePath, import.meta.url).href, decal.sourceType, "webgl").then((result) => {
-					decal.bitmap = result.bool ? result.value : null;
-				})
-			);
-		});
-	});
-
-	await Promise.all(imageLoads);
 }
 
 /* === PUBLIC API === */
@@ -97,13 +67,11 @@ async function loadDecalBitmaps(parts) {
 /**
  * Assemble the player entity from a character template.
  * @param {object} character — a characters.json entry, already merged with any meta overrides.
- * @param {object} playerData — { rootTransform, spawnSurfaceId, animations, customEvents, hasCustomParts }.
+ * @param {object} playerData — { rootTransform, spawnSurfaceId, animations, customEvents }.
  * @param {object} surfaceMap — the level's spawn surfaces, { [surfaceId]: { position, topY } }.
  * @returns {object} — the built entity, ready for Master.js to extend into player state.
  */
-async function BuildPlayerModel(character, playerData, surfaceMap) {
-	if (playerData.hasCustomParts === false) await loadDecalBitmaps(character.model.parts);
-
+function BuildPlayerModel(character, playerData, surfaceMap) {
 	// Null geometryCache: the player's parts build uncached, textured like any entity's.
 	const { entity } = BuildEntity(synthesizeDefinition(character, playerData), { ...surfaceMap, ...playerSurfaceMap }, null, null, null);
 

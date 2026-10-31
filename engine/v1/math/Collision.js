@@ -1,22 +1,16 @@
-// Collision & Geometry math helpers.
+// Collision math: contacts between shapes, overlap and inside tests, rays and sweeps.
 
-// Used by physics/Collision.js to detect, resolve and slide along contacts.
-// Used by physics/Correction.js to align bodies to the ground.
-// Used by physics/Forces.js, player/Movement.js and camera/Modes.js to accelerate, slow and cap velocity.
+// Used by physics/Collision.js to detect contacts and test voids.
 // Used by camera/Master.js to raycast for camera blockers.
-// Used by handlers/Render.js to cull hidden objects.
+// Used by handlers/Render.js to cull boxes outside the view.
 // Used by handlers/game/Collectible.js to detect pickups.
-// Used by builder/NewPrimitive.js and handlers/game/Simulator.js to find which way triangles face.
-// Used by builder/NewEntity.js, builder/NewObstacle.js and builder/NewObject.js to fit collision shapes to bounds.
 // Used by builder/NewLevel.js to join touching surfaces into chunks.
-// Used by builder/NewTerrain.js for the solid blocker boxes inside each mesh.
 // Used by builder/NewVoid.js to cut voids out of host meshes.
 // Uses math/Vector3.js for vector operations.
-// Uses math/Matrix.js to move points into a mesh's own space and build surface rotations.
+// Uses math/Geometry.js for box measures and closest points.
 
 import { EPSILON } from "../core/meta.js";
 import { CARVE_GRID_TRIANGLES_PER_CELL } from "../core/config.js";
-import { TransformPointByMatrix, EulerFromBasis } from "./Matrix.js";
 import {
 	AddVector3,
 	SubtractVector3,
@@ -25,7 +19,6 @@ import {
 	CrossVector3,
 	CloneVector3,
 	Vector3Sq,
-	Vector3Length,
 	ResolveVector3Axis,
 	ToVector3,
 	AbsoluteVector3,
@@ -36,9 +29,10 @@ import {
 	MaxVector3,
 	MinAxisVector3,
 	CompareVector3,
-	TransportVector3,
+	DivideVector3,
 } from "./Vector3.js";
-import { Clamp, Clamp01, BestMatchOf, Unit } from "./Utilities.js";
+import { AabbCenter, AabbHalfExtents, ClosestPointOnSegment, ClosestPointOnTriangle, TriangleArea } from "./Geometry.js";
+import { Clamp01, BestMatchOf } from "./Utilities.js";
 
 const noContact = () => { return { hit: false, normal: CloneVector3(WORLD_NORMALS.Up), depth: 0, point: null } };
 
@@ -102,17 +96,9 @@ function chooseAabbObbSatAxis(best, rawAxis, centerDelta, halfExtents, obb) {
 	return best;
 }
 
-function closestPointOnSegment(point, segStart, segEnd) {
-	const segment = SubtractVector3(segEnd, segStart);
-	const segmentLengthSq = Vector3Sq(segment);
-	if (segmentLengthSq <= EPSILON) return CloneVector3(segStart);
-
-	return AddVector3(segStart, ScaleVector3(segment, Clamp01(DotVector3(SubtractVector3(point, segStart), segment) / segmentLengthSq)));
-}
-
 function closestPointsOnSegments(p1, q1, p2, q2) {
 	const d1 = SubtractVector3(q1, p1), d2 = SubtractVector3(q2, p2), r = SubtractVector3(p1, p2);
-	const a = Vector3Sq(d1), e = Vector3Sq(d2), f = DotVector3(d2, r);
+	const a  = Vector3Sq(d1), e = Vector3Sq(d2), f = DotVector3(d2, r);
 	let s = 0, t = 0;
 
 	if (a <= EPSILON && e <= EPSILON) {
@@ -131,7 +117,7 @@ function closestPointsOnSegments(p1, q1, p2, q2) {
 		if (e <= EPSILON) s = Clamp01(-c / a);
 		else {
 			const b = DotVector3(d1, d2);
-			const denom = a * e - b * b;
+			const denom = a * e - b**2;
 			if (Math.abs(denom) > EPSILON) s = Clamp01((b * f - c * e) / denom);
 			t = (b * s + f) / e;
 			if (t < 0) {
@@ -145,46 +131,11 @@ function closestPointsOnSegments(p1, q1, p2, q2) {
 		}
 	}
 
-	const pointA = AddVector3(p1, ScaleVector3(d1, s));
-	const pointB = AddVector3(p2, ScaleVector3(d2, t));
-	return {
-		pointA, pointB, s, t,
-		distanceSq: Vector3Sq(SubtractVector3(pointA, pointB)),
-	};
+	const pointA     = AddVector3(p1, ScaleVector3(d1, s));
+	const pointB     = AddVector3(p2, ScaleVector3(d2, t));
+	const distanceSq = Vector3Sq(SubtractVector3(pointA, pointB));
+	return { pointA, pointB, s, t, distanceSq };
 }
-
-function ClosestPointOnTriangle(point, a, b, c) {
-	const ab = SubtractVector3(b, a), ac = SubtractVector3(c, a), ap = SubtractVector3(point, a);
-	const d1 = DotVector3(ab, ap), d2 = DotVector3(ac, ap);
-	if (d1 <= 0 && d2 <= 0) return CloneVector3(a);
-
-	const bp = SubtractVector3(point, b);
-	const d3 = DotVector3(ab, bp), d4 = DotVector3(ac, bp);
-	if (d3 >= 0 && d4 <= d3) return CloneVector3(b);
-
-	const vc = d1 * d4 - d3 * d2;
-	if (vc <= 0 && d1 >= 0 && d3 <= 0) return AddVector3(a, ScaleVector3(ab, d1 / (d1 - d3)));
-
-	const cp = SubtractVector3(point, c);
-	const d5 = DotVector3(ab, cp), d6 = DotVector3(ac, cp);
-	if (d6 >= 0 && d5 <= d6) return CloneVector3(c);
-
-	const vb = d5 * d2 - d1 * d6;
-	if (vb <= 0 && d2 >= 0 && d6 <= 0) return AddVector3(a, ScaleVector3(ac, d2 / (d2 - d6)));
-
-	const va = d3 * d6 - d5 * d4;
-	if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) {
-		return AddVector3(b, ScaleVector3(SubtractVector3(c, b), (d4 - d3) / ((d4 - d3) + (d5 - d6))));
-	}
-
-	const denom = 1 / (va + vb + vc);
-	return AddVector3(a, AddVector3(ScaleVector3(ab, vb * denom), ScaleVector3(ac, vc * denom)));
-}
-
-// Normal from the corner order; zero for a triangle with no area.
-const TriangleNormal   = (a, b, c) => ResolveVector3Axis(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a)));
-const TriangleArea     = (a, b, c) => 0.5 * Vector3Length(CrossVector3(SubtractVector3(b, a), SubtractVector3(c, a)));
-const TriangleCentroid = (a, b, c) => ScaleVector3(AddVector3(AddVector3(a, b), c), 1 / 3);
 
 function closestPointsSegmentTriangle(segStart, segEnd, a, b, c, triangleNormal) {
 	const segment = SubtractVector3(segEnd, segStart), denom = DotVector3(triangleNormal, segment);
@@ -250,9 +201,9 @@ function sphereSphereContact(centerA, radiusA, centerB, radiusB) {
 
 function sphereAABBContact(center, radius, aabb) {
 	const closest = ClampVector3(center, aabb.min, aabb.max);
-	const delta = SubtractVector3(center, closest);
+	const delta  = SubtractVector3(center, closest);
 	const distSq = Vector3Sq(delta);
-	if (distSq > radius.value * radius.value) return noContact();
+	if (distSq > radius.value**2) return noContact();
 	if (distSq <= EPSILON) return resolveInsideBoxContact(SubtractVector3(center, AabbCenter(aabb)), radius.value, AabbHalfExtents(aabb), worldBoxFaces, CloneVector3(center));
 
 	const distance = Math.sqrt(distSq);
@@ -271,7 +222,7 @@ function sphereOBBContact(center, radius, obb) {
 	);
 	const delta = SubtractVector3(center, closest);
 	const distSq = Vector3Sq(delta);
-	if (distSq > radius.value * radius.value) return noContact();
+	if (distSq > radius.value**2) return noContact();
 	if (distSq <= EPSILON) return resolveInsideBoxContact(localPoint, radius.value, obb.halfExtents, obbFaces(obb), null);
 
 	const distance = Math.sqrt(distSq);
@@ -279,11 +230,11 @@ function sphereOBBContact(center, radius, obb) {
 }
 
 function sphereCapsuleContact(center, radius, capsule) {
-	const closest = closestPointOnSegment(center, capsule.segmentStart, capsule.segmentEnd);
+	const closest = ClosestPointOnSegment(center, capsule.segmentStart, capsule.segmentEnd);
 	const delta = SubtractVector3(center, closest);
 	const distSq = Vector3Sq(delta);
 	const radiusSum = radius.value + capsule.radius.value;
-	if (distSq > radiusSum ** 2) return noContact();
+	if (distSq > radiusSum**2) return noContact();
 	if (distSq <= EPSILON) {
 		const segmentMid = ScaleVector3(AddVector3(capsule.segmentStart, capsule.segmentEnd), 0.5);
 		const normal = resolveUnitDirection(SubtractVector3(center, segmentMid)) || CloneVector3(WORLD_NORMALS.Up);
@@ -298,7 +249,7 @@ function sphereTriangleContact(center, radius, triangle) {
 	const closest = ClosestPointOnTriangle(center, triangle.a, triangle.b, triangle.c);
 	const delta = SubtractVector3(center, closest);
 	const distSq = Vector3Sq(delta);
-	if (distSq > radius.value * radius.value) return noContact();
+	if (distSq > radius.value**2) return noContact();
 	if (distSq <= EPSILON) {
 		const triangleNormal = triangle.normal;
 		const oriented = DotVector3(triangleNormal, SubtractVector3(center, triangle.a)) >= 0
@@ -320,18 +271,17 @@ const SegmentQueryBox = (start, end, radius) => ({
 const sphereQueryBox  = (center, radius) => SegmentQueryBox(center, center, radius.value);
 const capsuleQueryBox = (capsule) => SegmentQueryBox(capsule.segmentStart, capsule.segmentEnd, capsule.radius.value);
 
-// Check whether a triangle's box touches the query box, without allocating per triangle.
+// Check whether a triangle's box touches the query box.
 function TriangleInQueryBox(triangle, box) {
 	const { a, b, c } = triangle;
 	return (
-		Math.max(a.x, b.x, c.x) >= box.min.x && Math.max(a.y, b.y, c.y) >= box.min.y && Math.max(a.z, b.z, c.z) >= box.min.z &&
-		Math.min(a.x, b.x, c.x) <= box.max.x && Math.min(a.y, b.y, c.y) <= box.max.y && Math.min(a.z, b.z, c.z) <= box.max.z
+		CompareVector3(MaxVector3(MaxVector3(a, b), c), box.min, "greater-loose") && 
+		CompareVector3(MinVector3(MinVector3(a, b), c), box.max, "lesser-loose")
 	);
 }
 
 // Deepest contact among the triangles inside the query box.
 function deepestContactInBox(triangles, box, contactWith) {
-
 	let best = noContact();
 	for (const triangle of triangles) {
 		if (!TriangleInQueryBox(triangle, box)) continue;
@@ -345,7 +295,7 @@ function sphereTriangleSoupContact(center, radius, soup) {
 }
 
 function capsuleCapsuleContact(capsuleA, capsuleB) {
-	const closest = closestPointsOnSegments(capsuleA.segmentStart, capsuleA.segmentEnd, capsuleB.segmentStart, capsuleB.segmentEnd);
+	const closest   = closestPointsOnSegments(capsuleA.segmentStart, capsuleA.segmentEnd, capsuleB.segmentStart, capsuleB.segmentEnd);
 	const radiusSum = capsuleA.radius.value + capsuleB.radius.value;
 	if (closest.distanceSq > radiusSum ** 2) return noContact();
 	if (closest.distanceSq <= EPSILON) {
@@ -361,7 +311,7 @@ function capsuleCapsuleContact(capsuleA, capsuleB) {
 
 // Points along a capsule's core to test as spheres: both ends, the middle, and the point nearest a box's center.
 function capsuleSamples(capsule, center) {
-	const axis = SubtractVector3(capsule.segmentEnd, capsule.segmentStart);
+	const axis         = SubtractVector3(capsule.segmentEnd, capsule.segmentStart);
 	const axisLengthSq = Vector3Sq(axis);
 	const centerT = axisLengthSq <= EPSILON ? 0.5 : Clamp01(DotVector3(SubtractVector3(center, capsule.segmentStart), axis) / axisLengthSq);
 	return [
@@ -385,7 +335,7 @@ function capsuleOBBContact(capsule, obb) {
 
 function aabbObbContact(aabb, obb) {
 	const halfExtentsA = AabbHalfExtents(aabb);
-	const centerDelta = SubtractVector3(AabbCenter(aabb), obb.center);
+	const centerDelta  = SubtractVector3(AabbCenter(aabb), obb.center);
 
 	let best = null;
 	for (const axes of [worldBoxAxes, obb.axes]) for (const axis of axes) {
@@ -405,42 +355,44 @@ function aabbAabbContact(aabbA, aabbB) {
 	if (!AabbOverlap(aabbA, aabbB)) return noContact();
 
 	const pushNegative = SubtractVector3(aabbA.max, aabbB.min), pushPositive = SubtractVector3(aabbB.max, aabbA.min);
-	const axis = MinAxisVector3(MinVector3(pushNegative, pushPositive)), key = "xyz"[axis];
-	const negative = pushNegative[key] <= pushPositive[key];
+	const axis         = MinAxisVector3(MinVector3(pushNegative, pushPositive)), key = "xyz"[axis];
+	const negative     = pushNegative[key] <= pushPositive[key];
 	return makeContact(CloneVector3(worldBoxFaces[axis][negative ? 0 : 1]), negative ? pushNegative[key] : pushPositive[key], null);
 }
 
 function capsuleTriangleContact(capsule, triangle) {
-	const closest = closestPointsSegmentTriangle(
-		capsule.segmentStart, capsule.segmentEnd,
-		triangle.a, triangle.b, triangle.c,
-		triangle.normal
+	const { segmentStart, segmentEnd, radius } = capsule;
+	const { distanceSq, trianglePoint, segmentPoint } = closestPointsSegmentTriangle(
+		segmentStart, segmentEnd, triangle.a, triangle.b, triangle.c, triangle.normal
 	);
-	if (closest.distanceSq > capsule.radius.value * capsule.radius.value) return noContact();
-	if (closest.distanceSq <= EPSILON) {
-		const segmentMid = ScaleVector3(AddVector3(capsule.segmentStart, capsule.segmentEnd), 0.5);
-		const oriented = DotVector3(triangle.normal, SubtractVector3(segmentMid, closest.trianglePoint)) >= 0
+
+	if (distanceSq > radius.value**2) return noContact();
+	if (distanceSq <= EPSILON) {
+		const segmentMid = ScaleVector3(AddVector3(segmentStart, segmentEnd), 0.5);
+		const oriented   = DotVector3(triangle.normal, SubtractVector3(segmentMid, trianglePoint)) >= 0
 			? triangle.normal
 			: ScaleVector3(triangle.normal, -1);
-		return makeContact(oriented, capsule.radius.value, closest.trianglePoint);
+		return makeContact(oriented, radius.value, trianglePoint);
 	}
 
-	const distance = Math.sqrt(closest.distanceSq);
+	const distance = Math.sqrt(distanceSq);
 	return makeContact(
-		ScaleVector3(SubtractVector3(closest.segmentPoint, closest.trianglePoint), 1 / distance), 
-		capsule.radius.value - distance, 
-		closest.trianglePoint
+		ScaleVector3(SubtractVector3(segmentPoint, trianglePoint), 1 / distance), 
+		radius.value - distance, 
+		trianglePoint
 	);
 }
 
-const capsuleTriangleSoupContact = (capsule, soup) => deepestContactInBox(soup.triangles, capsuleQueryBox(capsule), (triangle) => capsuleTriangleContact(capsule, triangle));
+function capsuleTriangleSoupContact(capsule, soup) {
+	return deepestContactInBox(soup.triangles, capsuleQueryBox(capsule), (triangle) => capsuleTriangleContact(capsule, triangle));
+}
 
 // One-sided: only the cavity-facing approach blocks, and the authored normal is never flipped.
 function sphereVoidWallTriangleContact(center, radius, triangle) {
 	const closest = ClosestPointOnTriangle(center, triangle.a, triangle.b, triangle.c);
-	const delta = SubtractVector3(center, closest);
-	const distSq = Vector3Sq(delta);
-	if (distSq > radius.value * radius.value) return noContact();
+	const delta   = SubtractVector3(center, closest);
+	const distSq  = Vector3Sq(delta);
+	if (distSq > radius.value**2) return noContact();
 	if (distSq <= EPSILON) return makeContact(triangle.normal, radius.value, closest);
 	if (DotVector3(triangle.normal, delta) < 0) return noContact();
 
@@ -473,7 +425,9 @@ function capsuleVoidWallTriangleContact(capsule, triangle) {
 	return makeContact(ScaleVector3(SubtractVector3(closest.segmentPoint, closest.trianglePoint), 1 / distance), capsule.radius.value - distance, closest.trianglePoint);
 }
 
-const capsuleVoidWallContact = (capsule, voidWall) => deepestContactInBox(voidWall.triangles, capsuleQueryBox(capsule), (triangle) => capsuleVoidWallTriangleContact(capsule, triangle));
+function capsuleVoidWallContact(capsule, voidWall) {
+	return deepestContactInBox(voidWall.triangles, capsuleQueryBox(capsule), (triangle) => capsuleVoidWallTriangleContact(capsule, triangle));
+}
 
 const axisDuplicateDot = 0.9999;
 
@@ -494,7 +448,6 @@ function aabbTriangleSetContact(aabb, soup, oneSided) {
 	const axes = [...worldBoxAxes];
 	for (const triangle of cluster) {
 		let duplicate = false;
-		// Anti-parallel normals dedupe to one axis.
 		for (const axis of axes) if (Math.abs(DotVector3(triangle.normal, axis)) > axisDuplicateDot) { 
 			duplicate = true; 
 			break; 
@@ -538,48 +491,6 @@ const aabbVoidWallContact     = (aabb, voidWall)     => aabbTriangleSetContact(a
 
 /* === NARROWPHASE === */
 // Contact between any two collider shapes.
-
-function OffsetDetailedBounds(bounds, offset) {
-	switch (bounds.type) {
-		case "capsule":
-			return {
-				type        : "capsule",
-				radius      : bounds.radius,
-				halfHeight  : bounds.halfHeight,
-				segmentStart: AddVector3(bounds.segmentStart, offset),
-				segmentEnd  : AddVector3(bounds.segmentEnd, offset),
-			};
-		case "obb":
-			return {
-				type       : "obb",
-				center     : AddVector3(bounds.center, offset),
-				halfExtents: bounds.halfExtents,
-				axes       : bounds.axes,
-			};
-		case "sphere":
-			return {
-				type  : "sphere",
-				center: AddVector3(bounds.center, offset),
-				radius: bounds.radius,
-			};
-		case "aabb":
-			return {
-				type: "aabb",
-				min : AddVector3(bounds.min, offset),
-				max : AddVector3(bounds.max, offset),
-			};
-		case "compound-sphere":
-			return {
-				type   : "compound-sphere",
-				spheres: bounds.spheres.map((sphere) => ({
-					center: AddVector3(sphere.center, offset),
-					radius: sphere.radius,
-					partId: sphere.partId,
-				})),
-			};
-		default: return bounds;
-	}
-}
 
 function iterateCompoundSpheres(compound, contactFn) {
 	let best = noContact();
@@ -635,197 +546,6 @@ function NarrowphaseContact(boundsA, boundsB) {
 	return noContact();
 }
 
-/* === ACCELERATION & VELOCITY === */
-
-const ApplyAcceleration = (vel, dir, acc, dt) => AddVector3(vel, ScaleVector3(dir, acc * dt));
-
-function ApplyDeceleration(velocity, deceleration, dt) {
-	const speed = Vector3Length(velocity);
-	if (speed <= 0.0001) return ToVector3(0);
-
-	const newSpeed = Math.max(0, speed - deceleration * dt);
-	return newSpeed <= 0.0001 ? ToVector3(0) : ScaleVector3(ResolveVector3Axis(velocity), newSpeed);
-}
-
-function ClampVelocity(velocity, maxSpeed) {
-	const speed = Vector3Length(velocity);
-	return (speed <= maxSpeed || speed <= 0.0001) ? velocity : ScaleVector3(ResolveVector3Axis(velocity), maxSpeed);
-}
-
-/* === PROJECTION & REFLECTION === */
-
-const ProjectOntoPlane = (v, n) => SubtractVector3(v, ScaleVector3(n, DotVector3(v, n)));
-
-/* === CONTACT RESPONSE === */
-
-// How head-on a velocity meets a wall, measured on the ground plane: 1 is straight in, 0 is along it or no horizontal part.
-function HorizontalApproach(velocity, normal) {
-	const horizontalVelocity = { x: velocity.x, y: 0, z: velocity.z };
-	const horizontalNormal   = { x: normal.x, y: 0, z: normal.z };
-	const velocityLengthSq   = Vector3Sq(horizontalVelocity);
-	const normalLengthSq     = Vector3Sq(horizontalNormal);
-	if (velocityLengthSq <= EPSILON || normalLengthSq <= EPSILON) return 0;
-	return -DotVector3(horizontalVelocity, horizontalNormal) / Math.sqrt(velocityLengthSq * normalLengthSq);
-}
-
-/**
- * Pushes out of and slides along each contact in order.
- * @param {{ x, y, z }} velocity — per-second velocity.
- * @param {{ x, y, z }} displacement — velocity * dt.
- * @param {{ items, count }} contacts — sorted collision results.
- * @param {{ normal, minCos }|null} fold — kept footing's surface and walkable fold limit; null slides plainly.
- * @returns {{ velocity, displacement, changedPosition, changedVelocity }}
- */
-function SlideAlongContacts(velocity, displacement, contacts, fold) {
-	let vel = CloneVector3(velocity);
-	let footing = fold === null ? null : fold.normal;
-	let disp = CloneVector3(displacement);
-	let changedPosition = false, changedVelocity = false;
-
-	for (let i = 0; i < contacts.count; i++) {
-		const collision = contacts.items[i];
-		if (collision.pushDepth > 0) {
-			disp = AddVector3(disp, ScaleVector3(collision.normal, collision.pushDepth));
-			changedPosition = changedPosition || collision.pushDepth > EPSILON;
-		}
-
-		// Slide along the hit surface; across a walkable fold, first turn velocity onto the new surface, keeping its speed.
-		let velDotN = DotVector3(vel, collision.normal);
-		if (velDotN < -EPSILON && footing !== null && DotVector3(footing, collision.normal) >= fold.minCos) {
-			vel = TransportVector3(vel, footing, collision.normal);
-			footing         = collision.normal;
-			velDotN         = DotVector3(vel, collision.normal);
-			changedVelocity = true;
-		}
-		if (velDotN < 0) {
-			vel = SubtractVector3(vel, ScaleVector3(collision.normal, velDotN));
-			changedVelocity = changedVelocity || Math.abs(velDotN) > EPSILON;
-		}
-
-		// Swept hits move to the impact point first, then clip only the travel left over; overlap hits were already pushed out above.
-		if (collision.pushDepth <= EPSILON && collision.tEntry > 0) {
-			const entryDisplacement   = ScaleVector3(disp, collision.tEntry);
-			let remainingDisplacement = SubtractVector3(disp, entryDisplacement);
-			const remainingDotN = DotVector3(remainingDisplacement, collision.normal);
-			if (remainingDotN < 0) {
-				remainingDisplacement = SubtractVector3(remainingDisplacement, ScaleVector3(collision.normal, remainingDotN));
-				changedPosition       = changedPosition || Math.abs(remainingDotN) > EPSILON;
-			}
-			disp = AddVector3(entryDisplacement, remainingDisplacement);
-		}
-		else {
-			const dispDotN = DotVector3(disp, collision.normal);
-			if (dispDotN < 0) {
-				disp            = SubtractVector3(disp, ScaleVector3(collision.normal, dispDotN));
-				changedPosition = changedPosition || Math.abs(dispDotN) > EPSILON;
-			}
-		}
-	}
-
-	return { velocity: vel, displacement: disp, changedPosition, changedVelocity };
-}
-
-/* === GROUND PROBE === */
-// Boxes ground only through a face the point is directly over: inside is embedded, past an edge or corner is nothing underfoot.
-
-// Gap from a point to the box face below it, with that face's normal; null when there is no such face within maxDist.
-function PointAabbFaceGap(point, aabb, maxDist) {
-	const closest = ClampVector3(point, aabb.min, aabb.max);
-	const offset  = SubtractVector3(point, closest);
-	if ((offset.x !== 0) + (offset.y !== 0) + (offset.z !== 0) !== 1) return null;
-
-	const t = Math.abs(offset.x + offset.y + offset.z);
-	if (t > maxDist) return null;
-	return { t, normal: { x: Math.sign(offset.x), y: Math.sign(offset.y), z: Math.sign(offset.z) }, point: closest };
-}
-
-// The same face gap for a rotated box.
-function PointObbFaceGap(point, obb, maxDist) {
-	let closest = CloneVector3(obb.center);
-	let faceAxis = 0, faceSign = 1;
-	let t = 0;
-	let outsideAxes = 0;
-	const local = projectToObbLocal(point, obb, true);
-	for (let axis = 0; axis < 3; axis++) {
-		const key = "xyz"[axis];
-		const extent = obb.halfExtents[key];
-		const along = local[key];
-
-		closest = AddVector3(closest, ScaleVector3(obb.axes[axis], Clamp(along, -extent, extent)));
-
-		if (Math.abs(along) <= extent) continue;
-		outsideAxes++;
-		faceAxis = axis;
-		faceSign = along >= 0 ? 1 : -1;
-		t = Math.abs(along) - extent;
-	}
-
-	return (outsideAxes !== 1 || t > maxDist) ? null : { t, normal: ScaleVector3(obb.axes[faceAxis], faceSign), point: closest };
-}
-
-// Offset to the nearest point; null when behind the face.
-function reachesTriangle(from, triangle) {
-	const offset = SubtractVector3(from, ClosestPointOnTriangle(from, triangle.a, triangle.b, triangle.c));
-	return DotVector3(offset, triangle.normal) < 0 ? null : offset;
-}
-
-// Triangle closest to the point by true distance, among those within maxDist that face it; null when none do.
-function NearestFrontTriangle(point, soup, maxDist) {
-	let soupDistanceSq = maxDist ** 2, soupTriangle = null, soupOffset = null;
-	for (const triangle of soup.triangles) {
-		const { a,b,c } = triangle;
-
-		// Skips triangles whose box, grown by maxDist, doesn't hold the point.
-		if (!(point.x >= Math.min(a.x, b.x, c.x) - maxDist && point.x <= Math.max(a.x, b.x, c.x) + maxDist)) continue;
-		if (!(point.y >= Math.min(a.y, b.y, c.y) - maxDist && point.y <= Math.max(a.y, b.y, c.y) + maxDist)) continue;
-		if (!(point.z >= Math.min(a.z, b.z, c.z) - maxDist && point.z <= Math.max(a.z, b.z, c.z) + maxDist)) continue;
-
-		const offset = reachesTriangle(point, triangle);
-		if (offset === null) continue;
-
-		const distanceSq = Vector3Sq(offset);
-		if (distanceSq >= soupDistanceSq) continue;
-
-		soupDistanceSq = distanceSq;
-		soupTriangle = triangle;
-		soupOffset = offset;
-	}
-	if (soupTriangle === null) return null;
-
-	return {
-		t: Math.sqrt(soupDistanceSq),
-		normal: CloneVector3(soupTriangle.normal),
-		point: SubtractVector3(point, soupOffset),
-	};
-}
-
-/* === SURFACE ALIGNMENT === */
-
-/**
- * Orientation whose local up matches `alignedUp`, steered by the entity's current heading.
- * @param {{ x, y, z }} alignedUp — unit target up-vector.
- * @param {{ x, y, z }} facing — unit world-space heading.
- * @param {{ x, y, z }} rotation — the entity's current rotation, radians; roll seed and last-resort heading.
- * @param {boolean} onBack — sliding pose; lays the body on its back.
- * @returns {{ x: number, y: number, z: number }}
- */
-function SurfaceAlignedRotation(alignedUp, facing, rotation, onBack) {
-	let planar = ProjectOntoPlane(facing, alignedUp);
-	if (Vector3Length(planar) <= 0.05) {
-		// Aim uphill instead, or keep the flat heading when the surface has no uphill.
-		const uphill = ProjectOntoPlane(WORLD_NORMALS.Up, alignedUp);
-		planar = Vector3Length(uphill) > EPSILON ? uphill : { x: Math.sin(rotation.y), y: 0, z: Math.cos(rotation.y) };
-	}
-
-	const right = ResolveVector3Axis(CrossVector3(alignedUp, planar));
-	const forward = CrossVector3(right, alignedUp);
-
-	// Sliding lays the body on its back, its front facing away from the surface.
-	return onBack
-		? EulerFromBasis(right, ScaleVector3(forward, -1), alignedUp, rotation.z)
-		: EulerFromBasis(right, alignedUp, forward, rotation.z);
-}
-
 /* === AABB OVERLAP === */
 
 function AabbOverlap(aabbA, aabbB, strict = false) {
@@ -834,70 +554,18 @@ function AabbOverlap(aabbA, aabbB, strict = false) {
 		: CompareVector3(aabbA.min, aabbB.max, "lesser-loose") && CompareVector3(aabbA.max, aabbB.min, "greater-loose");
 }
 
-// Copy a box, grown by epsilon on the y axis only.
-function ExpandAabbY(aabb, epsilon) {
-	return {
-		min: { x: aabb.min.x, y: aabb.min.y - epsilon, z: aabb.min.z },
-		max: { x: aabb.max.x, y: aabb.max.y + epsilon, z: aabb.max.z },
-	};
-}
-
 // Check whether the box, grown by padding on every side, is fully behind one of the view's walls.
 function AabbOutsideFrustum(planes, aabb, padding = 0) {
+	const { min, max } = aabb;
 	for (const [x, y, z, offset] of planes) {
-		const reach = 
-		 	  x * (x >= 0 ? aabb.max.x + padding : aabb.min.x - padding)
-			+ y * (y >= 0 ? aabb.max.y + padding : aabb.min.y - padding)
-			+ z * (z >= 0 ? aabb.max.z + padding : aabb.min.z - padding);
+		// Note: Pick the corner furthest toward the wall's inside on each axis separately. One choice for all three picks the wrong corner.
+		const reach =
+			x * (x >= 0 ? max.x + padding : min.x - padding) +
+			y * (y >= 0 ? max.y + padding : min.y - padding) +
+			z * (z >= 0 ? max.z + padding : min.z - padding);
 		if (reach + offset < 0) return true;
 	}
 	return false;
-}
-
-/* === BOUNDS FROM AABB === */
-// Collider shapes fitted to a box.
-
-// Center and half-size of a box, as plain vectors rather than UnitVector3.
-const AabbCenter      = (aabb) => ScaleVector3(AddVector3(aabb.min, aabb.max), 0.5);
-const AabbHalfExtents = (aabb) => ScaleVector3(SubtractVector3(aabb.max, aabb.min), 0.5);
-
-// Inscribed fits inside the box; otherwise the sphere reaches the box's corners.
-function SphereFromAabb(aabb, inscribed) {
-	const half   = AabbHalfExtents(aabb);
-	const radius = inscribed ? Math.min(half.x, half.y, half.z) : Vector3Length(half);
-	return {
-		type  : "sphere",
-		center: aabb.min.clone().set(AabbCenter(aabb)),
-		radius: new Unit(Math.max(0.0001, radius), "cnu"),
-	};
-}
-
-// Upright capsule as wide as the box's wider horizontal side.
-function CapsuleFromAabb(aabb) {
-	const dim          = SubtractVector3(aabb.max, aabb.min);
-	const radius       = Math.max(0.0001, Math.max(dim.x, dim.z) * 0.5);
-	const halfHeight   = Math.max(0, (dim.y * 0.5) - radius);
-
-	const segmentStart = aabb.min.clone().set(AabbCenter(aabb));
-	const segmentEnd   = segmentStart.clone();
-	segmentStart.y -= halfHeight;
-	segmentEnd.y   += halfHeight;
-	
-	return {
-		type      : "capsule",
-		radius    : new Unit(radius, "cnu"),
-		halfHeight: new Unit(halfHeight, "cnu"),
-		segmentStart, segmentEnd,
-	};
-}
-
-function ObbFromAabb(aabb) {
-	return {
-		type       : "obb",
-		center     : aabb.min.clone().set(AabbCenter(aabb)),
-		halfExtents: aabb.max.clone().set(AabbHalfExtents(aabb)),
-		axes       : worldBoxAxes,
-	};
 }
 
 /* === SOLID QUERIES === */
@@ -906,25 +574,6 @@ function ObbFromAabb(aabb) {
 // Note: Tilted ray direction for inside/outside tests. Straight rays can run along box edges and miscount.
 const parityRayDirection = ResolveVector3Axis({ x: 0.4371383, y: 0.7218935, z: 0.5364271 });
 const planeCrossEpsilon  = 0.000001;
-
-function TriangleAabb(triangle) {
-	return {
-		min: MinVector3(triangle.a, MinVector3(triangle.b, triangle.c)),
-		max: MaxVector3(triangle.a, MaxVector3(triangle.b, triangle.c)),
-	};
-}
-
-// Box around a list of points, optionally grown from a starting box.
-function PointsAabb(points, min = ToVector3(Infinity), max = ToVector3(-Infinity), transform = null, skip = null) {
-	for (const entry of points) {
-		if (skip !== null && skip(entry)) continue;
-
-		const point = transform === null ? entry : transform(entry);
-		min = MinVector3(min, point);
-		max = MaxVector3(max, point);
-	}
-	return { min, max };
-}
 
 // Min over each triangle's edges against the other; 0 when they cross.
 function TriangleDistanceSq(t1, t2) {
@@ -1027,26 +676,25 @@ function TriangleGridCandidates(grid, aabb) {
 // Same answer as PointInsideMesh, testing only triangles in the grid cells the ray passes through.
 function PointInsideTriangleGrid(point, grid) {
 	const { min, cellSize, pad, nx, ny, nz } = grid;
-	const ray = parityRayDirection;
+	const n = { x: nx, y: ny, z: nz }, ray = parityRayDirection;
 
 	// Where the ray enters and leaves the padded grid box.
-	const tEnter = Math.max(0, (min.x - pad - point.x) / ray.x, (min.y - pad - point.y) / ray.y, (min.z - pad - point.z) / ray.z);
-	const tLeave = Math.min(
-		(min.x + nx * cellSize + pad - point.x) / ray.x,
-		(min.y + ny * cellSize + pad - point.y) / ray.y,
-		(min.z + nz * cellSize + pad - point.z) / ray.z
-	);
+	const maxV = DivideVector3(SubtractVector3(SubtractVector3(min, ToVector3(pad)), point), ray);
+	const minV = DivideVector3(SubtractVector3(AddVector3(AddVector3(min, ScaleVector3(n, cellSize)), ToVector3(pad)), point), ray);
+	const tEnter = Math.max(0, maxV.x, maxV.y, maxV.z), tLeave = Math.min(minV.x, minV.y, minV.z);
 	if (tEnter > tLeave) return false;
-
-	let x = gridAxisCell(point.x + ray.x * tEnter, min.x, cellSize, nx);
-	let y = gridAxisCell(point.y + ray.y * tEnter, min.y, cellSize, ny);
-	let z = gridAxisCell(point.z + ray.z * tEnter, min.z, cellSize, nz);
+	
+	const v = {
+		x: gridAxisCell(point.x + ray.x * tEnter, min.x, cellSize, nx),
+		y: gridAxisCell(point.y + ray.y * tEnter, min.y, cellSize, ny),
+		z: gridAxisCell(point.z + ray.z * tEnter, min.z, cellSize, nz)
+	}
 
 	const stamp = ++grid.stamp;
 	let crossings = 0;
 
 	while (true) {
-		const cell = grid.cells.get(x + nx * (y + ny * z));
+		const cell = grid.cells.get(v.x + n.x * (v.y + n.y * v.z));
 		if (cell !== undefined) {
 			for (const index of cell) {
 				if (grid.stamps[index] === stamp) continue;
@@ -1056,47 +704,17 @@ function PointInsideTriangleGrid(point, grid) {
 		}
 
 		// Step into whichever next cell the ray reaches first; stop once it leaves the grid.
-		const tx = (min.x + (x + 1) * cellSize - point.x) / ray.x;
-		const ty = (min.y + (y + 1) * cellSize - point.y) / ray.y;
-		const tz = (min.z + (z + 1) * cellSize - point.z) / ray.z;
-		if (tx <= ty && tx <= tz) { 
-			if (++x === nx) break; 
+		const t = DivideVector3(SubtractVector3(AddVector3(min, ScaleVector3(AddVector3(v, ToVector3(1)), cellSize)), point), ray);
+		if (t.x <= t.y && t.x <= t.z) { 
+			if (++v.x === nx) break; 
 		}
-		else if (ty <= tz) { 
-			if (++y === ny) break; 
+		else if (t.y <= t.z) { 
+			if (++v.y === n.y) break; 
 		}
-		else if (++z === nz) break;
+		else if (++v.z === n.z) break;
 	}
 
 	return (crossings & 1) === 1;
-}
-
-// Splits a polygon in two along a plane, given by its normal and distance from the origin; null when the plane doesn't cut through it.
-function SplitPolygonByPlane(polygon, planeNormal, planeOffset) {
-	const distances = polygon.map((vertex) => DotVector3(planeNormal, vertex) - planeOffset);
-
-	let frontCount = 0, backCount = 0;
-	for (const distance of distances) {
-		if (distance >  planeCrossEpsilon) frontCount++;
-		if (distance < -planeCrossEpsilon) backCount++;
-	}
-	if (frontCount === 0 || backCount === 0) return null;
-
-	const frontPolygon = [], backPolygon = [];
-	for (let index = 0; index < polygon.length; index++) {
-		const next = (index + 1) % polygon.length;
-		const here = distances[index], there = distances[next];
-
-		if (here >= -planeCrossEpsilon) frontPolygon.push(polygon[index]);
-		if (here <=  planeCrossEpsilon) backPolygon.push(polygon[index]);
-		if ((here > planeCrossEpsilon && there < -planeCrossEpsilon) || (here < -planeCrossEpsilon && there > planeCrossEpsilon)) {
-			const crossing = AddVector3(polygon[index], ScaleVector3(SubtractVector3(polygon[next], polygon[index]), here / (here - there)));
-			frontPolygon.push(crossing);
-			backPolygon.push(crossing);
-		}
-	}
-
-	return [frontPolygon, backPolygon];
 }
 
 // Tests each edge only against the target triangles in the grid cells the edge's box touches.
@@ -1125,177 +743,6 @@ function MeshesIntersect(solidA, solidB) {
 	return edgesCrossMesh(solidB.triangles, solidA.grid);
 }
 
-/* === BLOCKERS === */
-// Solid boxes inside terrain shapes, with every void cut out, hide whatever sits fully behind them.
-
-// Largest box that fits inside a shape, centred and before scale, sized to the flat sides a round shape is built from.
-function InscribedBox(primitive, dimensions, primitiveOptions) {
-	const r = ScaleVector3(dimensions, ToVector3(0.5));
-	if (primitive === "plane") r.z = 0;
-	function box(x0, x1, y0, y1, z0, z1) {
-		return { min: { x: x0 * r.x, y: y0 * r.y, z: z0 * r.z }, max: { x: x1 * r.x, y: y1 * r.y, z: z1 * r.z } };
-	}
-
-	const round = 0.92 / Math.SQRT2, faceted = 0.88;
-	const ball = faceted / Math.sqrt(3), coneHalf = round * 2 / 3;
-	switch (primitive) {
-		case "cube": return box(-1, 1, -1, 1, -1, 1);
-
-		// Leave crossed and sprite planes without a box. Neither keeps one flat side.
-		case "plane"      : return primitiveOptions.crossed || primitiveOptions.sprite !== null ? null : box(-1, 1, -1, 1, -1, 1);
-		case "cylinder"   : return box(-round, round, -1, 1, -round, round);
-		case "sphere"     : return box(-ball, ball, -ball, ball, -ball, ball);
-		case "cone"       : return box(-coneHalf, coneHalf, -1, -1 / 3, -coneHalf, coneHalf);
-		case "pyramid"    : return box(-2 / 3, 2 / 3, -1, -1 / 3, -2 / 3, 2 / 3);
-		case "ramp-simple": return box(-1, 1, -1, 0, 0, 1);
-		case "capsule": {
-			// Widest box that still reaches into the capsule's rounded ends.
-			const cap = primitiveOptions.rounding, straight = 1 - cap;
-			if (cap <= 0) return box(-round, round, -1, 1, -round, round);
-
-			const s = straight / cap, e = (Math.sqrt(s**2 + 3) - s) / 3, a = faceted * Math.sqrt((1 - e**2) / 2);
-			const reach = straight + faceted * e * cap;
-			return box(-a, a, -reach, reach, -a, a);
-		}
-		default: return null;
-	}
-}
-
-// Boxes in the host's own space that together hold a whole void. A tube gets one per stretch, overlapping its neighbours.
-function VoidCutBoxes(solidTriangles, centerline, inverse) {
-	const points = solidTriangles.flatMap((triangle) => [triangle.a, triangle.b, triangle.c]);
-	const local  = points.map((point) => TransformPointByMatrix(point, inverse));
-
-	// Index of the tube stretch closest to a point.
-	function nearestStretch(point) {
-		let best = 0, bestSq = Infinity;
-		for (let i = 0; i < centerline.length - 1; i++) {
-			const distanceSq = Vector3Sq(SubtractVector3(point, closestPointOnSegment(point, centerline[i], centerline[i + 1])));
-			if (distanceSq >= bestSq) continue;
-			bestSq = distanceSq;
-			best = i;
-		}
-		return best;
-	}
-
-	if (centerline === null || centerline.length < 3) return [PointsAabb(local)];
-	const nearest = points.map(nearestStretch);
-	return centerline.slice(1).map((_, i) => PointsAabb(local.filter((_, k) => Math.abs(nearest[k] - i) <= 1)));
-}
-
-// What's left of a box once a cut is removed: up to 6 solid slabs around it.
-function subtractBox(box, cut) {
-	const apartX = cut.max.x <= box.min.x || cut.min.x >= box.max.x;
-	const apartY = cut.max.y <= box.min.y || cut.min.y >= box.max.y;
-	const apartZ = cut.max.z <= box.min.z || cut.min.z >= box.max.z;
-	if (apartX || apartY || apartZ) return [box];
-
-	const out = [], lo = { ...box.min }, hi = { ...box.max };
-	for (const axis of ["x", "y", "z"]) {
-		if (cut.min[axis] > lo[axis]) out.push({ min: { ...lo }, max: { ...hi, [axis]: cut.min[axis] } });
-		if (cut.max[axis] < hi[axis]) out.push({ min: { ...lo, [axis]: cut.max[axis] }, max: { ...hi } });
-		lo[axis] = Math.max(lo[axis], cut.min[axis]);
-		hi[axis] = Math.min(hi[axis], cut.max[axis]);
-	}
-	return out;
-}
-
-// Area of a box's largest side.
-function AabbLargestFace(box) {
-	const v = SubtractVector3(box.max, box.min);
-	return Math.max(v.x * v.y, v.y * v.z, v.x * v.z);
-}
-
-// Joins any two pieces that share a whole side into one.
-function mergeTouching(pieces) {
-	const axes = ["x", "y", "z"];
-	function touching(a, b, axis) {
-		const sameSpan = axes.every((other) => other === axis || (a.min[other] === b.min[other] && a.max[other] === b.max[other]));
-		return sameSpan && (a.max[axis] === b.min[axis] || b.max[axis] === a.min[axis]);
-	}
-
-	for (let i = 0; i < pieces.length; i++) {
-		for (let j = i + 1; j < pieces.length; j++) {
-			if (!axes.some((axis) => touching(pieces[i], pieces[j], axis))) continue;
-			pieces[i] = { min: MinVector3(pieces[i].min, pieces[j].min), max: MaxVector3(pieces[i].max, pieces[j].max) };
-			pieces.splice(j, 1);
-			j = i;
-		}
-	}
-	return pieces;
-}
-
-// Solid pieces left once every cut is removed: joined, scraps and narrow pieces dropped, the largest 8 kept.
-function SolidBoxes(inner, cuts, scale, minSize) {
-	let pieces = [inner];
-	for (const cut of cuts) pieces = pieces.flatMap((piece) => subtractBox(piece, cut));
-
-	// The shorter side of a piece's largest face, at its true scaled size.
-	function largestFaceWidth(piece) {
-		return ["x", "y", "z"].map((axis) => (piece.max[axis] - piece.min[axis]) * Math.abs(scale[axis])).sort((a, b) => a - b)[1];
-	}
-
-	return mergeTouching(pieces)
-		.filter((piece) => AabbLargestFace(piece) >= 0.01 * AabbLargestFace(inner) && largestFaceWidth(piece) >= minSize.value)
-		.sort((a, b) => AabbLargestFace(b) - AabbLargestFace(a))
-		.slice(0, 8);
-}
-
-// Puts the 8 points in scratch on screen and records the rectangle around them. False when one is at or behind the camera's near limit.
-function ProjectBoxCorners(viewProjection, near, scratch) {
-	const m = viewProjection, { wx, wy, wz, sx, sy, rect } = scratch;
-	rect.fill(Infinity, 0, 2);
-	rect.fill(-Infinity, 2);
-	for (let k = 0; k < 8; k++) {
-		const w = m[3] * wx[k] + m[7] * wy[k] + m[11] * wz[k] + m[15];
-		if (w <= near) return false;
-		sx[k] = (m[0] * wx[k] + m[4] * wy[k] + m[8] * wz[k] + m[12]) / w;
-		sy[k] = (m[1] * wx[k] + m[5] * wy[k] + m[9] * wz[k] + m[13]) / w;
-		rect[0] = Math.min(rect[0], sx[k]);
-		rect[1] = Math.min(rect[1], sy[k]);
-		rect[2] = Math.max(rect[2], sx[k]);
-		rect[3] = Math.max(rect[3], sy[k]);
-	}
-	return true;
-}
-
-// Counter-clockwise outline around 8 screen points.
-function ConvexHull2D(xs, ys) {
-	const sorted = Array.from({ length: 8 }, (_, k) => ({ x: xs[k], y: ys[k] })).sort((a, b) => a.x - b.x || a.y - b.y);
-	const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-	function half(list) {
-		return list.reduce((chain, p) => {
-			while (chain.length >= 2 && cross(chain[chain.length - 2], chain[chain.length - 1], p) <= 0) chain.pop();
-			chain.push(p);
-			return chain;
-		}, []);
-	}
-	return half(sorted).slice(0, -1).concat(half([...sorted].reverse()).slice(0, -1));
-}
-
-// Check whether all 8 screen points sit inside a counter-clockwise outline.
-function CornersInsideHull(hull, xs, ys) {
-	for (let i = 0; i < hull.length; i++) {
-		const a = hull[i], b = hull[(i + 1) % hull.length];
-		for (let k = 0; k < 8; k++) if ((b.x - a.x) * (ys[k] - a.y) - (b.y - a.y) * (xs[k] - a.x) < 0) return false;
-	}
-	return true;
-}
-
-// Check whether the box hides all 8 world points, each past every side of the box that faces the camera.
-function BeyondFrontFaces(min, max, inverse, cameraLocal, wx, wy, wz) {
-	const m = inverse, c = cameraLocal;
-	for (let k = 0; k < 8; k++) {
-		const x = m[0] * wx[k] + m[4] * wy[k] + m[8] * wz[k] + m[12];
-		const y = m[1] * wx[k] + m[5] * wy[k] + m[9] * wz[k] + m[13];
-		const z = m[2] * wx[k] + m[6] * wy[k] + m[10] * wz[k] + m[14];
-		if ((c.x < min.x && x <= min.x) || (c.x > max.x && x >= max.x)) return false;
-		if ((c.y < min.y && y <= min.y) || (c.y > max.y && y >= max.y)) return false;
-		if ((c.z < min.z && z <= min.z) || (c.z > max.z && z >= max.z)) return false;
-	}
-	return true;
-}
-
 /* === SWEPT AABB === */
 // Sweep a moving box against a still one, returning { hit, tEntry, tExit, normal }.
 
@@ -1321,8 +768,8 @@ function SweptAABB(position, velocity, halfExtents, staticAabb) {
 
 		if (tNear > tFar) {
 			const temp = tNear;
-			tNear = tFar;
-			tFar = temp;
+			tNear      = tFar;
+			tFar       = temp;
 			nearNormalValue = 1;
 		}
 
@@ -1351,9 +798,7 @@ function SweptAABB(position, velocity, halfExtents, staticAabb) {
 const noRayHit = () => { return { hit: false, t: Infinity, normal: ToVector3(0), inside: false } };
 
 function chooseClosestRayHit(best, candidate) {
-	if (!candidate.hit) return best;
-	if (!best.hit || candidate.t < best.t) return candidate;
-	return best;
+	return !candidate.hit ? best : !best.hit || candidate.t > best.t ? candidate : best;
 }
 
 const limitRayHit = (result, maxDistance) => !result.hit || result.t > maxDistance ? noRayHit() : result;
@@ -1371,9 +816,9 @@ function RayAABBIntersect(origin, direction, aabb) {
 
 		if (t1 > t2) {
 			const temp = t1;
-			t1 = t2;
-			t2 = temp;
-			nearSign = 1;
+			t1         = t2;
+			t2         = temp;
+			nearSign   = 1;
 		}
 
 		if (t1 > tMin) {
@@ -1389,8 +834,8 @@ function RayAABBIntersect(origin, direction, aabb) {
 		if (tMax < 0) return result;
 
 		// Origin inside the box — t is the exit.
-		result.hit = true;
-		result.t = tMax;
+		result.hit    = true;
+		result.t      = tMax;
 		result.normal = hitNormal;
 		result.inside = true;
 		return result;
@@ -1402,7 +847,7 @@ function RayAABBIntersect(origin, direction, aabb) {
 	return result;
 }
 
-function RaySphereIntersect(origin, direction, sphere, maxDistance = Infinity) {
+function raySphereIntersect(origin, direction, sphere, maxDistance = Infinity) {
 	const offset = SubtractVector3(origin, sphere.center);
 	const b      = DotVector3(offset, direction);
 	const c      = DotVector3(offset, offset) - (sphere.radius.value * sphere.radius.value);
@@ -1425,7 +870,7 @@ function RaySphereIntersect(origin, direction, sphere, maxDistance = Infinity) {
 	};
 }
 
-function RayOBBIntersect(origin, direction, obb, maxDistance = Infinity) {
+function rayOBBIntersect(origin, direction, obb, maxDistance = Infinity) {
 	const result = limitRayHit(RayAABBIntersect(
 		projectToObbLocal(origin, obb, true), 
 		projectToObbLocal(direction, obb), 
@@ -1433,18 +878,18 @@ function RayOBBIntersect(origin, direction, obb, maxDistance = Infinity) {
 	), maxDistance);
 	if (!result.hit) return result;
 	return {
-		hit: true,
-		t: result.t,
+		hit   : true,
+		t     : result.t,
 		inside: result.inside,
 		normal: projectObbNormalToWorld(result.normal, obb),
 	};
 }
 
-function RayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity) {
-	const segment = SubtractVector3(capsule.segmentEnd, capsule.segmentStart);
+function rayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity) {
+	const segment         = SubtractVector3(capsule.segmentEnd, capsule.segmentStart);
 	const segmentLengthSq = Vector3Sq(segment);
 	if (segmentLengthSq <= EPSILON) {
-		return RaySphereIntersect(origin, direction, { center: capsule.segmentStart, radius: capsule.radius }, maxDistance);
+		return raySphereIntersect(origin, direction, { center: capsule.segmentStart, radius: capsule.radius }, maxDistance);
 	}
 
 	const originOffset        = SubtractVector3(origin, capsule.segmentStart);
@@ -1453,9 +898,7 @@ function RayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity)
 	const originLengthSq      = Vector3Sq(originOffset);
 	const a = segmentLengthSq - (segmentDotDirection**2);
 	const b = (segmentLengthSq * DotVector3(direction, originOffset)) - (segmentDotOrigin * segmentDotDirection);
-	const c = 
-		(segmentLengthSq * originLengthSq) - (segmentDotOrigin * segmentDotOrigin) - 
-		(capsule.radius.value * capsule.radius.value * segmentLengthSq);
+	const c = (segmentLengthSq * originLengthSq) - (segmentDotOrigin**2) - (capsule.radius.value**2 * segmentLengthSq);
 
 	let best = noRayHit();
 
@@ -1482,7 +925,7 @@ function RayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity)
 	}
 
 	["segmentStart", "segmentEnd"].forEach(t => {
-		best = chooseClosestRayHit(best, RaySphereIntersect(origin, direction, {
+		best = chooseClosestRayHit(best, raySphereIntersect(origin, direction, {
 			center: capsule[t], radius: capsule.radius,
 		}, maxDistance));
 	});
@@ -1515,7 +958,7 @@ function RayTriangleIntersect(origin, direction, triangle, maxDistance = Infinit
 	};
 }
 
-function RayTriangleSoupIntersect(origin, direction, triangleSoup, maxDistance = Infinity) {
+function rayTriangleSoupIntersect(origin, direction, triangleSoup, maxDistance = Infinity) {
 	// A ray with a length only reaches triangles inside its own box.
 	const reach = maxDistance === Infinity ? null : SegmentQueryBox(origin, AddVector3(origin, ScaleVector3(direction, maxDistance)), 0);
 	let best    = noRayHit();
@@ -1529,7 +972,7 @@ function RayTriangleSoupIntersect(origin, direction, triangleSoup, maxDistance =
 function rayCompoundSphereIntersect(origin, direction, compound, maxDistance = Infinity) {
 	let best = noRayHit();
 	compound.spheres.forEach(sphere => best = chooseClosestRayHit(
-		best, RaySphereIntersect(origin, direction, sphere, Math.min(best.t, maxDistance))
+		best, raySphereIntersect(origin, direction, sphere, Math.min(best.t, maxDistance))
 	));
 	return best;
 }
@@ -1549,11 +992,11 @@ function RayAABBDetailedBoundsIntersect(origin, direction, aabb, detailedBounds,
 
 const rayDetailedBoundsIntersectors = {
 	aabb             : (bounds, origin, direction, maxDistance) => limitRayHit(RayAABBIntersect(origin, direction, bounds), maxDistance),
-	obb              : (bounds, origin, direction, maxDistance) => RayOBBIntersect(origin, direction, bounds, maxDistance),
-	sphere           : (bounds, origin, direction, maxDistance) => RaySphereIntersect(origin, direction, bounds, maxDistance),
-	capsule          : (bounds, origin, direction, maxDistance) => RayCapsuleIntersect(origin, direction, bounds, maxDistance),
-	"triangle-soup"  : (bounds, origin, direction, maxDistance) => RayTriangleSoupIntersect(origin, direction, bounds, maxDistance),
-	"voidWall"       : (bounds, origin, direction, maxDistance) => RayTriangleSoupIntersect(origin, direction, bounds, maxDistance),
+	obb              : (bounds, origin, direction, maxDistance) => rayOBBIntersect(origin, direction, bounds, maxDistance),
+	sphere           : (bounds, origin, direction, maxDistance) => raySphereIntersect(origin, direction, bounds, maxDistance),
+	capsule          : (bounds, origin, direction, maxDistance) => rayCapsuleIntersect(origin, direction, bounds, maxDistance),
+	"triangle-soup"  : (bounds, origin, direction, maxDistance) => rayTriangleSoupIntersect(origin, direction, bounds, maxDistance),
+	"voidWall"       : (bounds, origin, direction, maxDistance) => rayTriangleSoupIntersect(origin, direction, bounds, maxDistance),
 	"compound-sphere": (bounds, origin, direction, maxDistance) => rayCompoundSphereIntersect(origin, direction, bounds, maxDistance),
 };
 
@@ -1595,57 +1038,21 @@ function SweptSphereBounds(center, displacement, radius, detailedBounds, aabb) {
 /* === EXPORTS === */
 
 export {
-	ApplyAcceleration,
-	ApplyDeceleration,
-	ClampVelocity,
-	ProjectOntoPlane,
-	HorizontalApproach,
-	SlideAlongContacts,
-	PointAabbFaceGap,
-	PointObbFaceGap,
-	NearestFrontTriangle,
-	SurfaceAlignedRotation,
 	AabbOverlap,
-	ExpandAabbY,
 	AabbOutsideFrustum,
-	AabbCenter,
-	AabbHalfExtents,
-	SphereFromAabb,
-	CapsuleFromAabb,
-	ObbFromAabb,
-	ClosestPointOnTriangle,
-	TriangleNormal,
-	TriangleArea,
-	TriangleCentroid,
-	TriangleAabb,
-	PointsAabb,
 	TriangleDistanceSq,
 	PointInsideMesh,
 	BuildTriangleGrid,
 	TriangleGridCandidates,
 	PointInsideTriangleGrid,
-	SplitPolygonByPlane,
 	MeshesIntersect,
-	InscribedBox,
-	VoidCutBoxes,
-	AabbLargestFace,
-	SolidBoxes,
-	ProjectBoxCorners,
-	ConvexHull2D,
-	CornersInsideHull,
-	BeyondFrontFaces,
 	SweptAABB,
 	RayAABBIntersect,
 	RayAABBDetailedBoundsIntersect,
-	RaySphereIntersect,
-	RayOBBIntersect,
-	RayCapsuleIntersect,
 	RayTriangleIntersect,
-	RayTriangleSoupIntersect,
 	SegmentQueryBox,
 	TriangleInQueryBox,
 	RayDetailedBoundsIntersect,
 	SweptSphereBounds,
-	OffsetDetailedBounds,
 	NarrowphaseContact,
 };

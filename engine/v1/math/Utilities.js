@@ -1,3 +1,5 @@
+// Generic math for engine-wide use.
+
 import { AddVector3, CloneVector3, DivideVector3, MaxVector3, MinVector3, MultiplyVector3, ScaleVector3, SubtractVector3 } from "./Vector3.js";
 
 // 1 CNU = CNU_SCALE World Units (WebGL coordinate space). Set once during development.
@@ -189,14 +191,6 @@ function BestMatchOf(
 
 // BestMatchOf([2, 3, 4], ((v, b) => Math.max(v, b) === v), 0); Returns 4.
 
-// Copy a transform. Engine vectors stay instanced and game vectors stay plain.
-function CloneTransform(transform) {
-	const copy = (vector) => vector instanceof UnitVector3 ? vector.clone() : CloneVector3(vector);
-	const clone = { position: copy(transform.position), rotation: copy(transform.rotation), scale: CloneVector3(transform.scale) };
-	if ("pivot" in transform) clone.pivot = copy(transform.pivot);
-	return clone;
-}
-
 export {
 	RadiansToDegrees, 
 	DegreesToRadians, 
@@ -208,7 +202,6 @@ export {
 	Lerp,
 	SmoothStep,
 	BestMatchOf,
-	CloneTransform,
 	Unit,
 	UnitVector3 
 };

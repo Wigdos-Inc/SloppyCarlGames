@@ -23,8 +23,11 @@ import {
 	WORLD_NORMALS,
 	LerpVector3,
 	MultiplyVector3,
+	ProjectOntoPlane,
+	ClampVelocity,
 } from "../math/Vector3.js";
-import { AabbCenter, ApplyDeceleration, ClampVelocity, ProjectOntoPlane } from "../math/Collision.js";
+import { AabbCenter } from "../math/Geometry.js";
+import { ComputeDeceleration } from "../math/Forces.js";
 import { PoseAnchor } from "../physics/Correction.js";
 import { Clamp, Clamp01, DegreesToRadians, Lerp, RadiansToDegrees, SmoothStep, Unit, UnitVector3 } from "../math/Utilities.js";
 import { PlayerHeight } from "../player/Master.js";
@@ -386,7 +389,7 @@ function updateFreeCam(ctx) {
 	const inputDirection = getMoveDirectionFromKeys(ctx.cameraState);
 	Vector3Length(inputDirection) > EPSILON
 		? view.velocity.add(ScaleVector3(inputDirection, settings.acceleration.value * ctx.deltaSeconds))
-		: view.velocity.set(ApplyDeceleration(view.velocity, settings.acceleration.value, ctx.deltaSeconds));
+		: view.velocity.set(ComputeDeceleration(view.velocity, settings.acceleration.value, ctx.deltaSeconds));
 
 	if (Vector3Length(view.velocity) > freeCamRuntime.maxSpeed.value) {
 		view.velocity.set(ClampVelocity(view.velocity, freeCamRuntime.maxSpeed.value));
