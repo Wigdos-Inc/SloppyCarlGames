@@ -153,7 +153,7 @@ Version Goals:
     - Level payloads get an optional "templates" object with every engine template collection except levels. Validated and normalized first, then referenced like engine templates.
     - Carries sprite smoke for the testGame hole (via a game particle template) and decal-style generator attachment (side, face-relative position, area).
     - Scope: docs/scoping/builder/game-templates-scope.md
-  7. Movement Enhancements. [PENDING]
+  7. Movement Enhancements. [DONE]
     - Release jump early for quicker falloff.
     - Solve over-rotation in above-water tunnel.
     - Store medium (Water/Air) on entity definition (e.g. playerState)

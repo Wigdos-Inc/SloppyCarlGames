@@ -463,3 +463,40 @@ ENGINE_SEMANTICS §6 now covers the was/had form for booleans and limits `next` 
 **What:** `AabbOutsideFrustum` picks each axis of the tested box corner from the sign of that axis of the view wall's normal, as plain arithmetic. It no longer makes one `CompareVector3` choice for all three axes.
 
 **Where:** [math/Collision.js](engine/v1/math/Collision.js)
+
+## Jump release gravity and slope jump damping
+
+**What:**
+- **Jump release.** `UpdateMovement` sets `playerState.gravityScale` to `MOVEMENT_TUNING.ReleaseGravity` while `action === "Jumping"`, `velocity.y > 0` and `input.jump` is not held. Coasting a loop lock still sets `modeData.coastGravityScale` first.
+- **Slope jump.** At launch, the positive world-y part of the tangent velocity is scaled by `UphillJumpKeep + (1 - UphillJumpKeep) * max(up.y, 0)`. Downhill and sideways speed are unchanged.
+- **Config.** `MOVEMENT_TUNING` gains `ReleaseGravity: 3` and `UphillJumpKeep: 0.25`.
+
+**Where:** [Movement.js](engine/v1/player/Movement.js), [config.js](engine/v1/core/config.js)
+
+## Entity `underwater` replaced by `medium`
+
+**What:** The entity boolean `underwater` is replaced by `medium: "Air" | "Water"`. NewEntity defaults it to `"Air"`; the physics pipeline sets it from `submergence >= 0.5`. `ClassifySurface` takes `medium` in place of `underwater`. Correction.js's `angleLimitsFor` helper is removed; `MaxAngleDelta` and `MinGripSpeed` are indexed by `entity.medium` directly. `solveJumpLaunchVelocity` takes `"Water"`/`"Air"`. All readers updated.
+
+**Where:** [NewEntity.js](engine/v1/builder/NewEntity.js), [physics/Master.js](engine/v1/physics/Master.js), [Forces.js](engine/v1/physics/Forces.js), [Collision.js](engine/v1/physics/Collision.js), [Correction.js](engine/v1/physics/Correction.js), [Movement.js](engine/v1/player/Movement.js), [player/Master.js](engine/v1/player/Master.js), [camera/Master.js](engine/v1/camera/Master.js), [Modes.js](engine/v1/camera/Modes.js), [Animation.js](engine/v1/handlers/game/Animation.js)
+
+## Loop engage/release events
+
+**What:** camera/Master.js sends `PLAYER_LOOP_ENGAGED` `{ id, type, position, velocity, axis, center, radius }` and `PLAYER_LOOP_RELEASED` `{ id, type, position, velocity, reason }` through a new `sendLoopEvent`, gated by `playerState.customEvents.loop` and `CONFIG.CustomEvents.Entities.Loop` (new API_CONFIG key, default `false`). The "Loop engaged"/"Loop released" `Log` calls are removed. `releaseLoop(playerState, reason)` sends the release event and calls a new `resetLoop()`; `InitializeCameraState` calls `resetLoop()` directly. The player `customEvents` schema gains a `loop` flag.
+
+**Where:** [camera/Master.js](engine/v1/camera/Master.js), [config.js](engine/v1/core/config.js), [canonSchemas.json](engine/v1/core/canonSchemas.json)
+
+## Jump release ramp, slope damping reverted, no coast friction in the air
+
+**What:**
+- **Jump release.** The gate is `playerState.launched && action !== "Stunned"` (was `action === "Jumping"`), still with `velocity.y > 0` and jump not held. `gravityScale` ramps from `max(gravityScale, 1)` toward `ReleaseGravity` over `ReleaseRampMs` instead of switching instantly.
+- **Slope jump.** The uphill damping at launch is removed; launch is `tVel + up * launchSpeed` again.
+- **Air coasting.** New `coastFriction` (`friction` when grounded, `0` otherwise) replaces `friction` at both coast-deceleration sites (no-input branch and post-lock branch). `friction` and `staticFriction` are unchanged.
+- **Config.** `MOVEMENT_TUNING.ReleaseGravity` 3 → 2; new `ReleaseRampMs: 200`; `UphillJumpKeep` removed.
+
+**Where:** [Movement.js](engine/v1/player/Movement.js), [config.js](engine/v1/core/config.js)
+
+## Jump release gravity ramps back down
+
+**What:** When a jump is no longer released-and-rising, `gravityScale` steps back toward 1 by the same `rampStep` (`max(1, gravityScale - rampStep)`) instead of snapping to 1. Grounded sets `gravityScale` to exactly 1; coasting a lock still sets `coastGravityScale` first. The `ReleaseRampMs` comment covers both directions.
+
+**Where:** [Movement.js](engine/v1/player/Movement.js), [config.js](engine/v1/core/config.js)
