@@ -642,14 +642,14 @@ function updateChase(ctx) {
 		// Zoom out with speed, measured at the loop's bottom so the zoom stays steady.
 		const { waterFloatiness, airFloatiness, maxSpeed } = target.character.meta;
 
-		const floatiness  = target.underwater ? waterFloatiness : airFloatiness;
+		const floatiness  = target.medium === "Water" ? waterFloatiness : airFloatiness;
 		const fall        = (Gravity.Strength * target.gravityScale - target.buoyancyForce) / floatiness;
 		const height      = target.transform.position.y - (loop.center.y - loop.radius.value);
 		const bottomSpeed = Math.sqrt(
 			Math.max(0, Vector3Length(ProjectOntoPlane(target.velocity, target.alignedUp)) ** 2 + 2 * fall * height)
 		);
 
-		const ceilingGrip    = Correction.MinGripSpeed[target.underwater ? "Water" : "Air"];
+		const ceilingGrip    = Correction.MinGripSpeed[target.medium];
 		const fitDistance    = (Loops.TightFraming * loop.radius.value) / Math.sin(DegreesToRadians(CONFIG.Camera.Fov) * 0.5);
 		const speedZoom      = 1 + (Loops.SpeedZoom - 1) * Clamp01((bottomSpeed / maxSpeed.value - ceilingGrip) / (1 - ceilingGrip));
 		const scaledDistance = fitDistance * speedZoom;

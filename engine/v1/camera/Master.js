@@ -4,7 +4,7 @@
 // Uses camera/Sets.js to resolve the level's set and camera/Modes.js for the modes.
 
 import { CONFIG, CAMERA_TUNING } from "../core/config.js";
-import { EPSILON, Log } from "../core/meta.js";
+import { EPSILON, Log, SendEvent } from "../core/meta.js";
 import {
 	AbsoluteVector3,
 	AddVector3,
@@ -86,9 +86,26 @@ let setMode = null;
 // Live camera position tracking.
 let latestCameraPosition = null;
 
-// End the loop run and reset its measurements.
-function releaseLoop(reason) {
-	if (loop.active) Log("ENGINE", `Loop released: ${reason}`, "log", "Level");
+// Tell the game the player's loop engaged or released.
+function sendLoopEvent(playerState, name, detail) {
+	if (!playerState.customEvents.loop || !CONFIG.CustomEvents.Entities.Loop) return;
+	SendEvent(name, {
+		id      : playerState.id,
+		type    : playerState.type,
+		position: CloneVector3(playerState.transform.position),
+		velocity: CloneVector3(playerState.velocity),
+		...detail,
+	});
+}
+
+// End the loop run.
+function releaseLoop(playerState, reason) {
+	if (loop.active) sendLoopEvent(playerState, "PLAYER_LOOP_RELEASED", { reason });
+	resetLoop();
+}
+
+// Clear the loop run's measurements.
+function resetLoop() {
 	loop.running       = false;
 	loop.active        = false;
 	loop.turned.value  = 0;
@@ -124,7 +141,7 @@ function alongTube(sceneGraph, surfaceId, position, axis) {
 // Track the player's progress around a loop each frame.
 function trackLoop(playerState, sceneGraph) {
 	const { Player, ExitLeanGrace } = CAMERA_TUNING.Loops;
-	const { alignedUp, transform, physicsRuntime, underwater, grounded, contactGrace, velocity, character } = playerState;
+	const { alignedUp, transform, physicsRuntime, medium, grounded, contactGrace, velocity, character } = playerState;
 
 	// Turn the axis with heading changes, keeping only the leftover tilt.
 	const bend = AzimuthTurnVector3(loop.lastUp, alignedUp);
@@ -136,7 +153,6 @@ function trackLoop(playerState, sceneGraph) {
 
 	// Movement around the loop axis, ignoring movement along it.
 	const around = loop.running ? SubtractVector3(moved, ScaleVector3(loop.axis, DotVector3(moved, loop.axis))) : moved;
-	const medium = underwater ? "Water" : "Air";
 	const onLoop = grounded && sceneGraph.loopSurfaces[medium].has(physicsRuntime.groundSurfaceId);
 
 	// Pick a reason to release the loop, or null to keep it.
@@ -148,7 +164,7 @@ function trackLoop(playerState, sceneGraph) {
 
 	// Track whether this frame made loop progress.
 	let progressed = false;
-	if (release) releaseLoop(release);
+	if (release) releaseLoop(playerState, release);
 	else if (onLoop && turn > EPSILON) {
 		const frameAxis = ResolveVector3Axis(CrossVector3(bent, alignedUp));
 		if (!loop.running) {
@@ -180,7 +196,7 @@ function trackLoop(playerState, sceneGraph) {
 		}
 		loop.turned.value += along;
 		progressed = along > 0 && travelsAround(playerState.velocity, loop.axis, loop.active ? Player.ExitLean : Player.EnterLean);
-		if (loop.turned.value <= 0) releaseLoop("curved back or crested");
+		if (loop.turned.value <= 0) releaseLoop(playerState, "curved back or crested");
 		else if (
 			!loop.active &&
 			loop.turned.value >= Player.EnterCurve.toRadians()
@@ -191,7 +207,7 @@ function trackLoop(playerState, sceneGraph) {
 			// Engage once the player has turned far enough around a loop.
 			loop.center.set(AddVector3(transform.position, ScaleVector3(alignedUp, loop.radius.value)));
 			loop.active = true;
-			Log("ENGINE", `Loop engaged: axis=(${loop.axis.x.toFixed(2)}, ${loop.axis.y.toFixed(2)}, ${loop.axis.z.toFixed(2)})`, "log", "Level");
+			sendLoopEvent(playerState, "PLAYER_LOOP_ENGAGED", { axis: CloneVector3(loop.axis), center: CloneVector3(loop.center), radius: loop.radius.value });
 		}
 	}
 	else if (loop.active) {
@@ -252,7 +268,7 @@ function detectSituation(playerState, sceneGraph) {
 
 	// Check for a small loop surface, ignoring tubes that bend instead of loop.
 	const tilt = ResolveVector3Axis(CrossVector3(WORLD_NORMALS.Up, playerState.alignedUp));
-	const surfaceLoopRadius = sceneGraph.loopSurfaces[playerState.underwater ? "Water" : "Air"].get(surfaceId);
+	const surfaceLoopRadius = sceneGraph.loopSurfaces[playerState.medium].get(surfaceId);
 	frame.onSmallLoop = surfaceLoopRadius !== undefined && 
 		surfaceLoopRadius.value < largeLoopRadius &&
 		alongTube(sceneGraph, surfaceId, playerState.transform.position, tilt);
@@ -268,7 +284,7 @@ function detectSituation(playerState, sceneGraph) {
 	}
 
 	// Pick slope on steep ground, otherwise pick by speed.
-	const maxDelta = DegreesToRadians(CONFIG.Physics.Correction.MaxAngleDelta[playerState.underwater ? "Water" : "Air"].Ground);
+	const maxDelta = DegreesToRadians(CONFIG.Physics.Correction.MaxAngleDelta[playerState.medium].Ground);
 	return playerState.grounded && AngleBetweenVector3(playerState.alignedUp, WORLD_NORMALS.Up) > maxDelta
 		? "slope"
 		: frame.speedShare >= CAMERA_TUNING.Modes.Triggers.FastSpeedFraction ? "fastMovement" : "slowMovement";
@@ -431,7 +447,7 @@ function placeOnRig({ runtime, scaledDistance, center: rigCenter, radius, holdAr
  * @param {boolean} simulating — the Simulator runs plain orbitCam, whatever the set.
  */
 function InitializeCameraState(sceneGraph, payloadMeta, target, simulating) {
-	releaseLoop("camera reset");
+	resetLoop();
 	loop.lastUp = CloneVector3(target === null ? WORLD_NORMALS.Up : target.alignedUp);
 	triggers.forced = null;
 	triggers.inside.clear();
@@ -439,19 +455,19 @@ function InitializeCameraState(sceneGraph, payloadMeta, target, simulating) {
 	ground.surfaceId = null;
 	ground.onRamp = false;
 
-	const levelBase = resolveDefaultLevelCamera(sceneGraph);
+	const levelBase   = resolveDefaultLevelCamera(sceneGraph);
 	const cameraState = { ...levelBase, activeSet: null, activeMode: null, situation: "slowMovement", looping: false, modeData: null };
-	frame.set = ResolveCameraSet(sceneGraph.cameraConfig);
-	frame.payloadMeta = payloadMeta;
-	frame.cameraState = cameraState;
-	frame.target = target;
-	frame.leftLoop = false;
-	frame.speedShare = 0;
-	frame.onRamp = false;
-	frame.aimHeight = sceneGraph.cameraConfig.aimHeight;
-	frame.aimShare = sceneGraph.cameraConfig.aimHeight;
+	frame.set             = ResolveCameraSet(sceneGraph.cameraConfig);
+	frame.payloadMeta     = payloadMeta;
+	frame.cameraState     = cameraState;
+	frame.target          = target;
+	frame.leftLoop        = false;
+	frame.speedShare      = 0;
+	frame.onRamp          = false;
+	frame.aimHeight       = sceneGraph.cameraConfig.aimHeight;
+	frame.aimShare        = sceneGraph.cameraConfig.aimHeight;
 	cameraState.activeSet = frame.set.name;
-	setMode = frame.set.situations.slowMovement;
+	setMode               = frame.set.situations.slowMovement;
 
 	ResetCameraModes(sceneGraph.cameraConfig, levelBase);
 	activateMode(freeCamOverride() ? "freeCam" : simulating ? "orbitCam" : setMode);

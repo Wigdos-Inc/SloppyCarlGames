@@ -146,6 +146,17 @@ const API_CONFIG = {
       GroundedChange : false,
       DamageReceived : false,
       DamageInflicted: false,
+      Loop           : false,
+    },
+    Obstacles: {  // Not connected yet.
+      Spawn          : false,
+      Destroyed      : false,
+      DamageReceived : false,
+      DamageInflicted: false
+    },
+    Terrain: { // Note connected yet.
+      Spawn: false,
+      Moved: false,                              // A moving platform reaches it's start or end position.
     }
   },
   Camera: {
@@ -214,12 +225,14 @@ const GROUNDING = DeepFreeze({
   GripRampMs    : 2000,                                               // Grip demand's crossing of 0 ↔ MinGripSpeed
 });
 
-// Movement feel: friction floor, slide damping, reversal braking.
+// Movement feel: friction floor, slide damping, reversal braking, jump release.
 const MOVEMENT_TUNING = DeepFreeze({
   MinSupport        : 0.25,                                       // Friction floor; engages past 75.5°
   SlideUphillScale  : 0.15,                                       // Acceleration kept pressing uphill on a slide
   ReversalBrakeScale: 0.75,                                       // Share of acceleration added to braking on a reversal
   OppositeInput     : { Forward: 0.25, Left: 0.2, Right: 0.25 },  // Input past which a reversal counts as held
+  ReleaseGravity    : 2,                                          // Gravity multiplier while a jump rises with the key let go
+  ReleaseRampMs     : 200,                                        // Time for gravity to ramp between 1 and ReleaseGravity, each way
 });
 
 // Default camera feel.

@@ -190,8 +190,7 @@ function ResolvePlayerState() {
 
 
 	if (playerState.surfaceContact === "sliding") SetPlayerAction("Sliding");
-	else if (playerState.underwater && playerState.action !== "Swimming") {
-		// Sinking requires genuine ungrounded descent; grounded underwater = resting on floor = Floating.
+	else if (playerState.medium === "Water" && playerState.action !== "Swimming") {
 		SetPlayerAction(!playerState.grounded && playerState.velocity.y < 0 ? "Sinking" : "Floating");
 	}
 	else if (!playerState.grounded && playerState.action !== "Flying") {

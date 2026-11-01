@@ -67,7 +67,7 @@ function stepModelRotation(current, target, maxStep) {
 function resolveModelPose(entity, runtime, deltaSeconds) {
 	const pose = runtime.modelPose;
 	// Water resists turning, even on the ground.
-	const rate = entity.underwater ? entity.modelTurnRate.water : entity.modelTurnRate.air;
+	const rate = entity.medium === "Water" ? entity.modelTurnRate.water : entity.modelTurnRate.air;
 	pose.rotation.set(stepModelRotation(pose.rotation, entity.transform.rotation, new Unit(rate.toRadians() * deltaSeconds, "radians")));
 
 	if (poseSettled(pose.rotation, entity.transform.rotation)) return null;

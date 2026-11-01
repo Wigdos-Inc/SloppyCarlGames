@@ -31,7 +31,7 @@ function GetSubmergence(entity, waterLevel) {
 // Vertical speed with this step's vertical change slowed by the character's floatiness.
 function GetFloatiness(entity, yBefore) {
 	const { waterFloatiness, airFloatiness } = entity.character.meta;
-	return yBefore + (entity.velocity.y - yBefore) / (entity.underwater ? waterFloatiness : airFloatiness);
+	return yBefore + (entity.velocity.y - yBefore) / (entity.medium === "Water" ? waterFloatiness : airFloatiness);
 }
 
 // Static friction cancels the pull along the footing.

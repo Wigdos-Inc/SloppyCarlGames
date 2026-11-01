@@ -226,7 +226,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 	if (physicsState.buoyancy.enabled || physicsState.resistance.enabled) {
 		physicsState.submergence = GetSubmergence(entity, sceneGraph.world.water.level);
 		entity.submergence = physicsState.submergence;
-		entity.underwater   = physicsState.submergence >= 0.5;
+		entity.medium = physicsState.submergence >= 0.5 ? "Water" : "Air";
 		entity.buoyancyForce = 0;
 	}
 

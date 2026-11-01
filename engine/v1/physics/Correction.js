@@ -64,11 +64,10 @@ function releasedSurface(entity) {
 }
 
 const angleBetweenDegrees = (a, b) => (AngleBetweenVector3(a, b) * 180) / Math.PI;
-const angleLimitsFor      = (underwater) => CONFIG.Physics.Correction.MaxAngleDelta[underwater ? "Water" : "Air"];
 
 // Capture what the correction loop keeps fixed for the step, plus this step's decayed contact grace.
 function GetCorrectionFrame(entity, physicsState) {
-	const groundLimit = angleLimitsFor(entity.underwater).Ground;
+	const groundLimit = CONFIG.Physics.Correction.MaxAngleDelta[entity.medium].Ground;
 	const keptFooting = entity.grounded && !entity.launched;
 
 	// With footing kept, the ground probe reaches as far down as a walkable fold can drop in one step.
@@ -89,8 +88,9 @@ function GetCorrectionFrame(entity, physicsState) {
 function GetGripDemand(entity, groundContact, deltaSeconds) {
 	if (!groundContact.hit) return entity.gripDemand;
 
-	const minGrip       = CONFIG.Physics.Correction.MinGripSpeed[entity.underwater ? "Water" : "Air"];
-	const groundSupport = Math.cos((angleLimitsFor(entity.underwater).Ground * Math.PI) / 180);
+	const { MinGripSpeed, MaxAngleDelta } = CONFIG.Physics.Correction;
+	const minGrip       = MinGripSpeed[entity.medium];
+	const groundSupport = Math.cos((MaxAngleDelta[entity.medium].Ground * Math.PI) / 180);
 	const step          = (minGrip / GROUNDING.GripRampMs) * deltaSeconds * 1000;
 	return entity.gripDemand + Clamp(Math.max(0, minGrip * (groundSupport - groundContact.normal.y) / (groundSupport + 1)) - entity.gripDemand, -step, step);
 }
@@ -110,8 +110,8 @@ function GetReferenceNormal(entity, deltaSeconds) {
  * Past the `Ground` incline, `speedRatio` (speed along the surface / top speed) below `gripDemand` slides instead.
  * @returns {"walkable" | "sliding" | "wall"}
  */
-function ClassifySurface(referenceNormal, candidate, currentContact, underwater, speedRatio, gripDemand) {
-	const limits        = angleLimitsFor(underwater);
+function ClassifySurface(referenceNormal, candidate, currentContact, medium, speedRatio, gripDemand) {
+	const limits        = CONFIG.Physics.Correction.MaxAngleDelta[medium];
 	const walkableLimit = currentContact === "sliding" ? limits.Recover : limits.Ground;
 	const incline       = angleBetweenDegrees(candidate, WORLD_NORMALS.Up);
 	const walkable      = incline <= limits.Ground || speedRatio >= gripDemand ? "walkable" : "sliding";

@@ -819,7 +819,7 @@ function GatherGroundHits(entity, sceneGraph, groundSnapTolerance) {
 function groundHitContact(entity, hit, frameStart) {
 	const tangent    = SubtractVector3(entity.velocity, ScaleVector3(hit.normal, DotVector3(entity.velocity, hit.normal)));
 	const speedRatio = entity.type === "player" && !hit.sticky ? Math.sqrt(Vector3Sq(tangent)) / entity.character.meta.maxSpeed.value : Infinity;
-	return ClassifySurface(frameStart.referenceNormal, hit.normal, entity.surfaceContact, entity.underwater, speedRatio, entity.gripDemand);
+	return ClassifySurface(frameStart.referenceNormal, hit.normal, entity.surfaceContact, entity.medium, speedRatio, entity.gripDemand);
 }
 
 // Check whether a hit beats the one chosen so far: walkable over sliding, then nearest, with the coupled surface breaking ties.

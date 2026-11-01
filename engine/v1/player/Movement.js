@@ -37,17 +37,16 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
 		return jumpVelocityCache.v0;
 	}
 
-	const buoyancyEnabled = medium === "water" && CONFIG.Physics.Buoyancy.Enabled !== false;
 	const simDt = 1 / 240;
 	const simForces = {
 		gravity: true,
-		resistance: { submergence: medium === "water" ? 1 : 0 },
-		...(buoyancyEnabled ? { buoyancy: { position: { y: 0 }, waterLevel: 0, submergence: 1 } } : {}),
+		resistance: { submergence: medium === "Water" ? 1 : 0 },
+		...(medium === "Water" && CONFIG.Physics.Buoyancy.Enabled !== false ? { buoyancy: { position: { y: 0 }, waterLevel: 0, submergence: 1 } } : {}),
 	};
 
 	const simApex = (v0) => {
 		let vy = v0;
-		let y = 0;
+		let y  = 0;
 		for (let step = 0; step < 10000; step++) {
 			vy = ComputeStepVelocity.scalar(vy, simForces, simDt, { flag: true, floatiness });
 			if (vy <= 0) break;
@@ -58,7 +57,7 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
 
 	let lo = 0;
 	let hi = jumpHeight * 10 + 10;
-	for (let iter = 0; iter < 64; iter++) {
+	for (let i = 0; i < 64; i++) {
 		const mid = (lo + hi) * 0.5;
 		simApex(mid) < jumpHeight ? lo = mid : hi = mid;
 	}
@@ -82,7 +81,7 @@ function carryAcross(forward, from, to) {
 
 	// Level share: none on a floor or ceiling, full on a wall.
 	const level = Math.min(1 - from.y * from.y, 1 - to.y * to.y);
-	const bend = AzimuthTurnVector3(from, to);
+	const bend  = AzimuthTurnVector3(from, to);
 	if (level <= EPSILON || bend.y === 0) return transported;
 
 	return AddVector3(
@@ -217,7 +216,7 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 
 	// Air control modifier.
 	let controlMultiplier = 1;
-	if (!playerState.grounded) controlMultiplier = playerState.underwater ? meta.underwaterAirControl : meta.airControl;
+	if (!playerState.grounded) controlMultiplier = playerState.medium === "Water" ? meta.underwaterAirControl : meta.airControl;
 
 	const onSlidingSurface = playerState.surfaceContact === "sliding";
 	const up = playerState.alignedUp;
@@ -227,6 +226,9 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	
 	// Unpowered deceleration, scaled by surface support and air control.
 	const friction = meta.deceleration.value * support * controlMultiplier;
+
+	// Slow coasting while grounded.
+	const coastFriction = playerState.grounded ? friction : 0;
 
 	// Resolve effective stats.
 	const maxSpeed = meta.maxSpeed.value     * (playerState.boost.active ? playerState.boost.maxSpeedMultiplier : 1);
@@ -241,10 +243,8 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	const currentSpeed = Vector3Length(tVel);
 
 	const hasInput = Math.abs(input.forward) >= 0.001 || Math.abs(input.right) >= 0.001;
-	const control = modeData.control;
-	const carried = control === "carried";
-	const inLoop = control === "loopLock";
-	const frame = playerState.inputFrame;
+	const carried  = modeData.control === "carried", inLoop = modeData.control === "loopLock";
+	const frame    = playerState.inputFrame;
 	const enteredLoop = inLoop && frame.lastControl !== "loopLock";
 
 	// Held keys keep their meaning until they change.
@@ -275,7 +275,7 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 		else if (input.right !== 0) {
 			tVel = ComputeDeceleration(tVel, (meta.deceleration.value + inputAcceleration(direction) * MOVEMENT_TUNING.ReversalBrakeScale) * support, deltaSeconds);
 		}
-		else if (!inLoop) tVel = ComputeDeceleration(tVel, friction, deltaSeconds);
+		else if (!inLoop) tVel = ComputeDeceleration(tVel, coastFriction, deltaSeconds);
 
 		// W steers away from the camera, S toward it; the lock holds the new angle.
 		if (inLoop && input.forward !== 0) {
@@ -329,15 +329,20 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 			else tVel = applyAcceleration(tVel, tangentDirection, effectiveAcceleration, deltaSeconds);
 		}
 		else {
-			tVel = ComputeDeceleration(tVel, friction, deltaSeconds);
+			tVel = ComputeDeceleration(tVel, coastFriction, deltaSeconds);
 			playerState.stoppingActive = false;
 			playerState.primaryOppositeHeld = false;
 		}
 	}
 
-	// Coasting a lock weakens gravity and drops drag.
+	// Coasting a lock weakens gravity and drops drag. Letting go of a rising jump ramps gravity up, then back down.
+	const { ReleaseGravity, ReleaseRampMs } = MOVEMENT_TUNING;
 	const coasting = inLoop && frame.locked && input.right === 0;
-	playerState.gravityScale = coasting ? modeData.coastGravityScale : 1;
+	const rampStep = (ReleaseGravity - 1) * deltaSeconds * 1000 / ReleaseRampMs;
+	const rampedGravity = playerState.launched && playerState.action !== "Stunned" && playerState.velocity.y > 0 && !input.jump
+		? Math.min(ReleaseGravity, Math.max(playerState.gravityScale, 1) + rampStep)
+		: Math.max(1, playerState.gravityScale - rampStep);
+	playerState.gravityScale = coasting ? modeData.coastGravityScale : playerState.grounded ? 1 : rampedGravity;
 	playerState.dragFree = coasting;
 
 	// Idle on walkable footing, friction holds the slope's pull.
@@ -351,11 +356,11 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 
 	// === JUMP ===
 	const jumpWindow = playerState.jumpWindow;
-	if (ConsumeJumpPress()) jumpWindow.buffer = GROUNDING.JumpBufferMs / 1000;
-	else jumpWindow.buffer -= deltaSeconds;
+	ConsumeJumpPress() ? jumpWindow.buffer = GROUNDING.JumpBufferMs / 1000 : jumpWindow.buffer -= deltaSeconds;
 
-	const leftGround = playerState.inputFrame.wasGrounded && !playerState.grounded;
-	if (leftGround && !noCoyoteActions.has(playerState.action)) jumpWindow.coyote = GROUNDING.CoyoteMs / 1000;
+	if (playerState.inputFrame.wasGrounded && !playerState.grounded && !noCoyoteActions.has(playerState.action)) {
+		jumpWindow.coyote = GROUNDING.CoyoteMs / 1000;
+	}
 	else jumpWindow.coyote -= deltaSeconds;
 
 	if (
@@ -369,8 +374,8 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 		// Launch along the surface normal; halved on a slide.
 		const launchSpeed = solveJumpLaunchVelocity(
 			meta.jumpHeight.value,
-			playerState.underwater ? "water" : "air",
-			playerState.underwater ? meta.waterFloatiness : meta.airFloatiness
+			playerState.medium,
+			playerState.medium === "Water" ? meta.waterFloatiness : meta.airFloatiness
 		) * (onSlidingSurface ? 0.5 : 1);
 		playerState.velocity.set(AddVector3(tVel, ScaleVector3(up, launchSpeed)));
 		playerState.launched = true;
@@ -390,7 +395,7 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	frame.hadInput         = hasInput;
 	frame.wasGrounded      = playerState.grounded;
 	frame.lastUp           = up;
-	frame.lastControl      = control;
+	frame.lastControl      = modeData.control;
 	frame.lastKeys.forward = Math.sign(input.forward);
 	frame.lastKeys.right   = Math.sign(input.right);
 }

@@ -2094,7 +2094,8 @@
       "collision":       { "__meta": { "description": "Emit collision event on physics or combat contact", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
       "groundedChange":  { "__meta": { "description": "Emit groundedChange event on grounded transition", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
       "damageReceived":  { "__meta": { "description": "Emit damageReceived event on damage taken", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
-      "damageInflicted": { "__meta": { "description": "Emit damageInflicted event on damage dealt", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
+      "damageInflicted": { "__meta": { "description": "Emit damageInflicted event on damage dealt", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "loop":            { "__meta": { "description": "Emit loop events when a loop engages or releases", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
     },
     "animations": { "__meta": { "description": "Player animation map (helper-normalized)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
   },

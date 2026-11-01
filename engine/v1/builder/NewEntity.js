@@ -526,7 +526,7 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		transform: { position, rotation, scale },
 		velocity,
 		submergence    : 0,
-		underwater     : false,
+		medium         : "Air",
 		buoyancyForce  : 0,
 		action         : "Idle",
 		grounded       : false,

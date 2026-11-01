@@ -533,12 +533,16 @@ function handleSettingsPageInput(payload) {
 	}
 }
 
+// Movement keys held down, so releasing one key hands its axis back to the opposite key.
+const heldKeys = new Set();
+
 function handlePlayerInput(payload) {
 	const input = window.engineOptional('Level.Player.Input');
 	if (!input) return;
 	const code = payload.code;
 
 	if (payload.type === "keydown") {
+		heldKeys.add(code);
 		if (code === "KeyW") { input.forward = 1; }
 		if (code === "KeyS") { input.forward = -1; }
 		if (code === "KeyA") { input.right = -1; }
@@ -549,10 +553,11 @@ function handlePlayerInput(payload) {
 	}
 
 	if (payload.type === "keyup") {
-		if (code === "KeyW" && input.forward > 0) { input.forward = 0; }
-		if (code === "KeyS" && input.forward < 0) { input.forward = 0; }
-		if (code === "KeyA" && input.right < 0) { input.right = 0; }
-		if (code === "KeyD" && input.right > 0) { input.right = 0; }
+		heldKeys.delete(code);
+		if (code === "KeyW" && input.forward > 0) { input.forward = heldKeys.has("KeyS") ? -1 : 0; }
+		if (code === "KeyS" && input.forward < 0) { input.forward = heldKeys.has("KeyW") ? 1 : 0; }
+		if (code === "KeyA" && input.right < 0) { input.right = heldKeys.has("KeyD") ? 1 : 0; }
+		if (code === "KeyD" && input.right > 0) { input.right = heldKeys.has("KeyA") ? -1 : 0; }
 		if (code === "Space") { input.jump = false; }
 		if (code === "ShiftLeft" || code === "ShiftRight") { input.boost = false; }
 		return;
