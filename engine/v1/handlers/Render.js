@@ -537,6 +537,9 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 	if (!renderer.debugLineShader) return renderer.debugLineShader = CreateShader.LineProgram(gl);
 	if (!renderer.debugLineBuffer) return renderer.debugLineBuffer = gl.createBuffer();
 
+	// Skip the pass while every box type is off.
+	if (!CONFIG.Debug.All || !Object.values(CONFIG.Debug.Levels.BoundingBox).some((enabled) => enabled === true)) return;
+
 	bindDebugLinePass(renderer, gl, projection, view);
 
 	sceneGraph.debugBoundingBoxes.forEach((record) => {
@@ -682,6 +685,9 @@ function drawDetailedBounds(renderer, sceneGraph, projection, view) {
 	const gl = renderer.gl;
 	if (!renderer.debugLineShader) return renderer.debugLineShader = CreateShader.LineProgram(gl);
 	if (!renderer.debugLineBuffer) return renderer.debugLineBuffer = gl.createBuffer();
+
+	// Skip the pass while every detailed-bounds type is off.
+	if (!CONFIG.Debug.All || !Object.values(CONFIG.Debug.Levels.DetailedBounds).some(Boolean)) return;
 
 	bindDebugLinePass(renderer, gl, projection, view);
 
@@ -1834,8 +1840,8 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 
 	// Grow a box by its pad plus a margin that widens with distance, then check it against each blocker, cheapest test first.
 	function behindBlocker(aabb, pad) {
-		const d = MaxVector3(SubtractVector3(aabb.min, camera), MaxVector3(ToVector3(0), SubtractVector3(camera, aabb.max)));
-		const grow = pad + 0.05 + Math.sqrt(Vector3Sq(d)) * 0.002;
+		const d = Math.sqrt(Vector3Sq(MaxVector3(SubtractVector3(aabb.min, camera), ToVector3(0), SubtractVector3(camera, aabb.max))));
+		const grow = pad + 0.05 + d * 0.002;
 		for (let k = 0; k < 8; k++) {
 			wx[k] = k & 1 ? aabb.max.x + grow : aabb.min.x - grow;
 			wy[k] = k & 2 ? aabb.max.y + grow : aabb.min.y - grow;
@@ -1864,8 +1870,8 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 		occlusion.flagged.push(surface);
 	}
 
+	// Skip terrain, obstacles and entities that show sprites through walls.
 	if (blockers.length > 0) {
-		// Skip terrain, obstacles and entities that show sprites through walls.
 		for (const mesh of sceneGraph.terrain) {
 			if (mesh.meta.mode !== "default" || showsThroughWalls(mesh) || !stillOn(mesh, lastHidden)) continue;
 			if (behindBlocker(mesh.worldAabb, 0)) hideTarget(mesh);

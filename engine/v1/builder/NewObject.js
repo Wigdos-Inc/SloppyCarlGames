@@ -4,6 +4,7 @@
 // Used by NewEntity.js and handlers/game/Simulator.js to refit moved objects' boxes.
 // Used by NewScatter.js and NewVoid.js to generate UVs.
 // Uses NewPrimitive.js to build geometry, NewTexture.js to set up textures and NewScatter.js to scatter detail.
+// Uses math/Collision.js to grid triangle-soup collision.
 
 import { BuildGeometry } from "./NewPrimitive.js";
 import { BuildScatter } from "./NewScatter.js";
@@ -20,6 +21,7 @@ import VISUAL_TEMPLATES from "./templates/textures.json" with { type: "json" };
 import { CONFIG } from "../core/config.js";
 import { DeepFreeze } from "../core/meta.js";
 import { CreateModelMatrix, CreateRenderMatrixCache, TransformPointByMatrix } from "../math/Matrix.js";
+import { SoupBounds } from "../math/Collision.js";
 import { AabbCenter, AabbHalfExtents, BoxCorners, CapsuleFromAabb, MeshTriangles, PointsAabb, SphereFromAabb } from "../math/Geometry.js";
 import { Clamp, UnitVector3 } from "../math/Utilities.js";
 import {
@@ -61,7 +63,7 @@ function computeTriangleSoupFromMesh(mesh) {
 	const toUnit = (vertex) => new UnitVector3(vertex.x, vertex.y, vertex.z, "cnu");
 	const placed = MeshTriangles(mesh.geometry.positions, mesh.geometry.indices, CreateModelMatrix(mesh.transform));
 	const triangles = placed.map(({ a, b, c, normal }) => ({ a: toUnit(a), b: toUnit(b), c: toUnit(c), normal }));
-	return { type: "triangle-soup", triangles };
+	return SoupBounds("triangle-soup", triangles);
 }
 
 function computeDetailedBounds(mesh) {
@@ -86,7 +88,7 @@ function generateSphereUvs(positions) {
 	const { min, max } = PointsAabb(vertices);
 
 	const center = ScaleVector3(AddVector3(min, max), 0.5);
-	const radius = MaxVector3(0.0001, ScaleVector3(SubtractVector3(max, min), 0.5));
+	const radius = MaxVector3(ToVector3(0.0001), ScaleVector3(SubtractVector3(max, min), 0.5));
 
 	const uvs = [];
 	for (const point of vertices) {

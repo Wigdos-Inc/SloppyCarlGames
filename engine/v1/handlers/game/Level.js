@@ -6,6 +6,7 @@
 // End of player pipeline(s) to determine position.
 // Uses Render.js for rendering level state per frame.
 // Uses builder/templates/Instance.js to drop the level's game templates when it clears.
+// Uses builder/subProcesses/Chunks.js to add and remove the collision chunks.
 
 import { BuildLevel, RefreshDebugBoundingBoxes } from "../../builder/NewLevel.js";
 import { ClearGameTemplates } from "../../builder/templates/Instance.js";
@@ -20,6 +21,7 @@ import { GenerateParticles, GeneratorPlacement } from "../../builder/NewParticle
 import { BuildObstacles } from "../../builder/NewObstacle.js";
 import { BuildTerrain } from "../../builder/NewTerrain.js";
 import { BuildOccluders } from "../../builder/subProcesses/Occlusion.js";
+import { AddChunk, RemoveChunkMember } from "../../builder/subProcesses/Chunks.js";
 import { BuildObject } from "../../builder/NewObject.js";
 import { UpdateInputEventTypes } from "../Controls.js";
 import { ValidateLevelPayload, ValidateRuntime } from "../../core/validate.js";
@@ -576,8 +578,12 @@ function findSceneTarget(sceneGraph, id, partId) {
 	}
 }
 
+// Wake every entity to recheck what it rests on.
+const wakeEntities = (sceneGraph) => sceneGraph.entities.forEach((entity) => entity.physicsRuntime.resting = false);
+
 function finalizeSpawn(result, objectType, sceneGraph) {
 	(Array.isArray(result) ? result : [result]).forEach((mesh) => AddToVisualResources(mesh, objectType, sceneGraph));
+	if (!ENTITY_TYPES.includes(objectType)) wakeEntities(sceneGraph);
 	SyncTextureAnimation(sceneGraph);
 	if (shouldRefreshBoundingBoxes()) RefreshDebugBoundingBoxes(sceneGraph);
 	return result;
@@ -609,31 +615,42 @@ function SpawnIntoScene(definition, objectType, sceneGraph) {
 		const { built: builtArray } = BuildObstacles([definition], { textureScale: sceneGraph.world.textureScale, faceTextureStore });
 		const built = builtArray[0];
 		sceneGraph.obstacles.push(built);
+		AddChunk(sceneGraph, built, "obstacle");
 		return finalizeSpawn(built, objectType, sceneGraph);
 	}
 
 	if (objectType === "terrain") {
 		const { terrain } = BuildTerrain([definition], sceneGraph.world, faceTextureStore);
 		BuildOccluders(terrain, []);
-		terrain.forEach((mesh) => sceneGraph.terrain.push(mesh));
+		terrain.forEach((mesh) => {
+			sceneGraph.terrain.push(mesh);
+			AddChunk(sceneGraph, mesh, "terrain");
+		});
 		return finalizeSpawn(terrain, objectType, sceneGraph);
 	}
 
 	const { mesh: built } = BuildObject({ ...definition, textureScale: sceneGraph.world.textureScale, faceTextureStore });
 	sceneGraph.terrain.push(built);
+	AddChunk(sceneGraph, built, "terrain");
 	return finalizeSpawn(built, objectType, sceneGraph);
 }
 
 function DespawnFromScene(target, objectType, sceneGraph) {
+	const isEntity = ENTITY_TYPES.includes(objectType);
 	let array;
-	if (ENTITY_TYPES.includes(objectType)) array = sceneGraph.entities;
+	if (isEntity) array = sceneGraph.entities;
 	else if (objectType === "obstacle") array = sceneGraph.obstacles;
 	else array = sceneGraph.terrain;
 
 	(Array.isArray(target) ? target : [target]).forEach((element) => {
 		const index = array.indexOf(element);
-		if (index >= 0) array.splice(index, 1);
+		if (index < 0) return;
+		array.splice(index, 1);
+
+		// Take terrain and obstacles out of their collision chunk.
+		if (!isEntity) RemoveChunkMember(sceneGraph, element);
 	});
+	wakeEntities(sceneGraph);
 	SyncTextureAnimation(sceneGraph);
 	if (shouldRefreshBoundingBoxes()) RefreshDebugBoundingBoxes(sceneGraph);
 	return target;

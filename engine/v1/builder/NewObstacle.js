@@ -2,10 +2,12 @@
 
 // Used by NewLevel.js and handlers/Cutscene.js
 // Uses NewObject.js for 3D objects
+// Uses math/Collision.js to grid the merged triangle soup of multi-part obstacles.
 
 import { BuildObject } from "./NewObject.js";
 import { ResolveObjectSource } from "./NewTemplate.js";
 import { Log } from "../core/meta.js";
+import { SoupBounds } from "../math/Collision.js";
 import { CapsuleFromAabb, ObbFromAabb, PointsAabb, SphereFromAabb } from "../math/Geometry.js";
 import { MultiplyVector3 } from "../math/Vector3.js";
 
@@ -24,7 +26,7 @@ function CreateDetailedBoundsFromParts(source, parts, bounds) {
 				if (part.detailedBounds.type !== "triangle-soup") continue;
 				for (const triangle of part.detailedBounds.triangles) triangles.push(triangle);
 			}
-			return { type: "triangle-soup", triangles };
+			return SoupBounds("triangle-soup", triangles);
 		case "aabb"   : return { type: "aabb", min: bounds.min.clone(), max: bounds.max.clone() };
 		case "sphere" : return SphereFromAabb(bounds, false);
 		case "capsule": return CapsuleFromAabb(bounds);

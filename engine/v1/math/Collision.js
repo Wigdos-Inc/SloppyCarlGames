@@ -4,13 +4,13 @@
 // Used by camera/Master.js to raycast for camera blockers.
 // Used by handlers/Render.js to cull boxes outside the view.
 // Used by handlers/game/Collectible.js to detect pickups.
-// Used by builder/NewLevel.js to join touching surfaces into chunks.
-// Used by builder/NewVoid.js to cut voids out of host meshes.
+// Used by builder/subProcesses/Chunks.js to join touching surfaces into chunks.
+// Used by builder/NewVoid.js to cut voids out of host meshes and grid their linings.
+// Used by builder/NewObject.js and builder/NewObstacle.js to grid triangle-soup collision.
 // Uses math/Vector3.js for vector operations.
-// Uses math/Geometry.js for box measures and closest points.
+// Uses math/Geometry.js for box measures, triangle boxes and closest points.
 
 import { EPSILON } from "../core/meta.js";
-import { CARVE_GRID_TRIANGLES_PER_CELL } from "../core/config.js";
 import {
 	AddVector3,
 	SubtractVector3,
@@ -31,7 +31,7 @@ import {
 	CompareVector3,
 	DivideVector3,
 } from "./Vector3.js";
-import { AabbCenter, AabbHalfExtents, ClosestPointOnSegment, ClosestPointOnTriangle, TriangleArea } from "./Geometry.js";
+import { AabbCenter, AabbHalfExtents, ClosestPointOnSegment, ClosestPointOnTriangle, TriangleAabb, TriangleArea } from "./Geometry.js";
 import { Clamp01, BestMatchOf } from "./Utilities.js";
 
 const noContact = () => { return { hit: false, normal: CloneVector3(WORLD_NORMALS.Up), depth: 0, point: null } };
@@ -262,7 +262,8 @@ function sphereTriangleContact(center, radius, triangle) {
 	return makeContact(ScaleVector3(delta, 1 / distance), radius.value - distance, closest);
 }
 
-// Soup prefilter — the shape's extent grown by its radius; a triangle outside it can't reach.
+// Box around a shape's path (grown by it's radius). 
+// Note: Triangles outside it can't be touched.
 const SegmentQueryBox = (start, end, radius) => ({
 	min: SubtractVector3(MinVector3(start, end), ToVector3(radius)),
 	max: AddVector3(MaxVector3(start, end), ToVector3(radius)),
@@ -275,15 +276,16 @@ const capsuleQueryBox = (capsule) => SegmentQueryBox(capsule.segmentStart, capsu
 function TriangleInQueryBox(triangle, box) {
 	const { a, b, c } = triangle;
 	return (
-		CompareVector3(MaxVector3(MaxVector3(a, b), c), box.min, "greater-loose") && 
-		CompareVector3(MinVector3(MinVector3(a, b), c), box.max, "lesser-loose")
+		CompareVector3(MaxVector3(a, b, c), box.min, "greater-loose") &&
+		CompareVector3(MinVector3(a, b, c), box.max, "lesser-loose")
 	);
 }
 
-// Deepest contact among the triangles inside the query box.
-function deepestContactInBox(triangles, box, contactWith) {
+// Deepest contact among the soup's triangles inside the query box.
+function deepestInBox(soup, box, contactWith) {
 	let best = noContact();
-	for (const triangle of triangles) {
+	for (const index of TriangleGridCandidates(soup.grid, box)) {
+		const triangle = soup.triangles[index];
 		if (!TriangleInQueryBox(triangle, box)) continue;
 		best = chooseDeepestContact(best, contactWith(triangle));
 	}
@@ -291,7 +293,7 @@ function deepestContactInBox(triangles, box, contactWith) {
 }
 
 function sphereTriangleSoupContact(center, radius, soup) {
-	return deepestContactInBox(soup.triangles, sphereQueryBox(center, radius), (triangle) => sphereTriangleContact(center, radius, triangle));
+	return deepestInBox(soup, sphereQueryBox(center, radius), (triangle) => sphereTriangleContact(center, radius, triangle));
 }
 
 function capsuleCapsuleContact(capsuleA, capsuleB) {
@@ -383,9 +385,7 @@ function capsuleTriangleContact(capsule, triangle) {
 	);
 }
 
-function capsuleTriangleSoupContact(capsule, soup) {
-	return deepestContactInBox(soup.triangles, capsuleQueryBox(capsule), (triangle) => capsuleTriangleContact(capsule, triangle));
-}
+const capsuleTriangleSoupContact = (capsule, soup) => deepestInBox(soup, capsuleQueryBox(capsule), (triangle) => capsuleTriangleContact(capsule, triangle));
 
 // One-sided: only the cavity-facing approach blocks, and the authored normal is never flipped.
 function sphereVoidWallTriangleContact(center, radius, triangle) {
@@ -402,9 +402,9 @@ function sphereVoidWallTriangleContact(center, radius, triangle) {
 }
 
 function sphereVoidWallContact(center, radius, voidWall) {
-	return deepestContactInBox(
-		voidWall.triangles, 
-		sphereQueryBox(center, radius), 
+	return deepestInBox(
+		voidWall,
+		sphereQueryBox(center, radius),
 		(triangle) => sphereVoidWallTriangleContact(center, radius, triangle)
 	);
 }
@@ -426,7 +426,7 @@ function capsuleVoidWallTriangleContact(capsule, triangle) {
 }
 
 function capsuleVoidWallContact(capsule, voidWall) {
-	return deepestContactInBox(voidWall.triangles, capsuleQueryBox(capsule), (triangle) => capsuleVoidWallTriangleContact(capsule, triangle));
+	return deepestInBox(voidWall, capsuleQueryBox(capsule), (triangle) => capsuleVoidWallTriangleContact(capsule, triangle));
 }
 
 const axisDuplicateDot = 0.9999;
@@ -436,7 +436,8 @@ function aabbTriangleSetContact(aabb, soup, oneSided) {
 	const center = AabbCenter(aabb);
 
 	const cluster = [];
-	for (const triangle of soup.triangles) {
+	for (const index of TriangleGridCandidates(soup.grid, aabb)) {
+		const triangle = soup.triangles[index];
 		if (!TriangleInQueryBox(triangle, aabb)) continue;
 
 		// One-sided: only front faces that see the center participate.
@@ -594,20 +595,13 @@ function insideRayCrosses(point, triangle) {
 	return RayTriangleIntersect(point, parityRayDirection, triangle).hit;
 }
 
-// Odd crossing count along a fixed ray means the point is enclosed.
-function PointInsideMesh(point, triangles) {
-	let crossings = 0;
-	for (const triangle of triangles) if (insideRayCrosses(point, triangle)) crossings++;
-	return (crossings & 1) === 1;
-}
-
 // Padding (share of a cell) that stops rounding from dropping a triangle out of a cell.
 const gridCellPadding = 0.01;
 
 // Grid cell along one axis that holds a coordinate, kept inside the grid.
 const gridAxisCell = (value, start, cellSize, count) => Math.min(count - 1, Math.max(0, Math.floor((value - start) / cellSize)));
 
-// Splits a mesh's bounds into equal cubes, each listing the triangles whose bounds touch it.
+// Split a mesh's bounds into equal cubes, each listing the triangles whose bounds touch it.
 function BuildTriangleGrid(triangles, triangleAabbs) {
 	let min = ToVector3(Infinity), max = ToVector3(-Infinity);
 	let area = 0;
@@ -619,8 +613,8 @@ function BuildTriangleGrid(triangles, triangleAabbs) {
 		area += TriangleArea(triangle.a, triangle.b, triangle.c);
 	}
 
-	// Cell size chosen so a cell holds about CARVE_GRID_TRIANGLES_PER_CELL average triangles.
-	const cellSize = Math.sqrt(CARVE_GRID_TRIANGLES_PER_CELL * area / triangles.length);
+	// Size cells to hold about two triangles each.
+	const cellSize = Math.sqrt(2 * area / triangles.length);
 	const pad      = cellSize * gridCellPadding;
 	const nx       = Math.max(1, Math.ceil((max.x - min.x) / cellSize));
 	const ny       = Math.max(1, Math.ceil((max.y - min.y) / cellSize));
@@ -656,8 +650,14 @@ function TriangleGridCandidates(grid, aabb) {
 	const y0 = gridAxisCell(aabb.min.y, min.y, cellSize, ny), y1 = gridAxisCell(aabb.max.y, min.y, cellSize, ny);
 	const z0 = gridAxisCell(aabb.min.z, min.z, cellSize, nz), z1 = gridAxisCell(aabb.max.z, min.z, cellSize, nz);
 
-	// A box spanning more cells than there are triangles is cheaper to answer with every triangle.
+	// Answer with every triangle when that's cheaper than visiting each cell.
 	if ((x1 - x0 + 1) * (y1 - y0 + 1) * (z1 - z0 + 1) > grid.triangles.length) return grid.allIndices;
+
+	// Use a single cell's list as is.
+	if (x0 === x1 && y0 === y1 && z0 === z1) {
+		const cell = grid.cells.get(x0 + nx * (y0 + ny * z0));
+		return cell === undefined ? [] : cell;
+	}
 
 	const stamp = ++grid.stamp;
 	const found = [];
@@ -673,8 +673,11 @@ function TriangleGridCandidates(grid, aabb) {
 	return found.sort((a, b) => a - b);
 }
 
-// Same answer as PointInsideMesh, testing only triangles in the grid cells the ray passes through.
-function PointInsideTriangleGrid(point, grid) {
+// Grid collision triangles to let queries test only nearby ones.
+const SoupBounds = (type, triangles) => ({ type, triangles, grid: BuildTriangleGrid(triangles, triangles.map(TriangleAabb)) });
+
+// Check whether a point is inside the closed mesh formed by the grid's triangles.
+function PointInsideGrid(point, grid) {
 	const { min, cellSize, pad, nx, ny, nz } = grid;
 	const n = { x: nx, y: ny, z: nz }, ray = parityRayDirection;
 
@@ -717,7 +720,7 @@ function PointInsideTriangleGrid(point, grid) {
 	return (crossings & 1) === 1;
 }
 
-// Tests each edge only against the target triangles in the grid cells the edge's box touches.
+// Test each edge only against the target triangles in the grid cells the edge's box touches.
 function edgesCrossMesh(triangles, targetGrid) {
 	for (const triangle of triangles) {
 		for (const edge of [[triangle.a, triangle.b], [triangle.b, triangle.c], [triangle.c, triangle.a]]) {
@@ -737,10 +740,8 @@ function edgesCrossMesh(triangles, targetGrid) {
 
 // Meshes overlap if either holds a corner of the other, or any edge of either crosses the other.
 function MeshesIntersect(solidA, solidB) {
-	for (const triangle of solidA.triangles) if (PointInsideTriangleGrid(triangle.a, solidB.grid)) return true;
-	for (const triangle of solidB.triangles) if (PointInsideTriangleGrid(triangle.a, solidA.grid)) return true;
-	if (edgesCrossMesh(solidA.triangles, solidB.grid)) return true;
-	return edgesCrossMesh(solidB.triangles, solidA.grid);
+	for (const solid of [solidA, solidB]) for (const triangle of solid.triangles) if (PointInsideGrid(triangle.a, solid.grid)) return true;
+	return edgesCrossMesh(solidA.triangles, solidB.grid) ? true : edgesCrossMesh(solidB.triangles, solidA.grid);
 }
 
 /* === SWEPT AABB === */
@@ -850,7 +851,7 @@ function RayAABBIntersect(origin, direction, aabb) {
 function raySphereIntersect(origin, direction, sphere, maxDistance = Infinity) {
 	const offset = SubtractVector3(origin, sphere.center);
 	const b      = DotVector3(offset, direction);
-	const c      = DotVector3(offset, offset) - (sphere.radius.value * sphere.radius.value);
+	const c      = DotVector3(offset, offset) - (sphere.radius.value**2);
 	if (c > 0 && b > 0) return noRayHit();
 
 	const discriminant = (b**2) - c;
@@ -896,7 +897,7 @@ function rayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity)
 	const segmentDotDirection = DotVector3(segment, direction);
 	const segmentDotOrigin    = DotVector3(segment, originOffset);
 	const originLengthSq      = Vector3Sq(originOffset);
-	const a = segmentLengthSq - (segmentDotDirection**2);
+	const a = segmentLengthSq  - (segmentDotDirection**2);
 	const b = (segmentLengthSq * DotVector3(direction, originOffset)) - (segmentDotOrigin * segmentDotDirection);
 	const c = (segmentLengthSq * originLengthSq) - (segmentDotOrigin**2) - (capsule.radius.value**2 * segmentLengthSq);
 
@@ -905,7 +906,7 @@ function rayCapsuleIntersect(origin, direction, capsule, maxDistance = Infinity)
 	if (Math.abs(a) > EPSILON) {
 		const discriminant = (b**2) - (a * c);
 		if (discriminant >= 0) {
-			const root = Math.sqrt(discriminant);
+			const root  = Math.sqrt(discriminant);
 			const roots = [(-b - root) / a, (-b + root) / a];
 
 			roots.forEach((t, rootIndex) => {
@@ -960,9 +961,10 @@ function RayTriangleIntersect(origin, direction, triangle, maxDistance = Infinit
 
 function rayTriangleSoupIntersect(origin, direction, triangleSoup, maxDistance = Infinity) {
 	// A ray with a length only reaches triangles inside its own box.
-	const reach = maxDistance === Infinity ? null : SegmentQueryBox(origin, AddVector3(origin, ScaleVector3(direction, maxDistance)), 0);
-	let best    = noRayHit();
-	for (const triangle of triangleSoup.triangles) {
+	const reach   = maxDistance === Infinity ? null : SegmentQueryBox(origin, AddVector3(origin, ScaleVector3(direction, maxDistance)), 0);
+	let best      = noRayHit();
+	for (const index of reach === null ? triangleSoup.grid.allIndices : TriangleGridCandidates(triangleSoup.grid, reach)) {
+		const triangle = triangleSoup.triangles[index];
 		if (reach !== null && !TriangleInQueryBox(triangle, reach)) continue;
 		best = chooseClosestRayHit(best, RayTriangleIntersect(origin, direction, triangle, Math.min(best.t, maxDistance)));
 	}
@@ -1041,10 +1043,10 @@ export {
 	AabbOverlap,
 	AabbOutsideFrustum,
 	TriangleDistanceSq,
-	PointInsideMesh,
 	BuildTriangleGrid,
 	TriangleGridCandidates,
-	PointInsideTriangleGrid,
+	SoupBounds,
+	PointInsideGrid,
 	MeshesIntersect,
 	SweptAABB,
 	RayAABBIntersect,

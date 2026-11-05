@@ -3,6 +3,7 @@
 
 // Used by handlers/game/Level.js
 // Uses NewTerrain.js and NewObject.js for terrain, water and trigger meshes.
+// Uses NewObject.js to refit entity part boxes for debug drawing.
 // Uses NewObstacle.js for static obstacles.
 // Uses NewVoid.js for void walls.
 // Uses NewScatter.js for scatter batches.
@@ -10,11 +11,11 @@
 // Uses NewParticles.js for level-authored particle generators.
 // Uses NewTemplate.js to resolve template refs.
 // Uses templates/Instance.js to register the level's game templates.
-// Uses subProcesses/Chunks.js to group touching terrain into chunks.
+// Uses subProcesses/Chunks.js to group touching terrain and obstacles into chunks.
 // Uses subProcesses/Occlusion.js for terrain blockers.
 // Uses subProcesses/Loops.js to find loop surfaces.
 
-import { BuildObject } from "./NewObject.js";
+import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
 import { RegisterGameTemplates } from "./templates/Instance.js";
 import { BuildEntity } from "./NewEntity.js";
 import { GenerateParticles, ParticleGeneratorRequests } from "./NewParticles.js";
@@ -23,7 +24,7 @@ import { BuildTerrain } from "./NewTerrain.js";
 import { ResolveObjectSource } from "./NewTemplate.js";
 import { BuildScatterBatches, BuildScatterVisualResources } from "./NewScatter.js";
 import { BuildVoidWalls } from "./NewVoid.js";
-import { AssembleTerrainChunks } from "./subProcesses/Chunks.js";
+import { AssembleCollisionChunks, AssembleTerrainChunks } from "./subProcesses/Chunks.js";
 import { FindLoops } from "./subProcesses/Loops.js";
 import { BuildOccluders } from "./subProcesses/Occlusion.js";
 import { CONFIG, PERFORMANCE_SCALING } from "../core/config.js";
@@ -240,7 +241,12 @@ function buildDebugBoundingBoxes(sceneGraph) {
 	sceneGraph.entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
 		if (entity.collision !== null) push(category.whole, entity.id, entity.collision.aabb);
-		entity.model.parts.forEach((part) => push(category.part, `${entity.id}:${part.id}`, part.mesh.worldAabb));
+
+		// Refit stale part boxes. Only compound-sphere entities keep theirs current.
+		entity.model.parts.forEach((part) => {
+			const aabb = entity.fitsParts ? part.mesh.worldAabb : UpdateObjectWorldAabb(part.mesh, part.addsToBounds === false);
+			push(category.part, `${entity.id}:${part.id}`, aabb);
+		});
 	});
 
 	return bounds;
@@ -250,8 +256,8 @@ function buildDebugBoundingBoxes(sceneGraph) {
 function buildDebugDetailedBounds(sceneGraph) {
 	const detailed = [];
 	const classifyEntityType = (entity) => {
-		if (entity.type.includes("player")) return "Player";
-		if (entity.type.includes("boss")) return "Boss";
+		if (entity.type.includes("player"))   return "Player";
+		if (entity.type.includes("boss"))     return "Boss";
 		if (entity.type.includes("particle")) return "Particle";
 		return "Entity";
 	};
@@ -346,6 +352,8 @@ async function BuildLevel(payload) {
 	const terrainChunks = AssembleTerrainChunks(terrain, voidTerrain);
 	const { loopSurfaces, tubeCenterlines } = FindLoops(terrainChunks, [...terrain, ...voidTerrain]);
 
+	const collision = AssembleCollisionChunks(terrainChunks, terrain, obstacles, voids);
+
 	// Gather each object's open faces from every void that cuts into it.
 	const openFacesByObjectId = new Map();
 	const collectOpenFaces = (entries) => {
@@ -420,8 +428,10 @@ async function BuildLevel(payload) {
 	const sceneGraph = {
 		world: payload.world,
 		terrain, entities, triggers, scatter: [], scatterBatches, obstacles, voids, 
-		waterVisual: buildWaterVisualMeshes(payload.world, faceTextureStore), 
-		chunks: terrainChunks.chunks, loopSurfaces, tubeCenterlines,
+		waterVisual : buildWaterVisualMeshes(payload.world, faceTextureStore), 
+		chunks      : collision.chunks, 
+		collisionSeq: collision.seq, 
+		loopSurfaces, tubeCenterlines,
 		scatterPrimitiveGeometry: BuildScatterVisualResources(scatterBatches),
 		debug                   : {
 			showTriggerVolumes: CONFIG.Debug.All === true && CONFIG.Debug.Levels.Triggers === true,

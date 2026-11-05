@@ -100,8 +100,27 @@ function CloneTransform(transform) {
 	return clone;
 }
 
-const MinVector3 = (a, b) => { return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), z: Math.min(a.z, b.z) } }
-const MaxVector3 = (a, b) => { return { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y), z: Math.max(a.z, b.z) } }
+// Smallest x, y and z across any number of vectors.
+function MinVector3(...vectors) {
+	let x = Infinity, y = Infinity, z = Infinity;
+	for (const v of vectors) {
+		x = Math.min(x, v.x);
+		y = Math.min(y, v.y);
+		z = Math.min(z, v.z);
+	}
+	return { x, y, z };
+}
+
+// Largest x, y and z across any number of vectors.
+function MaxVector3(...vectors) {
+	let x = -Infinity, y = -Infinity, z = -Infinity;
+	for (const v of vectors) {
+		x = Math.max(x, v.x);
+		y = Math.max(y, v.y);
+		z = Math.max(z, v.z);
+	}
+	return { x, y, z };
+}
 
 // Index of the smallest component (0 x, 1 y, 2 z); earlier axis wins ties.
 const MinAxisVector3 = (v) => v.x <= v.y && v.x <= v.z ? 0 : v.y <= v.z ? 1 : 2;

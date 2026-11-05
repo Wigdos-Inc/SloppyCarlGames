@@ -13,6 +13,7 @@ import { CreateUI, ClearUI, ApplyMenuUI } from "../UI.js";
 import { SetElementText, RemoveRoot, DECAL_SHAPE_CODES, DECAL_FACE_ROTATIONS, ResolveDecalShapeCode, SelectDecalFacets, DecalSurfaceUv, BuildDecalPlacementMatrix, CapsuleBand, DecalRounding } from "../Render.js";
 import { ValidateSimulatorPayload, ValidateSimulatorBulkPayload } from "../../core/validate.js";
 import { MergeAabb, CreateDetailedBoundsFromParts } from "../../builder/NewObstacle.js";
+import { AddChunk, RemoveChunkMember } from "../../builder/subProcesses/Chunks.js";
 import { UpdateObjectWorldAabb } from "../../builder/NewObject.js";
 import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
 import { UnitVector3 } from "../../math/Utilities.js";
@@ -303,6 +304,10 @@ async function Load(payload) {
 			});
 			built.worldAabb      = MergeAabb(built.parts.map((part) => part.worldAabb));
 			built.detailedBounds = CreateDetailedBoundsFromParts(built, built.parts, built.worldAabb);
+
+			// Rechunk the obstacle at its new spot.
+			RemoveChunkMember(sceneGraph, built);
+			AddChunk(sceneGraph, built, "obstacle");
 		}
 		else {
 			// The surface map grounds Y; authored placement and a movement path still carry X/Z off the disc.

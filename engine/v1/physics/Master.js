@@ -2,10 +2,12 @@
 
 // Used by any Entity state manager to apply physics to moving entities.
 // Uses all Modules in the physics directory, and is the only one that writes their results onto the entity.
+// Uses math/Collision.js to detect overlap between moving and resting entities.
 
 import { CONFIG } from "../core/config.js";
 import { Log, SendEvent, EPSILON } from "../core/meta.js";
 import { AbsoluteVector3, CloneVector3, CompareVector3, DotVector3, ScaleVector3, ToVector3 } from "../math/Vector3.js";
+import { AabbOverlap } from "../math/Collision.js";
 import { GetGravity, GetBuoyancy, GetResistance, GetSubmergence, GetFloatiness, GetStaticFriction } from "./Forces.js";
 import { DetectPhysicsCollisions, DetectCurrentPhysicsOverlaps, ResolveCollisions, GatherGroundHits, PickGroundContact, GetEntityPhysicsFlags, NO_GROUND_CONTACT } from "./Collision.js";
 import { GetCorrectionFrame, GetSurfaceCorrection, GetGroundSnap, GetSurfaceOrientation, GetGripDemand, GetReferenceNormal, ResolveGrounded, CORRECTION_DISABLED } from "./Correction.js";
@@ -16,34 +18,52 @@ import { UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
 const noContacts = Object.freeze({ items: Object.freeze([]), count: 0 });
 const noDetection = Object.freeze({ solids: noContacts, triggers: noContacts });
 
-function shouldSkipCollisionPipeline(entity, displacement) {
+// Check whether a velocity is small enough to count as standing still.
+const isStill = (velocity) => CompareVector3(AbsoluteVector3(velocity), ToVector3(EPSILON), "lesser-loose");
+
+// Check whether a moving entity's box now overlaps this one.
+function touchedByMover(entity) {
+	if (entity.performance.collision === false) return false;
+	for (const candidate of entity.performance.collision) {
+		if (candidate.type !== "entity" || candidate.ref.physicsRuntime.resting) continue;
+		if (AabbOverlap(candidate.ref.collision.aabb, entity.collision.aabb))    return true;
+	}
+	return false;
+}
+
+// Check whether a resting entity can skip this step.
+function isResting(entity) {
+	const { resting, lastPosition, lastRotation } = entity.physicsRuntime, { position, rotation } = entity.transform;
 	return (
-		entity.physicsRuntime.cachePrimed === true &&
-		entity.physicsRuntime.hasUnresolvedPenetration === false &&
-		CompareVector3(AbsoluteVector3(displacement), ToVector3(EPSILON), "lesser-loose") &&
-		CompareVector3(entity.transform.position, entity.physicsRuntime.lastPosition) &&
-		CompareVector3(entity.transform.rotation, entity.physicsRuntime.lastRotation)
+		resting && isStill(entity.velocity) &&
+		CompareVector3(position, lastPosition) && CompareVector3(rotation, lastRotation) &&
+		!touchedByMover(entity)
 	);
 }
 
-function updatePhysicsRuntimeCache(entity, hasUnresolvedPenetration) {
-	entity.physicsRuntime.lastPosition.set(entity.transform.position);
-	entity.physicsRuntime.lastRotation.set(entity.transform.rotation);
-	entity.physicsRuntime.hasUnresolvedPenetration = hasUnresolvedPenetration;
-	entity.physicsRuntime.cachePrimed = true;
+// Record how the step ended for the next step's rest check.
+function recordStep(entity, hasUnresolvedPenetration) {
+	const runtime = entity.physicsRuntime;
+	runtime.resting = (
+		isStill(entity.velocity) &&
+		CompareVector3(entity.transform.position, runtime.lastPosition) &&
+		CompareVector3(entity.transform.rotation, runtime.lastRotation)
+	);
+	runtime.lastPosition.set(entity.transform.position);
+	runtime.lastRotation.set(entity.transform.rotation);
+	runtime.hasUnresolvedPenetration = hasUnresolvedPenetration;
 }
 
-// Moves the entity; the player's detections from its old position no longer apply.
 function moveEntity(entity, offset, physicsState) {
 	entity.transform.position.add(offset);
 	physicsState.collision.overlaps    = null;
 	physicsState.correction.groundHits = null;
 }
 
-// Overlaps where the entity stands; the player reuses its last detection until it moves.
+// Detect overlaps where the entity stands, reusing the last detection until it moves.
 function detectOverlaps(entity, sceneGraph, collision) {
 	if (!collision.enabled) return noDetection;
-	if (entity.type !== "player" || collision.overlaps === null) collision.overlaps = DetectCurrentPhysicsOverlaps(entity, sceneGraph);
+	if (collision.overlaps === null) collision.overlaps = DetectCurrentPhysicsOverlaps(entity, sceneGraph);
 	return collision.overlaps;
 }
 
@@ -51,9 +71,9 @@ function detectOverlaps(entity, sceneGraph, collision) {
 function correctSurface(entity, sceneGraph, physicsState) {
 	const { collision, correction } = physicsState;
 
-	// The player's ground hits are gathered again only after it moves; they're classified and ranked every pass.
+	// Reuse the ground hits until the entity moves.
 	if (collision.enabled) {
-		if (entity.type !== "player" || correction.groundHits === null) correction.groundHits = GatherGroundHits(entity, sceneGraph, correction.groundReach);
+		if (correction.groundHits === null) correction.groundHits = GatherGroundHits(entity, sceneGraph, correction.groundReach);
 		correction.groundContact = PickGroundContact(entity, correction.groundHits, correction.frameStart);
 	}
 	else correction.groundContact = NO_GROUND_CONTACT;
@@ -175,6 +195,8 @@ function runPhysicsLoop(entity, sceneGraph, physicsState) {
  * @param {number} deltaSeconds
  */
 function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
+	if (isResting(entity)) return;
+
 	const isPlayer = entity.type === "player";
 	const entityPhysics = GetEntityPhysicsFlags(entity);
 	const wasGrounded = isPlayer ? entity.grounded : undefined;
@@ -207,7 +229,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 			enabled                 : entity.performance.collision !== false,
 			triggers                : null,
 			hasUnresolvedPenetration: entity.physicsRuntime.hasUnresolvedPenetration,
-			overlaps                : null,      // Last overlap detection; the player reuses it until it moves.
+			overlaps                : null,
 		},
 		correction: {
 			enabled      : entityPhysics.correction,
@@ -215,7 +237,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 			groundReach  : 0,
 			fold         : null,
 			groundContact: NO_GROUND_CONTACT,
-			groundHits   : null,                 // Last ground probe hits; the player reuses them until it moves.
+			groundHits   : null,
 		},
 		loop: {
 			iterations       : 0,
@@ -247,12 +269,10 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 
 	physicsState.displacement = ScaleVector3(entity.velocity, deltaSeconds);
 
-	if (!shouldSkipCollisionPipeline(entity, physicsState.displacement)) {
-		runPhysicsLoop(entity, sceneGraph, physicsState);
-		if (isPlayer) {
-			entity.activeTriggers.length = 0;
-			for (let i = 0; i < physicsState.collision.triggers.count; i++) entity.activeTriggers.push(physicsState.collision.triggers.items[i]);
-		}
+	runPhysicsLoop(entity, sceneGraph, physicsState);
+	if (isPlayer) {
+		entity.activeTriggers.length = 0;
+		for (let i = 0; i < physicsState.collision.triggers.count; i++) entity.activeTriggers.push(physicsState.collision.triggers.items[i]);
 	}
 
 	if (entity.transform.position.y < sceneGraph.world.deathBarrierY.value) {
@@ -265,7 +285,7 @@ function ApplyPhysicsPipeline(entity, sceneGraph, deltaSeconds) {
 		}
 	}
 
-	updatePhysicsRuntimeCache(entity, physicsState.collision.hasUnresolvedPenetration);
+	recordStep(entity, physicsState.collision.hasUnresolvedPenetration);
 
 	if (
 		isPlayer && entity.grounded !== wasGrounded && 

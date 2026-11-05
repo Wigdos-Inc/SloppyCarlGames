@@ -157,7 +157,7 @@ Version Goals:
     - If holding "A", then pressing and releasing "D", "A" stops working until it's pressed again. This must be fixed.
     - Jumping off a sloped surface doesn't feel correct because you keep so much upwards momentum. It can feel like you're still jumping "up" while you're rotated 80 degrees, which is not how jumping should feel.
     - Loops currently emit logs. I'd prefer them running events when engaged and disengaged so the game can actually do something with that data.
-  8. Look into why moving and running through voids causes performance drops. [CURRENT]
+  8. Look into why moving and running through voids causes performance drops. [DONE]
   9. Refactor Parts & Models Shapes.
     - Refactor the shape of entity definitions in NewEntity.js (including the player's definition)
       - Group the loose runtime fields under physics.runtime/correction/collision/forces. Scope: docs/scoping/builder/entity-runtime-shape-scope.md

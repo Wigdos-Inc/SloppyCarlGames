@@ -8,11 +8,11 @@
 import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateRenderMatrix } from "../math/Matrix.js";
-import { PointsAabb } from "../math/Geometry.js";
+import { PointsAabb, TriangleAabb } from "../math/Geometry.js";
 import { BuildObject, GenerateUVs } from "./NewObject.js";
 import { BuildGeometry } from "./NewPrimitive.js";
 import { ComputeGeneratedTextureID, ComputeCustomTextureSignature, InitializeDecalDisplay } from "./NewTexture.js";
-import { RotateByEuler, MultiplyVector3, ScaleVector3, CloneTransform, WORLD_NORMALS, DotVector3, AbsoluteVector3, AddVector3, MaxVector3, MinVector3 } from "../math/Vector3.js";
+import { RotateByEuler, MultiplyVector3, ScaleVector3, CloneTransform, WORLD_NORMALS, DotVector3, AbsoluteVector3, AddVector3 } from "../math/Vector3.js";
 import visualTemplates from "./templates/textures.json" with { type: "json" };
 
 function isPointInDetailedBoundsXZ(worldX, worldZ, detailedBounds) {
@@ -212,7 +212,7 @@ function iterateScatterInstances(params, handler) {
 			continue;
 		}
 
-		const faceMin = MinVector3(MinVector3(face.a, face.b), face.c), faceMax = MaxVector3(MaxVector3(face.a, face.b), face.c)
+		const { min: faceMin, max: faceMax } = TriangleAabb(face);
 		openingAabbsXZ.push({ minX: faceMin.x, minZ: faceMin.z, maxX: faceMax.x, maxZ: faceMax.z });
 	}
 

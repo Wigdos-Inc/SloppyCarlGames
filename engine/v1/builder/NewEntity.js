@@ -173,12 +173,12 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 		if (processed.has(partId)) continue;
 		processed.add(partId);
 
-		const part = index[partId];
+		const part          = index[partId];
 		const combinedScale = MultiplyVector3(rtScale, part.localTransform.scale);
 
 		// Find the attachment point on the parent and the part's own anchor point (scaled & rotated).
-		const attachOffset = GetFaceCenterOffset(index[part.parentId].builtDimensions, part.attachmentPoint);
-		const scaledAnchorOffset = MultiplyVector3(GetFaceCenterOffset(part.dimensions, part.anchorPoint), combinedScale);
+		const attachOffset        = GetFaceCenterOffset(index[part.parentId].builtDimensions, part.attachmentPoint);
+		const scaledAnchorOffset  = MultiplyVector3(GetFaceCenterOffset(part.dimensions, part.anchorPoint), combinedScale);
 		const rotatedAnchorOffset = RotateByEuler(scaledAnchorOffset, part.localTransform.rotation);
 
 		// Position the part's anchor against the parent's attachment point.
@@ -199,15 +199,15 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 		rootTransform: {
 			position: entityDefinition.model.rootTransform.position.clone().add(surfaceOrigin),
 			rotation: entityDefinition.model.rootTransform.rotation,
-			scale: rtScale,
-			pivot: entityDefinition.model.rootTransform.pivot,
+			scale   : rtScale,
+			pivot   : entityDefinition.model.rootTransform.pivot,
 		},
-		spawnSurfaceId: entityDefinition.model.spawnSurfaceId,
+		spawnSurfaceId : entityDefinition.model.spawnSurfaceId,
 		surfacePosition: surfaceOrigin,
 		parts, index,
 		roots: rootPartIds,
 	};
-	applyModelPose(model);
+	applyModelPose(model, true);
 
 	// Ground the model by its collision box (no collidable parts = use full box instead).
 	const colliding = collidingParts(model);
@@ -217,7 +217,7 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 	model.defaultPose = {
 		rootTransform: CloneTransform(model.rootTransform),
 		parts: parts.map((part) => ({
-			id: part.id,
+			id            : part.id,
 			localTransform: CloneTransform(part.localTransform),
 		})),
 	};
@@ -227,7 +227,8 @@ function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore
 
 /* === RUNTIME POSE APPLICATION === */
 
-function applyModelPose(model) {
+// Place every part from the root down.
+function applyModelPose(model, fitBoxes) {
 	const applyPart = (partId, parentTransform) => {
 		const part = model.index[partId];
 
@@ -237,7 +238,7 @@ function applyModelPose(model) {
 		part.mesh.transform.scale = worldTransform.scale;
 
 		// Use a rough box for visual-only parts to skip fitting every vertex.
-		UpdateObjectWorldAabb(part.mesh, part.addsToBounds === false);
+		if (fitBoxes) UpdateObjectWorldAabb(part.mesh, part.addsToBounds === false);
 
 		part.children.forEach((childId) => applyPart(childId, worldTransform));
 	};
@@ -260,13 +261,6 @@ function computeEntityAabb(parts) {
 	};
 }
 
-function computeExpandedAabb(aabb, padding) {
-	return {
-		min: aabb.min.clone().subtract(ToVector3(padding.value)),
-		max: aabb.max.clone().add(ToVector3(padding.value)),
-	};
-}
-
 // Compute a rotation's sines and cosines once, for reuse across many points.
 function computeRotationTrig(rotation) {
 	return {
@@ -285,8 +279,8 @@ function rotateWithTrig(point, trig) {
 	const p2z = p1y * trig.sx + point.z * trig.cx;
 
 	return {
-		x: p1x * trig.cy + p2z * trig.sy,
-		y: p2y,
+		x:  p1x * trig.cy + p2z * trig.sy,
+		y:  p2y,
 		z: -p1x * trig.sy + p2z * trig.cy,
 	};
 }
@@ -327,7 +321,7 @@ function computeScaledBounds(bounds, scaleFactor) {
 			};
 		case "aabb":
 			const center = AabbCenter(bounds);
-			const half = ScaleVector3(AabbHalfExtents(bounds), scaleFactor);
+			const half   = ScaleVector3(AabbHalfExtents(bounds), scaleFactor);
 			return {
 				type: "aabb",
 				min : bounds.min.clone().set(SubtractVector3(center, half)),
@@ -453,7 +447,7 @@ function captureRestBounds(definition, model) {
 	rt.position.set(ToVector3(0));
 	rt.rotation.set(ToVector3(0));
 	rt.scale = ToVector3(1);
-	applyModelPose(model);
+	applyModelPose(model, true);
 
 	// Box the colliding parts, reusing the full box when every part collides.
 	const full      = computeEntityAabb(model.parts);
@@ -468,7 +462,7 @@ function captureRestBounds(definition, model) {
 	rt.position.set(saved.position);
 	rt.rotation.set(saved.rotation);
 	rt.scale = saved.scale;
-	applyModelPose(model);
+	applyModelPose(model, true);
 
 	return { full, collision };
 }
@@ -519,6 +513,10 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 	// Flag entities whose sprites show through walls. Occlusion culling never hides them.
 	const showsThroughWalls = model.parts.some(({ mesh }) => mesh.sprite !== null && mesh.sprite.occludedRange !== null);
 
+	// Only refit part boxes for compound-sphere colliders, which are built from them.
+	const layers    = rest.collision === null ? [] : [rest.collision.physics, rest.collision.hurtbox, rest.collision.hitbox];
+	const fitsParts = layers.some((layer) => layer !== null && layer.shape === "compound-sphere");
+
 	const { id, type, hp, attacks, hardcoded, platform, collisionOverride, customEvents, velocity, animations } = definition;
 	const { position, rotation, scale } = rootTrans;
 	const entity = {
@@ -560,9 +558,7 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 		fullAabb    : null,
 		hitboxActive: rest.collision !== null && rest.collision.hitbox !== null,
 		performance : { physics: true, rendering: true, animatedTexture: true, collision: false },
-		animations,
-		particle: null,
-		showsThroughWalls,
+		animations, particle: null, showsThroughWalls, fitsParts,
 		state   : {
 			movementProgress: initialMovementProgress,
 			direction       : 1,
@@ -573,7 +569,7 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 			lastPosition            : rootTrans.position.clone(),
 			lastRotation            : rootTrans.rotation.clone(),
 			hasUnresolvedPenetration: false,
-			cachePrimed             : false,
+			resting                 : false,
 			lastPhysicsCollisionKey : "",
 			groundSurfaceId         : null,
 		},
@@ -596,7 +592,13 @@ function assignEntityBounds(entity) {
 	// Reuse the full box when it's also the collision box.
 	collision.aabb = aabb === model.restFullAabb ? entity.fullAabb : placeAabbEnclosure(aabb, transform.position, transform.scale, trig);
 
-	collision.simRadiusAabb = computeExpandedAabb(collision.aabb, collision.simRadiusPadding);
+	// Grow the collision box by the sim radius padding on every side.
+	const padding = ToVector3(collision.simRadiusPadding.value);
+	collision.simRadiusAabb = { 
+		min: collision.aabb.min.clone().subtract(padding),
+		max: collision.aabb.max.clone().add(padding) 
+	};
+
 	collision.physics = { shape: physics.shape, bounds: placeBoundsForShape(physics.bounds, transform, model, trig) };
 	collision.hurtbox = hurtbox === null
 		? null
@@ -607,7 +609,7 @@ function assignEntityBounds(entity) {
 }
 
 function refreshEntityDerivedState(entity) {
-	applyModelPose(entity.model);
+	applyModelPose(entity.model, entity.fitsParts);
 	assignEntityBounds(entity);
 }
 
@@ -636,9 +638,9 @@ function UpdateEntityModelFromTransform(entity) {
 }
 
 function ResetEntityToDefaultPose(entity) {
-	// Write into the existing vectors so other references to them stay valid.
+	// Write into the existing vectors to keep other references to them valid.
 	const defaultRoot = entity.model.defaultPose.rootTransform;
-	const targetRoot = entity.model.rootTransform;
+	const targetRoot  = entity.model.rootTransform;
 
 	targetRoot.position.set(defaultRoot.position);
 	targetRoot.rotation.set(defaultRoot.rotation);
@@ -647,10 +649,9 @@ function ResetEntityToDefaultPose(entity) {
 
 	entity.model.defaultPose.parts.forEach((posePart) => {
 		const part = entity.model.index[posePart.id];
-		const src  = posePart.localTransform;
-		part.localTransform.position.set(src.position);
-		part.localTransform.rotation.set(src.rotation);
-		part.localTransform.scale = src.scale;
+		part.localTransform.position.set(posePart.localTransform.position);
+		part.localTransform.rotation.set(posePart.localTransform.rotation);
+		part.localTransform.scale = posePart.localTransform.scale;
 	});
 
 	refreshEntityDerivedState(entity);

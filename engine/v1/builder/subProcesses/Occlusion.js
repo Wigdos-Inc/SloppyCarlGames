@@ -152,7 +152,7 @@ function buildOccluder(mesh, carvingVoids) {
 		: null;
 	if (inner === null) return { inverse, pieces: [] };
 
-	const cuts   = carvingVoids.flatMap((voidMesh) => voidCutBoxes(voidMesh.solidTriangles, voidMesh.centerline, inverse));
+	const cuts   = carvingVoids.flatMap((voidMesh) => voidCutBoxes(voidMesh.solidGrid.triangles, voidMesh.centerline, inverse));
 	const pieces = solidBoxes(inner, cuts, mesh.transform.scale, PERFORMANCE_SCALING.Culling.MinBlockerSize);
 	return { inverse, pieces: pieces.map((piece) => occluderPiece(piece, matrix)) };
 }

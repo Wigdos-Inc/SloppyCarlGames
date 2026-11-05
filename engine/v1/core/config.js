@@ -182,9 +182,6 @@ const API_CONFIG = {
 // Max authorable skybox gradient stops.
 const SKY_STOP_LIMIT = 10;
 
-// Rough triangles per cell when gridding meshes for void carving. Higher means fewer, fuller cells.
-const CARVE_GRID_TRIANGLES_PER_CELL = 2;
-
 // Performance-related scaling.
 const PERFORMANCE_SCALING = DeepFreeze({
   SimDistance: {
@@ -414,6 +411,5 @@ export {
   FILTER_TUNING,
   SPRITE_TUNING,
   DEBUG_COLORS,
-  SKY_STOP_LIMIT,
-  CARVE_GRID_TRIANGLES_PER_CELL 
+  SKY_STOP_LIMIT
 };

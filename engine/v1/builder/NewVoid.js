@@ -2,12 +2,12 @@
 
 // Used by builder/NewLevel.js to carve voids into terrain and obstacles.
 // Uses math/Matrix.js to move void and host points into the world.
-// Uses math/Collision.js to find what meshes a void overlaps with.
+// Uses math/Collision.js to find what meshes a void overlaps with and to grid lining and void collision.
 // Uses math/Geometry.js to read mesh triangles and split faces where they cross a void.
 // Uses builder/NewObject.js to generate wall UVs.
 
 import { CreateModelMatrix, CreateRenderMatrixCache, TransformPointByMatrix } from "../math/Matrix.js";
-import { AabbOverlap, BuildTriangleGrid, MeshesIntersect, PointInsideTriangleGrid, TriangleGridCandidates } from "../math/Collision.js";
+import { AabbOverlap, BuildTriangleGrid, MeshesIntersect, PointInsideGrid, SoupBounds, TriangleGridCandidates } from "../math/Collision.js";
 import {
 	MeshTriangles,
 	PointsAabb,
@@ -76,7 +76,7 @@ function resolveCavitySign(solid) {
 			TriangleCentroid(triangle.a, triangle.b, triangle.c), 
 			ScaleVector3(triangle.normal, interiorSampleDepth.value)
 		);
-		if (PointInsideTriangleGrid(probe, solid.grid)) inside++;
+		if (PointInsideGrid(probe, solid.grid)) inside++;
 		sampled++;
 	}
 
@@ -179,7 +179,7 @@ function collectCrossingPlanes(solid, pieceAabb, polygon) {
 // Check if a point just behind the piece's center is inside the solid (works even for pieces flush with its surface).
 function pieceInsideSolid(polygon, normal, solid) {
 	const center = ScaleVector3(polygon.reduce((sum, vertex) => AddVector3(sum, vertex)), 1 / polygon.length);
-	return PointInsideTriangleGrid(SubtractVector3(center, ScaleVector3(normal, interiorSampleDepth.value)), solid.grid);
+	return PointInsideGrid(SubtractVector3(center, ScaleVector3(normal, interiorSampleDepth.value)), solid.grid);
 }
 
 // Split a piece by every solid plane that crosses it, dropping parts outside the solid's box.
@@ -515,11 +515,9 @@ function buildVoidCollision(worldTriangles) {
 		(normal.y > 0 ? floorTriangles : wallTriangles).push(triangle);
 	}
 
-	return {
-		worldAabb  : { min, max },
-		floorBounds: { type: "voidWall", triangles: floorTriangles },
-		wallBounds : { type: "voidWall", triangles: wallTriangles },
-	};
+	// Leave a side null when no lining face falls on it.
+	const soupOf = (triangles) => triangles.length === 0 ? null : SoupBounds("voidWall", triangles);
+	return { worldAabb: { min, max }, floorBounds: soupOf(floorTriangles), wallBounds: soupOf(wallTriangles) };
 }
 
 function buildVoidMesh(voidMesh, lining, defaultMesh, textureScale) {
@@ -653,8 +651,8 @@ function buildTerrainVoidWalls(sceneGraph, built, pairings, carveQueue) {
 			for (const host of related) queuePairing(pairings, carveQueue, relations, host, mesh, voidFaces, voidSolid);
 		}
 
-		mesh.relations      = relations;
-		mesh.solidTriangles = voidTriangles;
+		mesh.relations = relations;
+		mesh.solidGrid = voidSolid.grid;
 		built.push({ id: mesh.id, relations });
 	}
 }
@@ -683,8 +681,8 @@ function buildObstacleVoidWalls(sceneGraph, built, pairings, carveQueue) {
 				queuePairing(pairings, carveQueue, relations, host, part, voidFaces, voidSolid);
 			}
 		}
-		record.relations      = relations;
-		record.solidTriangles = solidTriangles;
+		record.relations = relations;
+		record.solidGrid = BuildTriangleGrid(solidTriangles, solidTriangles.map(TriangleAabb));
 		built.push({ id: record.id, relations });
 	}
 }

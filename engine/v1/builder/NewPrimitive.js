@@ -57,7 +57,7 @@ function resolveRampCurveSegments(complexity) {
 // Divide segmentCount into angular sectors: start/end column + mid-angle (radians). Shared by torus/tube face groups.
 function resolveSectorRange(sector, sectorCount, segmentCount) {
 	const start = Math.floor((sector / sectorCount) * segmentCount);
-	const end = Math.floor(((sector + 1) / sectorCount) * segmentCount);
+	const end   = Math.floor(((sector + 1) / sectorCount) * segmentCount);
 	return { start, end, midAngle: ((start + end) * 0.5 / segmentCount) * Math.PI * 2 };
 }
 
@@ -76,7 +76,7 @@ function appendRadialVertices(positions, radiusX, y, radiusZ, segments, angleOff
 function appendTriangleFanIndices(indices, centerIndex, ringStart, segments, reverseWinding = false) {
 	for (let index = 0; index < segments; index++) {
 		const current = ringStart + index;
-		const next = ringStart + index + 1;
+		const next    = ringStart + index + 1;
 		if (reverseWinding) indices.push(centerIndex, next, current);
 		else indices.push(centerIndex, current, next);
 	}
@@ -155,10 +155,10 @@ function buildPyramid(size) {
 	};
 
 	addQuadFace(baseBackLeft, baseBackRight, baseFrontRight, baseFrontLeft, WORLD_NORMALS.Down);
-	addTriangleFace(baseFrontLeft, baseFrontRight, apex);
-	addTriangleFace(baseFrontRight, baseBackRight, apex);
-	addTriangleFace(baseBackRight, baseBackLeft, apex);
-	addTriangleFace(baseBackLeft, baseFrontLeft, apex);
+	addTriangleFace(baseFrontLeft,  baseFrontRight, apex);
+	addTriangleFace(baseFrontRight, baseBackRight,  apex);
+	addTriangleFace(baseBackRight,  baseBackLeft,   apex);
+	addTriangleFace(baseBackLeft,   baseFrontLeft,  apex);
 
 	return { positions, indices, faceGroups };
 }
@@ -209,8 +209,8 @@ function buildCylinder(size, complexity) {
 		const endAngle   = (((index + 1) / segments) * Math.PI * 2) + angleOffset;
 		const startX     = Math.cos(startAngle) * radius.x;
 		const startZ     = Math.sin(startAngle) * radius.z;
-		const endX       = Math.cos(endAngle) * radius.x;
-		const endZ       = Math.sin(endAngle) * radius.z;
+		const endX       = Math.cos(endAngle)   * radius.x;
+		const endZ       = Math.sin(endAngle)   * radius.z;
 		const start      = pushVertex(startX, -radius.y, startZ);
 		pushVertex(startX, radius.y, startZ);
 		pushVertex(endX, radius.y, endZ);
@@ -228,14 +228,14 @@ function buildCylinder(size, complexity) {
 		});
 	}
 
-	const topCenter = pushVertex(0, radius.y, 0);
-	const topRing = appendRadialVertices(positions, radius.x, radius.y, radius.z, segments, angleOffset);
+	const topCenter     = pushVertex(0, radius.y, 0);
+	const topRing       = appendRadialVertices(positions, radius.x, radius.y, radius.z, segments, angleOffset);
 	const topIndexStart = indices.length;
 	appendTriangleFanIndices(indices, topCenter, topRing.start, segments, true);
 	faceGroups.push({ normal: WORLD_NORMALS.Up, vertexIndices: [topCenter, ...topRing.vertexIndices], indexStart: topIndexStart, indexCount: indices.length - topIndexStart });
 
-	const bottomCenter = pushVertex(0, -radius.y, 0);
-	const bottomRing = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments, angleOffset);
+	const bottomCenter     = pushVertex(0, -radius.y, 0);
+	const bottomRing       = appendRadialVertices(positions, radius.x, -radius.y, radius.z, segments, angleOffset);
 	const bottomIndexStart = indices.length;
 	appendTriangleFanIndices(indices, bottomCenter, bottomRing.start, segments);
 	faceGroups.push({ normal: WORLD_NORMALS.Down, vertexIndices: [bottomCenter, ...bottomRing.vertexIndices], indexStart: bottomIndexStart, indexCount: indices.length - bottomIndexStart });
@@ -246,10 +246,7 @@ function buildCylinder(size, complexity) {
 function buildSphere(size, complexity) {
 	const radius = size.clone().scale(0.5);
 	const resolution = resolveSphereResolution(complexity);
-
-	const positions = [];
-	const indices = [];
-	const uvs = [];
+	const positions = [], indices = [], uvs = [];
 
 	for (let stack = 0; stack <= resolution.stacks; stack++) {
 		const v = stack / resolution.stacks;
@@ -282,7 +279,7 @@ function buildSphere(size, complexity) {
 }
 
 function buildCone(size, complexity) {
-	const radius = size.clone().scale(0.5);
+	const radius   = size.clone().scale(0.5);
 	const segments = resolveCylinderSegments(complexity);
 
 	const positions = [], indices = [], sideVertexIndices = [], baseVertexIndices = [];
@@ -327,9 +324,7 @@ function buildCapsule(size, complexity, options) {
 	// Half-segment turn so the capsule lies on a flat side when rotated 90°.
 	const angleOffset = Math.PI / segments;
 
-	const positions = [];
-	const indices = [];
-	const rings = [];
+	const positions = [], indices = [], rings = [];
 
 	const pushRing = (y, ringScaleX, ringScaleZ, groupName) => {
 		rings.push({ start: appendRadialVertices(positions, ringScaleX, y, ringScaleZ, segments, angleOffset).start, group: groupName });
@@ -382,7 +377,7 @@ function makeTubeNode(frame, dimensionX, dimensionZ, thickness, curved, smoothne
 	return {
 		frame,
 		center:  ArrayToVector3(frame, 12), forward: ArrayToVector3(frame, 4),
-		xAxis:   ArrayToVector3(frame, 0), zAxis:   ArrayToVector3(frame, 8),
+		xAxis :  ArrayToVector3(frame, 0),  zAxis  : ArrayToVector3(frame, 8),
 		radiusX: dimensionX * 0.5, radiusZ: dimensionZ * 0.5,
 		thickness, curved, smoothness,
 	};
@@ -477,14 +472,13 @@ function capTubeRing(indices, ring, segments, forward, solid) {
 		const apex = ring.outerIndices[0];
 		for (let i = 1; i < segments - 1; i++) {
 			const o0 = ring.outerIndices[i], o1 = ring.outerIndices[i + 1];
-			if (forward) indices.push(apex, o1, o0);
-			else indices.push(apex, o0, o1);
+			forward ? indices.push(apex, o1, o0) : indices.push(apex, o0, o1);
 		}
 		return;
 	}
 
 	for (let i = 0; i < segments; i++) {
-		const o0 = ring.outerIndices[i], o1 = ring.outerIndices[i + 1];
+		const o0  = ring.outerIndices[i], o1  = ring.outerIndices[i + 1];
 		const in0 = ring.innerIndices[i], in1 = ring.innerIndices[i + 1];
 		if (forward) {
 			indices.push(o0, in1, o1);
