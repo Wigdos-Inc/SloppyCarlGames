@@ -500,3 +500,75 @@ ENGINE_SEMANTICS §6 now covers the was/had form for booleans and limits `next` 
 **What:** When a jump is no longer released-and-rising, `gravityScale` steps back toward 1 by the same `rampStep` (`max(1, gravityScale - rampStep)`) instead of snapping to 1. Grounded sets `gravityScale` to exactly 1; coasting a lock still sets `coastGravityScale` first. The `ReleaseRampMs` comment covers both directions.
 
 **Where:** [Movement.js](engine/v1/player/Movement.js), [config.js](engine/v1/core/config.js)
+
+## Turning entities skip the per-part vertex fit (0.35.8)
+
+**What:**
+- `applyModelPose(model, fitBoxes)` always composes part transforms, and refits part world boxes (`UpdateObjectWorldAabb`) only when `fitBoxes` is true. The build-time calls in `buildModel` and `captureRestBounds` pass `true`.
+- New entity field `fitsParts`, set once in `BuildEntity`. It is true when the physics, hurtbox or hitbox layer is `compound-sphere`. `refreshEntityDerivedState` passes it, so a rotation change refits part boxes only for those entities.
+- `buildDebugBoundingBoxes` refits the part boxes of entities without `fitsParts` when debug boxes refresh. NewLevel.js imports `UpdateObjectWorldAabb` from NewObject.js.
+
+**Where:** [NewEntity.js](engine/v1/builder/NewEntity.js), [NewLevel.js](engine/v1/builder/NewLevel.js)
+
+## Collision soups carry a triangle grid (0.35.8)
+
+**What:**
+- New `SoupBounds(type, triangles)` builds `{ type, triangles, grid }`, with the grid from `BuildTriangleGrid`. Triangle-soup bounds of meshes and multi-part obstacles and both void-lining soups are built with it.
+- `deepestContactInBox` takes the soup. It, `aabbTriangleSetContact`, `rayTriangleSoupIntersect` (all indices for an infinite ray), `nearestFrontTriangle` and the fast-move trace in `DetectPhysicsCollisions` loop `TriangleGridCandidates`, keeping their `TriangleInQueryBox` filters.
+- `TriangleGridCandidates` returns a single cell's list directly, or a shared empty list for an empty cell.
+- Void entries carry `solidGrid` instead of `solidTriangles`: terrain voids reuse the carve grid, obstacle voids build one over all parts. `isVoidCancelled` and `IsCutByVoid` use `PointInsideTriangleGrid`. `PointInsideMesh` was removed. Occlusion.js reads `solidGrid.triangles`.
+- A void lining's `floorBounds` or `wallBounds` is `null` when that side has no triangles. The broadphase, `probeVoidWalls` and `AssembleTerrainChunks` skip null sides.
+- `CARVE_GRID_TRIANGLES_PER_CELL` also sizes the collision grids (comment only).
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js), [physics/Collision.js](engine/v1/physics/Collision.js), [NewVoid.js](engine/v1/builder/NewVoid.js), [NewObject.js](engine/v1/builder/NewObject.js), [NewObstacle.js](engine/v1/builder/NewObstacle.js), [Chunks.js](engine/v1/builder/subProcesses/Chunks.js), [Occlusion.js](engine/v1/builder/subProcesses/Occlusion.js), [config.js](engine/v1/core/config.js)
+
+## Variadic MinVector3 and MaxVector3 (0.35.8)
+
+**What:**
+- `MinVector3` and `MaxVector3` take any number of vectors.
+- Chained calls were flattened in `TriangleInQueryBox`, `TriangleAabb` and `behindBlocker`. NewScatter's open-face box uses `TriangleAabb(face)`.
+- `generateSphereUvs` passes `ToVector3(0.0001)` instead of a plain number, which gave a NaN radius.
+
+**Where:** [Vector3.js](engine/v1/math/Vector3.js), [math/Collision.js](engine/v1/math/Collision.js), [Geometry.js](engine/v1/math/Geometry.js), [Render.js](engine/v1/handlers/Render.js), [NewScatter.js](engine/v1/builder/NewScatter.js), [NewObject.js](engine/v1/builder/NewObject.js)
+
+## Chunk-first collision broadphase (0.35.8)
+
+**What:**
+- New `AssembleCollisionChunks` in Chunks.js runs after `FindLoops`. Obstacles join the terrain chunks they touch by the facet-touch rule, and an obstacle touching two chunks merges them. Each chunk is `{ id, worldAabb, members }`. A member is `{ ref, type, rank, seq, aabb, linings }`, with void linings listed under their host, and the member box covers the host and its linings.
+- `fitMember` and `fitChunk` fit the boxes. `AddChunk` gives a spawned terrain mesh or obstacle its own chunk. `RemoveChunkMember` removes it, refits only the chunk box and drops an empty chunk. `boundsFacets` and `expand` moved to module scope.
+- `sceneGraph.chunks` holds the collision chunks (the old `{ id, surfaceIds }` list was replaced), and `sceneGraph.collisionSeq` holds the next order number for spawns.
+- `BroadphaseCollectCandidates` walks chunks, then members, then linings, and sorts by `rank`/`seq` to keep the old candidate order. Triggers and entities are appended after the sort.
+- `SpawnIntoScene` and `DespawnFromScene` keep chunks current. The Simulator rechunks an obstacle after moving it onto the platform.
+
+**Where:** [Chunks.js](engine/v1/builder/subProcesses/Chunks.js), [NewLevel.js](engine/v1/builder/NewLevel.js), [physics/Collision.js](engine/v1/physics/Collision.js), [Level.js](engine/v1/handlers/game/Level.js), [Simulator.js](engine/v1/handlers/game/Simulator.js)
+
+## Debug bounds draws skip when every type is off (0.35.8)
+
+**What:** `drawBoundingBoxes` and `drawDetailedBounds` return before binding the debug line pass and walking their records when every type of their kind is off. The record lists stay built.
+
+**Where:** [Render.js](engine/v1/handlers/Render.js)
+
+## Entities rest (0.35.8)
+
+**What:**
+- An entity, the player included, is marked `physicsRuntime.resting` when a step leaves its position and rotation unchanged and its velocity still. `ApplyPhysicsPipeline` returns at once while it stays resting: velocity still, transform untouched, and no awake entity's box overlapping it (`touchedByMover`).
+- Every entity reuses its overlap and ground results within a step until it moves (was player-only).
+- `shouldSkipCollisionPipeline` and `physicsRuntime.cachePrimed` were removed.
+- `wakeEntities` clears rest on every entity after any non-entity spawn and any despawn.
+
+**Where:** [physics/Master.js](engine/v1/physics/Master.js), [NewEntity.js](engine/v1/builder/NewEntity.js), [Level.js](engine/v1/handlers/game/Level.js)
+
+## 0.35.8 names and comments
+
+**What:**
+- Renames: `PointInsideTriangleGrid` → `PointInsideGrid`, `deepestContactInBox` → `deepestInBox`, `CARVE_GRID_TRIANGLES_PER_CELL` → `GRID_CELL_TRIANGLES`, `updatePhysicsRuntimeCache` → `recordStep`.
+- `AssembleCollisionChunks` returns `{ chunks, seq }` (was `nextSeq`).
+- Comments rewritten as plain one-liners in math/Collision.js, Chunks.js, physics/Master.js, physics/Collision.js and NewEntity.js. No behaviour change.
+
+**Where:** [math/Collision.js](engine/v1/math/Collision.js), [config.js](engine/v1/core/config.js), [NewVoid.js](engine/v1/builder/NewVoid.js), [physics/Collision.js](engine/v1/physics/Collision.js), [physics/Master.js](engine/v1/physics/Master.js), [Chunks.js](engine/v1/builder/subProcesses/Chunks.js), [NewLevel.js](engine/v1/builder/NewLevel.js), [NewEntity.js](engine/v1/builder/NewEntity.js)
+
+## Grid cell constant inlined (0.35.8)
+
+**What:** `GRID_CELL_TRIANGLES` (formerly `CARVE_GRID_TRIANGLES_PER_CELL`) removed from config.js and its export. `BuildTriangleGrid` sizes cells with the literal `2` inline. math/Collision.js no longer imports config.js. No behaviour change.
+
+**Where:** [config.js](engine/v1/core/config.js), [math/Collision.js](engine/v1/math/Collision.js)

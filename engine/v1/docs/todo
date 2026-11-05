@@ -23,7 +23,6 @@ Entity AI:
 Player Abilities:
 - Pretty much have to be custom handlers. Optional use, game can choose to apply effects manually.
 - Maybe some standards? Like double jump? Boosting?
-Ledge balancing: partial rotation at an edge already reads as leaning — build it into an almost-falling state.
 Rework Collectible system into collections with built-in handling support.
 Build new trigger types:
 - Only camera triggers do anything today; custom, dialogue and cutscene validate and fire no events.
@@ -41,10 +40,8 @@ Build Load Screen functionality.
 - Background Image support
 - HTML Element support
 - Music Support
-Add aliases to canonSchemas.json
 Performance Enhancements (DRYAD):
 - Must abide simulation distance:
-  - Any animations. From textures to entities.
   - Runtime instance spawning. Any instance that's being spawned too far, gets enqueued until the player gets close enough.
 
 
@@ -160,7 +157,7 @@ Version Goals:
     - If holding "A", then pressing and releasing "D", "A" stops working until it's pressed again. This must be fixed.
     - Jumping off a sloped surface doesn't feel correct because you keep so much upwards momentum. It can feel like you're still jumping "up" while you're rotated 80 degrees, which is not how jumping should feel.
     - Loops currently emit logs. I'd prefer them running events when engaged and disengaged so the game can actually do something with that data.
-  8. Look into why moving and running through voids causes performance drops. [PENDING]
+  8. Look into why moving and running through voids causes performance drops. [CURRENT]
   9. Refactor Parts & Models Shapes.
     - Refactor the shape of entity definitions in NewEntity.js (including the player's definition)
       - Group the loose runtime fields under physics.runtime/correction/collision/forces. Scope: docs/scoping/builder/entity-runtime-shape-scope.md
@@ -172,6 +169,18 @@ Version Goals:
     - Field references: a field points to another part of the file by path string instead of repeating it. Covers the bulk of the copies.
     - Composed schemas: normalizePayloadSchema takes an array of extra schema keys (replaces the single extraKey). Covers shared field sets between roots (levelObject/objectTemplateShared, levelPart/scatterTemplatePart, levelEntityBlueprint/entityTemplate, generatedTexture/decalTexture).
     - validate.js reads the same schemas and must resolve both the same way.
+  11. New Camera Modes:
+    - fixedCam: Camera is locked to a certain height and distance and cannot be controlled. Rotation is locked.
+      - Movement axes can be locked.
+      - Follows the player through movement.
+      - Auto-scroll addon.
+    - staticCam: Cam follows player freely, but from a locked position. Cannot be controlled.
+      - Teleportation nodes addon. Camera rapidly moves from point to point depending on where the player is (closest wins).
+      - See-through addon.
+    - trackCam: Camera has a fully authored path it follows. Cannot be controlled. Player movement determines where the camera moves.
+      - Interpolates between authored points.
+      - Turns can be smoothed.
+      - Cutscene addon. It's no longer player-dependent and moves based on authored timing.
 - 0.36: Workers (Multi-Threading) [PENDING]
   - Needs a full scoping pass.
   - Consider a coordinator/state manager. If small, an exported "Workforce" object in meta.js acting as the state manager could work quite well. It'd check if workers are available and assign them.
