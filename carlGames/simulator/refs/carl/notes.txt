@@ -1,0 +1,15 @@
+Name: Carl the Urgent Slug Urchin
+Predicted parts:
+- Body: capsule (shallow top, steeper bottom)
+- Muzzle: Sphere
+- Ears: 2x Pyramid
+- Eyebrows: 2x Tube
+- Eyes: 2x sphere (flattened, optional because decal might look better)
+- Tentacles: 7x Tube (2 left, 2 right, 1 top-back, 2 bottom-back)
+- Tail: 3x Tube or many cubes
+- Legs: 2x cylinder
+- Toes: 6x capsule
+- Arms: 2x Tube
+- Hands: 2x Cube (rounded)
+- Spikes: Scatter cones.
+- Feeler Nubs: 5x Tube (1 top, 2 left, 2 right)

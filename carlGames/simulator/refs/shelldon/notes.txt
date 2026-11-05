@@ -1,0 +1,27 @@
+Name: Shelldon Kiddler
+Predicted parts:
+- Head: Sphere (slight rotation, elongated Z)
+- Eyes: 2x Sphere (sockets could be 2 sphere voids)
+- Nose: Diamond (not yet added to engine)
+- Muzzle: Capsule/sphere (might not be needed if eye sockets are voids)
+- Nose-corridor: cylinder + sphere (might not be needed if eye sockets are voids)
+- Neck: Cylinder
+- Ears: Cylinder/tube + tube-void (voids not yet supported on entities)
+- Torso: cylinder/capsule
+  - Chest: 2x cube (rounded)
+  - Pot belly: sphere
+  - Shoulders: Capsule.
+  - Glutes: 2x sphere (mostly flattened, positioned to allow a cleft)
+  - Arms: 4x Capsule
+    - Hands: 2x cube (rounded)
+    - Fingers: 8x capsule/cubes
+- Legs: 4x capsule
+- Feet: 2x capsule
+  - Toes: 6x capsule/cubes
+- Nails: 14x capsule (extremely thin, optional, could be made as a decal instead)
+
+Proportions:
+- Full Height: TBD.
+- Head:Torso:Legs ratio: Two options:
+  1. 1:1.1:1.1
+  2. 1:1:0.7
