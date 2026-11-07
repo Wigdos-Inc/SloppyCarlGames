@@ -11,7 +11,7 @@ Predicted parts:
   - Chest: 2x cube (rounded)
   - Pot belly: sphere
   - Shoulders: Capsule.
-  - Glutes: 2x sphere (mostly flattened, positioned to allow a cleft)
+  - Glutes: 2x sphere/Capsule (mostly flattened, positioned to allow a cleft)
   - Arms: 4x Capsule
     - Hands: 2x cube (rounded)
     - Fingers: 8x capsule/cubes
@@ -21,7 +21,7 @@ Predicted parts:
 - Nails: 14x capsule (extremely thin, optional, could be made as a decal instead)
 
 Proportions:
-- Full Height: TBD.
-- Head:Torso:Legs ratio: Two options:
-  1. 1:1.1:1.1
-  2. 1:1:0.7
+- Full Height: ~1 CNU.
+- Head:Torso:Legs ratio: Two versions:
+  1. 1:1.1:1.1 (Slightly older)
+  2. 1:1:0.7 (slightly younger)
