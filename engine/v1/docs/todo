@@ -158,12 +158,12 @@ Version Goals:
     - Jumping off a sloped surface doesn't feel correct because you keep so much upwards momentum. It can feel like you're still jumping "up" while you're rotated 80 degrees, which is not how jumping should feel.
     - Loops currently emit logs. I'd prefer them running events when engaged and disengaged so the game can actually do something with that data.
   8. Look into why moving and running through voids causes performance drops. [DONE]
-  9. Refactor Parts & Models Shapes.
+  9. Refactor Parts & Models Shapes. [CURRENT]
     - Refactor the shape of entity definitions in NewEntity.js (including the player's definition)
       - Group the loose runtime fields under physics.runtime/correction/collision/forces. Scope: docs/scoping/builder/entity-runtime-shape-scope.md
     - Review the shape of other builder definitions as well.
     - Add a per-part flags field, set once at the boundary (normalize.js for payloads, Instance.js for engine templates) and kept for the part's lifetime. First flags: "has a sprite" and "crossed or sprite", each of which is re-derived in several places today. Other niche part fields may move into it.
-    - Rename the collision layer named "physics" (collision.physics, from the 0.13 physics/hurtbox/hitbox split) to something like "solid".
+    - Rename the collision layer named "physics" (collision.physics, from the 0.13 physics/hurtbox/hitbox split) to something less confusing.
   10. canonSchemas.json Deduplication. [PENDING]
     - 304 of its 804 field definitions are exact copies of another (2026-10-31 count), mostly vector x/y/z and color r/g/b/a leaves.
     - Field references: a field points to another part of the file by path string instead of repeating it. Covers the bulk of the copies.
@@ -193,6 +193,10 @@ Version Goals:
   - Options:
     - "rounding" & "complexity" to Cubes
     - "domeRatio" to Spheres
+    - "topRounding" and "bottomRounding" to Cylinders and tubes.
+      - 
+      - Remove the capsule shape.
+      - Tubes' fraction is based on the size of the last node.
   - Shapes:
     - "diamond" (complexity makes it range from a jewel to something more like a nose)
   - Expand Instance.js to reduce tedious json authoring. Add missing fields. No datatype normalization.
@@ -201,8 +205,18 @@ Version Goals:
   - Move more non-standard fields to primitiveOptions
   - Look into unifying capsule and cylinder.
     - Add "topRounding" and "bottomRounding" primitiveOptions, which equate to how much of the cylinder the cap replaces.
-  - Low-quality scatter should turn spheres into sprites, not square crossed planes. Needs sprite planes in scatter first: DEFERRED [2026-10-27] "Sprite planes in scatter".
+  - "Sprite planes in scatter".
+  - Curved tube connectors insert as many rings per gap as the ring has sides (11 at medium), however little the gap turns (buildTube in NewPrimitive.js). A smooth tube authored with few nodes ends up costing more triangles than hand-placed straight rings (Shelldon's 4-node eyelids: ~908 tris each vs ~560 straight). Scale the insert count with the gap's turn, or make it authorable apart from the side count.
   1. Allow voids on entities (they'll act as carving). Void walls must start supporting decals.
+    - Let entity parts author an isExpected "blend" boolean. 
+      - If true, detect the overlap between the part and it's parent, and exclude the triangles fully overlapping with the parent's bounds from the mesh. 
+      - These parts can no longer be animated and count as part of their parent.
+    - Batch entity draws. Every entity part is its own draw call today (Carl: 40).
+      - Build one buffer per entity, with a part index on each vertex and the part matrices uploaded as a uniform array each frame.
+      - Blended parts take their parent's part index.
+      - Parts still split by shader (uv/triplanar) and texture. One draw per entity needs the face texture atlas (DEFERRED). Texture arrays were ruled out there, because their layers must share one size.
+      - Translucent parts stay separate for back-to-front sorting.
+      - Moving terrain and obstacles will reuse this, so no static-only merge for them.
 - 0.38: Entity AI
   - Blueprint movement fields chase, jump, jumpOnSight, disappear and aggroRange validate but do nothing; devs read them as the AI API.
   - Entity collisionOverride.physics accepts "triangle-soup", but buildBoundsForShape (NewEntity.js) has no case for it, so such an entity silently gets no physics bounds and never collides.

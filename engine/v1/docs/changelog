@@ -572,3 +572,25 @@ ENGINE_SEMANTICS §6 now covers the was/had form for booleans and limits `next` 
 **What:** `GRID_CELL_TRIANGLES` (formerly `CARVE_GRID_TRIANGLES_PER_CELL`) removed from config.js and its export. `BuildTriangleGrid` sizes cells with the literal `2` inline. math/Collision.js no longer imports config.js. No behaviour change.
 
 **Where:** [config.js](engine/v1/core/config.js), [math/Collision.js](engine/v1/math/Collision.js)
+
+## Scatter decals keep their rotation
+
+**What:** `cloneScatterDecal` copies the decal's `localTransform` field by field: `position` and `rotation` through `.clone()`, `scale` through `CloneVector3`. The decal's `Unit` rotation is no longer turned into an `{x, y, z}` of `undefined`, so scatter batch decals get finite placement matrices. NewScatter imports `CloneVector3` in place of `CloneTransform`.
+
+**Where:** [NewScatter.js](engine/v1/builder/NewScatter.js)
+
+## World size is `dimensions`, water height is `topY` (0.35.9)
+
+**What:**
+- **Payload.** `world.length`/`width`/`height` are replaced by `world.dimensions` (`vector3`, each axis ranged 1–100000), with x = old length, y = old height, z = old width. `world.water.level` is renamed `world.water.topY`.
+- **Runtime.** normalize instances `world.dimensions` as a cnu `UnitVector3` and `world.water.topY` as a cnu `Unit`, clamped between `deathBarrierY` and `dimensions.y`.
+- **Readers.** Trigger height and the water meshes (NewLevel), the default level camera's target and far plane (camera/Master), the physics water input (physics/Master), the water clip (Render) and the payload summary log (Level) read the new fields.
+- **Authored data.** The simulator level, testGame's `levels.json` (both stages), `lvl2.json`, the stage 2 preprocessor and the LSM level use the new fields.
+
+**Where:** [canonSchemas.json](engine/v1/core/canonSchemas.json), [normalize.js](engine/v1/core/normalize.js), [NewLevel.js](engine/v1/builder/NewLevel.js), [camera/Master.js](engine/v1/camera/Master.js), [physics/Master.js](engine/v1/physics/Master.js), [Render.js](engine/v1/handlers/Render.js), [Level.js](engine/v1/handlers/game/Level.js), [templates/levels.json](engine/v1/builder/templates/levels.json)
+
+## Carl's brows are solid tubes
+
+**What:** `browLeft` and `browRight` set `primitiveOptions.solid: true`, so they have no inner walls. Carl's base mesh drops from 7,756 to 6,692 triangles.
+
+**Where:** [player/characters.json](engine/v1/player/characters.json)
