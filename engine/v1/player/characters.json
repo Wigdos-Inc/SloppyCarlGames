@@ -1953,7 +1953,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.95, "g": 0.58, "b": 0.15, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1970,8 +1970,10 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.62, "g": 0.85, "b": 0.2, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "mouth", "decalType": "image", "imagePath": "../assets/characters/shelldon/mouth_closed.png", "sourceType": "local", "opacity": 1, "shape": null, "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.01, "z": 0 }, "rotation": 0, "scale": { "x": 0.15, "y": 0.04, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -1987,7 +1989,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.95, "g": 0.35, "b": 0.3, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2004,7 +2006,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.88, "g": 0.8, "b": 1, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.92, "g": 0.9, "b": 0.8, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "iris", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.62, "g": 0.72, "b": 0.16, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0, "z": 0 }, "rotation": 0, "scale": { "x": 0.038, "y": 0.038, "z": 1 } } },
 							{ "id": "pupil", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.04, "g": 0.04, "b": 0.05, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0, "z": 0 }, "rotation": 0, "scale": { "x": 0.02, "y": 0.02, "z": 1 } } }
@@ -2032,7 +2034,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.5, "g": 0.25, "b": 0.8, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2057,7 +2059,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.68, "g": 0.48, "b": 0.92, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2074,7 +2076,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.88, "g": 0.8, "b": 1, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.92, "g": 0.9, "b": 0.8, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "iris", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.62, "g": 0.72, "b": 0.16, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0, "z": 0 }, "rotation": 0, "scale": { "x": 0.038, "y": 0.038, "z": 1 } } },
 							{ "id": "pupil", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.04, "g": 0.04, "b": 0.05, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0, "z": 0 }, "rotation": 0, "scale": { "x": 0.02, "y": 0.02, "z": 1 } } }
@@ -2102,7 +2104,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.5, "g": 0.25, "b": 0.8, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2127,7 +2129,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.68, "g": 0.48, "b": 0.92, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2151,7 +2153,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.75, "b": 0.4, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2175,8 +2177,30 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.75, "b": 0.4, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
+					},
+					"detail": { "scatter": [] }
+				},
+				{
+					"id": "noseCorridor", "label": "noseCorridor", "parentId": "head",
+					"anchorPoint": "center", "attachmentPoint": "center",
+					"shape": "cylinder", "complexity": "low",
+					"addsToBounds": false,
+					"dimensions": { "x": 0.074, "y": 0.07, "z": 0.08 },
+					"localPosition": { "x": 0, "y": 0.022, "z": 0.13 },
+					"localRotation": { "x": -38, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "crinkle1", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.36, "g": 0.47, "b": 0.55, "a": 0.85 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.015, "z": 0 }, "rotation": 0, "scale": { "x": 0.08, "y": 0.0020, "z": 1 } } },
+							{ "id": "crinkle2", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.36, "g": 0.47, "b": 0.55, "a": 0.85 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.008, "z": 0 }, "rotation": 0, "scale": { "x": 0.08, "y": 0.0022, "z": 1 } } },
+							{ "id": "crinkle3", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.36, "g": 0.47, "b": 0.55, "a": 0.85 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.001, "z": 0 }, "rotation": 0, "scale": { "x": 0.08, "y": 0.0024, "z": 1 } } },
+							{ "id": "crinkle4", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.36, "g": 0.47, "b": 0.55, "a": 0.85 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.011, "z": 0 }, "rotation": 0, "scale": { "x": 0.08, "y": 0.0025, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2192,10 +2216,10 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.92, "g": 0.3, "b": 0.6, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.76, "g": 0.6, "b": 0.63, "a": 1 }, "secondary": { "r": 0.64, "g": 0.48, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
-							{ "id": "nostrilLeft", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.42, "g": 0.2, "b": 0.28, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": -0.03, "y": -0.018, "z": 0 }, "rotation": 65, "scale": { "x": 0.012, "y": 0.03, "z": 1 } } },
-							{ "id": "nostrilRight", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.42, "g": 0.2, "b": 0.28, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0.03, "y": -0.018, "z": 0 }, "rotation": -65, "scale": { "x": 0.012, "y": 0.03, "z": 1 } } }
+							{ "id": "nostrilLeft", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.2, "g": 0.09, "b": 0.13, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": -0.03, "y": -0.018, "z": 0 }, "rotation": 65, "scale": { "x": 0.012, "y": 0.03, "z": 1 } } },
+							{ "id": "nostrilRight", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.2, "g": 0.09, "b": 0.13, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0.03, "y": -0.018, "z": 0 }, "rotation": -65, "scale": { "x": 0.012, "y": 0.03, "z": 1 } } }
 						]
 					},
 					"detail": { "scatter": [] }
@@ -2212,7 +2236,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.85, "g": 0.45, "b": 0.1, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": "circle", "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 3, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2229,7 +2253,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.85, "g": 0.45, "b": 0.1, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": "circle", "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 3, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2246,7 +2270,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.95, "g": 0.85, "b": 0.15, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2263,24 +2287,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.95, "g": 0.85, "b": 0.15, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
-					},
-					"detail": { "scatter": [] }
-				},
-				{
-					"id": "noseCorridor", "label": "noseCorridor", "parentId": "head",
-					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "cylinder", "complexity": "low",
-					"addsToBounds": false,
-					"dimensions": { "x": 0.07, "y": 0.07, "z": 0.08 },
-					"localPosition": { "x": 0, "y": 0.022, "z": 0.13 },
-					"localRotation": { "x": -38, "y": 0, "z": 0 },
-					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
-					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.15, "g": 0.72, "b": 0.55, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2296,8 +2303,11 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.35 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.22, "g": 0.42, "b": 0.82, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nippleLeft", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.45, "g": 0.5, "b": 0.62, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": -0.07, "y": 0.103, "z": 0 }, "rotation": 0, "scale": { "x": 0.012, "y": 0.012, "z": 1 } } },
+							{ "id": "nippleRight", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.45, "g": 0.5, "b": 0.62, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0.07, "y": 0.103, "z": 0 }, "rotation": 0, "scale": { "x": 0.012, "y": 0.012, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2305,14 +2315,14 @@
 					"id": "ribcage", "label": "ribcage", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "center",
 					"shape": "capsule", "complexity": "medium",
-					"dimensions": { "x": 0.27, "y": 0.30, "z": 0.20 },
+					"dimensions": { "x": 0.25, "y": 0.30, "z": 0.20 },
 					"localPosition": { "x": 0, "y": 0.09, "z": -0.01 },
 					"localRotation": { "x": -10, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.8 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.42, "g": 0.62, "b": 0.96, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2329,7 +2339,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.08, "g": 0.16, "b": 0.42, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2346,7 +2356,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.08, "g": 0.16, "b": 0.42, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2362,8 +2372,10 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.14, "g": 0.28, "b": 0.62, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "navel", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.36, "g": 0.3, "b": 0.34, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.02, "z": 0 }, "rotation": 90, "scale": { "x": 0.008, "y": 0.014, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2378,65 +2390,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.5, "g": 0.32, "b": 0.18, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
-					},
-					"detail": { "scatter": [] }
-				},
-				{
-					"id": "gluteLeft", "label": "gluteLeft", "parentId": "torso",
-					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "low",
-					"addsToBounds": false,
-					"dimensions": { "x": 0.15, "y": 0.15, "z": 0.12 },
-					"localPosition": { "x": -0.035, "y": -0.09, "z": -0.055 },
-					"localRotation": { "x": 0, "y": 0, "z": 0 },
-					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
-					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.3, "g": 0.55, "b": 0.75, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
-					},
-					"detail": { "scatter": [] }
-				},
-				{
-					"id": "gluteRight", "label": "gluteRight", "parentId": "torso",
-					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "low",
-					"addsToBounds": false,
-					"dimensions": { "x": 0.15, "y": 0.15, "z": 0.12 },
-					"localPosition": { "x": 0.035, "y": -0.09, "z": -0.055 },
-					"localRotation": { "x": 0, "y": 0, "z": 0 },
-					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
-					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.3, "g": 0.55, "b": 0.75, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
-					},
-					"detail": { "scatter": [] }
-				},
-				{
-					"id": "tail", "label": "tail", "parentId": "torso",
-					"anchorPoint": "center", "attachmentPoint": "back",
-					"shape": "tube", "complexity": "low",
-					"addsToBounds": false,
-					"dimensions": { "x": 0.025, "y": 0, "z": 0.025 },
-					"localPosition": { "x": 0, "y": -0.03, "z": 0.015 },
-					"localRotation": { "x": -140, "y": 0, "z": 0 },
-					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {
-						"thickness": 1, "solid": true, "curved": true, "smoothness": 1,
-						"nodes": [
-							{ "dimensions": { "x": 0.02, "y": 1, "z": 0.02 }, "localPosition": { "x": 0, "y": 0.065, "z": 0 }, "localRotation": { "x": 20, "y": 0, "z": 0 }, "thickness": 1, "curved": true, "smoothness": 1 },
-							{ "dimensions": { "x": 0.01, "y": 1, "z": 0.01 }, "localPosition": { "x": 0, "y": 0.065, "z": 0 }, "localRotation": { "x": 30, "y": 0, "z": 0 }, "thickness": 1, "curved": true, "smoothness": 1 },
-							{ "dimensions": { "x": 0.005, "y": 1, "z": 0.005 }, "localPosition": { "x": 0, "y": 0.055, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 0 }, "thickness": 1, "curved": false, "smoothness": 0 }
-						]
-					},
-					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.6, "g": 0.6, "b": 0.62, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2445,14 +2399,14 @@
 					"id": "shoulderLeft", "label": "shoulderLeft", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "center",
 					"shape": "capsule", "complexity": "low",
-					"dimensions": { "x": 0.10, "y": 0.15, "z": 0.12 },
-					"localPosition": { "x": -0.09, "y": 0.16, "z": -0.03 },
+					"dimensions": { "x": 0.10, "y": 0.15, "z": 0.08 },
+					"localPosition": { "x": -0.07, "y": 0.16, "z": -0.03 },
 					"localRotation": { "x": 0, "y": 0, "z": -75 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.4 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.68, "g": 0.82, "b": 1, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2468,7 +2422,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.85, "g": 0.2, "b": 0.2, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2484,7 +2438,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.25 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.45, "b": 0.45, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2500,7 +2454,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.55, "g": 0.08, "b": 0.08, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2517,8 +2471,10 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.72, "b": 0.72, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2534,8 +2490,10 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.72, "b": 0.72, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2551,8 +2509,10 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.72, "b": 0.72, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2568,8 +2528,10 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.44 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.72, "b": 0.72, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.019, "z": 0 }, "rotation": 0, "scale": { "x": 0.012, "y": 0.016, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2577,14 +2539,14 @@
 					"id": "shoulderRight", "label": "shoulderRight", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "center",
 					"shape": "capsule", "complexity": "low",
-					"dimensions": { "x": 0.10, "y": 0.15, "z": 0.12 },
-					"localPosition": { "x": 0.09, "y": 0.16, "z": -0.03 },
+					"dimensions": { "x": 0.10, "y": 0.15, "z": 0.08 },
+					"localPosition": { "x": 0.07, "y": 0.16, "z": -0.03 },
 					"localRotation": { "x": 0, "y": 0, "z": 75 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.4 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.68, "g": 0.82, "b": 1, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2600,7 +2562,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.85, "g": 0.2, "b": 0.2, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2616,7 +2578,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.25 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.45, "b": 0.45, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2632,7 +2594,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.55, "g": 0.08, "b": 0.08, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2649,8 +2611,10 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.72, "b": 0.72, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2666,8 +2630,10 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.72, "b": 0.72, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2683,8 +2649,10 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.72, "b": 0.72, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2700,7 +2668,43 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.44 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 1, "g": 0.72, "b": 0.72, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.019, "z": 0 }, "rotation": 0, "scale": { "x": 0.012, "y": 0.016, "z": 1 } } }
+						]
+					},
+					"detail": { "scatter": [] }
+				},
+				{
+					"id": "gluteLeft", "label": "gluteLeft", "parentId": "torso",
+					"anchorPoint": "center", "attachmentPoint": "center",
+					"shape": "sphere", "complexity": "low",
+					"addsToBounds": false,
+					"dimensions": { "x": 0.15, "y": 0.15, "z": 0.12 },
+					"localPosition": { "x": -0.035, "y": -0.095, "z": -0.055 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": []
+					},
+					"detail": { "scatter": [] }
+				},
+				{
+					"id": "gluteRight", "label": "gluteRight", "parentId": "torso",
+					"anchorPoint": "center", "attachmentPoint": "center",
+					"shape": "sphere", "complexity": "low",
+					"addsToBounds": false,
+					"dimensions": { "x": 0.15, "y": 0.15, "z": 0.12 },
+					"localPosition": { "x": 0.035, "y": -0.095, "z": -0.055 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 },
+					"primitiveOptions": {},
+					"texture": {
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2711,12 +2715,12 @@
 					"shape": "capsule", "complexity": "medium",
 					"dimensions": { "x": 0.07, "y": 0.18, "z": 0.07 },
 					"localPosition": { "x": -0.07, "y": 0.05, "z": -0.01 },
-					"localRotation": { "x": 0, "y": 0, "z": -5 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.2, "g": 0.65, "b": 0.25, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2727,28 +2731,28 @@
 					"shape": "capsule", "complexity": "medium",
 					"dimensions": { "x": 0.055, "y": 0.18, "z": 0.06 },
 					"localPosition": { "x": 0, "y": 0.06, "z": 0 },
-					"localRotation": { "x": 0, "y": 0, "z": 2 },
+					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.25 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.5, "g": 0.88, "b": 0.5, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
 				},
 				{
 					"id": "footLeft", "label": "footLeft", "parentId": "shinLeft",
-					"anchorPoint": "center", "attachmentPoint": "bottom",
+					"anchorPoint": "back", "attachmentPoint": "bottom",
 					"shape": "capsule", "complexity": "medium",
-					"dimensions": { "x": 0.08, "y": 0.12, "z": 0.05 },
-					"localPosition": { "x": 0, "y": 0.01, "z": 0.02 },
+					"dimensions": { "x": 0.08, "y": 0.12, "z": 0.04 },
+					"localPosition": { "x": 0, "y": 0.035, "z": 0.02 },
 					"localRotation": { "x": 90, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.4 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.1, "g": 0.6, "b": 0.68, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2758,15 +2762,17 @@
 					"anchorPoint": "bottom", "attachmentPoint": "top",
 					"shape": "capsule", "complexity": "low",
 					"addsToBounds": false,
-					"dimensions": { "x": 0.022, "y": 0.075, "z": 0.022 },
-					"localPosition": { "x": -0.02, "y": -0.04, "z": 0.0132 },
-					"localRotation": { "x": 0, "y": 0, "z": 10 },
+					"dimensions": { "x": 0.025, "y": 0.075, "z": 0.025 },
+					"localPosition": { "x": -0.02, "y": -0.04, "z": -0.001 },
+					"localRotation": { "x": 8, "y": 0, "z": 10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.55, "g": 0.9, "b": 0.95, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.025, "z": 0 }, "rotation": 0, "scale": { "x": 0.014, "y": 0.015, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2775,15 +2781,17 @@
 					"anchorPoint": "bottom", "attachmentPoint": "top",
 					"shape": "capsule", "complexity": "low",
 					"addsToBounds": false,
-					"dimensions": { "x": 0.024, "y": 0.09, "z": 0.024 },
-					"localPosition": { "x": 0, "y": -0.04, "z": 0.013 },
-					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"dimensions": { "x": 0.028, "y": 0.09, "z": 0.028 },
+					"localPosition": { "x": 0, "y": -0.04, "z": -0.002 },
+					"localRotation": { "x": 6, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.55, "g": 0.9, "b": 0.95, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.032, "z": 0 }, "rotation": 0, "scale": { "x": 0.015, "y": 0.016, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2792,15 +2800,17 @@
 					"anchorPoint": "bottom", "attachmentPoint": "top",
 					"shape": "capsule", "complexity": "low",
 					"addsToBounds": false,
-					"dimensions": { "x": 0.025, "y": 0.10, "z": 0.025 },
-					"localPosition": { "x": 0.02, "y": -0.04, "z": 0.013 },
-					"localRotation": { "x": 0, "y": 0, "z": -10 },
+					"dimensions": { "x": 0.030, "y": 0.10, "z": 0.030 },
+					"localPosition": { "x": 0.02, "y": -0.04, "z": -0.003 },
+					"localRotation": { "x": 6, "y": 0, "z": -10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.55, "g": 0.9, "b": 0.95, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.037, "z": 0 }, "rotation": 0, "scale": { "x": 0.016, "y": 0.017, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2809,13 +2819,13 @@
 					"anchorPoint": "top", "attachmentPoint": "bottom",
 					"shape": "capsule", "complexity": "medium",
 					"dimensions": { "x": 0.07, "y": 0.18, "z": 0.07 },
-					"localPosition": { "x": 0.055, "y": 0.05, "z": -0.01 },
+					"localPosition": { "x": 0.07, "y": 0.05, "z": -0.01 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.2, "g": 0.65, "b": 0.25, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2831,23 +2841,23 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.25 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.5, "g": 0.88, "b": 0.5, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
 				},
 				{
 					"id": "footRight", "label": "footRight", "parentId": "shinRight",
-					"anchorPoint": "center", "attachmentPoint": "bottom",
+					"anchorPoint": "back", "attachmentPoint": "bottom",
 					"shape": "capsule", "complexity": "medium",
-					"dimensions": { "x": 0.08, "y": 0.12, "z": 0.05 },
-					"localPosition": { "x": 0, "y": 0.01, "z": 0.02 },
+					"dimensions": { "x": 0.08, "y": 0.12, "z": 0.04 },
+					"localPosition": { "x": 0, "y": 0.035, "z": 0.02 },
 					"localRotation": { "x": 90, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.5 },
+					"primitiveOptions": { "rounding": 0.4 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.1, "g": 0.6, "b": 0.68, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2857,15 +2867,17 @@
 					"anchorPoint": "bottom", "attachmentPoint": "top",
 					"shape": "capsule", "complexity": "low",
 					"addsToBounds": false,
-					"dimensions": { "x": 0.022, "y": 0.075, "z": 0.022 },
-					"localPosition": { "x": 0.02, "y": -0.04, "z": 0.0132 },
-					"localRotation": { "x": 0, "y": 0, "z": -10 },
+					"dimensions": { "x": 0.025, "y": 0.075, "z": 0.025 },
+					"localPosition": { "x": 0.02, "y": -0.04, "z": -0.001 },
+					"localRotation": { "x": 8, "y": 0, "z": -10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.55, "g": 0.9, "b": 0.95, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.025, "z": 0 }, "rotation": 0, "scale": { "x": 0.014, "y": 0.015, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2874,15 +2886,17 @@
 					"anchorPoint": "bottom", "attachmentPoint": "top",
 					"shape": "capsule", "complexity": "low",
 					"addsToBounds": false,
-					"dimensions": { "x": 0.024, "y": 0.09, "z": 0.024 },
-					"localPosition": { "x": 0, "y": -0.04, "z": 0.013 },
-					"localRotation": { "x": 0, "y": 0, "z": 0 },
+					"dimensions": { "x": 0.028, "y": 0.09, "z": 0.028 },
+					"localPosition": { "x": 0, "y": -0.04, "z": -0.001 },
+					"localRotation": { "x": 6, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.55, "g": 0.9, "b": 0.95, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
-						"custom": []
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.032, "z": 0 }, "rotation": 0, "scale": { "x": 0.015, "y": 0.016, "z": 1 } } }
+						]
 					},
 					"detail": { "scatter": [] }
 				},
@@ -2891,14 +2905,40 @@
 					"anchorPoint": "bottom", "attachmentPoint": "top",
 					"shape": "capsule", "complexity": "low",
 					"addsToBounds": false,
-					"dimensions": { "x": 0.025, "y": 0.10, "z": 0.025 },
-					"localPosition": { "x": -0.02, "y": -0.04, "z": 0.013 },
-					"localRotation": { "x": 0, "y": 0, "z": 10 },
+					"dimensions": { "x": 0.030, "y": 0.10, "z": 0.030 },
+					"localPosition": { "x": -0.02, "y": -0.04, "z": -0.001 },
+					"localRotation": { "x": 6, "y": 0, "z": 10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": { "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.55, "g": 0.9, "b": 0.95, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"custom": [
+							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.037, "z": 0 }, "rotation": 0, "scale": { "x": 0.016, "y": 0.017, "z": 1 } } }
+						]
+					},
+					"detail": { "scatter": [] }
+				},
+				{
+					"id": "tail", "label": "tail", "parentId": "torso",
+					"anchorPoint": "center", "attachmentPoint": "back",
+					"shape": "tube", "complexity": "low",
+					"addsToBounds": false,
+					"dimensions": { "x": 0.10, "y": 0, "z": 0.045 },
+					"localPosition": { "x": 0, "y": -0.03, "z": 0.03 },
+					"localRotation": { "x": -140, "y": 0, "z": 0 },
+					"localScale": { "x": 1, "y": 1, "z": 1 },
+					"pivot": { "x": 0, "y": 0, "z": 0 },
+					"primitiveOptions": {
+						"thickness": 1, "solid": true, "curved": true, "smoothness": 1,
+						"nodes": [
+							{ "dimensions": { "x": 0.065, "y": 1, "z": 0.040 }, "localPosition": { "x": 0, "y": 0.0587, "z": 0.0075 }, "localRotation": { "x": 14.5, "y": 0, "z": 0 }, "thickness": 1, "curved": true, "smoothness": 1 },
+							{ "dimensions": { "x": 0.035, "y": 1, "z": 0.030 }, "localPosition": { "x": 0, "y": 0.0587, "z": 0.0075 }, "localRotation": { "x": 14.5, "y": 0, "z": 0 }, "thickness": 1, "curved": true, "smoothness": 1 },
+							{ "dimensions": { "x": 0.008, "y": 1, "z": 0.008 }, "localPosition": { "x": 0, "y": 0.0587, "z": 0.0075 }, "localRotation": { "x": 14.5, "y": 0, "z": 0 }, "thickness": 1, "curved": false, "smoothness": 0 }
+						]
+					},
+					"texture": {
+						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
