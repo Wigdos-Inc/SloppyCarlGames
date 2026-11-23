@@ -13,7 +13,7 @@ engine/
       canonSchemas.json // Live canonical schema, aliases, normalization/validation metadata for payload fields.
 
     builder/
-      NewBoss.js // Builder for creating boss entities
+      NewBoss.js // Comment-only stub; bosses build through NewEntity.js as type "boss"
       NewEntity.js // Builder for generic entity model creation (anything that supports being animated)
       NewLevel.js // Builder for creating levels from incoming data (uses most other builders)
       NewObject.js // Builder of 3D meshes (mainly to be used by other builders)
@@ -21,19 +21,24 @@ engine/
       NewPrimitive.js // Primitive shape geometry (cube, sphere, tube, ramps, ...); BuildGeometry, used by NewObject.js and NewScatter.js
       NewParticles.js // Resolves particle templates + per-call overrides into randomized particle-group entities (GenerateParticles)
       NewTemplate.js // Resolves shape:"template" references and repeat expansion for terrain/obstacle/entity builders
-      NewTerrain.js // Terrain builder; BuildTerrains supports both single-part and (new) flattened multi-part composition
-      NewScatter.js // Procedurally generated multi-part static object scatter models placed on top of meshes.
+      NewTerrain.js // Terrain builder; BuildTerrain builds single-part objects and flattened multi-part composition
+      NewScatter.js // Builds instanced scatter batches on top of terrain meshes and obstacle parts
       NewTexture.js // Procedurally generated texture mapping onto meshes.
       NewUI.js // Builder of UI components (mainly HTML elements)
       NewVoid.js // Builds void wall meshes and clips host surfaces to the void solid for openings (used by NewLevel.js)
+      subProcesses/
+        Chunks.js // Terrain surface chunks and collision chunks (the physics broadphase walks them)
+        Loops.js // Loop surfaces and tube centerlines from the terrain chunk links
+        Occlusion.js // Terrain blockers for occlusion culling, with void cuts
       templates/
-        Instance.js // Boot-time Unit-instancing of engine-owned template JSON; exports InstanceEngineTemplates() (called from core/ini.js)
+        Instance.js // Boot-time Unit-instancing of engine-owned template JSON, plus game template registration
         characters.json // Character templates (shape:"template" refs of type "character")
         enemies.json // Enemy templates (shape:"template" refs of type "enemy")
         levels.json // Level and simulator template definitions
         obstacles.json // Obstacle templates (shape:"template" refs, terrain/obstacle role "obstacle")
         particles.json // Particle types (color/velocity/spread/duration/physics + a single part prototype); resolved by NewParticles.js
         projectiles.json // Projectile templates (shape:"template" refs of type "projectile")
+        scatter.json // Scatter types (placement levers, scale range and parts)
         terrain.json // Terrain templates (shape:"template" refs, terrain/obstacle role "terrain")
         textures.json // Texture preset definitions
 
@@ -45,7 +50,7 @@ engine/
       UI.js // UI handler (UI state manager)
       game/
         Animation.js // Level entity animation handler based on entity states
-        Boss.js // Boss behavior handler
+        Boss.js // Comment-only stub
         Collectible.js // Collectible item behavior
         Enemy.js // Enemy behavior handler
         Level.js // Level lifecycle and orchestration (entire level state manager)
@@ -73,9 +78,10 @@ engine/
       Master.js // Cutscene state manager.
 
     math/
-      Collision.js // Physics math helpers: overlap, sweep, ray, projection, and closed-mesh solid queries
+      Collision.js // Collision math: narrowphase contacts, triangle grids and soups, overlap, sweep, ray and solid queries
       Curves.js // Easings, cubic-Bezier tube connector centerlines, and rotation-minimizing frames
-      Forces.js // Pure gravity, buoyancy, resistance, and submergence math helpers
+      Forces.js // Pure gravity, buoyancy, resistance, deceleration and submergence math helpers
+      Geometry.js // Triangle, box and collider-from-box geometry, polygon splitting, closest points and linked groups
       Matrix.js // 4x4 matrix creation and transform composition helpers
       Vector3.js // 3D vector math utilities
       Utilities.js // Utility math functions (includes Unit/UnitVector3 classes).
@@ -88,17 +94,20 @@ engine/
       Master.js // Physics pipeline manager and orchestrator for moving entities
 
     player/
-      Abilities.js // Player ability definitions and applications (accepts handlers from games).
-      Animation.js // Player-specific animation handler.
+      Abilities.js // Comment-only stub
+      Animation.js // Empty file
       Master.js // Player master controller (player state manager)
       Model.js // Assembles the player as an entity via builder/NewEntity.js from a characters.json template
       Movement.js // Movement handler for player
       characters.json // Player character presets
 
-    rules/ // Engine rule documents governing module structure and implementation constraints
-    system_map/ // SAGE-maintained per-system reference documentation (one entry per module group)
+    docs/
+      rules/ // Engine rule documents governing module structure and implementation constraints
+      system_map/ // SAGE-maintained per-system reference documentation (one entry per module group)
+      status/ // DEFERRED.md and AGENT_LOG.md
+      changelog // Engine changes since the last docs update
+      todo // Engine task notes
     testGame/ // Example/integration game used to exercise the engine API
-    todo // Engine task notes
 
 Notes:
 - Builders create 2D HTML elements and 3D WebGL2 meshes and are called by state managers.

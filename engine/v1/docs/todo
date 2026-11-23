@@ -158,7 +158,7 @@ Version Goals:
     - Jumping off a sloped surface doesn't feel correct because you keep so much upwards momentum. It can feel like you're still jumping "up" while you're rotated 80 degrees, which is not how jumping should feel.
     - Loops currently emit logs. I'd prefer them running events when engaged and disengaged so the game can actually do something with that data.
   8. Look into why moving and running through voids causes performance drops. [DONE]
-  9. Refactor Parts & Models Shapes. [CURRENT]
+  9. Refactor Parts & Models Shapes. [DONE]
     - Refactor the shape of entity definitions in NewEntity.js (including the player's definition)
       - Group the loose runtime fields under physics.runtime/correction/collision/forces. Scope: docs/scoping/builder/entity-runtime-shape-scope.md
     - Review the shape of other builder definitions as well.
@@ -189,16 +189,17 @@ Version Goals:
       - Could contain runtime noise-rebaking. Candidate for permanent worker slot.
     - Entity Pathfinding (0.38). Candidate for a permanent worker slot (cannot be assigned to other tasks).
     - think of more candidates just in case...
-- 0.37: Primitive Expansion
+- 0.37: Primitive Expansion [PENDING]
   - Options:
     - "rounding" & "complexity" to Cubes
     - "domeRatio" to Spheres
     - "topRounding" and "bottomRounding" to Cylinders and tubes.
-      - 
       - Remove the capsule shape.
       - Tubes' fraction is based on the size of the last node.
   - Shapes:
     - "diamond" (complexity makes it range from a jewel to something more like a nose)
+    - "wedge" (think of a cheese slice. Might help if used as a void for mouths)
+    - "crescent" (like a banana)
   - Expand Instance.js to reduce tedious json authoring. Add missing fields. No datatype normalization.
     - Remove dead fields in Engine json.
     - Update engine rule docs.
@@ -207,7 +208,7 @@ Version Goals:
     - Add "topRounding" and "bottomRounding" primitiveOptions, which equate to how much of the cylinder the cap replaces.
   - "Sprite planes in scatter".
   - Curved tube connectors insert as many rings per gap as the ring has sides (11 at medium), however little the gap turns (buildTube in NewPrimitive.js). A smooth tube authored with few nodes ends up costing more triangles than hand-placed straight rings (Shelldon's 4-node eyelids: ~908 tris each vs ~560 straight). Scale the insert count with the gap's turn, or make it authorable apart from the side count.
-  1. Allow voids on entities (they'll act as carving). Void walls must start supporting decals.
+  1. Allow voids on entities (they'll act as carving). Void walls must start supporting decals. [PENDING]
     - Let entity parts author an isExpected "blend" boolean. 
       - If true, detect the overlap between the part and it's parent, and exclude the triangles fully overlapping with the parent's bounds from the mesh. 
       - These parts can no longer be animated and count as part of their parent.
@@ -217,7 +218,27 @@ Version Goals:
       - Parts still split by shader (uv/triplanar) and texture. One draw per entity needs the face texture atlas (DEFERRED). Texture arrays were ruled out there, because their layers must share one size.
       - Translucent parts stay separate for back-to-front sorting.
       - Moving terrain and obstacles will reuse this, so no static-only merge for them.
-- 0.38: Entity AI
+  2. Anchor, pivot and local transform rework: [PENDING]
+    - anchorPoint names a face of the part standing upright. The engine turns the part (smallest turn) so that face meets the parent's attachmentPoint. Opposite faces and "center" get no turn. Same-direction faces flip around x.
+    - After the turn, faces are renamed by where they point along the parent's axes. Children's attachmentPoint uses the new names.
+    - dimensions stay on the part's own upright axes.
+    - localPosition, localScale and pivot read along the renamed axes, and apply before localRotation. localScale z+ grows the part along its renamed front/back faces.
+    - localRotation turns around the anchor (after localPosition), moved by pivot. pivot only moves the rotation origin, never the part. Scale uses the same origin.
+    - Applies at build, in runtime animation (which rotates around the part's centre today) and in bounds.
+    - Open: whether a parent's scale moves its children's attachment points. Today it scales their meshes but not where they attach.
+    - Re-author the turned parts: chara/chara_prop arms and 17 parts in builder/templates/characters.json. Shelldon and Jeff are in DEFERRED. Carl is skipped (full remodel).
+  3. Optionally block scatter on decals. [PENDING]
+  4. Add scatter support to voids. [PENDING]
+  5. Block scatter inside objects. [PENDING]
+    - Block generation if cheaper than post-generation block.
+    - Mark for runtime culling for moving platforms.
+  6. Scatter Placement Rework [PENDING]
+    - Per-type density: each scatter type in scatter.json defines its own density (models per cnu² at game density 1), replacing the hardcoded ÷ 18 in NewScatter.js. Add the field to the scatterTemplate schema.
+    - Delete clusterThreshold and fold it into the new density. Today it's uniform random thinning (each candidate's own seed feeds the hash), not clumping.
+    - Proper slope handling: replace noiseScale/slopeMax (a sine stripe test that never fires for any engine type) with a limit based on the normal of the face scatter grows on.
+    - Face handling: let scatter attach to a chosen face of its host. Today it only grows on the host's top.
+    - Delete heightMin/heightMax. They're absolute world heights the engine shouldn't define, and a level outside -100..999 silently gets no scatter.
+- 0.38: Entity AI [PENDING]
   - Blueprint movement fields chase, jump, jumpOnSight, disappear and aggroRange validate but do nothing; devs read them as the AI API.
   - Entity collisionOverride.physics accepts "triangle-soup", but buildBoundsForShape (NewEntity.js) has no case for it, so such an entity silently gets no physics bounds and never collides.
   - Make SimRadius a calculation rather than authorable.
@@ -225,11 +246,11 @@ Version Goals:
     - SimRadius will equal: (velocity.max / 10) * (60 / CONFIG.Performance.FrameRate)
     - Double SimRadius for the player
     - SimRadius is in CNU. velocity.max is CNU/s
-  1. Add optional Q/W rotation controls & add full custom player controls support.
-  2. Add optional Swimming & Flying states.
-  3. Add player/characters.json animation authoring support.
+  1. Add optional Q/W rotation controls & add full custom player controls support. [PENDING]
+  2. Add optional Swimming & Flying states. [PENDING]
+  3. Add player/characters.json animation authoring support. [PENDING]
   x. Bug fixes.
-- 0.39: Additional Control Schemes
+- 0.39: Additional Control Schemes [PENDING]
   - Controller Support.
   - Custom control bindings.
     - Add gameplay controls bindings to API_CONFIG so games don't have to run custom event listeners (they still can if they want).
@@ -240,51 +261,46 @@ Version Goals:
       - The Simulator has a hardcoded controls scheme.
   - Input magnitude is ignored: Movement normalizes the direction, so forward: 0.5 is full speed. Analog sticks need it.
   - No invert-Y option.
-- 0.40: Combat Expansion
+- 0.40: Combat Expansion [PENDING]
   - Player hp is a stale 3 nothing reads; damage is ring rules only. Games build hearts/HP/i-frames themselves.
   - One enemy hit soft-locks the player: Stunned and invulnerable are set, but nothing counts the timer down or leaves Stunned before respawn.
   x. Bug fixes.
-- 0.41: Collectible Rework
-  1. Bug fixes.
-  2. Increase game-side control in sub-systems.
-  3. Load Screen functionality.
-- 0.42: Abilities Support:
+- 0.41: Collectible Rework [PENDING]
+  1. Bug fixes. [PENDING]
+  2. Increase game-side control in sub-systems. [PENDING]
+  3. Load Screen functionality. [PENDING]
+- 0.42: Abilities Support: [PENDING]
   - Standard simple abilities.
   - Player.Input.boost is read by nothing, and nothing sets playerState.boost.active. LSM wrote GetState().boost directly for sprint.
-  - 
-- 0.43: Moving Terrain & Obstacles.
+  - Custom ability handlers/events.
+- 0.43: Moving Terrain & Obstacles. [PENDING]
   - Moving terrain gets no occlusion blocker pieces (static-only blocking is permanent); it can still be hidden.
 - 0.44: DEFERRED Backlog Cleanup
-  1. Optionally block scatter on decals.
-  2. Add scatter support to voids.
-  3. Block scatter inside objects.
-    - Block generation if cheaper than post-generation block.
-    - Mark for runtime culling for moving platforms.
-  4. ApplyLevelUI [PENDING]
+  1. ApplyLevelUI [PENDING]
     - ApplyMenuUI becomes strictly non-level menus that replace each other.
     - ApplyLevelUI layers in-level UI (HUDs, inventories, pause menus, tooltips) on top of each other, optionally pausing gameplay while open. Shares most logic with ApplyMenuUI.
     - Complaint: ApplyMenuUI mid-level resets the input event types, killing mouse look, wheel and arrow look until pause/resume. HUDs had to be applied before CreateLevel with every later element pre-built and hidden.
     - Complaint: no way to update an element's text or style; live HUD values go through document.getElementById.
-  5. Level Music Playlist [PENDING]
+  2. Level Music Playlist [PENDING]
     - Level music block gains "start", "loop" and "shuffle".
       - start: optional track, always the first to play when the level starts.
       - loop: array of tracks played one after another after start, looping forever.
       - shuffle: picks loop tracks at random; the same track never plays twice in a row unless loop holds only one.
     - Complaint: level music was validated and normalized but never played; testGame plays it itself after CreateLevel, and nothing pauses it with the level.
-- 0.45: Lighting & Shadows.
-- 0.46: Add entity (player, npcs, bosses) accessories support.
+- 0.45: Lighting & Shadows. [PENDING]
+- 0.46: Add entity (player, npcs, bosses) accessories support. [PENDING]
   - Pre-built, but not rendered (or zero-scaled).
   - Accessories can be toggled individually through the API.
-- 0.47: Populate Templates, Scatter & Textures.
-- 0.48: Engine Cutscenes
-  1. Add credits builder.
-  2. Add dialogue system.
+- 0.47: Populate Templates, Scatter & Textures. [PENDING]
+- 0.48: Engine Cutscenes [PENDING]
+  1. Add credits builder. [PENDING]
+  2. Add dialogue system. [PENDING]
     - Both vocal and text-boxes.
-- 0.49: Add testGame boss level.
-  1. Full optimization sweep.
+- 0.49: Add testGame boss level. [PENDING]
+  1. Full optimization sweep. [PENDING]
   x. Debug & finish testGame level 2.
   x. Debugging.
-- 1.0: Full API & Documentation
+- 1.0: Full API & Documentation [PENDING]
   - Add canonSchemas aliases.
   - Improve validation errors and warnings.
     - Errors only give the generic path, not the actual degenerate entry.
@@ -293,7 +309,7 @@ Version Goals:
   - Remove Unit and UnitVector3 from the Engine API. Games read and write raw vectors; the API restores instancing on write and strips it on read.
     - Complaint: one object mixes types (transform.position/velocity are UnitVector3, scale and facing are plain), and .set(x, y, z) silently writes undefined.
   - Game-developer API reference: StartupGuide stops at the title screen and system_map is engine-internal. LSM found the API by dumping ENGINE in the console.
-- 1.1: CarlNet Editor
+- 1.1: CarlNet Editor [PENDING]
   - Transform the Simulator App to a proper 3D editor.
     - It will be capable of adding, resizing and moving objects to build models.
     - This allows the building of entities, bosses, obstacles and terrain chunks.
@@ -304,8 +320,8 @@ Version Goals:
     - Right-click to deselect the current object(s) so you can select a new one (or multiple)
     - Drag to select multiple objects, the same action wheel opens, but greys out single-target options.
     - 
-  1. Latina & Custom Character Support.
+  1. Latina Support. [PENDING]
   x. Bug fixes.
-- 1.2: Build levels progressively rather than at once.
+- 1.2: Build levels progressively rather than at once. [PENDING]
   - Build a level chunk only when its within simDistance*2.
-- 1.3: Mobile & Controller Support.
+- 1.3: Mobile & Controller Support. [PENDING]

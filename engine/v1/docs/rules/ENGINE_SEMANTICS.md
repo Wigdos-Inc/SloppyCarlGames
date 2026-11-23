@@ -22,6 +22,10 @@ Read only the comment, at speed. You should know what the code below does, and w
 - **Under 100 characters, indentation included.** Complex code may stretch to 150. Never past 150: the reader would have to scroll.
 - **Plain words.** Jargon that stops the reader ("ulp", "coincident boundary plane") fails, even in one line.
 - **Readable, not compressed.** Squeezing a comment into a cryptic fragment fails as badly as an essay. Don't drop the nuance the reader needs, but communicate it directly.
+- **Direct, not roundabout.** State the result plainly ("Find the exact shape of the hole the void cuts in the host's surface.") instead of walking the reader to it ("Cut the host's surface down to the parts inside the void, giving the exact shape of the opening.").
+- **Function comments name the job only.** A detail about one step goes at that step, or nowhere. In a tiny function, a step comment that grows the body isn't worth it. If the detail is crucial, it goes in a `// Note:` directly under the function comment.
+- **Values aren't spelled out.** A comment at a return names the action ("Cache the empty side."), not the values the code below already shows.
+- **No second sentence that repeats or points at the code below.** "Only enemies have an aggro range." above `if (type === "enemy") meta.aggroRange = …`, or "The tube's own fields are resolved below." above the block that resolves them, adds nothing the code doesn't show. Cut it.
 - **About this code.** The comment relates to the code directly below it. Mentions of other modules or systems that this code doesn't touch don't belong.
 - **Readable in isolation.** Read it as if you don't know what the code does. If it only makes sense once you already understand the code, it does nothing.
 - **Accurate for the whole block.** A comment above a block must describe the block, not just its first line, and must never claim something the code doesn't do. If it's about one important line, separate that line with a blank line on either side so the comment covers only it.
@@ -48,14 +52,15 @@ Read only the comment, at speed. You should know what the code below does, and w
 - **Switch cases are a ladder, like object fields.** No comment lines or blank lines between cases. A case that needs a note gets a trailing comment.
 - **Order-critical lines** stand apart: blank lines around them, the comment above, naming the specific things involved.
 - **Reference tables**, such as a shader attribute layout.
-- **File headers are exempt.** Line 1 is the module's one-line purpose; the lines below say what it uses and what uses it.
+- **File headers are exempt.** Line 1 is the module's one-line purpose; the lines below say what it uses and what uses it. Each module gets exactly one line with one purpose. When it serves several, name the main one or one that covers them all ("to test where voids and hosts overlap"). Never split a module across lines. Modules used for the same purpose share one line with a neutral target ("Uses handlers/game/Animation.js and Texture.js to run animations.").
 - **JSDoc `@param` lists only for complex functions.** Otherwise a single `//` line.
+- **Loose punctuation, spelling and phrasing.** A missing period, a typo or an odd turn of phrase stays when the comment still reads clearly. Never tidy them for neatness. The author's comments are inconsistent by nature, and uniform polish reads as robotic.
 
 ### 1.4 Forbidden Patterns
 
 **A. The essay**: multi-line reasoning.
 
-**B. The reasoning chain**: walks the reader to a conclusion ("X is Y, so Z") instead of saying what the code does.
+**B. The reasoning chain**: walks the reader to a conclusion ("X is Y, so Z") instead of saying what the code does. Tucking a word in before the "so" is the same chain: "Surface support, floored so walls still brake" becomes "Floor the surface support to keep walls braking".
 
 ```js
 // No physics pipeline runs here, so anything but "none" would emit and never move.
@@ -232,15 +237,15 @@ Bad: passing an import through.
 
 ```js
 // builder/NewTexture.js
-import VISUAL_TEMPLATES from "./templates/textures.json" with { type: "json" };
-export { VISUAL_TEMPLATES };
+import textureTemplates from "./templates/textures.json" with { type: "json" };
+export { textureTemplates };
 ```
 
 Good: each consumer imports from the source.
 
 ```js
 // builder/NewVoid.js
-import VISUAL_TEMPLATES from "./templates/textures.json" with { type: "json" };
+import textureTemplates from "./templates/textures.json" with { type: "json" };
 ```
 
 ---
@@ -256,7 +261,7 @@ Inline a constant when the line stays readable. When it doesn't, break the chain
 - **Subchains sit just before their use.** Each declares only what the code directly below it needs, with a blank line above it.
 - **Widely used constants go at the top** of their scope, separated from the subchains by a blank line.
 - **Long property paths used throughout a scope are destructured at its top.** Not for a path used only once or twice.
-- **A constant that only shortens a path is destructured instead**, so its uses drop the prefix: `const { maxSpeed } = target.character.meta;` over `const meta = target.character.meta;`.
+- **Destructuring is for pulling out several fields at once.** A single field is a plain variable, including from a function's result or in a loop: `const water = sceneGraph.world.water;` over `const { water } = sceneGraph.world;`, and `for (const part of parts)` over `for (const { mesh } of parts)`.
 
 ```js
 const { Gravity, Correction } = CONFIG.Physics;
@@ -267,7 +272,7 @@ const { Look, Loops, Modes, Body } = CAMERA_TUNING;
 
 A constant stays on one line unless its value is an array, object or ternary. Any other value too long for one line is split into smaller constants within its subchain.
 
-A declared function that spans lines uses `function`. Only a one-line function is declared as a `const` arrow. Callbacks passed inline, such as to `forEach` or `map`, are exempt.
+A module-level function that spans lines uses `function`. Only a one-line module-level function is declared as a `const` arrow. A function nested inside another function is a `const` arrow, to set it apart from its parent. Callbacks passed inline, such as to `forEach` or `map`, are exempt.
 
 A loop or statement never shares its line with more than one action. If its body needs braces, the body spans lines: `if (x) { a(); return; }` and `for (const p of list) { a(p); b(p); }` on one line are not allowed.
 
@@ -440,10 +445,12 @@ A name too long for three words is over-describing. Drop what the surrounding mo
 | Does this module export something it imported? | Remove it; consumers import from the source |
 | Is this a long unbroken chain of constants? | Break it into subchains just before their use; widely used ones go at the top |
 | Does this constant span lines without being an array, object or ternary? | Split it into one-line constants |
-| Does a declared function span lines? | Declare it with `function` |
+| Does a module-level function span lines? | Declare it with `function` |
+| Is a function nested inside another function? | Declare it as a `const` arrow |
 | Does a braced loop or statement body sit on one line? | Split it across lines; only short `return`s are exempt |
 | Do consecutive ifs share the same result? | Merge them into one `if`; a long condition opens with `if (` alone, ends each line on its operator and closes with `) {` and a braced body |
 | Is a long property path repeated throughout this scope? | Destructure it at the top |
+| Does a destructuring pull out a single field? | Use a plain variable instead |
 | Does this name hold how something was before? | Prefix it `last`; a boolean uses the past tense (`wasGrounded`) |
 | Is this name deliberately the next in a sequence, beside a current one? | Prefix it `next`; this frame's value takes no prefix |
 | Does this name need four words or more? | Shorten it to one to three; fold a single-caller helper into its caller |

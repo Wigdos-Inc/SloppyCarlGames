@@ -20,3 +20,280 @@ Examples:
 ## Log
 
 (empty — no entries since last weekly report)
+- [2026-11-20] MAIN: 0.35.9 entity walkthrough, group 7 part 3 follow-up: `hp` moved to `combat`. This completes the NewEntity walkthrough (groups 1 to 7).
+    - **Rulings:**
+      - `character.meta` stays as it is.
+      - `hp` belongs in `combat` with the other combat state, on every entity including the player.
+    - **Facts MAIN gave first:**
+      - The player's `hp` (hardcoded 3 in `synthesizeDefinition`) has no reader; player damage drops collectibles instead.
+      - The only runtime `hp` reader is `Enemy.js`, for enemies the player hits.
+    - **Runtime-only move:**
+      - Authored payloads keep `meta { hp, aggroRange }`.
+      - `NewEntity` splits `hp` into `combat { hp, attacks, hitboxActive, invulnerable }` when it assembles the entity, the same way `attacks` is authored at the top level but lives in `combat` at runtime.
+      - Each entity now holds its own `hp` number. Before, `entity.meta` was the definition's own meta object.
+      - Runtime `meta` keeps the rest: `{ aggroRange }` on enemies, `{}` on everything else, including the player.
+      - Schemas, normalize, `NewTemplate`, `Instance.js` and content files are unchanged.
+    - **Checks:** `node --check` and the `.mjs` checks pass on both files.
+    - **Browser check (5500, Zone 1 Stage 1):**
+      - `enemy-01`: `hp` 6, `meta { aggroRange 14 }`. `enemy-02`: 8, `{ aggroRange 18 }`. These match the earlier meta check.
+      - `npc-01` 10, `collectible-01` 1, particles 1, player 3. All of these have `meta {}`.
+      - The Simulator load of `template.template-chara` gives `hp` 1 with an empty `meta`.
+      - **Not exercised:** the enemy `hp` decrement. Combat hits are off in config.
+      - **Console:** the only error is the intended `null-shaft-a` refusal.
+    - **DEFERRED 2026-10-25 entry deleted:** it was verified against the source.
+      - The entity literal has the `physics`, `combat`, `display` and `pathfinding` groups, with no `state` or `physicsRuntime`.
+      - The player builds through `BuildEntity`, with its flags on `movement.physics`.
+      - Its scope doc, `docs/scoping/builder/entity-runtime-shape-scope.md`, is now stale.
+- [2026-11-20] MAIN: 0.35.9 builder walkthrough moved from NewEntity to NewParticles. Part 1 covered the synthesized particle definition, plus engine-wide follow-ups.
+    - **Scope doc deleted:** at the author's request, MAIN deleted the stale `docs/scoping/builder/entity-runtime-shape-scope.md`. Only AGENT_LOG history referenced it.
+    - **Rulings:**
+      - **Empty `meta`:** an entity whose `meta` is empty doesn't carry the key. This applies to every type.
+      - **Particles:** they drop `hp`, `attacks` and `platform`, and get no `combat` group at all.
+      - **`platform`:** nothing ever reads it and content always sets it to null, so it's deleted everywhere.
+      - **`velocity`:** it stays top-level. The author chose that over `movement.velocity` or `physics.velocity`. MAIN had reported that `velocity` was never moved, with about 62 `entity.velocity` reads.
+      - **`customEvents`:** particles get the standard entity flags for consistency. The end event belongs to the generator.
+      - **`PARTICLES_ENDED`:** it fires per request, in any mode, when the request's last group is removed. That's a burst after its decay, or a generator after its target is gone.
+        - It's gated by `CONFIG.CustomEvents.Particles.Ended` plus the request's `customEvents.ended` flag.
+        - MAIN put the flag on the `particleGenerator` and `particleRequest` schemas, because the author said the event is the generator's rather than the particle entity's.
+        - The new `API_CONFIG` key is covered by the author's request for the event.
+    - **How the end is detected:**
+      - `GenerateParticles` opens `request.emitter = { mode, groups }` on any non-sibling request and counts its groups.
+      - Sibling copies share the same `emitter`.
+      - `updateParticles` counts down on each finished group and sends the event at 0.
+      - **Payload:** `{ templateId, mode, target, position }`.
+    - **Questions answered:**
+      - **Is `movement.jump` how high an entity jumps?** MAIN doesn't know. The `levelMovement` schema calls it "Jump strength", and nothing reads `jump`, `jumpInterval` or `jumpOnSight`, so no code defines it.
+      - **Open, no ruling yet:** MAIN raised that `movement.jump` now means two things: an authored `Unit` on non-player entities, and the jump-state object on the player.
+    - **Checks:**
+      - `node --check` and the `.mjs` checks pass on all 7 JS files.
+      - All 3 JSON files parse.
+    - **Browser check (5500, Zone 1 Stage 1):**
+      - **Shape:**
+        - Enemies have `meta { aggroRange }`. The NPC, collectible and player have no `meta`.
+        - Particles have neither `meta` nor `combat`, and carry 7 `customEvents` flags.
+        - No entity has `platform`, and no `platform` warnings appear.
+      - **Emitters:** the 12 generator groups share emitters `{ mode generator, groups 2 }`.
+      - **End event:**
+        - A burst spawned with `customEvents.ended` true, with `Particles.Ended` on, fired one `PARTICLES_ENDED { templateId spark, mode burst, target null, position }` 701 ms later, when its last of 5 groups ended.
+        - An identical burst without the flag fired nothing.
+      - **Console:** the only error is the intended `null-shaft-a` refusal.
+    - **Not exercised:** the generator path of `PARTICLES_ENDED`. It needs the target removed, and `ENGINE.Level` has no game-facing despawn.
+    - **Known limit:** groups removed by `DespawnFromScene` or a level clear never bring the counter to 0, so those removals fire no event.
+    - **Next:** NewParticles part 2, the particle group runtime object.
+- [2026-11-21] MAIN: 0.35.9, deleted the authored entity `movement.jump`.
+    - **Ruling:** the author deleted regular entities' `movement.jump`, because nothing reads it.
+      - The author's guess is that it was the starting force of a jump. Entity AI will create a proper surface later.
+      - This also clears the overlap where `movement.jump` meant two things: an authored number on entities, and the player's jump-state object. The player's object stays.
+    - **Left in place:** `jumpInterval` and `jumpOnSight` weren't part of the ruling. They stay, although nothing reads them either.
+    - **Checks:**
+      - `node --check` and the `.mjs` checks pass on the 4 JS files.
+      - The JSON files parse.
+    - **Browser check (5500, Zone 1 Stage 1):**
+      - None of the 16 non-player entities carries `movement.jump`.
+      - The 4 moving entities still advance along their paths.
+      - The player's `movement.jump` is still `{ startY, apexY, distance, airTime, window }`.
+      - The Simulator Load of `template.carl` has no `movement.jump`.
+      - **Console:** the only error is the intended `null-shaft-a` refusal.
+- [2026-11-22] MAIN: 0.35.9 NewParticles part 2, the particle group runtime object (`entity.particle`) restructured into `lifecycle`, `display` and `parent` per the author's placement.
+  - **Author rulings:**
+    - The `parent.offset.world` cache stays. Turning the offset every frame would be a per-frame `RotateByEuler` regression.
+    - The authored offset stays on the group (`parent.offset.local`) instead of being read off `request.offset`, for consistency.
+    - `parent` means the carrier, so `entity` (the group's own entity) didn't fit there and stays top-level.
+    - `parent.rotation` is a snapshot clone, so comparing it to the carrier's live rotation detects a turn. `request.rotation` is the carrier's live rotation by reference.
+    - Fields the author didn't name were left untouched.
+  - **Browser check (5500, Zone 1 Stage 1):**
+    - All 12 groups carry the new keys and none of the old ones. Generators recycle (`ageMs` resets, `decayStart` returns to null).
+    - Turning carrier `platform-b:rock-1` to `rotation.z` π/2 recomputed `parent.offset.world` from (0,-1.75,0) to (1.75,0,0), with `request.position` = carrier + world. The cached object held across later frames, and restoring the rotation recomputed it back.
+    - A `spark` burst built 4 groups with `lifespanMs` 700 and an all-null `parent`. They shrank mid-life, set `lifecycle.finished` and were removed by 1200 ms.
+    - **Console:** the only error is the intended `null-shaft-a` refusal.
+- [2026-11-22] MAIN: 0.35.9 NewParticles part 2 follow-up. `parent` is now `{ rotation, lastRotation, offset }`. The author chose option 2.
+  - **Naming:** the snapshot was renamed `lastRotation` under ENGINE_SEMANTICS §6.1. It always holds the carrier's rotation from the last frame.
+  - **New field:** `parent.rotation` is the carrier's live rotation (a reference).
+  - **Reads:** `recycle` reads it, for consistency with reading off the group rather than the request.
+  - **Two references on purpose:** `follow` still writes `request.rotation` because siblings are built from the request. The group therefore holds two references to the same object. Option 1, a rename only that left `request.rotation` as the live source, was rejected.
+  - **Browser check (5500, Zone 1 Stage 1):**
+    - `parent.rotation` is the same object as the carrier's rotation and `request.rotation`. `lastRotation` is a separate copy.
+    - Turning `platform-b:rock-1` to `rotation.z` π/2 updated both rotations and recomputed `offset.world` from (0,-1.75,0) to (1.75,0,0). The cache held on later frames.
+    - A recycle while turned launched with x velocity ~1.2 from the turned axis. Restoring the rotation recomputed it back.
+    - A `spark` burst had an all-null `parent`. All 6 of its groups finished and were removed by 1200 ms. The 12 level groups were intact.
+    - **Console:** the only error is the intended `null-shaft-a` refusal.
+- [2026-11-22] MAIN: 0.35.9 NewVoid walkthrough part 1 (the void mesh's NewVoid fields `relations` and `solidGrid`). The author ruled `relations[hostId].suppressed` dead and it was deleted.
+  - **Evidence it was dead:**
+    - It was only ever written `true` at record creation, from its arrival in 0.20 (`afb272c`, 2026-06-18).
+    - The later commits that touched it (0.30 `d1349c6`, 0.34.4 `95a069f`, 0.35.6 `4d00ede`) only moved or re-keyed it.
+    - No value other than `true` was ever written.
+  - **How suppression actually works:**
+    - Runtime suppression is computed per contact in `isVoidCancelled` / `IsCutByVoid` against `solidGrid`, and is never stored.
+    - The per-host opt-out is the authored `meta.nullable`. It's filtered in `pairVoids` and rechecked at `Collision.js:258`.
+  - **Readers:** they now use `Object.hasOwn` so that a host id matching an `Object.prototype` key (e.g. `toString`) still reads as having no record. This matches the old behaviour and the `findGroup` pattern in Level.js.
+  - **Browser check (5500, Zone 2 Stage 1, 38 terrain voids):**
+    - All relation records have keys `openFaces,voidWallMeshes`.
+    - The player dropped over `swiss-hole-00` fell through `swiss-cheese-platform` (top 36, bottom 28) to y 27.49, airborne. Dropped on a solid corner, it landed at y 36.13, grounded.
+    - **Console:** the only error is the intended `null-shaft-a` refusal.
+- [2026-11-22] MAIN: 0.35.9 NewVoid part 2, the lining mesh.
+  - **`dimensions` stays (author ruling):**
+    - It isn't the lining's own size, and its only reader is `ensureMeshBuffer`'s buffer key.
+    - That key is shared by every mesh. Dropping `dimensions` from it globally would merge the `dust` (cube 0.08) and `smoke` (cube 0.22) particle part buffers, which share ids `p0`–`p9`, primitive and index count.
+    - A void-only key branch in the shared function was offered and declined.
+  - **`occluded` moved into `performance` on both surface kinds (author chose option 1):**
+    - Option 2 (linings only) was rejected because `flagSurface` and the per-run reset treat linings and scatter cells as one surface list.
+  - **Browser check (5500, Zone 2 Stage 1):**
+    - All 39 linings have `performance` keys `renderMatrixCache,occluded` and no bare `occluded`.
+    - Occlusion flagged 2→3 linings at spawn. All cleared to 0 after the player moved to the cave tunnel, so the writer and the reset both work.
+    - Scatter cells aren't reachable through ENGINE. The level has 2 scatter-bearing meshes, and the cell draw paths ran without errors.
+    - **Console:** the only error is the intended `null-shaft-a` refusal.
+- [2026-11-22] MAIN: 0.35.9 NewScatter walkthrough part 1, the scatter batch. Four author rulings were applied.
+  - **Dead path:** the per-mesh scatter path was deleted. Nothing in the repo ever set `scatterContext`.
+  - **Batch texture:**
+    - The batch takes the engine-wide `texture: { base, custom }`.
+    - The author wrote "generated/custom", but the shape elsewhere is `base`/`custom`. `generated` is only an incoming alias at validate.js:175, so `base` was used and the author was told.
+  - **Tint:**
+    - The per-instance tint was removed. It was `[1,1,1,1]` on every instance.
+    - The scatter shader now carries only the cull fade, mirroring the scatter decal shader. The instance stride went from 80 to 64 bytes.
+  - **`instanceData`:**
+    - `instanceData` and its packer were deleted. The renderer packs straight from `batch.instances`.
+    - `instanceCount` was kept (not named) and is now incremented on push.
+    - **Side effect:** the NewLevel.js "Scatter batches: … total instance(s)" log summed `instanceCount` before packing ran. It always saw 0 and never printed, and now reports the real total. The restored line was not confirmed in the console.
+  - **Browser check (5500, Zone 2 Stage 1):**
+    - 6 batches. Keys are `primitive,dimensions,primitiveOptions,primitiveKey,textureID,texture,instances,instanceCount`.
+    - `texture` is `{ base, custom }`; the leaf batch has `tree-leaves-green` with 7 decals.
+    - `instances` are `Array(16)`, and `instanceCount` equals `instances.length` on all 6 (51550/355/129/129/902/34).
+    - No mesh carries `meta.scatter` or `meta.scatterModelAabb`.
+    - Scatter renders on `complex-geo-ground` (screenshot).
+    - **Console:** the only error is the intended `null-shaft-a` refusal.
+  - **Observation, not acted on:** `processScatterModels` is now a callback-driven helper with a single caller (`generateObjectScatterBatches`).
+- [2026-11-22] MAIN: 0.35.9 NewScatter follow-up. `processScatterModels` was inlined into its only caller, `generateObjectScatterBatches`. Behaviour is unchanged; one redundant clone of the merged box was dropped.
+  - **Rule clarified by the author:** "no callback-driven helpers" covers general-use helpers like the math module's. Specific helpers such as `iterateScatterInstances` may take callbacks where that makes sense. MAIN's earlier flag of `processScatterModels` under that rule was wrong.
+  - **Browser check (5500, Zone 2 Stage 1):**
+    - Batch instance counts are unchanged (51550/355/129/129/902/34).
+    - 11279 scatter debug boxes were built.
+    - **Console:** the only error is the intended `null-shaft-a` refusal.
+  - **Noted, not acted on:** `iterateScatterInstances` still builds and passes `request`, `scatterTypeIndex`, `samplePosition` and `sampleDimensions` to its handler, and the only handler reads none of them.
+- [2026-11-22] MAIN: 0.35.9 builder dead-parameter scan before NewBoss, at the author's request. Covered `builder/`, `subProcesses/` and `templates/`, using scratchpad scripts that were each tested on planted cases first.
+  - **Params never read in their body:** 3 hits, all false positives.
+    - NewPrimitive `capVertices` `ring`.
+    - NewUI's replace callback `match` (positional).
+    - `ParseHTML` `options` (read via spread).
+  - **Params no call site passes:** none.
+  - **Params every caller passes the same literal:** 2.
+    - `WithParticleOverride` always got `"physics"`/`"none"` from its single caller. The author ruled to inline it into Simulator's Load path. The key list is exported as `PARTICLE_OVERRIDE_KEYS` so Simulator can import it.
+    - `logScatterBounds` always got the message "Scatter batch bounds" once the per-mesh path was gone. The author ruled to drop the parameter.
+  - **Bug found and fixed (one-line crash fix):** `ENGINE.UI.ConvertHTML` threw `TypeError: node.style.forEach is not a function` on every element, styled or not.
+    - `CSSStyleDeclaration` has no `forEach`.
+    - The bug had been present since 0.27 (`bdf312d`, 2026-08-22). testGame's Sample screen (`menus/ui.js:95`) goes through this call.
+  - **Browser check (5500):**
+    - `ConvertHTML` of a styled div now returns `styles { color: "red", fontSize: "12px" }`, and a plain div converts.
+    - Simulator Load of `platform-b` spawned 12 `falling_pebbles` groups, all `physicsMode` `"none"`, with overrides `{ count null, spread null, physics "none", color null, velocity null, duration <the rock's authored override> }`.
+    - **Console:** the only error is the intended `null-shaft-a` refusal.
+- [2026-11-22] MAIN: author request to switch the grass scatter from cylinders to crossed planes, plus a breakdown of grass density.
+  - **The change:** the grass parts now use the same plane shape the Low-quality path already converts parts to.
+  - **Browser check (5500, Zone 2 Stage 1):**
+    - The grass batch builds as a crossed plane (0.02, 0.2, 0) and renders.
+    - **Console:** the only error is the intended `null-shaft-a` refusal.
+    - Instances went from 51550 to 51555. One more 5-blade model passes the edge footprint check because the footprint now has zero depth.
+  - **Density breakdown:** measured with a temporary devtools logpoint (since removed) plus an in-page replay of the placement loop using the engine's hash. The replay reproduces the accepted count exactly.
+    - **Candidates:** `floor((160 × 130 / 18) × 10 × 1)` = 11555.
+      - 160 × 130 cnu is the `complex-geo-ground` display AABB.
+      - `/18` is hardcoded at NewScatter.js:246.
+      - 10 is the request density authored in testGame `lvl2.json`.
+      - 1 is the multiplier, `PERFORMANCE_SCALING.Density.Scatter.High`.
+    - **Rejections, by filter:**
+      - Cluster hash below `clusterThreshold` 0.1: 1197.
+      - Bounds: 0.
+      - Height: 0 (`heightMin` -100 / `heightMax` 999, against a top of 36).
+      - OBB detailed bounds: 0.
+      - Slope: 0. The noise term peaks at 0.25, under `slopeMax` 0.8, so this filter can never reject grass.
+      - Edge footprint fit: 47.
+      - Openings: 0 (no void cuts `complex-geo-ground`).
+    - **Result:** 10311 models × 5 blades = 51555 instances.
+  - **Confirmed:** the "Scatter batches: 6 batch key(s), 53104 total instance(s)" log line now prints, closing the unconfirmed item from the scatter batch pass.
+- [2026-11-22] MAIN: 0.35.9 engine template authoring. The author's scatter issues were split between this patch and 0.37.
+  - **Done now:** scatter types split out of `textures.json` into a new `scatter.json`, both with entries at the top level.
+    - The split was done by text with a 4-space dedent and verified structurally identical to the old sections.
+    - `visualResources.scatterRegistry` was removed; it was written but never read.
+  - **Browser check (5500, Zone 2 Stage 1):**
+    - The level builds, with 101 textures registered.
+    - `ENGINE.Blueprints.Scatter` lists all 5 types.
+    - The warning count is unchanged (102).
+    - **Console:** the only error is the intended `null-shaft-a` refusal.
+  - **Scatter now builds 7 batches instead of 6.**
+    - The leaves type's part 1 now has `complexity` "low" while part 2 has "medium". Both were "medium" earlier today.
+    - The change predates the split and wasn't made by MAIN. It was left as found and reported to the author.
+  - **Planned as 0.37 item 6 "Scatter Placement Rework", by the author's ruling to keep 0.35.9 from growing:**
+    - **Per-type density:** replaces the hardcoded ÷ 18.
+    - **`clusterThreshold`:** to be deleted and folded into density. It is uniform random thinning, since each candidate's own seed feeds the hash, not clumping.
+    - **Slope:** proper slope handling replaces `noiseScale`/`slopeMax`. The current test uses no surface normal and never fires for any engine type.
+    - **Faces:** face handling added. The author moved it here from the entity-scatter patch.
+    - **Heights:** `heightMin`/`heightMax` to be deleted. They're absolute world heights, and a level outside -100..999 silently gets no scatter. Placing this in 0.37 was MAIN's reading, since the author didn't assign it; the author was told.
+- [2026-11-23] MAIN: author-directed style passes, no agents. NewVoid/Occlusion comment rewrite, plus an engine-wide single-field destructuring ban. Values are identical and `node --check` passes on all 17 modules.
+    - **Comment corrections from the author:**
+      - Each module gets exactly one header line. Pick its main purpose or an umbrella purpose. MAIN had split Collision.js across four lines and was corrected.
+      - A return-line comment names the action, not the values. "Cache the empty side: 1 for front, -1 for back, 0 for neither." became "Cache the empty side."
+      - A step detail in a function comment (", skipping duplicates") goes at its step or nowhere.
+      - In a tiny function, a step comment plus its blank line was rejected for growing a 4-line function to 6. A truly crucial detail goes in a `// Note:` under the function comment instead (`pieceInsideSolid`'s behind-the-center test).
+      - Roundabout phrasing was flagged twice: the `clipHostSurfaceToVoid` comment and the zero-area skip in `carveHostGeometry`.
+    - **Destructuring rule change:** the author flagged `const { dimensions } = sceneGraph.world;` in camera/Master.js. ENGINE_SEMANTICS §5.1 had prescribed the opposite (`const { maxSpeed } = target.character.meta;`). The author ruled that destructuring is for shortening several fields. The ban covers call-result picks and for-of too. §5.1 was rewritten and all sites converted: 27 single-line, 10 multi-line call results, 1 for-of and Master.js. testGame is exempt.
+- [2026-11-23] MAIN: enforced ENGINE_SEMANTICS §5.4 (multi-line functions use `function`) engine-wide, after the author flagged two pre-existing violations in normalize.js. 62 sites converted, behavior unchanged.
+    - **normalize.js:** `isTemplateRef` was also renamed `IsTemplateRef` for CASING, since exported names are UpperCamelCase. Call sites updated in normalize.js and validate.js.
+    - **Method:** a script converted 53 block-bodied arrows. It skipped any body using `this`/`arguments`, because an arrow shares `this` with its surroundings and a `function` would not. Its one skip, Render.js `drawDecalsForMesh`, only says "this" in a comment, and was converted by hand. Seven expression-bodied arrows were converted by hand. `loadBitmap` and `SegmentQueryBox` kept their returns. `push` and `collectVoidWalls` dropped returns no caller read.
+    - **Verification:** `node --check` passed on every module, plus `.mjs` copies of the hand-edited ones. A stray `};` stays valid JS, so a syntax check can't prove the closes are right. A brace-match script confirmed all 79 added function headers in the uncommitted work close on the right brace.
+    - **Side finding, not acted on:** NewLevel.js has two identical nested `classifyEntityType` helpers, in `buildDebugBoundingBoxes` and `buildDebugDetailedBounds`.
+- [2026-11-23] MAIN: corrected the arrow-to-function pass. The author ruled that nested functions stay `const` arrows, which are preferred because they set a child apart from its parent function. Only module-level multi-line functions use `function`. MAIN had read §5.4 as covering nested functions too, and the author hadn't meant that.
+    - **Revert:** all 53 nested conversions restored. 48 were reverted by script, matched by file and name after a dry-run count check, then brace-matched, with zero mismatches. 5 were restored by hand to their exact original text: `push`, `collectVoidWalls`, `loadBitmap`, `centerDistanceSq` and `drawDecalsForMesh`. `node --check` passed on all 21 modules.
+    - **Kept:** the 8 module-level conversions, plus `IsTemplateRef` and `templatePartList`.
+    - **Rule:** §5.4 reworded and checklist rows updated.
+    - **Open question for the author, not acted on:** 40 nested `function` declarations predate this pass and now break the reworded rule. They're in Chunks.js, Occlusion.js, normalize.js, validate.js (22), Level.js, Simulator.js, Render.js and physics/Collision.js.
+    - **Side note:** handlers/Render.js has LF line endings in both the working copy and the index, while other engine files are CRLF in the working copy. This pass didn't cause it, and `core.autocrlf` is true.
+- [2026-11-23] MAIN: style-rule cleanup of handlers/game/Animation.js on the author's request (ENGINE_SEMANTICS §1, plus one §7 single-caller fold). No agents.
+    - **Comments:** the header follows the Modes.js layout. Multi-line comments became one line. A JSDoc `@returns` that spelled out values became a one-line job comment. "so" and semicolon reasoning chains were rewritten. The ∘ and → jargon came out of the runtime field comments, and parentheticals came out of the section banners. Job comments were added where missing.
+    - **Note kept as a cross-file constraint:** Level.js builds the player's animation runtime early because camera/Modes.js reads `modelPose`.
+    - **Fold:** `clearDisplay` (two calls, one caller) folded into `ResolveEntityAnimation`. The call order is unchanged, so behavior is identical.
+    - **Verification:** `node --check` passed, including an `.mjs` copy. The file went from 400 to 387 lines.
+- [2026-11-23] MAIN: rewrote the handlers/game/Level.js header on the author's request. No agents.
+    - **Old header:** it had a label in place of a purpose line and two lines for core/ini.js. One line ("End of player pipeline(s)") wasn't about any module. Eight imported modules weren't listed.
+    - **New header:** used-by and uses lines are built from the real imports and importers. core/meta, core/config and the math modules are left out, as in Modes.js.
+    - **Author ruling:** modules used for the same purpose share one line with a neutral target. Added to ENGINE_SEMANTICS §1.3 with an example. Grouped lines: NewEntity/NewObstacle/NewTerrain/NewObject, the camera/player/physics Masters, Enemy/Collectible and Animation/Texture.
+    - **Two-way modules:** Controls.js and Simulator.js both use Level.js and are used by it. Each keeps only its used-by line, because of the one-line-per-module rule.
+    - **Incident:** the first write was reverted on disk, likely by an editor saving an unsaved buffer, and was reapplied. `node --check` passed.
+- [2026-11-23] MAIN: style-rule cleanup of handlers/game/Simulator.js on the author's request (ENGINE_SEMANTICS §1, §5.4, §6, §7). No agents.
+    - **Header:** the purpose is now one line. Level.js keeps only its "Uses" line, under the one-line-per-module rule. The two builder/templates/ lines were merged. Unlisted imports were added, grouped by purpose.
+    - **Comments:** semicolons, "so" chains and jargon were rewritten (de-index, winding, discard, fragment shader, polygon offset, per-fragment). `encodeTextureImage` got a job line plus a Note.
+    - **§5.4:** nested `function add` became a `const` arrow. It was one of the 40 pre-existing nested declarations.
+    - **§6 and §7 renames:** `savedEntityAction` → `lastAction`. GetFullState exposes simulatorRuntime, but nothing in the project reads that field. Four other names over three words were shortened. Aligned blocks were realigned.
+    - **Verification:** `node --check` passed, including an `.mjs` copy. The file went from 870 to 873 lines.
+- [2026-11-23] MAIN: style-rule cleanup of handlers/game/Texture.js on the author's request (ENGINE_SEMANTICS §1, §5.2, §7). No agents.
+    - **Header:** the NewTexture.js line was wrong. It said "build custom textures and sprites", but the module uses it to bake surfaces and find owner meshes. Used-by lines were added for Level.js and Render.js. Render.js reads `visualResources.textureAnimation`.
+    - **Comments:** semicolons, "so" chains and jargon ("parks as lookahead") were rewritten in the imperative. Block comments now cover their whole blocks.
+    - **§5.2:** consecutive `continue` ifs were merged. The 151-character `bakeAllowed` line was split by pulling `cameraPosition` into the constant chain.
+    - **§7:** four names over three words were shortened. All are module-local.
+    - **Return value:** `InitializeTextureAnimation`'s return value was dropped. Its only caller, Level.js, ignored it.
+    - **Verification:** `node --check` passed, including an `.mjs` copy.
+- [2026-11-23] MAIN: style-rule cleanup of physics/Correction.js on the author's request (ENGINE_SEMANTICS §1, §5.2, §7). No agents.
+    - **Header:** the vague purpose line ("etc", "weird clipping") was replaced. camera/Modes.js was added, sharing a line with Animation.js because both use PoseAnchor.
+    - **JSDoc:** the blocks on GetGripDemand, ClassifySurface and surfaceAlignedRotation spelled out return values or step details. Each became a one-line job comment, with the details moved to their steps. GetSurfaceCorrection keeps its @param list.
+    - **Long lines:** the over-150 lines were split with local `correction`, `groundAngle`, `slopeReach`, `releaseStep`, `demand` and `target` constants. `groundAngle` keeps the exact `(deg * Math.PI) / 180` order, so output is bit-identical. DegreesToRadians multiplies in a different order.
+    - **Verification:** `node --check` passed, including an `.mjs` copy.
+- [2026-11-23] MAIN: comment-rule passes on player/Master.js and physics/Master.js on the author's request (ENGINE_SEMANTICS §1). No agents.
+    - **Author ruling:** loose punctuation, spelling and phrasing stay when readable, because uniform polish reads as robotic. Added to §1.3.
+    - **player/Master.js header:** it listed Abilities.js, which isn't imported, and omitted builder/NewEntity.js. It now lists the real importers and imports. Movement.js both uses this module and is used by it, so it keeps only its "Uses" line.
+    - **Stale comment:** the KillPlayer JSDoc said "Called by Enemy.js", but Enemy.js imports TriggerPlayerDeath instead. Side finding, not acted on: KillPlayer is exported, but no other module imports it. Its only caller is TriggerPlayerDeath.
+    - **Dropped:** a speculative "abilities once they exist" note in UpdatePlayer.
+    - **physics/Master.js:** the header was rebuilt from the real imports and importers, the ApplyPhysicsPipeline JSDoc became one line, and comments that described what other modules do were rewritten.
+    - **Verification:** `node --check` passed, including an `.mjs` copy.
+- [2026-11-24] MAIN: rule pass on player/Model.js on the author's request (ENGINE_SEMANTICS §1, plus the CLAUDE.md rule to inline single-caller exports). No agents.
+    - **Header:** the line restating the purpose was dropped. The characters.json line was dropped because `CharacterData` was imported but never used, and that import was removed. handlers/game/Simulator.js was added as a user.
+    - **JSDoc:** the blocks on synthesizeDefinition, BuildPlayerModel and RefreshPlayerModel became one-line comments or were removed. They had param shapes, a @returns, a semicolon and a slash list.
+    - **Inlined:** RefreshPlayerModel was a one-line pass-through exported for one caller. player/Master.js now calls UpdateEntityModelFromTransform directly. Behavior is identical.
+    - **Verification:** `node --check` passed on both files, including `.mjs` copies.
+- [2026-11-24] MAIN: rule pass on player/Movement.js on the author's request (ENGINE_SEMANTICS §1, §5.2, §7). No agents.
+    - **Header:** line 4 ("Does NOT modify position directly") wasn't about a module. It was folded into the purpose line.
+    - **JSDoc:** the blocks on advanceCarriedForward, getMovementDirection and turnFacingToward became one-line comments. UpdateMovement keeps its @param list.
+    - **Comments:** semicolons and jargon ("cos(incline)", "Transport keeps the heading's angle to the fold", "Seed: camera XZ") were rewritten in the imperative. The author's loose punctuation was left where it reads fine.
+    - **§5.2:** eight lines over 150 characters were split with local constants. `downhill` is now computed once per call instead of on every `inputAcceleration` call. It's a pure projection, so results are identical.
+    - **§7:** two module-local names over three words were shortened.
+    - **Verification:** `node --check` passed, including an `.mjs` copy.
+- [2026-11-24] ARGUS: runtime test after the MAIN rule/style cleanup pass (Movement, player Master/Model, UpdateEntityModel rename, Animation, Level, Simulator, Texture, Correction, physics Master, Render). The pass caused no runtime errors. Found one pre-existing bug, fixed by MAIN.
+    - **Covered:** Zone 1 Stages 1–2 and Zone 2 Stage 1 load, player spawn, run, reverse braking (forward and sideways), back+turn carve, land jump (peak 1.97 vs jumpHeight 2), water jump (buoyant `solveJumpSpeed`), slope climb with alignedUp tilting to ~60° and launch, sliding (laid on back, stands on walkable), uphill input damped while sliding, carried forward across the halfpipe lip, death and respawn on both levels, idle/running animation set switching, sea-surface texture crossfade and bake, engine Simulator Start/Load (cached player, enemy, npc, terrain, obstacle)/W cycling/Clear/Exit rebuilding the level.
+    - **Not reachable:** the loop-lock path. No test level detects loops (`surfaces.loops` is empty).
+    - **Bug (pre-existing in HEAD bc6626b):** Simulator `Download` threw "binaryLength is not defined" in `writeGlbBinary`. The writer destructure renamed `binaryLength` to `byteLength`, but the GLB total and BIN chunk header still read `binaryLength`. MAIN fixed it by destructuring `binaryLength` and writing `buffers: [{ byteLength: binaryLength }]`.
+    - **Verification:** exports of enemy.scout-drone, player.chara_prop (2 decal BLEND materials, so `clipToSquare` ran) and ground-main have the correct magic, JSON/BIN chunk types and total length, and the buffer byteLength matches the BIN chunk length. `node --check` passed.

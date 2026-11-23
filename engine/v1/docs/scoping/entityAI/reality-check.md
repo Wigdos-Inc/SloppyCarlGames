@@ -69,7 +69,7 @@ The only two damage sites in the engine are `entity.hp--`
 ([Enemy.js:117-160](engine/v1/handlers/game/Enemy.js#L117-L160)). Both hardcode an amount of 1.
 
 The player has **no `hp` field at all**. Player damage drops all collectibles, and death is
-"damaged while holding zero" → `TriggerPlayerRespawnSequence`. §7.3's single function taking
+"damaged while holding zero" → `TriggerPlayerDeath`. §7.3's single function taking
 `(target, source, amount)` therefore spans two unrelated damage models.
 
 Note also: §7.3 says "physics being the only current path". That is not accurate — the overlap

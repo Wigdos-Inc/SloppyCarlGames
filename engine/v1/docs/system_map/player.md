@@ -1,52 +1,112 @@
 # player/ — Player Character
 
 ## Responsibility
-Owns all player state, movement logic, model assembly, abilities, and animation. `Master.js` is the central orchestrator; `Model.js` assembles the player as an entity via the shared builder. Handlers call into `Master.js` to drive per-frame updates; physics calls the shared `builder/NewEntity.js` model-sync function directly to re-pose the player after physics resolution, the same as any other entity.
+Owns all player state, movement logic and model assembly. `Master.js` is the central orchestrator, and `Model.js` assembles the player as an entity through the shared builder. Handlers call into `Master.js` to drive per-frame updates. Physics re-poses the player through the shared `builder/NewEntity.js` model sync after physics resolution, the same as any other entity.
 
 ## Files
-- `Master.js` — Player state orchestrator. Extends a builder-assembled entity into player state via `createDefaultPlayerState` (adds action/movement/ability/checkpoint fields on top of the built entity; widens `collision.simRadiusPadding` to 24 since the player broadphases a larger radius than the entity default). Exports `InitializePlayer`, `UpdatePlayer`, `UpdatePlayerModel`, `ResolvePlayerState`, `SetPlayerAction`, `ConsumeJumpPress`, `TriggerPlayerDeath`, `TriggerPlayerRespawnSequence`, `RespawnPlayer`, `GetPlayerState`, `GetPlayerInput`, `PlayerHeight(playerState)` (the rest-pose collision height × `transform.scale.y`, read by `camera/`), and `PlayerAPI` (the `ENGINE.Level.Player` public surface). `UpdatePlayer(deltaSeconds, modeData)` takes the camera's `cameraState.modeData` and passes it to `UpdateMovement`. `InitializePlayer(payload, sceneGraph)` builds the model against `sceneGraph.spawnSurfaces`; the built entity's `facing` comes from `rootTransform.rotation`, which is how a level sets spawn facing. `playerState.spawnPosition`, the respawn point, is the authored world point `rootTransform.position + model.surfacePosition`. `SetPlayerAction` is the sole write path for `playerState.action` — it sets `action`/`previousAction`, logs the transition, and conditionally fires `PLAYER_ACTION_CHANGE`; all transition sites (`ResolvePlayerState`, `TriggerPlayerDeath`, `RespawnPlayer`, jump/stun triggers elsewhere) go through it rather than writing `action` directly. `createDefaultPlayerState` also scales the builder's default `modelTurnRate` per medium — `air` by `character.meta.airControl`, `water` by `underwaterAirControl` — so a floatier character's model leans as loosely as it steers.
+- `Master.js` — Player state orchestrator.
+  - **Exports:** `PlayerAPI` (the `ENGINE.Level.Player` public surface), `InitializePlayer`, `UpdatePlayer`, `UpdatePlayerModel`, `ResolvePlayerState`, `SetPlayerAction`, `ConsumeJumpPress`, `KillPlayer`, `TriggerPlayerDeath`, `RespawnPlayer`, `GetPlayerState`, `GetPlayerInput` and `PlayerHeight(playerState)`. `PlayerHeight` is the rest collision height × `transform.scale.y`, read by `camera/`.
 
-  **Jump input is latched at event time.** `playerInputFlags.jump` is a getter/setter over module-level `jumpHeld`/`jumpPressed`: a false→true write sets `jumpPressed`, so a tap that starts and ends between two fixed steps still registers. `ConsumeJumpPress()` reads and clears the latch; `Movement.js` is its sole caller. `createDefaultPlayerState` adds `jumpWindow: { buffer, coyote }` (seconds, both 0), and `RespawnPlayer` resets it and clears the latch.
+  **The player is an entity.** `createDefaultPlayerState` extends the built entity in place. It doesn't replace the entity's fields; it adds only the player's own.
+  - **Collision and combat.** `physics.collision.simRadiusPadding` is widened to 24, and `combat.hitboxActive` starts `false`.
+  - **`movement`** keeps the authored fields and `movement.physics` (the stage flags, from `character.physics`). It adds:
+    - `jump: { startY, apexY, distance, airTime, window: { buffer, coyote } }`;
+    - `braking: { input, active }`;
+    - `abilities: null`, a stub.
+  - **Added top-level fields:**
+    - `character: { id, name, meta }`;
+    - `modelTurnRate`: `air` is the base rate, and `water` is scaled by `meta.underwaterAirControl`;
+    - `collectibles`, `maxCollectibles` (100) and `activeTriggers`;
+    - `spawnPosition: { start, checkpoint }`. Both start at the authored world spawn point (`rootTransform.position + model.surfacePosition`).
 
-  **`ResolvePlayerState`'s branch order is the state machine's priority.** `Sliding` sits at the top, keyed on `surfaceContact === "sliding"` and with **no exit rule of its own** — it holds for exactly as long as the probe reports a sliding contact, and the classifier's `Recover` hysteresis (see physics.md) is what ends it. Below it come underwater (`Floating`/`Sinking`), airborne (`Jumping`/`Falling`), then the grounded set (`Stopping`/`Running`/`Idle`).
+  **Initialization and actions.**
+  - `InitializePlayer(payload, sceneGraph)` builds the model against `sceneGraph.surfaces.spawn`. The built entity's `facing` comes from `rootTransform.rotation`, which is how a level sets spawn facing.
+  - `UpdatePlayer(deltaSeconds, modeData)` passes the camera's `modeData` to `UpdateMovement`.
+  - `SetPlayerAction(action)` is the sole write path for `playerState.action`. It logs the transition and, when opted in, fires `PLAYER_ACTION_CHANGE { id, type, position, velocity, lastAction, action }`.
 
-  **Teleports snap, they do not ease.** `snapOrientationUpright` resets `alignedUp` and `referenceNormal` to world up, clears `contactGrace` and `gripDemand`, zeroes pitch and roll on `transform.rotation` (keeping yaw), and snaps `animationRuntime.modelPose.rotation` to that rotation — so the model shows upright at the destination instead of easing in from the surface the player left. The runtime itself is kept: the camera reads it every frame. `RespawnPlayer` and `PlayerAPI.SetPosition` call it; `RespawnPlayer` then reseeds `facing` from the respawn rotation, resets `launched`, `dragFree` and `staticFriction`, and replaces `inputFrame` with a fresh `NewInputFrame()`, so no carried tangent or lock survives the teleport.
-- `Movement.js` — Per-frame movement handler. Translates input flags into velocity deltas; it never writes position. `UpdateMovement` works in a **surface-relative frame**, not world XZ: velocity is split against `playerState.alignedUp` into `normalVelocity = up · dot(velocity, up)` and a tangent remainder `tVel`, acceleration/deceleration/clamping all run on `tVel`, and the two recombine at the end with the normal component preserved untouched.
+  **Jump input is latched at event time.** `playerInputFlags.jump` is a getter/setter over module-level `jumpHeld`/`jumpPressed`. A false→true write sets `jumpPressed`, so a tap that starts and ends between two fixed steps still registers. `ConsumeJumpPress()` reads and clears the latch, and `Movement.js` is its sole caller.
+
+  **`ResolvePlayerState`'s branch order is the state machine's priority.**
+  - `Sliding` sits at the top, keyed on `physics.correction.surfaceContact === "sliding"`. It has no exit rule of its own: it holds for exactly as long as the probe reports a sliding contact.
+  - Below it come underwater (`Floating`/`Sinking`), airborne (`Jumping`/`Falling`), then the grounded set (`Stopping`/`Running`/`Idle`).
+
+  **Teleports snap, they do not ease.**
+  - `snapOrientationUpright` resets `alignedUp` and `referenceNormal` to world up and clears `contactGrace` and `gripDemand`. It zeroes pitch and roll on `transform.rotation`, keeping yaw, and snaps `display.animationRuntime.modelPose.rotation` to that rotation.
+  - `RespawnPlayer` and `PlayerAPI.SetPosition` call it.
+  - `RespawnPlayer` returns to `spawnPosition.checkpoint` and reseeds `facing`. It resets `physics.launched`, `physics.slopes`, `movement.jump`, `movement.braking` and `combat`, and replaces `inputFrame` with a fresh `NewInputFrame()`.
+  - `KillPlayer` and `SetPosition` end a running jump first (`EndJump`).
+- `Movement.js` — Per-frame movement handler. Exports `UpdateMovement` and `EndJump`.
+  - It translates input flags into velocity changes and never writes position.
+  - `UpdateMovement` works in a **surface-relative frame**. Velocity is split against `physics.correction.alignedUp` into a normal component and a tangent remainder `tVel`. Acceleration, deceleration and clamping all run on `tVel`, and the normal component is kept as is.
 
   **The camera picks the control.** `UpdateMovement(playerState, input, modeData, deltaSeconds)` branches on `modeData.control`, which `camera/` writes every frame (see camera.md):
-  - **`"carried"`** (orbitCam, freeCam). Input runs along a heading carried between surfaces in `playerState.inputFrame` (built by `builder/NewEntity.js`'s `NewInputFrame`).
-    - `advanceCarriedForward` transports `carriedForward` from `previousUp` to the current up with `carryAcross`, a `TransportVector3` minimal rotation. On walls that rotation is blended with one that turns with the tube's bend (`AzimuthTurnVector3`), so the heading stays level. It then applies the camera yaw delta (`modeData.yaw`) and re-projects onto the surface.
-    - It **reseeds from the camera** on a press, a grounding change, when upright, on a half-turn flip of up, on a pending remap, or when the transported vector collapses below `minTangent` (0.05). The seed is the flattened camera forward on the surface, plus an uphill pull weighted by `(1 − |up.y|) · −dot(camFwd, up)`.
-    - After a `loopLock`, held keys keep their meaning: a remap is queued (`remapPending`) and applies only when the keys change.
-  - **`"free"`** (chaseCam/sideCam). Live camera-relative: `viewForward` is the basis forward on the surface plane, falling back to the basis up where the camera faces the surface.
-  - **`"loopLock"`** (sideCam's `loopControls` addon, in loops and on slopes). Locks travel at a held angle to `modeData.axis`.
-    - **Starting the lock.** A fresh press inside the lock calls `lockLoop`, which takes the lock angle from the velocity, else the press as seen from the camera (`cross(view, up)·right + view·forward`), else the facing. Keys held from before carry into the lock (`holding`).
-    - **A/D is speed.** With the travel it accelerates along the lock; against it, it brakes at the reversal-brake rate and never reverses. `lockThrottle` records which way, updated only while moving.
-    - **W/S steers.** W steers away from the camera along the axis and S toward it, and the lock holds the new angle.
-    - Velocity is re-projected onto the lock's direction every frame, keeping its speed.
-    - **Coasting.** Locked with no A/D sets `gravityScale` to `modeData.coastGravityScale` and `dragFree = true`.
-    - **Leaving the lock.** Past the lock, a held lock keeps its direction via `heldForward` only while A/D throttles it (`lockThrottle > 0`). A fresh press, no A/D, or a braking A/D drops it.
+  - **`"carried"`** (orbitCam, freeCam). Input runs along a heading carried between surfaces in `inputFrame`.
+    - `advanceCarriedForward` transports `carriedForward` from `lastUp` to the current up, applies the camera yaw delta and re-projects onto the surface.
+    - It reseeds from the camera on a press, a grounding change, when upright, on a half-turn flip of up, on a pending remap, or when the heading collapses.
+    - After a `loopLock`, held keys keep their meaning until they change (`remapPending`).
+  - **`"free"`** (chaseCam/sideCam). Live camera-relative input.
+  - **`"loopLock"`** (sideCam's `loopControls` addon). Travel is locked at a held angle to `modeData.axis`.
+    - A/D is speed: it accelerates with the travel and brakes against it without reversing.
+    - W/S steers.
+    - Velocity is re-projected onto the lock's direction every frame.
 
-  **Support, braking and slide damping.** `support = max(|up.y|, MOVEMENT_TUNING.MinSupport)` — cos(incline) floored at 0.25, engaging past 75.5° — scales friction, so friction falls off with steepness while a wall still brakes and an overhang cannot accelerate. A reversal (input against travel) brakes at `(deceleration + acceleration × ReversalBrakeScale) × support`. `getPrimaryOppositeHeld` reads the dominant axis against `MOVEMENT_TUNING.OppositeInput` to arm the stop latch (`stoppingActive`). Back held with Left/Right is a **carve**: no reversal brake and no stop latch, plain acceleration. On a sliding contact, input with a negative component along the downslope direction is scaled by `SlideUphillScale` (0.15). With no input, no lock and a `"walkable"` contact, `staticFriction` is set to the idle friction, which physics uses to hold the player still on slopes (see physics.md).
+  **Slope hooks.** Every step Movement writes all of `physics.slopes`:
+  - `isInLoop`, and `isCoasting` (in a loop, locked, no A/D).
+  - `gravityScale`:
+    - `modeData.coastGravityScale` while coasting.
+    - 1 when grounded.
+    - Otherwise ramped toward `MOVEMENT_TUNING.ReleaseGravity` over `ReleaseRampMs` while a launched jump rises with jump released, and stepped back toward 1 after.
+  - `staticFriction`: the idle friction with no input, no lock and a walkable contact, which physics uses to hold the player still on slopes. 0 otherwise.
 
-  **Jump and facing.** Jumps go through two timed windows on `playerState.jumpWindow`. A consumed press (`ConsumeJumpPress`) arms `buffer` for `GROUNDING.JumpBufferMs`; leaving the ground — `inputFrame.previousGrounded && !grounded` — under any action outside `noCoyoteActions` (`Jumping`/`Flying`/`Swimming`) arms `coyote` for `GROUNDING.CoyoteMs`; both otherwise count down by `deltaSeconds`. The launch speed comes from `solveJumpLaunchVelocity`, which bisects a simulated jump stepped by `math/Forces.js`'s `ComputeStepVelocity.scalar` for the speed that reaches `jumpHeight` in the medium (cached per height/medium/floatiness); the launch sets `launched`, which vetoes grounding until the player stops moving away from the contact. The jump fires on `buffer > 0 && (grounded || onSlidingSurface || coyote > 0)`, excluding `Stunned`/`Dead`, and zeroes both windows, so holding jump does not hop again on landing. It launches **along the surface normal** (`velocity.set(tVel + up · launchSpeed)`) with `solveJumpLaunchVelocity`'s result halved on a slide, and writes `jumpStartY`/`jumpApexY` before `SetPlayerAction("Jumping")`. `turnFacingToward` rate-limits `playerState.facing` toward the surface-tangential velocity direction at `meta.momentumTurnRate`, via `RotateTowardVector3` on the plane-projected facing; a facing that has collapsed onto the new normal snaps to the target rather than limiting against an angle that no longer exists. Nothing here writes `transform.rotation` — `facing` is the heading, and `physics/Correction.js` solves the rotation from it.
-- `Model.js` — Player entity assembler. `synthesizeDefinition` builds a standard entity-definition object from a `characters.json` template plus the level's placement data: `rootTransform { position, rotation, scale, pivot }`, `spawnSurfaceId`, animations and custom events. The rotation is cloned, since the body turns it in place and can't share the payload's object. `BuildPlayerModel(character, playerData, surfaceMap)` passes it to `builder/NewEntity.js`'s `BuildEntity` with `null` for `textureScale`, `faceTextureStore` and `geometryCache`, so the parts take the ordinary entity-part texture path but build outside the shared geometry cache (see builder.md's `NewObject.js`). The surface map is the level's `sceneGraph.spawnSurfaces` merged with the module's zero-origin `player-origin` surface. A `null` `spawnSurfaceId` resolves to that surface, so `rootTransform.position` is absolute; any other id places it relative to that surface's top-center, the same way level entities spawn. `RefreshPlayerModel` calls the shared `UpdateEntityModelFromTransform` to re-pose and recompute `collision.aabb`/`physics`/`hurtbox`/`hitbox` each frame. `filterDeadDecals` drops image decals that failed to load by shallow-copying only the affected part, so the shared `characters.json` template is never mutated. `characters.json` bypasses `core/normalize.js`; its Unit-instancing (parts' `dimensions`/`localPosition`/`localRotation`/`pivot`, decal transforms, and tube `primitiveOptions` node fields) happens once at boot in `builder/templates/Instance.js`'s `instanceCharacterTemplates`, called from `core/ini.js` before any engine module reads the template. `Model.js` instances nothing itself. Exports `BuildPlayerModel`, `RefreshPlayerModel`.
-- `Abilities.js` — Player ability definitions (jump, boost, etc.) and application logic. Accepts ability handler callbacks from game code.
-- `Animation.js` — Player-specific animation handler. Drives visual state transitions based on player movement and action state.
-- `characters.json` — Character preset definitions, one per playable character (currently `chara`, `chara_prop`, `carl`, `jeff`). Each entry supplies a `model.parts` list (standard entity part shape, including `tube` parts) and a `collisionOverride` consumed the same way as an entity's. It is engine-authored, pre-compliant data that bypasses `core/normalize.js` (see builder.md's `NewTexture.js` on explicit `compositeMode` keys). Raw numeric values are instanced into `Unit`/`UnitVector3` once at boot by `builder/templates/Instance.js`; downstream code receives pre-instanced values. `handlers/game/Simulator.js` also caches every entry as `player.<id>` for preview.
+  **Support and braking.**
+  - **Support.** `support = max(|up.y|, MOVEMENT_TUNING.MinSupport)` scales friction, so friction falls off with steepness while a wall still brakes.
+  - **Reversal braking.** A reversal brakes at `(deceleration + acceleration × ReversalBrakeScale) × support`.
+  - **Braking state.** `oppositeHeld` counts braking input when the input pushes against travel on its main axis past `MOVEMENT_TUNING.OppositeInput`. It writes `movement.braking.input`, and `braking.active` latches the stop. Back held with Left/Right is a carve: no reversal brake and no stop latch.
+  - **Sliding contacts.** Uphill input on a sliding contact is scaled by `SlideUphillScale`.
+
+  **Jump.** Jumps go through two timed windows on `movement.jump.window`, both floored at 0.
+  - **Windows.** A consumed press arms `buffer` for `GROUNDING.JumpBufferMs`. Leaving the ground (`inputFrame.wasGrounded && !grounded`) outside `noCoyoteActions` arms `coyote` for `GROUNDING.CoyoteMs`.
+  - **Launch speed.** `solveJumpSpeed` bisects a simulated jump for the speed that reaches `jumpHeight` in the medium. It's cached per height, medium and floatiness, and halved on a slide.
+  - **Takeoff.** The jump launches along the surface normal and sets `physics.launched`. It records `jump.startY`/`apexY`, stores the takeoff position in `jump.distance` and starts `airTime`, then sends `PLAYER_JUMP_START { id, type, position, velocity, startY }`.
+  - **In the air.** Each airborne frame adds to `airTime` and tracks `apexY`.
+  - **Ending.** A running jump ends on any surface contact. `EndJump(playerState)` turns `distance` into the absolute per-axis takeoff-to-landing difference and sends `PLAYER_JUMP_END { id, type, position, velocity, startY, apexY, endY, distance, airTime }`.
+  - **Gating.** Both events are gated by `customEvents.jump` and `CONFIG.CustomEvents.Entities.Jump`.
+
+  **Facing.** `turnFacingToward` rate-limits `facing` toward the surface-tangential velocity direction at `character.meta.momentumTurnRate`. Nothing here writes `transform.rotation`: `facing` is the heading, and `physics/Correction.js` solves the rotation from it.
+- `Model.js` — Player entity assembler. Exports `BuildPlayerModel`.
+  - **Definition.** `synthesizeDefinition` builds a standard entity definition from a `characters.json` entry plus the level's placement data:
+    - `id: "player"`, `type: "player"`, `blueprintId: character.id`, `meta: { hp: 3 }`, `attacks: []`;
+    - `movement` with zero speed and `physics` from `character.physics`;
+    - the `rootTransform`, `spawnSurfaceId`, animations and custom events.
+  - **Building.** `BuildPlayerModel(character, playerData, surfaceMap)` calls `BuildEntity` with `null` texture inputs. Part geometry is cached per character through NewEntity's `partGeometry` (`InitializePlayer` gives the character the id `player.<character>`).
+  - **Spawn surface.** The surface map is the level's spawn surfaces merged with the module's zero-origin `player-origin` surface, so a `null` `spawnSurfaceId` makes `rootTransform.position` absolute.
+  - **Re-posing.** `Master.js` `UpdatePlayerModel` calls `UpdateEntityModel` directly.
+  - **Decals.** Image decals of `player/characters.json` load at boot in `builder/templates/Instance.js`. `Model.js` loads and instances nothing itself.
+- `Abilities.js` — Comment-only stub.
+- `Animation.js` — Empty file.
+- `characters.json` — Character presets, one per playable character (`chara`, `chara_prop`, `carl`, `jeff`).
+  - Each entry supplies `model.parts` (the standard entity part shape, including `tube` parts), a `collisionOverride`, `physics` stage flags and `meta`.
+  - It is engine-authored, pre-compliant data that bypasses `core/normalize.js`. Raw values are Unit-instanced once at boot by `builder/templates/Instance.js`.
+  - `handlers/game/Simulator.js` caches every entry as `player.<id>` for preview.
 
 ## Boundaries
-**Called by:** `handlers/game/Level.js` (`InitializePlayer`, `UpdatePlayer`, `ResolvePlayerState`, `GetPlayerState`); `physics/Master.js` (`TriggerPlayerRespawnSequence` only — model sync goes through `builder/NewEntity.js`'s `UpdateEntityModelFromTransform`, not a player-specific function); `camera/` (`PlayerHeight`); `handlers/game/Simulator.js` (`Model.js`'s `BuildPlayerModel`, with a `rootTransform` on its disc and `spawnSurfaceId: null`).  
-**Calls into:** `builder/NewEntity.js` (`BuildEntity`, `UpdateEntityModelFromTransform` — the player is built and re-posed by the same code path as any other entity); `math/` (Utilities, Vector3); `core/` (meta, config, normalize).  
-**Does not:** Manage its own update loop; drive rendering directly (model updates are consumed by `Render.js`); apply physics forces (those are applied by `physics/Master.js`); build its own geometry/collision math (delegated to `builder/NewEntity.js`).
+**Called by:**
+- `handlers/game/Level.js` (`InitializePlayer`, `UpdatePlayer`, `ResolvePlayerState`, `GetPlayerState`).
+- `physics/Master.js` (`TriggerPlayerDeath` only; model sync goes through NewEntity).
+- `camera/` (`PlayerHeight`).
+- `handlers/game/Simulator.js` (`BuildPlayerModel`).
+
+**Calls into:** `builder/NewEntity.js` (`BuildEntity`, `NewInputFrame`, `UpdateEntityModel`); `math/` (Utilities, Vector3, Forces); `core/` (meta, config).
+
+**Does not:** manage its own update loop, drive rendering, apply physics forces, or build its own geometry or collision math.
 
 ## Invariants
 - There is one player state object in the engine at a time, held in `Master.js`.
-- `playerInputFlags` is written by game code via `ENGINE.Level.Player.Input` and read by the player update each frame. `jump` is the exception to plain reads: a press is consumed once through `ConsumeJumpPress`, never inferred from the held state.
-- `characters.json` values are instanced once at boot by `builder/templates/Instance.js` (called from `core/ini.js`), before any engine module reads the template. No downstream code re-instances them.
-- The player carries no bespoke collision system — `collision.aabb`/`physics`/`hurtbox`/`hitbox` are the same builder-computed structure every entity has, recomputed each frame by `UpdateEntityModelFromTransform`. There is no separate `collision.profile` cache.
-- `playerState.action` is written only through `SetPlayerAction`; no other module assigns `playerState.action` directly.
-- `Movement.js` owns `facing` and `inputFrame`; `physics/Correction.js` reads `facing` and writes `transform.rotation`. Neither writes the other's field — movement produces a heading, physics produces an orientation, and the split is what keeps the collider's rotation exact while the heading is rate-limited.
-- Movement is computed in the plane of `alignedUp`, not world XZ — including the stop latch, reverse intent and the opposite-held test, which read tangent velocity against the surface-plane input basis.
-- Movement never decides its own control scheme or reads the camera module: `modeData` arrives as an argument, and Movement's only camera inputs are its `control`, `basis`, `yaw`, `axis`, `view` and `coastGravityScale`.
-- Movement sets the physics hooks `gravityScale`, `dragFree` and `staticFriction` every step; physics reads them and never imports camera or player state beyond the entity.
+- `playerInputFlags` is written by game code through `ENGINE.Level.Player.Input` and read by the player update each frame. `jump` is the exception to plain reads: a press is consumed once through `ConsumeJumpPress`.
+- `characters.json` values are instanced once at boot. No downstream code re-instances them.
+- The player carries no bespoke collision system. `physics.collision` is the same builder-computed structure every entity has.
+- `playerState.action` is written only through `SetPlayerAction`.
+- `Movement.js` owns `facing` and `inputFrame`. `physics/Correction.js` reads `facing` and writes `transform.rotation`.
+- Movement is computed in the plane of `alignedUp`, not world XZ.
+- Movement never decides its own control scheme or reads the camera module. `modeData` arrives as an argument.
+- Movement writes `physics.slopes` every step. Physics reads it and never imports camera or player state beyond the entity.
