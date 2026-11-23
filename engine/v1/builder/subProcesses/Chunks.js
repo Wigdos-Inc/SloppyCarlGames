@@ -2,7 +2,7 @@
 
 // Used by builder/NewLevel.js to group a level's terrain and obstacles into chunks.
 // Used by handlers/game/Level.js to give spawned terrain and obstacles a chunk, and take despawned ones out.
-// Used by handlers/game/Simulator.js to rechunk an obstacle after moving it onto the platform.
+// Used by handlers/game/Simulator.js to rechunk an obstacle's parts after moving them onto the platform.
 // Used by physics/Collision.js, whose broadphase walks the chunks built here.
 // Uses math/Geometry.js to measure triangles, fit boxes to collision shapes and group linked pieces.
 // Uses math/Collision.js to find touching triangles.
@@ -64,10 +64,11 @@ function AssembleTerrainChunks(terrain, voidTerrain) {
 	const pieces = [];
 	const centroid = (f) => TriangleCentroid(f.a, f.b, f.c);
 	for (const mesh of terrain) {
-		const { id, worldAabb, meta } = mesh;
-		pieces.push({ 
-			id, worldAabb, 
-			facets: boundsFacets(mesh.detailedBounds).filter((f) => !(meta.nullable !== false && IsCutByVoid(centroid(f), id, voidTerrain)))
+		const { id, meta } = mesh;
+		const { aabb, detailedBounds } = mesh.physics.collision;
+		pieces.push({
+			id, worldAabb: aabb,
+			facets: boundsFacets(detailedBounds).filter((f) => !(meta.nullable !== false && IsCutByVoid(centroid(f), id, voidTerrain)))
 		});
 	}
 	for (const voidMesh of voidTerrain) {
@@ -78,7 +79,7 @@ function AssembleTerrainChunks(terrain, voidTerrain) {
 				if (wall.wallBounds !== null)  for (const triangle of wall.wallBounds.triangles)  lining.push(triangle);
 			}
 		}
-		if (lining.length > 0) pieces.push({ id: voidMesh.id, worldAabb: voidMesh.worldAabb, facets: lining });
+		if (lining.length > 0) pieces.push({ id: voidMesh.id, worldAabb: voidMesh.physics.collision.aabb, facets: lining });
 	}
 
 	const facets = [], owner = [], links = [];
@@ -184,7 +185,7 @@ function facetsTouch(a, b) {
 
 // Fit a member's box around its surface and void linings.
 function fitMember(member) {
-	const boxes = [member.ref.worldAabb, ...member.linings.map((lining) => lining.voidWall.worldAabb)];
+	const boxes = [member.ref.physics.collision.aabb, ...member.linings.map((lining) => lining.voidWall.worldAabb)];
 	member.aabb = { min: MinVector3(...boxes.map((box) => box.min)), max: MaxVector3(...boxes.map((box) => box.max)) };
 }
 
@@ -205,10 +206,10 @@ function AssembleCollisionChunks(assembled, terrain, obstacles, voids) {
 	const chunkOf = new Map();
 	assembled.chunks.forEach((chunk, index) => chunk.surfaceIds.forEach((id) => chunkOf.set(id, index)));
 
-	// Join each obstacle to the chunks they touch. 
+	// Join each obstacle part to the chunks it touches.
 	// Note: One touching two chunks merges them.
 	const pieceSurfaces    = assembled.pieces.map((piece) => touchSurface(piece.facets, piece.worldAabb));
-	const obstacleSurfaces = obstacles.map((record) => touchSurface(boundsFacets(record.detailedBounds), record.worldAabb));
+	const obstacleSurfaces = obstacles.map(({ physics }) => touchSurface(boundsFacets(physics.collision.detailedBounds), physics.collision.aabb));
 	obstacleSurfaces.forEach((surface, i) => {
 		const root = chunkCount + i;
 		pieceSurfaces.forEach((piece, p) => {
@@ -224,7 +225,7 @@ function AssembleCollisionChunks(assembled, terrain, obstacles, voids) {
 	let seq = 0;
 	const newMember = (ref, type, rank) => ({ ref, type, rank, seq: seq++, aabb: null, linings: [] });
 	const terrainMembers  = terrain.map((mesh)     => newMember(mesh, "terrain", 0));
-	const obstacleMembers = obstacles.map((record) => newMember(record, "obstacle", 1));
+	const obstacleMembers = obstacles.map((mesh)   => newMember(mesh, "obstacle", 1));
 
 	// List each void lining under its host.
 	function addLinings(entries, members, sourceType, rank) {
@@ -260,24 +261,24 @@ function AssembleCollisionChunks(assembled, terrain, obstacles, voids) {
 	return { chunks, seq };
 }
 
-// Give a spawned terrain mesh/obstacle its own chunk.
+// Give a spawned terrain mesh/obstacle part its own chunk.
 function AddChunk(sceneGraph, ref, type) {
-	const seq    = sceneGraph.collisionSeq++;
+	const seq    = sceneGraph.collision.seq++;
 	const member = { ref, type, rank: type === "terrain" ? 0 : 1, seq, aabb: null, linings: [] };
 	const chunk  = { id: `chunk-${seq}`, worldAabb: null, members: [member] };
 	fitMember(member);
 	fitChunk(chunk);
-	sceneGraph.chunks.push(chunk);
+	sceneGraph.collision.chunks.push(chunk);
 }
 
-// Take a despawned terrain/obstacle mesh out of its chunk.
+// Take a despawned terrain/obstacle part out of its chunk.
 function RemoveChunkMember(sceneGraph, ref) {
-	for (const [chunkIndex, chunk] of sceneGraph.chunks.entries()) {
+	for (const [chunkIndex, chunk] of sceneGraph.collision.chunks.entries()) {
 		const index = chunk.members.findIndex((member) => member.ref === ref);
 		if (index < 0) continue;
 
 		chunk.members.splice(index, 1);
-		chunk.members.length === 0 ? sceneGraph.chunks.splice(chunkIndex, 1) : fitChunk(chunk);
+		chunk.members.length === 0 ? sceneGraph.collision.chunks.splice(chunkIndex, 1) : fitChunk(chunk);
 		return;
 	}
 }

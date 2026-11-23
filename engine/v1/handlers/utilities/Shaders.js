@@ -130,6 +130,7 @@ function createFoggedTextureFragmentShader(
 			}
 
 			float viewDist = length(v_viewPos);
+
 			// Fog grows with distance cubed: nearby stays clear, full fog at the fog reach.
 			float fog = clamp(viewDist / u_fogFull, 0.0, 1.0);
 			fog *= fog * fog;
@@ -423,18 +424,20 @@ const scatterCullGLSL = `
 	vec3 instanceOrigin = instanceModel[3].xyz;
 	float instanceDistance = length((u_view * vec4(instanceOrigin, 1.0)).xyz);
 	float fade = 1.0 - smoothstep(u_cullRadius * (1.0 - float(${PERFORMANCE_SCALING.SimDistance.Fractions.Scatter.Fade})), u_cullRadius, instanceDistance);
+
 	// Random cutoff per instance, capped at 0.75 so every instance is fully solid up close.
 	float cullHash = fract(sin(dot(instanceOrigin, vec3(12.9898, 78.233, 37.719))) * 43758.5453) * 0.75;
 	if (cullHash > fade) {
 		gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
 		return;
 	}
+
 	// Dissolve over the last quarter of each instance's own margin.
 	float instanceAlpha = clamp((fade - cullHash) * 4.0, 0.0, 1.0);
 `;
 
 function ScatterProgram(gl) {
-	// Draw scatter instances, each with its own model matrix and tint from vertex attributes.
+	// Draw scatter instances, each with its own model matrix from vertex attributes.
 	const vertexShaderSource = `#version 300 es
 		layout(location = 0) in vec3 a_position;
 		layout(location = 1) in vec2 a_uv;
@@ -442,13 +445,12 @@ function ScatterProgram(gl) {
 		layout(location = 3) in vec4 a_instanceRow1;
 		layout(location = 4) in vec4 a_instanceRow2;
 		layout(location = 5) in vec4 a_instanceRow3;
-		layout(location = 6) in vec4 a_instanceTint;
 		uniform mat4 u_projection;
 		uniform mat4 u_view;
 		uniform float u_cullRadius;
 		out vec2 v_uv;
 		out vec3 v_viewPos;
-		out vec4 v_tint;
+		out float v_cullAlpha;
 		void main() {
 			mat4 instanceModel = mat4(a_instanceRow0, a_instanceRow1, a_instanceRow2, a_instanceRow3);
 			${scatterCullGLSL}
@@ -457,15 +459,15 @@ function ScatterProgram(gl) {
 			gl_Position = u_projection * viewPos;
 			v_uv = a_uv;
 			v_viewPos = viewPos.xyz;
-			v_tint = vec4(a_instanceTint.rgb, a_instanceTint.a * instanceAlpha);
+			v_cullAlpha = instanceAlpha;
 		}
 	`;
 
 	return createLinkedProgram(gl, {
 		vertexShaderSource: vertexShaderSource,
 		fragmentShaderSource: createFoggedTextureFragmentShader(
-			"in vec4 v_tint;",
-			"vec4(texel.rgb * v_tint.rgb, texel.a * v_tint.a)"
+			"in float v_cullAlpha;",
+			"vec4(texel.rgb, texel.a * v_cullAlpha)"
 		),
 		uniformNames: {
 			projection  : "u_projection",
@@ -512,6 +514,7 @@ const decalSurfaceUvGLSL = `
 
 	vec2 decalSurfaceUv(int shape, vec3 point, mat4 placement, vec3 r, float rounding) {
 		vec3 center = placement[3].xyz;
+
 		// Floored: zero scale stays finite.
 		float width = max(length(placement[0].xyz), 1e-6), height = max(length(placement[1].xyz), 1e-6);
 		vec3 u = placement[0].xyz / width, v = placement[1].xyz / height;
@@ -759,7 +762,7 @@ const fullscreenVertexGLSL = `#version 300 es
 
 // Ink lines on edges and creases, faded by fog.
 function InkProgram(gl) {
-	const { Lines } = FILTER_TUNING;
+	const Lines = FILTER_TUNING.Lines;
 
 	const fragmentShaderSource = `#version 300 es
 		precision highp float;

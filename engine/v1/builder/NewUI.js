@@ -115,7 +115,7 @@ const toCamelCase = (name) => name.replace(/-([a-z])/g, (match, letter) => lette
 function readInlineStyles(node) {
 	// camelCase so kebab keys aren't ignored
 	const styles = {};
-	node.style.forEach(name, styles[toCamelCase(name)] = node.style.getPropertyValue(name));
+	for (const name of node.style) styles[toCamelCase(name)] = node.style.getPropertyValue(name);
 	return styles;
 }
 

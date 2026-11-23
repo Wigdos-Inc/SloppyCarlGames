@@ -3,10 +3,15 @@
 // Used by math/Collision.js for box measures, triangle boxes and closest points.
 // Used by physics/Collision.js to measure boxes, move collider shapes and find the nearest point on ground triangles.
 // Used by physics/Correction.js and camera/Modes.js to find a box's center.
-// Used by builder/NewEntity.js, builder/NewObstacle.js and builder/NewObject.js to fit collision shapes to bounds.
+// Used by builder/NewEntity.js and builder/NewObject.js to fit collision shapes to bounds.
+// Used by handlers/game/Simulator.js to merge the loaded object's boxes.
 // Used by builder/NewObject.js and builder/NewVoid.js to place a mesh's triangles in the world.
-// Used by builder/NewObject.js, builder/NewEntity.js and builder/NewTerrain.js to list a box's corners.
-// Used by builder/subProcesses/Chunks.js, builder/NewVoid.js, builder/NewPrimitive.js, handlers/Render.js and handlers/game/Simulator.js to measure triangles.
+// Used by builder/NewObject.js, builder/NewEntity.js and builder/subProcesses/Occlusion.js to list a box's corners.
+// Used by builder/subProcesses/Chunks.js, builder/NewVoid.js, builder/NewScatter.js and builder/NewPrimitive.js to measure triangles.
+// Used by handlers/Render.js and handlers/game/Simulator.js to measure triangles.
+// Used by builder/NewScatter.js and builder/subProcesses/Occlusion.js to fit boxes around points.
+// Used by builder/subProcesses/Chunks.js to split box colliders into faces.
+// Used by builder/subProcesses/Occlusion.js to split tube occluders along their centerline.
 // Used by builder/NewVoid.js to cut polygons along planes.
 // Used by builder/subProcesses/Chunks.js and Loops.js to group linked triangles.
 // Uses math/Vector3.js for vector operations 

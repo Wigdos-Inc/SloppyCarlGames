@@ -27,15 +27,14 @@
 					"anchorPoint": "bottom",
 					"attachmentPoint": "top",
 					"shape": "sphere",
-					"complexity": "high",
 					"dimensions": { "x": 0.3, "y": 0.3, "z": 0.3 },
 					"localPosition": { "x": 0, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "high" },
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "none",
 							"shape": null,
@@ -58,7 +57,6 @@
 					"anchorPoint": "top",
 					"attachmentPoint": "left",
 					"shape": "cube",
-					"complexity": "",
 					"dimensions": { "x": 0.18, "y": 0.4, "z": 0.2 },
 					"localPosition": { "x": 0, "y": 0.25, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -66,7 +64,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
@@ -89,7 +87,6 @@
 					"anchorPoint": "top",
 					"attachmentPoint": "right",
 					"shape": "cube",
-					"complexity": "",
 					"dimensions": { "x": 0.18, "y": 0.4, "z": 0.2 },
 					"localPosition": { "x": 0, "y": 0.25, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -97,7 +94,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
@@ -119,7 +116,6 @@
 					"parentId": "root",
 					"anchorPoint": "bottom",
 					"shape": "cube",
-					"complexity": "",
 					"dimensions": { "x": 0.5, "y": 0.5, "z": 0.3 },
 					"localPosition": { "x": 0, "y": 0.5, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -127,7 +123,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
@@ -162,7 +158,6 @@
 					"anchorPoint": "top",
 					"attachmentPoint": "bottom",
 					"shape": "cube",
-					"complexity": "",
 					"dimensions": { "x": 0.2, "y": 0.5, "z": 0.2 },
 					"localPosition": { "x": -0.15, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -170,7 +165,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
@@ -193,7 +188,6 @@
 					"anchorPoint": "top",
 					"attachmentPoint": "bottom",
 					"shape": "cube",
-					"complexity": "",
 					"dimensions": { "x": 0.2, "y": 0.5, "z": 0.2 },
 					"localPosition": { "x": 0.15, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -201,7 +195,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
@@ -249,15 +243,14 @@
 					"anchorPoint": "bottom",
 					"attachmentPoint": "top",
 					"shape": "sphere",
-					"complexity": "high",
 					"dimensions": { "x": 0.35, "y": 0.35, "z": 0.35 },
 					"localPosition": { "x": 0, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "high" },
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "none",
 							"shape": null,
@@ -280,7 +273,6 @@
 					"anchorPoint": "top",
 					"attachmentPoint": "left",
 					"shape": "cube",
-					"complexity": "",
 					"dimensions": { "x": 0.18, "y": 0.68, "z": 0.18 },
 					"localPosition": { "x": -0.09, "y": 0.325, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -288,7 +280,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
@@ -311,7 +303,6 @@
 					"anchorPoint": "top",
 					"attachmentPoint": "right",
 					"shape": "cube",
-					"complexity": "",
 					"dimensions": { "x": 0.18, "y": 0.68, "z": 0.18 },
 					"localPosition": { "x": 0.09, "y": 0.325, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -319,7 +310,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
@@ -341,7 +332,6 @@
 					"parentId": "root",
 					"anchorPoint": "bottom",
 					"shape": "cube",
-					"complexity": "",
 					"dimensions": { "x": 0.58, "y": 0.65, "z": 0.3 },
 					"localPosition": { "x": 0, "y": 0.95, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -349,7 +339,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
@@ -405,7 +395,6 @@
 					"anchorPoint": "top",
 					"attachmentPoint": "bottom",
 					"shape": "cube",
-					"complexity": "",
 					"dimensions": { "x": 0.2, "y": 0.95, "z": 0.2 },
 					"localPosition": { "x": -0.15, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -413,7 +402,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
@@ -436,7 +425,6 @@
 					"anchorPoint": "top",
 					"attachmentPoint": "bottom",
 					"shape": "cube",
-					"complexity": "",
 					"dimensions": { "x": 0.2, "y": 0.95, "z": 0.2 },
 					"localPosition": { "x": 0.15, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -444,7 +432,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": {
+						"base": {
 							"compositeMode": null,
 							"id": "metal-panel",
 							"shape": null,
@@ -487,14 +475,13 @@
 					"label": "body",
 					"parentId": "root",
 					"shape": "sphere",
-					"complexity": "medium",
 					"dimensions": { "x": 1, "y": 1, "z": 1 },
 					"localPosition": { "x": 0, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "bellyOpen", "decalType": "shape", "shape": "pill", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.66, "g": 0.5, "b": 0.82, "a": 1}, "secondary": {"r": 0.54, "g": 0.36, "b": 0.68, "a": 1}, "density": 6.72, "speckSize": 3.2, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": -0.55, "z": 0}, "rotation": 0, "scale": {"x": 1.05, "y": 1.5, "z": 1}} },
 							{ "id": "bellyPattern", "decalType": "image", "imagePath": "../assets/characters/carl/pattern.png", "sourceType": "local", "opacity": 0.7, "side": "front", "localTransform": {"position": {"x": 0, "y": -0.38, "z": 0}, "rotation": 0, "scale": {"x": 0.78, "y": 0.6, "z": 1}} }
@@ -508,14 +495,13 @@
 					"label": "head",
 					"parentId": "body",
 					"shape": "sphere",
-					"complexity": "medium",
 					"dimensions": { "x": 0.6, "y": 0.5, "z": 0.4 },
 					"localPosition": { "x": 0, "y": 0.2, "z": 0.32 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "eyeWhites", "decalType": "image", "imagePath": "../assets/characters/carl/eyes.png", "sourceType": "local", "opacity": 0.95, "side": "front", "localTransform": {"position": {"x": 0, "y": -0.04, "z": 0}, "rotation": 0, "scale": {"x": 0.6, "y": 0.45, "z": 1}} },
 							{ "id": "leftIris", "decalType": "shape", "shape": "circle", "texture": {"compositeMode": null, "id": "none", "shape": null, "primary": {"r": 0.2, "g": 0.85, "b": 0.35, "a": 1}, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": -0.09, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.06, "y": 0.1, "z": 1}} },
@@ -535,14 +521,13 @@
 					"addsToBounds": false,
 					"parentId": "head",
 					"shape": "sphere",
-					"complexity": "medium",
 					"dimensions": { "x": 0.5, "y": 0.25, "z": 0.22 },
 					"localPosition": { "x": 0, "y": -0.15, "z": 0.12 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [{"id": "mouth", "decalType": "image", "imagePath": "../assets/characters/carl/mouth_close.png", "sourceType": "local", "side": "front", "localTransform": {"position": {"x": -0.03, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": -0.2, "y": 0.1, "z": 1}}}]
 					},
 					"detail": { "scatter": [] },
@@ -556,14 +541,13 @@
 					"addsToBounds": false,
 					"parentId": "head",
 					"shape": "sphere",
-					"complexity": "low",
 					"dimensions": { "x": 0.18, "y": 0.1, "z": 0.08 },
 					"localPosition": { "x": 0, "y": -0.09, "z": 0.18 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nostrilLeft", "decalType": "shape", "shape": "circle", "texture": {"compositeMode": null, "id": "none", "shape": null, "primary": {"r": 0.12, "g": 0.04, "b": 0.18, "a": 1}, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": -0.025, "y": 0.005, "z": 0}, "rotation": 45, "scale": {"x": 0.015, "y": 0.03, "z": 1}} },
 							{ "id": "nostrilRight", "decalType": "shape", "shape": "circle", "texture": {"compositeMode": null, "id": "none", "shape": null, "primary": {"r": 0.12, "g": 0.04, "b": 0.18, "a": 1}, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0.025, "y": 0.005, "z": 0}, "rotation": -45, "scale": {"x": 0.015, "y": 0.03, "z": 1}} }
@@ -580,12 +564,12 @@
 					"addsToBounds": false,
 					"parentId": "head",
 					"shape": "tube",
-					"complexity": "low",
 					"dimensions": { "x": 0.03, "y": 0, "z": 0.04 },
 					"localPosition": { "x": 0, "y": -0.017, "z": 0.2 },
 					"localRotation": { "x": 0, "y": 0, "z": 90 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"primitiveOptions": {
+						"complexity": "low",
 						"thickness": 1,
 						"solid": true,
 						"curved": true,
@@ -597,7 +581,7 @@
 							{ "dimensions": {"x": 0.015, "y": 1, "z": 0.02}, "localPosition": {"x": -0.08, "y": 0.1, "z": 0.02}, "localRotation": {"x": 0, "y": 0, "z": 40}, "thickness": 0.4 }
 						]
 					},
-					"texture": { "generated": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"texture": { "base": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
 					"detail": { "scatter": [] },
 					"anchorPoint": "center",
 					"attachmentPoint": "center",
@@ -609,12 +593,12 @@
 					"addsToBounds": false,
 					"parentId": "head",
 					"shape": "tube",
-					"complexity": "low",
 					"dimensions": { "x": 0.03, "y": 0, "z": 0.04 },
 					"localPosition": { "x": 0, "y": -0.017, "z": 0.2 },
 					"localRotation": { "x": 0, "y": 0, "z": -90 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"primitiveOptions": {
+						"complexity": "low",
 						"thickness": 1,
 						"solid": true,
 						"curved": true,
@@ -626,7 +610,7 @@
 							{ "dimensions": {"x": 0.015, "y": 1, "z": 0.02}, "localPosition": {"x": 0.08, "y": 0.1, "z": 0.02}, "localRotation": {"x": 0, "y": 0, "z": -40}, "thickness": 1 }
 						]
 					},
-					"texture": { "generated": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"texture": { "base": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
 					"detail": { "scatter": [] },
 					"anchorPoint": "center",
 					"attachmentPoint": "center",
@@ -638,14 +622,13 @@
 					"addsToBounds": false,
 					"parentId": "head",
 					"shape": "pyramid",
-					"complexity": "",
 					"dimensions": { "x": 0.17, "y": 0.14, "z": 0.07 },
 					"localPosition": { "x": -0.12, "y": -0.12, "z": 0 },
 					"localRotation": { "x": 12, "y": -10, "z": 20 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [{"id": "innerEarLeft", "decalType": "shape", "shape": "triangle", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": 0.04, "z": 0}, "rotation": 0, "scale": {"x": 0.1, "y": 0.12, "z": 1}}}]
 					},
 					"detail": { "scatter": [] },
@@ -659,14 +642,13 @@
 					"addsToBounds": false,
 					"parentId": "head",
 					"shape": "pyramid",
-					"complexity": "",
 					"dimensions": { "x": 0.17, "y": 0.14, "z": 0.07 },
 					"localPosition": { "x": 0.12, "y": -0.12, "z": 0 },
 					"localRotation": { "x": 12, "y": 10, "z": -20 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.46, "g": 0.26, "b": 0.66, "a": 1}, "secondary": {"r": 0.3, "g": 0.14, "b": 0.48, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [{"id": "innerEarRight", "decalType": "shape", "shape": "triangle", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": 0.04, "z": 0}, "rotation": 0, "scale": {"x": 0.1, "y": 0.12, "z": 1}}}]
 					},
 					"detail": { "scatter": [] },
@@ -680,14 +662,13 @@
 					"addsToBounds": false,
 					"parentId": "body",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
 					"localPosition": { "x": 0.1259, "y": -0.1959, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 113.7 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.48 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.48 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.30, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "right", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.2, "y": 1, "z": 1}} }
@@ -704,14 +685,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleLeftLower1",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
 					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.36 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.36 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.12, "y": 0.275, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "right", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 1, "z": 1}} }
@@ -728,14 +708,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleLeftLower2",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
 					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.24 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.24 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.08, "y": 0.25, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "right", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.10, "y": 1, "z": 1}} }
@@ -751,15 +730,14 @@
 					"label": "tentacleLeftMid1",
 					"parentId": "body",
 					"shape": "capsule",
-					"complexity": "low",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
 					"localPosition": { "x": 0.08, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 90 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.48 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.48 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.30, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "right", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.20, "y": 0.42, "z": 1}} }
@@ -775,15 +753,14 @@
 					"label": "tentacleLeftMid2",
 					"parentId": "tentacleLeftMid1",
 					"shape": "capsule",
-					"complexity": "low",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
 					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.36 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.36 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.12, "y": 0.275, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "right", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.42, "z": 1}} }
@@ -800,14 +777,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleLeftMid2",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
 					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.24 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.24 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.08, "y": 0.25, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "right", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.10, "y": 0.42, "z": 1}} }
@@ -824,14 +800,13 @@
 					"addsToBounds": false,
 					"parentId": "body",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
 					"localPosition": { "x": 0.1259, "y": 0.1959, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 66.3 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.48 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.48 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.30, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "right", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.20, "y": 0.42, "z": 1}} }
@@ -848,14 +823,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleLeftUpper1",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
 					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.36 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.36 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.12, "y": 0.275, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "right", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.42, "z": 1}} }
@@ -872,14 +846,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleLeftUpper2",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
 					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.24 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.24 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "left", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.08, "y": 0.25, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "right", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.10, "y": 0.42, "z": 1}} }
@@ -896,14 +869,13 @@
 					"addsToBounds": false,
 					"parentId": "body",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
 					"localPosition": { "x": -0.1259, "y": -0.1959, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": -113.7 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.48 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.48 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.30, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "left", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.20, "y": 0.42, "z": 1}} }
@@ -920,14 +892,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleRightLower1",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
 					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.36 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.36 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.12, "y": 0.275, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "left", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.42, "z": 1}} }
@@ -944,14 +915,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleRightLower2",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
 					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.24 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.24 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.08, "y": 0.25, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "left", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.10, "y": 0.42, "z": 1}} }
@@ -968,14 +938,13 @@
 					"addsToBounds": false,
 					"parentId": "body",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
 					"localPosition": { "x": -0.08, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": -90 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.48 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.48 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.30, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "left", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.20, "y": 0.42, "z": 1}} }
@@ -992,14 +961,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleRightMid1",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
 					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.36 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.36 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.12, "y": 0.275, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "left", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.42, "z": 1}} }
@@ -1016,14 +984,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleRightMid2",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
 					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.24 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.24 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.08, "y": 0.25, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "left", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.10, "y": 0.42, "z": 1}} }
@@ -1040,14 +1007,13 @@
 					"addsToBounds": false,
 					"parentId": "body",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
 					"localPosition": { "x": -0.1259, "y": 0.1959, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": -66.3 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.48 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.48 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.30, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "left", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.20, "y": 0.42, "z": 1}} }
@@ -1064,14 +1030,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleRightUpper1",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
 					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.36 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.36 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.12, "y": 0.275, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "left", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.42, "z": 1}} }
@@ -1088,14 +1053,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleRightUpper2",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
 					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.24 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.24 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "right", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.08, "y": 0.25, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "left", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.10, "y": 0.42, "z": 1}} }
@@ -1112,14 +1076,13 @@
 					"addsToBounds": false,
 					"parentId": "body",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
 					"localPosition": { "x": -0.2416, "y": -0.1274, "z": 0.1947 },
 					"localRotation": { "x": -112.6, "y": 0, "z": 36.2 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.48 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.48 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.30, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.20, "y": 0.42, "z": 1}} }
@@ -1136,14 +1099,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleBackLeft1",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
 					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.36 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.36 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.12, "y": 0.275, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.42, "z": 1}} }
@@ -1160,14 +1122,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleBackLeft2",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
 					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.24 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.24 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.08, "y": 0.25, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.10, "y": 0.42, "z": 1}} }
@@ -1184,14 +1145,13 @@
 					"addsToBounds": false,
 					"parentId": "body",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
 					"localPosition": { "x": 0, "y": 0.2068, "z": 0.1459 },
 					"localRotation": { "x": -59.8, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.48 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.48 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.30, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.20, "y": 0.42, "z": 1}} }
@@ -1208,14 +1168,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleBackCenter1",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
 					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.36 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.36 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.12, "y": 0.275, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.42, "z": 1}} }
@@ -1232,14 +1191,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleBackCenter2",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
 					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.24 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.24 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.08, "y": 0.25, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.10, "y": 0.42, "z": 1}} }
@@ -1256,14 +1214,13 @@
 					"addsToBounds": false,
 					"parentId": "body",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.12, "y": 0.25, "z": 0.12 },
 					"localPosition": { "x": 0.2416, "y": -0.1274, "z": 0.1947 },
 					"localRotation": { "x": -112.6, "y": 0, "z": -36.2 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.48 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.48 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.30, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.20, "y": 0.42, "z": 1}} }
@@ -1280,14 +1237,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleBackRight1",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.09, "y": 0.25, "z": 0.09 },
 					"localPosition": { "x": 0, "y": -0.045, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.36 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.36 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.12, "y": 0.275, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.15, "y": 0.42, "z": 1}} }
@@ -1304,14 +1260,13 @@
 					"addsToBounds": false,
 					"parentId": "tentacleBackRight2",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.25, "z": 0.06 },
 					"localPosition": { "x": 0, "y": -0.03, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.24 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.24 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.34, "g": 0.3, "b": 0.82, "a": 1}, "secondary": {"r": 0.22, "g": 0.18, "b": 0.6, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "suckers", "decalType": "image", "imagePath": "../assets/characters/carl/suckers_4x2.png", "sourceType": "local", "opacity": 0.7, "side": "back", "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.08, "y": 0.25, "z": 1}} },
 							{ "decalType": "shape", "shape": "square", "texture": {"compositeMode": null, "id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 7.2, "speckSize": 40, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "side": "front", "sources": null, "localTransform": {"position": {"x": 0, "y": 0, "z": 0}, "rotation": 0, "scale": {"x": 0.10, "y": 0.42, "z": 1}} }
@@ -1327,13 +1282,12 @@
 					"label": "legLeft",
 					"parentId": "body",
 					"shape": "cylinder",
-					"complexity": "low",
 					"dimensions": { "x": 0.14, "y": 0.19, "z": 0.14 },
 					"localPosition": { "x": -0.15, "y": 0.06, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": {},
-					"texture": { "generated": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"primitiveOptions": { "complexity": "low" },
+					"texture": { "base": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
 					"detail": { "scatter": [] },
 					"anchorPoint": "top",
 					"attachmentPoint": "bottom",
@@ -1344,13 +1298,12 @@
 					"label": "toeLeft1",
 					"parentId": "legLeft",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
 					"localPosition": { "x": -0.035, "y": -0.07, "z": 0.1 },
 					"localRotation": { "x": 90, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.3333 },
-					"texture": { "generated": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3333 },
+					"texture": { "base": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
 					"detail": { "scatter": [] },
 					"anchorPoint": "top",
 					"attachmentPoint": "front",
@@ -1361,13 +1314,12 @@
 					"label": "toeLeft2",
 					"parentId": "legLeft",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
 					"localPosition": { "x": 0, "y": -0.07, "z": 0.1 },
 					"localRotation": { "x": 90, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.3333 },
-					"texture": { "generated": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3333 },
+					"texture": { "base": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
 					"detail": { "scatter": [] },
 					"anchorPoint": "top",
 					"attachmentPoint": "front",
@@ -1378,13 +1330,12 @@
 					"label": "toeLeft3",
 					"parentId": "legLeft",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
 					"localPosition": { "x": 0.035, "y": -0.07, "z": 0.1 },
 					"localRotation": { "x": 90, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.3333 },
-					"texture": { "generated": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3333 },
+					"texture": { "base": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
 					"detail": { "scatter": [] },
 					"anchorPoint": "top",
 					"attachmentPoint": "front",
@@ -1395,13 +1346,12 @@
 					"label": "legRight",
 					"parentId": "body",
 					"shape": "cylinder",
-					"complexity": "low",
 					"dimensions": { "x": 0.14, "y": 0.19, "z": 0.14 },
 					"localPosition": { "x": 0.15, "y": 0.06, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": {},
-					"texture": { "generated": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"primitiveOptions": { "complexity": "low" },
+					"texture": { "base": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
 					"detail": { "scatter": [] },
 					"anchorPoint": "top",
 					"attachmentPoint": "bottom",
@@ -1412,13 +1362,12 @@
 					"label": "toeRight1",
 					"parentId": "legRight",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
 					"localPosition": { "x": -0.035, "y": -0.07, "z": 0.1 },
 					"localRotation": { "x": 90, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.3333 },
-					"texture": { "generated": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3333 },
+					"texture": { "base": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
 					"detail": { "scatter": [] },
 					"anchorPoint": "top",
 					"attachmentPoint": "front",
@@ -1429,13 +1378,12 @@
 					"label": "toeRight2",
 					"parentId": "legRight",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
 					"localPosition": { "x": 0, "y": -0.07, "z": 0.1 },
 					"localRotation": { "x": 90, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.3333 },
-					"texture": { "generated": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3333 },
+					"texture": { "base": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
 					"detail": { "scatter": [] },
 					"anchorPoint": "top",
 					"attachmentPoint": "front",
@@ -1446,13 +1394,12 @@
 					"label": "toeRight3",
 					"parentId": "legRight",
 					"shape": "capsule",
-					"complexity": "low",
 					"dimensions": { "x": 0.06, "y": 0.15, "z": 0.05 },
 					"localPosition": { "x": 0.035, "y": -0.07, "z": 0.1 },
 					"localRotation": { "x": 90, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
-					"primitiveOptions": { "rounding": 0.3333 },
-					"texture": { "generated": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3333 },
+					"texture": { "base": { "compositeMode": null,"id": "rubber-skin", "shape": null, "primary": {"r": 0.62, "g": 0.44, "b": 0.78, "a": 1}, "secondary": {"r": 0.5, "g": 0.32, "b": 0.64, "a": 1}, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1}, "custom": [] },
 					"detail": { "scatter": [] },
 					"anchorPoint": "top",
 					"attachmentPoint": "front",
@@ -1483,15 +1430,15 @@
 				{
 					"id": "torso", "label": "torso", "parentId": "root",
 					"anchorPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.35, "y": 0.3638, "z": 0.20 },
 					"localPosition": { "x": 0, "y": 0.38, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.189 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.189 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 }, "secondary": { "r": 0.104, "g": 0.438, "b": 0.718, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 }, "secondary": { "r": 0.104, "g": 0.438, "b": 0.718, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "collar", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "top", "sources": null, "localTransform": { "position": { "x": 0, "y": 0, "z": 0 }, "rotation": 0, "scale": { "x": 0.103, "y": 0.12, "z": 1 } } }
 						]
@@ -1501,15 +1448,15 @@
 				{
 					"id": "head", "label": "head", "parentId": "torso",
 					"anchorPoint": "bottom", "attachmentPoint": "top",
-					"shape": "sphere", "complexity": "medium",
+					"shape": "sphere",
 					"dimensions": { "x": 0.675, "y": 0.5625, "z": 0.50 },
 					"localPosition": { "x": 0, "y": -0.05, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "face", "decalType": "image", "imagePath": "../assets/characters/jeff/face_noBG.png", "sourceType": "local", "opacity": 1, "side": "front", "localTransform": {"position": {"x": -0.04, "y": -0.05, "z": 0}, "rotation": 0, "scale": {"x": 0.4455, "y": 0.2812, "z": 1}} }
 						]
@@ -1519,15 +1466,15 @@
 				{
 					"id": "earLeft", "label": "earLeft", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "left",
-					"shape": "sphere", "complexity": "low",
+					"shape": "sphere",
 					"dimensions": { "x": 0.15, "y": 0.15, "z": 0.05 },
 					"localPosition": { "x": 0, "y": -0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "innerEar", "decalType": "image", "imagePath": "../assets/characters/jeff/ear_inner.png", "sourceType": "local", "opacity": 1, "side": "front", "localTransform": { "position": { "x": -0.01, "y": 0.005, "z": 0 }, "rotation": 0, "scale": { "x": 0.1, "y": 0.15, "z": 1 } } }
 						]
@@ -1537,15 +1484,15 @@
 				{
 					"id": "earRight", "label": "earRight", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "right",
-					"shape": "sphere", "complexity": "low",
+					"shape": "sphere",
 					"dimensions": { "x": 0.15, "y": 0.15, "z": 0.05 },
 					"localPosition": { "x": 0, "y": -0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "innerEar", "decalType": "image", "imagePath": "../assets/characters/jeff/ear_inner.png", "sourceType": "local", "opacity": 1, "side": "front", "localTransform": { "position": { "x": 0.01, "y": 0.005, "z": 0 }, "rotation": 0, "scale": { "x": -0.1, "y": 0.15, "z": 1 } } }
 						]
@@ -1555,15 +1502,15 @@
 				{
 					"id": "nose", "label": "nose", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "front",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"dimensions": { "x": 0.05, "y": 0.1, "z": 0.05 },
 					"localPosition": { "x": 0, "y": -0.05, "z": -0.015 },
 					"localRotation": { "x": 90, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.5 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.5 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.87, "g": 0.73, "b": 0.05, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.87, "g": 0.73, "b": 0.05, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1571,13 +1518,14 @@
 				{
 					"id": "hairLeft", "label": "hairLeft", "parentId": "head",
 					"anchorPoint": "bottom", "attachmentPoint": "top",
-					"shape": "tube", "complexity": "low",
+					"shape": "tube",
 					"dimensions": { "x": 0.014, "y": 0, "z": 0.014 },
 					"localPosition": { "x": 0.018, "y": -0.015, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": -10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {
+						"complexity": "low",
 						"thickness": 1, "curved": true, "smoothness": 1,
 						"nodes": [
 							{ "dimensions": { "x": 0.010, "y": 1, "z": 0.010 }, "localPosition": { "x": 0.013, "y": 0.0586, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": -25 }, "thickness": 1, "curved": true, "smoothness": 1 },
@@ -1585,7 +1533,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1593,13 +1541,14 @@
 				{
 					"id": "hairRight", "label": "hairRight", "parentId": "head",
 					"anchorPoint": "bottom", "attachmentPoint": "top",
-					"shape": "tube", "complexity": "low",
+					"shape": "tube",
 					"dimensions": { "x": 0.014, "y": 0, "z": 0.014 },
 					"localPosition": { "x": -0.018, "y": -0.015, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {
+						"complexity": "low",
 						"thickness": 1, "curved": true, "smoothness": 1,
 						"nodes": [
 							{ "dimensions": { "x": 0.010, "y": 1, "z": 0.010 }, "localPosition": { "x": -0.013, "y": 0.0586, "z": 0 }, "localRotation": { "x": 0, "y": 0, "z": 25 }, "thickness": 1, "curved": true, "smoothness": 1 },
@@ -1607,7 +1556,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1615,15 +1564,15 @@
 				{
 					"id": "shorts", "label": "shorts", "parentId": "torso",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.34, "y": 0.22, "z": 0.19 },
 					"localPosition": { "x": 0, "y": 0.165, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.2591 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.2591 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1631,15 +1580,15 @@
 				{
 					"id": "shoulderLeft", "label": "shoulderLeft", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "left",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.12, "y": 0.1094, "z": 0.1 },
 					"localPosition": { "x": -0.020, "y": 0.0903, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.457 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.457 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 }, "secondary": { "r": 0.104, "g": 0.438, "b": 0.718, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 }, "secondary": { "r": 0.104, "g": 0.438, "b": 0.718, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1647,15 +1596,15 @@
 				{
 					"id": "armUpperLeft", "label": "armUpperLeft", "parentId": "sleeveLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.065, "y": 0.0947, "z": 0.065 },
 					"localPosition": { "x": 0, "y": 0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.4752 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.4752 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1663,15 +1612,15 @@
 				{
 					"id": "sleeveLeft", "label": "sleeveLeft", "parentId": "shoulderLeft",
 					"anchorPoint": "top", "attachmentPoint": "center",
-					"shape": "cylinder", "complexity": "medium",
+					"shape": "cylinder",
 					"dimensions": { "x": 0.09, "y": 0.0876, "z": 0.09 },
 					"localPosition": { "x": -0.015, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 }, "secondary": { "r": 0.104, "g": 0.438, "b": 0.718, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 }, "secondary": { "r": 0.104, "g": 0.438, "b": 0.718, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1679,15 +1628,15 @@
 				{
 					"id": "armLowerLeft", "label": "armLowerLeft", "parentId": "armUpperLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.065, "y": 0.138, "z": 0.065 },
 					"localPosition": { "x": 0, "y": 0.045, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.471 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.471 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1695,15 +1644,15 @@
 				{
 					"id": "handLeft", "label": "handLeft", "parentId": "armLowerLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "sphere", "complexity": "low",
+					"shape": "sphere",
 					"dimensions": { "x": 0.09, "y": 0.09, "z": 0.09 },
 					"localPosition": { "x": 0, "y": 0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1711,15 +1660,15 @@
 				{
 					"id": "shoulderRight", "label": "shoulderRight", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "right",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.12, "y": 0.1094, "z": 0.1 },
 					"localPosition": { "x": 0.020, "y": 0.0903, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.457 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.457 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 }, "secondary": { "r": 0.104, "g": 0.438, "b": 0.718, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 }, "secondary": { "r": 0.104, "g": 0.438, "b": 0.718, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1727,15 +1676,15 @@
 				{
 					"id": "sleeveRight", "label": "sleeveRight", "parentId": "shoulderRight",
 					"anchorPoint": "top", "attachmentPoint": "center",
-					"shape": "cylinder", "complexity": "medium",
+					"shape": "cylinder",
 					"dimensions": { "x": 0.09, "y": 0.0876, "z": 0.09 },
 					"localPosition": { "x": 0.015, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 }, "secondary": { "r": 0.104, "g": 0.438, "b": 0.718, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.118, "g": 0.498, "b": 0.816, "a": 1 }, "secondary": { "r": 0.104, "g": 0.438, "b": 0.718, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1743,15 +1692,15 @@
 				{
 					"id": "armUpperRight", "label": "armUpperRight", "parentId": "sleeveRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.065, "y": 0.0947, "z": 0.065 },
 					"localPosition": { "x": 0, "y": 0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.4752 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.4752 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1759,15 +1708,15 @@
 				{
 					"id": "armLowerRight", "label": "armLowerRight", "parentId": "armUpperRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.065, "y": 0.138, "z": 0.065 },
 					"localPosition": { "x": 0, "y": 0.045, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.471 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.471 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1775,15 +1724,15 @@
 				{
 					"id": "handRight", "label": "handRight", "parentId": "armLowerRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "sphere", "complexity": "low",
+					"shape": "sphere",
 					"dimensions": { "x": 0.09, "y": 0.09, "z": 0.09 },
 					"localPosition": { "x": 0, "y": 0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1791,15 +1740,15 @@
 				{
 					"id": "shortsLegLeft", "label": "shortsLegLeft", "parentId": "shorts",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "cylinder", "complexity": "medium",
+					"shape": "cylinder",
 					"dimensions": { "x": 0.12, "y": 0.08, "z": 0.12 },
 					"localPosition": { "x": 0.08, "y": 0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1807,15 +1756,15 @@
 				{
 					"id": "shortsLegRight", "label": "shortsLegRight", "parentId": "shorts",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "cylinder", "complexity": "medium",
+					"shape": "cylinder",
 					"dimensions": { "x": 0.12, "y": 0.08, "z": 0.12 },
 					"localPosition": { "x": -0.08, "y": 0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1823,15 +1772,15 @@
 				{
 					"id": "legLeft", "label": "legLeft", "parentId": "shortsLegLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.07, "y": 0.265, "z": 0.07 },
 					"localPosition": { "x": 0, "y": 0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.2642 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.2642 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "sock", "decalType": "shape", "shape": "square", "texture": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.0913, "z": 0 }, "rotation": 0, "scale": { "x": 0.25, "y": 0.0525, "z": 1 } } }
 						]
@@ -1841,15 +1790,15 @@
 				{
 					"id": "legRight", "label": "legRight", "parentId": "shortsLegRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.07, "y": 0.265, "z": 0.07 },
 					"localPosition": { "x": 0, "y": 0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.2642 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.2642 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.96, "g": 0.835, "b": 0.067, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "sock", "decalType": "shape", "shape": "square", "texture": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.0913, "z": 0 }, "rotation": 0, "scale": { "x": 0.25, "y": 0.0525, "z": 1 } } }
 						]
@@ -1859,15 +1808,15 @@
 				{
 					"id": "shoeLeft", "label": "shoeLeft", "parentId": "legLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "sphere", "complexity": "low",
+					"shape": "sphere",
 					"dimensions": { "x": 0.13, "y": 0.095, "z": 0.22 },
 					"localPosition": { "x": 0, "y": 0.04, "z": 0.05 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1875,15 +1824,15 @@
 				{
 					"id": "soleLeft", "label": "soleLeft", "parentId": "shoeLeft",
 					"anchorPoint": "bottom", "attachmentPoint": "bottom",
-					"shape": "cylinder", "complexity": "low",
+					"shape": "cylinder",
 					"dimensions": { "x": 0.13, "y": 0.0475, "z": 0.22 },
 					"localPosition": { "x": 0, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1891,15 +1840,15 @@
 				{
 					"id": "shoeRight", "label": "shoeRight", "parentId": "legRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "sphere", "complexity": "low",
+					"shape": "sphere",
 					"dimensions": { "x": 0.13, "y": 0.095, "z": 0.22 },
 					"localPosition": { "x": 0, "y": 0.04, "z": 0.05 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1907,15 +1856,15 @@
 				{
 					"id": "soleRight", "label": "soleRight", "parentId": "shoeRight",
 					"anchorPoint": "bottom", "attachmentPoint": "bottom",
-					"shape": "cylinder", "complexity": "low",
+					"shape": "cylinder",
 					"dimensions": { "x": 0.13, "y": 0.0475, "z": 0.22 },
 					"localPosition": { "x": 0, "y": 0, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.078, "g": 0.078, "b": 0.078, "a": 1 }, "secondary": { "r": 0.11, "g": 0.11, "b": 0.11, "a": 1 }, "density": 6, "speckSize": 0.4, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1945,15 +1894,15 @@
 				{
 					"id": "head", "label": "head", "parentId": "neck",
 					"anchorPoint": "center", "attachmentPoint": "top",
-					"shape": "sphere", "complexity": "medium",
+					"shape": "sphere",
 					"dimensions": { "x": 0.30, "y": 0.25, "z": 0.32 },
 					"localPosition": { "x": 0, "y": 0.05, "z": -0.015 },
 					"localRotation": { "x": 10, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1961,18 +1910,18 @@
 				{
 					"id": "muzzle", "label": "muzzle", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "medium",
+					"shape": "sphere",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.24, "y": 0.12, "z": 0.30 },
 					"localPosition": { "x": 0, "y": -0.051, "z": 0.055 },
 					"localRotation": { "x": -10, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
-							{ "id": "mouth", "decalType": "image", "imagePath": "../assets/characters/shelldon/mouth_closed.png", "sourceType": "local", "opacity": 1, "shape": null, "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.01, "z": 0 }, "rotation": 0, "scale": { "x": 0.15, "y": 0.04, "z": 1 } } }
+							{ "id": "mouth", "decalType": "image", "imagePath": "../assets/characters/shelldon/mouth_grin.png", "sourceType": "local", "opacity": 1, "shape": null, "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": null, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.00, "z": 0 }, "rotation": 0, "scale": { "x": 0.15, "y": 0.06, "z": 1 } } }
 						]
 					},
 					"detail": { "scatter": [] }
@@ -1980,16 +1929,16 @@
 				{
 					"id": "chin", "label": "chin", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "low",
+					"shape": "sphere",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.10, "y": 0.05, "z": 0.11 },
 					"localPosition": { "x": 0, "y": -0.058, "z": 0.148 },
 					"localRotation": { "x": -20, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -1997,16 +1946,16 @@
 				{
 					"id": "eyeLeft", "label": "eyeLeft", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "medium",
+					"shape": "sphere",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.10, "y": 0.10, "z": 0.09 },
 					"localPosition": { "x": -0.06, "y": 0.02, "z": 0.12 },
 					"localRotation": { "x": -15, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.92, "g": 0.9, "b": 0.8, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.92, "g": 0.9, "b": 0.8, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "iris", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.62, "g": 0.72, "b": 0.16, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0, "z": 0 }, "rotation": 0, "scale": { "x": 0.038, "y": 0.038, "z": 1 } } },
 							{ "id": "pupil", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.04, "g": 0.04, "b": 0.05, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0, "z": 0 }, "rotation": 0, "scale": { "x": 0.02, "y": 0.02, "z": 1 } } }
@@ -2017,7 +1966,7 @@
 				{
 					"id": "lidUpperLeft", "label": "lidUpperLeft", "parentId": "eyeLeft",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "tube", "complexity": "medium",
+					"shape": "tube",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.001, "y": 0, "z": 0.001 },
 					"localPosition": { "x": 0, "y": 0, "z": 0 },
@@ -2025,6 +1974,7 @@
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {
+						"complexity": "medium",
 						"thickness": 1, "solid": true, "curved": false, "smoothness": 0,
 						"nodes": [
 							{ "dimensions": { "x": 0.043, "y": 1, "z": 0.072 }, "localPosition": { "x": -0.03, "y": -0.003, "z": -0.006 }, "localRotation": { "x": 7, "y": -16, "z": 6 }, "thickness": 1, "curved": true, "smoothness": 1 },
@@ -2034,7 +1984,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2042,7 +1992,7 @@
 				{
 					"id": "lidLowerLeft", "label": "lidLowerLeft", "parentId": "eyeLeft",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "tube", "complexity": "medium",
+					"shape": "tube",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.001, "y": 0, "z": 0.001 },
 					"localPosition": { "x": 0, "y": 0, "z": 0 },
@@ -2050,6 +2000,7 @@
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {
+						"complexity": "medium",
 						"thickness": 1, "solid": true, "curved": false, "smoothness": 0,
 						"nodes": [
 							{ "dimensions": { "x": 0.044, "y": 1, "z": 0.074 }, "localPosition": { "x": -0.026, "y": -0.017, "z": -0.002 }, "localRotation": { "x": 26, "y": 153, "z": 143 }, "thickness": 1, "curved": true, "smoothness": 1 },
@@ -2059,7 +2010,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2067,16 +2018,16 @@
 				{
 					"id": "eyeRight", "label": "eyeRight", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "medium",
+					"shape": "sphere",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.10, "y": 0.10, "z": 0.09 },
 					"localPosition": { "x": 0.06, "y": 0.02, "z": 0.12 },
 					"localRotation": { "x": -15, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.92, "g": 0.9, "b": 0.8, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.92, "g": 0.9, "b": 0.8, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "iris", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.62, "g": 0.72, "b": 0.16, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0, "z": 0 }, "rotation": 0, "scale": { "x": 0.038, "y": 0.038, "z": 1 } } },
 							{ "id": "pupil", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.04, "g": 0.04, "b": 0.05, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": 0, "z": 0 }, "rotation": 0, "scale": { "x": 0.02, "y": 0.02, "z": 1 } } }
@@ -2087,7 +2038,7 @@
 				{
 					"id": "lidUpperRight", "label": "lidUpperRight", "parentId": "eyeRight",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "tube", "complexity": "medium",
+					"shape": "tube",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.001, "y": 0, "z": 0.001 },
 					"localPosition": { "x": 0, "y": 0, "z": 0 },
@@ -2095,6 +2046,7 @@
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {
+						"complexity": "medium",
 						"thickness": 1, "solid": true, "curved": false, "smoothness": 0,
 						"nodes": [
 							{ "dimensions": { "x": 0.043, "y": 1, "z": 0.072 }, "localPosition": { "x": 0.03, "y": -0.003, "z": -0.006 }, "localRotation": { "x": 7, "y": 16, "z": -6 }, "thickness": 1, "curved": true, "smoothness": 1 },
@@ -2104,7 +2056,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2112,7 +2064,7 @@
 				{
 					"id": "lidLowerRight", "label": "lidLowerRight", "parentId": "eyeRight",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "tube", "complexity": "medium",
+					"shape": "tube",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.001, "y": 0, "z": 0.001 },
 					"localPosition": { "x": 0, "y": 0, "z": 0 },
@@ -2120,6 +2072,7 @@
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {
+						"complexity": "medium",
 						"thickness": 1, "solid": true, "curved": false, "smoothness": 0,
 						"nodes": [
 							{ "dimensions": { "x": 0.044, "y": 1, "z": 0.074 }, "localPosition": { "x": 0.026, "y": -0.017, "z": -0.002 }, "localRotation": { "x": 26, "y": -153, "z": -143 }, "thickness": 1, "curved": true, "smoothness": 1 },
@@ -2129,7 +2082,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.66, "g": 0.55, "b": 0.62, "a": 1 }, "secondary": { "r": 0.55, "g": 0.44, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2137,7 +2090,7 @@
 				{
 					"id": "browLeft", "label": "browLeft", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "tube", "complexity": "medium",
+					"shape": "tube",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.021, "y": 0, "z": 0.039 },
 					"localPosition": { "x": -0.102, "y": -0.007, "z": 0.12 },
@@ -2145,6 +2098,7 @@
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {
+						"complexity": "medium",
 						"thickness": 1, "solid": true, "curved": true, "smoothness": 1,
 						"nodes": [
 							{ "dimensions": { "x": 0.027, "y": 1, "z": 0.048 }, "localPosition": { "x": 0.01, "y": 0.032, "z": 0.001 }, "localRotation": { "x": 14, "y": 14, "z": -33 }, "thickness": 1, "curved": true, "smoothness": 1 },
@@ -2153,7 +2107,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2161,7 +2115,7 @@
 				{
 					"id": "browRight", "label": "browRight", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "tube", "complexity": "medium",
+					"shape": "tube",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.021, "y": 0, "z": 0.039 },
 					"localPosition": { "x": 0.102, "y": -0.007, "z": 0.12 },
@@ -2169,6 +2123,7 @@
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {
+						"complexity": "medium",
 						"thickness": 1, "solid": true, "curved": true, "smoothness": 1,
 						"nodes": [
 							{ "dimensions": { "x": 0.027, "y": 1, "z": 0.048 }, "localPosition": { "x": -0.01, "y": 0.032, "z": 0.001 }, "localRotation": { "x": 14, "y": -14, "z": 33 }, "thickness": 1, "curved": true, "smoothness": 1 },
@@ -2177,7 +2132,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2185,16 +2140,16 @@
 				{
 					"id": "noseCorridor", "label": "noseCorridor", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "cylinder", "complexity": "low",
+					"shape": "cylinder",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.074, "y": 0.07, "z": 0.08 },
 					"localPosition": { "x": 0, "y": 0.022, "z": 0.13 },
 					"localRotation": { "x": -38, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "crinkle1", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.36, "g": 0.47, "b": 0.55, "a": 0.85 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.015, "z": 0 }, "rotation": 0, "scale": { "x": 0.08, "y": 0.0020, "z": 1 } } },
 							{ "id": "crinkle2", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.36, "g": 0.47, "b": 0.55, "a": 0.85 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.008, "z": 0 }, "rotation": 0, "scale": { "x": 0.08, "y": 0.0022, "z": 1 } } },
@@ -2207,16 +2162,16 @@
 				{
 					"id": "nose", "label": "nose", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "low",
+					"shape": "sphere",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.075, "y": 0.06, "z": 0.075 },
 					"localPosition": { "x": 0, "y": -0.00, "z": 0.16 },
 					"localRotation": { "x": -30, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.76, "g": 0.6, "b": 0.63, "a": 1 }, "secondary": { "r": 0.64, "g": 0.48, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.76, "g": 0.6, "b": 0.63, "a": 1 }, "secondary": { "r": 0.64, "g": 0.48, "b": 0.52, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nostrilLeft", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.2, "g": 0.09, "b": 0.13, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": -0.03, "y": -0.018, "z": 0 }, "rotation": 65, "scale": { "x": 0.012, "y": 0.03, "z": 1 } } },
 							{ "id": "nostrilRight", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.2, "g": 0.09, "b": 0.13, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0.03, "y": -0.018, "z": 0 }, "rotation": -65, "scale": { "x": 0.012, "y": 0.03, "z": 1 } } }
@@ -2227,16 +2182,16 @@
 				{
 					"id": "cheekLeft", "label": "cheekLeft", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "medium",
+					"shape": "sphere",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.09, "y": 0.12, "z": 0.25 },
 					"localPosition": { "x": -0.09, "y": -0.022, "z": 0.03 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": "circle", "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 3, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": "circle", "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 3, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2244,16 +2199,16 @@
 				{
 					"id": "cheekRight", "label": "cheekRight", "parentId": "head",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "medium",
+					"shape": "sphere",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.09, "y": 0.12, "z": 0.25 },
 					"localPosition": { "x": 0.09, "y": -0.022, "z": 0.03 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": "circle", "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 3, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": "circle", "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 3, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2261,16 +2216,16 @@
 				{
 					"id": "earLeft", "label": "earLeft", "parentId": "head",
 					"anchorPoint": "bottom", "attachmentPoint": "center",
-					"shape": "cylinder", "complexity": "medium",
+					"shape": "cylinder",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.12, "y": 0.22, "z": 0.10 },
 					"localPosition": { "x": -0.10, "y": -0.01, "z": 0.00 },
 					"localRotation": { "x": -20, "y": 0, "z": 75 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2278,16 +2233,16 @@
 				{
 					"id": "earRight", "label": "earRight", "parentId": "head",
 					"anchorPoint": "bottom", "attachmentPoint": "center",
-					"shape": "cylinder", "complexity": "low",
+					"shape": "cylinder",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.12, "y": 0.22, "z": 0.10 },
 					"localPosition": { "x": 0.10, "y": -0.01, "z": 0.00 },
 					"localRotation": { "x": -20, "y": 0, "z": -75 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2295,15 +2250,15 @@
 				{
 					"id": "torso", "label": "torso", "parentId": "root",
 					"anchorPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.25, "y": 0.36, "z": 0.20 },
 					"localPosition": { "x": 0, "y": 0.36, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.35 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.35 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nippleLeft", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.45, "g": 0.5, "b": 0.62, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": -0.07, "y": 0.103, "z": 0 }, "rotation": 0, "scale": { "x": 0.012, "y": 0.012, "z": 1 } } },
 							{ "id": "nippleRight", "decalType": "shape", "shape": "circle", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.45, "g": 0.5, "b": 0.62, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0.07, "y": 0.103, "z": 0 }, "rotation": 0, "scale": { "x": 0.012, "y": 0.012, "z": 1 } } }
@@ -2314,15 +2269,15 @@
 				{
 					"id": "ribcage", "label": "ribcage", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.25, "y": 0.30, "z": 0.20 },
 					"localPosition": { "x": 0, "y": 0.09, "z": -0.01 },
 					"localRotation": { "x": -10, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.8 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.8 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2330,7 +2285,7 @@
 				{
 					"id": "chestLeft", "label": "chestLeft", "parentId": "ribcage",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "cube", "complexity": "low",
+					"shape": "cube",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.09, "y": 0.08, "z": 0.045 },
 					"localPosition": { "x": -0.05, "y": 0.01, "z": 0.07 },
@@ -2339,7 +2294,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2347,7 +2302,7 @@
 				{
 					"id": "chestRight", "label": "chestRight", "parentId": "ribcage",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "cube", "complexity": "low",
+					"shape": "cube",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.09, "y": 0.08, "z": 0.045 },
 					"localPosition": { "x": 0.05, "y": 0.01, "z": 0.07 },
@@ -2356,7 +2311,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2364,15 +2319,15 @@
 				{
 					"id": "belly", "label": "belly", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "medium",
+					"shape": "sphere",
 					"dimensions": { "x": 0.25, "y": 0.26, "z": 0.22 },
 					"localPosition": { "x": 0, "y": -0.04, "z": 0.035 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "medium" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "navel", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.36, "g": 0.3, "b": 0.34, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.02, "z": 0 }, "rotation": 90, "scale": { "x": 0.008, "y": 0.014, "z": 1 } } }
 						]
@@ -2382,15 +2337,15 @@
 				{
 					"id": "neck", "label": "neck", "parentId": "torso",
 					"anchorPoint": "bottom", "attachmentPoint": "top",
-					"shape": "cylinder", "complexity": "low",
+					"shape": "cylinder",
 					"dimensions": { "x": 0.15, "y": 0.16, "z": 0.12 },
 					"localPosition": { "x": 0, "y": -0.04, "z": -0.03 },
 					"localRotation": { "x": 10, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2398,15 +2353,15 @@
 				{
 					"id": "shoulderLeft", "label": "shoulderLeft", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"dimensions": { "x": 0.10, "y": 0.15, "z": 0.08 },
 					"localPosition": { "x": -0.07, "y": 0.16, "z": -0.03 },
 					"localRotation": { "x": 0, "y": 0, "z": -75 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.4 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.4 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2414,15 +2369,15 @@
 				{
 					"id": "armUpperLeft", "label": "armUpperLeft", "parentId": "shoulderLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"dimensions": { "x": 0.06, "y": 0.17, "z": 0.06 },
 					"localPosition": { "x": -0.04, "y": 0.045, "z": -0.00 },
 					"localRotation": { "x": 0, "y": 0, "z": 50 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.3 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2430,15 +2385,15 @@
 				{
 					"id": "armLowerLeft", "label": "armLowerLeft", "parentId": "armUpperLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"dimensions": { "x": 0.045, "y": 0.18, "z": 0.055 },
 					"localPosition": { "x": 0, "y": 0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.25 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.25 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2446,7 +2401,7 @@
 				{
 					"id": "handLeft", "label": "handLeft", "parentId": "armLowerLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "cube", "complexity": "low",
+					"shape": "cube",
 					"dimensions": { "x": 0.06, "y": 0.07, "z": 0.035 },
 					"localPosition": { "x": 0, "y": 0.02, "z": 0 },
 					"localRotation": { "x": 0, "y": -90, "z": 0 },
@@ -2454,7 +2409,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2462,16 +2417,16 @@
 				{
 					"id": "fingerLeft1", "label": "fingerLeft1", "parentId": "handLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.017, "y": 0.065, "z": 0.017 },
 					"localPosition": { "x": -0.018, "y": 0.01, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": -10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.3 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
 						]
@@ -2481,16 +2436,16 @@
 				{
 					"id": "fingerLeft2", "label": "fingerLeft2", "parentId": "handLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.017, "y": 0.065, "z": 0.017 },
 					"localPosition": { "x": 0, "y": 0.01, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.3 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
 						]
@@ -2500,16 +2455,16 @@
 				{
 					"id": "fingerLeft3", "label": "fingerLeft3", "parentId": "handLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.017, "y": 0.065, "z": 0.017 },
 					"localPosition": { "x": 0.018, "y": 0.01, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 8 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.3 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
 						]
@@ -2519,16 +2474,16 @@
 				{
 					"id": "thumbLeft", "label": "thumbLeft", "parentId": "handLeft",
 					"anchorPoint": "top", "attachmentPoint": "right",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.020, "y": 0.06, "z": 0.018 },
 					"localPosition": { "x": -0.01, "y": 0.015, "z": 0 },
 					"localRotation": { "x": 0, "y": 25, "z": 35 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.44 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.44 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.019, "z": 0 }, "rotation": 0, "scale": { "x": 0.012, "y": 0.016, "z": 1 } } }
 						]
@@ -2538,15 +2493,15 @@
 				{
 					"id": "shoulderRight", "label": "shoulderRight", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"dimensions": { "x": 0.10, "y": 0.15, "z": 0.08 },
 					"localPosition": { "x": 0.07, "y": 0.16, "z": -0.03 },
 					"localRotation": { "x": 0, "y": 0, "z": 75 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.4 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.4 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2554,15 +2509,15 @@
 				{
 					"id": "armUpperRight", "label": "armUpperRight", "parentId": "shoulderRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"dimensions": { "x": 0.06, "y": 0.17, "z": 0.06 },
 					"localPosition": { "x": 0.04, "y": 0.045, "z": -0.00 },
 					"localRotation": { "x": 0, "y": 0, "z": -50 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.3 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2570,15 +2525,15 @@
 				{
 					"id": "armLowerRight", "label": "armLowerRight", "parentId": "armUpperRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"dimensions": { "x": 0.045, "y": 0.18, "z": 0.055 },
 					"localPosition": { "x": 0, "y": 0.04, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.25 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.25 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2586,7 +2541,7 @@
 				{
 					"id": "handRight", "label": "handRight", "parentId": "armLowerRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "cube", "complexity": "low",
+					"shape": "cube",
 					"dimensions": { "x": 0.06, "y": 0.07, "z": 0.035 },
 					"localPosition": { "x": 0, "y": 0.02, "z": 0 },
 					"localRotation": { "x": 0, "y": 90, "z": 0 },
@@ -2594,7 +2549,7 @@
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2602,16 +2557,16 @@
 				{
 					"id": "fingerRight1", "label": "fingerRight1", "parentId": "handRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.017, "y": 0.065, "z": 0.017 },
 					"localPosition": { "x": 0.018, "y": 0.01, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.3 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
 						]
@@ -2621,16 +2576,16 @@
 				{
 					"id": "fingerRight2", "label": "fingerRight2", "parentId": "handRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.017, "y": 0.065, "z": 0.017 },
 					"localPosition": { "x": 0, "y": 0.01, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.3 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
 						]
@@ -2640,16 +2595,16 @@
 				{
 					"id": "fingerRight3", "label": "fingerRight3", "parentId": "handRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.017, "y": 0.065, "z": 0.017 },
 					"localPosition": { "x": -0.018, "y": 0.01, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": -8 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.3 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.3 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.021, "z": 0 }, "rotation": 0, "scale": { "x": 0.011, "y": 0.016, "z": 1 } } }
 						]
@@ -2659,16 +2614,16 @@
 				{
 					"id": "thumbRight", "label": "thumbRight", "parentId": "handRight",
 					"anchorPoint": "top", "attachmentPoint": "left",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.020, "y": 0.06, "z": 0.018 },
 					"localPosition": { "x": 0.01, "y": 0.015, "z": 0 },
 					"localRotation": { "x": 0, "y": -25, "z": -35 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.44 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.44 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "front", "sources": null, "localTransform": { "position": { "x": 0, "y": -0.019, "z": 0 }, "rotation": 0, "scale": { "x": 0.012, "y": 0.016, "z": 1 } } }
 						]
@@ -2678,16 +2633,16 @@
 				{
 					"id": "gluteLeft", "label": "gluteLeft", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "low",
+					"shape": "sphere",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.15, "y": 0.15, "z": 0.12 },
 					"localPosition": { "x": -0.035, "y": -0.095, "z": -0.055 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2695,16 +2650,16 @@
 				{
 					"id": "gluteRight", "label": "gluteRight", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "center",
-					"shape": "sphere", "complexity": "low",
+					"shape": "sphere",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.15, "y": 0.15, "z": 0.12 },
 					"localPosition": { "x": 0.035, "y": -0.095, "z": -0.055 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": {},
+					"primitiveOptions": { "complexity": "low" },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2712,15 +2667,15 @@
 				{
 					"id": "thighLeft", "label": "thighLeft", "parentId": "torso",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.07, "y": 0.18, "z": 0.07 },
 					"localPosition": { "x": -0.07, "y": 0.05, "z": -0.01 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.29 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2728,15 +2683,15 @@
 				{
 					"id": "shinLeft", "label": "shinLeft", "parentId": "thighLeft",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.055, "y": 0.18, "z": 0.06 },
 					"localPosition": { "x": 0, "y": 0.06, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.25 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.25 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2744,15 +2699,15 @@
 				{
 					"id": "footLeft", "label": "footLeft", "parentId": "shinLeft",
 					"anchorPoint": "back", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.08, "y": 0.12, "z": 0.04 },
 					"localPosition": { "x": 0, "y": 0.035, "z": 0.02 },
 					"localRotation": { "x": 90, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.4 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.4 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2760,16 +2715,16 @@
 				{
 					"id": "toeLeft1", "label": "toeLeft1", "parentId": "footLeft",
 					"anchorPoint": "bottom", "attachmentPoint": "top",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.025, "y": 0.075, "z": 0.025 },
 					"localPosition": { "x": -0.02, "y": -0.04, "z": -0.001 },
 					"localRotation": { "x": 8, "y": 0, "z": 10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.29 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.025, "z": 0 }, "rotation": 0, "scale": { "x": 0.014, "y": 0.015, "z": 1 } } }
 						]
@@ -2779,16 +2734,16 @@
 				{
 					"id": "toeLeft2", "label": "toeLeft2", "parentId": "footLeft",
 					"anchorPoint": "bottom", "attachmentPoint": "top",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.028, "y": 0.09, "z": 0.028 },
 					"localPosition": { "x": 0, "y": -0.04, "z": -0.002 },
 					"localRotation": { "x": 6, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.29 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.032, "z": 0 }, "rotation": 0, "scale": { "x": 0.015, "y": 0.016, "z": 1 } } }
 						]
@@ -2798,16 +2753,16 @@
 				{
 					"id": "toeLeft3", "label": "toeLeft3", "parentId": "footLeft",
 					"anchorPoint": "bottom", "attachmentPoint": "top",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.030, "y": 0.10, "z": 0.030 },
 					"localPosition": { "x": 0.02, "y": -0.04, "z": -0.003 },
 					"localRotation": { "x": 6, "y": 0, "z": -10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.29 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.037, "z": 0 }, "rotation": 0, "scale": { "x": 0.016, "y": 0.017, "z": 1 } } }
 						]
@@ -2817,15 +2772,15 @@
 				{
 					"id": "thighRight", "label": "thighRight", "parentId": "torso",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.07, "y": 0.18, "z": 0.07 },
 					"localPosition": { "x": 0.07, "y": 0.05, "z": -0.01 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.29 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2833,15 +2788,15 @@
 				{
 					"id": "shinRight", "label": "shinRight", "parentId": "thighRight",
 					"anchorPoint": "top", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.055, "y": 0.18, "z": 0.06 },
 					"localPosition": { "x": 0, "y": 0.06, "z": 0 },
 					"localRotation": { "x": 0, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.25 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.25 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2849,15 +2804,15 @@
 				{
 					"id": "footRight", "label": "footRight", "parentId": "shinRight",
 					"anchorPoint": "back", "attachmentPoint": "bottom",
-					"shape": "capsule", "complexity": "medium",
+					"shape": "capsule",
 					"dimensions": { "x": 0.08, "y": 0.12, "z": 0.04 },
 					"localPosition": { "x": 0, "y": 0.035, "z": 0.02 },
 					"localRotation": { "x": 90, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.4 },
+					"primitiveOptions": { "complexity": "medium", "rounding": 0.4 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }
@@ -2865,16 +2820,16 @@
 				{
 					"id": "toeRight1", "label": "toeRight1", "parentId": "footRight",
 					"anchorPoint": "bottom", "attachmentPoint": "top",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.025, "y": 0.075, "z": 0.025 },
 					"localPosition": { "x": 0.02, "y": -0.04, "z": -0.001 },
 					"localRotation": { "x": 8, "y": 0, "z": -10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.29 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.025, "z": 0 }, "rotation": 0, "scale": { "x": 0.014, "y": 0.015, "z": 1 } } }
 						]
@@ -2884,16 +2839,16 @@
 				{
 					"id": "toeRight2", "label": "toeRight2", "parentId": "footRight",
 					"anchorPoint": "bottom", "attachmentPoint": "top",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.028, "y": 0.09, "z": 0.028 },
 					"localPosition": { "x": 0, "y": -0.04, "z": -0.001 },
 					"localRotation": { "x": 6, "y": 0, "z": 0 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.29 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.032, "z": 0 }, "rotation": 0, "scale": { "x": 0.015, "y": 0.016, "z": 1 } } }
 						]
@@ -2903,16 +2858,16 @@
 				{
 					"id": "toeRight3", "label": "toeRight3", "parentId": "footRight",
 					"anchorPoint": "bottom", "attachmentPoint": "top",
-					"shape": "capsule", "complexity": "low",
+					"shape": "capsule",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.030, "y": 0.10, "z": 0.030 },
 					"localPosition": { "x": -0.02, "y": -0.04, "z": -0.001 },
 					"localRotation": { "x": 6, "y": 0, "z": 10 },
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
-					"primitiveOptions": { "rounding": 0.29 },
+					"primitiveOptions": { "complexity": "low", "rounding": 0.29 },
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.6, "g": 0.67, "b": 0.76, "a": 1 }, "secondary": { "r": 0.515, "g": 0.62, "b": 0.705, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": [
 							{ "id": "nail", "decalType": "shape", "shape": "pill", "texture": { "compositeMode": null, "id": "none", "shape": null, "primary": { "r": 0.44, "g": 0.45, "b": 0.46, "a": 1 }, "secondary": null, "density": 1, "speckSize": 1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 }, "side": "back", "sources": null, "localTransform": { "position": { "x": 0, "y": 0.037, "z": 0 }, "rotation": 0, "scale": { "x": 0.016, "y": 0.017, "z": 1 } } }
 						]
@@ -2922,7 +2877,7 @@
 				{
 					"id": "tail", "label": "tail", "parentId": "torso",
 					"anchorPoint": "center", "attachmentPoint": "back",
-					"shape": "tube", "complexity": "low",
+					"shape": "tube",
 					"addsToBounds": false,
 					"dimensions": { "x": 0.10, "y": 0, "z": 0.045 },
 					"localPosition": { "x": 0, "y": -0.03, "z": 0.03 },
@@ -2930,6 +2885,7 @@
 					"localScale": { "x": 1, "y": 1, "z": 1 },
 					"pivot": { "x": 0, "y": 0, "z": 0 },
 					"primitiveOptions": {
+						"complexity": "low",
 						"thickness": 1, "solid": true, "curved": true, "smoothness": 1,
 						"nodes": [
 							{ "dimensions": { "x": 0.065, "y": 1, "z": 0.040 }, "localPosition": { "x": 0, "y": 0.0587, "z": 0.0075 }, "localRotation": { "x": 14.5, "y": 0, "z": 0 }, "thickness": 1, "curved": true, "smoothness": 1 },
@@ -2938,7 +2894,7 @@
 						]
 					},
 					"texture": {
-						"generated": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
+						"base": { "compositeMode": null, "id": "rubber-skin", "shape": null, "primary": { "r": 0.55, "g": 0.69, "b": 0.77, "a": 1 }, "secondary": { "r": 0.49, "g": 0.63, "b": 0.71, "a": 1 }, "density": 8, "speckSize": 0.1, "animated": false, "holdTimeSpeed": 1, "blendTimeSpeed": 1 },
 						"custom": []
 					},
 					"detail": { "scatter": [] }

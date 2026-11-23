@@ -98,21 +98,28 @@ function normalizeMovement(movement, surface) {
 
 /* === PART BUILDING === */
 
-function buildPart(source, textureScale, faceTextureStore, geometryCache, geometryCacheKeyPrefix) {
-	const { id, shape, complexity, dimensions, pivot, primitiveOptions, texture, detail, parentId, particle } = source;
-	const { mesh } = BuildObject(
+// A cache to share part geometry between entities of the same blueprint.
+const partGeometry = new Map();
+
+const ClearPartGeometry = () => partGeometry.clear();
+
+function buildPart(source, textureScale, faceTextureStore, blueprintKey) {
+	const { id, shape, dimensions, pivot, primitiveOptions, texture, detail, parentId, particle } = source;
+	const geometryKey = `${blueprintKey}::${id}`;
+	const mesh = BuildObject(
 		{
-			id, shape, complexity, dimensions,
+			id, shape, dimensions,
 			position        : new UnitVector3(0, 0, 0, "cnu"),
 			rotation        : new UnitVector3(0, 0, 0, "radians"),
 			scale           : ToVector3(1),
 			pivot, primitiveOptions, texture, detail,
 			role            : "entity-part",
 			collisionShape  : "none",
-			parentId, particle, textureScale, faceTextureStore, geometryCache,
-			geometryCacheKey: `${geometryCacheKeyPrefix}::${source.id}`,
+			particle, textureScale, faceTextureStore,
+			geometry        : partGeometry.get(geometryKey) ?? null,
 		}
-	);
+	).mesh;
+	partGeometry.set(geometryKey, mesh.geometry);
 
 	const { anchorPoint, attachmentPoint, addsToBounds } = source
 	return {
@@ -132,23 +139,19 @@ function buildPart(source, textureScale, faceTextureStore, geometryCache, geomet
 
 /* === MODEL BUILDING === */
 
-function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore, geometryCache) {
+function buildModel(entityDefinition, surfaceMap, textureScale, faceTextureStore) {
 	const rtScale = entityDefinition.model.rootTransform.scale;
 
-	// Share cached part geometry between entities of the same blueprint. Then build all parts.
-	const geometryCacheKeyPrefix = entityDefinition.blueprintId !== null 
-		? entityDefinition.blueprintId 
-		: entityDefinition.id;
-	const parts = entityDefinition.model.parts.map((part) => 
-		buildPart(part, textureScale, faceTextureStore, geometryCache, geometryCacheKeyPrefix)
-	);
+	// Build all parts while sharing geometry between entities of the same blueprint.
+	const blueprintKey = entityDefinition.blueprintId ?? entityDefinition.id;
+	const parts = entityDefinition.model.parts.map((part) => buildPart(part, textureScale, faceTextureStore, blueprintKey));
 
 	// Index every part before linking children, letting parts be listed in any order.
 	const index = {};
 	parts.forEach((part) => index[part.id] = part);
 	parts.forEach((part) => { 
 		if (part.parentId !== "root") index[part.parentId].children.push(part.id) 
-		});
+	});
 
 	// Collect the root parts.
 	const rootPartIds = parts.filter((p) => p.parentId === "root").map((p) => p.id);
@@ -254,10 +257,10 @@ const collidingParts = (model) => model.parts.filter((part) => part.addsToBounds
 
 // Fit a box around the given parts' world boxes.
 function computeEntityAabb(parts) {
-	const { min, max } = PointsAabb(parts.flatMap((part) => [part.mesh.worldAabb.min, part.mesh.worldAabb.max]));
+	const { min, max } = PointsAabb(parts.flatMap((part) => [part.mesh.display.aabb.min, part.mesh.display.aabb.max]));
 	return {
-		min: parts[0].mesh.worldAabb.min.clone().set(min),
-		max: parts[0].mesh.worldAabb.max.clone().set(max)
+		min: parts[0].mesh.display.aabb.min.clone().set(min),
+		max: parts[0].mesh.display.aabb.max.clone().set(max)
 	};
 }
 
@@ -305,7 +308,7 @@ function computeCompoundSpheresFromModel(model) {
 	model.parts.forEach((part) => {
 		if (part.addsToBounds === false) return;
 
-		const { center, radius } = SphereFromAabb(part.mesh.worldAabb, true);
+		const { center, radius } = SphereFromAabb(part.mesh.display.aabb, true);
 		spheres.push({ center, radius, partId: part.id });
 	});
 	return { type: "compound-sphere", spheres };
@@ -488,12 +491,12 @@ function NewInputFrame() {
 	}
 };
 
-function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geometryCache) {
+function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore) {
 	definition = ResolveEntitySource(definition);
 
 	// Place the movement path relative to the spawn surface.
 	const movement  = normalizeMovement(definition.movement, surfaceMap[definition.model.spawnSurfaceId]);
-	const { model } = buildModel(definition, surfaceMap, textureScale, faceTextureStore, geometryCache);
+	const model     = buildModel(definition, surfaceMap, textureScale, faceTextureStore).model;
 	const rootTrans = model.rootTransform;
 	const initialMovementProgress = resolveInitialMovementProgress(movement, rootTrans.position);
 
@@ -511,69 +514,83 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 	}
 
 	// Flag entities whose sprites show through walls. Occlusion culling never hides them.
-	const showsThroughWalls = model.parts.some(({ mesh }) => mesh.sprite !== null && mesh.sprite.occludedRange !== null);
+	const showsThroughWalls = model.parts.some(({ mesh }) => {
+		const sprite = mesh.primitive === "plane" ? mesh.detail.primitiveOptions.sprite : null;
+		return sprite !== null && sprite.occludedRange !== null;
+	});
 
 	// Only refit part boxes for compound-sphere colliders, which are built from them.
 	const layers    = rest.collision === null ? [] : [rest.collision.physics, rest.collision.hurtbox, rest.collision.hitbox];
 	const fitsParts = layers.some((layer) => layer !== null && layer.shape === "compound-sphere");
 
-	const { id, type, hp, attacks, hardcoded, platform, collisionOverride, customEvents, velocity, animations } = definition;
+	const { id, type, collisionOverride, customEvents, velocity, animations } = definition;
 	const { position, rotation, scale } = rootTrans;
 	const entity = {
-		id, type, hp, attacks, hardcoded, platform, collisionOverride, customEvents, movement,
+		id, type, collisionOverride, customEvents, movement,
 		transform: { position, rotation, scale },
 		velocity,
-		submergence    : 0,
-		medium         : "Air",
-		buoyancyForce  : 0,
+		physics        : {
+			submergence  : 0,
+			medium       : "Air",
+			buoyancyForce: 0,
+			grounded     : false,
+			launched     : false,
+			slopes       : { gravityScale: 1, staticFriction: 0, isInLoop: false, isCoasting: false, gripDemand: 0 },
+			correction   : {
+				surfaceContact : "none",
+				surfaceNormal  : CloneVector3(WORLD_NORMALS.Up),
+				alignedUp      : CloneVector3(WORLD_NORMALS.Up),
+				referenceNormal: CloneVector3(WORLD_NORMALS.Up),
+				contactGrace   : 0,
+			},
+			lastFrame    : {
+				position       : rootTrans.position.clone(),
+				rotation       : rootTrans.rotation.clone(),
+				collisionKey   : "",
+				groundSurfaceId: null,
+				resting        : false,
+			},
+			collision    : rest.collision === null ? null : {
+				rest            : rest.collision,
+				simRadiusPadding: new Unit(8, "cnu"),
+				aabb            : null,
+				simRadiusAabb   : null,
+				physics         : null,
+				hurtbox         : null,
+				hitbox          : null,
+			},
+		},
 		action         : "Idle",
-		grounded       : false,
-		launched       : false,
-		contactGrace   : 0,
-		gripDemand     : 0,
-		gravityScale   : 1,
-		dragFree       : false,
-		staticFriction : 0,
-		surfaceContact : "none",
-		surfaceNormal  : CloneVector3(WORLD_NORMALS.Up),
-		alignedUp      : CloneVector3(WORLD_NORMALS.Up),
-		referenceNormal: CloneVector3(WORLD_NORMALS.Up),
-		modelTurnRate  : { 
-			air  : defaultModelTurnRate.clone(), 
-			water: defaultModelTurnRate.clone() 
+		modelTurnRate  : {
+			air  : defaultModelTurnRate.clone(),
+			water: defaultModelTurnRate.clone()
 		},
 		facing    : RotateByEuler(WORLD_NORMALS.Forward, rootTrans.rotation),
 		inputFrame: NewInputFrame(),
 		model,
-		mesh     : model.parts[0].mesh,
-		collision: rest.collision === null ? null : {
-			rest            : rest.collision,
-			simRadiusPadding: new Unit(8, "cnu"),
-			aabb            : null,
-			simRadiusAabb   : null,
-			physics         : null,
-			hurtbox         : null,
-			hitbox          : null,
-		},
 		fullAabb    : null,
-		hitboxActive: rest.collision !== null && rest.collision.hitbox !== null,
 		performance : { physics: true, rendering: true, animatedTexture: true, collision: false },
-		animations, particle: null, showsThroughWalls, fitsParts,
-		state   : {
+		animations, particle: null, fitsParts,
+		display     : { showsThroughWalls, animationRuntime: null },
+		pathfinding : {
 			movementProgress: initialMovementProgress,
 			direction       : 1,
 			lastJumpMs      : 0,
 			activeAnimation : "idle",
 		},
-		physicsRuntime: {
-			lastPosition            : rootTrans.position.clone(),
-			lastRotation            : rootTrans.rotation.clone(),
-			hasUnresolvedPenetration: false,
-			resting                 : false,
-			lastPhysicsCollisionKey : "",
-			groundSurfaceId         : null,
-		},
 	};
+
+	// Give every entity (except particles) their meta and combat states.
+	if (type !== "particle") {
+		// Move hp from meta into the combat state, and leave off an empty meta.
+		const { meta: { hp, ...meta }, attacks } = definition;
+		if (Object.keys(meta).length > 0) entity.meta = meta;
+		entity.combat = {
+			hp, attacks,
+			hitboxActive: rest.collision !== null && rest.collision.hitbox !== null,
+			invulnerable: { active: false, timer: 0, flashTimer: 0 },
+		};
+	}
 
 	assignEntityBounds(entity);
 	return { entity };
@@ -581,7 +598,7 @@ function BuildEntity(definition, surfaceMap, textureScale, faceTextureStore, geo
 
 // Place the different bounds layers at the entity's transform.
 function assignEntityBounds(entity) {
-	const { collision, model, transform } = entity;
+	const { physics: { collision }, model, transform } = entity;
 	const trig = computeRotationTrig(transform.rotation);
 
 	entity.fullAabb = placeAabbEnclosure(model.restFullAabb, transform.position, transform.scale, trig);
@@ -617,14 +634,14 @@ function refreshEntityDerivedState(entity) {
 function translateEntityDerivedState(entity, delta) {
 	entity.model.parts.forEach((part) => {
 		part.mesh.transform.position.add(delta);
-		part.mesh.worldAabb.min.add(delta);
-		part.mesh.worldAabb.max.add(delta);
+		part.mesh.display.aabb.min.add(delta);
+		part.mesh.display.aabb.max.add(delta);
 	});
 	entity.model.posedTransform.position.add(delta);
 	assignEntityBounds(entity);
 }
 
-function UpdateEntityModelFromTransform(entity) {
+function UpdateEntityModel(entity) {
 	if (poseMatchesTransform(entity.model, entity.transform)) return;
 
 	// Note: rootTransform shares position and rotation with entity.transform. Only scale needs copying.
@@ -660,8 +677,9 @@ function ResetEntityToDefaultPose(entity) {
 export {
 	NewInputFrame,
 	BuildEntity,
+	ClearPartGeometry,
 	GetFaceCenterOffset,
-	UpdateEntityModelFromTransform,
+	UpdateEntityModel,
 	ResetEntityToDefaultPose,
 	ComposeTransform,
 };

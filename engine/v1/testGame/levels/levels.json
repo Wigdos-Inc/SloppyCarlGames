@@ -13,12 +13,10 @@
                     "id": "stage0",
                     "title": "First Stage",
                     "world": {
-                        "length": 120,
-                        "width": 80,
-                        "height": 40,
+                        "dimensions": { "x": 120, "y": 40, "z": 80 },
                         "deathBarrierY": -20,
                         "water": {
-                            "level": 9,
+                            "topY": 9,
                             "tint": { "r": 0.03, "g": 0.13, "b": 0.2, "a": 1 }
                         },
                         "skybox": {
@@ -53,7 +51,6 @@
                             {
                                 "id": "ground-main",
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 120, "y": 2, "z": 80 },
                                 "position": { "x": 60, "y": 0, "z": 40 },
                                 "rotation": { "x": 0, "y": 45, "z": 0 },
@@ -66,7 +63,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "grassland",
                                         "shape": "circle"
                                     },
@@ -86,7 +83,6 @@
                                 "id": "platform-a",
                                 "color": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 18, "y": 2, "z": 18 },
                                 "position": { "x": 25, "y": 8, "z": 24 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -99,7 +95,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "stone-block"
                                     },
                                     "custom": [
@@ -126,7 +122,6 @@
                                 "id": "beacon",
                                 "color": { "r": 0.51, "g": 0.55, "b": 0.66, "a": 1 },
                                 "shape": "pyramid",
-                                "complexity": "medium",
                                 "dimensions": { "x": 10, "y": 14, "z": 10 },
                                 "position": { "x": 60, "y": 2, "z": 40 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -139,7 +134,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "metal-panel"
                                     },
                                     "custom": []
@@ -152,7 +147,6 @@
                                 "id": "null-shaft-a",
                                 "color": { "r": 0.10, "g": 0.11, "b": 0.12, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 4, "y": 1.5, "z": 4 },
                                 "position": { "x": 30, "y": 0.5, "z": 50 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -160,7 +154,7 @@
                                 "pivot": { "x": 0, "y": 0, "z": 0 },
                                 "primitiveOptions": {},
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "default-tiles",
                                         "primary": { "r": 0.651, "g": 0.725, "b": 0.8, "a": 0.6 },
                                         "secondary": { "r": 0.435, "g": 0.51, "b": 0.6, "a": 0.6 },
@@ -178,7 +172,6 @@
                                 "id": "catch-platform-a",
                                 "color": { "r": 0.20, "g": 0.51, "b": 0.80, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 8, "y": 1.5, "z": 8 },
                                 "position": { "x": 30, "y": -10, "z": 50 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -186,7 +179,7 @@
                                 "pivot": { "x": 0, "y": 0, "z": 0 },
                                 "primitiveOptions": {},
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "default-tiles",
                                         "animated": false,
                                         "holdTimeSpeed": 1,
@@ -227,7 +220,6 @@
                             "id": "crate-stack",
                             "color": { "r": 0.57, "g": 0.39, "b": 0.23, "a": 1 },
                             "shape": "cube",
-                            "complexity": "medium",
                             "dimensions": { "x": 4, "y": 4, "z": 4 },
                             "position": { "x": 44, "y": 2, "z": 30 },
                             "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -240,7 +232,7 @@
                                 "subdivisionsZ": 1
                             },
                             "texture": {
-                                "generated": {
+                                "base": {
                                     "id": "wood-planks"
                                 },
                                 "custom": []
@@ -254,7 +246,6 @@
                             "id": "platform-b",
                             "color": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
                             "shape": "cube",
-                            "complexity": "medium",
                             "dimensions": { "x": 10, "y": 2, "z": 5 },
                             "position": { "x": 90, "y": 5, "z": 52 },
                             "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -267,7 +258,7 @@
                                 "subdivisionsZ": 1
                             },
                             "texture": {
-                                "generated": {
+                                "base": {
                                     "id": "stone-block",
                                     "shape": "circle",
                                     "animated": true,
@@ -287,15 +278,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.4, "y": 3.4, "z": 3.4 },
                                     "localPosition": { "x": -3.75, "y": 0.15, "z": -1.2 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -326,15 +316,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.1, "y": 3.1, "z": 3.1 },
                                     "localPosition": { "x": -2.3, "y": -0.05, "z": -1.05 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -357,15 +346,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.7, "y": 3.7, "z": 3.7 },
                                     "localPosition": { "x": -0.85, "y": 0.2, "z": -1.25 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -396,15 +384,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.2, "y": 3.2, "z": 3.2 },
                                     "localPosition": { "x": 0.6, "y": 0, "z": -1.1 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -427,15 +414,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.6, "y": 3.6, "z": 3.6 },
                                     "localPosition": { "x": 2.05, "y": 0.15, "z": -1.2 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -466,15 +452,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.3, "y": 3.3, "z": 3.3 },
                                     "localPosition": { "x": 3.5, "y": -0.1, "z": -1.05 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -497,15 +482,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.6, "y": 3.6, "z": 3.6 },
                                     "localPosition": { "x": -3.5, "y": 0.1, "z": 1.15 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -528,15 +512,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.3, "y": 3.3, "z": 3.3 },
                                     "localPosition": { "x": -2.05, "y": 0.25, "z": 1.25 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -567,15 +550,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.5, "y": 3.5, "z": 3.5 },
                                     "localPosition": { "x": -0.6, "y": 0, "z": 1.05 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -598,15 +580,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.8, "y": 3.8, "z": 3.8 },
                                     "localPosition": { "x": 0.85, "y": 0.2, "z": 1.2 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -637,15 +618,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.2, "y": 3.2, "z": 3.2 },
                                     "localPosition": { "x": 2.3, "y": -0.05, "z": 1.1 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -668,15 +648,14 @@
                                     "anchorPoint": "center",
                                     "attachmentPoint": "center",
                                     "shape": "sphere",
-                                    "complexity": "low",
                                     "dimensions": { "x": 3.4, "y": 3.4, "z": 3.4 },
                                     "localPosition": { "x": 3.75, "y": 0.15, "z": 1.25 },
                                     "localRotation": { "x": 0, "y": 0, "z": 0 },
                                     "localScale": { "x": 1, "y": 1, "z": 1 },
                                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                                    "primitiveOptions": {},
+                                    "primitiveOptions": { "complexity": "low" },
                                     "texture": {
-                                        "generated": {
+                                        "base": {
                                             "id": "stone-block",
                                             "shape": null,
                                             "primary": { "r": 0.57, "g": 0.60, "b": 0.68, "a": 1 },
@@ -736,7 +715,7 @@
                                 "scale": { "x": 1, "y": 1, "z": 1 },
                                 "pivot": { "x": 0, "y": 0, "z": 0 }
                             },
-                            "hp": 8,
+                            "meta": { "hp": 8, "aggroRange": 18 },
                             "movement": {
                                 "start": { "x": -6, "y": 8, "z": -6 },
                                 "end": { "x": 6, "y": 8, "z": 6 },
@@ -744,9 +723,6 @@
                                 "backAndForth": true,
                                 "speed": 5,
                                 "physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false }
-                            },
-                            "hardcoded": {
-                                "aggroRange": 18
                             }
                         },
                         {
@@ -796,12 +772,10 @@
                     "id": "stage1",
                     "title": "Scale Tester",
                     "world": {
-                        "length": 24,
-                        "width": 20,
-                        "height": 8,
+                        "dimensions": { "x": 24, "y": 8, "z": 20 },
                         "deathBarrierY": -6,
                         "water": {
-                            "level": null,
+                            "topY": null,
                             "tint": { "r": 0.03, "g": 0.13, "b": 0.2, "a": 1 }
                         },
                         "skybox": {
@@ -916,7 +890,6 @@
                                 "part": {
                                     "id": "particle",
                                     "shape": "plane",
-                                    "complexity": "low",
                                     "dimensions": { "x": 0.3, "y": 0.3, "z": 0 },
                                     "primitiveOptions": { "crossed": false, "sprite": { "follow": "full" } }
                                 }
@@ -929,7 +902,6 @@
                                 "id": "scale-floor",
                                 "color": { "r": 0.57, "g": 0.69, "b": 0.80, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 24, "y": 1, "z": 20 },
                                 "position": { "x": 12, "y": 0, "z": 10 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -942,7 +914,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "default-tiles"
                                     },
                                     "custom": []
@@ -955,7 +927,6 @@
                                 "id": "scale-wall-back",
                                 "color": { "r": 0.21, "g": 0.28, "b": 0.37, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 24, "y": 4, "z": 0.5 },
                                 "position": { "x": 12, "y": 0, "z": 19.75 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -968,7 +939,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "default-tiles"
                                     },
                                     "custom": []
@@ -981,7 +952,6 @@
                                 "id": "scale-wall-left",
                                 "color": { "r": 0.21, "g": 0.28, "b": 0.37, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 0.5, "y": 4, "z": 20 },
                                 "position": { "x": 0.25, "y": 0, "z": 10 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -994,7 +964,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "default-tiles"
                                     },
                                     "custom": []
@@ -1007,7 +977,6 @@
                                 "id": "scale-wall-right",
                                 "color": { "r": 0.21, "g": 0.28, "b": 0.37, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 0.5, "y": 4, "z": 20 },
                                 "position": { "x": 23.75, "y": 0, "z": 10 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -1020,7 +989,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "default-tiles"
                                     },
                                     "custom": [
@@ -1048,7 +1017,6 @@
                                 "id": "meter-cube",
                                 "color": { "r": 0.64, "g": 0.52, "b": 0.27, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 1, "y": 1, "z": 1 },
                                 "position": { "x": 4, "y": 1, "z": 5 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -1061,7 +1029,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "default-grid"
                                     },
                                     "custom": []
@@ -1074,7 +1042,6 @@
                                 "id": "two-meter-post",
                                 "color": { "r": 0.23, "g": 0.47, "b": 0.66, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 0.5, "y": 2, "z": 0.5 },
                                 "position": { "x": 6.5, "y": 1, "z": 5 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -1087,7 +1054,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "metal-panel"
                                     },
                                     "custom": []
@@ -1100,7 +1067,6 @@
                                 "id": "human-reference",
                                 "color": { "r": 0.50, "g": 0.53, "b": 0.51, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 0.55, "y": 2, "z": 0.35 },
                                 "position": { "x": 9, "y": 1, "z": 5 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -1113,7 +1079,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "metal-panel"
                                     },
                                     "custom": []
@@ -1126,7 +1092,6 @@
                                 "id": "door-left-post",
                                 "color": { "r": 0.52, "g": 0.58, "b": 0.41, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 0.15, "y": 2, "z": 0.15 },
                                 "position": { "x": 14.475, "y": 1, "z": 5 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -1139,7 +1104,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "metal-panel"
                                     },
                                     "custom": []
@@ -1152,7 +1117,6 @@
                                 "id": "door-right-post",
                                 "color": { "r": 0.52, "g": 0.58, "b": 0.41, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 0.15, "y": 2, "z": 0.15 },
                                 "position": { "x": 15.525, "y": 1, "z": 5 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -1165,7 +1129,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "metal-panel"
                                     },
                                     "custom": []
@@ -1178,7 +1142,6 @@
                                 "id": "door-lintel",
                                 "color": { "r": 0.52, "g": 0.58, "b": 0.41, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 1.2, "y": 0.2, "z": 0.15 },
                                 "position": { "x": 15, "y": 3, "z": 5 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -1191,7 +1154,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "metal-panel"
                                     },
                                     "custom": []
@@ -1204,7 +1167,6 @@
                                 "id": "step-1",
                                 "color": { "r": 0.51, "g": 0.53, "b": 0.60, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 1, "y": 0.18, "z": 0.28 },
                                 "position": { "x": 4, "y": 0, "z": 11 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -1217,7 +1179,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "stone-block"
                                     },
                                     "custom": []
@@ -1230,7 +1192,6 @@
                                 "id": "step-2",
                                 "color": { "r": 0.51, "g": 0.53, "b": 0.60, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 1, "y": 0.36, "z": 0.28 },
                                 "position": { "x": 5, "y": 0, "z": 11 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -1243,7 +1204,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "stone-block"
                                     },
                                     "custom": []
@@ -1256,7 +1217,6 @@
                                 "id": "step-3",
                                 "color": { "r": 0.51, "g": 0.53, "b": 0.60, "a": 1 },
                                 "shape": "cube",
-                                "complexity": "medium",
                                 "dimensions": { "x": 1, "y": 0.54, "z": 0.28 },
                                 "position": { "x": 6, "y": 0, "z": 11 },
                                 "rotation": { "x": 0, "y": 0, "z": 0 },
@@ -1269,7 +1229,7 @@
                                     "subdivisionsZ": 1
                                 },
                                 "texture": {
-                                    "generated": {
+                                    "base": {
                                         "id": "stone-block"
                                     },
                                     "custom": []
@@ -1286,20 +1246,16 @@
                             "id": "smoke-torch",
                             "color": { "r": 0.34, "g": 0.24, "b": 0.15, "a": 1 },
                             "shape": "cylinder",
-                            "complexity": "medium",
                             "dimensions": { "x": 0.25, "y": 2, "z": 0.25 },
                             "position": { "x": 19, "y": 1, "z": 5 },
                             "rotation": { "x": 0, "y": 0, "z": 0 },
                             "scale": { "x": 1, "y": 1, "z": 1 },
                             "pivot": { "x": 0, "y": 0, "z": 0 },
                             "primitiveOptions": {
-                                "thickness": 0,
-                                "radius": 0,
-                                "subdivisionsX": 1,
-                                "subdivisionsZ": 1
+                                "complexity": "medium"
                             },
                             "texture": {
-                                "generated": {
+                                "base": {
                                     "id": "wood-planks"
                                 },
                                 "custom": []

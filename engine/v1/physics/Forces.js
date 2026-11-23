@@ -9,7 +9,7 @@ const waterLevelOf = (waterLevel) => waterLevel === null ? null : waterLevel.val
 // Velocity after gravity, at the entity's share of it.
 function GetGravity(entity, physics) {
 	const pulled = ComputeGravity(entity.velocity, physics.deltaSeconds);
-	return { x: pulled.x, y: entity.velocity.y + (pulled.y - entity.velocity.y) * entity.gravityScale, z: pulled.z };
+	return { x: pulled.x, y: entity.velocity.y + (pulled.y - entity.velocity.y) * entity.physics.slopes.gravityScale, z: pulled.z };
 }
 
 function GetBuoyancy(entityState, physicsState) {
@@ -31,13 +31,13 @@ function GetSubmergence(entity, waterLevel) {
 // Vertical speed with this step's vertical change slowed by the character's floatiness.
 function GetFloatiness(entity, yBefore) {
 	const { waterFloatiness, airFloatiness } = entity.character.meta;
-	return yBefore + (entity.velocity.y - yBefore) / (entity.medium === "Water" ? waterFloatiness : airFloatiness);
+	return yBefore + (entity.velocity.y - yBefore) / (entity.physics.medium === "Water" ? waterFloatiness : airFloatiness);
 }
 
 // Static friction cancels the pull along the footing.
 function GetStaticFriction(entity, physics, yBefore) {
-	const pull = ProjectOntoPlane(ScaleVector3(WORLD_NORMALS.Up, entity.velocity.y - yBefore), entity.alignedUp);
-	return SubtractVector3(entity.velocity, SubtractVector3(pull, ComputeDeceleration(pull, entity.staticFriction, physics.deltaSeconds)));
+	const pull = ProjectOntoPlane(ScaleVector3(WORLD_NORMALS.Up, entity.velocity.y - yBefore), entity.physics.correction.alignedUp);
+	return SubtractVector3(entity.velocity, SubtractVector3(pull, ComputeDeceleration(pull, entity.physics.slopes.staticFriction, physics.deltaSeconds)));
 }
 
 /* === EXPORTS === */

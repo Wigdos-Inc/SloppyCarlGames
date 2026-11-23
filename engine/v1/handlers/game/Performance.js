@@ -1,11 +1,12 @@
 // Improves performance of runtime processes by preparing reusable data early in a frame.
 
-// Used by Level.js.
+// Used by handlers/game/Level.js to prepare the data each frame.
+// Used by handlers/game/Level.js to measure the refresh rate.
 // Consumers read the prepared data.
 
 import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
-import { BroadphaseCollectCandidates, GetEntityPhysicsFlags } from "../../physics/Collision.js";
-import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
+import { BroadphaseCollectCandidates } from "../../physics/Collision.js";
+import { UpdateEntityModel } from "../../builder/NewEntity.js";
 import { Vector3Distance, Vector3SqDistanceToAabb } from "../../math/Vector3.js";
 
 // Update each instance's physics, rendering and texture animation flags by distance from the camera.
@@ -20,8 +21,8 @@ function UpdatePerformanceFlags(sceneGraph) {
 	// Measure to the nearest edge of the bounds, not the center.
 	const withinRender = (aabb) => Vector3SqDistanceToAabb(cameraConfig.state.position, aabb) <= renderReachSq;
 
-	terrain.forEach((mesh)       => mesh.performance.rendering     = withinRender(mesh.worldAabb));
-	obstacles.forEach((obstacle) => obstacle.performance.rendering = withinRender(obstacle.worldAabb));
+	terrain.entries.forEach((mesh)   => mesh.performance.rendering = withinRender(mesh.display.aabb));
+	obstacles.entries.forEach((mesh) => mesh.performance.rendering = withinRender(mesh.display.aabb));
 
 	entities.forEach((entity) => {
 		const distanceSq = Vector3SqDistanceToAabb(cameraConfig.state.position, entity.fullAabb);
@@ -41,21 +42,22 @@ function UpdateCollisionCandidates(entity, sceneGraph) {
 	if (
 		!(isPlayer || entity.performance.physics) ||
 		CONFIG.Physics.Collision.Enabled === false ||
-		!GetEntityPhysicsFlags(entity).collision
+		!entity.movement.physics.collision
 	) {
 		return entity.performance.collision = false;
 	}
 
 	// Ensure model and bounds data is up-to-date before collection.
-	UpdateEntityModelFromTransform(entity);
-	const candidates = BroadphaseCollectCandidates(sceneGraph, entity.collision.simRadiusAabb, isPlayer, entity.type !== "particle");
+	UpdateEntityModel(entity);
+	const candidates = BroadphaseCollectCandidates(sceneGraph, entity.physics.collision.simRadiusAabb, isPlayer, entity.type !== "particle");
 	entity.performance.collision = candidates.length > 0 ? candidates : false;
 }
 
 /* === REFRESH RATE === */
 // Measure the display's refresh rate before each level build.
 
-// Measure the rate by finding the shortest gap between frames. A gap must appear 4 more times before it's considered.
+// Measure the rate by finding the shortest gap between frames. 
+// Note: A gap must appear 4 more times before it's considered.
 function fastestRepeatedRate(sorted) {
 	for (let i = 0; i + 4 < sorted.length; i++) {
 		const cluster = sorted.filter((gap) => gap >= sorted[i] && gap <= sorted[i] * 1.05);

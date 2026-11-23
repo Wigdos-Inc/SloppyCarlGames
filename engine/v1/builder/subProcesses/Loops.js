@@ -78,15 +78,19 @@ function FindLoops({ pieces, owner, facets, links }, meshes) {
 	}
 
 	// Map centerlines by surface id to tell apart looping tubes vs bending tubes.
-	const tubeCenterlines = new Map(meshes.filter((mesh) => mesh.centerline !== null).map((mesh) => [mesh.id, [mesh.centerline]]));
+	const tubeCenterlines = new Map(
+		meshes
+			.filter((mesh) => mesh.meta.centerline !== null)
+			.map((mesh) => [mesh.id, [mesh.meta.centerline]])
+		);
 	Log(
 		"ENGINE",
 		`
 			Loop surfaces:
-			- Air=${loopSurfaces.Air.size}
-			- Water=${loopSurfaces.Water.size}
-			- Tubes=${tubeCenterlines.size}
-			- Ms=${(performance.now() - started).toFixed(1)}
+			- Air: ${loopSurfaces.Air.size}
+			- Water: ${loopSurfaces.Water.size}
+			- Tubes: ${tubeCenterlines.size}
+			- Ms: ${(performance.now() - started).toFixed(1)}
 		`,
 		"log",
 		"Level"

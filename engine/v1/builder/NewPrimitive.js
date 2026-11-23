@@ -6,7 +6,6 @@ import { EPSILON } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateModelMatrix, MultiplyMatrix4, TransformPointByMatrix } from "../math/Matrix.js";
 import { TriangleNormal } from "../math/Geometry.js";
 import { SampleConnectorCenterline, ParallelTransportFrames } from "../math/Curves.js";
-import { ToNumber } from "../math/Utilities.js";
 import {
 	AddVector3, ArrayToVector3, CrossVector3, DotVector3, ResolveVector3Axis, ScaleVector3, SubtractVector3,
 	ToVector3, Vector3Distance, Vector3ToArray, WORLD_NORMALS
@@ -568,13 +567,13 @@ function buildTube(size, complexity, options) {
 }
 
 function buildTorus(size, complexity, options) {
-	const majorRadius   = Math.max(0.0002, ToNumber(options.radius, size.x * 0.5));
+	const majorRadius   = Math.max(0.0002, options.radius ?? size.x * 0.5);
 	const resolution    = resolveTorusResolution(complexity);
 	const majorSegments = resolution.majorSegments;
 	const minorSegments = resolution.minorSegments;
 	const positions = [], indices = [];
 
-	const minorRadius   = Math.max(0.0001, Math.min(ToNumber(options.thickness, size.y * 0.25), majorRadius * 0.95));
+	const minorRadius   = Math.max(0.0001, Math.min(options.thickness ?? size.y * 0.25, majorRadius * 0.95));
 	for (let major = 0; major <= majorSegments; major++) {
 		const u = (major / majorSegments) * Math.PI * 2;
 		for (let minor = 0; minor <= minorSegments; minor++) {
@@ -728,7 +727,8 @@ function buildRampComplex(size, complexity, options) {
 	};
 }
 
-function BuildGeometry(shape, size, complexity, primitiveOptions) {
+function BuildGeometry(shape, size, primitiveOptions) {
+	const complexity = primitiveOptions.complexity;
 	switch (shape) {
 		case "cube"        : return buildCube(size);
 		case "cylinder"    : return buildCylinder(size, complexity);

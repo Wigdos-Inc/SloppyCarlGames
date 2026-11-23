@@ -1,7 +1,8 @@
 // Builds a level's world: terrain, water, obstacles, voids, scatter, triggers, entities and particles.
 // Can also be used to create Boss Arenas
 
-// Used by handlers/game/Level.js
+// Used by handlers/game/Level.js to build levels.
+// Used by handlers/game/Level.js to refresh debug bounding boxes.
 // Uses NewTerrain.js and NewObject.js for terrain, water and trigger meshes.
 // Uses NewObject.js to refit entity part boxes for debug drawing.
 // Uses NewObstacle.js for static obstacles.
@@ -17,7 +18,7 @@
 
 import { BuildObject, UpdateObjectWorldAabb } from "./NewObject.js";
 import { RegisterGameTemplates } from "./templates/Instance.js";
-import { BuildEntity } from "./NewEntity.js";
+import { BuildEntity, ClearPartGeometry } from "./NewEntity.js";
 import { GenerateParticles, ParticleGeneratorRequests } from "./NewParticles.js";
 import { BuildObstacles } from "./NewObstacle.js";
 import { BuildTerrain } from "./NewTerrain.js";
@@ -65,15 +66,14 @@ function buildTriggerMesh(triggerDefinition, world) {
 	const { id, start, end, type, payload, activateOnce } = triggerDefinition;
 
 	// Build a trigger volume over the authored footprint, from its start height up to the world ceiling.
-	const triggerHeight = world.height.value - start.y;
+	const triggerHeight = world.dimensions.y - start.y;
 	const position = start.clone().add(end).scale(0.5); 
 	position.y = start.y + triggerHeight * 0.5;
 
-	const { mesh } = BuildObject(
+	const mesh = BuildObject(
 		{
 			id,
 			shape           : "cube",
-			complexity      : "medium",
 			dimensions      : new UnitVector3(
 				Math.max(1, Math.abs(end.x - start.x)),
 				triggerHeight,
@@ -86,7 +86,7 @@ function buildTriggerMesh(triggerDefinition, world) {
 			pivot           : new UnitVector3(0, 0, 0, "cnu"),
 			primitiveOptions: {},
 			texture: {
-				generated: {
+				base: {
 					id            : "default-tiles",
 					shape         : null,
 					compositeMode : null,
@@ -103,35 +103,36 @@ function buildTriggerMesh(triggerDefinition, world) {
 			detail         : { scatter: [] },
 			role           : "trigger",
 			collisionShape : "none",
-			trigger        : { type, payload, activateOnce }
 		}
-	);
+	).mesh;
+	mesh.meta.trigger = { type, payload, activateOnce };
 	return mesh;
 }
 
 // Build the world-wide water body and its animated top surface.
 function buildWaterVisualMeshes(world, faceTextureStore) {
 	// Levels without a water level don't have water. Shocking, I know.
-	if (!world.water.level) return null;
+	if (world.water.topY === null) return { body: null, top: null };
 
-	const centerX     = world.length.value * 0.5;
-	const centerZ     = world.width.value * 0.5;
-	const waterBottom = Clamp(world.water.level.value - 0.1, 0, world.deathBarrierY.value);
-	const waterHeight = Math.max(0.1, world.water.level.value - waterBottom);
+	const dimensions  = world.dimensions;
+	const topY        = world.water.topY.value;
+	const centerX     = dimensions.x * 0.5;
+	const centerZ     = dimensions.z * 0.5;
+	const waterBottom = Clamp(topY - 0.1, 0, world.deathBarrierY.value);
+	const waterHeight = Math.max(0.1, topY - waterBottom);
 
-	const { mesh: body } = BuildObject(
+	const body = BuildObject(
 		{
-			id              : `water-body-${world.length.value}-${world.width.value}-${waterBottom}-${world.water.level.value}`,
+			id              : `water-body-${dimensions.x}-${dimensions.z}-${waterBottom}-${topY}`,
 			shape           : "cube",
-			complexity      : "medium",
-			dimensions      : new UnitVector3(world.length.value, waterHeight, world.width.value, "cnu"),
+			dimensions      : new UnitVector3(dimensions.x, waterHeight, dimensions.z, "cnu"),
 			position        : new UnitVector3(centerX, waterBottom + waterHeight * 0.5, centerZ, "cnu"),
 			rotation        : new UnitVector3(0, 0, 0, "radians"),
 			scale           : ToVector3(1),
 			pivot           : new UnitVector3(0, 0, 0, "cnu"),
 			primitiveOptions: {},
 			texture         : {
-				generated: {
+				base: {
 					id            : "underwater", 
 					shape         : null, 
 					compositeMode : null,
@@ -151,21 +152,20 @@ function buildWaterVisualMeshes(world, faceTextureStore) {
 			textureScale   : world.textureScale,
 			faceTextureStore,
 		}
-	);
+	).mesh;
 
-	const { mesh: top } = BuildObject(
+	const top = BuildObject(
 		{
-			id              : `water-top-${world.length.value}-${world.width.value}-${world.water.level.value}`,
-			shape           : "plane", 
-			complexity      : "",
-			dimensions      : new UnitVector3(world.length.value, world.width.value, 0, "cnu"),
-			position        : new UnitVector3(centerX, world.water.level.value + 0.02, centerZ, "cnu"), // Sit just above the body to avoid flicker.
-			rotation        : new UnitVector3(-90, 0, 0, "degrees").toRadians(true),                     // Lay the upright plane flat, facing up.
+			id              : `water-top-${dimensions.x}-${dimensions.z}-${topY}`,
+			shape           : "plane",
+			dimensions      : new UnitVector3(dimensions.x, dimensions.z, 0, "cnu"),
+			position        : new UnitVector3(centerX, topY + 0.02, centerZ, "cnu"),    // Sit just above the body to avoid flicker.
+			rotation        : new UnitVector3(-90, 0, 0, "degrees").toRadians(true),    // Lay the upright plane flat, facing up.
 			scale           : ToVector3(1),
 			pivot           : new UnitVector3(0, 0, 0, "cnu"),
 			primitiveOptions: { crossed: false, sprite: null },
 			texture         : {
-				generated: {
+				base: {
 					id            : "sea-surface", 
 					shape         : null, 
 					compositeMode : null,
@@ -185,23 +185,28 @@ function buildWaterVisualMeshes(world, faceTextureStore) {
 			textureScale  : world.textureScale,
 			faceTextureStore,
 		}
-	);
+	).mesh;
 
 	return { body, top };
 }
 
-// Collect spawn surfaces by id. topY determines where models are anchored to.
-function buildSurfaceMap(terrainDefinitions, obstacleDefinitions) {
+// Find the height of a built mesh's top face, ignoring rotation.
+const meshTop = (mesh) => mesh.transform.position.y + (mesh.dimensions.y * mesh.transform.scale.y * 0.5);
+
+// Collect spawn surfaces by id. topY is where models are anchored to (the top of the object).
+function buildSurfaceMap(terrainDefinitions, obstacleDefinitions, obstacleMeshes) {
 	const map = {};
-	const addSurface = (def) => {
-		const { position, dimensions, scale } = def;
-		map[def.id] = {
-			position, dimensions, scale,
-			topY: def.position.y + (def.dimensions.y * def.scale.y * 0.5),
-		};
-	};
-	terrainDefinitions.forEach(addSurface);
-	obstacleDefinitions.forEach(addSurface);
+	terrainDefinitions.forEach(({ id, position, dimensions, scale }) => {
+		map[id] = { position, dimensions, scale, topY: position.y + (dimensions.y * scale.y * 0.5) };
+	});
+
+	// Take an obstacle's top from its built parts. Obstacles are authored from their bottom.
+	// Note: Only the solid parts count. An obstacle made only of voids uses its voids.
+	obstacleDefinitions.forEach(({ id, position, dimensions, scale }) => {
+		const own   = obstacleMeshes.filter((mesh) => mesh.meta.group === id);
+		const solid = own.filter((mesh) => mesh.meta.mode !== "void");
+		map[id] = { position, dimensions, scale, topY: Math.max(...(solid.length > 0 ? solid : own).map(meshTop)) };
+	});
 	return map;
 }
 
@@ -215,36 +220,29 @@ function buildDebugBoundingBoxes(sceneGraph) {
 		return { whole: "Entity", part: "EntityPart" };
 	};
 
-	const push = (type, id, aabb) => bounds.push({ 
-		type, id, 
-		min : aabb.min, 
-		max : aabb.max 
+	const push = (type, id, aabb) => bounds.push({
+		type, id,
+		min : aabb.min,
+		max : aabb.max
 	});
 
-	sceneGraph.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.worldAabb));
-	sceneGraph.scatter.forEach((mesh) => push("Scatter", mesh.id, mesh.worldAabb));
+	sceneGraph.terrain.entries.forEach((mesh) => push("Terrain", mesh.id, mesh.physics.collision.aabb));
 
 	// Scatter boxes come per model from batch generation.
 	sceneGraph.debug.scatterBounds.forEach(({ type, id, min, max }) => bounds.push({ type, id, min, max }));
 
-	sceneGraph.obstacles.forEach((obstacle) => {
-		push("Obstacle", obstacle.id, obstacle.worldAabb);
-		obstacle.parts.forEach((part) => push("Obstacle", part.id, part.worldAabb));
-	});
+	sceneGraph.obstacles.entries.forEach((mesh) => push("Obstacle", mesh.id, mesh.physics.collision.aabb));
 
-	sceneGraph.voids.terrain.forEach((mesh) => push("Void", mesh.id, mesh.worldAabb));
-	sceneGraph.voids.obstacles.forEach((obstacle) => {
-		push("Void", obstacle.id, obstacle.worldAabb);
-		obstacle.parts.forEach((part) => push("Void", part.id, part.worldAabb));
-	});
+	sceneGraph.voids.terrain.forEach((mesh) => push("Void", mesh.id, mesh.physics.collision.aabb));
+	sceneGraph.voids.obstacles.forEach((mesh) => push("Void", mesh.id, mesh.physics.collision.aabb));
 
 	sceneGraph.entities.forEach((entity) => {
 		const category = classifyEntityType(entity);
-		if (entity.collision !== null) push(category.whole, entity.id, entity.collision.aabb);
+		if (entity.physics.collision !== null) push(category.whole, entity.id, entity.physics.collision.aabb);
 
 		// Refit stale part boxes. Only compound-sphere entities keep theirs current.
 		entity.model.parts.forEach((part) => {
-			const aabb = entity.fitsParts ? part.mesh.worldAabb : UpdateObjectWorldAabb(part.mesh, part.addsToBounds === false);
+			const aabb = entity.fitsParts ? part.mesh.display.aabb : UpdateObjectWorldAabb(part.mesh, part.addsToBounds === false);
 			push(category.part, `${entity.id}:${part.id}`, aabb);
 		});
 	});
@@ -270,7 +268,7 @@ function buildDebugDetailedBounds(sceneGraph) {
 
 	// Push a void's volume, walls and open faces, all under the Void flag.
 	const pushVoid = (entry) => {
-		push("Void", entry.id, entry.detailedBounds);
+		push("Void", entry.id, entry.physics.collision.detailedBounds);
 		for (const hostId in entry.relations) {
 			const relation = entry.relations[hostId];
 			relation.voidWallMeshes.forEach((wall) => {
@@ -282,22 +280,22 @@ function buildDebugDetailedBounds(sceneGraph) {
 		}
 	};
 
-	sceneGraph.terrain.forEach((mesh) => push("Terrain", mesh.id, mesh.detailedBounds));
-	sceneGraph.obstacles.forEach((obstacle) => push("Obstacle", obstacle.id, obstacle.detailedBounds));
+	sceneGraph.terrain.entries.forEach((mesh)   => push("Terrain", mesh.id, mesh.physics.collision.detailedBounds));
+	sceneGraph.obstacles.entries.forEach((mesh) => push("Obstacle", mesh.id, mesh.physics.collision.detailedBounds));
 	sceneGraph.voids.terrain.forEach(pushVoid);
 	sceneGraph.voids.obstacles.forEach(pushVoid);
 
 	sceneGraph.entities.forEach((entity) => {
-		if (entity.collision === null) return;
+		if (entity.physics.collision === null) return;
 		
 		const category = classifyEntityType(entity);
-		const { type, radius, halfHeight, segmentStart, segmentEnd } = entity.collision.physics.bounds;
+		const { type, radius, halfHeight, segmentStart, segmentEnd } = entity.physics.collision.physics.bounds;
 		if (type === "capsule") {
 			push(category, entity.id, { type, radius, halfHeight, segmentStart, segmentEnd });
 			return;
 		}
 
-		push(category, entity.id, entity.collision.physics.bounds);
+		push(category, entity.id, entity.physics.collision.physics.bounds);
 	});
 
 	return detailed;
@@ -305,14 +303,15 @@ function buildDebugDetailedBounds(sceneGraph) {
 
 // Rebuild after scene changes.
 function RefreshDebugBoundingBoxes(sceneGraph) {
-	sceneGraph.debugBoundingBoxes = buildDebugBoundingBoxes(sceneGraph);
+	sceneGraph.debug.boundingBoxes  = buildDebugBoundingBoxes(sceneGraph);
 	sceneGraph.debug.detailedBounds = buildDebugDetailedBounds(sceneGraph);
-	return sceneGraph.debugBoundingBoxes;
+	return sceneGraph.debug.boundingBoxes;
 }
 
 // Build the persistent sceneGraph from a level payload.
 async function BuildLevel(payload) {
 	RegisterGameTemplates(payload.templates);
+	ClearPartGeometry();
 
 	const scatterBatches = new Map(), scatterDebugBounds = [];
 	const enqueueScatterBatches = (objectMesh, indexSeed, openFaces) => {
@@ -328,21 +327,20 @@ async function BuildLevel(payload) {
 		});
 	};
 
-	// Shared storage between builders. Reusable face textures and part geometry.
-	const faceTextureStore = {}, partGeometryCache = new Map();
+	// Face textures shared between builders.
+	const faceTextureStore = {};
 
-	// Resolve template refs once here. The builders take these as they are.
+	// Resolve template refs here. The builders pass resolved sources through unchanged.
 	const terrainDefinitions  = payload.terrain.objects.map((definition) => ResolveObjectSource(definition, "terrain"));
 	const obstacleDefinitions = payload.obstacles.map((definition)       => ResolveObjectSource(definition, "obstacle"));
 
 	const { terrain, voidTerrain, meshes: allTerrain } = BuildTerrain(terrainDefinitions, payload.world, faceTextureStore);
 
-	const { built: allObstacleRecords } = BuildObstacles(obstacleDefinitions, { textureScale: payload.world.textureScale, faceTextureStore });
-	const obstacles     = allObstacleRecords.filter((r) => r.mode !== "void");
-	const voidObstacleRecords = allObstacleRecords.filter((r) => r.mode === "void");
+	const obstacleOptions = { textureScale: payload.world.textureScale, faceTextureStore };
+	const { entries: obstacles, groups, voidParts, meshes: allObstacles } = BuildObstacles(obstacleDefinitions, obstacleOptions);
 
-	// Cut each void into the terrain and obstacles it overlaps.
-	const voids = { terrain: voidTerrain, obstacles: voidObstacleRecords };
+	// Cut terrain voids into terrain, and obstacle voids into obstacles.
+	const voids = { terrain: voidTerrain, obstacles: voidParts };
 	BuildVoidWalls({ terrain, obstacles, voids }, payload.world.textureScale);
 
 	// Fit each terrain mesh occlusion boxes (for occlusion culling).
@@ -355,24 +353,27 @@ async function BuildLevel(payload) {
 	const collision = AssembleCollisionChunks(terrainChunks, terrain, obstacles, voids);
 
 	// Gather each object's open faces from every void that cuts into it.
-	const openFacesByObjectId = new Map();
+	const getOpenFaces = new Map();
 	const collectOpenFaces = (entries) => {
 		for (const entry of entries) {
 			for (const id in entry.relations) {
-				if (!openFacesByObjectId.has(id)) openFacesByObjectId.set(id, []);
-				for (const face of entry.relations[id].openFaces) openFacesByObjectId.get(id).push(face);
+				if (!getOpenFaces.has(id)) getOpenFaces.set(id, []);
+				for (const face of entry.relations[id].openFaces) getOpenFaces.get(id).push(face);
 			}
 		}
 	};
 	collectOpenFaces(voidTerrain);
-	collectOpenFaces(voidObstacleRecords);
+	collectOpenFaces(voidParts);
 
 	// Generate scatter batches for default terrain and obstacles.
 	allTerrain.forEach((terrainMesh, index) => {
-		if (terrainMesh.meta.mode === "default") enqueueScatterBatches(terrainMesh, index + 1, openFacesByObjectId.get(terrainMesh.id) ?? []);
+		if (terrainMesh.meta.mode === "default") enqueueScatterBatches(terrainMesh, index + 1, getOpenFaces.get(terrainMesh.id) ?? []);
 	});
-	obstacles.forEach((record, index) => {
-		if (record.mode === "default") enqueueScatterBatches(record.mesh, payload.terrain.objects.length + index + 1, openFacesByObjectId.get(record.id) ?? []);
+
+	// Seed each obstacle part after the terrain meshes to give every mesh its own seed.
+	let partSeed = allTerrain.length;
+	obstacles.forEach((mesh) => {
+		if (mesh.meta.mode === "default") enqueueScatterBatches(mesh, ++partSeed, getOpenFaces.get(mesh.id) ?? []);
 	});
 
 	let totalBatchInstances = 0;
@@ -391,15 +392,14 @@ async function BuildLevel(payload) {
 	});
 	if (triggers.length > 0) Log("ENGINE", `Trigger group created: count=${triggers.length}`, "log", "Level");
 
-	const spawnSurfaces = buildSurfaceMap(terrainDefinitions, obstacleDefinitions);
+	const spawnSurfaces = buildSurfaceMap(terrainDefinitions, obstacleDefinitions, allObstacles);
 	const entities      = payload.entities.map((entity) => {
-		const { entity: built } = BuildEntity(
+		const built = BuildEntity(
 			buildEntityInput(entity, resolveEntityBlueprintMap(payload)),
 			spawnSurfaces,
 			payload.world.textureScale,
-			faceTextureStore,
-			partGeometryCache
-		);
+			faceTextureStore
+		).entity;
 		return built;
 	});
 	if (entities.length > 0) Log("ENGINE", `Entity group created: count=${entities.length}`, "log", "Level");
@@ -409,32 +409,41 @@ async function BuildLevel(payload) {
 	// Note: Gather every request first. Generation pushes new groups into `entities`.
 	const generatorRequests = [
 		...allTerrain.flatMap((mesh) => ParticleGeneratorRequests(mesh, "terrain")),
-		...allObstacleRecords.flatMap((record) => ParticleGeneratorRequests(record, "obstacle")),
+		...allObstacles.flatMap((mesh) => ParticleGeneratorRequests(mesh, "obstacle")),
 		...entities.flatMap((entity) => ParticleGeneratorRequests(entity, "entity")),
 	];
 
 	generatorRequests.forEach((request) => {
-		const { groups } = GenerateParticles(
+		const spawned = GenerateParticles(
 			request,
 			payload.world.textureScale,
-			faceTextureStore,
-			partGeometryCache
-		);
-		entities.push(...groups);
-		particleGroups += groups.length;
+			faceTextureStore
+		).groups;
+		entities.push(...spawned);
+		particleGroups += spawned.length;
 	});
 	if (particleGroups > 0) Log("ENGINE", `Particle group created: count=${particleGroups}`, "log", "Level");
 
+	Object.assign(payload.world.water, buildWaterVisualMeshes(payload.world, faceTextureStore));
+
 	const sceneGraph = {
-		world: payload.world,
-		terrain, entities, triggers, scatter: [], scatterBatches, obstacles, voids, 
-		waterVisual : buildWaterVisualMeshes(payload.world, faceTextureStore), 
-		chunks      : collision.chunks, 
-		collisionSeq: collision.seq, 
-		loopSurfaces, tubeCenterlines,
-		scatterPrimitiveGeometry: BuildScatterVisualResources(scatterBatches),
-		debug                   : {
+		world    : payload.world,
+		terrain  : { entries: terrain, chunks: terrainChunks },
+		obstacles: { entries: obstacles, groups },
+		entities, triggers, voids,
+		scatter: {
+			batches : scatterBatches,
+			geometry: BuildScatterVisualResources(scatterBatches),
+		},
+		collision,
+		surfaces: {
+			spawn: spawnSurfaces,
+			loops: loopSurfaces,
+			tubes: tubeCenterlines,
+		},
+		debug: {
 			showTriggerVolumes: CONFIG.Debug.All === true && CONFIG.Debug.Levels.Triggers === true,
+			boundingBoxes     : [],
 			detailedBounds    : [],
 			scatterBounds     : scatterDebugBounds,
 		},
@@ -444,12 +453,10 @@ async function BuildLevel(payload) {
 				particleHook: null,
 			},
 		},
-		cameraConfig       : payload.camera,
-		playerConfig       : payload.player,
-		spawnSurfaces,
-		meta               : payload.meta,
-		pendingFaceTextures: faceTextureStore,
-		partGeometryCache,
+		cameraConfig   : payload.camera,
+		playerConfig   : payload.player,
+		meta           : payload.meta,
+		visualResources: { textureRegistry: faceTextureStore },
 	};
 
 	RefreshDebugBoundingBoxes(sceneGraph);
@@ -458,9 +465,9 @@ async function BuildLevel(payload) {
 		`
 			Level generation complete: 
 			- Terrain=${terrain.length}
-			- Obstacles=${obstacles.length}, 
-			- VoidTerrain=${voidTerrain.length}, 
-			- VoidObstacles=${voidObstacleRecords.length}, 
+			- Obstacles=${Object.keys(groups).length} (parts=${obstacles.length}),
+			- VoidTerrain=${voidTerrain.length},
+			- VoidObstacles=${voidParts.length},
 			- Entities=${entities.length}, 
 			- Triggers=${triggers.length}, 
 			- ScatterBatches=${scatterBatches.size}, 

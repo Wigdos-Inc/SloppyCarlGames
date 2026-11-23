@@ -1,7 +1,12 @@
 // Runs the camera: picks the active mode from the level's camera set each frame, then places it.
 
-// Used by handlers/game/Level.js and Simulator.js around the player and physics updates, and by Controls.js for camera input.
-// Uses camera/Sets.js to resolve the level's set and camera/Modes.js for the modes.
+// Used by handlers/game/Level.js and Simulator.js around the player and physics updates.
+// Used by handlers/Controls.js for camera input.
+// Used by core/ini.js to give the game the camera position.
+// Uses camera/Sets.js to resolve the level's set.
+// Uses camera/Modes.js for the modes.
+// Uses physics/Collision.js and math/Collision.js to find and raycast camera blockers.
+// Uses player/Master.js to measure loops against the player's height.
 
 import { CONFIG, CAMERA_TUNING } from "../core/config.js";
 import { EPSILON, Log, SendEvent } from "../core/meta.js";
@@ -122,7 +127,7 @@ function travelsAround(velocity, axis, lean) {
 
 // Check whether a tube runs along the axis (non-tubes always pass).
 function alongTube(sceneGraph, surfaceId, position, axis) {
-	const lines = sceneGraph.tubeCenterlines.get(surfaceId);
+	const lines = sceneGraph.surfaces.tubes.get(surfaceId);
 	if (lines === undefined) return true;
 
 	// Find which way the tube runs at the closest point of its centerline.
@@ -141,7 +146,7 @@ function alongTube(sceneGraph, surfaceId, position, axis) {
 // Track the player's progress around a loop each frame.
 function trackLoop(playerState, sceneGraph) {
 	const { Player, ExitLeanGrace } = CAMERA_TUNING.Loops;
-	const { alignedUp, transform, physicsRuntime, medium, grounded, contactGrace, velocity, character } = playerState;
+	const { transform, physics: { medium, grounded, lastFrame, correction: { alignedUp, contactGrace } }, velocity, character } = playerState;
 
 	// Turn the axis with heading changes, keeping only the leftover tilt.
 	const bend = AzimuthTurnVector3(loop.lastUp, alignedUp);
@@ -153,7 +158,7 @@ function trackLoop(playerState, sceneGraph) {
 
 	// Movement around the loop axis, ignoring movement along it.
 	const around = loop.running ? SubtractVector3(moved, ScaleVector3(loop.axis, DotVector3(moved, loop.axis))) : moved;
-	const onLoop = grounded && sceneGraph.loopSurfaces[medium].has(physicsRuntime.groundSurfaceId);
+	const onLoop = grounded && sceneGraph.surfaces.loops[medium].has(lastFrame.groundSurfaceId);
 
 	// Pick a reason to release the loop, or null to keep it.
 	const release = !grounded && contactGrace <= EPSILON ? "lost ground" : grounded && !onLoop 
@@ -202,7 +207,7 @@ function trackLoop(playerState, sceneGraph) {
 			loop.turned.value >= Player.EnterCurve.toRadians()
 			&& Math.abs(loop.axis.y) < Math.SQRT1_2 && alignedUp.y < loop.startUpY
 			&& travelsAround(playerState.velocity, loop.axis, Player.EnterLean)
-			&& alongTube(sceneGraph, physicsRuntime.groundSurfaceId, transform.position, loop.axis)
+			&& alongTube(sceneGraph, lastFrame.groundSurfaceId, transform.position, loop.axis)
 		) {
 			// Engage once the player has turned far enough around a loop.
 			loop.center.set(AddVector3(transform.position, ScaleVector3(alignedUp, loop.radius.value)));
@@ -240,23 +245,25 @@ function readCameraTriggers(playerState) {
 	[triggers.inside, triggers.entered] = [triggers.entered, triggers.inside];
 }
 
-// Check terrain by its shape, and obstacles by all of their parts.
+// Check whether a surface is a ramp.
 function isRampSurface(sceneGraph, surfaceId) {
-	const mesh = sceneGraph.terrain.find((entry) => entry.id === surfaceId);
-	if (mesh !== undefined) return rampShapes.has(mesh.shape);
+	const { terrain, obstacles } = sceneGraph;
+	const mesh = terrain.entries.find((entry) => entry.id === surfaceId);
+	if (mesh !== undefined) return rampShapes.has(mesh.primitive);
 
-	const obstacle = sceneGraph.obstacles.find((entry) => entry.id === surfaceId);
-	return obstacle !== undefined && obstacle.parts.every((part) => rampShapes.has(part.shape));
+	// Count an obstacle part if all of its obstacle's parts are ramps.
+	const part = obstacles.entries.find((entry) => entry.id === surfaceId);
+	return part !== undefined && obstacles.groups[part.meta.group].parts.every((other) => rampShapes.has(other.primitive));
 }
 
 // Measure speed along the surface as a share of top speed.
-const surfaceSpeedShare = (playerState) => {
-	return Clamp(Vector3Length(ProjectOntoPlane(playerState.velocity, playerState.alignedUp)) / playerState.character.meta.maxSpeed.value, 0, 1);
+function surfaceSpeedShare(playerState) {
+	return Clamp(Vector3Length(ProjectOntoPlane(playerState.velocity, playerState.physics.correction.alignedUp)) / playerState.character.meta.maxSpeed.value, 0, 1);
 }
 
 // Pick the camera situation: loop first, then slope, then speed.
 function detectSituation(playerState, sceneGraph) {
-	const surfaceId = playerState.physicsRuntime.groundSurfaceId;
+	const surfaceId = playerState.physics.lastFrame.groundSurfaceId;
 	if (surfaceId !== ground.surfaceId) {
 		ground.surfaceId = surfaceId;
 		ground.onRamp = isRampSurface(sceneGraph, surfaceId);
@@ -267,11 +274,13 @@ function detectSituation(playerState, sceneGraph) {
 	const largeLoopRadius = CAMERA_TUNING.Modes.Triggers.LargeLoopScale * PlayerHeight(playerState).value;
 
 	// Check for a small loop surface, ignoring tubes that bend instead of loop.
-	const tilt = ResolveVector3Axis(CrossVector3(WORLD_NORMALS.Up, playerState.alignedUp));
-	const surfaceLoopRadius = sceneGraph.loopSurfaces[playerState.medium].get(surfaceId);
-	frame.onSmallLoop = surfaceLoopRadius !== undefined && 
+	const tilt = ResolveVector3Axis(CrossVector3(WORLD_NORMALS.Up, playerState.physics.correction.alignedUp));
+	const surfaceLoopRadius = sceneGraph.surfaces.loops[playerState.physics.medium].get(surfaceId);
+	frame.onSmallLoop = (
+		surfaceLoopRadius !== undefined && 
 		surfaceLoopRadius.value < largeLoopRadius &&
-		alongTube(sceneGraph, surfaceId, playerState.transform.position, tilt);
+		alongTube(sceneGraph, surfaceId, playerState.transform.position, tilt)
+	);
 
 	// During a loop, treat a small loop as large once the player strays from it.
 	if (loop.active) {
@@ -284,8 +293,8 @@ function detectSituation(playerState, sceneGraph) {
 	}
 
 	// Pick slope on steep ground, otherwise pick by speed.
-	const maxDelta = DegreesToRadians(CONFIG.Physics.Correction.MaxAngleDelta[playerState.medium].Ground);
-	return playerState.grounded && AngleBetweenVector3(playerState.alignedUp, WORLD_NORMALS.Up) > maxDelta
+	const maxDelta = DegreesToRadians(CONFIG.Physics.Correction.MaxAngleDelta[playerState.physics.medium].Ground);
+	return playerState.physics.grounded && AngleBetweenVector3(playerState.physics.correction.alignedUp, WORLD_NORMALS.Up) > maxDelta
 		? "slope"
 		: frame.speedShare >= CAMERA_TUNING.Modes.Triggers.FastSpeedFraction ? "fastMovement" : "slowMovement";
 }
@@ -306,17 +315,17 @@ function GetCameraPosition() {
 
 // Aim the starting camera from the level opening at the world's center.
 function resolveDefaultLevelCamera(sceneGraph) {
-	const { length, height, width } = sceneGraph.world;
-	const target   = new UnitVector3(length.value * 0.5, height.value * 0.5, width.value * 0.5, "cnu");
-	const position = sceneGraph.cameraConfig.levelOpening.startPosition.clone();
-	const forward  = ResolveVector3Axis(SubtractVector3(target, position));
-	const right    = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
-	const up       = ResolveVector3Axis(CrossVector3(right, forward));
+	const dimensions = sceneGraph.world.dimensions;
+	const target     = dimensions.clone().scale(0.5);
+	const position   = sceneGraph.cameraConfig.levelOpening.startPosition.clone();
+	const forward    = ResolveVector3Axis(SubtractVector3(target, position));
+	const right      = ResolveVector3Axis(CrossVector3(forward, WORLD_NORMALS.Up));
+	const up         = ResolveVector3Axis(CrossVector3(right, forward));
 
 	return {
 		position, target, forward, right, up,
 		near: new Unit(0.1, "cnu"),
-		far : new Unit(length.value + width.value + height.value, "cnu"),
+		far : new Unit(dimensions.x + dimensions.y + dimensions.z, "cnu"),
 	};
 }
 
@@ -408,13 +417,13 @@ function placeOnRig({ runtime, scaledDistance, center: rigCenter, radius, holdAr
 	// Aim straight at the Simulator target, which has no body.
 	const targetPoint = simulating ? target.transform.position.clone() : AimPoint(frame);
 
-	const center = rigCenter ?? targetPoint;
+	const center     = rigCenter ?? targetPoint;
 	const desiredPos = center.clone().add(ScaleVector3(direction, scaledDistance));
 
 	// Skip the wall check in the Simulator, where the target sits inside its own bounds.
 	settleArmDistance(runtime, simulating
 		? { obstructed: false, clippedDistance: scaledDistance }
-		: checkCameraObstruction(center, desiredPos, sceneGraph, radius, target.collision.aabb),
+		: checkCameraObstruction(center, desiredPos, sceneGraph, radius, target.physics.collision.aabb),
 	scaledDistance, deltaSeconds);
 
 	// Lag the pivot behind the target to stretch the arm with speed.
@@ -448,7 +457,7 @@ function placeOnRig({ runtime, scaledDistance, center: rigCenter, radius, holdAr
  */
 function InitializeCameraState(sceneGraph, payloadMeta, target, simulating) {
 	resetLoop();
-	loop.lastUp = CloneVector3(target === null ? WORLD_NORMALS.Up : target.alignedUp);
+	loop.lastUp = CloneVector3(target === null ? WORLD_NORMALS.Up : target.physics.correction.alignedUp);
 	triggers.forced = null;
 	triggers.inside.clear();
 	triggers.fired.clear();

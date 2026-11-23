@@ -1,19 +1,16 @@
 // Assembles the player as an entity.
 
-// Creates a player model from a JSON template using the entity building system.
-// Uses characters.json for character template definitions.
-// Uses builder/NewEntity.js to build the entity and to refresh it each frame.
-// Used by Master.js, which orchestrates the built entity as player state.
+// Used by player/Master.js to build the player for a level.
+// Used by handlers/game/Simulator.js to build players for preview.
+// Uses builder/NewEntity.js to build the entity.
 
-import { BuildEntity, UpdateEntityModelFromTransform } from "../builder/NewEntity.js";
+import { BuildEntity } from "../builder/NewEntity.js";
 import { Unit, UnitVector3 } from "../math/Utilities.js";
 import { Log } from "../core/meta.js";
-import CharacterData from "./characters.json" with { type: "json" };
 
 /* === SPAWN SURFACE === */
 
-// Without a spawn surface the player spawns in absolute coordinates, on a zero-origin surface.
-
+// Surface a player without one spawns on, keeping its coordinates absolute.
 const playerSurfaceId = "player-origin";
 
 const playerSurfaceMap = {
@@ -25,33 +22,27 @@ const playerSurfaceMap = {
 
 /* === DEFINITION SYNTHESIS === */
 
-/**
- * Build the entity definition the player is assembled from. The character template supplies the
- * model and collider shapes; the level payload supplies placement and per-level concerns.
- * @param {object} character — a characters.json entry, already merged with any meta overrides.
- * @param {object} playerData — { rootTransform, spawnSurfaceId, animations, customEvents }.
- */
+// Build the entity definition the player is assembled from.
 function synthesizeDefinition(character, playerData) {
 	const { position, rotation, scale, pivot } = playerData.rootTransform;
 
 	return {
 		id               : "player",
 		type             : "player",
-		blueprintId      : null,
-		hp               : 3,
+		blueprintId      : character.id,
+		meta             : { hp: 3 },
 		attacks          : [],
-		hardcoded        : {},
-		platform         : null,
 		collisionOverride: character.collisionOverride,
 		customEvents     : playerData.customEvents,
 		animations       : playerData.animations,
 		velocity         : new UnitVector3(0, 0, 0, "cnu"), // Per second
 
-		// Zero speed keeps the builder's movement track from moving the player; input does that.
+		// Zero the movement track's speed to leave moving the player to input.
 		movement: {
-			speed: new Unit(0, "cnu"), // Per second
-			start: position.clone(),
-			end  : position.clone(),
+			speed  : new Unit(0, "cnu"),    // Per second
+			start  : position.clone(),
+			end    : position.clone(),
+			physics: { ...character.physics },
 		},
 
 		model: {
@@ -64,20 +55,14 @@ function synthesizeDefinition(character, playerData) {
 
 /* === PUBLIC API === */
 
-/**
- * Assemble the player entity from a character template.
- * @param {object} character — a characters.json entry, already merged with any meta overrides.
- * @param {object} playerData — { rootTransform, spawnSurfaceId, animations, customEvents }.
- * @param {object} surfaceMap — the level's spawn surfaces, { [surfaceId]: { position, topY } }.
- * @returns {object} — the built entity, ready for Master.js to extend into player state.
- */
+// Assemble the player entity from a character template.
 function BuildPlayerModel(character, playerData, surfaceMap) {
-	// Null geometryCache: the player's parts build uncached, textured like any entity's.
-	const { entity } = BuildEntity(synthesizeDefinition(character, playerData), { ...surfaceMap, ...playerSurfaceMap }, null, null, null);
+	// Build the player as an entity, without a level texture scale or face texture store.
+	const entity = BuildEntity(synthesizeDefinition(character, playerData), { ...surfaceMap, ...playerSurfaceMap }, null, null).entity;
 
 	Log(
 		"ENGINE",
-		`Player model built: ${entity.model.parts.length} parts, collider=${entity.collision.physics.shape}.`,
+		`Player model built: ${entity.model.parts.length} parts, collider=${entity.physics.collision.physics.shape}.`,
 		"log",
 		"Level"
 	);
@@ -85,18 +70,6 @@ function BuildPlayerModel(character, playerData, surfaceMap) {
 	return entity;
 }
 
-/**
- * Re-pose the player model from its transform and recompute aabb/physics/hurtbox/hitbox.
- * @param {object} playerState — the player entity.
- */
-function RefreshPlayerModel(playerState) {
-	UpdateEntityModelFromTransform(playerState);
-	playerState.mesh = playerState.model.parts[0].mesh;
-}
-
 /* === EXPORTS === */
 
-export {
-	BuildPlayerModel,
-	RefreshPlayerModel,
-};
+export { BuildPlayerModel };

@@ -1,6 +1,5 @@
 // Generates scatter instances on objects and batches them for instanced drawing.
 
-// Used by NewObject.js to add scatter to an object.
 // Used by NewLevel.js to build scatter batches and their visual resources.
 // Uses NewObject.js and NewPrimitive.js to build scatter geometry
 // Uses NewTexture.js to key scatter's textures.
@@ -9,11 +8,11 @@ import { CONFIG } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateRenderMatrix } from "../math/Matrix.js";
 import { PointsAabb, TriangleAabb } from "../math/Geometry.js";
-import { BuildObject, GenerateUVs } from "./NewObject.js";
+import { GenerateUVs } from "./NewObject.js";
 import { BuildGeometry } from "./NewPrimitive.js";
 import { ComputeGeneratedTextureID, ComputeCustomTextureSignature, InitializeDecalDisplay } from "./NewTexture.js";
-import { RotateByEuler, MultiplyVector3, ScaleVector3, CloneTransform, WORLD_NORMALS, DotVector3, AbsoluteVector3, AddVector3 } from "../math/Vector3.js";
-import visualTemplates from "./templates/textures.json" with { type: "json" };
+import { RotateByEuler, MultiplyVector3, ScaleVector3, CloneVector3, WORLD_NORMALS, DotVector3, AbsoluteVector3, AddVector3 } from "../math/Vector3.js";
+import scatterTemplates from "./templates/scatter.json" with { type: "json" };
 
 function isPointInDetailedBoundsXZ(worldX, worldZ, detailedBounds) {
 	const { type, min, max, axes, halfExtents, center } = detailedBounds;
@@ -35,34 +34,19 @@ function hashNoise(x, z, seed) {
 	return value - Math.floor(value);
 }
 
-function logScatterBounds(message, objectMesh) {
+function logScatterBounds(objectMesh) {
 	Log(
 		"ENGINE",
 		`
-			${message}:
-			- source=${objectMesh.id}
-			- minX=${objectMesh.worldAabb.min.x.toFixed(2)}
-			- maxX=${objectMesh.worldAabb.max.x.toFixed(2)}
-			- minZ=${objectMesh.worldAabb.min.z.toFixed(2)}
-			- maxZ=${objectMesh.worldAabb.max.z.toFixed(2)}
+			Scatter batch bounds:
+			- Source: ${objectMesh.id}
+			- MinX: ${objectMesh.display.aabb.min.x.toFixed(2)}
+			- MaxX: ${objectMesh.display.aabb.max.x.toFixed(2)}
+			- MinZ: ${objectMesh.display.aabb.min.z.toFixed(2)}
+			- MaxZ: ${objectMesh.display.aabb.max.z.toFixed(2)}
 		`,
 		"log",
 		"Level"
-	);
-}
-
-function processScatterModels(params, handlers) {
-	const { objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces } = params;
-	return iterateScatterInstances(
-		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces },
-		(ctx) => {
-			const modelState = handlers.beginModel ? handlers.beginModel(ctx) : null;
-			const boxes = ctx.partContexts.map((partContext, partIndex) => handlers.processPart(ctx, partContext, partIndex, modelState));
-
-			// Merge all parts' boxes.
-			const { min, max } = PointsAabb(boxes.flatMap((box) => [box.min, box.max]));
-			handlers.finishModel(ctx, { min: boxes[0].min.clone().set(min), max: boxes[0].max.clone().set(max) }, modelState);
-		}
 	);
 }
 
@@ -201,7 +185,7 @@ function iterateScatterInstances(params, handler) {
 	const scatterRequests = explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter;
 	if (scatterRequests.length === 0) return { totalParts: 0, typeCounts: 0, modelCounts: 0 };
 
-	const { min, max } = objectMesh.worldAabb;
+	const { min, max } = objectMesh.display.aabb;
 	const width        = Math.max(1, max.x - min.x);
 	const depth        = Math.max(1, max.z - min.z);
 
@@ -218,7 +202,7 @@ function iterateScatterInstances(params, handler) {
 
 	let totalParts = 0, globalTypeCount = 0, globalModelCount = 0;
 	scatterRequests.forEach((request, scatterTypeIndex) => {
-		const scatterType = visualTemplates.scatterTypes[request.typeID];
+		const scatterType = scatterTemplates[request.typeID];
 		if (CONFIG.Performance.Scatter.Quality === "Low" && scatterType.skipLow) return;
 
 		const canonicalParts = scatterType.parts.map((part) => {
@@ -277,7 +261,7 @@ function iterateScatterInstances(params, handler) {
 			// Bounds and height checks keep instances inside the parent and within allowed heights
 			if (worldX < min.x || worldX > max.x || worldZ < min.z || worldZ > max.z) continue;
 			if (worldY < scatterType.heightMin || worldY > scatterType.heightMax) continue;
-			if (objectMesh.detailedBounds && !isPointInDetailedBoundsXZ(worldX, worldZ, objectMesh.detailedBounds)) continue;
+			if (objectMesh.physics.collision.detailedBounds && !isPointInDetailedBoundsXZ(worldX, worldZ, objectMesh.physics.collision.detailedBounds)) continue;
 
 			// Simple slope estimate filter based on noise to avoid steep placements
 			if (Math.abs(Math.sin((worldX + worldZ) * scatterType.noiseScale)) * 0.25 > scatterType.slopeMax) continue;
@@ -288,7 +272,7 @@ function iterateScatterInstances(params, handler) {
 
 			// Compute per-part offsets for stacking / levels and validate spatial fit
 			const offsetParts = applyHierarchicalOffsets(canonicalParts, uniformScale);
-			if (!fitsParent(offsetParts, worldX, worldZ, uniformScale, seed, min.x, max.x, min.z, max.z, objectMesh.detailedBounds)) {
+			if (!fitsParent(offsetParts, worldX, worldZ, uniformScale, seed, min.x, max.x, min.z, max.z, objectMesh.physics.collision.detailedBounds)) {
 				continue;
 			}
 			if (isFootprintOverOpening(offsetParts, worldX, worldZ, uniformScale, seed, openingAabbsXZ)) continue;
@@ -297,12 +281,11 @@ function iterateScatterInstances(params, handler) {
 			const modelRootY = rootPart ? worldY + getPartHalfHeight(rootPart, uniformScale) - rootPart.stackY : worldY;
 
 			const partContexts = [];
-			let samplePosition = null, sampleDimensions = null;
 
 			// Spin the whole model to keep its parts at their authored angles to each other.
 			const modelYaw = hashNoise(worldX, worldZ, seed) * Math.PI * 2;
 
-			offsetParts.forEach((part, partIndex) => {
+			offsetParts.forEach((part) => {
 				typeCount++;
 
 				// Calculate world position and rotation.
@@ -313,17 +296,12 @@ function iterateScatterInstances(params, handler) {
 				const rotation = part.localRotation.clone(); 
 				rotation.y += modelYaw;
 
-				if (!samplePosition) {
-					samplePosition = position.clone();
-					sampleDimensions = part.dimensions.clone().scale(uniformScale);
-				}
-
-				partContexts.push({ part, partIndex, position, rotation, scale: ScaleVector3(part.localScale, uniformScale) });
+				partContexts.push({ part, position, rotation, scale: ScaleVector3(part.localScale, uniformScale) });
 			});
 
 			if (partContexts.length === 0) continue;
 
-			handler({ scatterType, request, scatterTypeIndex, instanceIndex, partContexts, samplePosition, sampleDimensions });
+			handler({ scatterType, instanceIndex, partContexts });
 
 			modelCount++;
 			totalParts += partContexts.length;
@@ -336,95 +314,48 @@ function iterateScatterInstances(params, handler) {
 	return { totalParts, typeCounts: globalTypeCount, modelCounts: globalModelCount };
 }
 
-function generateObjectScatter(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces) {
-	if (scatterMultiplier <= 0 || (explicitRequests.length > 0 ? explicitRequests : objectMesh.detail.scatter).length === 0) return [];
+const shapeGeometryKey = (prim, dim, primOptions) => `${prim}_${dim.x}_${dim.y}_${dim.z}_${JSON.stringify(primOptions)}`;
 
-	logScatterBounds("Scatter bounds", objectMesh);
-
-	const meshes = [];
-	const stats = processScatterModels(
-		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces },
-		{
-			beginModel: () => meshes.length,
-			processPart: (ctx, partContext, partIndex) => {
-				const { part, position, rotation, scale } = partContext;
-				const { shape, complexity, dimensions, primitiveOptions, texture } = part;
-				const { mesh: scatterMesh } = BuildObject(
-					{
-						id: `${objectMesh.id}-scatter-${ctx.scatterType.id}-${ctx.instanceIndex}-${partIndex}`,
-						shape, complexity, dimensions, position, rotation, scale,
-						pivot: objectMesh.transform.pivot,
-						primitiveOptions, texture,
-						detail        : { scatter: [] },
-						role          : "scatter",
-					}
-				);
-
-				meshes.push(scatterMesh);
-				return scatterMesh.worldAabb;
-			},
-			finishModel: (ctx, modelAabb, startIndex) => {
-				meshes.slice(startIndex).forEach((mesh) => {
-					mesh.meta.scatterModelAabb = { min: modelAabb.min.clone(), max: modelAabb.max.clone() };
-				});
-			},
-		}
-	);
-
-	// Log a summary of the generated scatter.
-	Log(
-		"ENGINE",
-		`
-			Scatter diagnostics: 
-			- Source=${objectMesh.id}
-			- Models=${stats.modelCounts}
-			- Parts=${stats.typeCounts}
-		`,
-		"log",
-		"Level"
-	);
-
-	return meshes;
+// Copy a decal's transform field by field. 
+// Note: Its rotation is a single angle, not a vector.
+function cloneScatterDecal(decal) {
+	const { position, rotation, scale } = decal.localTransform;
+	return { ...decal, localTransform: { position: position.clone(), rotation: rotation.clone(), scale: CloneVector3(scale) } };
 }
 
-const shapeGeometryKey = (prim, dim, comp, primOptions) => `${prim}_${dim.x}_${dim.y}_${dim.z}_${comp}_${JSON.stringify(primOptions)}`;
-const cloneScatterDecal = (decal) => { return { ...decal, localTransform: CloneTransform(decal.localTransform) } }
-
 function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, batchMap, debugBboxAccumulator, openFaces) {
-	logScatterBounds("Scatter batch bounds", objectMesh);
+	logScatterBounds(objectMesh);
 
 	let totalParts = 0;
 
-	const stats = processScatterModels(
+	const stats = iterateScatterInstances(
 		{ objectMesh, scatterMultiplier, world, indexSeed, explicitRequests, openFaces },
-		{
-			processPart: (ctx, partContext) => {
-				const { part, position, rotation, scale } = partContext;
-				const { shape, dimensions, complexity, primitiveOptions, texture } = part;
-				const textureID = ComputeGeneratedTextureID(part.texture.generated);
-				const primitiveKey = shapeGeometryKey(shape, dimensions, complexity, primitiveOptions);
+		(ctx) => {
+			// Add each part to its batch and box it.
+			const boxes = ctx.partContexts.map(({ part, position, rotation, scale }) => {
+				const { shape, dimensions, primitiveOptions, texture } = part;
+				const textureID = ComputeGeneratedTextureID(part.texture.base);
+				const primitiveKey = shapeGeometryKey(shape, dimensions, primitiveOptions);
 				const batchKey = `${primitiveKey}_${textureID}_${ComputeCustomTextureSignature(texture.custom)}`;
 
 				if (!batchMap.has(batchKey)) {
-					const customTextures = texture.custom.map(cloneScatterDecal);
-					InitializeDecalDisplay(customTextures, dimensions);
+					const custom = texture.custom.map(cloneScatterDecal);
+					InitializeDecalDisplay(custom, dimensions);
 
 					batchMap.set(batchKey, {
 						primitive: shape,
 						dimensions: dimensions.clone(),
-						complexity, primitiveOptions, primitiveKey, textureID,
-						texture: texture.generated,
-						customTextures,
+						primitiveOptions, primitiveKey, textureID,
+						texture: { base: texture.base, custom },
 						instances: [],
 						instanceCount: 0,
-						instanceData: null,
 					});
 				}
 
-				batchMap.get(batchKey).instances.push({ 
-					modelMatrix: CreateRenderMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot }), 
-					tint: [1, 1, 1, 1] 
-				});
+				// Store each instance as its model matrix.
+				const batch = batchMap.get(batchKey);
+				batch.instances.push(CreateRenderMatrix({ position, rotation, scale, pivot: objectMesh.transform.pivot }));
+				batch.instanceCount += 1;
 				totalParts++;
 
 				const half = part.dimensions.clone().multiply(scale).scale(0.5);
@@ -432,15 +363,16 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 					min: position.clone().subtract(half),
 					max: position.clone().add(half),
 				};
-			},
-			finishModel: (ctx, modelAabb) => {
-				debugBboxAccumulator.push({
-					type: "Scatter",
-					id: `${objectMesh.id}-scatter-${ctx.scatterType.id}-${ctx.instanceIndex}`,
-					min: modelAabb.min.clone(),
-					max: modelAabb.max.clone(),
-				});
-			},
+			});
+
+			// Merge all parts' boxes into the model's debug box.
+			const { min, max } = PointsAabb(boxes.flatMap((box) => [box.min, box.max]));
+			debugBboxAccumulator.push({
+				type: "Scatter",
+				id  : `${objectMesh.id}-scatter-${ctx.scatterType.id}-${ctx.instanceIndex}`,
+				min : boxes[0].min.clone().set(min),
+				max : boxes[0].max.clone().set(max),
+			});
 		}
 	);
 
@@ -448,9 +380,9 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 		"ENGINE",
 		`
 			Scatter batch diagnostics: 
-			- Source=${objectMesh.id}
-			- RequestedParts=${stats.typeCounts}
-			- CreatedParts=${totalParts}`,
+			- Source: ${objectMesh.id}
+			- RequestedParts: ${stats.typeCounts}
+			- CreatedParts: ${totalParts}`,
 		"log",
 		"Level"
 	);
@@ -458,27 +390,12 @@ function generateObjectScatterBatches(objectMesh, scatterMultiplier, world, inde
 	return totalParts;
 }
 
-function packScatterBatchInstances(batch) {
-	const data = new Float32Array(batch.instances.length * 20);
-
-	for (let i = 0; i < batch.instances.length; i++) {
-		const instance = batch.instances[i];
-		const offset = i * 20;
-		for (let add = 0; add < 20; add++) data[offset + add] = add <= 15 ? instance.modelMatrix[add] : instance.tint[add - 16];
-	}
-
-	batch.instanceCount = batch.instances.length;
-	batch.instanceData  = data;
-}
-
 function BuildScatterVisualResources(scatterBatches) {
 	const primitiveGeometry = {};
 
 	scatterBatches.forEach((batch) => {
-		packScatterBatchInstances(batch);
-
 		if (!primitiveGeometry[batch.primitiveKey]) {
-			const geometry = BuildGeometry(batch.primitive, batch.dimensions, batch.complexity, batch.primitiveOptions);
+			const geometry = BuildGeometry(batch.primitive, batch.dimensions, batch.primitiveOptions);
 			primitiveGeometry[batch.primitiveKey] = {
 				positions: geometry.positions,
 				indices: geometry.indices,
@@ -490,7 +407,6 @@ function BuildScatterVisualResources(scatterBatches) {
 	return primitiveGeometry;
 }
 
-const BuildScatter = (p) => generateObjectScatter(p.objectMesh, p.scatterMultiplier, p.world, p.indexSeed, p.explicitScatter, p.openFaces);
 const BuildScatterBatches = (p) => generateObjectScatterBatches(p.objectMesh, p.scatterMultiplier, p.world, p.indexSeed, p.explicitScatter, p.batchMap, p.debugBboxAccumulator, p.openFaces);
 
-export { BuildScatter, BuildScatterBatches, BuildScatterVisualResources };
+export { BuildScatterBatches, BuildScatterVisualResources };

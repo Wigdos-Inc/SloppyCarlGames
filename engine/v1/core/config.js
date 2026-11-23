@@ -147,6 +147,10 @@ const API_CONFIG = {
       DamageReceived : false,
       DamageInflicted: false,
       Loop           : false,
+      Jump           : false,
+    },
+    Particles: {
+      Ended: false,                              // A particle request's last group ends.
     },
     Obstacles: {  // Not connected yet.
       Spawn          : false,
@@ -173,7 +177,7 @@ const API_CONFIG = {
     },
     Fog    : { Air: 100, Water: 60 },            // Fog reach %, 20-100; >100 saturates past the cull radius and pops in
     Filters: {
-      ToonLines: false,                          // Ink lines on edges and creases
+      ToonLines: true,                          // Ink lines on edges and creases
       Comic    : false,                          // Light bands, fewer colors and halftone dots
     }
   }
@@ -278,7 +282,7 @@ const FILTER_TUNING = DeepFreeze({
   Lines: {
     Color    : { r: 0.06, g: 0.05, b: 0.08 },             // Ink color
     Width    : 1,                                         // Line thickness in pixels
-    Threshold: 0.0015,                                    // How sharp a bend in the surface must be to ink it
+    Threshold: 0.007,                                    // How sharp a bend in the surface must be to ink it
   },
   Comic: {
     LightDirection: { x: 0.35, y: 0.85, z: 0.4 },         // World direction toward the light
@@ -299,7 +303,7 @@ const FILTER_TUNING = DeepFreeze({
 // Sprite look.
 const SPRITE_TUNING = DeepFreeze({
   FadeStart         : 0.85,                               // Fraction of a sprite's range where its fade begins
-  ScreenSizeDistance: new Unit(10, "cnu"),                // Constant-size sprites always look as big as they would from this far
+  ScreenSizeDistance: new Unit(10, "cnu"),                // Constant-size sprites always look as big as they would from this distance.
 });
 
 // Debug overlay colors per object type.

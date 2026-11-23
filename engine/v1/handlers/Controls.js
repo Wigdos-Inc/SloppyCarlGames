@@ -8,7 +8,7 @@ import { GetActiveLevel, ToggleLevelLoopPause } from "./game/Level.js";
 import { IsSimulatorActive, HandleSimulatorInput } from "./game/Simulator.js";
 import { HandleCameraInput } from "../camera/Master.js";
 import { HandleUiAction, ResolvePrecomputedAction } from "./UI.js";
-import { TriggerPlayerRespawnSequence } from "../player/Master.js";
+import { TriggerPlayerDeath } from "../player/Master.js";
 
 const eventTypes = {
 	pointerover: false,
@@ -141,7 +141,7 @@ function handleDebugLevelInput(event, activeLevel) {
 	if (event.code !== "KeyR") return false;
 	if (!activeLevel.player) return false;
 
-	TriggerPlayerRespawnSequence();
+	TriggerPlayerDeath();
 	return true;
 }
 

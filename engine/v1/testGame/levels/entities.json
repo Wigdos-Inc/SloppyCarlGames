@@ -3,14 +3,13 @@
 		{
 			"id": "enemy.scout-drone",
 			"type": "enemy",
-			"hp": 6,
+			"meta": { "hp": 6, "aggroRange": 14, "scoreValue": 125 },
 			"movement": {
 				"start": { "x": 0, "y": 0, "z": 0 },
 				"end": { "x": 0, "y": 0, "z": 0 },
 				"repeat": true,
 				"backAndForth": true,
 				"speed": 0,
-				"jump": 0,
 				"jumpInterval": 0,
 				"jumpOnSight": false,
 				"disappear": false,
@@ -18,7 +17,6 @@
 				"physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false }
 			},
 			"velocity": { "x": 0, "y": 0, "z": 0 },
-			"platform": null,
 			"attacks": [
 				{
 					"id": "pulse-bolt",
@@ -26,10 +24,6 @@
 					"projectileBlueprintId": "projectile.pulse"
 				}
 			],
-			"hardcoded": {
-				"aggroRange": 14,
-				"scoreValue": 125
-			},
 			"animations": {
 				"idle"    : { "loop": true },
 				"moving"  : { "loop": true },
@@ -52,7 +46,6 @@
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
 						"shape": "cube",
-						"complexity": "medium",
 						"dimensions": { "x": 1.8, "y": 1.2, "z": 1.8 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -65,7 +58,7 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"generated": {
+							"base": {
 								"id": "metal-panel",
 								"density": 1,
 								"speckSize": 1
@@ -83,20 +76,16 @@
 						"anchorPoint": "top",
 						"attachmentPoint": "left",
 						"shape": "cylinder",
-						"complexity": "medium",
 						"dimensions": { "x": 0.35, "y": 1, "z": 0.35 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
 						"pivot": { "x": 0, "y": 0, "z": 0 },
 						"primitiveOptions": {
-							"thickness": 0,
-							"radius": 0,
-							"subdivisionsX": 1,
-							"subdivisionsZ": 1
+							"complexity": "medium"
 						},
 						"texture": {
-							"generated": {
+							"base": {
 								"id": "metal-panel",
 								"density": 1,
 								"speckSize": 1
@@ -114,20 +103,16 @@
 						"anchorPoint": "top",
 						"attachmentPoint": "right",
 						"shape": "cylinder",
-						"complexity": "medium",
 						"dimensions": { "x": 0.35, "y": 1, "z": 0.35 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
 						"pivot": { "x": 0, "y": 0, "z": 0 },
 						"primitiveOptions": {
-							"thickness": 0,
-							"radius": 0,
-							"subdivisionsX": 1,
-							"subdivisionsZ": 1
+							"complexity": "medium"
 						},
 						"texture": {
-							"generated": {
+							"base": {
 								"id": "metal-panel",
 								"density": 1,
 								"speckSize": 1
@@ -145,20 +130,16 @@
 						"anchorPoint": "center",
 						"attachmentPoint": "front",
 						"shape": "sphere",
-						"complexity": "medium",
 						"dimensions": { "x": 0.5, "y": 0.5, "z": 0.5 },
 						"localPosition": { "x": 0, "y": 0.1, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
 						"pivot": { "x": 0, "y": 0, "z": 0 },
 						"primitiveOptions": {
-							"thickness": 0,
-							"radius": 0,
-							"subdivisionsX": 1,
-							"subdivisionsZ": 1
+							"complexity": "medium"
 						},
 						"texture": {
-							"generated": {
+							"base": {
 								"id": "energy-core",
 								"density": 1,
 								"speckSize": 1,
@@ -180,14 +161,13 @@
 		{
 			"id": "npc.engineer",
 			"type": "npc",
-			"hp": 10,
+			"meta": { "hp": 10, "interactable": true },
 			"movement": {
 				"start": { "x": 0, "y": 0, "z": 0 },
 				"end": { "x": 0, "y": 0, "z": 0 },
 				"repeat": true,
 				"backAndForth": true,
 				"speed": 0,
-				"jump": 0,
 				"jumpInterval": 0,
 				"jumpOnSight": false,
 				"disappear": false,
@@ -195,11 +175,7 @@
 				"physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false }
 			},
 			"velocity": { "x": 0, "y": 0, "z": 0 },
-			"platform": null,
 			"attacks": [],
-			"hardcoded": {
-				"interactable": true
-			},
 			"animations": {
 				"idle": { "loop": true },
 				"moving": { "loop": true },
@@ -221,7 +197,6 @@
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
 						"shape": "cube",
-						"complexity": "medium",
 						"dimensions": { "x": 1.2, "y": 2.1, "z": 0.9 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -234,7 +209,7 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"generated": {
+							"base": {
 								"id": "wood-planks",
 								"density": 1,
 								"speckSize": 1
@@ -252,20 +227,16 @@
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
 						"shape": "sphere",
-						"complexity": "medium",
 						"dimensions": { "x": 0.9, "y": 0.9, "z": 0.9 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
 						"pivot": { "x": 0, "y": 0, "z": 0 },
 						"primitiveOptions": {
-							"thickness": 0,
-							"radius": 0,
-							"subdivisionsX": 1,
-							"subdivisionsZ": 1
+							"complexity": "medium"
 						},
 						"texture": {
-							"generated": {
+							"base": {
 								"id": "wood-planks",
 								"density": 1,
 								"speckSize": 1
@@ -284,14 +255,13 @@
 		{
 			"id": "collectible.orb",
 			"type": "collectible",
-			"hp": 1,
+			"meta": { "hp": 1, "grant": "energy", "amount": 25 },
 			"movement": {
 				"start": { "x": 0, "y": 0, "z": 0 },
 				"end": { "x": 0, "y": 0, "z": 0 },
 				"repeat": true,
 				"backAndForth": true,
 				"speed": 0,
-				"jump": 0,
 				"jumpInterval": 0,
 				"jumpOnSight": false,
 				"disappear": false,
@@ -299,12 +269,7 @@
 				"physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false }
 			},
 			"velocity": { "x": 0, "y": 0, "z": 0 },
-			"platform": null,
 			"attacks": [],
-			"hardcoded": {
-				"grant": "energy",
-				"amount": 25
-			},
 			"animations": {
 				"idle": { "loop": true }
 			},
@@ -324,20 +289,16 @@
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
 						"shape": "sphere",
-						"complexity": "medium",
 						"dimensions": { "x": 0.9, "y": 0.9, "z": 0.9 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
 						"pivot": { "x": 0, "y": 0, "z": 0 },
 						"primitiveOptions": {
-							"thickness": 0,
-							"radius": 0,
-							"subdivisionsX": 1,
-							"subdivisionsZ": 1
+							"complexity": "medium"
 						},
 						"texture": {
-							"generated": {
+							"base": {
 								"id": "energy-core",
 								"density": 1,
 								"speckSize": 1
@@ -356,14 +317,13 @@
 		{
 			"id": "projectile.pulse",
 			"type": "projectile",
-			"hp": 1,
+			"meta": { "hp": 1, "damage": 1, "lifeMs": 2200 },
 			"movement": {
 				"start": { "x": 0, "y": 0, "z": 0 },
 				"end": { "x": 0, "y": 0, "z": 0 },
 				"repeat": true,
 				"backAndForth": true,
 				"speed": 0,
-				"jump": 0,
 				"jumpInterval": 0,
 				"jumpOnSight": false,
 				"disappear": false,
@@ -371,12 +331,7 @@
 				"physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false }
 			},
 			"velocity": { "x": 0, "y": 0, "z": 0 },
-			"platform": null,
 			"attacks": [],
-			"hardcoded": {
-				"damage": 1,
-				"lifeMs": 2200
-			},
 			"animations": {
 				"idle": { "loop": true }
 			},
@@ -396,20 +351,16 @@
 						"anchorPoint": "center",
 						"attachmentPoint": "top",
 						"shape": "sphere",
-						"complexity": "medium",
 						"dimensions": { "x": 0.4, "y": 0.4, "z": 0.4 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
 						"pivot": { "x": 0, "y": 0, "z": 0 },
 						"primitiveOptions": {
-							"thickness": 0,
-							"radius": 0,
-							"subdivisionsX": 1,
-							"subdivisionsZ": 1
+							"complexity": "medium"
 						},
 						"texture": {
-							"generated": {
+							"base": {
 								"id": "energy-core",
 								"primary": { "r": 0.498, "g": 0.973, "b": 1, "a": 0.95 },
 								"secondary": { "r": 0.247, "g": 0.376, "b": 1, "a": 0.95 },
@@ -430,14 +381,13 @@
 		{
 			"id": "entity.cnu-fall-cube",
 			"type": "entity",
-			"hp": 1,
+			"meta": { "hp": 1 },
 			"movement": {
 				"start": { "x": 0, "y": 0, "z": 0 },
 				"end": { "x": 0, "y": 0, "z": 0 },
 				"repeat": false,
 				"backAndForth": false,
 				"speed": 0,
-				"jump": 0,
 				"jumpInterval": 0,
 				"jumpOnSight": false,
 				"disappear": false,
@@ -445,9 +395,7 @@
 				"physics": { "gravity": true, "buoyancy": false, "resistance": false, "correction": false }
 			},
 			"velocity": { "x": 0, "y": 0, "z": 0 },
-			"platform": null,
 			"attacks": [],
-			"hardcoded": {},
 			"animations": {},
 			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
 			"customEvents": {
@@ -470,7 +418,6 @@
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
 						"shape": "cube",
-						"complexity": "medium",
 						"dimensions": { "x": 1, "y": 1, "z": 1 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
@@ -483,7 +430,7 @@
 							"subdivisionsZ": 1
 						},
 						"texture": {
-							"generated": {
+							"base": {
 								"id": "metal-panel",
 								"density": 1,
 								"speckSize": 1
@@ -504,7 +451,7 @@
 						"dimensions": { "x": 0.6, "y": 0.6, "z": 0 },
 						"localPosition": { "x": 0, "y": 0.6, "z": 0 },
 						"color": { "r": 1, "g": 0.85, "b": 0.2, "a": 1 },
-						"texture": { "generated": { "id": "default-grid" } },
+						"texture": { "base": { "id": "default-grid" } },
 						"primitiveOptions": { "crossed": false, "sprite": { "follow": "full", "distanceScaling": false, "range": 25 } }
 					}
 				]
@@ -513,14 +460,13 @@
 		{
 			"id": "entity.smoke-torch",
 			"type": "entity",
-			"hp": 1,
+			"meta": { "hp": 1 },
 			"movement": {
 				"start": { "x": 9, "y": 0, "z": -7 },
 				"end": { "x": 9, "y": 0, "z": 4 },
 				"repeat": false,
 				"backAndForth": true,
 				"speed": 2,
-				"jump": 0,
 				"jumpInterval": 0,
 				"jumpOnSight": false,
 				"disappear": false,
@@ -528,9 +474,7 @@
 				"physics": { "gravity": false, "buoyancy": false, "resistance": false, "correction": false, "collision": false }
 			},
 			"velocity": { "x": 0, "y": 0, "z": 0 },
-			"platform": null,
 			"attacks": [],
-			"hardcoded": {},
 			"animations": {},
 			"collisionOverride": { "physics": "aabb", "hurtbox": null, "hitbox": null },
 			"customEvents": {},
@@ -550,20 +494,16 @@
 						"anchorPoint": "bottom",
 						"attachmentPoint": "top",
 						"shape": "cylinder",
-						"complexity": "medium",
 						"dimensions": { "x": 0.25, "y": 2, "z": 0.25 },
 						"localPosition": { "x": 0, "y": 0, "z": 0 },
 						"localRotation": { "x": 0, "y": 0, "z": 0 },
 						"localScale": { "x": 1, "y": 1, "z": 1 },
 						"pivot": { "x": 0, "y": 0, "z": 0 },
 						"primitiveOptions": {
-							"thickness": 0,
-							"radius": 0,
-							"subdivisionsX": 1,
-							"subdivisionsZ": 1
+							"complexity": "medium"
 						},
 						"texture": {
-							"generated": {
+							"base": {
 								"id": "wood-planks",
 								"density": 1,
 								"speckSize": 1
@@ -705,7 +645,7 @@
 						"shape": "plane",
 						"dimensions": { "x": 1.4, "y": 1.2, "z": 0 },
 						"color": { "r": 0.3, "g": 0.6, "b": 0.3, "a": 1 },
-						"texture": { "generated": { "id": "default-tiles" } },
+						"texture": { "base": { "id": "default-tiles" } },
 						"primitiveOptions": { "crossed": true, "sprite": { "follow": "horizontal" } }
 					}
 				]
@@ -730,7 +670,7 @@
 						"shape": "plane",
 						"dimensions": { "x": 1.6, "y": 2, "z": 0 },
 						"color": { "r": 0.75, "g": 0.6, "b": 0.4, "a": 1 },
-						"texture": { "generated": { "id": "default-grid" } },
+						"texture": { "base": { "id": "default-grid" } },
 						"primitiveOptions": { "crossed": false, "sprite": { "follow": "horizontal" } }
 					}
 				]
@@ -765,7 +705,7 @@
 		{
 			"id": "entity.blocky-placeholder",
 			"type": "entity",
-			"hp": 1,
+			"meta": { "hp": 1 },
 			"movement": {
 				"collision": true,
 				"physics": { "gravity": true, "buoyancy": false, "resistance": false, "correction": false, "collision": true }
@@ -784,11 +724,10 @@
 						"id": "body",
 						"parentId": "root",
 						"shape": "cube",
-						"complexity": "medium",
 						"dimensions": { "x": 1.4, "y": 1.2, "z": 1 },
 						"localPosition": { "x": 0, "y": 0.9, "z": 0 },
 						"color": { "r": 0.6, "g": 0.36, "b": 0.42, "a": 1 },
-						"texture": { "generated": { "id": "default-grid" } }
+						"texture": { "base": { "id": "default-grid" } }
 					},
 					{
 						"id": "legFrontLeft",
@@ -796,11 +735,10 @@
 						"anchorPoint": "center",
 						"attachmentPoint": "center",
 						"shape": "cube",
-						"complexity": "medium",
 						"dimensions": { "x": 0.3, "y": 0.9, "z": 0.3 },
 						"localPosition": { "x": -0.5, "y": -1.05, "z": 0.3 },
 						"color": { "r": 0.38, "g": 0.24, "b": 0.3, "a": 1 },
-						"texture": { "generated": { "id": "default-tiles" } }
+						"texture": { "base": { "id": "default-tiles" } }
 					},
 					{
 						"id": "legFrontRight",
@@ -808,11 +746,10 @@
 						"anchorPoint": "center",
 						"attachmentPoint": "center",
 						"shape": "cube",
-						"complexity": "medium",
 						"dimensions": { "x": 0.3, "y": 0.9, "z": 0.3 },
 						"localPosition": { "x": 0.5, "y": -1.05, "z": 0.3 },
 						"color": { "r": 0.38, "g": 0.24, "b": 0.3, "a": 1 },
-						"texture": { "generated": { "id": "default-tiles" } }
+						"texture": { "base": { "id": "default-tiles" } }
 					},
 					{
 						"id": "legBackLeft",
@@ -820,11 +757,10 @@
 						"anchorPoint": "center",
 						"attachmentPoint": "center",
 						"shape": "cube",
-						"complexity": "medium",
 						"dimensions": { "x": 0.3, "y": 0.9, "z": 0.3 },
 						"localPosition": { "x": -0.5, "y": -1.05, "z": -0.3 },
 						"color": { "r": 0.38, "g": 0.24, "b": 0.3, "a": 1 },
-						"texture": { "generated": { "id": "default-tiles" } }
+						"texture": { "base": { "id": "default-tiles" } }
 					},
 					{
 						"id": "legBackRight",
@@ -832,11 +768,10 @@
 						"anchorPoint": "center",
 						"attachmentPoint": "center",
 						"shape": "cube",
-						"complexity": "medium",
 						"dimensions": { "x": 0.3, "y": 0.9, "z": 0.3 },
 						"localPosition": { "x": 0.5, "y": -1.05, "z": -0.3 },
 						"color": { "r": 0.38, "g": 0.24, "b": 0.3, "a": 1 },
-						"texture": { "generated": { "id": "default-tiles" } }
+						"texture": { "base": { "id": "default-tiles" } }
 					}
 				]
 			}

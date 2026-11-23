@@ -1,11 +1,18 @@
 // Renderer and displayer of all visual elements.
 
 // End of any visual pipeline to display contents to Game (document.body)
+// Used by handlers/game/Level.js to draw the level each frame.
+// Used by handlers/UI.js, handlers/Cutscene.js, handlers/menu/Splash.js and Bootup.js to show and style elements.
+// Used by handlers/game/Simulator.js for decal math when exporting models.
+// Uses builder/NewUI.js to build elements.
+// Uses handlers/utilities/Shaders.js for the shaders.
+// Uses builder/NewTexture.js to tell see-through textures apart.
 
 /* === IMPORTS === */
 // UI element builder.
 
 import { UIElement } from "../builder/NewUI.js";
+import { IsTextureTransparent } from "../builder/NewTexture.js";
 import { CONFIG, DEBUG_COLORS, FILTER_TUNING, PERFORMANCE_SCALING, SKY_STOP_LIMIT } from "../core/config.js";
 import { Log } from "../core/meta.js";
 import { CreateIdentityMatrix, CreateRenderMatrix, FrustumPlanes, MultiplyMatrix4, TransformPointByMatrix } from "../math/Matrix.js";
@@ -323,8 +330,8 @@ function ensureSharedGeometry(renderer, sceneGraph, primitiveKey) {
 /* === SCATTER INSTANCE BUFFERS === */
 // Build each scatter batch's vertex arrays and instance buffers.
 
-// Shared position/uv/index + per-instance model-matrix rows, optional trailing tint.
-function buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBuffer, includeTint, instanceOffset = 0) {
+// Build a vertex array of the shared mesh buffers plus each instance's model matrix.
+function buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBuffer, instanceOffset = 0) {
 	const vao = gl.createVertexArray();
 	gl.bindVertexArray(vao);
 
@@ -341,12 +348,10 @@ function buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBu
 	if (indexBuffer !== null) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
-	const stride = 80;
-	const rowCount = includeTint ? 5 : 4;
-	for (let row = 0; row < rowCount; row++) {
+	for (let row = 0; row < 4; row++) {
 		const location = 2 + row;
 		gl.enableVertexAttribArray(location);
-		gl.vertexAttribPointer(location, 4, gl.FLOAT, false, stride, instanceOffset + row * 16);
+		gl.vertexAttribPointer(location, 4, gl.FLOAT, false, 64, instanceOffset + row * 16);
 		gl.vertexAttribDivisor(location, 1);
 	}
 
@@ -355,43 +360,42 @@ function buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBu
 }
 
 // Reorder instances so each ground square's instances sit together, and boxes each square for culling.
-function groupInstancesIntoCells(instanceData, instanceCount, instanceReach) {
+function groupInstancesIntoCells(instances, instanceReach) {
 	const byCell = new Map();
 
 	const cellSize = PERFORMANCE_SCALING.Culling.ScatterCellSize.value;
-	for (let i = 0; i < instanceCount; i++) {
+	for (const matrix of instances) {
 		const key = `
-			${Math.floor(instanceData[i * 20 + 12] / cellSize)}|
-			${Math.floor(instanceData[i * 20 + 14] / cellSize)}
+			${Math.floor(matrix[12] / cellSize)}|
+			${Math.floor(matrix[14] / cellSize)}
 		`;
 		if (!byCell.has(key)) byCell.set(key, []);
-		byCell.get(key).push(i);
+		byCell.get(key).push(matrix);
 	}
 
-	const sorted = new Float32Array(instanceData.length);
+	const sorted = new Float32Array(instances.length * 16);
 	const cells  = [];
 	let written  = 0;
-	for (const indices of byCell.values()) {
+	for (const matrices of byCell.values()) {
 		let min = ToVector3(Infinity), max = ToVector3(-Infinity);
-		for (const i of indices) {
-			const row = instanceData.subarray(i * 20, i * 20 + 20);
-			sorted.set(row, written * 20);
+		for (const matrix of matrices) {
+			sorted.set(matrix, written * 16);
 
 			// How far this instance's farthest vertex can sit from its position, after its scale.
-			const rows  = [row[0], row[1], row[2], row[4], row[5], row[6], row[8], row[9], row[10]];
+			const rows  = [matrix[0], matrix[1], matrix[2], matrix[4], matrix[5], matrix[6], matrix[8], matrix[9], matrix[10]];
 			const reach = instanceReach * Math.hypot(...rows);
-			min = MinVector3(min, SubtractVector3(ArrayToVector3(row, 12), ToVector3(reach)));
-			max = MaxVector3(max, AddVector3(ArrayToVector3(row, 12), ToVector3(reach)));
+			min = MinVector3(min, SubtractVector3(ArrayToVector3(matrix, 12), ToVector3(reach)));
+			max = MaxVector3(max, AddVector3(ArrayToVector3(matrix, 12), ToVector3(reach)));
 			written++;
 		}
-		cells.push({ start: written - indices.length, count: indices.length, aabb: { min, max }, occluded: false });
+		cells.push({ start: written - matrices.length, count: matrices.length, aabb: { min, max }, performance: { occluded: false } });
 	}
 
 	return { sorted, cells };
 }
 
 function buildScatterInstanceBuffers(renderer, sceneGraph) {
-	if (sceneGraph.scatterBatches.size === 0) {
+	if (sceneGraph.scatter.batches.size === 0) {
 		renderer.scatterInstances = [];
 		renderer.scatterDecalBatches = [];
 		renderer.scatterInstancesBuilt = true;
@@ -402,7 +406,7 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 	const results = [];
 	let totalInstances = 0, totalCells = 0;
 
-	sceneGraph.scatterBatches.forEach((batch, batchKey) => {
+	sceneGraph.scatter.batches.forEach((batch, batchKey) => {
 		if (batch.instanceCount === 0) return;
 
 		const geo = ensureSharedGeometry(renderer, sceneGraph, batch.primitiveKey);
@@ -416,7 +420,7 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 		for (let i = 0; i < primitiveGeometry.positions.length / 3; i++) {
 			instanceReach = Math.max(instanceReach, Vector3Length(ArrayToVector3(primitiveGeometry.positions, i, true)));
 		}
-		const { sorted, cells } = groupInstancesIntoCells(batch.instanceData, instanceCount, instanceReach);
+		const { sorted, cells } = groupInstancesIntoCells(batch.instances, instanceReach);
 
 		const instanceBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
@@ -425,13 +429,13 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 		// One vertex array per ground square, starting at that square's first instance.
 		const { positionBuffer, uvBuffer, indexBuffer } = geo
 		for (const cell of cells) {
-			cell.vao = buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBuffer, true, cell.start * 80);
+			cell.vao = buildInstancedVao(gl, positionBuffer, uvBuffer, indexBuffer, instanceBuffer, cell.start * 64);
 		}
 
 		// Scatter decals are static: built once, shared by every instance.
-		const { dimensions, primitive, primitiveOptions, customTextures, textureID } = batch;
+		const { dimensions, primitive, primitiveOptions, texture, textureID } = batch;
 		const rounding = DecalRounding(primitive, primitiveOptions);
-		const decalDraws = customTextures.map((decalEntry) => {
+		const decalDraws = texture.custom.map((decalEntry) => {
 			const shapeCode = ResolveDecalShapeCode(primitive, decalEntry.side);
 			const placement = BuildDecalPlacementMatrix(dimensions, decalEntry.displayTransform, decalEntry.side);
 			const facets    = SelectDecalFacets(primitiveGeometry, placement, shapeCode, ScaleVector3(dimensions, 0.5), rounding, 1);
@@ -443,7 +447,7 @@ function buildScatterInstanceBuffers(renderer, sceneGraph) {
 			return {
 				shapeCode,
 				placement  : new Float32Array(placement),
-				cellVaos   : cells.map((cell) => buildInstancedVao(gl, positionBuffer, null, null, instanceBuffer, false, cell.start * 80)),
+				cellVaos   : cells.map((cell) => buildInstancedVao(gl, positionBuffer, null, null, instanceBuffer, cell.start * 64)),
 				vertexCount: facets.positions.length / 3,
 				textureKey : decalEntry.textureKey,
 			};
@@ -531,7 +535,7 @@ function createGridLineVertices(bounds, step) {
 }
 
 function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
-	if (sceneGraph.debugBoundingBoxes.length === 0) return;
+	if (sceneGraph.debug.boundingBoxes.length === 0) return;
 
 	const gl = renderer.gl;
 	if (!renderer.debugLineShader) return renderer.debugLineShader = CreateShader.LineProgram(gl);
@@ -542,7 +546,7 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 
 	bindDebugLinePass(renderer, gl, projection, view);
 
-	sceneGraph.debugBoundingBoxes.forEach((record) => {
+	sceneGraph.debug.boundingBoxes.forEach((record) => {
 		if (!isBoundingBoxDebugEnabled(record.type)) return;
 
 		const vertices = createMinMaxBoxLineVertices(record);
@@ -557,7 +561,7 @@ function drawBoundingBoxes(renderer, sceneGraph, projection, view) {
 
 function drawGridOverlay(renderer, sceneGraph, projection, view) {
 	if (!(CONFIG.Debug.All && CONFIG.Debug.Levels.BoundingBox.Grid.Visible)) return;
-	if (sceneGraph.debugBoundingBoxes.length === 0) return;
+	if (sceneGraph.debug.boundingBoxes.length === 0) return;
 
 	const gl = renderer.gl;
 	if (!renderer.debugLineShader || !renderer.debugLineBuffer) return;
@@ -565,7 +569,7 @@ function drawGridOverlay(renderer, sceneGraph, projection, view) {
 	bindDebugLinePass(renderer, gl, projection, view);
 	gl.uniform4f(renderer.debugLineShader.uniforms.color, 0.5, 0.5, 0.5, 0.6);
 
-	sceneGraph.debugBoundingBoxes.forEach((record) => {
+	sceneGraph.debug.boundingBoxes.forEach((record) => {
 		if (!isBoundingBoxDebugEnabled(record.type)) return;
 
 		const vertices = createGridLineVertices(record, CNUtoWorldUnit(CONFIG.Debug.Levels.BoundingBox.Grid.Size));
@@ -776,8 +780,8 @@ function createMeshBuffers(gl, mesh, shader) {
 
 // Snapshot covers every field CreateRenderMatrix reads.
 function renderMatrixFor(mesh) {
-	const cache     = mesh.renderMatrixCache;
-	const transform = mesh.displayTransform;
+	const cache     = mesh.performance.renderMatrixCache;
+	const transform = mesh.display.transform;
 	if (CompareVector3(cache.position, transform.position) &&
 		CompareVector3(cache.pivot,    transform.pivot)    &&
 		CompareVector3(cache.rotation, transform.rotation) &&
@@ -1189,23 +1193,29 @@ function syncCanvasSize(renderer) {
 	renderer.canvas.height = height;
 }
 
+// Read a plane's sprite options.
+const spriteOf = (mesh) => mesh.primitive === "plane" ? mesh.detail.primitiveOptions.sprite : null;
+
 // Check whether a mesh draws in the translucent pass.
 function isTranslucentMesh(mesh) {
-	// Sprites always do, for their soft edges.
-	if (mesh.sprite !== null) return true;
+	// Draw sprites translucent for their soft edges.
+	if (spriteOf(mesh) !== null) return true;
 
-	// displayColor.a is authoritative when present — particle texture opacity is always 1.
-	return mesh.displayColor !== null ? mesh.displayColor.a < 1 : mesh.material.transparent;
+	// Use the display color's alpha when set, else the texture's.
+	return mesh.display.color !== null ? mesh.display.color.a < 1 : IsTextureTransparent(mesh.detail.texture.base);
 }
 
 // Triplanar only when the mesh is flagged. Unflagged meshes use UVs.
 const meshUsesTriplanar = (mesh) => mesh.geometry.triplanar === true;
 
 // Pick the shader a mesh draws with: sprite, triplanar or uv.
-const meshProgram = (mesh) => mesh.sprite !== null ? "sprite" : meshUsesTriplanar(mesh) ? "triplanar" : "uv";
+const meshProgram = (mesh) => spriteOf(mesh) !== null ? "sprite" : meshUsesTriplanar(mesh) ? "triplanar" : "uv";
 
 // Check a mesh is a sprite that shows through walls.
-const showsThroughWalls = (mesh) => mesh.sprite !== null && mesh.sprite.occludedRange !== null;
+function showsThroughWalls(mesh) {
+	const sprite = spriteOf(mesh);
+	return sprite !== null && sprite.occludedRange !== null;
+}
 
 // Hide anything fully off screen until the next distance check turns it back on.
 function hideOffscreen(sceneGraph, frustum) {
@@ -1213,13 +1223,13 @@ function hideOffscreen(sceneGraph, frustum) {
 		if (target.performance.rendering && AabbOutsideFrustum(frustum, aabb, padding)) target.performance.rendering = false;
 	};
 
-	sceneGraph.terrain.forEach((mesh) => hide(mesh, mesh.worldAabb));
-	sceneGraph.obstacles.forEach((record) => hide(record, record.worldAabb));
+	sceneGraph.terrain.entries.forEach((mesh)   => hide(mesh, mesh.display.aabb));
+	sceneGraph.obstacles.entries.forEach((mesh) => hide(mesh, mesh.display.aabb));
 	sceneGraph.entities.forEach((entity) => hide(entity, entity.fullAabb, PERFORMANCE_SCALING.Culling.EntityPadding.value));
 }
 
 function collectRenderableMeshes(sceneGraph) {
-	const terrain = [], obstacles = [];
+	const hosts = [];
 	const entitiesUv = [], entitiesTriplanar = [], translucent = [];
 
 	const collectEntityPart = (mesh) => {
@@ -1231,25 +1241,25 @@ function collectRenderableMeshes(sceneGraph) {
 	};
 
 	// Skip scatter and triggers. Sprites join the translucent list.
-	sceneGraph.terrain.forEach((mesh) => {
+	const collectHost = (mesh) => {
 		if (mesh.meta.mode !== "default" || !mesh.performance.rendering) return;
-		(mesh.sprite === null ? terrain : translucent).push(mesh);
-	});
-	sceneGraph.obstacles.forEach((record) => {
-		if (record.mode !== "default" || !record.performance.rendering) return;
-		record.parts.forEach((part) => (part.sprite === null ? obstacles : translucent).push(part));
-	});
+		(spriteOf(mesh) === null ? hosts : translucent).push(mesh);
+	};
+
+	// Note: Collect terrain first to draw it before obstacles.
+	sceneGraph.terrain.entries.forEach(collectHost);
+	sceneGraph.obstacles.entries.forEach(collectHost);
 	sceneGraph.entities.forEach((entity) => {
 		if (entity.performance.rendering) entity.model.parts.forEach((part) => collectEntityPart(part.mesh));
 	});
 
-	return { terrain, obstacles, entitiesUv, entitiesTriplanar, translucent };
+	return { hosts, entitiesUv, entitiesTriplanar, translucent };
 }
 
 // Sort meshes far to near from the camera, measuring each distance once.
 function sortBackToFront(meshes, cameraPosition) {
 	const distancesSq = new Map();
-	for (const mesh of meshes) distancesSq.set(mesh, Vector3Sq(SubtractVector3(mesh.displayTransform.position, cameraPosition)));
+	for (const mesh of meshes) distancesSq.set(mesh, Vector3Sq(SubtractVector3(mesh.display.transform.position, cameraPosition)));
 	meshes.sort((a, b) => distancesSq.get(b) - distancesSq.get(a));
 }
 
@@ -1289,8 +1299,8 @@ function drawSkyPass(renderer, passState) {
 }
 
 function ensureMeshBuffer(renderer, mesh, shader) {
-	const { id, primitive, dimensions, complexity, geometry } = mesh;
-	const meshBufferKey = `${id}|${primitive}|${dimensions.x}|${dimensions.y}|${dimensions.z}|${complexity}|${geometry.indices.length}`;
+	const { id, primitive, dimensions, geometry } = mesh;
+	const meshBufferKey = `${id}|${primitive}|${dimensions.x}|${dimensions.y}|${dimensions.z}|${geometry.indices.length}`;
 	let meshBuffer = renderer.meshBuffers.get(meshBufferKey);
 	if (!meshBuffer) {
 		meshBuffer = createMeshBuffers(renderer.gl, mesh, shader);
@@ -1311,7 +1321,7 @@ const spriteFollowCodes = { none: 0, horizontal: 1, vertical: 2, full: 3 };
 
 // Set the sprite shader's facing, scaling, fade and image settings for one sprite.
 function applySpriteUniforms(gl, uniforms, mesh, throughWalls) {
-	const { follow, distanceScaling, range, occludedRange, image } = mesh.sprite;
+	const { follow, distanceScaling, range, occludedRange, image } = mesh.detail.primitiveOptions.sprite;
 	const fadeRange = throughWalls ? occludedRange : range;
 	gl.uniform1f(uniforms.follow, spriteFollowCodes[follow]);
 	gl.uniform1f(uniforms.distanceScaling, distanceScaling ? 1 : 0);
@@ -1348,17 +1358,17 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		gl.bindVertexArray(meshBuffer.vao);
 		gl.uniform1i(shader.uniforms.texture, 0);
 		gl.uniformMatrix4fv(shader.uniforms.model, false, renderMatrixFor(mesh));
-		gl.uniform4f(shader.uniforms.tint,
-			mesh.displayColor !== null ? mesh.displayColor.r : mesh.material.color.r,
-			mesh.displayColor !== null ? mesh.displayColor.g : mesh.material.color.g,
-			mesh.displayColor !== null ? mesh.displayColor.b : mesh.material.color.b,
-			mesh.displayColor !== null ? mesh.displayColor.a : mesh.material.opacity
-		);
-		if (program === "triplanar") gl.uniform1f(shader.uniforms.texScale, mesh.material.textureScale);
+
+		// Tint white unless a display color is set.
+		const tint = mesh.display.color;
+		if (tint === null) gl.uniform4f(shader.uniforms.tint, 1, 1, 1, 1);
+		else               gl.uniform4f(shader.uniforms.tint, tint.r, tint.g, tint.b, tint.a);
+		if (program === "triplanar") gl.uniform1f(shader.uniforms.texScale, mesh.display.textureScale);
 		if (program === "sprite")    applySpriteUniforms(gl, shader.uniforms, mesh, options.throughWalls === true);
 
-		if (mesh.geometry.faceTextureGroups) {
-			for (const group of mesh.geometry.faceTextureGroups) {
+		const { registryID, faceNoiseGroups } = mesh.detail.texture.base;
+		if (faceNoiseGroups !== null) {
+			for (const group of faceNoiseGroups) {
 				const faceTex = ensureSceneTexture(renderer, sceneGraph, group.textureID);
 				gl.activeTexture(gl.TEXTURE0);
 				gl.bindTexture(gl.TEXTURE_2D, faceTex);
@@ -1369,7 +1379,7 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 		}
 
 		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, mesh.material.textureID));
+		gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, registryID));
 		gl.drawElements(gl.TRIANGLES, meshBuffer.indexCount, gl.UNSIGNED_INT, 0);
 		gl.bindVertexArray(null);
 	}
@@ -1384,7 +1394,7 @@ function drawMeshList(renderer, sceneGraph, meshes, passState, options = {}) {
 function drawWaterPass(renderer, sceneGraph, passState) {
 	// Skip water under flat shading, where it would be an opaque slab hiding everything below it.
 	if (renderer.flatShading) return;
-	const meshes = sceneGraph.waterVisual === null ? [] : [sceneGraph.waterVisual.body, sceneGraph.waterVisual.top];
+	const meshes = sceneGraph.world.water.topY === null ? [] : [sceneGraph.world.water.body, sceneGraph.world.water.top];
 	drawMeshList(renderer, sceneGraph, meshes, passState, { depthMask: false, cull: false });
 }
 
@@ -1421,7 +1431,7 @@ function drawTranslucentPass(renderer, sceneGraph, meshes, passState, cameraPosi
 	}
 
 	const above = [], below = [];
-	for (const mesh of meshes) (mesh.displayTransform.position.y > waterLevelCnu ? above : below).push(mesh);
+	for (const mesh of meshes) (mesh.display.transform.position.y > waterLevelCnu ? above : below).push(mesh);
 
 	const { level, side } = passState.nearWaterClip;
 	drawSortedRuns(renderer, sceneGraph, underwater ? above : below, passState);
@@ -1438,7 +1448,7 @@ function drawSpriteThroughWalls(renderer, sceneGraph, translucent, passState) {
 	for (const mesh of translucent) {
 		if (!showsThroughWalls(mesh)) continue;
 
-		const pos = mesh.displayTransform.position, range = mesh.sprite.occludedRange.value;
+		const pos = mesh.display.transform.position, range = mesh.detail.primitiveOptions.sprite.occludedRange.value;
 		if (Vector3Sq(SubtractVector3(pos, passState.cameraPosition)) <= range ** 2) sprites.push(mesh);
 	}
 	if (sprites.length === 0) return;
@@ -1495,9 +1505,9 @@ function ensureDecalGeometry(renderer, mesh, decalEntry, index, entity, partId) 
 	const facets = SelectDecalFacets(
 		mesh.geometry,
 		BuildDecalPlacementMatrix(mesh.dimensions, decalEntry.localTransform, decalEntry.side),
-		ResolveDecalShapeCode(mesh.shape, decalEntry.side),
+		ResolveDecalShapeCode(mesh.primitive, decalEntry.side),
 		mesh.dimensions.clone().scale(0.5),
-		DecalRounding(mesh.shape, mesh.detail.primitiveOptions),
+		DecalRounding(mesh.primitive, mesh.detail.primitiveOptions),
 		decalAnimationMargin(entity, partId, decalEntry)
 	);
 
@@ -1577,7 +1587,8 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 	beginDecalState(gl, renderer.decalShader, passState);
 
 	const drawDecalsForMesh = (mesh, entity = null, partId = null) => {
-		if (mesh.customTextures.length === 0) return;
+		const decals = mesh.detail.texture.custom;
+		if (decals.length === 0) return;
 
 		setFaceCulling(gl, mesh.primitive !== "plane");
 		
@@ -1585,13 +1596,13 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 		const dim = mesh.dimensions;
 		gl.uniformMatrix4fv(uniforms.partWorld, false, renderMatrixFor(mesh));
 		gl.uniform3f(uniforms.halfExtents, ...Vector3ToArray(dim.clone().scale(0.5)));
-		gl.uniform1f(uniforms.rounding, DecalRounding(mesh.shape, mesh.detail.primitiveOptions));
+		gl.uniform1f(uniforms.rounding, DecalRounding(mesh.primitive, mesh.detail.primitiveOptions));
 		gl.uniform1i(uniforms.texture, 0);
 
-		mesh.customTextures.forEach((decalEntry, index) => {
+		decals.forEach((decalEntry, index) => {
 			const geometry = ensureDecalGeometry(renderer, mesh, decalEntry, index, entity, partId);
 			gl.bindVertexArray(geometry.vao);
-			gl.uniform1i(uniforms.shape, ResolveDecalShapeCode(mesh.shape, decalEntry.side));
+			gl.uniform1i(uniforms.shape, ResolveDecalShapeCode(mesh.primitive, decalEntry.side));
 			gl.uniformMatrix4fv(
 				uniforms.placement, false, 
 				new Float32Array(BuildDecalPlacementMatrix(dim, decalEntry.displayTransform, decalEntry.side))
@@ -1613,11 +1624,8 @@ function drawDecalPass(renderer, sceneGraph, passState) {
 		if (!entity.performance.rendering) return;
 		entity.model.parts.forEach((part) => drawDecalsForMesh(part.mesh, entity, part.id));
 	});
-	sceneGraph.obstacles.forEach((obstacle) => {
-		if (!obstacle.performance.rendering) return;
-		obstacle.parts.forEach((part) => drawDecalsForMesh(part));
-	});
-	sceneGraph.terrain.forEach((mesh) => { if (mesh.performance.rendering) drawDecalsForMesh(mesh); });
+	sceneGraph.obstacles.entries.forEach((mesh) => { if (mesh.meta.mode === "default" && mesh.performance.rendering) drawDecalsForMesh(mesh); });
+	sceneGraph.terrain.entries.forEach((mesh)   => { if (mesh.meta.mode === "default" && mesh.performance.rendering) drawDecalsForMesh(mesh); });
 
 	gl.bindVertexArray(null);
 	endDecalState(gl);
@@ -1652,7 +1660,7 @@ function drawScatterDecalPass(renderer, sceneGraph, passState) {
 			gl.uniformMatrix4fv(uniforms.placement, false, draw.placement);
 			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, draw.textureKey));
 			batch.cells.forEach((cell, index) => {
-				if (!scatterCellVisible(cell, passState) || cell.occluded) return;
+				if (!scatterCellVisible(cell, passState) || cell.performance.occluded) return;
 				gl.bindVertexArray(draw.cellVaos[index]);
 				gl.drawArraysInstanced(gl.TRIANGLES, 0, draw.vertexCount, cell.count);
 			});
@@ -1684,7 +1692,7 @@ function ensureVoidWallMeshes(renderer, sceneGraph) {
 }
 
 function drawVoidWalls(renderer, sceneGraph, passState) {
-	const onScreen = (mesh) => !AabbOutsideFrustum(passState.frustum, mesh.worldAabb) && !mesh.occluded;
+	const onScreen = (mesh) => !AabbOutsideFrustum(passState.frustum, mesh.display.aabb) && !mesh.performance.occluded;
 	drawMeshList(renderer, sceneGraph, renderer.voidWallUvMeshes.filter(onScreen),        passState);
 	drawMeshList(renderer, sceneGraph, renderer.voidWallTriplanarMeshes.filter(onScreen), passState, { program: "triplanar" });
 }
@@ -1764,12 +1772,13 @@ function chooseBlockers(sceneGraph, passState, near, occlusion) {
 
 	// Score each piece in view by its size over its distance, before putting any on screen.
 	const candidates = [];
-	for (const mesh of sceneGraph.terrain) {
+	for (const mesh of sceneGraph.terrain.entries) {
 		if (mesh.meta.mode !== "default" || !stillOn(mesh, lastHidden)) continue;
-		for (const piece of mesh.occluder.pieces) {
+		const occluder = mesh.performance.occluder;
+		for (const piece of occluder.pieces) {
 			if (AabbOutsideFrustum(frustum, piece.worldAabb)) continue;
 			const score = lastUseful.has(piece) ? Infinity : piece.face / Math.max(Vector3SqDistanceToAabb(camera, piece.worldAabb), 1e-6);
-			candidates.push({ piece, occluder: mesh.occluder, score });
+			candidates.push({ piece, occluder, score });
 		}
 	}
 	candidates.sort((a, b) => b.score - a.score);
@@ -1802,7 +1811,7 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 	const occlusion = renderer.occlusion;
 
 	// Draw last run's hidden scatter squares and void walls again unless this run hides them.
-	for (const surface of occlusion.flagged) surface.occluded = false;
+	for (const surface of occlusion.flagged) surface.performance.occluded = false;
 	occlusion.flagged.length = 0;
 
 	// Start this run's results empty and keep the previous run's as last run's.
@@ -1832,9 +1841,8 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 	occlusion.lastForward  = forward;
 	occlusion.lastMode     = cameraState.activeMode;
 
-	const { lastHidden } = occlusion;
-	const near     = cameraState.near.value;
-	const blockers = chooseBlockers(sceneGraph, passState, near, occlusion);
+	const lastHidden = occlusion.lastHidden, near = cameraState.near.value;
+	const blockers   = chooseBlockers(sceneGraph, passState, near, occlusion);
 	const { viewProjection, frustum, cameraPosition: camera } = passState;
 	const { wx, wy, wz, sx, sy, rect } = occlusion.scratch;
 
@@ -1866,26 +1874,22 @@ function hideOccluded(renderer, sceneGraph, passState, cameraState) {
 		occlusion.hidden.add(target);
 	}
 	function flagSurface(surface) {
-		surface.occluded = true;
+		surface.performance.occluded = true;
 		occlusion.flagged.push(surface);
 	}
 
 	// Skip terrain, obstacles and entities that show sprites through walls.
 	if (blockers.length > 0) {
-		for (const mesh of sceneGraph.terrain) {
+		for (const entries of [sceneGraph.terrain.entries, sceneGraph.obstacles.entries]) for (const mesh of entries) {
 			if (mesh.meta.mode !== "default" || showsThroughWalls(mesh) || !stillOn(mesh, lastHidden)) continue;
-			if (behindBlocker(mesh.worldAabb, 0)) hideTarget(mesh);
-		}
-		for (const record of sceneGraph.obstacles) {
-			if (record.mode !== "default" || record.parts.some(showsThroughWalls) || !stillOn(record, lastHidden)) continue;
-			if (behindBlocker(record.worldAabb, 0)) hideTarget(record);
+			if (behindBlocker(mesh.display.aabb, 0)) hideTarget(mesh);
 		}
 		for (const entity of sceneGraph.entities) {
-			if (entity.showsThroughWalls || !stillOn(entity, lastHidden)) continue;
+			if (entity.display.showsThroughWalls || !stillOn(entity, lastHidden)) continue;
 			if (behindBlocker(entity.fullAabb, EntityPadding.value)) hideTarget(entity);
 		}
 		for (const mesh of renderer.voidWallMeshes) {
-			if (!AabbOutsideFrustum(frustum, mesh.worldAabb) && behindBlocker(mesh.worldAabb, 0)) flagSurface(mesh);
+			if (!AabbOutsideFrustum(frustum, mesh.display.aabb) && behindBlocker(mesh.display.aabb, 0)) flagSurface(mesh);
 		}
 		for (const batch of renderer.scatterInstances) {
 			for (const cell of batch.cells) if (scatterCellVisible(cell, passState) && behindBlocker(cell.aabb, 0)) flagSurface(cell);
@@ -1909,7 +1913,7 @@ function drawInkPass(renderer, passState, cameraState) {
 	if (!quad) return;
 
 	const uniforms = renderer.inkShader.uniforms;
-	const target = renderer.sceneTarget;
+	const target   = renderer.sceneTarget;
 
 	// The depth the lines are found in.
 	resolveSceneTarget(gl, target, target.edgeFramebuffer, gl.DEPTH_BUFFER_BIT);
@@ -1996,7 +2000,7 @@ function drawScene(renderer, sceneGraph) {
 	const viewProjection = MultiplyMatrix4(projection, view);
 	const frustum = FrustumPlanes(viewProjection);
 
-	const waterLevelCnu   = sceneGraph.world.water.level === null ? null : sceneGraph.world.water.level.value;
+	const waterLevelCnu   = sceneGraph.world.water.topY === null ? null : sceneGraph.world.water.topY.value;
 	const underwater      = waterLevelCnu !== null && cameraState.position.y < waterLevelCnu;
 	const simDistance     = PERFORMANCE_SCALING.SimDistance.Tiers[CONFIG.Performance.SimDistance].toWorldUnit();
 	const worldInstances  = PERFORMANCE_SCALING.SimDistance.Fractions.WorldInstances;
@@ -2006,7 +2010,7 @@ function drawScene(renderer, sceneGraph) {
 	// Keeps only what's on the camera's side of the water surface.
 	const nearWaterClip = waterLevelCnu === null
 		? keepWholeMesh
-		: { level: sceneGraph.world.water.level.toWorldUnit(), side: underwater ? -1 : 1 };
+		: { level: sceneGraph.world.water.topY.toWorldUnit(), side: underwater ? -1 : 1 };
 
 	const passState = {
 		projection, view, viewProjection, frustum, 
@@ -2038,14 +2042,13 @@ function drawScene(renderer, sceneGraph) {
 	if (!renderer.scatterInstancesBuilt) buildScatterInstanceBuffers(renderer, sceneGraph);
 	ensureVoidWallMeshes(renderer, sceneGraph);
 	hideOccluded(renderer, sceneGraph, passState, cameraState);
-	const { terrain, obstacles, entitiesUv, entitiesTriplanar, translucent } = collectRenderableMeshes(sceneGraph);
+	const { hosts, entitiesUv, entitiesTriplanar, translucent } = collectRenderableMeshes(sceneGraph);
 
 	// === PASS 2.5: Void walls (textured interior surfaces inside void holes) ===
 	drawVoidWalls(renderer, sceneGraph, passState);
 
 	// === PASS A: hosts ship pre-carved from the builder; entities unaffected ===
-	drawMeshList(renderer, sceneGraph, terrain,           passState);
-	drawMeshList(renderer, sceneGraph, obstacles,         passState);
+	drawMeshList(renderer, sceneGraph, hosts,             passState);
 	drawMeshList(renderer, sceneGraph, entitiesUv,        passState);
 	drawMeshList(renderer, sceneGraph, entitiesTriplanar, passState, { program: "triplanar" });
 
@@ -2066,7 +2069,7 @@ function drawScene(renderer, sceneGraph) {
 			gl.bindTexture(gl.TEXTURE_2D, ensureSceneTexture(renderer, sceneGraph, batch.textureID));
 			gl.uniform1i(renderer.scatterShader.uniforms.texture, 0);
 			for (const cell of batch.cells) {
-				if (!scatterCellVisible(cell, passState) || cell.occluded) continue;
+				if (!scatterCellVisible(cell, passState) || cell.performance.occluded) continue;
 				gl.bindVertexArray(cell.vao);
 				gl.drawElementsInstanced(gl.TRIANGLES, batch.indexCount, gl.UNSIGNED_SHORT, 0, cell.count);
 			}

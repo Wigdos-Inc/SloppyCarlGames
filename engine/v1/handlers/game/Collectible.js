@@ -15,8 +15,8 @@ function HandleCollectiblePickups(playerState, sceneGraph) {
 	for (let i = sceneGraph.entities.length - 1; i >= 0; i--) {
 		const entity = sceneGraph.entities[i];
 		if (entity.type !== "collectible") continue;
-		if (!entity.performance.physics || entity.collision === null) continue;
-		if (!AabbOverlap(playerState.collision.aabb, entity.collision.aabb)) continue;
+		if (!entity.performance.physics || entity.physics.collision === null) continue;
+		if (!AabbOverlap(playerState.physics.collision.aabb, entity.physics.collision.aabb)) continue;
 
 		// Pickup!
 		playerState.collectibles = Math.min(playerState.collectibles + 1, playerState.maxCollectibles);

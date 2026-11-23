@@ -17,7 +17,7 @@ function raisePartPosition(pos, dimY, scaleY) {
 
 function buildSingleTerrain(source, world, faceTextureStore) {
 	raisePartPosition(source.position, source.dimensions.y, source.scale.y);
-	const { mesh } = BuildObject({ ...source, role: "terrain", textureScale: world.textureScale, faceTextureStore });
+	const mesh = BuildObject({ ...source, role: "terrain", textureScale: world.textureScale, faceTextureStore }).mesh;
 	return [mesh];
 }
 
@@ -30,7 +30,7 @@ function buildTerrainParts(source, world, faceTextureStore) {
 		const { localScale, localPosition, dimensions, localRotation } = part;
 		const scale = MultiplyVector3(rootScale, localScale);
 
-		const { mesh } = BuildObject({
+		const mesh = BuildObject({
 			...part,
 			id    : `${source.id}:${part.id}`,
 			position: raisePartPosition(rootPos.clone().add(MultiplyVector3(localPosition, rootScale)), dimensions.y, scale.y), 
@@ -39,7 +39,7 @@ function buildTerrainParts(source, world, faceTextureStore) {
 			detail: { scatter: part.detail.scatter.length > 0 ? part.detail.scatter : (partIndex === 0 ? source.detail.scatter : []) },
 			role  : "terrain",
 			collisionShape, mode, nullable, sticky, textureScale, faceTextureStore,
-		});
+		}).mesh;
 
 		return mesh;
 	});

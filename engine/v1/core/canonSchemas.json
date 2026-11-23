@@ -643,40 +643,51 @@
         "fallback": {},
         "deprecated": false
       },
-      "length": {
+      "dimensions": {
         "__meta": {
-          "description": "World length",
+          "description": "World size",
           "aliases": [],
-          "dataType": "number",
+          "dataType": "vector3",
           "isRequired": true,
           "isExpected": true,
-          "fallback": 120,
-          "range": { "min": 1, "max": 100000 },
+          "fallback": { "x": 120, "y": 40, "z": 80 },
           "deprecated": false
-        }
-      },
-      "width": {
-        "__meta": {
-          "description": "World width",
-          "aliases": [],
-          "dataType": "number",
-          "isRequired": true,
-          "isExpected": true,
-          "fallback": 80,
-          "range": { "min": 1, "max": 100000 },
-          "deprecated": false
-        }
-      },
-      "height": {
-        "__meta": {
-          "description": "World height",
-          "aliases": [],
-          "dataType": "number",
-          "isRequired": true,
-          "isExpected": true,
-          "fallback": 40,
-          "range": { "min": 1, "max": 100000 },
-          "deprecated": false
+        },
+        "x": {
+          "__meta": {
+            "description": "World size along x",
+            "aliases": [],
+            "dataType": "number",
+            "isRequired": true,
+            "isExpected": true,
+            "fallback": 120,
+            "range": { "min": 1, "max": 100000 },
+            "deprecated": false
+          }
+        },
+        "y": {
+          "__meta": {
+            "description": "World size along y",
+            "aliases": [],
+            "dataType": "number",
+            "isRequired": true,
+            "isExpected": true,
+            "fallback": 40,
+            "range": { "min": 1, "max": 100000 },
+            "deprecated": false
+          }
+        },
+        "z": {
+          "__meta": {
+            "description": "World size along z",
+            "aliases": [],
+            "dataType": "number",
+            "isRequired": true,
+            "isExpected": true,
+            "fallback": 80,
+            "range": { "min": 1, "max": 100000 },
+            "deprecated": false
+          }
         }
       },
       "deathBarrierY": {
@@ -700,9 +711,9 @@
           "fallback": {},
           "deprecated": false
         },
-        "level": {
+        "topY": {
           "__meta": {
-            "description": "World water level, null when the world has no water",
+            "description": "Height of the water surface, null when the world has no water",
             "aliases": [],
             "dataType": "number",
             "isRequired": false,
@@ -1646,7 +1657,6 @@
     "anchorPoint": { "__meta": { "description": "Anchor point", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "center", "allowedValues": ["top", "bottom", "front", "back", "left", "right", "center"], "deprecated": false } },
     "attachmentPoint": { "__meta": { "description": "Attachment point", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "center", "allowedValues": ["top", "bottom", "front", "back", "left", "right", "center"], "deprecated": false } },
     "shape": { "__meta": { "description": "Primitive shape", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "cube", "allowedValues": ["cube", "cylinder", "sphere", "capsule", "cone", "ramp-simple", "ramp-complex", "tube", "torus", "pyramid", "plane"], "deprecated": false } },
-    "complexity": { "__meta": { "description": "Primitive complexity", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "medium", "allowedValues": ["low", "medium", "high", ""], "deprecated": false } },
     "dimensions": {
       "__meta": { "description": "Part dimensions", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
       "x": { "__meta": { "description": "Dimension x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
@@ -1687,7 +1697,7 @@
     },
     "texture": {
       "__meta": { "description": "Part texture object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
-      "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+      "base": { "__meta": { "description": "Base texture under the decals: a generated texture, or none on a sprite with an image", "aliases": ["generated"], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
       "custom": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
     },
     "detail": { "__meta": { "description": "Part detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
@@ -1716,6 +1726,13 @@
     },
     "curved": { "__meta": { "description": "Round the forward connector to the next node", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "smoothness": { "__meta": { "description": "Forward connector fillet amount", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1 }, "deprecated": false } }
+  },
+  "complexityOptions": {
+    "complexity": { "__meta": { "description": "Geometry resolution (cylinder, sphere, cone, capsule, tube, torus and ramp-complex only)", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "medium", "allowedValues": ["low", "medium", "high"], "deprecated": false } }
+  },
+  "torusOptions": {
+    "radius": { "__meta": { "description": "Ring radius in CNU (null = half the width)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "thickness": { "__meta": { "description": "Tube radius in CNU (null = a quarter of the height)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } }
   },
   "rampOptions": {
     "depth": { "__meta": { "description": "Curve sag between toe and crest (ramp-complex only, 0 = straight chord)", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 0, "max": 1 }, "deprecated": false } }
@@ -1802,7 +1819,6 @@
   "levelObject": {
     "id": { "__meta": { "description": "Object id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "object", "deprecated": false } },
     "shape": { "__meta": { "description": "Object shape", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "cube", "allowedValues": ["cube", "cylinder", "sphere", "capsule", "cone", "ramp-simple", "ramp-complex", "tube", "torus", "pyramid", "plane"], "deprecated": false } },
-    "complexity": { "__meta": { "description": "Object complexity", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "medium", "allowedValues": ["low", "medium", "high", ""], "deprecated": false } },
     "dimensions": {
       "__meta": { "description": "Object dimensions", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
       "x": { "__meta": { "description": "Dimension x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
@@ -1843,7 +1859,7 @@
     },
     "texture": {
       "__meta": { "description": "Object texture object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
-      "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+      "base": { "__meta": { "description": "Base texture under the decals: a generated texture, or none on a sprite with an image", "aliases": ["generated"], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
       "custom": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
     },
     "detail": { "__meta": { "description": "Object detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
@@ -1880,7 +1896,6 @@
     "repeat": { "__meta": { "description": "Repeat flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "backAndForth": { "__meta": { "description": "Back and forth flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "speed": { "__meta": { "description": "Movement speed", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
-    "jump": { "__meta": { "description": "Jump strength", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
     "jumpInterval": { "__meta": { "description": "Jump interval ms", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
     "jumpOnSight": { "__meta": { "description": "Jump on sight flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
     "disappear": { "__meta": { "description": "Disappear flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
@@ -1940,7 +1955,7 @@
   "levelEntityBlueprint": {
     "id": { "__meta": { "description": "Blueprint id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "entity.blueprint", "deprecated": false } },
     "type": { "__meta": { "description": "Entity type", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "entity", "allowedValues": ["enemy", "npc", "collectible", "projectile", "entity", "boss"], "deprecated": false } },
-    "hp": { "__meta": { "description": "Hit points", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
+    "meta": { "__meta": { "description": "Entity meta, see entityMeta (enemies add enemyMeta)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "movement": { "__meta": { "description": "Movement block", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "velocity": {
       "__meta": { "description": "Velocity vector", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
@@ -1948,9 +1963,7 @@
       "y": { "__meta": { "description": "Velocity y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
       "z": { "__meta": { "description": "Velocity z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
     },
-    "platform": { "__meta": { "description": "Platform config", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "attacks": { "__meta": { "description": "Attack list", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
-    "hardcoded": { "__meta": { "description": "Hardcoded behavior bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "animations": { "__meta": { "description": "Animation map (helper-normalized)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "collisionOverride": { "__meta": { "description": "Collision override bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "customEvents": {
@@ -2030,11 +2043,9 @@
     },
     "movement": { "__meta": { "description": "Override movement block", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "dialogue": { "__meta": { "description": "Dialogue lines", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
-    "hp": { "__meta": { "description": "Override hp", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
-    "hardcoded": { "__meta": { "description": "Override hardcoded bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
+    "meta": { "__meta": { "description": "Meta override, see entityMetaOverride (enemies add enemyMetaOverride)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "collisionOverride": { "__meta": { "description": "Override collision bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "attacks": { "__meta": { "description": "Override attacks", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
-    "platform": { "__meta": { "description": "Override platform bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "animations": { "__meta": { "description": "Override animation map (helper-normalized)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "customEvents": {
       "__meta": { "description": "Custom event subscription flags", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
@@ -2095,7 +2106,8 @@
       "groundedChange":  { "__meta": { "description": "Emit groundedChange event on grounded transition", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
       "damageReceived":  { "__meta": { "description": "Emit damageReceived event on damage taken", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
       "damageInflicted": { "__meta": { "description": "Emit damageInflicted event on damage dealt", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
-      "loop":            { "__meta": { "description": "Emit loop events when a loop engages or releases", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
+      "loop":            { "__meta": { "description": "Emit loop events when a loop engages or releases", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
+      "jump":            { "__meta": { "description": "Emit jump events when a jump starts or ends", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
     },
     "animations": { "__meta": { "description": "Player animation map (helper-normalized)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
   },
@@ -2129,15 +2141,15 @@
       "z": { "__meta": { "description": "Scale z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } }
     },
     "color": {
-      "__meta": { "description": "Base color override for all parts", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "__meta": { "description": "Base color override for every part except sprites with an image", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
       "r": { "__meta": { "description": "Red",   "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
       "g": { "__meta": { "description": "Green", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
       "b": { "__meta": { "description": "Blue",  "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } },
       "a": { "__meta": { "description": "Alpha", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "range": { "min": 0, "max": 1 }, "deprecated": false } }
     },
     "texture": {
-      "__meta": { "description": "Generated texture override for all parts", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-      "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
+      "__meta": { "description": "Base texture override for every part except sprites with an image", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
+      "base": { "__meta": { "description": "Base texture under the decals: a generated texture, or none on a sprite with an image", "aliases": ["generated"], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
     },
     "collisionShape": { "__meta": { "description": "Collision shape override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["none", "aabb", "obb", "sphere", "capsule", "triangle-soup"], "deprecated": false } },
     "mode": { "__meta": { "description": "Render/collision mode override", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": null, "allowedValues": ["default", "invisible", "void"], "deprecated": false } },
@@ -2155,7 +2167,7 @@
         },
         "texture": {
           "__meta": { "description": "Part texture override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-          "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
+          "base": { "__meta": { "description": "Base texture under the decals: a generated texture, or none on a sprite with an image", "aliases": ["generated"], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
         },
         "scale": {
           "__meta": { "description": "Part local scale override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
@@ -2172,7 +2184,7 @@
     "shape": { "__meta": { "description": "Template reference marker", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "template", "allowedValues": ["template", "blueprint"], "deprecated": false } },
     "template": { "__meta": { "description": "Engine template id", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": null, "deprecated": false } },
     "type": { "__meta": { "description": "Template collection selector", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "character", "allowedValues": ["character", "enemy", "projectile"], "deprecated": false } },
-    "hp": { "__meta": { "description": "Hit point override", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
+    "meta": { "__meta": { "description": "Meta override, see entityMetaOverride (enemies add enemyMetaOverride)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "collisionOverride": { "__meta": { "description": "Collision override bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "model": {
       "__meta": { "description": "Model override block", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
@@ -2217,7 +2229,7 @@
           },
           "texture": {
             "__meta": { "description": "Part texture override", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
-            "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
+            "base": { "__meta": { "description": "Base texture under the decals: a generated texture, or none on a sprite with an image", "aliases": ["generated"], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } }
           },
           "scale": {
             "__meta": { "description": "Part local scale override", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false },
@@ -2277,7 +2289,6 @@
   "scatterTemplatePart": {
     "level":      { "__meta": { "description": "Stack level; higher levels sit on lower ones", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 0, "range": { "min": 0, "max": 100 }, "deprecated": false } },
     "shape":      { "__meta": { "description": "Primitive shape", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "cube", "allowedValues": ["cube", "cylinder", "sphere", "capsule", "cone", "ramp-simple", "ramp-complex", "tube", "torus", "pyramid", "plane"], "deprecated": false } },
-    "complexity": { "__meta": { "description": "Primitive complexity", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "medium", "allowedValues": ["low", "medium", "high", ""], "deprecated": false } },
     "dimensions": {
       "__meta": { "description": "Part dimensions", "aliases": [], "dataType": "vector3", "isRequired": true, "isExpected": true, "fallback": { "x": 1, "y": 1, "z": 1 }, "deprecated": false },
       "x": { "__meta": { "description": "Dimension x", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 1, "deprecated": false } },
@@ -2305,7 +2316,7 @@
     "primitiveOptions": { "__meta": { "description": "Primitive option bag (planes: crossed only, no sprites)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "texture": {
       "__meta": { "description": "Part texture object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
-      "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+      "base": { "__meta": { "description": "Base texture under the decals: a generated texture, or none on a sprite with an image", "aliases": ["generated"], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
       "custom": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
     }
   },
@@ -2371,7 +2382,7 @@
     },
     "texture": {
       "__meta": { "description": "Texture for parts that author none", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
-      "generated": { "__meta": { "description": "Generated base texture", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
+      "base": { "__meta": { "description": "Base texture under the decals: a generated texture, or none on a sprite with an image", "aliases": ["generated"], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
       "custom": { "__meta": { "description": "Custom decal texture array", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } }
     },
     "detail":         { "__meta": { "description": "Object detail object", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
@@ -2379,10 +2390,21 @@
     "mode":           { "__meta": { "description": "Object render/collision mode", "aliases": [], "dataType": "string", "isRequired": false, "isExpected": false, "fallback": "default", "allowedValues": ["default", "invisible", "void"], "deprecated": false } },
     "nullable":       { "__meta": { "description": "If false, this object is never suppressed by overlapping void volumes.", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } }
   },
+  "entityMeta": {
+    "hp": { "__meta": { "description": "Hit points", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 100000 }, "deprecated": false } }
+  },
+  "enemyMeta": {
+    "aggroRange": { "__meta": { "description": "Distance an enemy notices the player from", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 15, "range": { "min": 0, "max": 100000 }, "deprecated": false } }
+  },
+  "entityMetaOverride": {
+    "hp": { "__meta": { "description": "Hit point override", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 0, "max": 100000 }, "deprecated": false } }
+  },
+  "enemyMetaOverride": {
+    "aggroRange": { "__meta": { "description": "Aggro range override", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": null, "range": { "min": 0, "max": 100000 }, "deprecated": false } }
+  },
   "obstacleFields": {
     "destructible": { "__meta": { "description": "Destructible flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } },
-    "hp":           { "__meta": { "description": "Obstacle hp", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
-    "static":       { "__meta": { "description": "Static flag", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": true, "deprecated": false } }
+    "hp":           { "__meta": { "description": "Obstacle hp", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 1000000 }, "deprecated": false } }
   },
   "partRepeat": {
     "count": { "__meta": { "description": "Copies added after the part", "aliases": [], "dataType": "number", "isRequired": true, "isExpected": true, "fallback": 1, "range": { "min": 1, "max": 100 }, "deprecated": false } },
@@ -2410,7 +2432,7 @@
   },
   "entityTemplate": {
     "type": { "__meta": { "description": "Entity type", "aliases": [], "dataType": "string", "isRequired": true, "isExpected": true, "fallback": "entity", "allowedValues": ["enemy", "npc", "collectible", "projectile", "entity", "boss"], "deprecated": false } },
-    "hp": { "__meta": { "description": "Hit points", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": false, "fallback": 1, "range": { "min": 0, "max": 100000 }, "deprecated": false } },
+    "meta": { "__meta": { "description": "Entity meta, see entityMeta (enemies add enemyMeta)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "movement": { "__meta": { "description": "Movement block, see levelMovement", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "velocity": {
       "__meta": { "description": "Velocity vector", "aliases": [], "dataType": "vector3", "isRequired": false, "isExpected": false, "fallback": { "x": 0, "y": 0, "z": 0 }, "deprecated": false },
@@ -2418,9 +2440,7 @@
       "y": { "__meta": { "description": "Velocity y", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } },
       "z": { "__meta": { "description": "Velocity z", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "deprecated": false } }
     },
-    "platform": { "__meta": { "description": "Platform config", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "attacks": { "__meta": { "description": "Attack list, see levelAttack", "aliases": [], "dataType": "array", "isRequired": false, "isExpected": false, "fallback": [], "deprecated": false } },
-    "hardcoded": { "__meta": { "description": "Hardcoded behavior bag", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "animations": { "__meta": { "description": "Animation map (carried as authored)", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false } },
     "collisionOverride": { "__meta": { "description": "Collision override bag, see levelCollisionOverride", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": null, "deprecated": false } },
     "customEvents": {
@@ -2550,6 +2570,10 @@
         "endTimeMs":  { "__meta": { "description": "Total lifetime ms",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
         "intervalMs": { "__meta": { "description": "Regeneration cadence ms", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } }
       }
+    },
+    "customEvents": {
+      "__meta": { "description": "Custom event subscription flags", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
+      "ended": { "__meta": { "description": "Emit PARTICLES_ENDED once this request's last particle group ends", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
     }
   },
   "particleRequest": {
@@ -2608,6 +2632,10 @@
         "endTimeMs":  { "__meta": { "description": "Total lifetime ms",       "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } },
         "intervalMs": { "__meta": { "description": "Regeneration cadence ms", "aliases": [], "dataType": "number", "isRequired": false, "isExpected": true, "fallback": 0, "range": { "min": 0, "max": 1000000 }, "deprecated": false } }
       }
+    },
+    "customEvents": {
+      "__meta": { "description": "Custom event subscription flags", "aliases": [], "dataType": "object", "isRequired": false, "isExpected": false, "fallback": {}, "deprecated": false },
+      "ended": { "__meta": { "description": "Emit PARTICLES_ENDED once this request's last particle group ends", "aliases": [], "dataType": "boolean", "isRequired": false, "isExpected": false, "fallback": false, "deprecated": false } }
     }
   }
 }

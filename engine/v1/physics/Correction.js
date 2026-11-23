@@ -1,7 +1,8 @@
-// Corrects velocity, position, rotation, etc to prevent weird clipping or misalignment.
+// Keeps bodies seated and aligned on the surfaces they touch.
 
-// Used by physics/Master.js, which applies every result it returns.
-// Used by physics/Collision.js to classify ground hits, and by handlers/game/Animation.js for the pose pivot.
+// Used by physics/Master.js to correct each body every physics step.
+// Used by physics/Collision.js to classify ground hits.
+// Used by camera/Modes.js and handlers/game/Animation.js for the pivot the shown model turns about.
 
 import { CONFIG, GROUNDING } from "../core/config.js";
 import { Log, EPSILON } from "../core/meta.js";
@@ -27,11 +28,13 @@ import { AabbCenter } from "../math/Geometry.js";
 import { EulerFromBasis } from "../math/Matrix.js";
 import { Clamp, DegreesToRadians } from "../math/Utilities.js";
 
-function hasMeaningfulVectorDelta(vector, corrected) {
+// Check a correction moves a vector by more than rounding.
+function vectorChanged(vector, corrected) {
 	const { x, y, z } = AbsoluteVector3(SubtractVector3(corrected, vector));
 	return x > EPSILON || y > EPSILON || z > EPSILON;
 }
 
+// Result for a correction that changes nothing.
 const CORRECTION_DISABLED = Object.freeze({
 	changedContact    : false,
 	changedOrientation: false,
@@ -40,21 +43,21 @@ const CORRECTION_DISABLED = Object.freeze({
 	anyChanged        : false,
 });
 
-// Release the entity from its surface. Orient to world up, keep its velocity, and hold the last pose through the contact grace.
+// Release the entity from its surface, holding its last pose through the contact grace.
 function releasedSurface(entity) {
-	const changedContact = entity.surfaceContact !== "none";
-	let contactGrace     = entity.contactGrace;
-	if (entity.launched) contactGrace = 0;
+	const changedContact = entity.physics.correction.surfaceContact !== "none";
+	let contactGrace     = entity.physics.correction.contactGrace;
+	if (entity.physics.launched) contactGrace = 0;
 	else if (changedContact) contactGrace = GROUNDING.ContactGraceMs / 1000;
 
 	const held = contactGrace > EPSILON;
-	const changedOrientation = !held && hasMeaningfulVectorDelta(entity.alignedUp, WORLD_NORMALS.Up);
+	const changedOrientation = !held && vectorChanged(entity.physics.correction.alignedUp, WORLD_NORMALS.Up);
 
 	return {
 		surfaceContact : "none",
 		contactGrace,
-		surfaceNormal  : held ? entity.surfaceNormal : CloneVector3(WORLD_NORMALS.Up),
-		alignedUp      : held ? entity.alignedUp : CloneVector3(WORLD_NORMALS.Up),
+		surfaceNormal  : held ? entity.physics.correction.surfaceNormal : CloneVector3(WORLD_NORMALS.Up),
+		alignedUp      : held ? entity.physics.correction.alignedUp     : CloneVector3(WORLD_NORMALS.Up),
 		velocity       : entity.velocity,
 		changedContact, changedOrientation,
 		changedPosition: false,
@@ -65,60 +68,61 @@ function releasedSurface(entity) {
 
 const angleBetweenDegrees = (a, b) => (AngleBetweenVector3(a, b) * 180) / Math.PI;
 
-// Capture what the correction loop keeps fixed for the step, plus this step's decayed contact grace.
+// Capture what the correction loop holds fixed for this step.
 function GetCorrectionFrame(entity, physicsState) {
-	const groundLimit = CONFIG.Physics.Correction.MaxAngleDelta[entity.medium].Ground;
-	const keptFooting = entity.grounded && !entity.launched;
-
-	// With footing kept, the ground probe reaches as far down as a walkable fold can drop in one step.
-	const foldDrop = keptFooting ? Vector3Length(physicsState.displacement) * Math.sin((groundLimit * Math.PI) / 180) : 0;
+	const correction  = entity.physics.correction;
+	const groundAngle = (CONFIG.Physics.Correction.MaxAngleDelta[entity.physics.medium].Ground * Math.PI) / 180;
+	const keptFooting = entity.physics.grounded && !entity.physics.launched;
+	const slopeReach  = keptFooting ? Vector3Length(physicsState.displacement) * Math.sin(groundAngle) : 0;
 
 	return {
-		frameStart  : { referenceNormal: CloneVector3(entity.referenceNormal), surfaceId: entity.physicsRuntime.groundSurfaceId },
-		groundReach : physicsState.groundSnapTolerance + foldDrop,
-		fold        : keptFooting ? { normal: entity.surfaceNormal, minCos: Math.cos((groundLimit * Math.PI) / 180) } : null,
-		contactGrace: Math.max(0, entity.contactGrace - physicsState.deltaSeconds),
+		frameStart  : { referenceNormal: CloneVector3(correction.referenceNormal), surfaceId: entity.physics.lastFrame.groundSurfaceId },
+		groundReach : physicsState.groundSnapTolerance + slopeReach,
+		fold        : keptFooting ? { normal: correction.surfaceNormal, minCos: Math.cos(groundAngle) } : null,
+		contactGrace: Math.max(0, correction.contactGrace - physicsState.deltaSeconds),
 	};
 }
 
-/**
- * Ease the grip demand toward the contact surface's share of top speed, holding it while airborne.
- * The target grows with gravity support lost past `Ground`: none there, full `MinGripSpeed` upside down.
- */
+// Ease the grip demand toward the surface's share of top speed, holding it while airborne.
 function GetGripDemand(entity, groundContact, deltaSeconds) {
-	if (!groundContact.hit) return entity.gripDemand;
+	const demand = entity.physics.slopes.gripDemand;
+	if (!groundContact.hit) return demand;
 
 	const { MinGripSpeed, MaxAngleDelta } = CONFIG.Physics.Correction;
-	const minGrip       = MinGripSpeed[entity.medium];
-	const groundSupport = Math.cos((MaxAngleDelta[entity.medium].Ground * Math.PI) / 180);
+	const minGrip       = MinGripSpeed[entity.physics.medium];
+	const groundSupport = Math.cos((MaxAngleDelta[entity.physics.medium].Ground * Math.PI) / 180);
 	const step          = (minGrip / GROUNDING.GripRampMs) * deltaSeconds * 1000;
-	return entity.gripDemand + Clamp(Math.max(0, minGrip * (groundSupport - groundContact.normal.y) / (groundSupport + 1)) - entity.gripDemand, -step, step);
+
+	// Demand more grip the further the surface tips past Ground, up to MinGripSpeed upside down.
+	const target = Math.max(0, minGrip * (groundSupport - groundContact.normal.y) / (groundSupport + 1));
+	return demand + Clamp(target - demand, -step, step);
 }
 
 // Decay the reference toward world up off every surface, or adopt the surface while moving on walkable ground.
 function GetReferenceNormal(entity, deltaSeconds) {
-	return entity.surfaceContact === "none" && entity.contactGrace <= EPSILON
-		? RotateTowardVector3(entity.referenceNormal, WORLD_NORMALS.Up, DegreesToRadians(CONFIG.Physics.Correction.ReferenceReleaseRate) * deltaSeconds)
-		: entity.surfaceContact === "walkable" && !CompareVector3(entity.transform.position, entity.physicsRuntime.lastPosition)
-			? CloneVector3(entity.surfaceNormal)
-			: entity.referenceNormal;
+	const correction  = entity.physics.correction;
+	const releaseStep = DegreesToRadians(CONFIG.Physics.Correction.ReferenceReleaseRate) * deltaSeconds;
+	return correction.surfaceContact === "none" && correction.contactGrace <= EPSILON
+		? RotateTowardVector3(correction.referenceNormal, WORLD_NORMALS.Up, releaseStep)
+		: correction.surfaceContact === "walkable" && !CompareVector3(entity.transform.position, entity.physics.lastFrame.position)
+			? CloneVector3(correction.surfaceNormal)
+			: correction.referenceNormal;
 }
 
-/**
- * Classify a surface as walkable, sliding or wall. `incline` gates standing, and `delta` gates moving onto something steeper.
- * `currentContact` tightens the walkable limit to `Recover` mid-slide, to stop it flickering between states.
- * Past the `Ground` incline, `speedRatio` (speed along the surface / top speed) below `gripDemand` slides instead.
- * @returns {"walkable" | "sliding" | "wall"}
- */
+// Classify a surface as walkable, sliding or wall.
 function ClassifySurface(referenceNormal, candidate, currentContact, medium, speedRatio, gripDemand) {
-	const limits        = CONFIG.Physics.Correction.MaxAngleDelta[medium];
+	const limits  = CONFIG.Physics.Correction.MaxAngleDelta[medium];
+	const incline = angleBetweenDegrees(candidate, WORLD_NORMALS.Up);
+
+	// Tighten the walkable limit mid-slide to stop it flickering between states.
 	const walkableLimit = currentContact === "sliding" ? limits.Recover : limits.Ground;
-	const incline       = angleBetweenDegrees(candidate, WORLD_NORMALS.Up);
-	const walkable      = incline <= limits.Ground || speedRatio >= gripDemand ? "walkable" : "sliding";
+
+	// Past the Ground incline, slide when moving slower than the grip demand.
+	const walkable = incline <= limits.Ground || speedRatio >= gripDemand ? "walkable" : "sliding";
 
 	if (incline <= CONFIG.Physics.Correction.FlatSnapDegrees) return "walkable";
 
-	// Not steeper than the reference: incline alone decides.
+	// Let incline alone decide on surfaces no steeper than the reference.
 	if (candidate.y >= referenceNormal.y && incline <= walkableLimit) return walkable;
 
 	const delta = angleBetweenDegrees(referenceNormal, candidate);
@@ -126,50 +130,42 @@ function ClassifySurface(referenceNormal, candidate, currentContact, medium, spe
 }
 
 /**
- * One loop pass's slope correction: the new surface contact, surface orientation and slope-following velocity.
- *
+ * Work out one loop pass's surface contact, orientation and slope-following velocity.
  * @param {object} entity — the player, read but never written.
  * @param {{ hit: boolean, normal: { x, y, z }, contact: string, surfaceId: string }} groundContact — from `PickGroundContact`.
  * @param {{ surfaceId: string | null }} frameStart — the last surface stood on, frozen for this frame.
  */
 function GetSurfaceCorrection(entity, groundContact, frameStart) {
 	if (CONFIG.Physics.Correction.Enabled === false) {
-		const { surfaceContact, contactGrace, surfaceNormal, alignedUp, velocity } = entity;
+		const { physics: { correction: { surfaceContact, contactGrace, surfaceNormal, alignedUp } }, velocity } = entity;
 		return { surfaceContact, contactGrace, surfaceNormal, alignedUp, velocity, ...CORRECTION_DISABLED };
 	}
 
 	if (!groundContact.hit) return releasedSurface(entity);
 
-	const normal  = ResolveVector3Axis(groundContact.normal);
+	const normal = ResolveVector3Axis(groundContact.normal);
 
 	// Release a surface that a launch is still moving away from.
-	if (entity.launched && DotVector3(normal, entity.velocity) > EPSILON) return releasedSurface(entity);
+	if (entity.physics.launched && DotVector3(normal, entity.velocity) > EPSILON) return releasedSurface(entity);
 
 	const incline = angleBetweenDegrees(normal, WORLD_NORMALS.Up);
 	const contact = groundContact.contact;
 
-	const changedContact = entity.surfaceContact !== contact;
+	const changedContact = entity.physics.correction.surfaceContact !== contact;
 	let changedVelocity  = false, velocity = entity.velocity, alongNormal = DotVector3(normal, velocity);
 
-	// Pinned only with kept footing (same surface, or reached while grounded); a new surface's first touch stays a collision.
-	const keptFooting = entity.grounded || groundContact.surfaceId === frameStart.surfaceId;
+	// Keep footing on the last surface or one reached while grounded, leaving a new surface's first touch to collision.
+	const keptFooting = entity.physics.grounded || groundContact.surfaceId === frameStart.surfaceId;
 
 	// Grounded is judged on the new contact.
-	const onContact = { 
-		surfaceContact: contact, 
-		launched: entity.launched, 
-		velocity, 
-		alignedUp: entity.alignedUp, 
-		buoyancyForce: entity.buoyancyForce 
-	};
-	const pinned = keptFooting && !entity.launched && ResolveGrounded(onContact);
+	const pinned = keptFooting && !entity.physics.launched && ResolveGrounded(entity, contact);
 
-	// Over a walkable crest, velocity turns onto the new facet instead of losing its lift-off; concave folds turn in the collision slide.
+	// Turn velocity onto the new facet over a walkable crest, keeping it from lifting off.
 	if (
-		pinned && entity.grounded && contact === "walkable" && alongNormal > EPSILON &&
-		DotVector3(entity.surfaceNormal, normal) < 1 - EPSILON
+		pinned && entity.physics.grounded && contact === "walkable" && alongNormal > EPSILON &&
+		DotVector3(entity.physics.correction.surfaceNormal, normal) < 1 - EPSILON
 	) {
-		velocity = TransportVector3(velocity, entity.surfaceNormal, normal);
+		velocity = TransportVector3(velocity, entity.physics.correction.surfaceNormal, normal);
 		alongNormal = DotVector3(normal, velocity);
 		changedVelocity = true;
 	}
@@ -181,23 +177,23 @@ function GetSurfaceCorrection(entity, groundContact, frameStart) {
 		if (alongNormal > 0 && contact === "walkable" && Vector3Length(newVelocity) > EPSILON) {
 			newVelocity = ScaleVector3(ResolveVector3Axis(newVelocity), Vector3Length(velocity));
 		}
-		changedVelocity = changedVelocity || hasMeaningfulVectorDelta(velocity, newVelocity);
+		changedVelocity = changedVelocity || vectorChanged(velocity, newVelocity);
 		velocity = newVelocity;
 	}
 
-	// Near-flat stands upright; the real normal is still kept for tracking.
+	// Stand upright on near-flat ground, still keeping the real normal for tracking.
 	const isFlat = incline <= CONFIG.Physics.Correction.FlatSnapDegrees;
 	const targetUp = isFlat ? WORLD_NORMALS.Up : normal;
-	const changedOrientation = hasMeaningfulVectorDelta(entity.alignedUp, targetUp);
+	const changedOrientation = vectorChanged(entity.physics.correction.alignedUp, targetUp);
 
 	if (!isFlat && (changedOrientation || changedVelocity)) {
 		Log(
 			"ENGINE",
 			`
 				Slope correction applied: 
-				- Normal=(${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)}) 
-				- OrientationChanged=${changedOrientation} 
-				- VelocityChanged=${changedVelocity}
+				- Normal: (${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)}) 
+				- OrientationChanged: ${changedOrientation} 
+				- VelocityChanged: ${changedVelocity}
 			`,
 			"log",
 			"Level"
@@ -209,15 +205,14 @@ function GetSurfaceCorrection(entity, groundContact, frameStart) {
 		contactGrace  : 0,
 		surfaceNormal : CloneVector3(normal),
 		alignedUp     : CloneVector3(targetUp),
-		velocity, changedContact, changedOrientation, changedVelocity,
-		changedPosition: false,
+		velocity, changedContact, changedOrientation, changedVelocity, changedPosition: false,
 		anyChanged: changedContact || changedOrientation || changedVelocity,
 	};
 }
 
-// Offset straight off the ground that seats the capsule on the surface it stands on.
+// Find the offset that seats the capsule on the ground it stands on.
 function GetGroundSnap(entity, groundContact, groundSnapTolerance) {
-	if (CONFIG.Physics.Correction.Enabled === false || !entity.grounded) return CORRECTION_DISABLED;
+	if (CONFIG.Physics.Correction.Enabled === false || !entity.physics.grounded) return CORRECTION_DISABLED;
 
 	const normal = ResolveVector3Axis(groundContact.normal);
 	const delta = groundContact.restDelta;
@@ -236,21 +231,14 @@ function GetGroundSnap(entity, groundContact, groundSnapTolerance) {
 
 // Pivot about the contact cap while touching a surface, the body's center when releasing one, or the full box's center without collision.
 function PoseAnchor(entity) {
-	const { collision, surfaceContact } = entity;
+	const { physics: { collision, correction: { surfaceContact } } } = entity;
 	const local = collision === null
 		? AabbCenter(entity.model.restFullAabb)
 		: surfaceContact !== "none" ? collision.rest.groundCapsule.segmentStart : AabbCenter(collision.rest.aabb);
 	return MultiplyVector3(local, entity.transform.scale);
 }
 
-/**
- * Stand the entity upright on the surface, steered by its current heading.
- * @param {{ x, y, z }} alignedUp — unit target up-vector.
- * @param {{ x, y, z }} facing — unit world-space heading.
- * @param {{ x, y, z }} rotation — the entity's current rotation in radians, for the roll and a last-resort heading.
- * @param {boolean} onBack — lay the body on its back for the sliding pose.
- * @returns {{ x: number, y: number, z: number }}
- */
+// Stand the entity upright on the surface, steered by its current heading.
 function surfaceAlignedRotation(alignedUp, facing, rotation, onBack) {
 	let planar = ProjectOntoPlane(facing, alignedUp);
 	if (Vector3Length(planar) <= 0.05) {
@@ -268,16 +256,18 @@ function surfaceAlignedRotation(alignedUp, facing, rotation, onBack) {
 		: EulerFromBasis(right, alignedUp, forward, rotation.z);
 }
 
-// Rotation that stands the entity on its surface, and the position shift that keeps it pivoting about its anchor.
+// Find the rotation that stands the entity on its surface, and the shift that keeps it pivoting about its anchor.
 function GetSurfaceOrientation(entity) {
-	// The contact grace holds the whole pose, sliding included.
-	if (CONFIG.Physics.Correction.Enabled === false || entity.contactGrace > EPSILON) return CORRECTION_DISABLED;
+	const correction = entity.physics.correction;
+
+	// Skip when disabled, or while the contact grace holds the whole pose (sliding included).
+	if (CONFIG.Physics.Correction.Enabled === false || correction.contactGrace > EPSILON) return CORRECTION_DISABLED;
 
 	const rotation = entity.transform.rotation;
-	
-	// The exact standing rotation; the collider, ground probe and pivot all follow it.
-	const solved = surfaceAlignedRotation(entity.alignedUp, entity.facing, rotation, entity.surfaceContact === "sliding");
-	const changedOrientation = hasMeaningfulVectorDelta(rotation, solved);
+
+	// Solve the standing rotation, laying the body on its back while sliding.
+	const solved = surfaceAlignedRotation(correction.alignedUp, entity.facing, rotation, correction.surfaceContact === "sliding");
+	const changedOrientation = vectorChanged(rotation, solved);
 
 	if (changedOrientation === false) return CORRECTION_DISABLED;
 
@@ -290,11 +280,11 @@ function GetSurfaceOrientation(entity) {
 	};
 }
 
-// Grounded when on walkable ground, not launched upward and not floating.
-function ResolveGrounded({ surfaceContact, launched, velocity, alignedUp, buoyancyForce }) {
-	return surfaceContact === "walkable" &&
-		!(launched && DotVector3(velocity, alignedUp) > EPSILON) &&
-		buoyancyForce <= CONFIG.Physics.Gravity.Strength;
+// Check whether the entity stands on walkable ground while not launched or floating.
+function ResolveGrounded(entity, contact) {
+	return contact === "walkable" &&
+		!(entity.physics.launched && DotVector3(entity.velocity, entity.physics.correction.alignedUp) > EPSILON) &&
+		entity.physics.buoyancyForce <= CONFIG.Physics.Gravity.Strength;
 }
 
 /* === EXPORTS === */

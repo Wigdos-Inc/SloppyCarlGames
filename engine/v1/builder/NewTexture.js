@@ -1,12 +1,14 @@
 // Create 2D textures (like grass or pebbles) to populate the world with.
 
-// Used by NewObject.js for mesh and decal textures
-// Used by NewScatter.js for scatter batch texture IDs
-// Used by NewVoid.js for void face textures
-// Used by handlers/game/Texture.js for runtime custom textures
-// Used by handlers/game/Level.js to prepare level visual resources
+// Used by NewObject.js for mesh and decal textures.
+// Used by NewScatter.js for scatter batch texture IDs and decals.
+// Used by handlers/game/Texture.js to bake noise textures across frames.
+// Used by handlers/game/Level.js to prepare level visual resources.
+// Used by handlers/Render.js and subProcesses/Occlusion.js to tell see-through textures apart.
+// Uses templates/textures.json for the texture presets.
 
-import VISUAL_TEMPLATES from "./templates/textures.json" with { type: "json" };
+import textureTemplates from "./templates/textures.json" with { type: "json" };
+import scatterTemplates from "./templates/scatter.json" with { type: "json" };
 import { CONFIG } from "../core/config.js";
 import { Log, ENTITY_TYPES } from "../core/meta.js";
 
@@ -31,8 +33,8 @@ function ComputeGeneratedTextureID(generatedTexture) {
 function InitializeDecalDisplay(customTextures, dimensions) {
 	customTextures.forEach((decal) => {
 		decal.displayTransform = decal.localTransform;
-		decal.displayColor = null;
-		decal.activeSourceKey = null;
+		decal.displayColor     = null;
+		decal.activeSourceKey  = null;
 
 		// Key by content and face size. Identical decals share a texture and different ones never collide.
 		decal.textureKey = `decal::customTexture::${formatCustomTextureEntry(decal)}::${decalFaceSize(dimensions, decal.side)}`;
@@ -172,8 +174,7 @@ function drawPattern(ctx, size, textureDefinition, textureScale, periods = 1) {
 			ctx.fillRect(0, 0, size, size);
 			return;
 		}
-		// Note: Raw UVs repeat, so the gradient's two ends are matched to hide the seam.
-		case "linear": {
+		case "linear": {    // Match the gradient's two ends to hide the seam where raw UVs repeat.
 			const mid = rgbaToCss({
 				r: (textureDefinition.primary.r + textureDefinition.secondary.r) * 0.5,
 				g: (textureDefinition.primary.g + textureDefinition.secondary.g) * 0.5,
@@ -280,11 +281,10 @@ function registerTextureUsage(id, options, usage) {
 }
 
 // Gather the settings that decide how a texture is baked, for a mesh or a scatter batch.
-function textureRegistrationOptions(texture, isTerrain, maxSpan) {
+function textureRegistrationOptions(baseTextureID, texture, isTerrain, maxSpan) {
 	const { density, speckSize, shape, compositeMode, holdTimeSpeed, blendTimeSpeed } = texture;
 	return {
-		isTerrain, maxSpan, density, speckSize,
-		baseTextureID    : texture.id,
+		isTerrain, maxSpan, density, speckSize, baseTextureID,
 		shape, compositeMode,
 		animatedRequested: texture.animated === true,
 		holdTimeSpeed, blendTimeSpeed,
@@ -294,22 +294,20 @@ function textureRegistrationOptions(texture, isTerrain, maxSpan) {
 }
 
 function collectMesh(mesh, options, ownerKey, usage, customTextureUsage) {
-	// Skip meshes textured per face. Their face textures were already built with the mesh.
-	if (mesh.geometry.faceTextureGroups) return;
+	// Skip meshes textured per face as they were already built with the mesh.
+	const texture = mesh.detail.texture.base;
+	if (texture.faceNoiseGroups !== null) return;
 
 	// Use a sprite's image as it is, stored the same way as an image decal.
-	if (mesh.material.textureID.startsWith("sprite::")) {
-		const { bitmap } = mesh.sprite.image;
-		customTextureUsage[mesh.material.textureID] = { decalType: "image", bitmap, opacity: 1, placement: null };
+	if (texture.registryID.startsWith("sprite::")) {
+		const bitmap = mesh.detail.primitiveOptions.sprite.image.bitmap;
+		customTextureUsage[texture.registryID] = { decalType: "image", bitmap, opacity: 1, placement: null };
 		return;
 	}
 
-	let materialTextureID = mesh.material.textureID;
-	if (mesh.detail.texture.animated === true) {
-		materialTextureID = `${mesh.material.textureID}::animated=${ownerKey}`;
-		mesh.material.textureID = materialTextureID;
-	}
-	registerTextureUsage(materialTextureID, textureRegistrationOptions(mesh.detail.texture, options.isTerrain, options.maxSpan), usage);
+	// Give each owner of an animated texture its own copy to animate.
+	if (texture.animated === true) texture.registryID = `${texture.registryID}::animated=${ownerKey}`;
+	registerTextureUsage(texture.registryID, textureRegistrationOptions(texture.templateID, texture, options.isTerrain, options.maxSpan), usage);
 }
 
 function collectDecalAlternateSources(baseId, ct, mesh, customTextureUsage) {
@@ -333,8 +331,9 @@ function collectDecalAlternateSources(baseId, ct, mesh, customTextureUsage) {
 	}
 }
 
-function collectCustomTextures(mesh, customTextureUsage) {
-	mesh.customTextures.forEach((ct) => {
+// Collect the decals on a mesh.
+function collectCustomTextures(decals, mesh, customTextureUsage) {
+	decals.forEach((ct) => {
 		const id = ct.textureKey;
 		if (ct.decalType === "image") {
 			customTextureUsage[id] = {
@@ -345,6 +344,7 @@ function collectCustomTextures(mesh, customTextureUsage) {
 			};
 		} 
 		else {
+			// Shape decals read its dimensions.
 			customTextureUsage[id] = {
 				decalType: "shape", ct, mesh,
 				placement: { side: ct.side, localTransform: ct.localTransform },
@@ -356,20 +356,18 @@ function collectCustomTextures(mesh, customTextureUsage) {
 
 // Visit every textured mesh with its kind: terrain, plain (no decals) or detailed (decals).
 function ForEachTexturedMesh(sceneGraph, visit) {
-	sceneGraph.terrain.forEach((mesh)  => { 
-		if (mesh.meta.mode === "default") visit(mesh, "terrain"); 
+	sceneGraph.terrain.entries.forEach((mesh)  => {
+		if (mesh.meta.mode === "default") visit(mesh, "terrain");
 	});
 	sceneGraph.triggers.forEach((mesh) => visit(mesh, "plain"));
-	sceneGraph.scatter.forEach((mesh)  => visit(mesh, "plain"));
-	sceneGraph.obstacles.forEach((obstacle) => {
-		if (obstacle.mode !== "default") return;
-		obstacle.parts.forEach((part) => visit(part, "detailed"));
+	sceneGraph.obstacles.entries.forEach((mesh) => {
+		if (mesh.meta.mode === "default") visit(mesh, "detailed");
 	});
 	sceneGraph.entities.forEach((entity) => entity.model.parts.forEach((part) => visit(part.mesh, "detailed")));
 
-	if (sceneGraph.waterVisual) {
-		if (sceneGraph.waterVisual.body) visit(sceneGraph.waterVisual.body, "plain");
-		if (sceneGraph.waterVisual.top) visit(sceneGraph.waterVisual.top, "plain");
+	if (sceneGraph.world.water.topY !== null) {
+		visit(sceneGraph.world.water.body, "plain");
+		visit(sceneGraph.world.water.top, "plain");
 	}
 }
 
@@ -389,24 +387,19 @@ function collectTextureUsage(sceneGraph) {
 			? { isTerrain: true, maxSpan: terrainSpan(mesh) }
 			: nonTerrainOptions;
 		collectMesh(mesh, options, mesh.id, usage, customTextureUsage);
-		if (kind !== "plain") collectCustomTextures(mesh, customTextureUsage);
+		if (kind !== "plain") collectCustomTextures(mesh.detail.texture.custom, mesh, customTextureUsage);
 	});
 
 	// Collect texture IDs from scatter batches. Decals bake once per distinct decal, not per instance.
-	sceneGraph.scatterBatches.forEach((batch) => {
-		registerTextureUsage(batch.textureID, textureRegistrationOptions(batch.texture, false, 1), usage);
-		if (batch.customTextures.length > 0) {
-			collectCustomTextures(
-				{ customTextures: batch.customTextures, dimensions: batch.dimensions },
-				customTextureUsage
-			);
-		}
+	sceneGraph.scatter.batches.forEach((batch) => {
+		registerTextureUsage(batch.textureID, textureRegistrationOptions(batch.texture.base.id, batch.texture.base, false, 1), usage);
+		collectCustomTextures(batch.texture.custom, batch, customTextureUsage);
 	});
 
 	// Collect the walls lining each void, which the walk above skips. They reuse their host's texture and never change how it tiles.
-	const collectVoidWalls = (voidRecords) => voidRecords.forEach((record) => {
-		for (const hostId in record.relations) {
-			record.relations[hostId].voidWallMeshes.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id, usage, customTextureUsage));
+	const collectVoidWalls = (voidMeshes) => voidMeshes.forEach((voidMesh) => {
+		for (const hostId in voidMesh.relations) {
+			voidMesh.relations[hostId].voidWallMeshes.forEach((mesh) => collectMesh(mesh, nonTerrainOptions, mesh.id, usage, customTextureUsage));
 		}
 	});
 	collectVoidWalls(sceneGraph.voids.terrain);
@@ -422,19 +415,18 @@ function AddToVisualResources(built, objectType, sceneGraph) {
 	if (ENTITY_TYPES.includes(objectType)) {
 		built.model.parts.forEach((part) => {
 			collectMesh(part.mesh, nonTerrainOptions, part.mesh.id, usage, customTextureUsage);
-			collectCustomTextures(part.mesh, customTextureUsage);
+			collectCustomTextures(part.mesh.detail.texture.custom, part.mesh, customTextureUsage);
 		});
 	} 
 	else if (objectType === "obstacle") {
-		collectMesh(built.mesh, nonTerrainOptions, built.mesh.id, usage, customTextureUsage);
 		built.parts.forEach((part) => {
 			collectMesh(part, nonTerrainOptions, part.id, usage, customTextureUsage);
-			collectCustomTextures(part, customTextureUsage);
+			collectCustomTextures(part.detail.texture.custom, part, customTextureUsage);
 		});
 	} 
 	else {
 		collectMesh(built, { isTerrain: true, maxSpan: terrainSpan(built) }, built.id, usage, customTextureUsage);
-		collectCustomTextures(built, customTextureUsage);
+		collectCustomTextures(built.detail.texture.custom, built, customTextureUsage);
 	}
 
 	const newEntries = createTextureRegistry(usage, customTextureUsage, { textureScale: sceneGraph.world.textureScale });
@@ -444,10 +436,13 @@ function AddToVisualResources(built, objectType, sceneGraph) {
 }
 
 function createMaskCanvas(w, h) {
-	const canvas = document.createElement("canvas");
-	canvas.width = w; canvas.height = h;
-	const ctx = canvas.getContext("2d");
+	const canvas  = document.createElement("canvas");
+	canvas.width  = w; 
+	canvas.height = h;
+
+	const ctx     = canvas.getContext("2d");
 	ctx.fillStyle = "white";
+	
 	return { canvas, ctx };
 }
 
@@ -492,33 +487,38 @@ const shapeMaskBuilders = {
 };
 
 function bakeImageDecalOpacity(bitmap, opacity) {
-	const canvas = document.createElement("canvas");
-	canvas.width = bitmap.width; canvas.height = bitmap.height;
-	const ctx = canvas.getContext("2d");
+	const canvas  = document.createElement("canvas");
+	canvas.width  = bitmap.width; 
+	canvas.height = bitmap.height;
+
+	const ctx       = canvas.getContext("2d");
 	ctx.globalAlpha = opacity;
 	ctx.drawImage(bitmap, 0, 0);
+
 	return canvas;
 }
 
 // Bake a shape decal into its own canvas.
 function compositeShapeDecal(ct, mesh, textureScale) {
-	const size = 256;
+	const size   = 256;
+
 	const canvas = document.createElement("canvas");
-	canvas.width = size; canvas.height = size;
-	const ctx = canvas.getContext("2d");
+	canvas.width = size; 
+	canvas.height = size;
+	const ctx    = canvas.getContext("2d");
 
 	const partFaceSize  = decalFaceSize(mesh.dimensions, ct.side);
 	const autoRatio     = partFaceSize > 0 ? Math.max(ct.localTransform.scale.x, ct.localTransform.scale.y) / partFaceSize : 1;
 
 	// Note: Leave the colors out of a mutable decal. The GPU tints it, and baking them in too would apply them twice.
-	const overrides = ct.mutable ? { ...ct.texture, primary: null, secondary: null } : ct.texture;
-	const decalBlueprint = VISUAL_TEMPLATES.textures[ct.texture.id];
+	const overrides         = ct.mutable ? { ...ct.texture, primary: null, secondary: null } : ct.texture;
+	const decalBlueprint    = textureTemplates[ct.texture.id];
 	const resolvedBlueprint = ResolveTextureBlueprint(decalBlueprint, overrides);
-	const effectiveScale = autoRatio > 0 ? textureScale / autoRatio : textureScale;
+	const effectiveScale    = autoRatio > 0 ? textureScale / autoRatio : textureScale;
 
 	// Count how often tiles, stripes and grids repeat across the decal. Other patterns ignore it.
 	const decalConfigKey = FREQUENCY_PATTERN_CONFIG[resolvedBlueprint.pattern];
-	const periods = decalConfigKey ? Math.round(resolvedBlueprint.density * CONFIG.Rendering.Texture[decalConfigKey].Density) : 1;
+	const periods        = decalConfigKey ? Math.round(resolvedBlueprint.density * CONFIG.Rendering.Texture[decalConfigKey].Density) : 1;
 
 	// Paint the pattern, then cut away everything outside the decal's shape.
 	ctx.drawImage(buildTextureSurface(resolvedBlueprint, toPowerOfTwoSize(decalBlueprint.size), effectiveScale, periods), 0, 0, size, size);
@@ -536,7 +536,7 @@ function decalAnimationDefinition(cu) {
 	if (cu.decalType !== "shape")        return null;
 	if (cu.ct.texture.animated !== true) return null;
 
-	const blueprint = VISUAL_TEMPLATES.textures[cu.ct.texture.id];
+	const blueprint = textureTemplates[cu.ct.texture.id];
 	if (blueprint.animation.able !== true) return null;
 
 	return {
@@ -553,7 +553,7 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 	const registry = {};
 	for (const textureID in usage) {
 		const usageEntry = usage[textureID];
-		const textureBlueprint = VISUAL_TEMPLATES.textures[usageEntry.baseTextureID];
+		const textureBlueprint = textureTemplates[usageEntry.baseTextureID];
 		const resolvedSize = resolveTextureSize(textureBlueprint, usageEntry);
 		
 		// Bake density into noise only. Repeating patterns (tiles, stripes, grids) take it from each mesh's texture coordinates.
@@ -562,10 +562,10 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 			...textureBlueprint,
 			density:   isFrequencyPattern ? textureBlueprint.density : textureBlueprint.density * usageEntry.density,
 			speckSize: textureBlueprint.speckSize * usageEntry.speckSize,
-			...(usageEntry.shape              && { shape:     usageEntry.shape                              }),
-			...(usageEntry.compositeMode !== null && { compositeMode: usageEntry.compositeMode }),
-			...(usageEntry.primaryOverride   !== null && { primary:   usageEntry.primaryOverride   }),
-			...(usageEntry.secondaryOverride !== null && { secondary: usageEntry.secondaryOverride }),
+			...(usageEntry.shape                      && { shape        : usageEntry.shape             }),
+			...(usageEntry.compositeMode     !== null && { compositeMode: usageEntry.compositeMode     }),
+			...(usageEntry.primaryOverride   !== null && { primary      : usageEntry.primaryOverride   }),
+			...(usageEntry.secondaryOverride !== null && { secondary    : usageEntry.secondaryOverride }),
 		};
 
 		const animatedRequested = usageEntry.animatedRequested === true;
@@ -584,12 +584,12 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 			definition: {
 				...resolvedTextureBlueprint,
 				bakeKind: "surface",
-				size: resolvedSize,
-				holdTimeSpeed: usageEntry.holdTimeSpeed,
+				size    : resolvedSize,
+				holdTimeSpeed : usageEntry.holdTimeSpeed,
 				blendTimeSpeed: usageEntry.blendTimeSpeed,
 				animation: {
-					able: animatedRequested && templateSupportsAnimation,
-					holdTime: textureBlueprint.animation.holdTime,
+					able     : animatedRequested && templateSupportsAnimation,
+					holdTime : textureBlueprint.animation.holdTime,
 					blendTime: textureBlueprint.animation.blendTime,
 				},
 			},
@@ -617,21 +617,21 @@ function createTextureRegistry(usage, customTextureUsage, options) {
 
 async function PrepareLevelVisualResources(sceneGraph) {
 	const { usage, customTextureUsage } = collectTextureUsage(sceneGraph);
-	const textureRegistry = createTextureRegistry(usage, customTextureUsage, { textureScale: sceneGraph.world.textureScale });
 
-	// Add the face textures built during the level build.
-	for (const id in sceneGraph.pendingFaceTextures) textureRegistry[id] = sceneGraph.pendingFaceTextures[id];
-	sceneGraph.pendingFaceTextures = {};
+	// Keep the face textures the level build stored.
+	const textureRegistry = {
+		...createTextureRegistry(usage, customTextureUsage, { textureScale: sceneGraph.world.textureScale }),
+		...sceneGraph.visualResources.textureRegistry,
+	};
 
 	sceneGraph.visualResources = {
 		textureRegistry,
-		scatterRegistry: VISUAL_TEMPLATES.scatterTypes,
-		primitiveGeometry: sceneGraph.scatterPrimitiveGeometry,
+		primitiveGeometry: sceneGraph.scatter.geometry,
 	};
 
 	Log(
 		"ENGINE",
-		`Visual resources ready: textures=${Object.keys(textureRegistry).length}, scatterTypes=${Object.keys(VISUAL_TEMPLATES.scatterTypes).length}`,
+		`Visual resources ready: textures=${Object.keys(textureRegistry).length}, scatterTypes=${Object.keys(scatterTemplates).length}`,
 		"log",
 		"Level"
 	);
@@ -668,8 +668,7 @@ function BeginNoiseBake(blueprint, pixelW, pixelH, textureScale) {
 	const speck = Math.max(1, Math.floor((blueprint.speckSize * CONFIG.Rendering.Texture.Noise.SpeckSize) * textureScale));
 	const drawWrapped = (x, y) => {
 		draw(x, y, speck, speck);
-		const wrapX = x + speck > pixelW;
-		const wrapY = y + speck > pixelH;
+		const wrapX = x + speck > pixelW, wrapY = y + speck > pixelH;
 		if (wrapX)          draw(x - pixelW, y,          speck, speck);
 		if (wrapY)          draw(x,          y - pixelH, speck, speck);
 		if (wrapX && wrapY) draw(x - pixelW, y - pixelH, speck, speck);
@@ -738,7 +737,7 @@ function buildFaceTextureSignature(baseTextureID, resolvedBlueprint, pixelW, pix
 }
 
 function BuildFaceTextureData(store, textureID, resolvedBlueprint, faceGroupData, faceSpans, textureScale, animationOptions = null) {
-	const faceTextureGroups = [];
+	const faceNoiseGroups = [];
 	for (let i = 0; i < faceGroupData.length; i++) {
 		const { indexStart, indexCount } = faceGroupData[i];
 		const pixelW = Math.max(1, Math.round(faceSpans[i].uSpan * textureScale));
@@ -758,9 +757,9 @@ function BuildFaceTextureData(store, textureID, resolvedBlueprint, faceGroupData
 
 			return { id: faceID, source, definition };
 		});
-		faceTextureGroups.push({ indexStart, indexCount, textureID: faceID });
+		faceNoiseGroups.push({ indexStart, indexCount, textureID: faceID });
 	}
-	return faceTextureGroups;
+	return faceNoiseGroups;
 }
 
 export {

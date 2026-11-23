@@ -1,10 +1,22 @@
-// Simulator handler — manages the two-phase simulator lifecycle:
-// Start() builds the disc environment; Load/Clear mutate the live sceneGraph directly.
+// Runs the Simulator, a disc scene for previewing and exporting one object.
+
+// Used by core/ini.js for the game-facing Simulator calls.
+// Used by handlers/Controls.js for simulator input.
+// Uses handlers/game/Level.js to build the scene and spawn the loaded object into it.
+// Uses core/validate.js to check the game's simulator payloads.
+// Uses player/Model.js to build players.
+// Uses builder/NewObject.js, NewEntity.js and subProcesses/Chunks.js to place the loaded object on the disc.
+// Uses builder/NewParticles.js for the loaded object's generators.
+// Uses builder/templates/ for the disc level and the engine templates it caches.
+// Uses camera/Master.js and Modes.js to run and frame the orbit camera.
+// Uses handlers/game/Animation.js to animate the loaded entity.
+// Uses handlers/UI.js to show the HUD.
+// Uses handlers/Render.js decal math to bake decals into the downloaded model.
 
 import { CreateLevel, ClearLevel, GetActiveLevel, StopLevelLoop, SpawnIntoScene, AddEntityToScene, DespawnFromScene, SpawnParticleRequests } from "./Level.js";
 import { BuildPlayerModel } from "../../player/Model.js";
 import CharacterData from "../../player/characters.json" with { type: "json" };
-import { ParticleGeneratorRequests, WithParticleOverride } from "../../builder/NewParticles.js";
+import { ParticleGeneratorRequests, PARTICLE_OVERRIDE_KEYS } from "../../builder/NewParticles.js";
 import { PrepareCamera, UpdateCamera } from "../../camera/Master.js";
 import { SetOrbitCamFraming } from "../../camera/Modes.js";
 import { ResolveEntityAnimation } from "./Animation.js";
@@ -12,10 +24,9 @@ import { Cache, Log, SendEvent, ENTITY_TYPES, EngineInitialized } from "../../co
 import { CreateUI, ClearUI, ApplyMenuUI } from "../UI.js";
 import { SetElementText, RemoveRoot, DECAL_SHAPE_CODES, DECAL_FACE_ROTATIONS, ResolveDecalShapeCode, SelectDecalFacets, DecalSurfaceUv, BuildDecalPlacementMatrix, CapsuleBand, DecalRounding } from "../Render.js";
 import { ValidateSimulatorPayload, ValidateSimulatorBulkPayload } from "../../core/validate.js";
-import { MergeAabb, CreateDetailedBoundsFromParts } from "../../builder/NewObstacle.js";
 import { AddChunk, RemoveChunkMember } from "../../builder/subProcesses/Chunks.js";
 import { UpdateObjectWorldAabb } from "../../builder/NewObject.js";
-import { UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
+import { UpdateEntityModel, ClearPartGeometry } from "../../builder/NewEntity.js";
 import { UnitVector3 } from "../../math/Utilities.js";
 import simulatorTemplates from "../../builder/templates/levels.json" with { type: "json" };
 import terrainTemplates from "../../builder/templates/terrain.json" with { type: "json" };
@@ -26,8 +37,7 @@ import projectileTemplates from "../../builder/templates/projectiles.json" with 
 import { 
 	ArrayToVector3,
 	CloneTransform,
-	CloneVector3,
-	SubtractVector3, 
+	SubtractVector3,
 	AddVector3, 
 	ScaleVector3, 
 	ResolveVector3Axis, 
@@ -38,56 +48,56 @@ import {
 	Vector3Sq 
 } from "../../math/Vector3.js";
 import { CreateModelMatrix } from "../../math/Matrix.js";
-import { TriangleNormal } from "../../math/Geometry.js";
+import { PointsAabb, TriangleNormal } from "../../math/Geometry.js";
 
 const templateDisc   = simulatorTemplates.simulatorLevel.terrain.objects[0];
 const templateCamera = simulatorTemplates.simulatorLevel.camera;
 
 const simulatorRuntime = {
-	active           : false,
-	hadLevel         : false,
-	entity           : null,
-	followTarget     : null,
-	builtObject      : null,
-	platformMesh     : null,
-	objectType       : null,
-	loadedId         : null,
-	animSetKeys      : [],
-	currentSetIdx    : 0,
-	holdTimer        : 0,
-	isHolding        : false,
-	hudRootId        : "engine-simulator-hud",
-	savedEntityAction: undefined,
-	uiCleared        : false,
+	active       : false,
+	hadLevel     : false,
+	entity       : null,
+	followTarget : null,
+	builtObject  : null,
+	platformMesh : null,
+	objectType   : null,
+	loadedId     : null,
+	animSetKeys  : [],
+	currentSetIdx: 0,
+	holdTimer    : 0,
+	isHolding    : false,
+	hudRootId    : "engine-simulator-hud",
+	lastAction   : undefined,
+	uiCleared    : false,
 };
 
 const simulatorCache = new Map();
 
 // Engine content any game can preview, cached on first Start.
-const objectTemplates = { terrain: terrainTemplates, obstacle: obstacleTemplates };
-const entityTemplates = { character: characterTemplates, enemy: enemyTemplates, projectile: projectileTemplates };
+const objectTemplates   = { terrain: terrainTemplates, obstacle: obstacleTemplates };
+const entityTemplates   = { character: characterTemplates, enemy: enemyTemplates, projectile: projectileTemplates };
 let engineEntriesCached = false;
 
 function buildSimulatorHud() {
 	const panelStyles = {
-		position: "absolute", top: "12px", left: "12px", background: "rgba(0,0,0,0.55)", color: "#e8eaf0",
-		padding: "10px 14px", borderRadius: "6px", fontSize: "13px", lineHeight: "1.7", fontFamily: "monospace",
+		position     : "absolute", top: "12px", left: "12px", background: "rgba(0,0,0,0.55)", color: "#e8eaf0",
+		padding      : "10px 14px", borderRadius: "6px", fontSize: "13px", lineHeight: "1.7", fontFamily: "monospace",
 		pointerEvents: "none",
 	};
 	const controlBarStyles = {
 		position: "absolute", bottom: "12px", left: "50%", transform: "translateX(-50%)", background: "rgba(0,0,0,0.55)",
-		color: "#e8eaf0", padding: "8px 18px", borderRadius: "6px", fontSize: "12px", whiteSpace: "nowrap", pointerEvents: "none",
+		color   : "#e8eaf0", padding: "8px 18px", borderRadius: "6px", fontSize: "12px", whiteSpace: "nowrap", pointerEvents: "none",
 	};
 	const row = (id, text) => ({ type: "div", id, text, attributes: {}, styles: {}, events: {}, on: {}, children: [] });
 
 	CreateUI({
-		screenId: "SimulatorHUD",
-		rootId: simulatorRuntime.hudRootId,
+		screenId  : "SimulatorHUD",
+		rootId    : simulatorRuntime.hudRootId,
 		stylesheet: null,
 		rootStyles: {
 			position: "fixed", top: "0", left: "0",
-			width: "100%", height: "100%",
-			zIndex: "10", pointerEvents: "none", fontFamily: "monospace",
+			width   : "100%", height: "100%",
+			zIndex  : "10", pointerEvents: "none", fontFamily: "monospace",
 		},
 		elements: [
 			{
@@ -104,16 +114,16 @@ function buildSimulatorHud() {
 				],
 			},
 			{
-				type: "div", id: "sim-hud-controls",
+				type      : "div", id: "sim-hud-controls",
 				attributes: {}, styles: controlBarStyles, events: {}, on: {},
-				text: "[W] Next Anim   [S] Prev Anim   [E] Export GLB   [Mouse/Arrows] Camera Orbit   [Esc x2] Exit",
-				children: [],
+				text      : "[W] Next Anim   [S] Prev Anim   [E] Export GLB   [Mouse/Arrows] Camera Orbit   [Esc x2] Exit",
+				children  : [],
 			},
 		],
 	});
 }
 
-function updateSimulatorHudTarget(definition, objectType, entity) {
+function updateHudTarget(definition, objectType, entity) {
 	const parts = entity !== null ? entity.model.parts.length > 10 ? entity.model.parts.length : entity.model.parts.map(p => p.id).join(", ") : "—";
 	SetElementText("sim-hud-id",          `ID: ${definition.id}`);
 	SetElementText("sim-hud-type",        `Type: ${objectType}`);
@@ -121,7 +131,7 @@ function updateSimulatorHudTarget(definition, objectType, entity) {
 	SetElementText("sim-hud-parts",       `Parts: ${parts}`);
 }
 
-function updateSimulatorHudNoTarget() {
+function clearHudTarget() {
 	SetElementText("sim-hud-id",          "ID: —");
 	SetElementText("sim-hud-type",        "Type: —");
 	SetElementText("sim-hud-entity-type", "Entity Type: —");
@@ -132,7 +142,7 @@ function updateSimulatorHudNoTarget() {
 }
 
 function updateSimulatorHud() {
-	const animRuntime = simulatorRuntime.entity.animationRuntime;
+	const animRuntime = simulatorRuntime.entity.display.animationRuntime;
 	const setName     = simulatorRuntime.isHolding ? null : animRuntime.currentSetName;
 	SetElementText("sim-hud-anim-set",   `Anim Set: ${setName ?? "none"}`);
 	SetElementText("sim-hud-anim-frame", `Frame: ${setName !== null ? Math.floor(animRuntime.elapsed * 60) : "0"}`);
@@ -140,29 +150,30 @@ function updateSimulatorHud() {
 
 function initSimulatorTarget(entity, objectType, definition) {
 	if (entity !== null) {
-		simulatorRuntime.savedEntityAction = entity.action;
-		simulatorRuntime.animSetKeys       = Object.keys(entity.animations);
-		entity.action                      = simulatorRuntime.animSetKeys.length > 0 ? simulatorRuntime.animSetKeys[0] : "idle";
+		simulatorRuntime.lastAction  = entity.action;
+		simulatorRuntime.animSetKeys = Object.keys(entity.animations);
+		entity.action                = simulatorRuntime.animSetKeys.length > 0 ? simulatorRuntime.animSetKeys[0] : "idle";
 	}
 	else simulatorRuntime.animSetKeys = [];
+
 	simulatorRuntime.entity        = entity;
 	simulatorRuntime.currentSetIdx = 0;
 	simulatorRuntime.isHolding     = false;
 	simulatorRuntime.holdTimer     = 0;
-	updateSimulatorHudTarget(definition, objectType, entity);
+	updateHudTarget(definition, objectType, entity);
 }
 
 function clearTargetState() {
-	if (simulatorRuntime.entity !== null) simulatorRuntime.entity.action = simulatorRuntime.savedEntityAction;
-	simulatorRuntime.entity            = null;
-	simulatorRuntime.builtObject       = null;
-	simulatorRuntime.objectType        = null;
-	simulatorRuntime.loadedId          = null;
-	simulatorRuntime.animSetKeys       = [];
-	simulatorRuntime.currentSetIdx     = 0;
-	simulatorRuntime.holdTimer         = 0;
-	simulatorRuntime.isHolding         = false;
-	simulatorRuntime.savedEntityAction = undefined;
+	if (simulatorRuntime.entity !== null) simulatorRuntime.entity.action = simulatorRuntime.lastAction;
+	simulatorRuntime.entity        = null;
+	simulatorRuntime.builtObject   = null;
+	simulatorRuntime.objectType    = null;
+	simulatorRuntime.loadedId      = null;
+	simulatorRuntime.animSetKeys   = [];
+	simulatorRuntime.currentSetIdx = 0;
+	simulatorRuntime.holdTimer     = 0;
+	simulatorRuntime.isHolding     = false;
+	simulatorRuntime.lastAction    = undefined;
 }
 
 function clearEnvironmentState() {
@@ -200,11 +211,11 @@ async function Start() {
 	};
 
 	await CreateLevel(baseEnvPayload, { renderOptions: { rootId: "engine-level-root" } }, true);
-	simulatorRuntime.platformMesh = [GetActiveLevel().terrain[0]];
-	simulatorRuntime.followTarget = GetActiveLevel().terrain[0];
+	simulatorRuntime.platformMesh = [GetActiveLevel().terrain.entries[0]];
+	simulatorRuntime.followTarget = GetActiveLevel().terrain.entries[0];
 	buildSimulatorHud();
 	simulatorRuntime.active = true;
-	Log("ENGINE", "simulator environment ready", "log", "Simulator");
+	Log("ENGINE", "Simulator environment ready", "log", "Simulator");
 }
 
 // Rebuild the disc platform at the right size through the terrain spawn path.
@@ -216,6 +227,12 @@ function spawnPlatform(sceneGraph, footprintXZ) {
 		...structuredClone({ texture, detail, primitiveOptions }),
 	};
 	return SpawnIntoScene(disc, "terrain", sceneGraph);
+}
+
+// Merge the loaded object's mesh boxes into one.
+function mergeAabb(boxes) {
+	const { min, max } = PointsAabb(boxes.flatMap((box) => [box.min, box.max]));
+	return { min: boxes[0].min.clone().set(min), max: boxes[0].max.clone().set(max) };
 }
 
 // Fit OrbitCam framing and the follow target to the loaded object's bounds.
@@ -260,8 +277,8 @@ async function Load(payload) {
 	clearParticles(sceneGraph);
 	clearTargetState();
 
-	// Reset the part-geometry cache each load
-	sceneGraph.partGeometryCache = new Map();
+	// Reset the shared part geometry each load.
+	ClearPartGeometry();
 
 	let built, aabb;
 	if (objectType === "terrain") {
@@ -269,10 +286,10 @@ async function Load(payload) {
 		if (simulatorRuntime.platformMesh !== null) DespawnFromScene(simulatorRuntime.platformMesh, "terrain", sceneGraph);
 		simulatorRuntime.platformMesh = null;
 		built = SpawnIntoScene(definition, objectType, sceneGraph);
-		aabb  = MergeAabb(built.map((mesh) => mesh.worldAabb));
+		aabb  = mergeAabb(built.map((mesh) => mesh.display.aabb));
 	}
 	else {
-		// Ground entities on the surface map to guarantee a platform exists.
+		// Make sure a platform exists for the surface map to ground entities on.
 		if (simulatorRuntime.platformMesh === null) simulatorRuntime.platformMesh = spawnPlatform(sceneGraph, templateDisc.dimensions.x);
 		
 		const platformMesh = simulatorRuntime.platformMesh[0];
@@ -287,36 +304,33 @@ async function Load(payload) {
 				pivot   : new UnitVector3(0, 0, 0, "cnu"),
 			};
 			const playerData = { rootTransform, spawnSurfaceId: null, animations: {}, customEvents: {} };
-			built            = AddEntityToScene(BuildPlayerModel(definition, playerData, sceneGraph.spawnSurfaces), sceneGraph);
+			built            = AddEntityToScene(BuildPlayerModel(definition, playerData, sceneGraph.surfaces.spawn), sceneGraph);
 			objectType       = "entity";
 		}
 		else built = SpawnIntoScene(definition, objectType, sceneGraph);
 
 		if (objectType === "obstacle") {
-			// Obstacles have no self-grounding step; center on the platform and snap onto it here.
-			const { min, max } = built.worldAabb;
+			// Center obstacles on the platform and set them on top, since they don't ground themselves.
+			const { min, max } = mergeAabb(built.parts.map((part) => part.display.aabb));
 			const delta = platformMesh.transform.position.clone().subtract(ScaleVector3(AddVector3(min, max), 0.5));
 			delta.y = platformTopY - min.y;
 
+			// Move each part, refit its boxes and collision shape, and rechunk it at its new spot.
 			built.parts.forEach((part) => {
 				part.transform.position.add(delta);
 				UpdateObjectWorldAabb(part, false);
+				RemoveChunkMember(sceneGraph, part);
+				AddChunk(sceneGraph, part, "obstacle");
 			});
-			built.worldAabb      = MergeAabb(built.parts.map((part) => part.worldAabb));
-			built.detailedBounds = CreateDetailedBoundsFromParts(built, built.parts, built.worldAabb);
-
-			// Rechunk the obstacle at its new spot.
-			RemoveChunkMember(sceneGraph, built);
-			AddChunk(sceneGraph, built, "obstacle");
+			aabb = mergeAabb(built.parts.map((part) => part.display.aabb));
 		}
 		else {
-			// The surface map grounds Y; authored placement and a movement path still carry X/Z off the disc.
+			// Center the entity on the disc, keeping the height the surface map gave it.
 			built.transform.position.x = platformMesh.transform.position.x;
 			built.transform.position.z = platformMesh.transform.position.z;
-			UpdateEntityModelFromTransform(built);
+			UpdateEntityModel(built);
+			aabb = built.fullAabb;
 		}
-
-		aabb = ENTITY_TYPES.includes(objectType) ? built.fullAabb : built.worldAabb;
 	}
 
 	simulatorRuntime.builtObject = built;
@@ -334,14 +348,18 @@ async function Load(payload) {
 
 	initSimulatorTarget(ENTITY_TYPES.includes(objectType) ? built : null, objectType, definition);
 
-	// Terrain spawns return an array of meshes; every other type returns one carrier.
-	const carriers = objectType === "terrain" ? built : [built];
+	// Collect the carriers: every terrain mesh, every obstacle part, or the one built object.
+	const carriers = objectType === "terrain" ? built : objectType === "obstacle" ? built.parts : [built];
 	const requests = carriers.flatMap(
 		(carrier) => ParticleGeneratorRequests(carrier, ENTITY_TYPES.includes(objectType) ? "entity" : objectType)
 	);
 
-	// Force-disable physics in the Simulator
-	requests.forEach((request) => request.overrides = WithParticleOverride(request.overrides, "physics", "none"));
+	// Force-disable physics in the Simulator. Keep the other overrides and fill the unset ones with null.
+	requests.forEach((request) => {
+		const overrides = {};
+		PARTICLE_OVERRIDE_KEYS.forEach((key) => overrides[key] = request.overrides === null ? null : request.overrides[key]);
+		request.overrides = { ...overrides, physics: "none" };
+	});
 	SpawnParticleRequests(requests, sceneGraph);
 
 	Log("ENGINE", `Simulator loaded: id=${definition.id}, type=${objectType}`, "log", "Simulator");
@@ -379,7 +397,7 @@ function Clear() {
 	if (simulatorRuntime.builtObject !== null) DespawnFromScene(simulatorRuntime.builtObject, simulatorRuntime.objectType, GetActiveLevel());
 	clearParticles(GetActiveLevel());
 	clearTargetState();
-	updateSimulatorHudNoTarget();
+	clearHudTarget();
 	Log("ENGINE", "simulator target cleared", "log", "Simulator");
 }
 
@@ -396,34 +414,36 @@ async function Exit() {
 
 /* === GLB EXPORT === */
 
-const glbMagic         = 0x46546C67;
-const glbJsonChunkType = 0x4E4F534A;
-const glbBinChunkType  = 0x004E4942;
-const gltfFloat        = 5126;
-const gltfArrayBuffer  = 34962;
-const gltfLinear       = 9729;
-const gltfRepeat       = 10497;
-const gltfClampToEdge  = 33071;
+const glbMagic        = 0x46546C67;
+const glbJsonChunk    = 0x4E4F534A;
+const glbBinChunk     = 0x004E4942;
+const gltfFloat       = 5126;
+const gltfArrayBuffer = 34962;
+const gltfLinear      = 9729;
+const gltfRepeat      = 10497;
+const gltfClampToEdge = 33071;
 
 const decalSurfaceOffset  = 0.001;
 const decalLayerStep      = 0.0004;
-const decalUvTolerance    = 0.05; // in decal widths
+const decalUvTolerance    = 0.05;       // in decal widths
 const decalMaxSubdivision = 16;
 
 const alignTo4 = (value) => (value + 3) & ~3;
 
 // List the loaded object's meshes for export, leaving out the disc platform and non-default terrain and obstacles.
 function exportMeshList() {
-	const built = simulatorRuntime.builtObject;
-	if (simulatorRuntime.objectType === "terrain")  return built.filter((mesh) => mesh.meta.mode === "default");
-	if (simulatorRuntime.objectType === "obstacle") return built.mode === "default" ? built.parts : [];
-	return built.model.parts.map((part) => part.mesh);
+	switch (simulatorRuntime.objectType) {
+		case "terrain" : return simulatorRuntime.builtObject.filter((mesh) => mesh.meta.mode === "default");
+		case "obstacle": return simulatorRuntime.builtObject.parts.filter((part) => part.meta.mode === "default");
+		default        : return simulatorRuntime.builtObject.model.parts.map((part) => part.mesh);
+	}
 }
 
-// Sole reader of material.textureID — per-face meshes never register it.
+// Split a mesh into its textured spans. A mesh with face groups never registers its whole-mesh key.
 function meshPrimitiveSpans(mesh) {
-	if (mesh.geometry.faceTextureGroups) return mesh.geometry.faceTextureGroups;
-	return [{ indexStart: 0, indexCount: mesh.geometry.indices.length, textureID: mesh.material.textureID }];
+	const { registryID, faceNoiseGroups } = mesh.detail.texture.base;
+	if (faceNoiseGroups !== null) return faceNoiseGroups;
+	return [{ indexStart: 0, indexCount: mesh.geometry.indices.length, textureID: registryID }];
 }
 
 function triangleNormal(pa, pb, pc) {
@@ -431,7 +451,7 @@ function triangleNormal(pa, pb, pc) {
 	return normal.x === 0 && normal.y === 0 && normal.z === 0 ? WORLD_NORMALS.Up : normal;
 }
 
-// UVs from the face's main axis (the shader blends all three; they differ only near 45° faces).
+// Project UVs along the face's main axis, which matches the shader's blend except near 45° faces.
 function triplanarTriangleUvs(pa, pb, pc, normal, textureScale) {
 	const ax = Math.abs(normal.x), ay = Math.abs(normal.y), az = Math.abs(normal.z);
 	if (ax >= ay && ax >= az) return [pa.z, pa.y, pb.z, pb.y, pc.z, pc.y].map((v) => v * textureScale);
@@ -461,7 +481,7 @@ function pushVertex(data, point, normal, u, v) {
 	data.count++;
 }
 
-// De-indexes one span into local-space vertices with flat per-triangle normals.
+// Give each triangle of a span its own three vertices and a flat normal.
 function buildMeshVertices(mesh, span) {
 	const { positions, indices, uvs } = mesh.geometry;
 	const triplanar = mesh.geometry.triplanar === true;
@@ -472,7 +492,7 @@ function buildMeshVertices(mesh, span) {
 		const pa = ArrayToVector3(positions, ia, true), pb = ArrayToVector3(positions, ib, true), pc = ArrayToVector3(positions, ic, true);
 		const normal = triangleNormal(pa, pb, pc);
 		const uv     = triplanar
-			? triplanarTriangleUvs(pa, pb, pc, normal, mesh.material.textureScale)
+			? triplanarTriangleUvs(pa, pb, pc, normal, mesh.display.textureScale)
 			: [uvs[ia * 2], uvs[ia * 2 + 1], uvs[ib * 2], uvs[ib * 2 + 1], uvs[ic * 2], uvs[ic * 2 + 1]];
 		pushVertex(data, pa, normal, uv[0], uv[1]);
 		pushVertex(data, pb, normal, uv[2], uv[3]);
@@ -481,7 +501,7 @@ function buildMeshVertices(mesh, span) {
 	return data;
 }
 
-// Outward direction of the decal's shape at a point. Used to lift the decal sheet without gaps at corners.
+// Find the outward direction of the decal's shape at a point, to lift the decal without gaps at corners.
 function decalSurfaceNormal(shapeCode, point, halfExtents, rounding, faceAxis) {
 	switch (shapeCode) {
 		case DECAL_SHAPE_CODES.Flat    : return faceAxis;
@@ -494,12 +514,12 @@ function decalSurfaceNormal(shapeCode, point, halfExtents, rounding, faceAxis) {
 				y: (point.y - band.originY) / (band.capRadius ** 2), 
 				z: point.z / (halfExtents.z ** 2) 
 			});
-		default: return  ResolveVector3Axis(DivideVector3(point, MultiplyVector3(halfExtents, halfExtents)));
+		default: return ResolveVector3Axis(DivideVector3(point, MultiplyVector3(halfExtents, halfExtents)));
 	}
 }
 
-// glTF has no discard: clip to the [-0.5, 0.5] square the fragment shader cuts at runtime.
-function clipToDecalSquare(polygon) {
+// Clip a decal to its square, which the shader cuts at draw time but glTF can't.
+function clipToSquare(polygon) {
 	for (const [axis, sign] of [["u", 1], ["u", -1], ["v", 1], ["v", -1]]) {
 		const kept = [];
 		polygon.forEach((a, index) => {
@@ -520,21 +540,21 @@ function clipToDecalSquare(polygon) {
 	return polygon;
 }
 
-// Build the host's facets, lifted by a small fixed amount since glTF has no polygon offset.
+// Build a decal's vertices on the host's facets, lifted slightly off the surface.
 function buildDecalVertices(mesh, decalEntry, lift) {
 	const halfExtents = mesh.dimensions.clone().scale(0.5);
-	const rounding    = DecalRounding(mesh.shape, mesh.detail.primitiveOptions);
-	const shapeCode   = ResolveDecalShapeCode(mesh.shape, decalEntry.side);
+	const rounding    = DecalRounding(mesh.primitive, mesh.detail.primitiveOptions);
+	const shapeCode   = ResolveDecalShapeCode(mesh.primitive, decalEntry.side);
 	const placement   = BuildDecalPlacementMatrix(mesh.dimensions, decalEntry.localTransform, decalEntry.side);
 	const { positions, uvs } = SelectDecalFacets(mesh.geometry, placement, shapeCode, halfExtents, rounding, 1);
 	
 	const corner    = (index) => ({ point: ArrayToVector3(positions, index, true), u: uvs[index * 2], v: uvs[index * 2 + 1] });
 	const windingOf = (first) => Math.sign((uvs[first * 2 + 2] - uvs[first * 2]) * (uvs[first * 2 + 5] - uvs[first * 2 + 1]) - (uvs[first * 2 + 4] - uvs[first * 2]) * (uvs[first * 2 + 3] - uvs[first * 2 + 1]));
 
-	// Take the winding from the facet nearest the decal center. It only flips across the far side of a sphere.
+	// Take the UV direction from the facet nearest the decal center, since a sphere's far side flips it.
 	let winding = 0, nearest = Infinity;
 	const centerDistanceSq = (index) => Vector3Sq(SubtractVector3(
-		ArrayToVector3(positions, index, true), 
+		ArrayToVector3(positions, index, true),
 		ArrayToVector3(placement, 12)
 	));
 	for (let first = 0; first < positions.length / 3; first += 3) {
@@ -547,12 +567,12 @@ function buildDecalVertices(mesh, decalEntry, lift) {
 
 	const corners = [];
 	const emit = (p, q, r) => {
-		const polygon = clipToDecalSquare([p, q, r]);
+		const polygon = clipToSquare([p, q, r]);
 		for (let fan = 1; fan + 1 < polygon.length; fan++) corners.push(polygon[0], polygon[fan], polygon[fan + 1]);
 	};
 	for (let first = 0; first < positions.length / 3; first += 3) {
 		if (windingOf(first) !== winding) continue;
-		const a = corner(first), b = corner(first + 1), c = corner(first + 2);
+		const a       = corner(first), b = corner(first + 1), c = corner(first + 2);
 		const baseArc = DecalSurfaceUv(a.point, placement, shapeCode, halfExtents, rounding, 0).arc;
 		const at = (i, j, n) => {
 			const point = AddVector3(a.point, AddVector3(ScaleVector3(SubtractVector3(b.point, a.point), i / n), ScaleVector3(SubtractVector3(c.point, a.point), j / n)));
@@ -564,7 +584,7 @@ function buildDecalVertices(mesh, decalEntry, lift) {
 			return Math.hypot(exact.u - (a.u + (b.u - a.u) * i / n + (c.u - a.u) * j / n), exact.v - (a.v + (b.v - a.v) * i / n + (c.v - a.v) * j / n));
 		};
 
-		// glTF interpolates uv linearly; subdivide on the facet until that tracks the per-fragment map.
+		// Subdivide the facet until its straight-line UVs follow the decal's curved mapping.
 		const error = Math.max(deviation(1, 0, 2), deviation(0, 1, 2), deviation(1, 1, 2), deviation(1, 1, 3));
 		const n     = Math.min(decalMaxSubdivision, Math.max(1, Math.ceil(Math.sqrt(error / decalUvTolerance))));
 		const grid  = [];
@@ -589,7 +609,8 @@ function buildDecalVertices(mesh, decalEntry, lift) {
 	return data;
 }
 
-// Note: toBlob already undoes premultiplied alpha; don't undo it again.
+// Encode a texture as PNG and find its alpha mode.
+// Note: Don't undo premultiplied alpha. toBlob already does.
 async function encodeTextureImage(source) {
 	const canvas  = document.createElement("canvas");
 	canvas.width  = source.width;
@@ -615,14 +636,14 @@ async function encodeTextureImage(source) {
 function collectTextureIds(meshes) {
 	const ids  = [];
 	const seen = new Set();
-	function add(id) {
+	const add = (id) => {
 		if (seen.has(id)) return;
 		seen.add(id);
 		ids.push(id);
-	}
+	};
 	meshes.forEach((mesh) => {
 		meshPrimitiveSpans(mesh).forEach((span) => add(span.textureID));
-		mesh.customTextures.forEach((decalEntry) => add(decalEntry.textureKey));
+		mesh.detail.texture.custom.forEach((decalEntry) => add(decalEntry.textureKey));
 	});
 	return ids;
 }
@@ -690,13 +711,13 @@ function pushVertexPrimitive(writer, data, materialIndex) {
 
 // glTF requires JSON padded with spaces and binary padded with zeros.
 function writeGlbBinary(writer) {
-	const { nodes, meshes, materials, textures, samplers, images, accessors, bufferViews, binaryLength: byteLength } = writer;
+	const { nodes, meshes, materials, textures, samplers, images, accessors, bufferViews, binaryLength } = writer;
 	const json = JSON.stringify({
 		asset   : { version: "2.0", generator: "CarlNet Engine v1 - Sloppy Carl Games" },
 		scene   : 0,
 		scenes  : [{ nodes: nodes.map((_, index) => index) }],
 		nodes, meshes, materials, textures, samplers, images, accessors, bufferViews,
-		buffers : [{ byteLength }],
+		buffers : [{ byteLength: binaryLength }],
 	});
 
 	const jsonBytes  = new TextEncoder().encode(json);
@@ -712,11 +733,11 @@ function writeGlbBinary(writer) {
 	view.setUint32(4, 2, true);
 	view.setUint32(8, total, true);
 	view.setUint32(12, jsonPadded, true);
-	view.setUint32(16, glbJsonChunkType, true);
+	view.setUint32(16, glbJsonChunk, true);
 	bytes.fill(0x20, 20, binHeader);
 	bytes.set(jsonBytes, 20);
 	view.setUint32(binHeader, binaryLength, true);
-	view.setUint32(binHeader + 4, glbBinChunkType, true);
+	view.setUint32(binHeader + 4, glbBinChunk, true);
 	writer.binaryParts.forEach((part) => bytes.set(part.bytes, binHeader + 8 + part.byteOffset));
 
 	return buffer;
@@ -729,7 +750,7 @@ function triggerFileDownload(buffer, fileName) {
 	link.download = fileName;
 	link.click();
 
-	// The fetch runs on a queued task; the URL must outlive this one.
+	// Revoke the URL a task later, after the download has fetched it.
 	setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
@@ -768,7 +789,8 @@ async function Download() {
 		if (!baseMaterials.has(id)) baseMaterials.set(id, pushMaterial(writer, textures.get(id).index, textures.get(id).alphaMode, null));
 		return baseMaterials.get(id);
 	};
-	// Always BLEND (anti-aliased edges). Mutable decals bake colour-stripped, so tint here.
+
+	// Blend decals for soft edges, tinting mutable ones that bake without their color.
 	const decalMaterialFor = (id, decalEntry) => {
 		const tint = decalEntry.mutable === true ? decalEntry.texture.primary : null;
 		return pushMaterial(writer, textures.get(id).index, "BLEND", tint === null ? null : [tint.r, tint.g, tint.b, tint.a]);
@@ -776,7 +798,7 @@ async function Download() {
 
 	meshes.forEach((mesh) => {
 		const primitives = meshPrimitiveSpans(mesh).map((span) => pushVertexPrimitive(writer, buildMeshVertices(mesh, span), baseMaterialFor(span.textureID)));
-		mesh.customTextures.forEach((decalEntry, index) => primitives.push(pushVertexPrimitive(
+		mesh.detail.texture.custom.forEach((decalEntry, index) => primitives.push(pushVertexPrimitive(
 			writer,
 			buildDecalVertices(mesh, decalEntry, decalSurfaceOffset + index * decalLayerStep),
 			decalMaterialFor(decalEntry.textureKey, decalEntry)
@@ -810,8 +832,8 @@ function HandleSimulatorInput(event) {
 			? (simulatorRuntime.currentSetIdx + 1) % len
 			: (simulatorRuntime.currentSetIdx - 1 + len) % len;
 		simulatorRuntime.entity.action = "__sim-hold__";
-		simulatorRuntime.isHolding    = true;
-		simulatorRuntime.holdTimer    = 0.2;
+		simulatorRuntime.isHolding     = true;
+		simulatorRuntime.holdTimer     = 0.2;
 		return true;
 	}
 
@@ -822,8 +844,8 @@ function UpdateSimulator(deltaSeconds, sceneGraph) {
 	if (simulatorRuntime.isHolding) {
 		simulatorRuntime.holdTimer -= deltaSeconds;
 		if (simulatorRuntime.holdTimer <= 0) {
-			simulatorRuntime.isHolding    = false;
-			simulatorRuntime.holdTimer    = 0;
+			simulatorRuntime.isHolding     = false;
+			simulatorRuntime.holdTimer     = 0;
 			simulatorRuntime.entity.action = simulatorRuntime.animSetKeys[simulatorRuntime.currentSetIdx];
 		}
 	}

@@ -1,11 +1,12 @@
-// Handles character based movement values and applies them to inputs
+// Turns the player's input into velocity, leaving position to physics
 
-// Used by player/Master.js to process movement intent each frame.
-// Returns modified velocity. Does NOT modify position directly.
+// Used by player/Master.js to move the player each frame.
 
 import { CONFIG, GROUNDING, MOVEMENT_TUNING } from "../core/config.js";
-import { EPSILON } from "../core/meta.js";
+import { EPSILON, SendEvent } from "../core/meta.js";
 import {
+	AbsoluteVector3,
+	CloneVector3,
 	ResolveVector3Axis,
 	AddVector3,
 	SubtractVector3,
@@ -26,9 +27,11 @@ import { ComputeDeceleration, ComputeStepVelocity } from "../math/Forces.js";
 import { Unit } from "../math/Utilities.js";
 import { SetPlayerAction, ConsumeJumpPress } from "./Master.js";
 
+// Last solved launch speed, reused while its inputs match.
 const jumpVelocityCache = { jumpHeight: -1, medium: "", floatiness: -1, v0: 0 };
 
-function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
+// Find the launch speed that peaks at the jump height by simulating the climb.
+function solveJumpSpeed(jumpHeight, medium, floatiness) {
 	if (
 		jumpVelocityCache.jumpHeight === jumpHeight &&
 		jumpVelocityCache.medium === medium &&
@@ -37,11 +40,12 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
 		return jumpVelocityCache.v0;
 	}
 
-	const simDt = 1 / 240;
+	const simDt   = 1 / 240;
+	const buoyant = medium === "Water" && CONFIG.Physics.Buoyancy.Enabled !== false;
 	const simForces = {
 		gravity: true,
 		resistance: { submergence: medium === "Water" ? 1 : 0 },
-		...(medium === "Water" && CONFIG.Physics.Buoyancy.Enabled !== false ? { buoyancy: { position: { y: 0 }, waterLevel: 0, submergence: 1 } } : {}),
+		...(buoyant ? { buoyancy: { position: { y: 0 }, waterLevel: 0, submergence: 1 } } : {}),
 	};
 
 	const simApex = (v0) => {
@@ -55,8 +59,8 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
 		return y;
 	};
 
-	let lo = 0;
-	let hi = jumpHeight * 10 + 10;
+	// Binary search the launch speed that reaches the jump height.
+	let lo = 0, hi = jumpHeight * 10 + 10;
 	for (let i = 0; i < 64; i++) {
 		const mid = (lo + hi) * 0.5;
 		simApex(mid) < jumpHeight ? lo = mid : hi = mid;
@@ -64,18 +68,19 @@ function solveJumpLaunchVelocity(jumpHeight, medium, floatiness) {
 
 	const v0 = (lo + hi) * 0.5;
 	jumpVelocityCache.jumpHeight = jumpHeight;
-	jumpVelocityCache.medium = medium;
+	jumpVelocityCache.medium     = medium;
 	jumpVelocityCache.floatiness = floatiness;
-	jumpVelocityCache.v0 = v0;
+	jumpVelocityCache.v0         = v0;
 	return v0;
 }
 
 // Below this a projected tangent vector carries no usable heading.
 const minTangent = 0.05;
 
+// Actions that leave the ground without granting coyote time.
 const noCoyoteActions = new Set(["Jumping", "Flying", "Swimming"]);
 
-// Heading carried to the next surface; on walls it turns with the bend, staying level.
+// Carry a heading onto the next surface, turning it with the bend on walls to keep it level.
 function carryAcross(forward, from, to) {
 	const transported = TransportVector3(forward, from, to);
 
@@ -90,24 +95,16 @@ function carryAcross(forward, from, to) {
 	);
 }
 
-/**
- * Steers the carried tangent by camera yaw delta; reseeds from the camera on press, grounding change, upright, remap or collapse.
- * @param {object} frame — `playerState.inputFrame`.
- * @param {{ x, y, z }} cameraForward — camera forward; flattened to XZ only when seeding.
- * @param {Unit} cameraYaw — `atan2(x, z)` convention.
- * @param {{ x, y, z }} up — surface-aligned up.
- * @param {boolean} remap — held keys changed after a lock handed input back.
- * @returns {{ x: number, y: number, z: number }} — unit, in the surface plane.
- */
+// Steer the carried forward by the camera's turn, reseeding it from the camera when carrying breaks.
 function advanceCarriedForward(frame, cameraForward, cameraYaw, up, grounded, remap) {
 	// Carry unless upright or up flipped half a turn.
 	if (
 		!remap && frame.hadInput && grounded === frame.wasGrounded && 
 		up.y < 1 - EPSILON && DotVector3(frame.lastUp, up) > EPSILON - 1
 	) {
-		const raw      = cameraYaw.toRadians() - frame.lastCameraYaw.toRadians();
+		const raw = cameraYaw.toRadians() - frame.lastCameraYaw.toRadians();
 
-		// Transport keeps the heading's angle to the fold.
+		// Turn the carried heading by the camera's yaw change on the new surface.
 		const transported = ProjectOntoPlane(RotateByEuler(
 			carryAcross(frame.carriedForward, frame.lastUp, up),
 			{ x: 0, y: Math.atan2(Math.sin(raw), Math.cos(raw)), z: 0 }
@@ -115,52 +112,50 @@ function advanceCarriedForward(frame, cameraForward, cameraYaw, up, grounded, re
 		if (Vector3Length(transported) >= minTangent) return ResolveVector3Axis(transported);
 	}
 
-	// Seed: camera XZ on the surface, pulled uphill by incline and facing.
+	// Otherwise seed from the camera's flat forward, pulled uphill the more it faces into a slope.
 	const camFwd = ResolveVector3Axis({ x: cameraForward.x, y: 0, z: cameraForward.z });
 	return ResolveVector3Axis(AddVector3(ProjectOntoPlane(camFwd, up), ScaleVector3(
 		ProjectOntoPlane(WORLD_NORMALS.Up, up), (1 - Math.abs(up.y)) * -DotVector3(camFwd, up)
 	)));
 }
 
-// Camera forward on the surface plane; screen-up when the camera faces the surface.
+// Project the camera's forward onto the surface, using screen-up when the camera faces it.
 function viewForward(basis, up) {
 	const projected = ProjectOntoPlane(basis.forward, up);
 	return ResolveVector3Axis(Vector3Length(projected) >= minTangent ? projected : ProjectOntoPlane(basis.up, up));
 }
 
-// The last input forward, carried onto this surface; the facing where that collapses.
+// Carry the last input forward onto this surface, falling back to the facing.
 function heldForward(playerState, up) {
-	const frame = playerState.inputFrame;
-	const carried = DotVector3(frame.lastUp, up) > EPSILON - 1 ? ProjectOntoPlane(carryAcross(frame.carriedForward, frame.lastUp, up), up) : ToVector3(0);
+	const frame     = playerState.inputFrame;
+	const carryable = DotVector3(frame.lastUp, up) > EPSILON - 1;
+	const carried   = carryable ? ProjectOntoPlane(carryAcross(frame.carriedForward, frame.lastUp, up), up) : ToVector3(0);
 	return ResolveVector3Axis(Vector3Length(carried) >= minTangent ? carried : ProjectOntoPlane(playerState.facing, up));
 }
 
-// Travel `angle` off around the lock toward its axis; `sign` picks the way around.
+// Point travel `angle` from the loop's way around toward its axis, on the side `sign` picks.
 function lockedDirection(loop, sign, angle) {
 	const radians = angle.toRadians();
 	return AddVector3(ScaleVector3(loop.around, sign * Math.cos(radians)), ScaleVector3(loop.along, Math.sin(radians)));
 }
 
-// The lock's way around and angle to its axis, from `heading`.
+// Store the heading's side and angle to the loop axis on the lock.
 function holdHeading(frame, loop, heading) {
 	frame.lockSign = Math.sign(DotVector3(heading, loop.around)) || 1;
 	frame.lockAngle.value = Math.atan2(DotVector3(heading, loop.along), Math.abs(DotVector3(heading, loop.around)));
 }
 
-// Lock angle from the velocity, else the press as seen from the camera, else the facing.
+// Lock onto the loop, taking the angle from the velocity, else the press, else the facing.
 function lockLoop(playerState, input, loop, tVel, up, view) {
 	const frame = playerState.inputFrame;
 	const pressed = AddVector3(ScaleVector3(CrossVector3(view, up), input.right), ScaleVector3(ProjectOntoPlane(view, up), input.forward));
 	frame.locked = true;
 	frame.lockThrottle = 1;
-	holdHeading(frame, loop, Vector3Length(tVel) > minTangent ? tVel : Vector3Length(pressed) > EPSILON ? pressed : ProjectOntoPlane(playerState.facing, up));
+	const heading = Vector3Length(tVel) > minTangent ? tVel : Vector3Length(pressed) > EPSILON ? pressed : ProjectOntoPlane(playerState.facing, up);
+	holdHeading(frame, loop, heading);
 }
 
-/**
- * Movement direction from the input forward, carried or from the view.
- * @param {{ forward: number, right: number }} input — normalized -1..1 analog axes.
- * @returns {{ forward, right, direction }} — the input basis and the steered direction, all in the surface plane.
- */
+// Build the input basis on the surface and steer the movement direction from it.
 function getMovementDirection(playerState, input, forward, up) {
 	playerState.inputFrame.carriedForward = forward;
 
@@ -172,23 +167,20 @@ function getMovementDirection(playerState, input, forward, up) {
 	)) };
 }
 
-function getPrimaryOppositeHeld(input, velocityDirection, basis) {
+// Check whether the player is holding against the direction they're mostly moving in, enough to brake.
+function oppositeHeld(input, velocityDirection, basis) {
 	const forwardComponent = DotVector3(velocityDirection, basis.forward);
 	const rightComponent = DotVector3(velocityDirection, basis.right);
-	
+
 	const opposite = MOVEMENT_TUNING.OppositeInput;
 	return Math.abs(forwardComponent) >= Math.abs(rightComponent)
 		? forwardComponent >= 0 ? input.forward < -opposite.Forward : input.forward > opposite.Forward
 		: rightComponent   >= 0 ? input.right   < -opposite.Left    : input.right   > opposite.Right;
 }
 
-/**
- * Rate-limit the world-space heading toward `target` within the surface plane.
- * @param {{ x, y, z }} target — unit travel direction, already in the plane of `up`.
- * @param {Unit} maxStep — this frame's turn limit.
- */
+// Turn the facing toward the target by at most this frame's limit.
 function turnFacingToward(playerState, target, maxStep) {
-	const planar = ProjectOntoPlane(playerState.facing, playerState.alignedUp);
+	const planar = ProjectOntoPlane(playerState.facing, playerState.physics.correction.alignedUp);
 
 	// Facing collapsed onto the new normal — no angle left to limit against.
 	if (Vector3Length(planar) < minTangent) {
@@ -204,10 +196,8 @@ const applyAcceleration = (vel, dir, acc, dt) => AddVector3(vel, ScaleVector3(di
 
 /**
  * Update player velocity based on input, character stats, and movement context.
- * Does NOT modify position. Position is applied later after physics.
- *
  * @param {object} playerState — full mutable player state.
- * @param {object} input — { forward, right, jump, boost }
+ * @param {object} input — { forward, right, jump }
  * @param {object} modeData — `cameraState.modeData`; `control` picks how input executes: "carried", "free" or "loopLock".
  * @param {number} deltaSeconds
  */
@@ -216,26 +206,31 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 
 	// Air control modifier.
 	let controlMultiplier = 1;
-	if (!playerState.grounded) controlMultiplier = playerState.medium === "Water" ? meta.underwaterAirControl : meta.airControl;
+	if (!playerState.physics.grounded) controlMultiplier = playerState.physics.medium === "Water" ? meta.underwaterAirControl : meta.airControl;
 
-	const onSlidingSurface = playerState.surfaceContact === "sliding";
-	const up = playerState.alignedUp;
+	const onSlidingSurface = playerState.physics.correction.surfaceContact === "sliding";
+	const up = playerState.physics.correction.alignedUp;
 
-	// cos(incline), floored: a wall must still brake, an overhang must not accelerate.
+	// Floor the surface support to keep walls braking and overhangs from speeding up.
 	const support = Math.max(Math.abs(up.y), MOVEMENT_TUNING.MinSupport);
-	
+
 	// Unpowered deceleration, scaled by surface support and air control.
 	const friction = meta.deceleration.value * support * controlMultiplier;
 
 	// Slow coasting while grounded.
-	const coastFriction = playerState.grounded ? friction : 0;
+	const coastFriction = playerState.physics.grounded ? friction : 0;
 
 	// Resolve effective stats.
-	const maxSpeed = meta.maxSpeed.value     * (playerState.boost.active ? playerState.boost.maxSpeedMultiplier : 1);
-	const accel    = meta.acceleration.value * (playerState.boost.active ? playerState.boost.accelMultiplier    : 1);
+	const maxSpeed = meta.maxSpeed.value;
+	const accel    = meta.acceleration.value;
 	const stoppingThreshold = maxSpeed * meta.stoppingThresholdRatio;
+
 	// Uphill input damped on a slide.
-	const inputAcceleration = (direction) => accel * controlMultiplier * (onSlidingSurface && DotVector3(direction, ProjectOntoPlane(WORLD_NORMALS.Down, up)) < 0 ? MOVEMENT_TUNING.SlideUphillScale : 1);
+	const downhill = ProjectOntoPlane(WORLD_NORMALS.Down, up);
+	const inputAcceleration = (direction) => {
+		const uphill = onSlidingSurface && DotVector3(direction, downhill) < 0;
+		return accel * controlMultiplier * (uphill ? MOVEMENT_TUNING.SlideUphillScale : 1);
+	};
 
 	// Normal/tangent split — movement acts on the tangent.
 	const normalVelocity = ScaleVector3(up, DotVector3(playerState.velocity, up));
@@ -249,6 +244,7 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 
 	// Held keys keep their meaning until they change.
 	const keysChanged = Math.sign(input.forward) !== frame.lastKeys.forward || Math.sign(input.right) !== frame.lastKeys.right;
+
 	// Remap pending after a lock.
 	if (carried) frame.remapPending = frame.remapPending || frame.lastControl === "loopLock";
 	const remap = carried && frame.remapPending && keysChanged;
@@ -257,8 +253,10 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	// No turn on carried control's first frame.
 	if (carried && frame.lastControl !== "carried") frame.lastCameraYaw.value = modeData.yaw.toRadians();
 
-	// Held keys carry into a lock; a fresh press locks inside, frees outside.
-	const loop = inLoop ? { around: ResolveVector3Axis(CrossVector3(modeData.axis, up)), along: ResolveVector3Axis(ProjectOntoPlane(modeData.axis, up)) } : null;
+	// Keep held keys going into a lock. A fresh press locks inside a loop and frees outside it.
+	const loop = inLoop
+		? { around: ResolveVector3Axis(CrossVector3(modeData.axis, up)), along: ResolveVector3Axis(ProjectOntoPlane(modeData.axis, up)) }
+		: null;
 	if (enteredLoop) frame.holding = hasInput && !frame.locked;
 	if (keysChanged) frame.holding = false;
 	if (inLoop && (keysChanged || (enteredLoop && frame.locked))) lockLoop(playerState, input, loop, tVel, up, modeData.view);
@@ -273,7 +271,8 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 		}
 		if (input.right !== 0 && frame.lockThrottle > 0) tVel = applyAcceleration(tVel, direction, inputAcceleration(direction), deltaSeconds);
 		else if (input.right !== 0) {
-			tVel = ComputeDeceleration(tVel, (meta.deceleration.value + inputAcceleration(direction) * MOVEMENT_TUNING.ReversalBrakeScale) * support, deltaSeconds);
+			const brake = (meta.deceleration.value + inputAcceleration(direction) * MOVEMENT_TUNING.ReversalBrakeScale) * support;
+			tVel = ComputeDeceleration(tVel, brake, deltaSeconds);
 		}
 		else if (!inLoop) tVel = ComputeDeceleration(tVel, coastFriction, deltaSeconds);
 
@@ -284,45 +283,50 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 			tVel = applyAcceleration(tVel, lateral, inputAcceleration(lateral), deltaSeconds);
 			if (Vector3Length(tVel) > minTangent) holdHeading(frame, loop, tVel);
 		}
+
 		// Velocity held at the lock's angle, keeping its speed and way around.
-		if (inLoop) tVel = ScaleVector3(lockedDirection(loop, Math.sign(DotVector3(tVel, loop.around)) || frame.lockSign, frame.lockAngle), Vector3Length(tVel));
-		playerState.stoppingActive = false;
-		playerState.primaryOppositeHeld = false;
+		if (inLoop) {
+			const way = Math.sign(DotVector3(tVel, loop.around)) || frame.lockSign;
+			tVel = ScaleVector3(lockedDirection(loop, way, frame.lockAngle), Vector3Length(tVel));
+		}
+		playerState.movement.braking.active = false;
+		playerState.movement.braking.input  = false;
 	}
 	else {
 		const inputForward = !hasInput ? null : frame.holding ? heldForward(playerState, up) : carried 
-				? advanceCarriedForward(frame, modeData.basis.forward, modeData.yaw, up, playerState.grounded, remap)
+				? advanceCarriedForward(frame, modeData.basis.forward, modeData.yaw, up, playerState.physics.grounded, remap)
 				: viewForward(modeData.basis, up);
 		const basis = hasInput ? getMovementDirection(playerState, input, inputForward, up) : null;
 
-		// Detects the player pressing against their direction of travel to brake.
+		// Detect the player pressing against their direction of travel to brake.
 		const velocityDirection = currentSpeed > 0.001 ? ResolveVector3Axis(tVel) : ToVector3(0);
 		const canReverse        = hasInput && currentSpeed > 0.001;
-		
-		// Back with a turn carves on acceleration alone; no braking.
+
+		// Carve on acceleration alone when backing with a turn, without braking.
 		const tangentDirection    = hasInput ? basis.direction : ToVector3(0);
 		const carving             = input.forward < 0 && input.right !== 0;
 		const reverseIntent       = canReverse && !carving && DotVector3(velocityDirection, tangentDirection) < 0;
-		const primaryOppositeHeld = canReverse && getPrimaryOppositeHeld(input, velocityDirection, basis);
+		const primaryOppositeHeld = canReverse && oppositeHeld(input, velocityDirection, basis);
 
-		playerState.stoppingActive =
-			(playerState.grounded && reverseIntent && primaryOppositeHeld && currentSpeed > stoppingThreshold) ||
+		playerState.movement.braking.active =
+			(playerState.physics.grounded && reverseIntent && primaryOppositeHeld && currentSpeed > stoppingThreshold) ||
 			(
 				!carving &&
-				playerState.stoppingActive &&
-				playerState.grounded &&
+				playerState.movement.braking.active &&
+				playerState.physics.grounded &&
 				hasInput &&
 				primaryOppositeHeld &&
 				currentSpeed > 0.15 &&
 				DotVector3(velocityDirection, tangentDirection) < 0.25
 			);
-		playerState.primaryOppositeHeld = primaryOppositeHeld;
+		playerState.movement.braking.input = primaryOppositeHeld;
 
 		if (hasInput) {
 			const effectiveAcceleration = inputAcceleration(tangentDirection);
-			if (playerState.grounded && reverseIntent) {
-				tVel = ComputeDeceleration(tVel, (meta.deceleration.value + (effectiveAcceleration * MOVEMENT_TUNING.ReversalBrakeScale)) * support, deltaSeconds);
-				if (Vector3Length(tVel) <= stoppingThreshold || !playerState.stoppingActive) {
+			if (playerState.physics.grounded && reverseIntent) {
+				const brake = (meta.deceleration.value + (effectiveAcceleration * MOVEMENT_TUNING.ReversalBrakeScale)) * support;
+				tVel = ComputeDeceleration(tVel, brake, deltaSeconds);
+				if (Vector3Length(tVel) <= stoppingThreshold || !playerState.movement.braking.active) {
 					tVel = applyAcceleration(tVel, tangentDirection, effectiveAcceleration, deltaSeconds);
 				}
 			}
@@ -330,23 +334,24 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 		}
 		else {
 			tVel = ComputeDeceleration(tVel, coastFriction, deltaSeconds);
-			playerState.stoppingActive = false;
-			playerState.primaryOppositeHeld = false;
+			playerState.movement.braking.active = false;
+			playerState.movement.braking.input  = false;
 		}
 	}
 
 	// Coasting a lock weakens gravity and drops drag. Letting go of a rising jump ramps gravity up, then back down.
 	const { ReleaseGravity, ReleaseRampMs } = MOVEMENT_TUNING;
-	const coasting = inLoop && frame.locked && input.right === 0;
+	const slopes = playerState.physics.slopes;
+	slopes.isInLoop   = inLoop;
+	slopes.isCoasting = inLoop && frame.locked && input.right === 0;
 	const rampStep = (ReleaseGravity - 1) * deltaSeconds * 1000 / ReleaseRampMs;
-	const rampedGravity = playerState.launched && playerState.action !== "Stunned" && playerState.velocity.y > 0 && !input.jump
-		? Math.min(ReleaseGravity, Math.max(playerState.gravityScale, 1) + rampStep)
-		: Math.max(1, playerState.gravityScale - rampStep);
-	playerState.gravityScale = coasting ? modeData.coastGravityScale : playerState.grounded ? 1 : rampedGravity;
-	playerState.dragFree = coasting;
+	const rampedGravity = playerState.physics.launched && playerState.action !== "Stunned" && playerState.velocity.y > 0 && !input.jump
+		? Math.min(ReleaseGravity, Math.max(slopes.gravityScale, 1) + rampStep)
+		: Math.max(1, slopes.gravityScale - rampStep);
+	slopes.gravityScale = slopes.isCoasting ? modeData.coastGravityScale : playerState.physics.grounded ? 1 : rampedGravity;
 
 	// Idle on walkable footing, friction holds the slope's pull.
-	playerState.staticFriction = !hasInput && !inLoop && playerState.surfaceContact === "walkable" ? friction : 0;
+	slopes.staticFriction = !hasInput && !inLoop && playerState.physics.correction.surfaceContact === "walkable" ? friction : 0;
 
 	// Clamp tangent speed.
 	tVel = ClampVelocity(tVel, maxSpeed);
@@ -355,34 +360,48 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 	playerState.velocity.set(AddVector3(normalVelocity, tVel));
 
 	// === JUMP ===
-	const jumpWindow = playerState.jumpWindow;
-	ConsumeJumpPress() ? jumpWindow.buffer = GROUNDING.JumpBufferMs / 1000 : jumpWindow.buffer -= deltaSeconds;
+	const jump = playerState.movement.jump;
 
-	if (playerState.inputFrame.wasGrounded && !playerState.grounded && !noCoyoteActions.has(playerState.action)) {
+	// A running jump ends on the first surface it touches once the launch is spent.
+	if (jump.airTime > 0) {
+		if (playerState.physics.correction.surfaceContact !== "none" && !playerState.physics.launched) EndJump(playerState);
+		else {
+			jump.airTime += deltaSeconds;
+			jump.apexY.math(Math.max, playerState.transform.position.y);
+		}
+	}
+
+	const jumpWindow = jump.window;
+	jumpWindow.buffer = ConsumeJumpPress() ? GROUNDING.JumpBufferMs / 1000 : Math.max(0, jumpWindow.buffer - deltaSeconds);
+
+	if (playerState.inputFrame.wasGrounded && !playerState.physics.grounded && !noCoyoteActions.has(playerState.action)) {
 		jumpWindow.coyote = GROUNDING.CoyoteMs / 1000;
 	}
-	else jumpWindow.coyote -= deltaSeconds;
+	else jumpWindow.coyote = Math.max(0, jumpWindow.coyote - deltaSeconds);
 
 	if (
 		jumpWindow.buffer > 0 &&
-		(playerState.grounded || onSlidingSurface || jumpWindow.coyote > 0) &&
+		(playerState.physics.grounded || onSlidingSurface || jumpWindow.coyote > 0) &&
 		playerState.action !== "Stunned" && playerState.action !== "Dead"
 	) {
 		jumpWindow.buffer = 0;
 		jumpWindow.coyote = 0;
 
-		// Launch along the surface normal; halved on a slide.
-		const launchSpeed = solveJumpLaunchVelocity(
+		// Launch along the surface normal, at half speed on a slide.
+		const launchSpeed = solveJumpSpeed(
 			meta.jumpHeight.value,
-			playerState.medium,
-			playerState.medium === "Water" ? meta.waterFloatiness : meta.airFloatiness
+			playerState.physics.medium,
+			playerState.physics.medium === "Water" ? meta.waterFloatiness : meta.airFloatiness
 		) * (onSlidingSurface ? 0.5 : 1);
 		playerState.velocity.set(AddVector3(tVel, ScaleVector3(up, launchSpeed)));
-		playerState.launched = true;
+		playerState.physics.launched = true;
 
-		// Player jump Y values are Unit instances—mutate their `.value`.
-		playerState.jumpStartY.value = playerState.transform.position.y;
-		playerState.jumpApexY.value  = playerState.transform.position.y;
+		// Hold the takeoff point in distance until the landing, and count this step as the first in the air.
+		jump.startY.value = playerState.transform.position.y;
+		jump.apexY.value  = playerState.transform.position.y;
+		jump.distance.set(playerState.transform.position);
+		jump.airTime = deltaSeconds;
+		sendJumpEvent(playerState, "PLAYER_JUMP_START", { startY: jump.startY.value });
 		SetPlayerAction("Jumping");
 	}
 
@@ -393,13 +412,46 @@ function UpdateMovement(playerState, input, modeData, deltaSeconds) {
 
 	if (carried) frame.lastCameraYaw.value = modeData.yaw.toRadians();
 	frame.hadInput         = hasInput;
-	frame.wasGrounded      = playerState.grounded;
+	frame.wasGrounded      = playerState.physics.grounded;
 	frame.lastUp           = up;
 	frame.lastControl      = modeData.control;
 	frame.lastKeys.forward = Math.sign(input.forward);
 	frame.lastKeys.right   = Math.sign(input.right);
 }
 
+/* === JUMP EVENTS === */
+
+// Tell the game a jump started or ended.
+function sendJumpEvent(playerState, name, detail) {
+	if (!playerState.customEvents.jump || !CONFIG.CustomEvents.Entities.Jump) return;
+	SendEvent(name, {
+		id      : playerState.id,
+		type    : playerState.type,
+		position: CloneVector3(playerState.transform.position),
+		velocity: CloneVector3(playerState.velocity),
+		...detail,
+	});
+}
+
+// End the running jump and report its takeoff-to-landing gap to the game.
+function EndJump(playerState) {
+	const jump = playerState.movement.jump;
+
+	// Skip when no jump is running.
+	if (jump.airTime === 0) return;
+
+	const position = playerState.transform.position;
+	jump.distance.set(AbsoluteVector3(SubtractVector3(jump.distance, position)));
+	sendJumpEvent(playerState, "PLAYER_JUMP_END", {
+		startY  : jump.startY.value,
+		apexY   : jump.apexY.value,
+		endY    : position.y,
+		distance: CloneVector3(jump.distance),
+		airTime : jump.airTime,
+	});
+	jump.airTime = 0;
+}
+
 /* === EXPORTS === */
 
-export { UpdateMovement };
+export { UpdateMovement, EndJump };

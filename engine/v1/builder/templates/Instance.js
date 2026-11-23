@@ -8,6 +8,7 @@
 
 import playerData from "../../player/characters.json" with { type: "json" };
 import texturesImport from "./textures.json" with { type: "json" };
+import scatterImport from "./scatter.json" with { type: "json" };
 import terrainImport from "./terrain.json" with { type: "json" };
 import obstacleImport from "./obstacles.json" with { type: "json" };
 import characterImport from "./characters.json" with { type: "json" };
@@ -78,8 +79,8 @@ function instanceCharacterTemplates() {
 
 // Instance scatter part transforms and decals.
 function instanceScatterTemplates() {
-	for (const key in texturesImport.scatterTypes) {
-		texturesImport.scatterTypes[key].parts.forEach((part) => {
+	for (const key in scatterImport) {
+		scatterImport[key].parts.forEach((part) => {
 			part.dimensions    = toUnitVector3(part.dimensions,    "cnu");
 			part.localPosition = toUnitVector3(part.localPosition, "cnu");
 			part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
@@ -113,8 +114,8 @@ function instanceEntityTemplates() {
 			movement.start = toUnitVector3(movement.start, "cnu");
 			movement.end   = toUnitVector3(movement.end,   "cnu");
 			movement.speed = new Unit(movement.speed, "cnu");            // Per second
-			movement.jump  = new Unit(movement.jump,  "cnu");
 			template.velocity = toUnitVector3(template.velocity, "cnu"); // Per second
+			if (template.type === "enemy") template.meta.aggroRange = new Unit(template.meta.aggroRange, "cnu");
 
 			const rootTransform = template.model.rootTransform;
 			rootTransform.position = toUnitVector3(rootTransform.position, "cnu");
@@ -163,7 +164,7 @@ function loadTemplateDecalBitmaps() {
 		for (const templateId in collection) collection[templateId].parts.forEach(addPart);
 	});
 	for (const templateId in particleImport) addPart(particleImport[templateId].part);
-	for (const key in texturesImport.scatterTypes) texturesImport.scatterTypes[key].parts.forEach((part) => textures.add(part.texture));
+	for (const key in scatterImport) scatterImport[key].parts.forEach((part) => textures.add(part.texture));
 
 	// Load the bitmap of every image decal and sprite image.
 	const loadBitmap = (owner, path, folder) => NormalizeImage(new URL(path, folder).href, owner.sourceType, "webgl").then((result) => {
@@ -190,7 +191,7 @@ function InstanceEngineTemplates() {
 		Enemies         : structuredClone(enemyImport),
 		Projectiles     : structuredClone(projectileImport),
 		Particles       : structuredClone(particleImport),
-		Scatter         : structuredClone(texturesImport.scatterTypes),
+		Scatter         : structuredClone(scatterImport),
 	};
 
 	// Canonicalize all engine-owned data.
@@ -210,7 +211,7 @@ function InstanceEngineTemplates() {
 		Enemies         : enemyImport,
 		Projectiles     : projectileImport,
 		Particles       : particleImport,
-		Scatter         : texturesImport.scatterTypes,
+		Scatter         : scatterImport,
 	};
 
 	return { raw, instanced };
@@ -221,8 +222,8 @@ function InstanceEngineTemplates() {
 // Engine collections each game collection registers into. 
 // Note: npcs fill both characters and enemies.
 const gameTemplateTargets = {
-	textures        : [texturesImport.textures],
-	scatter         : [texturesImport.scatterTypes],
+	textures        : [texturesImport],
+	scatter         : [scatterImport],
 	particles       : [particleImport],
 	terrain         : [terrainImport],
 	obstacles       : [obstacleImport],

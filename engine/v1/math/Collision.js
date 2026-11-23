@@ -1,12 +1,13 @@
 // Collision math: contacts between shapes, overlap and inside tests, rays and sweeps.
 
 // Used by physics/Collision.js to detect contacts and test voids.
+// Used by physics/Master.js to wake a resting entity when a mover touches it.
 // Used by camera/Master.js to raycast for camera blockers.
 // Used by handlers/Render.js to cull boxes outside the view.
 // Used by handlers/game/Collectible.js to detect pickups.
 // Used by builder/subProcesses/Chunks.js to join touching surfaces into chunks.
 // Used by builder/NewVoid.js to cut voids out of host meshes and grid their linings.
-// Used by builder/NewObject.js and builder/NewObstacle.js to grid triangle-soup collision.
+// Used by builder/NewObject.js to grid triangle-soup collision.
 // Uses math/Vector3.js for vector operations.
 // Uses math/Geometry.js for box measures, triangle boxes and closest points.
 
@@ -264,10 +265,12 @@ function sphereTriangleContact(center, radius, triangle) {
 
 // Box around a shape's path (grown by it's radius). 
 // Note: Triangles outside it can't be touched.
-const SegmentQueryBox = (start, end, radius) => ({
-	min: SubtractVector3(MinVector3(start, end), ToVector3(radius)),
-	max: AddVector3(MaxVector3(start, end), ToVector3(radius)),
-});
+function SegmentQueryBox(start, end, radius) {
+	return {
+		min: SubtractVector3(MinVector3(start, end), ToVector3(radius)),
+		max: AddVector3(MaxVector3(start, end), ToVector3(radius)),
+	};
+}
 
 const sphereQueryBox  = (center, radius) => SegmentQueryBox(center, center, radius.value);
 const capsuleQueryBox = (capsule) => SegmentQueryBox(capsule.segmentStart, capsule.segmentEnd, capsule.radius.value);

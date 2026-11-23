@@ -2,8 +2,11 @@
 // Physics layer resolves geometry (swept detection + slide).
 // Hurtbox/Hitbox layers resolve combat overlaps (static tests, no geometry resolution).
 
-// Used by physics/Master.js; by handlers/game/Performance.js to gather each entity's candidates; by handlers/game/Enemy.js for combat.
-// Used by camera/Master.js and builder/subProcesses/Chunks.js for candidates and void suppression.
+// Used by physics/Master.js to run the collision stage.
+// Used by handlers/game/Performance.js to gather each entity's candidates.
+// Used by handlers/game/Enemy.js to detect combat overlaps.
+// Used by camera/Master.js to gather camera blockers and check them against voids.
+// Used by builder/subProcesses/Chunks.js to leave out triangles inside voids.
 
 import { CONFIG } from "../core/config.js";
 import { EPSILON } from "../core/meta.js";
@@ -123,9 +126,8 @@ function readReusableActiveCollisionPair(entity, candidate) {
 	const entry = pairs.get(buildActivePairKey(candidate));
 	if (!entry) return null;
 
-	const positionDelta = Math.abs(entity.transform.position[entry.dominantAxis] - entry.positionAxisValue);
-	const rotationDelta = Math.abs(entity.transform.rotation[entry.dominantAxis] - entry.rotationAxisValue);
-	if (positionDelta <= EPSILON && rotationDelta <= EPSILON) return entry;
+	const delta = (t) => Math.abs(entity.transform[t][entry.dominantAxis] - entry[`${t}AxisValue`]);
+	if (delta("position") <= EPSILON && delta("rotation") <= EPSILON) return entry;
 
 	pairs.delete(buildActivePairKey(candidate));
 	return null;
@@ -145,11 +147,8 @@ function buildContactFromCachedPair(entry) {
  * ======================================================================== */
 
 // Read an entity candidate's current bounds. World candidates carry their own.
-const candidateAabb   = (candidate) => candidate.type === "entity" ? candidate.ref.collision.aabb : candidate.aabb;
-const candidateBounds = (candidate) => candidate.type === "entity" ? candidate.ref.collision.physics.bounds : candidate.detailedBounds;
-
-// Terrain keeps its flags on the mesh meta, obstacles on the record.
-const surfaceFlags = (source, isTerrain) => isTerrain ? source.meta : source;
+const candidateAabb   = (candidate) => candidate.type === "entity" ? candidate.ref.physics.collision.aabb : candidate.aabb;
+const candidateBounds = (candidate) => candidate.type === "entity" ? candidate.ref.physics.collision.physics.bounds : candidate.detailedBounds;
 
 // The voids that carve terrain, or the ones that carve obstacles.
 const HostVoids = (sceneGraph, isTerrain) => isTerrain ? sceneGraph.voids.terrain : sceneGraph.voids.obstacles;
@@ -172,7 +171,8 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 
 	// Add a terrain/obstacle mesh as a solid candidate.
 	function pushSolid({ ref, type, rank, seq }) {
-		const { id, worldAabb: aabb, detailedBounds } = ref;
+		const { aabb, detailedBounds } = ref.physics.collision;
+		const id = ref.id;
 		candidates.push({ id, pairId: id, aabb, detailedBounds, isTrigger: false, type, ref, rank, seq });
 	}
 
@@ -199,29 +199,31 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 	}
 
 	// Collect the terrain, obstacles and void linings within the sim radius.
-	for (const chunk of sceneGraph.chunks) {
+	for (const chunk of sceneGraph.collision.chunks) {
 		if (!withinSimRadius(chunk.worldAabb)) continue;
 		for (const member of chunk.members) {
 			if (!withinSimRadius(member.aabb)) continue;
 
-			// collisionShape "none" means no bounds and are skipped.
-			if (member.ref.detailedBounds !== null && withinSimRadius(member.ref.worldAabb)) pushSolid(member);
+			// Skip surfaces without a collision shape.
+			const { aabb, detailedBounds } = member.ref.physics.collision;
+			if (detailedBounds !== null && withinSimRadius(aabb)) pushSolid(member);
 
 			for (const lining of member.linings) if (withinSimRadius(lining.voidWall.worldAabb)) pushLining(lining);
 		}
 	}
 
-	// Restore the authored orde.
+	// Restore the authored order.
 	candidates.sort((a, b) => a.rank - b.rank || a.seq - b.seq);
 
 	// Triggers (player exclusive).
 	if (includeTriggers) {
 		sceneGraph.triggers.forEach(trig => {
-			if (!withinSimRadius(trig.worldAabb)) return;
+			const aabb = trig.physics.collision.aabb;
+			if (!withinSimRadius(aabb)) return;
 			candidates.push({
 				id       : trig.id,
 				pairId   : trig.id,
-				aabb     : trig.worldAabb,
+				aabb,
 				isTrigger: true,
 				type     : "trigger",
 				trigger  : trig.meta.trigger,
@@ -233,8 +235,8 @@ function BroadphaseCollectCandidates(sceneGraph, simRadiusAabb, includeTriggers,
 	// Add solid entities. Skip particles and entities without collision.
 	if (includeEntities) {
 		sceneGraph.entities.forEach(ent => {
-			if (ent.type === "player" || ent.type === "particle" || ent.collision === null || !ent.collision.physics.bounds) return;
-			if (!withinSimRadius(ent.collision.aabb)) return;
+			if (ent.type === "player" || ent.type === "particle" || ent.physics.collision === null || !ent.physics.collision.physics.bounds) return;
+			if (!withinSimRadius(ent.physics.collision.aabb)) return;
 			candidates.push({ id: ent.id, pairId: ent.id, isTrigger: false, type: "entity", ref: ent });
 		});
 	}
@@ -254,14 +256,13 @@ function expandAabbY(aabb, epsilon) {
 function isVoidCancelled(candidate, sceneGraph, bodyAabb, bodyBounds, contact) {
 	if (candidate.type !== "terrain" && candidate.type !== "obstacle") return false;
 
-	const isTerrain = candidate.type === "terrain";
-	const flags = surfaceFlags(candidate.ref, isTerrain);
-	if (flags.mode === "invisible") return false;
-	if (flags.nullable === false)   return false;
+	const { mode, nullable } = candidate.ref.meta;
+	if (mode === "invisible" || nullable === false) return false;
 
-	for (const ns of HostVoids(sceneGraph, isTerrain)) {
-		if (ns.relations[candidate.ref.id]?.suppressed !== true) continue;
-		if (!AabbOverlap(bodyAabb, expandAabbY(ns.worldAabb, voidBoundaryEpsilon.value), true)) continue;
+	for (const ns of HostVoids(sceneGraph, candidate.type === "terrain")) {
+		if (!Object.hasOwn(ns.relations, candidate.ref.id)) continue;
+		const { aabb, detailedBounds } = ns.physics.collision;
+		if (!AabbOverlap(bodyAabb, expandAabbY(aabb, voidBoundaryEpsilon.value), true)) continue;
 
 		// Center inside the cavity cancels the host outright.
 		if (PointInsideGrid(AabbCenter(bodyAabb), ns.solidGrid)) return true;
@@ -272,7 +273,7 @@ function isVoidCancelled(candidate, sceneGraph, bodyAabb, bodyBounds, contact) {
 			continue;
 		}
 
-		if (ns.detailedBounds && NarrowphaseContact(bodyBounds, ns.detailedBounds).hit) return true;
+		if (detailedBounds && NarrowphaseContact(bodyBounds, detailedBounds).hit) return true;
 	}
 
 	return false;
@@ -280,9 +281,10 @@ function isVoidCancelled(candidate, sceneGraph, bodyAabb, bodyBounds, contact) {
 
 function IsCutByVoid(supportPt, candidateId, voids) {
 	for (const ns of voids) {
-		if (ns.relations[candidateId]?.suppressed !== true) continue;
-		if (!AabbOverlap({ min: supportPt, max: supportPt }, expandAabbY(ns.worldAabb, voidBoundaryEpsilon.value))) continue;
-		if (NarrowphaseContact({ type: "sphere", center: supportPt, radius: groundProbeRadius }, ns.detailedBounds).hit) return true;
+		if (!Object.hasOwn(ns.relations, candidateId)) continue;
+		const { aabb, detailedBounds } = ns.physics.collision;
+		if (!AabbOverlap({ min: supportPt, max: supportPt }, expandAabbY(aabb, voidBoundaryEpsilon.value))) continue;
+		if (NarrowphaseContact({ type: "sphere", center: supportPt, radius: groundProbeRadius }, detailedBounds).hit) return true;
 		if (PointInsideGrid(supportPt, ns.solidGrid)) return true;
 	}
 	return false;
@@ -309,8 +311,6 @@ function collectTrigger(candidate) {
 	item.type    = "trigger";
 }
 
-const GetEntityPhysicsFlags = (e) => e.type === "player" ? e.character.physics : e.movement.physics;
-
 /* ========================================================================
  * LAYER 1: PHYSICS COLLISION DETECTION
  * ======================================================================== */
@@ -326,16 +326,16 @@ const GetEntityPhysicsFlags = (e) => e.type === "player" ? e.character.physics :
 function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 	// For sphere swept: get radius from physics bounds.
 	let sphereCenter = null, sphereRadius = 0;
-	if (entity.collision.physics.shape === "sphere") {
-		sphereCenter = entity.collision.physics.bounds.center;
-		sphereRadius = entity.collision.physics.bounds.radius.value;
+	if (entity.physics.collision.physics.shape === "sphere") {
+		sphereCenter = entity.physics.collision.physics.bounds.center;
+		sphereRadius = entity.physics.collision.physics.bounds.radius.value;
 	}
 
 	// Trace the body's path when moving fast, to prevent phasing through triangle-soup surfaces.
-	const bodyHalf       = AabbHalfExtents(entity.collision.aabb);
+	const bodyHalf       = AabbHalfExtents(entity.physics.collision.aabb);
 	const reach          = Math.min(bodyHalf.x, bodyHalf.y, bodyHalf.z);
 	const moveLength     = Math.sqrt(Vector3Sq(displacement));
-	const bodyCenter     = AabbCenter(entity.collision.aabb);
+	const bodyCenter     = AabbCenter(entity.physics.collision.aabb);
 	const traceDirection = moveLength > reach ? ScaleVector3(displacement, 1 / moveLength) : null;
 	const tracePath      = SegmentQueryBox(bodyCenter, AddVector3(bodyCenter, displacement), 0);
 
@@ -344,8 +344,11 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 	function bodyAtEnd() {
 		if (endBody === null) {
 			endBody = {
-				aabb  : { min: AddVector3(entity.collision.aabb.min, displacement), max: AddVector3(entity.collision.aabb.max, displacement) },
-				bounds: OffsetDetailedBounds(entity.collision.physics.bounds, displacement),
+				aabb  : { 
+					min: AddVector3(entity.physics.collision.aabb.min, displacement), 
+					max: AddVector3(entity.physics.collision.aabb.max, displacement) 
+				},
+				bounds: OffsetDetailedBounds(entity.physics.collision.physics.bounds, displacement),
 			};
 		}
 		return endBody;
@@ -358,15 +361,14 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 		if (candidate.type === "entity" && candidate.ref === entity) continue;
 
 		if (candidate.isTrigger) {
-			if (AabbOverlap(entity.collision.aabb, candidate.aabb)) collectTrigger(candidate);
+			if (AabbOverlap(entity.physics.collision.aabb, candidate.aabb)) collectTrigger(candidate);
 			continue;
 		}
 
-		const aabb = candidateAabb(candidate);
-		const detailedBounds = candidateBounds(candidate);
+		const aabb = candidateAabb(candidate), detailedBounds = candidateBounds(candidate);
 
 		// Swept test.
-		const swept = entity.collision.physics.shape === "sphere"
+		const swept = entity.physics.collision.physics.shape === "sphere"
 			? SweptSphereBounds(sphereCenter, displacement, sphereRadius, detailedBounds, aabb)
 			: SweptAABB(bodyCenter, displacement, bodyHalf, aabb);
 
@@ -395,7 +397,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 			if (entity.type === "player") {
 				const end   = bodyAtEnd();
 				let contact = NarrowphaseContact(end.bounds, detailedBounds);
-				if (!contact.hit) contact = NarrowphaseContact(OffsetDetailedBounds(entity.collision.physics.bounds, ScaleVector3(displacement, swept.tEntry)), detailedBounds);
+				if (!contact.hit) contact = NarrowphaseContact(OffsetDetailedBounds(entity.physics.collision.physics.bounds, ScaleVector3(displacement, swept.tEntry)), detailedBounds);
 				if (contact.hit && !isVoidCancelled(candidate, sceneGraph, end.aabb, end.bounds, contact)) fillSolidResult(candidate, swept.tEntry, contact, 0);
 				continue;
 			}
@@ -404,7 +406,7 @@ function DetectPhysicsCollisions(entity, displacement, sceneGraph) {
 			const cachedPair = readReusableActiveCollisionPair(entity, candidate);
 			const contact    = cachedPair
 				? buildContactFromCachedPair(cachedPair)
-				: NarrowphaseContact(OffsetDetailedBounds(entity.collision.physics.bounds, ScaleVector3(displacement, swept.tEntry)), detailedBounds);
+				: NarrowphaseContact(OffsetDetailedBounds(entity.physics.collision.physics.bounds, ScaleVector3(displacement, swept.tEntry)), detailedBounds);
 			if (!contact.hit) {
 				removeActiveCollisionPair(entity, candidate);
 				continue;
@@ -443,12 +445,12 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 		if (candidate.type === "entity" && candidate.ref === entity) continue;
 
 		if (candidate.isTrigger) {
-			if (AabbOverlap(entity.collision.aabb, candidate.aabb)) collectTrigger(candidate);
+			if (AabbOverlap(entity.physics.collision.aabb, candidate.aabb)) collectTrigger(candidate);
 			continue;
 		}
 
 		const aabb = candidateAabb(candidate);
-		if (!AabbOverlap(entity.collision.aabb, aabb)) continue;
+		if (!AabbOverlap(entity.physics.collision.aabb, aabb)) continue;
 
 		const detailedBounds = candidateBounds(candidate);
 		const cachedPair = entity.type === "player" || detailedBounds.type === "triangle-soup"
@@ -456,19 +458,19 @@ function DetectCurrentPhysicsOverlaps(entity, sceneGraph) {
 			: readReusableActiveCollisionPair(entity, candidate);
 		const contact = cachedPair
 			? buildContactFromCachedPair(cachedPair)
-			: NarrowphaseContact(entity.collision.physics.bounds, detailedBounds);
+			: NarrowphaseContact(entity.physics.collision.physics.bounds, detailedBounds);
 
-		if (!contact.hit || isVoidCancelled(candidate, sceneGraph, entity.collision.aabb, entity.collision.physics.bounds, contact)) {
+		if (!contact.hit || isVoidCancelled(candidate, sceneGraph, entity.physics.collision.aabb, entity.physics.collision.physics.bounds, contact)) {
 			removeActiveCollisionPair(entity, candidate);
 			continue;
 		}
-		if (!entity.type === "player") cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
+		if (!cachedPair && entity.type !== "player") cacheActiveCollisionPair(entity, candidate, contact.normal, contact.depth);
 
 		// Push out by whichever is shallower: the collider overlap or the box overlap.
-		const axis     = AbsoluteVector3(contact.normal);
-		const boxDepth = DotVector3(AabbHalfExtents(entity.collision.aabb), axis) + DotVector3(AabbHalfExtents(aabb), axis)
-			- Math.abs(DotVector3(SubtractVector3(AabbCenter(aabb), AabbCenter(entity.collision.aabb)), contact.normal));
-		fillSolidResult(candidate, 0, contact, Math.min(contact.depth, boxDepth));
+		const axis = AbsoluteVector3(contact.normal);
+		const dot  = DotVector3(AabbHalfExtents(entity.physics.collision.aabb), axis) + DotVector3(AabbHalfExtents(aabb), axis);
+		const abs  = Math.abs(DotVector3(SubtractVector3(AabbCenter(aabb), AabbCenter(entity.physics.collision.aabb)), contact.normal));
+		fillSolidResult(candidate, 0, contact, Math.min(contact.depth, dot - abs));
 	}
 
 	return detectionResult;
@@ -493,15 +495,15 @@ function DetectCombatOverlaps(playerState, entities) {
 
 	for (const entity of entities) {
 		if (entity === playerState || entity.type === "collectible" || entity.type === "particle") continue;
-		if (!entity.performance.physics || entity.collision === null) continue;
+		if (!entity.performance.physics || entity.physics.collision === null) continue;
 
 		// Broadphase: player AABB vs entity AABB.
-		if (!AabbOverlap(playerState.collision.aabb, entity.collision.aabb)) continue;
+		if (!AabbOverlap(playerState.physics.collision.aabb, entity.physics.collision.aabb)) continue;
 
 		// Player hitbox active → player attacks entity.
 		if (
-			playerState.hitboxActive && Hitbox && playerState.collision.hitbox && entity.collision.hurtbox &&
-			NarrowphaseContact(playerState.collision.hitbox.bounds, entity.collision.hurtbox.bounds).hit
+			playerState.combat.hitboxActive && Hitbox && playerState.physics.collision.hitbox && entity.physics.collision.hurtbox &&
+			NarrowphaseContact(playerState.physics.collision.hitbox.bounds, entity.physics.collision.hurtbox.bounds).hit
 		) {
 			const item = poolPush(hurtboxResultPool);
 			item.attacker = playerState;
@@ -511,8 +513,8 @@ function DetectCombatOverlaps(playerState, entities) {
 
 		// Entity hitbox active → entity attacks player.
 		if (
-			entity.hitboxActive && Hurtbox && entity.collision.hitbox && playerState.collision.hurtbox &&
-			NarrowphaseContact(entity.collision.hitbox.bounds, playerState.collision.hurtbox.bounds).hit
+			entity.combat.hitboxActive && Hurtbox && entity.physics.collision.hitbox && playerState.physics.collision.hurtbox &&
+			NarrowphaseContact(entity.physics.collision.hitbox.bounds, playerState.physics.collision.hurtbox.bounds).hit
 		) {
 			const item    = poolPush(hurtboxResultPool);
 			item.attacker = entity;
@@ -740,7 +742,7 @@ function nearestFrontTriangle(point, soup, maxDist) {
  */
 function GatherGroundHits(entity, sceneGraph, groundSnapTolerance) {
 	// Rest-pose capsule, placed scale-then-rotation like every other collider.
-	const groundCapsule = entity.collision.rest.groundCapsule;
+	const groundCapsule = entity.physics.collision.rest.groundCapsule;
 	const scale         = entity.transform.scale;
 	const radius        = groundCapsule.radius.value * Math.max(scale.x, scale.y, scale.z);
 	const capOffset     = MultiplyVector3(groundCapsule.segmentStart, scale);
@@ -764,9 +766,9 @@ function GatherGroundHits(entity, sceneGraph, groundSnapTolerance) {
 		}
 		if (hit === null) continue;
 
-		const flags = surfaceFlags(candidate.ref, isTerrain);
-		if (flags.nullable !== false && IsCutByVoid(hit.point, candidate.ref.id, HostVoids(sceneGraph, isTerrain))) continue;
-		hits.push({ t: hit.t, normal: hit.normal, surfaceId: candidate.ref.id, sticky: flags.sticky });
+		const { id, meta } = candidate.ref;
+		if (meta.nullable !== false && IsCutByVoid(hit.point, id, HostVoids(sceneGraph, isTerrain))) continue;
+		hits.push({ t: hit.t, normal: hit.normal, surfaceId: id, sticky: meta.sticky });
 	}
 
 	// Keep a lining soup's nearest front-facing triangle as a hit.
@@ -776,9 +778,9 @@ function GatherGroundHits(entity, sceneGraph, groundSnapTolerance) {
 	}
 
 	// Probe each void-wall lining's soups, as the void's own surface with its id and stickiness.
-	function probeVoidWalls(entries, isTerrain) {
+	function probeVoidWalls(entries) {
 		for (const entry of entries) {
-			const sticky = surfaceFlags(entry, isTerrain).sticky;
+			const sticky = entry.meta.sticky;
 			for (const id in entry.relations) {
 				for (const voidWall of entry.relations[id].voidWallMeshes) {
 					if (outsideReachXZ(probe, voidWall.worldAabb, maxDist)) continue;
@@ -788,8 +790,8 @@ function GatherGroundHits(entity, sceneGraph, groundSnapTolerance) {
 			}
 		}
 	}
-	probeVoidWalls(sceneGraph.voids.terrain, true);
-	probeVoidWalls(sceneGraph.voids.obstacles, false);
+	probeVoidWalls(sceneGraph.voids.terrain);
+	probeVoidWalls(sceneGraph.voids.obstacles);
 
 	return { radius, hits };
 }
@@ -798,7 +800,7 @@ function GatherGroundHits(entity, sceneGraph, groundSnapTolerance) {
 function groundHitContact(entity, hit, frameStart) {
 	const tangent    = SubtractVector3(entity.velocity, ScaleVector3(hit.normal, DotVector3(entity.velocity, hit.normal)));
 	const speedRatio = entity.type === "player" && !hit.sticky ? Math.sqrt(Vector3Sq(tangent)) / entity.character.meta.maxSpeed.value : Infinity;
-	return ClassifySurface(frameStart.referenceNormal, hit.normal, entity.surfaceContact, entity.medium, speedRatio, entity.gripDemand);
+	return ClassifySurface(frameStart.referenceNormal, hit.normal, entity.physics.correction.surfaceContact, entity.physics.medium, speedRatio, entity.physics.slopes.gripDemand);
 }
 
 // Check whether a hit beats the one chosen so far: walkable over sliding, then nearest, with the coupled surface breaking ties.
@@ -822,8 +824,8 @@ function PickGroundContact(entity, probe, frameStart) {
 	for (const hit of probe.hits) {
 		const contact = groundHitContact(entity, hit, frameStart);
 		if (contact === "wall") continue;
-		if (chosen !== null && !outranks(hit, contact, chosen, chosenContact, entity.physicsRuntime.groundSurfaceId)) continue;
-		chosen = hit;
+		if (chosen !== null && !outranks(hit, contact, chosen, chosenContact, entity.physics.lastFrame.groundSurfaceId)) continue;
+		chosen        = hit;
 		chosenContact = contact;
 	}
 
@@ -851,6 +853,5 @@ export {
 	ResolveCollisions,
 	GatherGroundHits,
 	PickGroundContact,
-	GetEntityPhysicsFlags,
 	NO_GROUND_CONTACT,
 };

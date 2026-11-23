@@ -1,12 +1,22 @@
-// General Level Initialiser and state handler
+// Runs a level from build to clear, updating its scene each frame.
 
-// Receives level data from game, validated by core/validate.js
-// Creates level world or boss arena using builder/NewLevel.js
-// Builds enemies and collectibles using builder/NewEntity.js
-// End of player pipeline(s) to determine position.
-// Uses Render.js for rendering level state per frame.
-// Uses builder/templates/Instance.js to drop the level's game templates when it clears.
+// Used by core/ini.js to run the game's levels.
+// Used by handlers/Controls.js to read and pause the level.
+// Used by handlers/game/Simulator.js to build, spawn into and clear its scene.
+// Uses core/validate.js to check the game's level and particle data.
+// Uses builder/NewLevel.js to build the level world.
+// Uses builder/NewEntity.js, NewObstacle.js, NewTerrain.js and NewObject.js for runtime spawning.
+// Uses builder/NewParticles.js for particle requests and reseeding.
+// Uses builder/NewTexture.js to prepare textures for the level and what spawns into it.
+// Uses builder/subProcesses/Occlusion.js to build blockers for spawned terrain.
 // Uses builder/subProcesses/Chunks.js to add and remove the collision chunks.
+// Uses builder/templates/Instance.js to drop the level's game templates when it clears.
+// Uses camera/Master.js, player/Master.js and physics/Master.js to run their systems each frame.
+// Uses handlers/Render.js to draw the level each frame.
+// Uses handlers/UI.js to show the frame counter.
+// Uses handlers/game/Performance.js to prepare reusable data each frame.
+// Uses handlers/game/Enemy.js and Collectible.js to handle what the player touches.
+// Uses handlers/game/Animation.js and Texture.js to run animations.
 
 import { BuildLevel, RefreshDebugBoundingBoxes } from "../../builder/NewLevel.js";
 import { ClearGameTemplates } from "../../builder/templates/Instance.js";
@@ -16,7 +26,7 @@ import { Cache, Log, PushToSession, RequestPointerLock, SendEvent, SESSION_KEYS,
 import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
 import { InitializeCameraState, PrepareCamera, UpdateCamera } from "../../camera/Master.js";
 import { Vector3Distance, LerpVector3, CloneVector3 } from "../../math/Vector3.js";
-import { BuildEntity, UpdateEntityModelFromTransform } from "../../builder/NewEntity.js";
+import { BuildEntity, UpdateEntityModel } from "../../builder/NewEntity.js";
 import { GenerateParticles, GeneratorPlacement } from "../../builder/NewParticles.js";
 import { BuildObstacles } from "../../builder/NewObstacle.js";
 import { BuildTerrain } from "../../builder/NewTerrain.js";
@@ -25,12 +35,7 @@ import { AddChunk, RemoveChunkMember } from "../../builder/subProcesses/Chunks.j
 import { BuildObject } from "../../builder/NewObject.js";
 import { UpdateInputEventTypes } from "../Controls.js";
 import { ValidateLevelPayload, ValidateRuntime } from "../../core/validate.js";
-import {
-	InitializePlayer,
-	UpdatePlayer,
-	ResolvePlayerState,
-	GetPlayerState,
-} from "../../player/Master.js";
+import { InitializePlayer, UpdatePlayer, ResolvePlayerState, GetPlayerState } from "../../player/Master.js";
 import { ApplyPhysicsPipeline } from "../../physics/Master.js";
 import { HandleEnemyCollisions } from "./Enemy.js";
 import { HandleCollectiblePickups } from "./Collectible.js";
@@ -42,30 +47,29 @@ import { Clamp01 } from "../../math/Utilities.js";
 import { IsSimulatorActive, UpdateSimulator } from "./Simulator.js";
 
 const levelRuntimeState = {
-	sceneGraph: null,
+	sceneGraph   : null,
 	renderOptions: { rootId: "engine-level-root" },
 };
 
 const levelLoop = {
-	active: false,
-	paused: false,
+	active          : false,
+	paused          : false,
 	animationFrameId: null,
-	lastFrameTime: 0,
-	accumulator: 0,
-	fixedTimeStep: 1000 / 60,
-	uncapped: false,
-	cappedStreak: 0,
-	recentFrames: [],
-	counterShown: false,
-	counterRenders: 0,
-	counterStart: 0,
+	lastFrameTime   : 0,
+	accumulator     : 0,
+	fixedTimeStep   : 1000 / 60,
+	uncapped        : false,
+	cappedStreak    : 0,
+	recentFrames    : [],
+	counterShown    : false,
+	counterRenders  : 0,
+	counterStart    : 0,
 };
 
 // Consecutive capped frames before the warning escalates to an error.
 const sustainedCapFrames = 10;
 
 const frameCounterRootId = "engine-frame-counter";
-const frameCounterInterval = 500;
 
 
 function cacheLevelPayload(payload) {
@@ -78,14 +82,20 @@ function buildIncomingPayloadSummary(payload) {
 	const count = (key) => payload.entityBlueprints[key].length;
 	return [
 		"Engine received level payload:",
-		`- levelId: ${payload.meta.levelId}`,
-		`- stageId: ${payload.meta.stageId}`,
-		`- world: ${payload.world.length.value}x${payload.world.width.value}x${payload.world.height.value}`,
-		`- terrainObjects: ${payload.terrain}`,
-		`- terrainTriggers: ${payload.terrain.triggers.length}`,
-		`- obstacles: ${payload.obstacles.length}`,
-		`- entities(overrides): ${payload.entities.length}`,
-		`- blueprintCounts: enemies=${count("enemies")}, npcs=${count("npcs")}, collectibles=${count("collectibles")}, projectiles=${count("projectiles")}`,
+		`- LevelId: ${payload.meta.levelId}`,
+		`- StageId: ${payload.meta.stageId}`,
+		`- World: ${payload.world.dimensions.x}x${payload.world.dimensions.z}x${payload.world.dimensions.y}`,
+		`- TerrainObjects: ${payload.terrain.objects.length}`,
+		`- TerrainTriggers: ${payload.terrain.triggers.length}`,
+		`- Obstacles: ${payload.obstacles.length}`,
+		`- Entities(overrides): ${payload.entities.length}`,
+		`
+			- BlueprintCounts: 
+				- Enemies: ${count("enemies")}
+				- Npcs: ${count("npcs")}
+				- Collectibles: ${count("collectibles")}
+				- Projectiles: ${count("projectiles")}
+			`,
 	].join("\n");
 }
 
@@ -103,18 +113,18 @@ function updateEntityMovement(entity, deltaSeconds) {
 	const distance = Vector3Distance(entity.movement.start, entity.movement.end);
 	if (distance <= 0.0001) return;
 
-	let moveProg = entity.state.movementProgress;
-	moveProg += ((entity.movement.speed.value * deltaSeconds) / distance) * entity.state.direction;
+	let moveProg = entity.pathfinding.movementProgress;
+	moveProg += ((entity.movement.speed.value * deltaSeconds) / distance) * entity.pathfinding.direction;
 	if (moveProg >= 1 || moveProg <= 0) {
 		if (entity.movement.backAndForth) {
-			entity.state.direction = moveProg >= 1 ? -1 : 1;
+			entity.pathfinding.direction = moveProg >= 1 ? -1 : 1;
 			moveProg = Clamp01(moveProg);
 		}
 		else if (entity.movement.repeat) moveProg = 0;
 		else moveProg = Clamp01(moveProg);
 	}
 
-	entity.state.movementProgress = moveProg;
+	entity.pathfinding.movementProgress = moveProg;
 	entity.transform.position.set(LerpVector3(entity.movement.start, entity.movement.end, Clamp01(moveProg)));
 }
 
@@ -122,7 +132,7 @@ function updateEntityMovement(entity, deltaSeconds) {
 function syncEntityMeshes(sceneGraph) {
 	sceneGraph.entities.forEach(entity => {
 		if (entity.type === "player") return;
-		UpdateEntityModelFromTransform(entity);
+		UpdateEntityModel(entity);
 	});
 }
 
@@ -143,7 +153,7 @@ function showFrameCounter() {
 // Shows rendered frames per second, refreshed twice a second; follows the FrameCounter switch live.
 function updateFrameCounter(now) {
 	const elapsed = now - levelLoop.counterStart;
-	if (elapsed < frameCounterInterval) return;
+	if (elapsed < 500) return;
 
 	if (CONFIG.Performance.FrameCounter !== levelLoop.counterShown) {
 		if (CONFIG.Performance.FrameCounter) showFrameCounter();
@@ -176,6 +186,7 @@ function StartLevelLoop() {
 	levelLoop.counterRenders = 0;
 	levelLoop.counterStart = levelLoop.lastFrameTime;
 	document.addEventListener("pointerlockchange", onPointerLockChange);
+
 	const frame = () => {
 		if (!levelLoop.active) return;
 
@@ -188,8 +199,9 @@ function StartLevelLoop() {
 			const recent = levelLoop.recentFrames;
 			recent.push(frameTime);
 			if (recent.length > 4) recent.shift();
+
 			const average = recent.reduce((sum, time) => sum + time, 0) / recent.length;
-			const ratio = average / levelLoop.fixedTimeStep;
+			const ratio   = average / levelLoop.fixedTimeStep;
 			const snapped = ratio >= 1
 				? Math.round(ratio) * levelLoop.fixedTimeStep
 				: levelLoop.fixedTimeStep / Math.round(1 / ratio);
@@ -208,12 +220,12 @@ function StartLevelLoop() {
 				levelLoop.accumulator = levelLoop.fixedTimeStep;
 				levelLoop.cappedStreak++;
 				if (levelLoop.cappedStreak === 1) {
-					Log("ENGINE", `Frame hit the ${maxSubsteps}-substep cap; simulation debt dropped.`, "warn", "Level");
+					Log("ENGINE", `Frame hit the ${maxSubsteps}-substep cap. Simulation debt dropped.`, "warn", "Level");
 				}
 				else if (levelLoop.cappedStreak === sustainedCapFrames) {
 					Log(
 						"ENGINE", 
-						`Substep cap sustained ${sustainedCapFrames} frames; simulation is running behind real time.`, 
+						`Substep cap sustained ${sustainedCapFrames} frames. Simulation is running behind real time.`, 
 						"error", 
 						"Level"
 					);
@@ -240,9 +252,11 @@ function StopLevelLoop() {
 		Log("ENGINE", "Level loop stopped.", "log", "Level");
 		SendEvent("LEVEL_STOPPED", {});
 	}
+
 	levelLoop.active = false;
 	document.removeEventListener("pointerlockchange", onPointerLockChange);
 	if (levelLoop.counterShown) RemoveRoot(frameCounterRootId);
+
 	levelLoop.counterShown = false;
 
 	if (levelLoop.animationFrameId !== null) {
@@ -266,6 +280,7 @@ function ClearLevel(clearCache = true) {
 
 function PauseLevelLoop() {
 	if (levelLoop.paused || IsSimulatorActive()) return;
+
 	ReleasePointerLock()
 	levelLoop.paused = true;
 	SendEvent("LEVEL_PAUSED", {});
@@ -274,6 +289,7 @@ function PauseLevelLoop() {
 function ResumeLevelLoop(triggeredByEscape = false) {
 	if (!levelLoop.paused || IsSimulatorActive()) return;
 	if (!triggeredByEscape) RequestPointerLock();
+
 	levelLoop.paused = false;
 	UpdateInputEventTypes({ payloadType: "level" });
 	SendEvent("LEVEL_RESUMED", {});
@@ -314,7 +330,7 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 	// Delete Menu UI Cache (if not simulator)
 	if (!simulatorOverride) {
 		Cache.UI.lastPayload = null;
-		Cache.UI.screenID = null;
+		Cache.UI.screenID    = null;
 		PushToSession(SESSION_KEYS.Cache, Cache);
 	}
 
@@ -332,7 +348,7 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 
 	// Initialize player if payload defines one.
 	if (sceneGraph.playerConfig) {
-		await InitializePlayer(sceneGraph.playerConfig, sceneGraph);
+		InitializePlayer(sceneGraph.playerConfig, sceneGraph);
 		EnsureAnimationRuntime(GetPlayerState());
 		Log("ENGINE", `Player initialized: character=${sceneGraph.playerConfig.character}`, "log", "Level");
 	}
@@ -340,10 +356,7 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 	await PrepareLevelVisualResources(sceneGraph);
 
 	sceneGraph.cameraConfig.state = InitializeCameraState(
-		sceneGraph,
-		payload.meta,
-		sceneGraph.playerConfig ? GetPlayerState() : null,
-		IsSimulatorActive()
+		sceneGraph, payload.meta, sceneGraph.playerConfig ? GetPlayerState() : null, IsSimulatorActive()
 	);
 
 	InitializeTextureAnimation(sceneGraph);
@@ -380,7 +393,7 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 				position: CloneVector3(definition.transform.position),
 				velocity: CloneVector3(definition.velocity)
 			});
-		}
+		};
 		localSendEvent(GetPlayerState(), "PLAYER_SPAWN");
 		sceneGraph.entities.forEach(entity => localSendEvent(entity, "ENTITY_SPAWN"));
 	}
@@ -388,9 +401,20 @@ async function CreateLevel(payload, options, simulatorOverride = false) {
 	return sceneGraph;
 }
 
-// Every scene-side particle spawn resolves the same three scene fields.
+// Generate a request's particles with the scene's texture scale and registry.
 function generateForScene(request, sceneGraph) {
-	return GenerateParticles(request, sceneGraph.world.textureScale, sceneGraph.visualResources.textureRegistry, sceneGraph.partGeometryCache);
+	return GenerateParticles(request, sceneGraph.world.textureScale, sceneGraph.visualResources.textureRegistry);
+}
+
+// Tell the game a particle request's last group ended.
+function sendParticlesEnded(request) {
+	if (!request.customEvents.ended || !CONFIG.CustomEvents.Particles.Ended) return;
+	SendEvent("PARTICLES_ENDED", {
+		templateId: request.templateId,
+		mode      : request.emitter.mode,
+		target    : request.target === null ? null : { ...request.target },
+		position  : CloneVector3(request.position),
+	});
 }
 
 // Drives every group's lifetime and emits the siblings a seeding group asks for.
@@ -410,9 +434,11 @@ function updateParticles(sceneGraph, deltaMs, deltaSeconds) {
 		if (group.targetKey !== null) group.follow(targets);
 		group.advance(deltaMs, deltaSeconds);
 
-		// Remove finished groups.
-		if (group.finished) {
+		// Remove finished groups. The request ends with its last one.
+		if (group.lifecycle.finished) {
 			sceneGraph.entities.splice(i, 1);
+			group.request.emitter.groups -= 1;
+			if (group.request.emitter.groups === 0) sendParticlesEnded(group.request);
 			continue;
 		}
 		if (group.seedDue(deltaMs)) seedRequests.push(group.request);
@@ -420,7 +446,7 @@ function updateParticles(sceneGraph, deltaMs, deltaSeconds) {
 
 	// Push siblings straight in; they reuse the level-built group's geometry key and texture id.
 	seedRequests.forEach((request) => {
-		const { groups } = generateForScene(request, sceneGraph);
+		const groups = generateForScene(request, sceneGraph).groups;
 		sceneGraph.entities.push(...groups);
 	});
 }
@@ -450,13 +476,11 @@ function Update(deltaMs) {
 	// === PLAYER PIPELINE ===
 	const playerState = GetPlayerState();
 	PrepareCamera(sceneGraph, deltaSeconds, playerState, false);        // 0. Camera situation, mode & look input
-	if (playerState.active) {
-		UpdatePlayer(deltaSeconds, sceneGraph.cameraConfig.state.modeData); // 1. Input → Movement & Abilities
-		ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds);    // 2. Forces, Collision, Correction.
-		HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds);   // 3. Combat Collisions (damage / attack)
-		HandleCollectiblePickups(playerState, sceneGraph);              // 4. Collectible Pickups
-		ResolvePlayerState();                                           // 5. Resolve State (Idle, Running, Jumping, etc.)
-	}
+	UpdatePlayer(deltaSeconds, sceneGraph.cameraConfig.state.modeData);    // 1. Input → Movement & Abilities
+	ApplyPhysicsPipeline(playerState, sceneGraph, deltaSeconds);           // 2. Forces, Collision, Correction.
+	HandleEnemyCollisions(playerState, sceneGraph, deltaSeconds);          // 3. Combat Collisions (damage / attack)
+	HandleCollectiblePickups(playerState, sceneGraph);                     // 4. Collectible Pickups
+	ResolvePlayerState();                                                  // 5. Resolve State (Idle, Running, Jumping, etc.)
 
 	// === NON-PLAYER ENTITY UPDATE ===
 		// Skip physics-free particles (their group moves them), the player, and entities with physics off.
@@ -476,8 +500,8 @@ function Update(deltaMs) {
 	UpdateCamera(sceneGraph, deltaSeconds, playerState, false);
 
 	// === ANIMATION (visual-only display transforms; player only this pass) ===
-	// Model pose and animation, after true poses are settled and before render reads displayTransform.
-	if (playerState.active) ResolveEntityAnimation(playerState, deltaSeconds);
+	// Pose models and animate after true poses settle, before render reads display.transform.
+	ResolveEntityAnimation(playerState, deltaSeconds);
 
 	runFrameTail(sceneGraph, deltaMs);
 }
@@ -487,35 +511,38 @@ const GetActiveLevel = () => levelRuntimeState.sceneGraph;
 
 /* === SCENE MUTATION === */
 
-function buildSceneSurfaceMap(terrain, obstacles) {
+// Find the height of a mesh's top face, ignoring rotation.
+const meshTop = (mesh) => mesh.transform.position.y + (mesh.dimensions.y * mesh.transform.scale.y * 0.5);
+
+// Map spawn surfaces by id. topY is where models stand: the object's top.
+function buildSurfaceMap(terrain, groups) {
 	const map = {};
 	terrain.forEach((mesh) => {
-		map[mesh.id] = {
-			position  : mesh.transform.position,
-			dimensions: mesh.dimensions,
-			scale     : mesh.transform.scale,
-			topY      : mesh.transform.position.y + (mesh.dimensions.y * mesh.transform.scale.y * 0.5),
-		};
+		map[mesh.id] = { position: mesh.transform.position, dimensions: mesh.dimensions, scale: mesh.transform.scale, topY: meshTop(mesh) };
 	});
-	obstacles.forEach((obstacle) => {
-		map[obstacle.id] = {
-			position  : obstacle.parts[0].transform.position,
-			dimensions: obstacle.parts[0].dimensions,
-			scale     : obstacle.parts[0].transform.scale,
-			topY      : obstacle.parts[0].transform.position.y,
-		};
-	});
+	for (const id in groups) {
+		const parts = groups[id].parts;
+
+		// Skip void-obstacles
+		if (parts.length === 0) continue;
+
+		// Note: Position, dimensions and scale come from the first part. An obstacle's top is its highest part's.
+		const [part] = parts;
+		map[id] = { position: part.transform.position, dimensions: part.dimensions, scale: part.transform.scale, topY: Math.max(...parts.map(meshTop)) };
+	}
 	return map;
 }
 
 // Every entity type other than terrain and obstacle lives in the entities array.
 const generatorCollections = {
-	terrain : (sceneGraph) => sceneGraph.terrain,
-	obstacle: (sceneGraph) => sceneGraph.obstacles,
+	terrain : (sceneGraph) => sceneGraph.terrain.entries,
 	entity  : (sceneGraph) => sceneGraph.entities,
 };
 
 const generatorCollectionOf = (type) => (type === "terrain" || type === "obstacle" ? type : "entity");
+
+// Find an obstacle's group by id
+const findGroup = (sceneGraph, id) => Object.hasOwn(sceneGraph.obstacles.groups, id) ? sceneGraph.obstacles.groups[id] : undefined;
 
 function indexById(collection) {
 	const index = new Map();
@@ -527,8 +554,8 @@ function indexById(collection) {
 function targetMesh(owner, partId, collection) {
 	switch (collection) {
 		case "terrain" : return owner;
-		case "obstacle": return partId === null ? owner.parts[0] : owner.parts.find((part)       => part.id === partId);
-		default        : return partId === null ? owner.mesh     : owner.model.parts.find((part) => part.id === partId)?.mesh;
+		case "obstacle": return partId === null ? owner.parts[0]            : owner.parts.find((part)       => part.id === partId);
+		default        : return partId === null ? owner.model.parts[0].mesh : owner.model.parts.find((part) => part.id === partId)?.mesh;
 	}
 }
 
@@ -555,11 +582,11 @@ function resolveGeneratorTargets(sceneGraph) {
 	wanted.forEach((target, key) => {
 		const collection = generatorCollectionOf(target.type);
 
-		// Index each collection once per frame.
-		if (indexes[collection] === undefined) indexes[collection] = indexById(generatorCollections[collection](sceneGraph));
+		// Index terrain and entities once per frame.
+		if (collection !== "obstacle" && indexes[collection] === undefined) indexes[collection] = indexById(generatorCollections[collection](sceneGraph));
 
 		// A dead object has no entry, which orphans the group following it.
-		const owner = indexes[collection].get(target.id);
+		const owner = collection === "obstacle" ? findGroup(sceneGraph, target.id) : indexes[collection].get(target.id);
 		targets[key] = owner === undefined ? undefined : targetTransform(owner, target.partId, collection);
 	});
 	return targets;
@@ -568,7 +595,9 @@ function resolveGeneratorTargets(sceneGraph) {
 // Flattens the three collections' differing shapes for core/ validators. undefined = no such id.
 function findSceneTarget(sceneGraph, id, partId) {
 	for (const collection of ["entity", "obstacle", "terrain"]) {
-		const owner = generatorCollections[collection](sceneGraph).find((candidate) => candidate.id === id);
+		const owner = collection === "obstacle"
+			? findGroup(sceneGraph, id)
+			: generatorCollections[collection](sceneGraph).find((candidate) => candidate.id === id);
 		if (owner === undefined) continue;
 		return {
 			type     : collection === "entity" ? owner.type : collection,
@@ -579,7 +608,7 @@ function findSceneTarget(sceneGraph, id, partId) {
 }
 
 // Wake every entity to recheck what it rests on.
-const wakeEntities = (sceneGraph) => sceneGraph.entities.forEach((entity) => entity.physicsRuntime.resting = false);
+const wakeEntities = (sceneGraph) => sceneGraph.entities.forEach((entity) => entity.physics.lastFrame.resting = false);
 
 function finalizeSpawn(result, objectType, sceneGraph) {
 	(Array.isArray(result) ? result : [result]).forEach((mesh) => AddToVisualResources(mesh, objectType, sceneGraph));
@@ -600,49 +629,53 @@ function SpawnIntoScene(definition, objectType, sceneGraph) {
 	const faceTextureStore = sceneGraph.visualResources.textureRegistry;
 
 	if (ENTITY_TYPES.includes(objectType)) {
-		// Reuse the level-scoped geometry cache
-		const { entity: built } = BuildEntity(
+		const built = BuildEntity(
 			definition,
-			buildSceneSurfaceMap(sceneGraph.terrain, sceneGraph.obstacles),
+			buildSurfaceMap(sceneGraph.terrain.entries, sceneGraph.obstacles.groups),
 			sceneGraph.world.textureScale,
-			faceTextureStore,
-			sceneGraph.partGeometryCache
-		);
+			faceTextureStore
+		).entity;
 		return AddEntityToScene(built, sceneGraph);
 	}
 
+	// Add the obstacle's group and its non-void parts.
+	// Note: An obstacle made only of voids adds an empty group.
 	if (objectType === "obstacle") {
-		const { built: builtArray } = BuildObstacles([definition], { textureScale: sceneGraph.world.textureScale, faceTextureStore });
-		const built = builtArray[0];
-		sceneGraph.obstacles.push(built);
-		AddChunk(sceneGraph, built, "obstacle");
-		return finalizeSpawn(built, objectType, sceneGraph);
+		const { entries, groups } = BuildObstacles([definition], { textureScale: sceneGraph.world.textureScale, faceTextureStore });
+		Object.assign(sceneGraph.obstacles.groups, groups);
+		entries.forEach((mesh) => {
+			sceneGraph.obstacles.entries.push(mesh);
+			AddChunk(sceneGraph, mesh, "obstacle");
+		});
+		return finalizeSpawn(Object.values(groups)[0], objectType, sceneGraph);
 	}
 
 	if (objectType === "terrain") {
-		const { terrain } = BuildTerrain([definition], sceneGraph.world, faceTextureStore);
+		const terrain = BuildTerrain([definition], sceneGraph.world, faceTextureStore).terrain;
 		BuildOccluders(terrain, []);
 		terrain.forEach((mesh) => {
-			sceneGraph.terrain.push(mesh);
+			sceneGraph.terrain.entries.push(mesh);
 			AddChunk(sceneGraph, mesh, "terrain");
 		});
 		return finalizeSpawn(terrain, objectType, sceneGraph);
 	}
 
-	const { mesh: built } = BuildObject({ ...definition, textureScale: sceneGraph.world.textureScale, faceTextureStore });
-	sceneGraph.terrain.push(built);
+	const built = BuildObject({ ...definition, textureScale: sceneGraph.world.textureScale, faceTextureStore }).mesh;
+	sceneGraph.terrain.entries.push(built);
 	AddChunk(sceneGraph, built, "terrain");
 	return finalizeSpawn(built, objectType, sceneGraph);
 }
 
 function DespawnFromScene(target, objectType, sceneGraph) {
-	const isEntity = ENTITY_TYPES.includes(objectType);
-	let array;
-	if (isEntity) array = sceneGraph.entities;
-	else if (objectType === "obstacle") array = sceneGraph.obstacles;
-	else array = sceneGraph.terrain;
+	const isEntity   = ENTITY_TYPES.includes(objectType);
+	const isObstacle = objectType === "obstacle";
+	const array      = isEntity ? sceneGraph.entities : isObstacle ? sceneGraph.obstacles.entries : sceneGraph.terrain.entries;
+	const targets    = Array.isArray(target) ? target : [target];
 
-	(Array.isArray(target) ? target : [target]).forEach((element) => {
+	// Despawn an obstacle by its group, taking all of the group's parts with it.
+	if (isObstacle) targets.forEach((group) => delete sceneGraph.obstacles.groups[group.id]);
+
+	(isObstacle ? targets.flatMap((group) => group.parts) : targets).forEach((element) => {
 		const index = array.indexOf(element);
 		if (index < 0) return;
 		array.splice(index, 1);
@@ -681,7 +714,7 @@ function SpawnParticles(request, generator) {
 	}
 
 	// Empty only when particles are disabled, which GenerateParticles already logs.
-	const { groups } = generateForScene(normalized, sceneGraph);
+	const groups = generateForScene(normalized, sceneGraph).groups;
 	if (groups.length === 0) return;
 
 	// Added as plain entities; "particle" isn't one of the standard entity types.
@@ -696,7 +729,7 @@ function SpawnParticles(request, generator) {
 // Generators for a runtime-spawned object. Requests arrive built; the caller owns their overrides.
 function SpawnParticleRequests(requests, sceneGraph) {
 	requests.forEach((request) => {
-		const { groups } = generateForScene(request, sceneGraph);
+		const groups = generateForScene(request, sceneGraph).groups;
 		sceneGraph.entities.push(...groups);
 		finalizeSpawn(groups, "entity", sceneGraph);
 	});

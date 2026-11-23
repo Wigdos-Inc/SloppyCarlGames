@@ -2,11 +2,13 @@
 
 // Used by builder/NewLevel.js to give level terrain its blockers once its voids are cut.
 // Used by handlers/game/Level.js to give spawned terrain its blockers.
-// Uses math/Geometry.js to list box corners, fit boxes around points and find the closest points on tube stretches.
+// Uses math/Geometry.js to fit boxes around points.
 // Uses math/Matrix.js to move points between a mesh's own space and the world.
+// Uses builder/NewTexture.js to leave see-through terrain without blockers.
 
 import { PERFORMANCE_SCALING } from "../../core/config.js";
 import { Log } from "../../core/meta.js";
+import { IsTextureTransparent } from "../NewTexture.js";
 import { BoxCorners, ClosestPointOnSegment, PointsAabb } from "../../math/Geometry.js";
 import { CreateModelMatrix, InvertAffineMatrix, TransformPointByMatrix } from "../../math/Matrix.js";
 import { UnitVector3 } from "../../math/Utilities.js";
@@ -109,7 +111,7 @@ function mergeTouching(pieces) {
 	return pieces;
 }
 
-// Cut every void out of a box and join what's left. Keep the largest 8, dropping scraps and narrow pieces.
+// Find the solid boxes left after cutting every void out of a shape's box.
 function solidBoxes(inner, cuts, scale, minSize) {
 	let pieces = [inner];
 	for (const cut of cuts) pieces = pieces.flatMap((piece) => subtractBox(piece, cut));
@@ -119,13 +121,14 @@ function solidBoxes(inner, cuts, scale, minSize) {
 		return ["x", "y", "z"].map((axis) => (piece.max[axis] - piece.min[axis]) * Math.abs(scale[axis])).sort((a, b) => a - b)[1];
 	}
 
+	// Keep the largest 8 pieces, dropping scraps and narrow ones.
 	return mergeTouching(pieces)
 		.filter((piece) => aabbLargestFace(piece) >= 0.01 * aabbLargestFace(inner) && largestFaceWidth(piece) >= minSize.value)
 		.sort((a, b) => aabbLargestFace(b) - aabbLargestFace(a))
 		.slice(0, 8);
 }
 
-// Pack a solid piece for rendering: its box in the mesh's own space, plus its world corners and box.
+// Pack a solid piece for rendering.
 function occluderPiece(piece, matrix) {
 	const corners = BoxCorners(piece).map((local) => {
 		const world = TransformPointByMatrix(local, matrix);
@@ -143,16 +146,17 @@ function occluderPiece(piece, matrix) {
 	};
 }
 
-// Note: Built once from the build transform. Only opaque default-mode terrain gets blockers.
+// Build one terrain mesh's blockers.
+// Note: Built once from the build transform.
 function buildOccluder(mesh, carvingVoids) {
 	const matrix  = CreateModelMatrix(mesh.transform);
 	const inverse = InvertAffineMatrix(matrix);
-	const inner   = mesh.meta.mode === "default" && !mesh.material.transparent
-		? inscribedBox(mesh.primitive, mesh.dimensions, mesh.detail.primitiveOptions)
-		: null;
-	if (inner === null) return { inverse, pieces: [] };
 
-	const cuts   = carvingVoids.flatMap((voidMesh) => voidCutBoxes(voidMesh.solidGrid.triangles, voidMesh.centerline, inverse));
+	// Skip shapes that can't hold a box or can be seen through.
+	const inner = mesh.meta.mode === "default" ? inscribedBox(mesh.primitive, mesh.dimensions, mesh.detail.primitiveOptions) : null;
+	if (inner === null || IsTextureTransparent(mesh.detail.texture.base)) return { inverse, pieces: [] };
+
+	const cuts   = carvingVoids.flatMap((voidMesh) => voidCutBoxes(voidMesh.solidGrid.triangles, voidMesh.meta.centerline, inverse));
 	const pieces = solidBoxes(inner, cuts, mesh.transform.scale, PERFORMANCE_SCALING.Culling.MinBlockerSize);
 	return { inverse, pieces: pieces.map((piece) => occluderPiece(piece, matrix)) };
 }
@@ -167,7 +171,7 @@ function BuildOccluders(terrain, voidTerrain) {
 		}
 	}
 
-	for (const mesh of terrain) mesh.occluder = buildOccluder(mesh, voidsByHost.get(mesh.id) ?? []);
+	for (const mesh of terrain) mesh.performance.occluder = buildOccluder(mesh, voidsByHost.get(mesh.id) ?? []);
 	Log("ENGINE", `Terrain blockers built: meshes=${terrain.length}, carved=${voidsByHost.size}`, "log", "Level");
 }
 

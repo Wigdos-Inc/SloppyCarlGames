@@ -1,33 +1,33 @@
-// Tracks textures and handles animation states
+// Animates textures by crossfading between freshly baked noise surfaces.
 
-// Called by Level.js.
-// Uses builder/NewTexture.js to build custom textures and sprites
-// Render.js reads fromSurface/toSurface/blendRatio and composites on the GPU.
+// Used by handlers/game/Level.js to run texture animation each frame.
+// Used by handlers/Render.js to blend between the surfaces it tracks.
+// Uses builder/NewTexture.js to bake new surfaces and find the meshes that use them.
 
 import { BeginTextureBake, AdvanceNoiseBake, ForEachTexturedMesh } from "../../builder/NewTexture.js";
 import { Clamp01 } from "../../math/Utilities.js";
 import { Vector3SqDistanceToAabb } from "../../math/Vector3.js";
 import { CONFIG, PERFORMANCE_SCALING } from "../../core/config.js";
 
-// Rebuilds the static meshes that use each animated texture. Entities report through their own flag instead.
+// List the static meshes using each animated texture, leaving entities to their own flag.
 function assignOwnerMeshes(sceneGraph, byTextureID) {
 	for (const textureID in byTextureID) byTextureID[textureID].ownerMeshes = [];
 
 	ForEachTexturedMesh({ ...sceneGraph, entities: [] }, (mesh) => {
-		const materialEntry = byTextureID[mesh.material.textureID];
-		if (materialEntry) materialEntry.ownerMeshes.push(mesh);
+		const { registryID, faceNoiseGroups } = mesh.detail.texture.base;
+		const registryEntry = byTextureID[registryID];
+		if (registryEntry) registryEntry.ownerMeshes.push(mesh);
 
-		const groups = mesh.geometry.faceTextureGroups;
-		if (!groups) return;
-		for (const group of groups) {
+		if (faceNoiseGroups === null) return;
+		for (const group of faceNoiseGroups) {
 			const groupEntry = byTextureID[group.textureID];
 			if (groupEntry) groupEntry.ownerMeshes.push(mesh);
 		}
 	});
 }
 
-function createAnimationStateEntry(textureEntry, textureScale) {
-	// Template times are seconds; blend floors at 1ms to keep blendRatio finite.
+// Start a texture's animation in its hold phase.
+function createEntry(textureEntry, textureScale) {
 	const definition = textureEntry.definition;
 	return {
 		phase          : "hold",
@@ -44,41 +44,38 @@ function createAnimationStateEntry(textureEntry, textureScale) {
 	};
 }
 
-// Registers newly added animated textures, then refreshes owners for all of them.
+// Register newly added animated textures, then refresh the owners of all of them.
 function addAnimationEntries(sceneGraph, animationState) {
 	for (const textureID in sceneGraph.visualResources.textureRegistry) {
-		if (animationState.byTextureID[textureID]) continue;
 		const textureEntry = sceneGraph.visualResources.textureRegistry[textureID];
-		if (!textureEntry.definition) continue;
-		if (textureEntry.definition.animation.able !== true) continue;
-		animationState.byTextureID[textureID] = createAnimationStateEntry(textureEntry, animationState.textureScale);
+		if (animationState.byTextureID[textureID] || !textureEntry.definition || textureEntry.definition.animation.able !== true) continue;
+		animationState.byTextureID[textureID] = createEntry(textureEntry, animationState.textureScale);
 	}
 	assignOwnerMeshes(sceneGraph, animationState.byTextureID);
 }
 
+// Start animating the level's textures.
 function InitializeTextureAnimation(sceneGraph) {
 	const animationState = {
-		byTextureID: {},
+		byTextureID : {},
 		textureScale: sceneGraph.world.textureScale,
 	};
 
 	addAnimationEntries(sceneGraph, animationState);
-
 	sceneGraph.visualResources.textureAnimation = animationState;
-	return animationState;
 }
 
-function updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds, textureScale, bakeAllowed) {
+// Advance one texture's bake and crossfade.
+function updateEntry(textureEntry, stateEntry, deltaMilliseconds, textureScale, bakeAllowed) {
 	const cycleMs = stateEntry.holdDurationMs + stateEntry.blendDurationMs;
 
-	// Only baking is gated; the clock runs so distant surfaces still crossfade.
+	// Gate only the bake, keeping the clock running for distant surfaces to crossfade.
 	if (bakeAllowed) {
-		// Empty toSurface takes the bake; otherwise it parks as lookahead.
+		// Use a finished bake as the next surface, or keep it ready for the one after.
 		if (stateEntry.bakeJob !== null) {
 			const budget = Math.max(1, Math.ceil((stateEntry.bakeJob.speckCount * deltaMilliseconds) / cycleMs));
 			if (AdvanceNoiseBake(stateEntry.bakeJob, budget)) {
-				if (stateEntry.toSurface === null) stateEntry.toSurface = stateEntry.bakeJob.canvas;
-				else stateEntry.readySurface = stateEntry.bakeJob.canvas;
+				stateEntry.toSurface === null ? stateEntry.toSurface = stateEntry.bakeJob.canvas : stateEntry.readySurface = stateEntry.bakeJob.canvas;
 				stateEntry.bakeJob = null;
 			}
 		}
@@ -91,7 +88,7 @@ function updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds
 	stateEntry.elapsedMs += deltaMilliseconds;
 
 	if (stateEntry.phase === "hold") {
-		// A blend needs two surfaces.
+		// Blend once the hold ends and a second surface exists.
 		if (stateEntry.toSurface === null) return;
 		if (stateEntry.elapsedMs < stateEntry.holdDurationMs) return;
 		stateEntry.phase = "blend";
@@ -100,7 +97,7 @@ function updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds
 
 	stateEntry.blendRatio = Clamp01(stateEntry.elapsedMs / stateEntry.blendDurationMs);
 
-	// Hold on toSurface until the lookahead lands.
+	// Swap in the next surface once the blend ends and it's baked.
 	if (stateEntry.blendRatio < 1 || stateEntry.readySurface === null) return;
 
 	stateEntry.fromSurface    = stateEntry.toSurface;
@@ -112,44 +109,44 @@ function updateTextureAnimationEntry(textureEntry, stateEntry, deltaMilliseconds
 	stateEntry.blendRatio     = 0;
 }
 
-// Keeps animated textures and their owners in step with a spawn or despawn.
-function SyncTextureAnimation(sceneGraph) {
-	addAnimationEntries(sceneGraph, sceneGraph.visualResources.textureAnimation);
-}
+// Keep animated textures and their owners in step with a spawn or despawn.
+const SyncTextureAnimation = (sceneGraph) => addAnimationEntries(sceneGraph, sceneGraph.visualResources.textureAnimation);
 
-// A shared face texture is near if any static mesh using it is.
-function isOwnerWithinReach(ownerMeshes, cameraPosition, sqReach) {
-	for (const mesh of ownerMeshes) if (Vector3SqDistanceToAabb(cameraPosition, mesh.worldAabb) <= sqReach) return true;
+// Check any static mesh using a texture is within bake reach.
+function ownerInReach(ownerMeshes, cameraPosition, sqReach) {
+	for (const mesh of ownerMeshes) if (Vector3SqDistanceToAabb(cameraPosition, mesh.display.aabb) <= sqReach) return true;
 	return false;
 }
 
-// Textures worn by entities flagged within bake reach.
-function nearEntityTextureIDs(entities) {
+// Collect the textures worn by entities within bake reach.
+function nearEntityTextures(entities) {
 	const near = new Set();
 	for (const entity of entities) {
 		if (!entity.performance.animatedTexture) continue;
-		for (const { mesh } of entity.model.parts) {
-			near.add(mesh.material.textureID);
-			const groups = mesh.geometry.faceTextureGroups;
-			if (groups) for (const group of groups) near.add(group.textureID);
+		for (const part of entity.model.parts) {
+			const { registryID, faceNoiseGroups } = part.mesh.detail.texture.base;
+			near.add(registryID);
+			if (faceNoiseGroups !== null) for (const group of faceNoiseGroups) near.add(group.textureID);
 		}
 	}
 	return near;
 }
 
+// Advance every animated texture for this frame.
 function UpdateTextureAnimation(sceneGraph, deltaMilliseconds) {
 	const animationState = sceneGraph.visualResources.textureAnimation;
-	const textureIDs = Object.keys(animationState.byTextureID);
+	const textureIDs     = Object.keys(animationState.byTextureID);
 	if (textureIDs.length === 0) return;
 
 	const { Tiers, Fractions } = PERFORMANCE_SCALING.SimDistance;
 	const sqReach = (Tiers[CONFIG.Performance.SimDistance].value * Fractions.TextureAnimation.StopBake) ** 2;
-	const nearEntityTextures = nearEntityTextureIDs(sceneGraph.entities);
+	const cameraPosition = sceneGraph.cameraConfig.state.position;
+	const nearTextures = nearEntityTextures(sceneGraph.entities);
 
 	for (const textureID of textureIDs) {
 		const stateEntry = animationState.byTextureID[textureID];
-		const bakeAllowed = nearEntityTextures.has(textureID) || isOwnerWithinReach(stateEntry.ownerMeshes, sceneGraph.cameraConfig.state.position, sqReach);
-		updateTextureAnimationEntry(
+		const bakeAllowed = nearTextures.has(textureID) || ownerInReach(stateEntry.ownerMeshes, cameraPosition, sqReach);
+		updateEntry(
 			sceneGraph.visualResources.textureRegistry[textureID],
 			stateEntry,
 			deltaMilliseconds,

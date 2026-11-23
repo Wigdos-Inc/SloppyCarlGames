@@ -1,7 +1,8 @@
 // Resolves template references into ordinary fully-resolved definitions.
 // Non-references pass through unchanged. Never constructs geometry.
 
-// Used by NewTerrain.js, NewObstacle.js and NewEntity.js
+// Used by NewTerrain.js, NewObstacle.js, NewEntity.js and NewLevel.js to resolve template sources.
+// Used by NewParticles.js to clone template parts.
 // Template ids are validated at the normalize boundary — lookups here are guaranteed.
 
 import terrainTemplates from "./templates/terrain.json" with { type: "json" };
@@ -45,7 +46,7 @@ function clonePrimitiveOptions(part) {
 
 function cloneTexture(texture) {
 	return {
-		generated: structuredClone(texture.generated),
+		base: structuredClone(texture.base),
 		custom: texture.custom.map((decal) => ({
 			...decal,
 			localTransform: CloneTransform(decal.localTransform),
@@ -86,19 +87,18 @@ function cloneMovement(movement) {
 		start: movement.start.clone(),
 		end  : movement.end.clone(),
 		speed: movement.speed.clone(),
-		jump : movement.jump.clone(),
 	};
 }
 
 /* === OVERRIDES & REPEAT EXPANSION === */
 
-// Part override beats ref override. Ref override beats template.
+// Apply a part's override over the template. The override already holds the ref's texture and color.
 function applyPartOverride(part, override) {
 	if (override === undefined) return;
-	if (override.texture !== null)  part.texture.generated         = structuredClone(override.texture.generated);
-	if (override.color !== null)    part.texture.generated.primary = { ...override.color };
-	if (override.scale !== null)    part.localScale                = CloneVector3(override.scale);
-	if (override.particle !== null) part.particle                  = cloneParticle(override.particle);
+	if (override.texture !== null)  part.texture.base         = structuredClone(override.texture.base);
+	if (override.color !== null)    part.texture.base.primary = { ...override.color };
+	if (override.scale !== null)    part.localScale           = CloneVector3(override.scale);
+	if (override.particle !== null) part.particle             = cloneParticle(override.particle);
 }
 
 // Turn each part's repeats into numbered sibling copies. Child parts stay on the original.
@@ -128,15 +128,12 @@ function expandRepeats(parts) {
 }
 
 // Overrides apply to the authored part before expansion so repeat copies inherit them.
-function resolveParts(templateParts, overrides, refColor, refTexture) {
+function resolveParts(templateParts, overrides) {
 	const overridesById = {};
 	overrides.forEach((entry) => overridesById[entry.id] = entry);
 
 	const parts = templateParts.map((templatePart) => {
 		const part = CloneTemplatePart(templatePart);
-		if (refTexture !== null) part.texture.generated = structuredClone(refTexture.generated);
-		if (refColor !== null)   part.texture.generated.primary = { ...refColor };
-
 		applyPartOverride(part, overridesById[part.id]);
 		return part;
 	});
@@ -163,13 +160,13 @@ function ResolveObjectSource(source, role) {
 		collisionShape: source.collisionShape ?? template.shared.collisionShape,
 		mode          : source.mode ?? template.shared.mode,
 		nullable, sticky, particle,
-		parts         : resolveParts(template.parts, source.parts, source.color, source.texture),
+		parts         : resolveParts(template.parts, source.parts),
 	};
 
 	// Only obstacles can break, take damage or move.
 	if (role === "obstacle") {
 		const { destructible, hp } = template.shared;
-		Object.assign(resolved, { destructible, hp, static: template.shared.static });
+		Object.assign(resolved, { destructible, hp });
 	}
 	return resolved;
 }
@@ -179,24 +176,27 @@ function ResolveEntitySource(source) {
 
 	const template = { character: characterTemplates, enemy: enemyTemplates, projectile: projectileTemplates }[source.type][source.template];
 	const { id, blueprintId, dialogue } = source;
-	const { platform, attacks, hardcoded, animations, customEvents, type } = template;
+	const { attacks, animations, customEvents, type } = template;
 
 	// Take each root transform field from the ref, or from the template where the ref leaves it null.
 	const templateTransform = template.model.rootTransform, rootTransform = {};
 	for (const key in templateTransform) rootTransform[key] = source.model.rootTransform[key] ?? templateTransform[key];
 
+	// Now take each meta field.
+	const meta = { hp: source.meta.hp ?? template.meta.hp };
+	if (type === "enemy") meta.aggroRange = (source.meta.aggroRange ?? template.meta.aggroRange).clone();
+
 	return {
 		id, blueprintId, dialogue,
-		...structuredClone({ platform, attacks, hardcoded, animations, customEvents }),
-		type,
-		hp               : source.hp ?? template.hp,
+		...structuredClone({ attacks, animations, customEvents }),
+		type, meta,
 		movement         : cloneMovement(template.movement),
 		velocity         : template.velocity.clone(),
 		collisionOverride: { ...(source.collisionOverride ?? template.collisionOverride) },
 		model: {
 			spawnSurfaceId: source.model.spawnSurfaceId,
 			rootTransform : CloneTransform(rootTransform),
-			parts         : resolveParts(template.model.parts, source.model.parts, null, null),
+			parts         : resolveParts(template.model.parts, source.model.parts),
 		},
 	};
 }

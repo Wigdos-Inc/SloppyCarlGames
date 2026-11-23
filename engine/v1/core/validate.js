@@ -1,6 +1,6 @@
 import canonSchemas from "./canonSchemas.json" with { type: "json" };
 import cameraSets from "../camera/Sets.json" with { type: "json" };
-import Normalize, { isTemplateRef } from "./normalize.js";
+import Normalize, { IsTemplateRef } from "./normalize.js";
 import { Log, ENTITY_TYPES } from "./meta.js";
 
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -171,7 +171,10 @@ function ValidateLevelPayload(payload) {
 
 	function validateTexture(rawTexture, path) {
 		if (!isPlainObject(rawTexture)) return;
-		if (isPlainObject(rawTexture.generated)) errors.push(...validatePayloadSchema(rawTexture.generated, "generatedTexture", `${path}.generated`));
+
+		// Accept the raw 'generated' alias, as the schema does.
+		const base = rawTexture.base ?? rawTexture.generated;
+		if (isPlainObject(base)) errors.push(...validatePayloadSchema(base, "generatedTexture", `${path}.base`));
 	}
 
 	function validateDetail(rawDetail, path) {
@@ -200,7 +203,7 @@ function ValidateLevelPayload(payload) {
 
 		rawObjects.forEach((rawObject, index) => {
 			const objectPath = `${path}[${index}]`;
-			if (isTemplateRef(rawObject)) {
+			if (IsTemplateRef(rawObject)) {
 				errors.push(...validatePayloadSchema(rawObject, "templateObjectRef", objectPath));
 				validateTexture(rawObject.texture, `${objectPath}.texture`);
 				return;
@@ -381,7 +384,7 @@ function ValidateLevelPayload(payload) {
 
 		rawEntries.forEach((rawEntry, index) => {
 			const path = `level.entityBlueprints.${bucket}[${index}]`;
-			if (isTemplateRef(rawEntry)) {
+			if (IsTemplateRef(rawEntry)) {
 				errors.push(...validatePayloadSchema(rawEntry, "templateEntityRef", path));
 				validateCollisionOverride(rawEntry.collisionOverride, `${path}.collisionOverride`);
 				return;
@@ -423,7 +426,7 @@ async function ValidateSimulatorPayload(payload) {
 				break;
 			}
 		}
-		const definitionSchemaKey = isTemplateRef(rawPayload.definition)
+		const definitionSchemaKey = IsTemplateRef(rawPayload.definition)
 			? (ENTITY_TYPES.includes(objectType) ? "templateEntityRef" : "templateObjectRef")
 			: (ENTITY_TYPES.includes(objectType) ? "levelEntityBlueprint" : "levelObject");
 		errors.push(...validatePayloadSchema(rawPayload.definition, definitionSchemaKey, "simulatorDefinition.definition"));
@@ -433,6 +436,13 @@ async function ValidateSimulatorPayload(payload) {
 	if (errors.length > 0) return null;
 	const normalized = await Normalize.SimulatorPayload({ ...payload, payloadType });
 	if (normalized.payloadType === "definition" && normalized.definition === null) return null;
+
+	// Reject a void, which leaves the Simulator nothing to show. Parts share the root's mode.
+	// Note: A template ref is checked by its own mode. Engine templates are never voids.
+	if (normalized.payloadType === "definition" && normalized.definition.mode === "void") {
+		Log("ENGINE", `Simulator: '${normalized.definition.id}' is made only of voids, which the Simulator can't show.`, "error", "Validation");
+		return null;
+	}
 	return normalized;
 }
 
@@ -484,6 +494,7 @@ const ValidateRuntime = {
 		// Returns an error string or null.
 		targetExists(resolveTarget, target) {
 			if (!isPlainObject(target)) return "particleRequest.target: required when requesting a generator.";
+
 			// Raw request: an omitted partId is the object's own transform, not a missing part.
 			const partId = target.partId ?? null;
 			const entry = resolveTarget(target.id, partId);

@@ -3,12 +3,10 @@
         "id": "simulator-level",
         "title": "Simulator",
         "world": {
-            "length": 500,
-            "width": 500,
-            "height": 500,
+            "dimensions": { "x": 500, "y": 500, "z": 500 },
             "deathBarrierY": -50,
             "water": {
-                "level": null,
+                "topY": null,
                 "tint": { "r": 0.03, "g": 0.13, "b": 0.2, "a": 1 }
             },
             "skybox": {
@@ -28,7 +26,7 @@
                 "largeLoop": "orbitCam"
             },
             "modeAddons": {},
-            "distance": { "min": 3.5, "default": 7, "max": 14 },
+            "distance": { "min": 1, "default": 7, "max": 14 },
             "pitchLimit": { "top": 60, "bottom": 60 },
             "freeCam": {
                 "speed": { "min": 3, "default": 14, "max": 80 },
@@ -46,16 +44,15 @@
                 {
                     "id": "sim-disc",
                     "shape": "cylinder",
-                    "complexity": "medium",
                     "dimensions": { "x": 8, "y": 0.5, "z": 8 },
                     "position": { "x": 250, "y": 0, "z": 250 },
                     "rotation": { "x": 0, "y": 0, "z": 0 },
                     "scale": { "x": 1, "y": 1, "z": 1 },
                     "pivot": { "x": 0, "y": 0, "z": 0 },
-                    "primitiveOptions": {},
+                    "primitiveOptions": { "complexity": "medium" },
                     "parts": [],
                     "texture": {
-                        "generated": {
+                        "base": {
                             "compositeMode": null,
                             "id": "stone-block",
                             "shape": null,

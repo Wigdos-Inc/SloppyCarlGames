@@ -7,7 +7,7 @@ import { Log, SendEvent } from "../../core/meta.js";
 import { CONFIG } from "../../core/config.js";
 import { SubtractVector3, ResolveVector3Axis, CloneVector3 } from "../../math/Vector3.js";
 import { DetectCombatOverlaps } from "../../physics/Collision.js";
-import { TriggerPlayerRespawnSequence, SetPlayerAction } from "../../player/Master.js";
+import { TriggerPlayerDeath, SetPlayerAction } from "../../player/Master.js";
 
 const knockbackForce = 12;
 const invulnerabilityDuration = 2.0;
@@ -38,8 +38,8 @@ function HandleEnemyCollisions(playerState, sceneGraph) {
 			const entity = result.target;
 			if (entity.type !== "enemy") continue;
 
-			entity.hp--;
-			Log("ENGINE", `Enemy "${entity.id}" hit by player. HP: ${entity.hp}`, "log", "Level");
+			entity.combat.hp--;
+			Log("ENGINE", `Enemy "${entity.id}" hit by player. HP: ${entity.combat.hp}`, "log", "Level");
 
 			if (CONFIG.CustomEvents.Entities.DamageReceived && entity.customEvents.damageReceived) {
 				SendEvent("ENTITY_DAMAGE_RECEIVED", {
@@ -62,7 +62,7 @@ function HandleEnemyCollisions(playerState, sceneGraph) {
 				});
 			}
 
-			if (entity.hp <= 0) {
+			if (entity.combat.hp <= 0) {
 				const idx = sceneGraph.entities.indexOf(entity);
 				if (idx !== -1) {
 					if (entity.customEvents.despawn && CONFIG.CustomEvents.Entities.Despawn) {
@@ -79,7 +79,7 @@ function HandleEnemyCollisions(playerState, sceneGraph) {
 				SendEvent("ENEMY_DESTROYED", { id: entity.id });
 			}
 		}
-		else if (result.type === "entity-attacks" && !playerState.invulnerable.active) {
+		else if (result.type === "entity-attacks" && !playerState.combat.invulnerable.active) {
 			// === PLAYER TAKES DAMAGE ===
 			const entity = result.attacker;
 			if (entity.type !== "enemy") continue;
@@ -112,7 +112,7 @@ function applyPlayerDamage(playerState, damageSourcePosition) {
 
 	// Check for death when no collectibles were available at hit time.
 	if (dropCount <= 0) {
-		TriggerPlayerRespawnSequence();
+		TriggerPlayerDeath();
 		return;
 	}
 
@@ -123,12 +123,12 @@ function applyPlayerDamage(playerState, damageSourcePosition) {
 		y: Math.max(knockDir.y * knockbackForce, knockbackForce * 0.5),
 		z: knockDir.z * knockbackForce,
 	});
-	playerState.launched = true;
+	playerState.physics.launched = true;
 
 	// Start invulnerability.
-	playerState.invulnerable.active = true;
-	playerState.invulnerable.timer = invulnerabilityDuration;
-	playerState.invulnerable.flashTimer = 0;
+	playerState.combat.invulnerable.active = true;
+	playerState.combat.invulnerable.timer = invulnerabilityDuration;
+	playerState.combat.invulnerable.flashTimer = 0;
 
 	// Transition to stunned action.
 	SetPlayerAction("Stunned");

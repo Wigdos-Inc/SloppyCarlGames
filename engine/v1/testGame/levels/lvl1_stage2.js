@@ -54,11 +54,9 @@ function preprocessLevelObject(levelObject, cnuScale) {
 
 function preprocessWorld(world, cnuScale) {
 	const nextWorld = structuredClone(world);
-	nextWorld.length = divideScalar(nextWorld.length, cnuScale);
-	nextWorld.width = divideScalar(nextWorld.width, cnuScale);
-	nextWorld.height = divideScalar(nextWorld.height, cnuScale);
+	nextWorld.dimensions = divideVector3(nextWorld.dimensions, cnuScale);
 	nextWorld.deathBarrierY = divideScalar(nextWorld.deathBarrierY, cnuScale);
-	if (typeof nextWorld.water.level === "number") nextWorld.water.level = divideScalar(nextWorld.water.level, cnuScale);
+	if (typeof nextWorld.water.topY === "number") nextWorld.water.topY = divideScalar(nextWorld.water.topY, cnuScale);
 	return nextWorld;
 }
 

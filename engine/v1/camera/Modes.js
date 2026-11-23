@@ -176,9 +176,11 @@ function consumeLookInput(view, minPitch, maxPitch, deltaSeconds) {
 }
 
 // Get the shown model's rotation, which eases into each new pose.
-const shownRotation = (target) => CONFIG.Performance.Animations === "Disabled"
-	? target.transform.rotation
-	: target.animationRuntime.modelPose.rotation;
+function shownRotation(target) {
+	return CONFIG.Performance.Animations === "Disabled"
+		? target.transform.rotation
+		: target.display.animationRuntime.modelPose.rotation;
+}
 
 // Measure how upright the shown model is to the camera (1 = upright. −1 = upside down).
 function modelFlip({ target, onRamp }) {
@@ -188,7 +190,7 @@ function modelFlip({ target, onRamp }) {
 
 // Find the spot on the shown model's body the camera looks at.
 function AimPoint(ctx) {
-	const { transform, collision } = ctx.target;
+	const { transform, physics: { collision } } = ctx.target;
 	const anchor = PoseAnchor(ctx.target);
 
 	// Place the body's center where the shown model holds it.
@@ -616,7 +618,7 @@ function prepareChase(ctx) {
 	// Lock controls to the loop's axis, or straight down the slope.
 	return {
 		control          : "loopLock",
-		axis             : loop.active ? loop.axis : ResolveVector3Axis(ProjectOntoPlane(WORLD_NORMALS.Down, ctx.target.alignedUp)),
+		axis             : loop.active ? loop.axis : ResolveVector3Axis(ProjectOntoPlane(WORLD_NORMALS.Down, ctx.target.physics.correction.alignedUp)),
 		view             : ctx.cameraState.forward,
 		coastGravityScale: CAMERA_TUNING.Loops.CoastGravity,
 		basis,
@@ -629,7 +631,8 @@ function updateChase(ctx) {
 	const { Look, Loops, Modes, Body } = CAMERA_TUNING;
 
 	const loop = ctx.loop, target = ctx.target, up = rig.up;
-	const addons = ctx.set.addons[chaseRuntime.mode];
+	const { grounded, correction, medium, slopes, buoyancyForce } = target.physics;
+	const addons  = ctx.set.addons[chaseRuntime.mode];
 	const settled = chaseRuntime.sinceInput >= Look.ReturnDelayMs / 1000;
 
 	// Frame the whole loop from along its axis, upright.
@@ -642,14 +645,14 @@ function updateChase(ctx) {
 		// Zoom out with speed, measured at the loop's bottom so the zoom stays steady.
 		const { waterFloatiness, airFloatiness, maxSpeed } = target.character.meta;
 
-		const floatiness  = target.medium === "Water" ? waterFloatiness : airFloatiness;
-		const fall        = (Gravity.Strength * target.gravityScale - target.buoyancyForce) / floatiness;
+		const floatiness  = medium === "Water" ? waterFloatiness : airFloatiness;
+		const fall        = (Gravity.Strength * slopes.gravityScale - buoyancyForce) / floatiness;
 		const height      = target.transform.position.y - (loop.center.y - loop.radius.value);
 		const bottomSpeed = Math.sqrt(
-			Math.max(0, Vector3Length(ProjectOntoPlane(target.velocity, target.alignedUp)) ** 2 + 2 * fall * height)
+			Math.max(0, Vector3Length(ProjectOntoPlane(target.velocity, correction.alignedUp)) ** 2 + 2 * fall * height)
 		);
 
-		const ceilingGrip    = Correction.MinGripSpeed[target.medium];
+		const ceilingGrip    = Correction.MinGripSpeed[medium];
 		const fitDistance    = (Loops.TightFraming * loop.radius.value) / Math.sin(DegreesToRadians(CONFIG.Camera.Fov) * 0.5);
 		const speedZoom      = 1 + (Loops.SpeedZoom - 1) * Clamp01((bottomSpeed / maxSpeed.value - ceilingGrip) / (1 - ceilingGrip));
 		const scaledDistance = fitDistance * speedZoom;
@@ -663,24 +666,25 @@ function updateChase(ctx) {
 	}
 
 	// Roll with the ground in large loops and on inclines.
-	const inclined = target.grounded && AngleBetweenVector3(target.alignedUp, WORLD_NORMALS.Up) > DegreesToRadians(Correction.FlatSnapDegrees);
-	const rolls = ctx.cameraState.looping 
+	const inclined = grounded && AngleBetweenVector3(correction.alignedUp, WORLD_NORMALS.Up) > DegreesToRadians(Correction.FlatSnapDegrees);
+	const rolls    = ctx.cameraState.looping 
 		? !addons.includes("noLoopRoll")
 		: inclined && !ctx.onSmallLoop && !addons.includes("noSlopeRoll") && !(ctx.onRamp && addons.includes("noRampRoll"));
-	rollToward(rolls ? target.alignedUp : WORLD_NORMALS.Up, ctx.deltaSeconds);
+	rollToward(rolls ? correction.alignedUp : WORLD_NORMALS.Up, ctx.deltaSeconds);
 
 	// Lower the camera as it rolls, and drop it below an upside-down model, once looking stops.
 	if (settled) chaseRuntime.settle = settlePitch((ctx.cameraState.looping ? 1 : Math.max(0, Math.cos(AngleBetweenVector3(up, WORLD_NORMALS.Up)))) * modelFlip(ctx));
 
 	// Follow while moving or swinging back from a loop, a short delay after the player stops looking.
-	const facing = ProjectOntoPlane(chaseRuntime.returning ? chaseRuntime.exitFacing : target.facing, up);
+	const facing      = ProjectOntoPlane(chaseRuntime.returning ? chaseRuntime.exitFacing : target.facing, up);
 	const facingKnown = Vector3Length(facing) > EPSILON;
-	const following = facingKnown && (ctx.speedShare > EPSILON || chaseRuntime.returning) && settled;
+	const following   = facingKnown && (ctx.speedShare > EPSILON || chaseRuntime.returning) && settled;
 	chaseRuntime.sinceChase = following ? chaseRuntime.sinceChase + ctx.deltaSeconds : 0;
 
 	if (facingKnown) {
 		const heading = chaseHeading(ctx.cameraState, up);
 		if (chaseRuntime.repick && settled) pickSide(heading, facing, up);
+
 		const trail = 1 - Math.exp(-ctx.deltaSeconds * Modes.Chase.TrailStrength / (250 / 1000));
 
 		// Follow harder with speed, easing in after the player looks.
@@ -727,18 +731,18 @@ const CAMERA_MODES = {
 function ResetCameraModes(cameraConfig, levelBase) {
 	resetLookInput();
 	
-	const distance = cameraConfig.distance;
-	rig.distanceRange = { min: distance.min.clone(), default: distance.default.clone(), max: distance.max.clone() };
-	rig.distance = distance.default.clone();
-	rig.pitchLimit = cameraConfig.pitchLimit;
-	rig.heightOffset = cameraConfig.heightOffset.clone();
-	rig.currentDistance = distance.default.clone();
-	rig.targetDistance = distance.default.clone();
+	const distance          = cameraConfig.distance;
+	rig.distanceRange       = { min: distance.min.clone(), default: distance.default.clone(), max: distance.max.clone() };
+	rig.distance            = distance.default.clone();
+	rig.pitchLimit          = cameraConfig.pitchLimit;
+	rig.heightOffset        = cameraConfig.heightOffset.clone();
+	rig.currentDistance     = distance.default.clone();
+	rig.targetDistance      = distance.default.clone();
 	freeCamRuntime.settings = cameraConfig.freeCam;
 	freeCamRuntime.maxSpeed = cameraConfig.freeCam.speed.default.clone();
-	rig.obstructionLogged = false;
-	rig.obstructionClear = 0;
-	rig.up = CloneVector3(WORLD_NORMALS.Up);
+	rig.obstructionLogged   = false;
+	rig.obstructionClear    = 0;
+	rig.up                  = CloneVector3(WORLD_NORMALS.Up);
 	rig.pivot.set(levelBase.target);
 	rig.direction = ResolveVector3Axis(SubtractVector3(levelBase.position, levelBase.target));
 }
@@ -746,14 +750,14 @@ function ResetCameraModes(cameraConfig, levelBase) {
 // Set the Simulator's framing, scaling the zoom range to match.
 function SetOrbitCamFraming({ distance, heightOffset }) {
 	const scale = distance / rig.distanceRange.default.value;
-	rig.distanceRange.min.value *= scale;
-	rig.distanceRange.max.value *= scale;
+	rig.distanceRange.min.value    *= scale;
+	rig.distanceRange.max.value    *= scale;
 	rig.distanceRange.default.value = distance;
-	rig.distance.value = distance;
-	rig.heightOffset.value = heightOffset;
-	rig.currentDistance.value = distance;
-	rig.targetDistance.value = distance;
-	orbitCamRuntime.pitch.value = settlePitch(1).toDegrees();
+	rig.distance.value              = distance;
+	rig.heightOffset.value          = heightOffset;
+	rig.currentDistance.value       = distance;
+	rig.targetDistance.value        = distance;
+	orbitCamRuntime.pitch.value     = settlePitch(1).toDegrees();
 }
 
 /* === EXPORTS === */
