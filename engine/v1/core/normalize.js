@@ -28,43 +28,62 @@ const cssUrlPattern = /url\((['"]?)([^'"()]+)\1\)/gi;
 
 /* Data Type Normalization */
 
-function normalizeString(value, fallback = "") {
-	const bool = typeof value === "string";
-	return { bool, value: bool ? value : fallback };
-}
-
-function normalizeNumber(value, fallback = 0) {
-	const number = ToNumber(value, NaN);
-	const bool = Number.isFinite(number);
-	return { bool, value: bool ? number : fallback };
-}
-
-function normalizeBool(value, fallback = false) {
-	const bool = typeof value === "boolean";
-	return { bool, value: bool ? value : fallback };
-}
-
-function normalizeArray(value, fallback = []) {
-	const bool = Array.isArray(value);
-	return { bool, value: bool ? value : fallback };
-}
-
-function normalizeObject(value, fallback = {}) {
-	const bool = value !== null && typeof value === "object" && !Array.isArray(value);
-	return { bool, value: bool ? value : fallback };
-}
+const normalize = {
+	string: (value, fallback = "")    => {
+		const bool = typeof value === "string";
+		return { bool, value: bool ? value : fallback };
+	},
+	number: (value, fallback = 0)     => {
+		const number = ToNumber(value, NaN);
+		const bool = Number.isFinite(number);
+		return { bool, value: bool ? number : fallback };
+	},
+	bool  : (value, fallback = false) => {
+		const bool = typeof value === "boolean";
+		return { bool, value: bool ? value : fallback };
+	},
+	array : (value, fallback = [])    => {
+		const bool = Array.isArray(value);
+		return { bool, value: bool ? value : fallback }; 
+	},
+	object: (value, fallback = {})    => {
+		const bool = value !== null && typeof value === "object" && !Array.isArray(value);
+		return { bool, value: bool ? value : fallback };
+	}
+};
 
 const toUnitVector3 = (v, t) => new UnitVector3(v.x, v.y, v.z, t);
 
 /* Generic Normalization */
 
+// Meta values a schema field may leave out.
+const metaDefaults = { aliases: [], isRequired: false, isExpected: false, deprecated: false };
+
+// Resolve field references (e.g. 'fields.colorRed')
+// Note: validate.js reads the same schemas, resolved here in place at load.
+function resolveSchemas(layer) {
+	for (const key in layer) {
+		// Autofill missing meta fields
+		if (key === "__meta") {
+			layer.__meta = { ...metaDefaults, ...layer.__meta };
+			continue;
+		}
+
+		// Resolve string-path
+		if (typeof layer[key] === "string") layer[key] = layer[key].split(".").reduce((node, step) => node[step], canonSchemas);
+
+		resolveSchemas(layer[key]);
+	}
+}
+resolveSchemas(canonSchemas);
+
 const normalizeSchemaKey = (key) => key.toLowerCase().replace(/[-_]/g, "");
 
 function normalizePayloadSchema(payload, rootKey, extraKey = null) {
-	const cloneFallback = (meta) => normalizeObject(structuredClone(meta.fallback), meta.fallback).value;
+	const cloneFallback = (meta) => normalize.object(structuredClone(meta.fallback), meta.fallback).value;
 
 	function resolveFieldLayer(payloadLayer, canonFieldLayer, path) {
-		const sourceLayer = normalizeObject(payloadLayer).value;
+		const sourceLayer = normalize.object(payloadLayer).value;
 		const resolvedLayer = {}, matchedKeys = new Set();
 
 		for (const key in canonFieldLayer) {
@@ -94,7 +113,8 @@ function normalizePayloadSchema(payload, rootKey, extraKey = null) {
 				resolvedValue = sourceLayer[matchedKey];
 				if (meta.deprecated === true) warnLog(`${rootKey}.${key}: '${matchedKey}' is deprecated.`);
 
-				// Warn on the alias spelling only, unlike `deprecated`, which also fires on a canonical match.
+				// Warn on the alias spelling only. 
+				// Note: `deprecated` also fires on the canonical name.
 				if (meta.deprecatedAliases && meta.deprecatedAliases.some((alias) => normalizeSchemaKey(alias) === normalizeSchemaKey(matchedKey))) {
 					warnLog(`${rootKey}.${key}: '${matchedKey}' is deprecated, use '${key}'.`);
 				}
@@ -102,18 +122,19 @@ function normalizePayloadSchema(payload, rootKey, extraKey = null) {
 				let valid = meta.isExpected === false && resolvedValue === null;
 				if (!valid) {
 					switch (meta.dataType) {
-						case "string" : valid = normalizeString(resolvedValue).bool; break;
-						case "number" : valid = normalizeNumber(resolvedValue).bool; break;
-						case "boolean": valid = normalizeBool(resolvedValue).bool  ; break;
-						case "object" : valid = normalizeObject(resolvedValue).bool; break;
-						case "array"  : valid = normalizeArray(resolvedValue).bool ; break;
+						case "string" : valid = normalize.string(resolvedValue).bool; break;
+						case "number" : valid = normalize.number(resolvedValue).bool; break;
+						case "boolean": valid = normalize.bool(resolvedValue).bool  ; break;
+						case "object" : valid = normalize.object(resolvedValue).bool; break;
+						case "array"  : valid = normalize.array(resolvedValue).bool ; break;
 						case "vector3": {
-							const resolvedObject = normalizeObject(resolvedValue);
-							valid =
+							const resolvedObject = normalize.object(resolvedValue);
+							valid = (
 								resolvedObject.bool &&
-								normalizeNumber(resolvedObject.value.x).bool &&
-								normalizeNumber(resolvedObject.value.y).bool &&
-								normalizeNumber(resolvedObject.value.z).bool;
+								normalize.number(resolvedObject.value.x).bool &&
+								normalize.number(resolvedObject.value.y).bool &&
+								normalize.number(resolvedObject.value.z).bool
+							);
 							break;
 						}
 					}
@@ -175,30 +196,30 @@ function normalizePayloadSchema(payload, rootKey, extraKey = null) {
 	}
 
 	const canonLayer = extraKey === null ? canonSchemas[rootKey] : { ...canonSchemas[rootKey], ...canonSchemas[extraKey] };
-	return resolveFieldLayer(normalizeObject(payload).value, canonLayer, rootKey);
+	return resolveFieldLayer(normalize.object(payload).value, canonLayer, rootKey);
 }
 
 function AudioPayload(payload) {
-	const rawPayload = normalizeObject(payload).value;
-	const normalized = normalizePayloadSchema({ ...normalizeObject(rawPayload.options).value, ...rawPayload }, "audio");
+	const rawPayload = normalize.object(payload).value;
+	const normalized = normalizePayloadSchema({ ...normalize.object(rawPayload.options).value, ...rawPayload }, "audio");
 
 	if (normalized.name === null) {
 		if (normalized.id !== null) normalized.name = normalized.id;
 		else if (normalized.src) {
 			const sourceParts = normalized.src.split("/");
-			const basename = sourceParts[sourceParts.length - 1] || "AUDIO";
-			normalized.name = basename.replace(/\.[^.]+$/, "") || "AUDIO";
+			const basename    = sourceParts[sourceParts.length - 1] || "AUDIO";
+			normalized.name   = basename.replace(/\.[^.]+$/, "") || "AUDIO";
 		}
 	}
 
 	if (normalized.id === null) normalized.id = normalized.name;
 
 	const options = structuredClone(normalized.options);
-	if (options.id === undefined && normalized.id !== null)     options.id = normalized.id;
-	if (options.name === undefined && normalized.name !== null) options.name = normalized.name;
-	if (normalized.rate !== null)                               options.rate = normalized.rate;
-	if (normalized.loop !== null)                               options.loop = normalized.loop;
-	if (normalized.category !== null)                           options.category = normalized.category;
+	if (options.id      === undefined && normalized.id   !== null) options.id       = normalized.id;
+	if (options.name    === undefined && normalized.name !== null) options.name     = normalized.name;
+	if (normalized.rate !== null)                                  options.rate     = normalized.rate;
+	if (normalized.loop !== null)                                  options.loop     = normalized.loop;
+	if (normalized.category !== null)                              options.category = normalized.category;
 	normalized.options = options;
 
 	return normalized;
@@ -209,27 +230,22 @@ function AudioPayload(payload) {
 async function MenuPayload(payload) {
 	const normalizeElements = (rawElements) => {
 		const resolved = [];
-		const sourceElements = normalizeArray(rawElements).value;
+		const sourceElements = normalize.array(rawElements).value;
 		const directEventKeys = [
 			"onClick", "onInput", "onChange", "onPointerover", "onPointerout", "onPointerdown", 
 			"onPointerup", "onKeydown", "onKeyup", "onWheel", "onMousemove"
 		];
 
-		sourceElements.forEach((rawEntry) => {
-			const rawElement = normalizeObject(rawEntry).value;
+		sourceElements.forEach(rawEntry => {
+			const rawElement = normalize.object(rawEntry).value;
 			const element = normalizePayloadSchema(rawElement, "menuElement");
 			element.children = normalizeElements(rawElement.children);
 
-			directEventKeys.forEach((directKey) => {
+			directEventKeys.forEach(directKey => {
 				if (rawElement[directKey] !== undefined) element[directKey] = rawElement[directKey];
 			});
 
-			if (element.id === null)        delete element.id;
-			if (element.className === null) delete element.className;
-			if (element.text === null)      delete element.text;
-			if (element.src === null)       delete element.src;
-			if (element.value === null)     delete element.value;
-			if (element.checked === null)   delete element.checked;
+			for (const key of ["id", "className", "text", "src", "value", "checked"]) if (element[key] === null) delete element[key];
 
 			resolved.push(element);
 		});
@@ -237,11 +253,11 @@ async function MenuPayload(payload) {
 		return resolved;
 	};
 
-	const rawPayload = normalizeObject(payload).value;
+	const rawPayload = normalize.object(payload).value;
 	const normalized = normalizePayloadSchema(rawPayload, "menu");
 
 	normalized.elements = normalizeElements(rawPayload.elements);
-	const musicSource   = normalizeObject(rawPayload.music);
+	const musicSource   = normalize.object(rawPayload.music);
 	normalized.music    = musicSource.bool ? AudioPayload(musicSource.value) : null;
 
 	const pendingImageLoads = [], preloadedImages = [];
@@ -256,7 +272,7 @@ async function MenuPayload(payload) {
 		);
 	};
 	const queueElementImages = (elements) => {
-		elements.forEach((element) => {
+		elements.forEach(element => {
 			if (element.type === "img" && element.src !== undefined) queueImagePath(element.src);
 			if (typeof element.styles.backgroundImage === "string") {
 				for (const match of element.styles.backgroundImage.matchAll(cssUrlPattern)) queueImagePath(match[2]);
@@ -268,7 +284,7 @@ async function MenuPayload(payload) {
 
 	queueElementImages(normalized.elements);
 
-	// Stylesheet backgrounds preload too, otherwise they pop in on first paint.
+	// Preload stylesheet backgrounds too, to keep them from popping in on first paint.
 	if (normalized.stylesheet !== null) {
 		for (const match of normalized.stylesheet.matchAll(cssUrlPattern)) queueImagePath(match[2]);
 	}
@@ -291,16 +307,12 @@ function SplashPayload(payload) {
 	const normalizeElements = (rawElements) => {
 		const resolved = [];
 
-		normalizeArray(rawElements).value.forEach((rawEntry) => {
-			const rawElement = normalizeObject(rawEntry).value;
-			const element = normalizePayloadSchema(rawElement, "menuElement");
+		normalize.array(rawElements).value.forEach(rawEntry => {
+			const rawElement = normalize.object(rawEntry).value;
+			const element    = normalizePayloadSchema(rawElement, "menuElement");
 			element.children = normalizeElements(rawElement.children);
-			if (element.id === null) delete element.id;
-			if (element.className === null) delete element.className;
-			if (element.text === null) delete element.text;
-			if (element.src === null) delete element.src;
-			if (element.value === null) delete element.value;
-			if (element.checked === null) delete element.checked;
+
+			for (const key of ["id", "className", "text", "src", "value", "checked"]) if (element[key] === null) delete element[key];
 			resolved.push(element);
 		});
 
@@ -308,31 +320,29 @@ function SplashPayload(payload) {
 	};
 	const normalizeText = (rawTextEntries) => {
 		const resolved = [];
-		normalizeArray(rawTextEntries).value.forEach((rawEntry) => {
-			const textEntry = normalizePayloadSchema(normalizeObject(rawEntry).value, "splashText");
-			if (textEntry.id === null) delete textEntry.id;
-			if (textEntry.className === null) delete textEntry.className;
+		normalize.array(rawTextEntries).value.forEach(rawEntry => {
+			const textEntry = normalizePayloadSchema(normalize.object(rawEntry).value, "splashText");
+			for (const key of ["id", "className"]) if (textEntry[key] === null) delete textEntry[key];
 			resolved.push(textEntry);
 		});
 		return resolved;
 	};
 
-	const rawPayload = normalizeObject(payload).value;
+	const rawPayload = normalize.object(payload).value;
 	const normalized = normalizePayloadSchema(rawPayload, "splash");
 
-	normalized.sequence = normalizeArray(rawPayload.sequence).value.map((rawStep) => {
-		const stepSource = normalizeObject(rawStep).value;
-		const step = normalizePayloadSchema(stepSource, "splashStep");
-		const sfxSource = normalizeObject(stepSource.sfx);
-		const voiceSource = normalizeObject(stepSource.voice);
-		step.sfx = sfxSource.bool ? AudioPayload(sfxSource.value) : null;
+	normalized.sequence = normalize.array(rawPayload.sequence).value.map((rawStep) => {
+		const stepSource = normalize.object(rawStep).value;
+		const step       = normalizePayloadSchema(stepSource, "splashStep");
+		const sfxSource  = normalize.object(stepSource.sfx), voiceSource = normalize.object(stepSource.voice);
+		step.sfx   = sfxSource.bool ? AudioPayload(sfxSource.value) : null;
 		step.voice = voiceSource.bool ? AudioPayload(voiceSource.value) : null;
 		if (step.sfx !== null && step.sfx.category === null) {
-			step.sfx.category = "Menu";
+			step.sfx.category         = "Menu";
 			step.sfx.options.category = "Menu";
 		}
 		if (step.voice !== null && step.voice.category === null) {
-			step.voice.category = "Voice";
+			step.voice.category         = "Voice";
 			step.voice.options.category = "Voice";
 		}
 		step.elements = normalizeElements(stepSource.elements);
@@ -359,7 +369,7 @@ function SplashPayload(payload) {
 }
 
 function CutscenePayload(payload, type) {
-	const rootKey = type === "rendered" ? "cutsceneRendered" : "cutsceneEngine";
+	const rootKey    = type === "rendered" ? "cutsceneRendered" : "cutsceneEngine";
 	const normalized = normalizePayloadSchema(payload, rootKey);
 
 	if (type === "engine" && normalized.fadeLeadSeconds > normalized.durationSeconds) {
@@ -378,7 +388,8 @@ export async function NormalizeImage(path, sourceType, renderType) {
 		// Premultiply alpha at load to match how WebGL blends decals.
 		const bitmap = await createImageBitmap(await response.blob(), renderType === "html" ? {} : { premultiplyAlpha: "premultiply" });
 		return renderType === "html" ? { bool: true, value: { image: bitmap, url: path } } : { bool: true, value: bitmap };
-	} catch (e) {
+	} 
+	catch (e) {
 		warnLog(`Image: failed to load '${path}' (${sourceType}):\n${e.message}`);
 		return { bool: false, value: null };
 	}
@@ -388,23 +399,23 @@ export async function NormalizeImage(path, sourceType, renderType) {
 
 const animationChannels = ["transform", "color"];
 
-// Map each part id to the Set of its addressable (id-bearing) decal ids, for referential drops.
+// List the parts and decals an animation can target, by id.
 function buildAnimationContext(parts) {
 	const context = {};
-	parts.forEach((part) => {
+	parts.forEach(part => {
 		const decalIds = new Set();
-		part.texture.custom.forEach((decal) => { if (decal.id) decalIds.add(decal.id); });
+		for (const decal of part.texture.custom) if (decal.id) decalIds.add(decal.id);
 		context[part.id] = decalIds;
 	});
 	return context;
 }
 
-// Keyframe value is left raw here (instanced later, in target-type context).
+// Normalize each keyframe's time and easing.
 function normalizeKeyframeList(rawKeyframes) {
-	return normalizeArray(rawKeyframes).value.map((rawEntry) => {
-		const source = normalizeObject(rawEntry).value;
+	return normalize.array(rawKeyframes).value.map((rawEntry) => {
+		const source   = normalize.object(rawEntry).value;
 		const keyframe = normalizePayloadSchema(source, "levelAnimationKeyframe");
-		keyframe.value = normalizeObject(source.value).value;
+		keyframe.value = normalize.object(source.value).value;
 		return keyframe;
 	});
 }
@@ -412,19 +423,19 @@ function normalizeKeyframeList(rawKeyframes) {
 function normalizeTrackChannels(rawTrack) {
 	const track = {};
 	for (const channel of animationChannels) {
-		const channelSource = normalizeObject(rawTrack[channel]);
+		const channelSource = normalize.object(rawTrack[channel]);
 		if (channelSource.bool) track[channel] = { keyframes: normalizeKeyframeList(channelSource.value.keyframes) };
 	}
 	return track;
 }
 
-// Resolve one target's own channels, then bake referenced shared channels (overlap → warn + drop).
+// Resolve a target's own channels and add the shared channels it references.
 function resolveAnimationTarget(rawTarget, effectiveShared, label) {
-	const source = normalizeObject(rawTarget).value;
+	const source = normalize.object(rawTarget).value;
 	const resolved = normalizeTrackChannels(source);
 
-	normalizeArray(source.shared).value.forEach((key) => {
-		const def = normalizeObject(effectiveShared[key]);
+	normalize.array(source.shared).value.forEach(key => {
+		const def = normalize.object(effectiveShared[key]);
 		if (!def.bool) {
 			warnLog(`${label}: shared key '${key}' not found, dropping.`);
 			return;
@@ -440,11 +451,11 @@ function resolveAnimationTarget(rawTarget, effectiveShared, label) {
 		}
 	});
 
-	const rawSwap = normalizeArray(source.swap).value;
+	const rawSwap = normalize.array(source.swap).value;
 	if (rawSwap.length > 0) {
 		const snaps = [];
-		rawSwap.forEach((rawSnap) => {
-			const snap = normalizeObject(rawSnap).value;
+		rawSwap.forEach(rawSnap => {
+			const snap = normalize.object(rawSnap).value;
 			if (typeof snap.time !== "number" || typeof snap.sourceKey !== "string") {
 				warnLog(`${label}: swap snap has invalid time or sourceKey, dropping.`);
 				return;
@@ -457,11 +468,11 @@ function resolveAnimationTarget(rawTarget, effectiveShared, label) {
 	return resolved;
 }
 
-// Structure + shared resolution (overlap/referential warn + drop). Keyframe values stay raw.
+// Resolve animation sets and their shared definitions. Keyframe values stay raw.
 function resolveAnimations(rawAnimations, context, globalShared) {
-	const source = normalizeObject(rawAnimations).value;
+	const source = normalize.object(rawAnimations).value;
 	const effectiveShared = { ...globalShared };
-	const entityShared = normalizeObject(source.shared).value;
+	const entityShared = normalize.object(source.shared).value;
 	for (const key in entityShared) {
 		if (effectiveShared[key] !== undefined) warnLog(`animations.shared: entity key '${key}' shadows global definition.`);
 		effectiveShared[key] = entityShared[key];
@@ -470,11 +481,11 @@ function resolveAnimations(rawAnimations, context, globalShared) {
 	const animations = {};
 	for (const animName in source) {
 		if (animName === "shared") continue;
-		const rawSet = normalizeObject(source[animName]).value;
+		const rawSet = normalize.object(source[animName]).value;
 		const set = normalizePayloadSchema(rawSet, "levelAnimationSet");
 		set.parts = {};
 
-		const rawParts = normalizeObject(rawSet.parts).value;
+		const rawParts = normalize.object(rawSet.parts).value;
 		for (const partId in rawParts) {
 			const decalIds = context[partId];
 			if (decalIds === undefined) {
@@ -482,11 +493,11 @@ function resolveAnimations(rawAnimations, context, globalShared) {
 				continue;
 			}
 			const partLabel = `animations.${animName}.parts.${partId}`;
-			const rawPartTarget = normalizeObject(rawParts[partId]).value;
+			const rawPartTarget = normalize.object(rawParts[partId]).value;
 			const partTarget = resolveAnimationTarget(rawPartTarget, effectiveShared, partLabel);
 			partTarget.decals = {};
 
-			const rawDecals = normalizeObject(rawPartTarget.decals).value;
+			const rawDecals = normalize.object(rawPartTarget.decals).value;
 			for (const decalId in rawDecals) {
 				if (!decalIds.has(decalId)) {
 					warnLog(`${partLabel}.decals: unknown decal '${decalId}', dropping.`);
@@ -501,7 +512,7 @@ function resolveAnimations(rawAnimations, context, globalShared) {
 	return animations;
 }
 
-// Instance keyframe values once by target type: position as cnu, rotation as radians (a vector for parts, a number for decals), scale cloned and color raw. Missing values stay absent and fall back to rest.
+// Instance a keyframe value for its channel and target. Absent values fall back to rest.
 function instanceKeyframeValue(value, channel, isDecal) {
 	if (channel === "color") return { ...value };
 	
@@ -519,7 +530,7 @@ function instanceKeyframeValue(value, channel, isDecal) {
 function instanceTargetTracks(target, isDecal) {
 	for (const channel of animationChannels) {
 		if (target[channel] === undefined) continue;
-		target[channel].keyframes.forEach((keyframe) => {
+		target[channel].keyframes.forEach(keyframe => {
 			keyframe.value = instanceKeyframeValue(keyframe.value, channel, isDecal);
 		});
 	}
@@ -538,23 +549,22 @@ function instanceAnimationTracks(animations) {
 }
 
 function markMutableDecals(animations, parts) {
-	// A mutable decal is GPU-tinted from texture.primary, so the rest tint must exist.
+	// Let the GPU recolor this decal, defaulting to white when colorless.
 	const markMutable = (ct) => {
 		ct.mutable = true;
 		if (ct.texture.primary === null) ct.texture.primary = { r: 1, g: 1, b: 1, a: 1 };
 	};
 	const decalMap = new Map();
-	parts.forEach((part) => part.texture.custom.forEach((ct) => { if (ct.id) decalMap.set(ct.id, ct); }));
+	for (const part of parts) {
+		for (const ct of part.texture.custom) if (ct.id) decalMap.set(ct.id, ct);
+	}
 	for (const animName in animations) {
 		const animParts = animations[animName].parts;
 		for (const partId in animParts) {
 			for (const decalId in animParts[partId].decals) {
-				const track = animParts[partId].decals[decalId];
-				const ct = decalMap.get(decalId);
+				const track = animParts[partId].decals[decalId], ct = decalMap.get(decalId);
 				if (ct === undefined) continue;
-				if (track.color !== undefined && track.color.keyframes.length > 0 && ct.decalType === "shape") {
-					markMutable(ct);
-				}
+				if (track.color !== undefined && track.color.keyframes.length > 0 && ct.decalType === "shape") markMutable(ct);
 				if (track.swap !== undefined && track.swap.length > 0) {
 					if (ct.decalType === "shape") markMutable(ct);
 					if (ct.sources !== null) {
@@ -564,6 +574,7 @@ function markMutableDecals(animations, parts) {
 							warnLog(`animations.${animName}: decal '${decalId}' swap to unknown source '${snap.sourceKey}', dropping.`);
 							return false;
 						});
+
 						if (track.swap.length === 0) delete track.swap;
 					} 
 					else {
@@ -577,15 +588,15 @@ function markMutableDecals(animations, parts) {
 }
 
 const defaultsByShape = {
-	cube         : "obb",
-	plane        : "obb",
-	cylinder     : "capsule",
-	capsule      : "capsule",
-	sphere       : "sphere",
-	pyramid      : "triangle-soup",
-	cone         : "triangle-soup",
-	tube         : "triangle-soup",
-	torus        : "triangle-soup",
+	cube          : "obb",
+	plane         : "obb",
+	cylinder      : "capsule",
+	capsule       : "capsule",
+	sphere        : "sphere",
+	pyramid       : "triangle-soup",
+	cone          : "triangle-soup",
+	tube          : "triangle-soup",
+	torus         : "triangle-soup",
 	"ramp-simple" : "triangle-soup",
 	"ramp-complex": "triangle-soup",
 };
@@ -596,25 +607,27 @@ function resolveTextureId(textureId, fallbackTextureId, fieldPath, ctx) {
 	return fallbackTextureId;
 }
 
-// Fold an authoring alias into its field. An explicit value there wins.
+// Move a color shorthand onto the texture color it stands for (if not already set).
 function foldColorAlias(source, sourceKey, dest, destKey) {
 	if (source[sourceKey] !== null && dest[destKey] === null) dest[destKey] = source[sourceKey];
 	delete source[sourceKey];
 }
 
-// Normalize a decal's texture like a base texture.
+// Fill in a decal's texture and move its color shorthands into place.
 function normalizeDecalTexture(entry, rootKey, ctx) {
-	entry.texture = normalizePayloadSchema(normalizeObject(entry.texture).value, "decalTexture");
+	entry.texture = normalizePayloadSchema(normalize.object(entry.texture).value, "decalTexture");
 	foldColorAlias(entry.texture, "color", entry.texture, "secondary");
 	foldColorAlias(entry, "color", entry.texture, "primary");
+
+	// Fall back to the default texture when the id doesn't exist.
 	entry.texture.id = resolveTextureId(entry.texture.id, canonSchemas.decalTexture.id.__meta.fallback, `${rootKey}.texture.id`, ctx);
 }
 
 function normalizeTexture(rawTexture, part, ctx) {
-	const source = normalizeObject(rawTexture).value;
-
-	const base = normalizePayloadSchema(normalizeObject(source.base).value, "generatedTexture");
+	const source = normalize.object(rawTexture).value;
+	const base   = normalizePayloadSchema(normalize.object(source.base).value, "generatedTexture");
 	foldColorAlias(base, "color", base, "secondary");
+
 	const fallback = canonSchemas.generatedTexture.id.__meta.fallback;
 	base.id = resolveTextureId(base.id, fallback, "texture.base.id", ctx);
 
@@ -624,8 +637,8 @@ function normalizeTexture(rawTexture, part, ctx) {
 function normalizeScatter(rawScatter, ctx) {
 	const resolvedScatter = [];
 
-	normalizeArray(rawScatter).value.forEach((rawEntry) => {
-		const entrySource = normalizeObject(rawEntry);
+	normalize.array(rawScatter).value.forEach(rawEntry => {
+		const entrySource = normalize.object(rawEntry);
 		if (!entrySource.bool) return;
 		
 		const entry = normalizePayloadSchema(entrySource.value, "levelScatterEntry");
@@ -639,12 +652,12 @@ function normalizeScatter(rawScatter, ctx) {
 	return resolvedScatter;
 }
 
-const normalizeDetail = (rawDetail, ctx) => { return { scatter: normalizeScatter(normalizeObject(rawDetail).value.scatter, ctx) }};
+const normalizeDetail = (rawDetail, ctx) => { return { scatter: normalizeScatter(normalize.object(rawDetail).value.scatter, ctx) }};
 
 function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 	const entries = [];
 
-	// Note: When registering a shape, add it in NewTexture.js (shapeMaskBuilders) and canonSchemas.json (levelCustomTexture.shape.allowedValues) as well.
+	// Note: New shapes also go in NewTexture.js and the decal shape lists in canonSchemas.json.
 	const shapeRequiredFields = {
 		square:   () => true,
 		circle:   () => true,
@@ -659,7 +672,7 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 
 		const normalized = {};
 		for (const key in entry.sources) {
-			const rawSrc = normalizeObject(entry.sources[key]);
+			const rawSrc = normalize.object(entry.sources[key]);
 			if (!rawSrc.bool) {
 				localWarnLog(`nsource '${key}' is not a valid object`);
 				continue;
@@ -690,8 +703,8 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 		entry.sources = Object.keys(normalized).length > 0 ? normalized : null;
 	};
 
-	normalizeArray(rawCustomTextures).value.forEach((rawEntry) => {
-		const entrySource = normalizeObject(rawEntry);
+	normalize.array(rawCustomTextures).value.forEach(rawEntry => {
+		const entrySource = normalize.object(rawEntry);
 		if (!entrySource.bool) return;
 		const entry = normalizePayloadSchema(entrySource.value, "levelCustomTexture");
 		normalizeDecalTexture(entry, "levelCustomTexture", ctx);
@@ -707,7 +720,7 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 					warnLog(`normalizeCustomTextures: image decal missing required fields (imagePath=${entry.imagePath}, sourceType=${entry.sourceType}), dropping entry.`);
 					return;
 				}
-				entry.opacity = Math.min(1, Math.max(0, normalizeNumber(entrySource.value.opacity, 1).value));
+				entry.opacity = Math.min(1, Math.max(0, normalize.number(entrySource.value.opacity, 1).value));
 				normalizeSources(entry);
 				entries.push(entry);
 				ctx.pendingImageLoads.push({ entry, promise: NormalizeImage(entry.imagePath, entry.sourceType, "webgl") });
@@ -734,7 +747,7 @@ function normalizeCustomTextures(rawCustomTextures, part, ctx) {
 }
 
 function normalizeTubeNode(rawNode) {
-	const node = normalizePayloadSchema(normalizeObject(rawNode).value, "tubeNode");
+	const node = normalizePayloadSchema(normalize.object(rawNode).value, "tubeNode");
 	node.dimensions    = toUnitVector3(node.dimensions, "cnu");
 	node.localPosition = toUnitVector3(node.localPosition, "cnu");
 	node.localRotation = toUnitVector3(node.localRotation, "degrees").toRadians(true);
@@ -749,11 +762,11 @@ function normalizeTubeOptions(rawOptions) {
 	return {
 		...rawOptions,
 		complexity,
-		nodes     : normalizeArray(rawOptions.nodes).value.map((node) => normalizeTubeNode(node)),
-		thickness : new Unit(normalizeNumber(rawOptions.thickness, 0.1).value, "cnu"),
-		curved    : normalizeBool(rawOptions.curved, false).value,
-		solid     : normalizeBool(rawOptions.solid, false).value,
-		smoothness: Clamp(normalizeNumber(rawOptions.smoothness, 0).value, 0, 1),
+		nodes     : normalize.array(rawOptions.nodes).value.map((node) => normalizeTubeNode(node)),
+		thickness : new Unit(normalize.number(rawOptions.thickness, 0.1).value, "cnu"),
+		curved    : normalize.bool(rawOptions.curved, false).value,
+		solid     : normalize.bool(rawOptions.solid, false).value,
+		smoothness: Clamp(normalize.number(rawOptions.smoothness, 0).value, 0, 1),
 	};
 }
 
@@ -768,16 +781,16 @@ function normalizeRampOptions(rawOptions, label) {
 
 // Normalize a plane's depth, options and sprite.
 function normalizePlaneOptions(owner, label, ctx) {
-	// Zero the unused depth so front and back decals and attachments sit on the face.
+	// Flatten the plane to keep decals and attached parts right on its front and back.
 	owner.dimensions.z = 0;
 
 	const options = normalizePayloadSchema(owner.primitiveOptions, "planeOptions");
 
 	// Read the owner's texture as authored. It's normalized after the shape.
-	const texture = normalizeObject(owner.texture).value;
+	const texture = normalize.object(owner.texture).value;
 
 	// Drop the decals a crossed or sprite plane can't carry.
-	if ((options.crossed || options.sprite !== null) && normalizeArray(texture.custom).value.length > 0) {
+	if ((options.crossed || options.sprite !== null) && normalize.array(texture.custom).value.length > 0) {
 		warnLog(`${label}: decals can't sit on a crossed or sprite plane, dropping them.`);
 		owner.texture = { ...texture, custom: [] };
 	}
@@ -793,8 +806,8 @@ function normalizePlaneOptions(owner, label, ctx) {
 		sprite.image = null;
 	}
 	if (sprite.image !== null) {
-		// Warn about an authored base texture. A loaded image replaces it, and it only shows if the image fails.
-		if (Object.keys(normalizeObject(texture.base).value).length > 0) warnLog(`${label}: a sprite with an image draws no base texture, dropping it once the image loads.`);
+		// Warn about an authored base texture if the image fails to load.
+		if (Object.keys(normalize.object(texture.base).value).length > 0) warnLog(`${label}: a sprite with an image draws no base texture, dropping it once the image loads.`);
 		ctx.pendingImageLoads.push({ entry: sprite.image, promise: NormalizeImage(sprite.image.path, sprite.image.sourceType, "webgl") });
 		ctx.affectedParts.add(owner);
 	}
@@ -803,7 +816,7 @@ function normalizePlaneOptions(owner, label, ctx) {
 
 /* Template Reference Normalization (boundary lookups only — no definition construction) */
 
-// Engine template collections, read live so templates a level registers are found while it runs.
+// Engine template collections, read live to find templates a level registers while it runs.
 const templateCollections = {
 	terrain        : terrainTemplates,
 	obstacle       : obstacleTemplates,
@@ -837,18 +850,18 @@ function emptyGameTemplates() {
 // Empty game templates for lookups that only read them: simulator definitions and runtime requests.
 const noGameTemplates = emptyGameTemplates();
 
-// Find a template by id, or undefined. A level's game template overrides the engine one.
+// Find a template by id. A level's game template overrides the engine one.
 function findTemplate(ctx, collection, id) {
 	const gameTemplates = ctx.templates[gameCollections[collection]], engineTemplates = templateCollections[collection];
 	if (Object.hasOwn(gameTemplates, id)) return gameTemplates[id];
 	return Object.hasOwn(engineTemplates, id) ? engineTemplates[id] : undefined;
 }
 
-// Collection selector → entity type used for collision override defaults.
+// Entity types per template collection, for collision override defaults.
 const templateEntityTypes = { character: "entity", enemy: "enemy", projectile: "projectile" };
 
 export function IsTemplateRef(value) {
-	const shape = normalizeObject(value).value.shape;
+	const shape = normalize.object(value).value.shape;
 	return shape === "template" || shape === "blueprint";
 }
 
@@ -892,7 +905,7 @@ function dropVoidGenerators(carriers, label) {
 	const emitting = carriers.filter((carrier) => carrier.particle !== null);
 	if (emitting.length === 0) return;
 	warnLog(`${label}: a void can't carry particle generators, dropping ${emitting.length}.`);
-	emitting.forEach((carrier) => carrier.particle = null);
+	emitting.forEach(carrier => carrier.particle = null);
 }
 
 function normalizeOverrideTexture(texture, label, ctx) {
@@ -902,7 +915,7 @@ function normalizeOverrideTexture(texture, label, ctx) {
 	texture.base.id = resolveTextureId(texture.base.id, fallback, `${label}.texture.base.id`, ctx);
 }
 
-// Check a template part is a sprite with an image. Those draw no base texture to override.
+// Check a template part is a sprite with an image.
 const isImageSprite = (part) => part.shape === "plane" && part.primitiveOptions.sprite !== null && part.primitiveOptions.sprite.image !== null;
 
 function normalizeTemplatePartOverrides(overrides, ctx, collection, templateId, label) {
@@ -948,7 +961,7 @@ function foldRefTexture(ref, templateParts, label) {
 }
 
 function normalizeObjectTemplateRef(rawObject, ctx, collection, label) {
-	const ref = normalizePayloadSchema(normalizeObject(rawObject).value, "templateObjectRef");
+	const ref = normalizePayloadSchema(normalize.object(rawObject).value, "templateObjectRef");
 	ref.shape = "template";
 
 	if (findTemplate(ctx, collection, ref.template) === undefined) {
@@ -969,7 +982,7 @@ function normalizeObjectTemplateRef(rawObject, ctx, collection, label) {
 }
 
 function normalizeEntityTemplateRef(rawRef, ctx, label) {
-	const refSource = normalizeObject(rawRef).value;
+	const refSource = normalize.object(rawRef).value;
 	const ref = normalizePayloadSchema(refSource, "templateEntityRef");
 	ref.shape = "template";
 
@@ -981,19 +994,18 @@ function normalizeEntityTemplateRef(rawRef, ctx, label) {
 	if (ref.collisionOverride !== null) ref.collisionOverride = resolveCollisionOverride(ref.collisionOverride, templateEntityTypes[ref.type]);
 
 	ref.model.rootTransform = normalizeRootTransform(ref.model.rootTransform, false);
-
-	ref.model.parts = normalizeTemplatePartOverrides(ref.model.parts, ctx, ref.type, ref.template, label);
+	ref.model.parts         = normalizeTemplatePartOverrides(ref.model.parts, ctx, ref.type, ref.template, label);
 	return ref;
 }
 
 function normalizePart(rawPart, ctx) {
-	const partSource = normalizeObject(rawPart).value;
-	const part = normalizePayloadSchema(partSource, "levelPart");
-	part.dimensions = toUnitVector3(part.dimensions, "cnu");
+	const partSource   = normalize.object(rawPart).value;
+	const part         = normalizePayloadSchema(partSource, "levelPart");
+	part.dimensions    = toUnitVector3(part.dimensions, "cnu");
 	part.localPosition = toUnitVector3(part.localPosition, "cnu");
 	part.localRotation = toUnitVector3(part.localRotation, "degrees").toRadians(true);
-	part.localScale = CloneVector3(part.localScale);
-	part.pivot = toUnitVector3(part.pivot, "cnu");
+	part.localScale    = CloneVector3(part.localScale);
+	part.pivot         = toUnitVector3(part.pivot, "cnu");
 
 	// Resolve the shape first. A plane's options decide which textures it keeps.
 	switch(part.shape) {
@@ -1009,7 +1021,7 @@ function normalizePart(rawPart, ctx) {
 
 	part.texture = normalizeTexture(part.texture, part, ctx);
 	foldColorAlias(part, "color", part.texture.base, "primary");
-	part.detail = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail, ctx);
+	part.detail   = normalizeDetail(partSource.detail !== undefined ? partSource.detail : part.detail, ctx);
 	part.particle = normalizeGenerator(part.particle, `levelPart.${part.id}.particle`, ctx);
 	if (part.label === null) delete part.label;
 
@@ -1025,13 +1037,13 @@ function hasOpenPrimitive(object) {
 }
 
 function normalizeLevelObject(rawObject, ctx, role) {
-	const objectSource = normalizeObject(rawObject).value;
-	const object = normalizePayloadSchema(objectSource, "levelObject", role === "obstacle" ? "obstacleFields" : null);
-	object.dimensions = toUnitVector3(object.dimensions, "cnu");
-	object.position = toUnitVector3(object.position, "cnu");
-	object.rotation = toUnitVector3(object.rotation, "degrees").toRadians(true);
-	object.scale = CloneVector3(object.scale);
-	object.pivot = toUnitVector3(object.pivot, "cnu");
+	const objectSource = normalize.object(rawObject).value;
+	const object       = normalizePayloadSchema(objectSource, "levelObject", role === "obstacle" ? "obstacleFields" : null);
+	object.dimensions  = toUnitVector3(object.dimensions, "cnu");
+	object.position    = toUnitVector3(object.position, "cnu");
+	object.rotation    = toUnitVector3(object.rotation, "degrees").toRadians(true);
+	object.scale       = CloneVector3(object.scale);
+	object.pivot       = toUnitVector3(object.pivot, "cnu");
 
 	// Resolve the shape first. A plane's options decide which textures it keeps.
 	switch (object.shape) {
@@ -1047,7 +1059,7 @@ function normalizeLevelObject(rawObject, ctx, role) {
 	object.texture = normalizeTexture(object.texture, object, ctx);
 	foldColorAlias(object, "color", object.texture.base, "primary");
 	object.detail = normalizeDetail(objectSource.detail !== undefined ? objectSource.detail : object.detail, ctx);
-	object.parts = normalizeArray(objectSource.parts).value.map((part) => normalizePart(part, ctx));
+	object.parts  = normalize.array(objectSource.parts).value.map((part) => normalizePart(part, ctx));
 	if (object.mode === "void" && hasOpenPrimitive(object)) {
 		warnLog(`levelObject.${object.id}: mode 'void' requires a closed shape, dropping.`);
 		return null;
@@ -1057,15 +1069,15 @@ function normalizeLevelObject(rawObject, ctx, role) {
 
 	// Default crossed and sprite planes to box collision. Neither is flat.
 	const boxedPlane = object.shape === "plane" && (object.primitiveOptions.crossed || object.primitiveOptions.sprite !== null);
-	object.collisionShape = object.collisionShape !== null ? object.collisionShape
-		: role === "obstacle" && object.parts.length > 1 ? "triangle-soup"
-			: boxedPlane ? "aabb" : defaultsByShape[object.shape];
+	object.collisionShape = object.collisionShape !== null ? object.collisionShape : role === "obstacle" && object.parts.length > 1 
+		? "triangle-soup"
+		: boxedPlane ? "aabb" : defaultsByShape[object.shape];
 	ctx.surfaceIds.add(object.id);
 	return object;
 }
 
 function normalizeMovement(rawMovement) {
-	const movement = normalizePayloadSchema(normalizeObject(rawMovement).value, "levelMovement");
+	const movement = normalizePayloadSchema(normalize.object(rawMovement).value, "levelMovement");
 	movement.start = toUnitVector3(movement.start, "cnu");
 	movement.end   = toUnitVector3(movement.end, "cnu");
 	movement.speed = new Unit(movement.speed, "cnu");
@@ -1082,7 +1094,7 @@ function resolveCollisionOverride(rawCollisionOverride, entityType) {
 		entity     : { physics: "auto",            hurtbox: null,              hitbox: null },
 	};
 	const defaults = defaultsByType[entityType] || defaultsByType.entity;
-	const source = normalizeObject(rawCollisionOverride).value;
+	const source = normalize.object(rawCollisionOverride).value;
 	const collisionOverride = normalizePayloadSchema(source, "levelCollisionOverride");
 
 	return {
@@ -1093,7 +1105,7 @@ function resolveCollisionOverride(rawCollisionOverride, entityType) {
 }
 
 function normalizeAttacks(rawAttacks) {
-	return normalizeArray(rawAttacks).value.map((rawAttack) => normalizePayloadSchema(normalizeObject(rawAttack).value, "levelAttack"));
+	return normalize.array(rawAttacks).value.map((rawAttack) => normalizePayloadSchema(normalize.object(rawAttack).value, "levelAttack"));
 }
 
 // Instance root-transform fields. Without requireAll, null override fields stay null.
@@ -1108,10 +1120,10 @@ function normalizeRootTransform(transform, requireAll) {
 }
 
 // Fill an entity's meta: hp on every type, plus aggroRange on enemies.
-const normalizeMeta = (rawMeta, type) => normalizePayloadSchema(normalizeObject(rawMeta).value, "entityMeta", type === "enemy" ? "enemyMeta" : null);
+const normalizeMeta = (rawMeta, type) => normalizePayloadSchema(normalize.object(rawMeta).value, "entityMeta", type === "enemy" ? "enemyMeta" : null);
 
 // Fill a meta override. Fields it leaves out stay null to keep the template's own.
-const normalizeMetaOverride = (rawMeta, type) => normalizePayloadSchema(normalizeObject(rawMeta).value, "entityMetaOverride", type === "enemy" ? "enemyMetaOverride" : null);
+const normalizeMetaOverride = (rawMeta, type) => normalizePayloadSchema(normalize.object(rawMeta).value, "entityMetaOverride", type === "enemy" ? "enemyMetaOverride" : null);
 
 // Instance an enemy's aggro range.
 function instanceMeta(meta, type) {
@@ -1120,7 +1132,7 @@ function instanceMeta(meta, type) {
 }
 
 function normalizeBlueprint(rawBlueprint, ctx, globalShared) {
-	const blueprintSource         = normalizeObject(rawBlueprint).value;
+	const blueprintSource         = normalize.object(rawBlueprint).value;
 	const blueprint               = normalizePayloadSchema(blueprintSource, "levelEntityBlueprint");
 	blueprint.movement            = normalizeMovement(blueprintSource.movement);
 	blueprint.velocity            = toUnitVector3(blueprint.velocity, "cnu");
@@ -1128,7 +1140,7 @@ function normalizeBlueprint(rawBlueprint, ctx, globalShared) {
 	blueprint.meta                = normalizeMeta(blueprintSource.meta, blueprint.type);    // Instanced at the merge below
 	blueprint.collisionOverride   = resolveCollisionOverride(blueprintSource.collisionOverride, blueprint.type);
 	blueprint.model.rootTransform = normalizeRootTransform(blueprint.model.rootTransform, true);
-	blueprint.model.parts         = normalizeArray(blueprintSource.model?.parts).value.map((part) => normalizePart(part, ctx));
+	blueprint.model.parts         = normalize.array(blueprintSource.model?.parts).value.map((part) => normalizePart(part, ctx));
 	
 	// Leave animations uninstanced. Each entity instances its own copy when merged.
 	blueprint.animations = resolveAnimations(blueprintSource.animations, buildAnimationContext(blueprint.model.parts), globalShared);
@@ -1136,7 +1148,7 @@ function normalizeBlueprint(rawBlueprint, ctx, globalShared) {
 }
 
 function normalizeOverride(rawOverride) {
-	const overrideSource   = normalizeObject(rawOverride).value;
+	const overrideSource   = normalize.object(rawOverride).value;
 	const override         = normalizePayloadSchema(overrideSource, "levelEntityOverride");
 	override.movement      = normalizeMovement(overrideSource.movement);
 	override.velocity      = toUnitVector3(override.velocity, "cnu");
@@ -1155,15 +1167,15 @@ function resolveMergedSpawnSurface(merged, ctx) {
 	}
 }
 
-// Spawn entries for template-ref blueprints stay references; NewTemplate resolves them at build.
+// Merge a spawn entry onto a template-ref blueprint, keeping the result a template reference.
 function mergeTemplateRefEntity(ref, rawOverride, ctx) {
-	const entrySource  = normalizeObject(rawOverride).value;
+	const entrySource  = normalize.object(rawOverride).value;
 	const override     = normalizeOverride(entrySource);
 	const { position, rotation, scale, pivot }                    = ref.model.rootTransform;
 	const { template, type } = ref, { id, blueprintId, dialogue } = override;
 
 	// Merge the ref's and the entry's raw meta into one override, the entry's winning.
-	const meta = normalizeMetaOverride({ ...ref.meta, ...normalizeObject(entrySource.meta).value }, templateEntityTypes[type]);
+	const meta = normalizeMetaOverride({ ...ref.meta, ...normalize.object(entrySource.meta).value }, templateEntityTypes[type]);
 
 	const merged = {
 		shape            : "template", template, type, id, blueprintId, dialogue,
@@ -1190,11 +1202,11 @@ function mergeTemplateRefEntity(ref, rawOverride, ctx) {
 function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 	if (blueprint.shape === "template") return mergeTemplateRefEntity(blueprint, rawOverride, ctx);
 
-	const entrySource = normalizeObject(rawOverride).value;
+	const entrySource = normalize.object(rawOverride).value;
 	const override    = normalizeOverride(entrySource);
 	const merged      = structuredClone(blueprint);
 
-	// structuredClone turns Unit/UnitVector3 into plain objects. Rebuild them before use.
+	// Note: structuredClone turned Unit/UnitVector3 into plain objects. Rebuild them before use.
 	merged.model.rootTransform = {
 		position: toUnitVector3(merged.model.rootTransform.position, "cnu"),
 		rotation: toUnitVector3(merged.model.rootTransform.rotation, "radians"),
@@ -1210,7 +1222,7 @@ function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 		
 		if (part.shape === "tube") {
 			part.primitiveOptions.thickness = new Unit(part.primitiveOptions.thickness.value, "cnu");
-			part.primitiveOptions.nodes.forEach((node) => {
+			part.primitiveOptions.nodes.forEach(node => {
 				node.dimensions    = toUnitVector3(node.dimensions,    "cnu");
 				node.localPosition = toUnitVector3(node.localPosition, "cnu");
 				node.localRotation = toUnitVector3(node.localRotation, "radians");
@@ -1219,7 +1231,7 @@ function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 		}
 		if (part.shape === "plane" && part.primitiveOptions.sprite !== null) {
 			const sprite = part.primitiveOptions.sprite;
-			if (sprite.range !== null) sprite.range = new Unit(sprite.range.value, "cnu");
+			if (sprite.range !== null)         sprite.range         = new Unit(sprite.range.value, "cnu");
 			if (sprite.occludedRange !== null) sprite.occludedRange = new Unit(sprite.occludedRange.value, "cnu");
 		}
 		if (part.particle !== null) instanceParticle(part.particle);
@@ -1238,8 +1250,8 @@ function mergeBlueprintWithOverride(blueprint, rawOverride, ctx, globalShared) {
 	merged.blueprintId = override.blueprintId;
 	if (entrySource.type !== undefined) merged.type = override.type;
 
-	// Fill meta under the final type, letting a changed type gain or drop its own fields. The entry's fields win.
-	merged.meta = instanceMeta(normalizeMeta({ ...merged.meta, ...normalizeObject(entrySource.meta).value }, merged.type), merged.type);
+	// Fill meta for the final type, with the entry's fields winning.
+	merged.meta = instanceMeta(normalizeMeta({ ...merged.meta, ...normalize.object(entrySource.meta).value }, merged.type), merged.type);
 	if (entrySource.attacks !== undefined) merged.attacks = override.attacks;
 	if (entrySource.animations !== undefined && override.animations !== null) {
 		merged.animations = resolveAnimations(override.animations, buildAnimationContext(merged.model.parts), globalShared);
@@ -1271,7 +1283,7 @@ function mergeSimulatorEntity(blueprint, ctx) {
 	);
 }
 
-// Share the blueprint's loaded bitmaps with a merged entity, and mark its parts so failed images get dropped.
+// Share a blueprint's loaded bitmaps with a merged entity, marking its parts to drop failed images.
 function shareBlueprintBitmaps(entity, blueprint, ctx) {
 	entity.model.parts.forEach((part, partIndex) => {
 		const blueprintPart = blueprint.model.parts[partIndex];
@@ -1293,17 +1305,17 @@ function shareBlueprintBitmaps(entity, blueprint, ctx) {
 
 // Drop images whose load failed. A sprite without its image falls back to its base texture.
 function applyImageLoadResults(affectedParts, affectedDecalSources) {
-	affectedParts.forEach((part) => {
+	affectedParts.forEach(part => {
 		part.texture.custom = part.texture.custom.filter((e) => e.decalType !== "image" || e.bitmap !== null);
 		if (part.shape !== "plane" || part.primitiveOptions.sprite === null) return;
 
 		const sprite = part.primitiveOptions.sprite;
 		if (sprite.image !== null && sprite.image.bitmap === null) sprite.image = null;
 
-		// Drop the base texture a loaded image replaces, on a copy to leave shared template records alone.
+		// Drop the base texture a loaded image replaces, on a copy to spare shared templates.
 		if (sprite.image !== null) part.texture = { ...part.texture, base: null };
 	});
-	affectedDecalSources.forEach((decalEntry) => {
+	affectedDecalSources.forEach(decalEntry => {
 		for (const key in decalEntry.sources) {
 			if (decalEntry.sources[key].decalType === "image" && decalEntry.sources[key].bitmap === null) delete decalEntry.sources[key];
 		}
@@ -1314,19 +1326,19 @@ function applyImageLoadResults(affectedParts, affectedDecalSources) {
 const defaultSkyStop = { r: 0.04, g: 0.05, b: 0.08, a: 1 };
 
 function normalizeSkyStop(rawStop, path) {
-	const source = normalizeObject(rawStop).value;
+	const source = normalize.object(rawStop).value;
 	const stop = {};
 	for (const channel in defaultSkyStop) {
-		const resolved = normalizeNumber(source[channel], defaultSkyStop[channel]);
+		const resolved = normalize.number(source[channel], defaultSkyStop[channel]);
 		if (!resolved.bool) warnLog(`${path}.${channel}: invalid number, using fallback ${defaultSkyStop[channel]}.`);
 		stop[channel] = Clamp(resolved.value, 0, 1);
 	}
 	return stop;
 }
 
-// Post-condition: 2..SKY_STOP_LIMIT stops.
+// Resolve the skybox color stops, keeping between 2 and SKY_STOP_LIMIT.
 function resolveSkyStops(rawSkybox, mode) {
-	const source = normalizeObject(rawSkybox).value;
+	const source = normalize.object(rawSkybox).value;
 	const path = "level.world.skybox.color";
 
 	if (mode === "fill") {
@@ -1334,7 +1346,7 @@ function resolveSkyStops(rawSkybox, mode) {
 		return [stop, { ...stop }];
 	}
 
-	const stops = normalizeArray(source.color).value.map((entry, index) => normalizeSkyStop(entry, `${path}[${index}]`));
+	const stops = normalize.array(source.color).value.map((entry, index) => normalizeSkyStop(entry, `${path}[${index}]`));
 
 	if (stops.length > SKY_STOP_LIMIT) {
 		warnLog(`${path}: ${stops.length} stops exceeds ${SKY_STOP_LIMIT}, truncating.`);
@@ -1352,7 +1364,7 @@ function resolveSkyStops(rawSkybox, mode) {
 	return stops;
 }
 
-// Drop situation, mode and addon keys that camera/Sets.json doesn't define. Every mode gets an addon array.
+// Drop situation, mode and addon keys Sets.json doesn't define. Every mode gets an addon array.
 function normalizeCameraMaps(camera) {
 	const path = "level.camera";
 
@@ -1369,7 +1381,7 @@ function normalizeCameraMaps(camera) {
 
 	const modeAddons = Object.fromEntries(cameraSets.modes.map((mode) => [mode, []]));
 	for (const mode in camera.modeAddons) {
-		const addons = normalizeArray(camera.modeAddons[mode]);
+		const addons = normalize.array(camera.modeAddons[mode]);
 		if (!cameraSets.modes.includes(mode) || !addons.bool) {
 			warnLog(`${path}.modeAddons: '${mode}' is not a mode with an addon array, dropping.`);
 			continue;
@@ -1395,7 +1407,7 @@ function normalizeCnuRange(range, path, fallback) {
 
 // Instance the transforms offset between a part's repeats. A part without one gets null.
 function normalizePartRepeat(rawRepeat) {
-	const repeatSource = normalizeObject(rawRepeat);
+	const repeatSource = normalize.object(rawRepeat);
 	if (!repeatSource.bool) return null;
 
 	const repeat = normalizePayloadSchema(repeatSource.value, "partRepeat");
@@ -1406,7 +1418,7 @@ function normalizePartRepeat(rawRepeat) {
 
 // Normalize object and entity template parts, which may repeat.
 function normalizeRepeatingParts(rawParts, ctx) {
-	return normalizeArray(rawParts).value.map((rawPart) => {
+	return normalize.array(rawParts).value.map((rawPart) => {
 		const part = normalizePart(rawPart, ctx);
 		part.repeat = normalizePartRepeat(rawPart.repeat);
 		return part;
@@ -1433,7 +1445,7 @@ function normalizeScatterPart(rawPart, label, ctx) {
 			const { sprite, crossed } = normalizePayloadSchema(part.primitiveOptions, "planeOptions");
 			if (sprite !== null) warnLog(`${label}: scatter planes can't be sprites, dropping the sprite.`);
 
-			// Zero the unused depth so decals sit on the sheet.
+			// Flatten the plane to keep decals on its surface.
 			part.dimensions.z     = 0;
 			part.primitiveOptions = { crossed, sprite: null };
 			break;
@@ -1445,7 +1457,7 @@ function normalizeScatterPart(rawPart, label, ctx) {
 function normalizeScatterTemplate(rawTemplate, id, ctx) {
 	const scatter = normalizePayloadSchema(rawTemplate, "scatterTemplate");
 	scatter.id    = id;
-	scatter.parts = normalizeArray(rawTemplate.parts).value.map((rawPart, index) => (
+	scatter.parts = normalize.array(rawTemplate.parts).value.map((rawPart, index) => (
 		normalizeScatterPart(rawPart, `level.templates.scatter.${id}.parts[${index}]`, ctx)
 	));
 	return scatter;
@@ -1500,14 +1512,14 @@ function normalizePlayerCharacterTemplate(rawTemplate, ctx) {
 	meta.acceleration     = new Unit(meta.acceleration, "cnu");                         // Per second (squared)
 	meta.deceleration     = new Unit(meta.deceleration, "cnu");                         // Per second (squared)
 	meta.momentumTurnRate = new Unit(meta.momentumTurnRate, "degrees").toRadians(true); // Per second
-	character.model.parts = normalizeArray(rawTemplate.model.parts).value.map((part) => normalizePart(part, ctx));
+	character.model.parts = normalize.array(rawTemplate.model.parts).value.map((part) => normalizePart(part, ctx));
 	return character;
 }
 
 // Normalize a level's game templates. Each collection may use the ones before it.
 function normalizeGameTemplates(rawTemplates, ctx) {
-	const source = normalizeObject(rawTemplates).value;
-	const collection = (name) => normalizeObject(source[name]).value;
+	const source = normalize.object(rawTemplates).value;
+	const collection = (name) => normalize.object(source[name]).value;
 	const templates = ctx.templates;
 
 	const textures = collection("textures");
@@ -1544,7 +1556,7 @@ async function LevelPayload(payload) {
 		templates           : emptyGameTemplates(),
 	};
 
-	const rawPayload = normalizeObject(payload).value;
+	const rawPayload = normalize.object(payload).value;
 
 	// Note: Templates go first. The rest of the payload may reference them.
 	normalizeGameTemplates(rawPayload.templates, ctx);
@@ -1554,7 +1566,7 @@ async function LevelPayload(payload) {
 	const normalized = normalizePayloadSchema(rawPayload, "level");
 	normalized.templates = ctx.templates;
 
-	// Global shared animation definitions — kept raw; baked into each target during resolution.
+	// Global shared animation definitions, kept raw until each target bakes them in.
 	const globalShared = normalized.animations.shared;
 
 	normalized.world.dimensions    = toUnitVector3(normalized.world.dimensions, "cnu");
@@ -1566,7 +1578,7 @@ async function LevelPayload(payload) {
 		}
 		normalized.world.water.topY = new Unit(clampedTopY, "cnu");
 	}
-	normalized.world.skybox.stops = resolveSkyStops(normalizeObject(rawPayload.world).value.skybox, normalized.world.skybox.mode);
+	normalized.world.skybox.stops = resolveSkyStops(normalize.object(rawPayload.world).value.skybox, normalized.world.skybox.mode);
 
 	const cameraSchema = canonSchemas.level.camera;
 	const freeCam = normalized.camera.freeCam;
@@ -1580,26 +1592,26 @@ async function LevelPayload(payload) {
 	normalized.camera.levelOpening.startPosition = toUnitVector3(normalized.camera.levelOpening.startPosition, "cnu");
 	normalizeCameraMaps(normalized.camera);
 
-	normalized.terrain.objects = normalizeArray(rawPayload.terrain?.objects).value.map((entry) =>
+	normalized.terrain.objects = normalize.array(rawPayload.terrain?.objects).value.map((entry) =>
 		IsTemplateRef(entry)
 			? normalizeObjectTemplateRef(entry, ctx, "terrain", "level.terrain.objects")
 			: normalizeLevelObject(entry, ctx, "terrain")
 	).filter((entry) => entry !== null);
-	normalized.obstacles = normalizeArray(rawPayload.obstacles).value.map((entry) =>
+	normalized.obstacles = normalize.array(rawPayload.obstacles).value.map((entry) =>
 		IsTemplateRef(entry)
 			? normalizeObjectTemplateRef(entry, ctx, "obstacle", "level.obstacles")
 			: normalizeLevelObject(entry, ctx, "obstacle")
 	).filter((entry) => entry !== null);
-	normalized.terrain.triggers = normalizeArray(rawPayload.terrain?.triggers).value.map((entry) => {
-		const trigger = normalizePayloadSchema(normalizeObject(entry).value, "levelTrigger");
+	normalized.terrain.triggers = normalize.array(rawPayload.terrain?.triggers).value.map((entry) => {
+		const trigger = normalizePayloadSchema(normalize.object(entry).value, "levelTrigger");
 		trigger.start = toUnitVector3(trigger.start, "cnu");
 		trigger.end = toUnitVector3(trigger.end, "cnu");
 		return trigger;
 	});
 
-	blueprintBuckets.forEach((bucket) => {
-		normalized.entityBlueprints[bucket] = normalizeArray(
-			normalizeObject(rawPayload.entityBlueprints).value[bucket]
+	blueprintBuckets.forEach(bucket => {
+		normalized.entityBlueprints[bucket] = normalize.array(
+			normalize.object(rawPayload.entityBlueprints).value[bucket]
 		).value.map((entry) =>
 			IsTemplateRef(entry)
 				? normalizeEntityTemplateRef(entry, ctx, `level.entityBlueprints.${bucket}`)
@@ -1608,10 +1620,10 @@ async function LevelPayload(payload) {
 	});
 
 	const blueprintMap = {};
-	blueprintBuckets.forEach((bucketName) => normalized.entityBlueprints[bucketName].forEach((entry) => blueprintMap[entry.id] = entry));
+	blueprintBuckets.forEach(bucketName => normalized.entityBlueprints[bucketName].forEach(entry => blueprintMap[entry.id] = entry));
 
-	normalized.entities = normalizeArray(rawPayload.entities).value.map((entry) => {
-		const entrySource = normalizeObject(entry).value;
+	normalized.entities = normalize.array(rawPayload.entities).value.map((entry) => {
+		const entrySource = normalize.object(entry).value;
 		const override = normalizeOverride(entrySource);
 		const blueprint = override.blueprintId !== null ? blueprintMap[override.blueprintId] : null;
 
@@ -1624,7 +1636,7 @@ async function LevelPayload(payload) {
 	}).filter((entry) => entry !== null);
 
 	const characterIds = Object.keys(characterData);
-	const playerSource = normalizeObject(rawPayload.player);
+	const playerSource = normalize.object(rawPayload.player);
 	if (playerSource.bool) {
 		normalized.player = normalizePayloadSchema(playerSource.value, "levelPlayer");
 		normalized.player.rootTransform = normalizeRootTransform(normalized.player.rootTransform, true);
@@ -1632,7 +1644,7 @@ async function LevelPayload(payload) {
 			warnLog(`level.player.spawnSurfaceId: '${normalized.player.spawnSurfaceId}' missing, using absolute coordinates.`);
 			normalized.player.spawnSurfaceId = null;
 		}
-		normalized.player.modelParts = normalizeArray(playerSource.value.modelParts).value.map((part) => normalizePart(part, ctx));
+		normalized.player.modelParts = normalize.array(playerSource.value.modelParts).value.map((part) => normalizePart(part, ctx));
 		normalized.player.metaOverrides = structuredClone(normalized.player.metaOverrides);
 		if (!Array.isArray(normalized.player.metaOverrides.list)) normalized.player.metaOverrides.list = [];
 
@@ -1647,7 +1659,7 @@ async function LevelPayload(payload) {
 			normalized.player.character = characterIds[0];
 		}
 
-		// Animation targets resolve against custom modelParts, or the character profile's parts when absent.
+		// Resolve the player's animations against its model parts.
 		const characterParts = findTemplate(ctx, "playerCharacter", normalized.player.character).model.parts;
 		const playerParts = normalized.player.modelParts.length > 0 ? normalized.player.modelParts : characterParts;
 		normalized.player.animations = resolveAnimations(playerSource.value.animations, buildAnimationContext(playerParts), globalShared);
@@ -1656,13 +1668,13 @@ async function LevelPayload(payload) {
 	}
 	else normalized.player = null;
 
-	const musicSource = normalizeObject(rawPayload.music);
+	const musicSource = normalize.object(rawPayload.music);
 	normalized.music = musicSource.bool ? AudioPayload(musicSource.value) : null;
 
 	await Promise.all(ctx.pendingImageLoads.map(({ entry, promise }) =>
 		promise.then((result) => { entry.bitmap = result.bool ? result.value : null; })
 	));
-	normalized.entities.forEach((entity) => {
+	normalized.entities.forEach(entity => {
 		if (entity.shape !== "template") shareBlueprintBitmaps(entity, blueprintMap[entity.blueprintId], ctx);
 	});
 	applyImageLoadResults(ctx.affectedParts, ctx.affectedDecalSources);
@@ -1672,12 +1684,12 @@ async function LevelPayload(payload) {
 
 async function SimulatorPayload({ payloadType, ...payload }) {
 	if (payloadType === "cached") {
-		const normalized       = normalizePayloadSchema(normalizeObject(payload).value, "simulatorCached");
+		const normalized       = normalizePayloadSchema(normalize.object(payload).value, "simulatorCached");
 		normalized.payloadType = "cached";
 		return normalized;
 	}
 
-	const normalized       = normalizePayloadSchema(normalizeObject(payload).value, "simulatorDefinition");
+	const normalized       = normalizePayloadSchema(normalize.object(payload).value, "simulatorDefinition");
 	normalized.payloadType = "definition";
 
 	const ctx = {
@@ -1720,15 +1732,15 @@ const Runtime = {
 		if (normalizeParticle(request, "particleRequest", { templates: noGameTemplates }) === null) return null;
 
 		return {
-			templateId: request.id,
-			position  : request.position,
-			side      : request.side,
-			offset    : null,
-			area      : generator === true ? request.area : null,
-			rotation  : null,
-			overrides : request.overrides,
-			mode      : generator === true ? "generator" : "burst",
-			target    : generator === true ? request.target : null,
+			templateId  : request.id,
+			position    : request.position,
+			side        : request.side,
+			offset      : null,
+			area        : generator === true ? request.area : null,
+			rotation    : null,
+			overrides   : request.overrides,
+			mode        : generator === true ? "generator" : "burst",
+			target      : generator === true ? request.target : null,
 			customEvents: request.customEvents,
 		};
 	},

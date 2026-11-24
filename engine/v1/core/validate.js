@@ -8,6 +8,8 @@ const normalizeSchemaKey = (key) => key.toLowerCase().replace(/[-_]/g, "");
 
 function validatePayloadSchema(payload, rootKey, rootPath = rootKey) {
 	const errors = [];
+
+	// Note: normalize.js resolves the field references in place at load.
 	const canonLayer = canonSchemas[rootKey];
 
 	function describeType(value) {
@@ -95,9 +97,7 @@ function validatePayloadSchema(payload, rootKey, rootPath = rootKey) {
 	return checkFieldLayer(isPlainObject(payload) ? payload : {}, canonLayer, rootPath);
 }
 
-function logValidationErrors(errors) {
-	errors.forEach((error) => Log("ENGINE", error, "error", "Validation"));
-}
+const logValidationErrors = (errors) => errors.forEach(error => Log("ENGINE", error, "error", "Validation"));
 
 function validateMenuElementTree(rawElements, path, errors) {
 	if (!Array.isArray(rawElements)) return;
@@ -244,7 +244,7 @@ function ValidateLevelPayload(payload) {
 		validateCollisionOverride(overrideSource.collisionOverride, `${path}.collisionOverride`);
 	}
 
-	// Shape follows mode, which the generic pass cannot express with a single dataType.
+	// Check the skybox color's shape, which follows its mode. One dataType can't express that.
 	function validateSkybox(rawWorld, path) {
 		if (!isPlainObject(rawWorld) || !isPlainObject(rawWorld.skybox)) return;
 
@@ -257,7 +257,7 @@ function ValidateLevelPayload(payload) {
 		if (!isPlainObject(skybox.color)) errors.push(`${path}.color: expected object in 'fill' mode.`);
 	}
 
-	// A custom set must author its starting mode.
+	// Check the camera set. A custom set must author its starting mode.
 	function validateCamera(rawCamera, path) {
 		const activeSet = rawCamera?.activeSet;
 		if (activeSet === "custom") {
@@ -378,7 +378,7 @@ function ValidateLevelPayload(payload) {
 	validateObjectList(rawPayload.obstacles, "level.obstacles");
 
 	const rawBlueprintBuckets = isPlainObject(rawPayload.entityBlueprints) ? rawPayload.entityBlueprints : {};
-	["enemies", "npcs", "collectibles", "projectiles", "entities"].forEach((bucket) => {
+	["enemies", "npcs", "collectibles", "projectiles", "entities"].forEach(bucket => {
 		const rawEntries = rawBlueprintBuckets[bucket];
 		if (!Array.isArray(rawEntries)) return;
 
@@ -466,8 +466,8 @@ async function ValidateSimulatorBulkPayload(bulkPayload) {
 
 /* === RUNTIME REQUESTS === */
 
-// Small fire-and-forget requests from the running game: validate → normalize → build → insert.
-// Note: core/ can't import handlers/, so scene lookups are passed in as a resolver function.
+// Validate and normalize small fire-and-forget requests from the running game.
+// Note: Scene lookups come in as a resolver function. core/ can't import handlers/.
 const ValidateRuntime = {
 	Particles: (request, generator, resolveTarget) => {
 		const errors = validatePayloadSchema(request, "particleRequest");
@@ -481,7 +481,7 @@ const ValidateRuntime = {
 		logValidationErrors(errors);
 		if (errors.length > 0) return null;
 
-		// Normalize warns and returns null on an unknown template id; that is a rejection here.
+		// Normalize the request, rejecting it when its template id doesn't exist.
 		const normalized = Normalize.Runtime.Particles(request, generator);
 		if (normalized === null) {
 			logValidationErrors(["particleRequest.id: unknown particle template."]);
@@ -491,15 +491,15 @@ const ValidateRuntime = {
 	},
 
 	helpers: {
-		// Returns an error string or null.
+		// Check whether a generator's target is a scene object of the right type, with the named part.
 		targetExists(resolveTarget, target) {
 			if (!isPlainObject(target)) return "particleRequest.target: required when requesting a generator.";
 
-			// Raw request: an omitted partId is the object's own transform, not a missing part.
+			// Treat an omitted partId as the object's own transform, not a missing part.
 			const partId = target.partId ?? null;
-			const entry = resolveTarget(target.id, partId);
-			if (entry === undefined) return `particleRequest.target: no scene object with id '${target.id}'.`;
-			if (entry.type !== target.type) return `particleRequest.target: '${target.id}' is type '${entry.type}', not '${target.type}'.`;
+			const entry  = resolveTarget(target.id, partId);
+			if (entry === undefined)           return `particleRequest.target: no scene object with id '${target.id}'.`;
+			if (entry.type !== target.type)    return `particleRequest.target: '${target.id}' is type '${entry.type}', not '${target.type}'.`;
 			if (entry.transform === undefined) return `particleRequest.target: '${target.id}' has no part '${partId}'.`;
 			return null;
 		},
