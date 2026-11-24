@@ -164,7 +164,7 @@ Version Goals:
     - Review the shape of other builder definitions as well.
     - Add a per-part flags field, set once at the boundary (normalize.js for payloads, Instance.js for engine templates) and kept for the part's lifetime. First flags: "has a sprite" and "crossed or sprite", each of which is re-derived in several places today. Other niche part fields may move into it.
     - Rename the collision layer named "physics" (collision.physics, from the 0.13 physics/hurtbox/hitbox split) to something less confusing.
-  10. canonSchemas.json Deduplication. [PENDING]
+  10. canonSchemas.json Deduplication. [DONE]
     - 304 of its 804 field definitions are exact copies of another (2026-10-31 count), mostly vector x/y/z and color r/g/b/a leaves.
     - Field references: a field points to another part of the file by path string instead of repeating it. Covers the bulk of the copies.
     - Composed schemas: normalizePayloadSchema takes an array of extra schema keys (replaces the single extraKey). Covers shared field sets between roots (levelObject/objectTemplateShared, levelPart/scatterTemplatePart, levelEntityBlueprint/entityTemplate, generatedTexture/decalTexture).

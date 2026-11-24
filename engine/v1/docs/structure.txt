@@ -10,7 +10,7 @@ engine/
       meta.js // Engine-wide utilities (functions, constants, APIs, etc)
       validate.js // Validation utilities for game payloads.
       normalize.js // Data normalization and alias resolution of validated game payloads for engine use.
-      canonSchemas.json // Live canonical schema, aliases, normalization/validation metadata for payload fields.
+      canonSchemas.json // Live canonical schema, aliases, normalization/validation metadata for payload fields. Shared fields are referenced by path; resolved at load by normalize.js.
 
     builder/
       NewBoss.js // Comment-only stub; bosses build through NewEntity.js as type "boss"
