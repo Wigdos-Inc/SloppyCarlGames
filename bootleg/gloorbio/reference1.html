@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gloorbio's Mucky Pandemonium!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            background-color: #0d0714;
+            color: #fff;
+            font-family: 'Press Start 2P', cursive, monospace;
+            overflow: hidden;
+            touch-action: none;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #gb-shell {
+            background: linear-gradient(145deg, #2d1842, #180a26);
+            border: 4px solid #5b21b6;
+            border-radius: 16px;
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.2);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+        #canvas-wrapper {
+            position: relative;
+            border: 4px solid #3b0764;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #090314;
+            box-shadow: inset 0 0 10px #000;
+        }
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        .modal {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 5, 29, 0.92);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            z-index: 50;
+            text-align: center;
+        }
+        .gb-btn {
+            background: linear-gradient(to bottom, #86198f, #701a75);
+            border: 3px solid #facc15;
+            color: #facc15;
+            padding: 10px 18px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 6px;
+            box-shadow: 0 4px 0 #4c0519;
+            text-shadow: 1px 1px 0 #000;
+            margin-top: 12px;
+        }
+        .gb-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #4c0519;
+        }
+        /* Touch Controller Overlay */
+        #touch-controls {
+            display: none;
+            width: 100%;
+            margin-top: 8px;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 8px;
+        }
+        @media (pointer: coarse) {
+            #touch-controls { display: flex; }
+        }
+        .dpad {
+            display: grid;
+            grid-template-columns: repeat(3, 36px);
+            grid-template-rows: repeat(3, 36px);
+            gap: 2px;
+        }
+        .dbtn, .abtn {
+            background: #3b0764;
+            border: 2px solid #a855f7;
+            color: #facc15;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-family: 'Press Start 2P';
+            touch-action: manipulation;
+        }
+        .dbtn:active, .abtn:active { background: #7e22ce; }
+        .action-btns {
+            display: grid;
+            grid-template-columns: repeat(2, 42px);
+            gap: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="gb-shell">
+    <div id="canvas-wrapper">
+        <canvas id="gameCanvas" width="480" height="270"></canvas>
+        
+        <!-- Title Screen -->
+        <div id="screen-title" class="modal">
+            <h1 class="text-xl text-yellow-400 mb-2 leading-tight" style="text-shadow: 2px 2px 0 #7e22ce;">
+                GLOORBIO'S<br><span class="text-green-400">MUCKY PANDEMONIUM!</span>
+            </h1>
+            <p class="text-[9px] text-purple-200 mb-4 max-w-xs leading-normal">
+                GameBoy Color Edition<br>Plunge, Dash, & Devour through the Toxic Sewer Realm!
+            </p>
+            <button id="btn-start" class="gb-btn">START GAME</button>
+            <button id="btn-sound-toggle" class="gb-btn mt-2 !bg-purple-900 !text-xs">SOUND: ON</button>
+        </div>
+
+        <!-- Pause & Moveset Legend Screen -->
+        <div id="screen-pause" class="modal hidden">
+            <h2 class="text-yellow-400 text-sm mb-3">MOVESET LEGEND</h2>
+            <div class="grid grid-cols-2 gap-2 text-[8px] text-left w-full max-w-sm">
+                <div class="bg-purple-950/80 p-2 border border-purple-500 rounded">
+                    <span class="text-yellow-300 block mb-1">WALK / JUMP</span>
+                    <span class="text-purple-100">Arrows / WASD (Up = Jump)</span>
+                </div>
+                <div class="bg-purple-950/80 p-2 border border-purple-500 rounded">
+                    <span class="text-yellow-300 block mb-1">[Z] SHOULDER BASH</span>
+                    <span class="text-purple-100">Dash through blocks & foes</span>
+                </div>
+                <div class="bg-purple-950/80 p-2 border border-purple-500 rounded">
+                    <span class="text-yellow-300 block mb-1">[X] PLUNGER JAB</span>
+                    <span class="text-purple-100">Thrust plunger forward</span>
+                </div>
+                <div class="bg-purple-950/80 p-2 border border-purple-500 rounded">
+                    <span class="text-green-400 block mb-1">[C] TOXIC WAFT</span>
+                    <span class="text-purple-100">Hold C to charge gas cloud</span>
+                </div>
+                <div class="bg-purple-950/80 p-2 border border-purple-500 rounded">
+                    <span class="text-orange-400 block mb-1">[V] CHOMP / DEVOUR</span>
+                    <span class="text-purple-100">Eat enemies to restore life</span>
+                </div>
+                <div class="bg-purple-950/80 p-2 border border-purple-500 rounded">
+                    <span class="text-red-400 block mb-1">GROUND POUND</span>
+                    <span class="text-purple-100">Mid-air: [Down] + Jump</span>
+                </div>
+            </div>
+            <button id="btn-resume" class="gb-btn mt-4">RESUME</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="screen-death" class="modal hidden bg-red-950/90">
+            <h2 class="text-red-400 text-lg mb-2" style="text-shadow: 2px 2px 0 #000;">FLUSHED!</h2>
+            <p class="text-purple-200 text-[9px] mb-4">Gloorbio dissolved in the toxic muck...</p>
+            <button id="btn-respawn" class="gb-btn">TRY AGAIN</button>
+        </div>
+
+        <!-- Level Win Screen -->
+        <div id="screen-win" class="modal hidden bg-green-950/90">
+            <h2 class="text-yellow-400 text-lg mb-2" style="text-shadow: 2px 2px 0 #000;">VICTORY!</h2>
+            <p class="text-purple-100 text-[9px] mb-2">STAGE CLEARED!</p>
+            <p id="win-score" class="text-yellow-300 text-[10px] mb-4">SCORE: 0</p>
+            <button id="btn-hub" class="gb-btn">TO HUB WORLD</button>
+        </div>
+    </div>
+
+    <!-- On-screen Touch Controls for Mobile -->
+    <div id="touch-controls">
+        <div class="dpad">
+            <div></div>
+            <button class="dbtn" id="t-up">▲</button>
+            <div></div>
+            <button class="dbtn" id="t-left">◀</button>
+            <button class="dbtn" id="t-down">▼</button>
+            <button class="dbtn" id="t-right">▶</button>
+            <div></div><div></div><div></div>
+        </div>
+        <div class="action-btns">
+            <button class="abtn" id="t-z">Z</button>
+            <button class="abtn" id="t-x">X</button>
+            <button class="abtn" id="t-c">C</button>
+            <button class="abtn" id="t-v">V</button>
+        </div>
+    </div>
+</div>
+
+<script>
+class GameBoySynth {
+    constructor() {
+        this.ctx = null;
+        this.enabled = true;
+        this.bgmTimer = null;
+        this.bgmNote = 0;
+    }
+    init() {
+        if (!this.ctx) {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.startBGM();
+        }
+    }
+    playTone(freq, type, duration, vol=0.08, slideFreq=null) {
+        if (!this.enabled || !this.ctx) return;
+        try {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            if (slideFreq) {
+                osc.frequency.exponentialRampToValueAtTime(slideFreq, this.ctx.currentTime + duration);
+            }
+            gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
+    }
+    jump() { this.playTone(180, 'square', 0.12, 0.1, 450); }
+    bash() { this.playTone(280, 'sawtooth', 0.18, 0.12, 90); }
+    plunger() { this.playTone(500, 'triangle', 0.1, 0.15, 200); }
+    waft() { this.playTone(90, 'sawtooth', 0.4, 0.15, 30); }
+    chomp() { this.playTone(650, 'triangle', 0.12, 0.12, 850); }
+    coin() { this.playTone(1050, 'square', 0.08, 0.08, 1400); }
+    hit() { this.playTone(150, 'sawtooth', 0.25, 0.2, 40); }
+    bossRoar() { this.playTone(60, 'square', 0.6, 0.25, 180); }
+
+    startBGM() {
+        if (this.bgmTimer) return;
+        const melody = [130, 146, 164, 130, 164, 174, 196, 164, 220, 196, 174, 164, 146, 130];
+        this.bgmTimer = setInterval(() => {
+            if (this.enabled && this.ctx && game.state === 'PLAY') {
+                const note = melody[this.bgmNote % melody.length];
+                this.playTone(note, 'triangle', 0.15, 0.03);
+                this.bgmNote++;
+            }
+        }, 220);
+    }
+}
+const audio = new GameBoySynth();
+
+const Input = {
+    keys: { up: false, down: false, left: false, right: false, z: false, x: false, c: false, v: false, enter: false },
+    pressed: { up: false, z: false, x: false, c: false, v: false, enter: false },
+    update() {
+        for (let k in this.pressed) this.pressed[k] = false;
+    }
+};
+
+window.addEventListener('keydown', e => {
+    const map = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', KeyZ: 'z', KeyX: 'x', KeyC: 'c', KeyV: 'v', Enter: 'enter', Escape: 'enter' };
+    const k = map[e.code] || map[e.key];
+    if (k && !Input.keys[k]) {
+        Input.keys[k] = true;
+        if (Input.pressed[k] !== undefined) Input.pressed[k] = true;
+    }
+});
+window.addEventListener('keyup', e => {
+    const map = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', KeyZ: 'z', KeyX: 'x', KeyC: 'c', KeyV: 'v', Enter: 'enter', Escape: 'enter' };
+    const k = map[e.code] || map[e.key];
+    if (k) Input.keys[k] = false;
+});
+
+// Touch Helper
+function bindTouch(id, key) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const start = (e) => { e.preventDefault(); Input.keys[key] = true; Input.pressed[key] = true; };
+    const end = (e) => { e.preventDefault(); Input.keys[key] = false; };
+    el.addEventListener('touchstart', start); el.addEventListener('touchend', end);
+    el.addEventListener('mousedown', start); el.addEventListener('mouseup', end);
+}
+['up','down','left','right','z','x','c','v'].forEach(k => bindTouch('t-' + k, k));
+
+class Camera {
+    constructor(w, h) {
+        this.x = 0; this.y = 0;
+        this.width = w; this.height = h;
+        this.shakeTimer = 0;
+    }
+    follow(target, mapW, mapH) {
+        this.x += (target.x + target.width/2 - this.width/2 - this.x) * 0.12;
+        this.y += (target.y + target.height/2 - this.height/2 - this.y) * 0.12;
+        this.x = Math.max(0, Math.min(this.x, mapW - this.width));
+        this.y = Math.max(0, Math.min(this.y, mapH - this.height));
+    }
+    shake(duration) { this.shakeTimer = duration; }
+}
+
+class ParticleSystem {
+    constructor() { this.particles = []; }
+    add(x, y, vx, vy, color, life=20, size=3) {
+        this.particles.push({ x, y, vx, vy, color, life, maxLife: life, size });
+    }
+    burst(x, y, color, count=10) {
+        for (let i = 0; i < count; i++) {
+            const ang = Math.random() * Math.PI * 2;
+            const spd = Math.random() * 3 + 1;
+            this.add(x, y, Math.cos(ang)*spd, Math.sin(ang)*spd, color, Math.floor(Math.random()*15)+10, Math.floor(Math.random()*3)+2);
+        }
+    }
+    update() {
+        this.particles.forEach(p => {
+            p.x += p.vx; p.y += p.vy; p.life--;
+        });
+        this.particles = this.particles.filter(p => p.life > 0);
+    }
+    draw(ctx) {
+        this.particles.forEach(p => {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.life / p.maxLife;
+            ctx.fillRect(Math.floor(p.x), Math.floor(p.y), p.size, p.size);
+        });
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+const TILE_SIZE = 24;
+
+class Entity {
+    constructor(x, y, w, h) {
+        this.x = x; this.y = y; this.width = w; this.height = h;
+        this.vx = 0; this.vy = 0;
+        this.grounded = false;
+        this.facingRight = true;
+        this.alive = true;
+    }
+    applyPhysics(map) {
+        this.vy += 0.35; // Gravity
+        if (this.vy > 8) this.vy = 8;
+
+        // Sub-pixel movement with discrete collision testing
+        this.x += this.vx;
+        this.collideMap(map, true);
+
+        this.y += this.vy;
+        this.grounded = false;
+        this.collideMap(map, false);
+
+        this.vx *= 0.82; // Friction
+    }
+    collideMap(map, isX) {
+        const startC = Math.floor(this.x / TILE_SIZE);
+        const endC = Math.floor((this.x + this.width - 0.01) / TILE_SIZE);
+        const startR = Math.floor(this.y / TILE_SIZE);
+        const endR = Math.floor((this.y + this.height - 0.01) / TILE_SIZE);
+
+        for (let r = startR; r <= endR; r++) {
+            for (let c = startC; c <= endC; c++) {
+                const tile = map.getTile(c, r);
+                if (tile === 1 || tile === 2 || tile === 3) { // Solid tiles
+                    if (isX) {
+                        if (this.vx > 0) this.x = c * TILE_SIZE - this.width;
+                        else if (this.vx < 0) this.x = (c + 1) * TILE_SIZE;
+                        this.vx = 0;
+                    } else {
+                        if (this.vy > 0) {
+                            this.y = r * TILE_SIZE - this.height;
+                            this.grounded = true;
+                        } else if (this.vy < 0) {
+                            this.y = (r + 1) * TILE_SIZE;
+                        }
+                        this.vy = 0;
+                    }
+                }
+            }
+        }
+    }
+    checkOverlap(other) {
+        return this.x < other.x + other.width &&
+               this.x + this.width > other.x &&
+               this.y < other.y + other.height &&
+               this.y + this.height > other.y;
+    }
+}
+
+class Player extends Entity {
+    constructor(x, y) {
+        super(x, y, 18, 26);
+        this.speed = 2.4;
+        this.jumpForce = -7.2;
+        this.state = 'idle'; // idle, walk, jump, dash, pound, plunger, waft, chomp, hurt, win
+        this.animTimer = 0;
+        this.walkFrame = 0;
+        this.invuln = 0;
+        this.waftCharge = 0;
+        this.canDoubleJump = true;
+    }
+
+    update(map, particles) {
+        this.animTimer++;
+        if (this.invuln > 0) this.invuln--;
+
+        // Action States logic
+        if (this.state === 'dash') {
+            this.vx = this.facingRight ? 6.5 : -6.5;
+            this.vy = 0;
+            if (this.animTimer % 2 === 0) particles.add(this.x + (this.facingRight?0:this.width), this.y+this.height-4, -this.vx*0.2, -0.5, '#facc15', 12, 3);
+            if (this.animTimer > 14) this.state = 'idle';
+        }
+        else if (this.state === 'pound') {
+            this.vx = 0;
+            this.vy = 9;
+            particles.add(this.x+this.width/2, this.y, 0, -2, '#a855f7', 8, 2);
+            if (this.grounded) {
+                audio.bash();
+                camera.shake(12);
+                particles.burst(this.x+this.width/2, this.y+this.height, '#facc15', 18);
+                this.state = 'idle';
+            }
+        }
+        else if (this.state === 'plunger') {
+            if (this.animTimer > 12) this.state = 'idle';
+        }
+        else if (this.state === 'waft') {
+            this.vx = 0;
+            this.waftCharge++;
+            if (this.waftCharge % 6 === 0) {
+                particles.add(this.x+this.width/2, this.y+10, (Math.random()-0.5)*2, -1, '#22c55e', 20, 5);
+            }
+            if (!Input.keys.c) {
+                audio.waft();
+                particles.burst(this.x+this.width/2, this.y+12, '#4ade80', Math.min(30, this.waftCharge*2));
+                this.state = 'idle';
+                this.waftCharge = 0;
+            }
+        }
+        else if (this.state === 'chomp') {
+            if (this.animTimer > 16) this.state = 'idle';
+        }
+        else if (this.state === 'hurt') {
+            if (this.animTimer > 20) this.state = 'idle';
+        }
+        else {
+            // Standard Movement Logic
+            if (Input.keys.left) { this.vx = -this.speed; this.facingRight = false; }
+            else if (Input.keys.right) { this.vx = this.speed; this.facingRight = true; }
+
+            if (this.grounded) {
+                this.canDoubleJump = true;
+                this.state = Math.abs(this.vx) > 0.3 ? 'walk' : 'idle';
+            } else {
+                this.state = 'jump';
+            }
+
+            // Jump / Double Jump
+            if (Input.pressed.up) {
+                if (this.grounded) {
+                    this.vy = this.jumpForce;
+                    audio.jump();
+                    particles.burst(this.x+this.width/2, this.y+this.height, '#e9d5ff', 6);
+                } else if (this.canDoubleJump) {
+                    this.vy = this.jumpForce * 0.85;
+                    this.canDoubleJump = false;
+                    audio.jump();
+                    particles.burst(this.x+this.width/2, this.y+this.height, '#a855f7', 10);
+                }
+            }
+
+            // Action Triggers
+            if (Input.pressed.z) {
+                this.state = 'dash'; this.animTimer = 0; audio.bash();
+            } else if (Input.pressed.x) {
+                this.state = 'plunger'; this.animTimer = 0; audio.plunger();
+            } else if (Input.keys.c) {
+                this.state = 'waft'; this.animTimer = 0; this.waftCharge = 0;
+            } else if (Input.pressed.v) {
+                this.state = 'chomp'; this.animTimer = 0; audio.chomp();
+            } else if (!this.grounded && Input.keys.down && Input.pressed.up) {
+                this.state = 'pound'; this.animTimer = 0;
+            }
+        }
+
+        // Break block logic when dashing / ground pounding
+        if (this.state === 'dash' || this.state === 'pound') {
+            const cx = Math.floor((this.x + this.width/2) / TILE_SIZE);
+            const cy = Math.floor((this.y + this.height/2) / TILE_SIZE);
+            [[-1,0],[1,0],[0,1],[0,-1],[0,0]].forEach(([ox, oy]) => {
+                if (map.getTile(cx+ox, cy+oy) === 3) {
+                    map.setTile(cx+ox, cy+oy, 0);
+                    audio.bash();
+                    particles.burst((cx+ox)*TILE_SIZE+12, (cy+oy)*TILE_SIZE+12, '#92400e', 12);
+                    game.addScore(50);
+                }
+            });
+        }
+
+        this.applyPhysics(map);
+
+        // Frame timing
+        if (this.state === 'walk') {
+            if (this.animTimer % 5 === 0) this.walkFrame = (this.walkFrame + 1) % 4;
+        } else {
+            this.walkFrame = 0;
+        }
+    }
+
+    draw(ctx) {
+        if (this.invuln > 0 && Math.floor(Date.now() / 80) % 2 === 0) return;
+
+        ctx.save();
+        ctx.translate(Math.floor(this.x + this.width/2), Math.floor(this.y + this.height));
+        if (!this.facingRight) ctx.scale(-1, 1);
+
+        const breathBob = (this.state === 'idle') ? Math.sin(this.animTimer * 0.1) * 1.5 : 0;
+        const walkBob = (this.state === 'walk') ? [0, -2, 0, -2][this.walkFrame] : 0;
+        const yOff = breathBob + walkBob;
+
+        // Expressive Pixel Art Gloorbio (GameBoy Color palette: Green, Purple, Yellow, Brown)
+        
+        // Shoes (Brown)
+        ctx.fillStyle = '#78350f';
+        if (this.state === 'walk') {
+            const lOff = [ -4, 0, 4, 0 ][this.walkFrame];
+            ctx.fillRect(-8 + lOff, -4, 6, 4);
+            ctx.fillRect(2 - lOff, -4, 6, 4);
+        } else {
+            ctx.fillRect(-8, -4, 6, 4);
+            ctx.fillRect(2, -4, 6, 4);
+        }
+
+        // Body / Green Jacket
+        ctx.fillStyle = '#16a34a';
+        ctx.fillRect(-9, -18 + yOff, 18, 14);
+        
+        // Purple Overalls / Pants
+        ctx.fillStyle = '#7e22ce';
+        ctx.fillRect(-7, -10 + yOff, 14, 7);
+        ctx.fillStyle = '#facc15'; // Buttons
+        ctx.fillRect(-5, -10 + yOff, 2, 2);
+        ctx.fillRect(3, -10 + yOff, 2, 2);
+
+        // Expressive Head & Face
+        ctx.fillStyle = '#fde047'; // Skin
+        ctx.fillRect(-7, -26 + yOff, 14, 9);
+
+        // Eyes & Blink logic
+        if (this.state !== 'hurt' && (this.animTimer % 120 < 114)) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(2, -23 + yOff, 3, 3); // Eye
+        } else {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(2, -22 + yOff, 3, 1); // Blink line
+        }
+
+        // Pink Nose & Mustache
+        ctx.fillStyle = '#f43f5e'; ctx.fillRect(5, -22 + yOff, 4, 4);
+        ctx.fillStyle = '#262626'; ctx.fillRect(1, -19 + yOff, 9, 3); // Big mustache
+
+        // Animated Purple Hat & Feather Emblem
+        ctx.fillStyle = '#6b21a8';
+        ctx.fillRect(-10, -28 + yOff, 20, 3); // Brim
+        ctx.fillRect(-7, -34 + yOff, 14, 6); // Crown
+
+        // Feather on hat (bouncing)
+        const featherBounce = Math.sin(this.animTimer * 0.15) * 2;
+        ctx.fillStyle = '#facc15';
+        ctx.fillRect(-5, -38 + yOff + featherBounce, 3, 5);
+        ctx.fillStyle = '#22c55e';
+        ctx.fillRect(-4, -40 + yOff + featherBounce, 3, 3);
+
+        // 'G' Emblem on Hat
+        ctx.fillStyle = '#facc15'; ctx.fillRect(1, -32 + yOff, 5, 4);
+        ctx.fillStyle = '#6b21a8'; ctx.fillRect(3, -31 + yOff, 2, 2);
+
+        // Pose-Specific Dynamic Overlays
+        if (this.state === 'dash') {
+            // Forward thrust shoulder & gloves
+            ctx.fillStyle = '#a855f7';
+            ctx.fillRect(7, -16 + yOff, 8, 8); // Outstretched glove
+        } 
+        else if (this.state === 'plunger') {
+            // Plunger item
+            ctx.fillStyle = '#b45309'; ctx.fillRect(8, -14 + yOff, 12, 3); // Wooden handle
+            ctx.fillStyle = '#dc2626'; ctx.fillRect(20, -18 + yOff, 6, 10); // Red rubber cup
+        }
+        else if (this.state === 'chomp') {
+            // Big Animated Jaws
+            ctx.fillStyle = '#000'; ctx.fillRect(4, -23 + yOff, 8, 8); // Open mouth
+            ctx.fillStyle = '#fff'; ctx.fillRect(4, -23 + yOff, 8, 2); // Top teeth
+            ctx.fillRect(4, -17 + yOff, 8, 2); // Bottom teeth
+        }
+        else if (this.state === 'pound') {
+            // Squish frame
+            ctx.scale(1.2, 0.8);
+        }
+
+        ctx.restore();
+    }
+
+    takeDamage() {
+        if (this.invuln <= 0) {
+            game.lives--;
+            this.invuln = 50;
+            this.state = 'hurt';
+            this.animTimer = 0;
+            audio.hit();
+            camera.shake(15);
+            this.vy = -5;
+            this.vx = this.facingRight ? -3 : 3;
+            if (game.lives <= 0) game.gameOver();
+        }
+    }
+}
+
+class Enemy extends Entity {
+    constructor(x, y, type) {
+        super(x, y, 20, 20);
+        this.type = type; // 'muckmite', 'sludgebat'
+        this.vx = type === 'muckmite' ? -0.8 : 1.2;
+        this.startY = y;
+        this.timer = 0;
+    }
+    update(map) {
+        this.timer++;
+        if (this.type === 'muckmite') {
+            this.applyPhysics(map);
+            if (this.vx === 0) this.vx = this.facingRight ? -0.8 : 0.8;
+            this.facingRight = this.vx > 0;
+        } else if (this.type === 'sludgebat') {
+            this.x += this.vx;
+            this.y = this.startY + Math.sin(this.timer * 0.08) * 24;
+            if (this.timer % 80 === 0) this.vx *= -1;
+        }
+    }
+    draw(ctx) {
+        ctx.save();
+        ctx.translate(Math.floor(this.x + this.width/2), Math.floor(this.y + this.height));
+        if (this.vx > 0) ctx.scale(-1, 1);
+
+        if (this.type === 'muckmite') {
+            ctx.fillStyle = '#451a03'; ctx.fillRect(-10, -18, 20, 18);
+            ctx.fillStyle = '#facc15'; ctx.fillRect(-6, -14, 4, 4); ctx.fillRect(2, -14, 4, 4); // Eyes
+        } else if (this.type === 'sludgebat') {
+            ctx.fillStyle = '#334155'; ctx.fillRect(-8, -16, 16, 12);
+            const wingY = Math.sin(this.timer*0.4) > 0 ? -4 : 2;
+            ctx.fillStyle = '#64748b'; ctx.fillRect(-14, -14 + wingY, 6, 6); ctx.fillRect(8, -14 + wingY, 6, 6);
+        }
+        ctx.restore();
+    }
+}
+
+// Boss 1: Pipe Serpent Golem
+class BossPipeSerpent extends Entity {
+    constructor(x, y) {
+        super(x, y, 90, 90);
+        this.hp = 4;
+        this.phase = 1; // 1: Slam, 2: Mudballs, 3: Vulnerable
+        this.timer = 0;
+        this.mudballs = [];
+    }
+    update(player, particles) {
+        this.timer++;
+        
+        if (this.phase === 1) {
+            if (this.timer % 120 === 0) {
+                this.vy = -7; audio.bossRoar();
+            }
+            this.vy += 0.3;
+            this.y += this.vy;
+            if (this.y >= 120) {
+                this.y = 120; this.vy = 0;
+                camera.shake(15);
+                this.phase = 2; this.timer = 0;
+            }
+        } else if (this.phase === 2) {
+            if (this.timer % 40 === 0) {
+                this.mudballs.push({ x: this.x, y: this.y + 30, vx: -3, vy: -1 });
+                audio.hit();
+            }
+            if (this.timer > 160) {
+                this.phase = 3; this.timer = 0;
+            }
+        } else if (this.phase === 3) {
+            if (this.timer > 140) { this.phase = 1; this.timer = 0; }
+        }
+
+        // Update Mudball Projectiles
+        this.mudballs.forEach(m => { m.x += m.vx; m.y += m.vy; });
+        this.mudballs = this.mudballs.filter(m => m.x > 0);
+
+        // Damage Boss via Ground Pound or Waft during vulnerable Phase 3
+        if (this.phase === 3 && player.state === 'pound' && player.checkOverlap(this)) {
+            this.hp--;
+            player.vy = -7;
+            audio.bossRoar();
+            particles.burst(this.x+45, this.y+45, '#facc15', 25);
+            if (this.hp <= 0) {
+                this.alive = false;
+                game.addScore(2000);
+                game.levelComplete();
+            } else {
+                this.phase = 1; this.timer = 0;
+            }
+        }
+    }
+    draw(ctx) {
+        if (!this.alive) return;
+        ctx.save();
+        ctx.translate(Math.floor(this.x), Math.floor(this.y));
+
+        if (this.phase === 3 && Math.floor(this.timer/8) % 2 === 0) ctx.globalAlpha = 0.5;
+
+        // Pipe Body & Serpent Head
+        ctx.fillStyle = '#1e293b'; ctx.fillRect(10, 20, 70, 70);
+        ctx.fillStyle = '#15803d'; ctx.fillRect(15, 0, 60, 30); // Green Sludge Head
+        ctx.fillStyle = '#ef4444'; ctx.fillRect(25, 8, 10, 10); ctx.fillRect(55, 8, 10, 10); // Red Eyes
+
+        // Vulnerable Target Button on Head
+        if (this.phase === 3) {
+            ctx.fillStyle = '#facc15'; ctx.fillRect(35, -10, 20, 10);
+        }
+
+        ctx.restore();
+
+        // Draw Mudballs
+        ctx.fillStyle = '#78350f';
+        this.mudballs.forEach(m => ctx.fillRect(Math.floor(m.x), Math.floor(m.y), 10, 10));
+    }
+}
+
+class LevelMap {
+    constructor(grid, name) {
+        this.name = name;
+        this.grid = grid;
+        this.width = grid[0].length * TILE_SIZE;
+        this.height = grid.length * TILE_SIZE;
+        this.items = [];
+        this.enemies = [];
+        this.boss = null;
+        this.spawnX = 40; this.spawnY = 40;
+        this.parse();
+    }
+    parse() {
+        for (let r = 0; r < this.grid.length; r++) {
+            for (let c = 0; c < this.grid[0].length; c++) {
+                const val = this.grid[r][c];
+                const x = c * TILE_SIZE;
+                const y = r * TILE_SIZE;
+                if (val === 'P') { this.spawnX = x; this.spawnY = y; this.grid[r][c] = 0; }
+                else if (val === 5) { this.items.push({x, y, type: 'coin', taken: false}); this.grid[r][c] = 0; }
+                else if (val === 6) { this.items.push({x, y, type: 'muck', taken: false}); this.grid[r][c] = 0; }
+                else if (val === 7) { this.items.push({x, y, type: 'key', taken: false}); this.grid[r][c] = 0; }
+                else if (typeof val === 'string' && val.startsWith('D')) { 
+                    this.items.push({x, y, type: 'door', dest: val.substring(1), taken: false}); 
+                    this.grid[r][c] = 0; 
+                }
+                else if (val === 9) { this.items.push({x, y, type: 'toilet', taken: false}); this.grid[r][c] = 0; }
+                else if (val === 'M') { this.enemies.push(new Enemy(x, y, 'muckmite')); this.grid[r][c] = 0; }
+                else if (val === 'B') { this.enemies.push(new Enemy(x, y, 'sludgebat')); this.grid[r][c] = 0; }
+                else if (val === 'S') { this.boss = new BossPipeSerpent(x, y); this.grid[r][c] = 0; }
+            }
+        }
+    }
+    getTile(c, r) {
+        if (r < 0 || r >= this.grid.length || c < 0 || c >= this.grid[0].length) return 1;
+        return this.grid[r][c];
+    }
+    setTile(c, r, val) {
+        if (r >= 0 && r < this.grid.length && c >= 0 && c < this.grid[0].length) {
+            this.grid[r][c] = val;
+        }
+    }
+    draw(ctx, camera) {
+        // Tile Rendering
+        for (let r = 0; r < this.grid.length; r++) {
+            for (let c = 0; c < this.grid[0].length; c++) {
+                const tile = this.grid[r][c];
+                const x = c * TILE_SIZE;
+                const y = r * TILE_SIZE;
+
+                if (x + TILE_SIZE < camera.x || x > camera.x + camera.width || y + TILE_SIZE < camera.y || y > camera.y + camera.height) continue;
+
+                if (tile === 1) { // Mud Terrain
+                    ctx.fillStyle = '#3f2305'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = '#65a30d'; ctx.fillRect(x, y, TILE_SIZE, 4);
+                } else if (tile === 2) { // Industrial Pipe
+                    ctx.fillStyle = '#1e293b'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = '#475569'; ctx.fillRect(x+2, y+2, TILE_SIZE-4, TILE_SIZE-4);
+                } else if (tile === 3) { // Breakable Crates
+                    ctx.fillStyle = '#78350f'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = '#b45309'; ctx.fillRect(x+2, y+2, TILE_SIZE-4, TILE_SIZE-4);
+                } else if (tile === 4) { // Toxic Hazard Pit
+                    ctx.fillStyle = '#22c55e'; ctx.fillRect(x, y+12, TILE_SIZE, 12);
+                }
+            }
+        }
+
+        // Draw Items & Doors
+        this.items.forEach(item => {
+            if (item.taken) return;
+            if (item.type === 'coin') {
+                ctx.fillStyle = '#facc15'; ctx.fillRect(item.x+6, item.y+6, 12, 12);
+            } else if (item.type === 'muck') {
+                ctx.fillStyle = '#854d0e'; ctx.fillRect(item.x+4, item.y+6, 14, 14);
+            } else if (item.type === 'key') {
+                ctx.fillStyle = '#f97316'; ctx.fillRect(item.x+6, item.y+4, 12, 16);
+            } else if (item.type === 'door') {
+                ctx.fillStyle = '#581c87'; ctx.fillRect(item.x, item.y-TILE_SIZE, TILE_SIZE*1.5, TILE_SIZE*2.5);
+                ctx.fillStyle = '#facc15'; ctx.font = '8px "Press Start 2P"'; ctx.fillText(item.dest, item.x, item.y-28);
+            } else if (item.type === 'toilet') {
+                ctx.fillStyle = '#f8fafc'; ctx.fillRect(item.x+2, item.y-16, 20, 32);
+            }
+        });
+    }
+}
+
+// Hub World & Stage Maps
+const MAP_HUB = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,'P',0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,'D1-1',0,0,0,0,'DBOSS',0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+const MAP_L1 = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,5,0,0,0,0,0,0,'B',0,0,0,0,0,0,0,7,0,0,0,0,9,1],
+    [1,'P',0,2,2,2,0,0,0,3,3,3,0,0,0,2,2,2,0,0,0,0,0,1,1,1],
+    [1,1,1,1,1,1,0,0,0,0,'M',0,0,0,0,1,1,1,0,0,0,0,0,1,1,1],
+    [1,1,1,1,1,1,4,4,4,1,1,1,1,1,1,1,1,1,4,4,4,1,1,1,1,1]
+];
+
+const MAP_BOSS = [
+    [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+    [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+    [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+    [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,'S',0,2],
+    [2,0,'P',0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+    [2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2]
+];
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const camera = new Camera(480, 270);
+const particles = new ParticleSystem();
+
+const game = {
+    state: 'TITLE', // TITLE, PLAY, PAUSE, DEATH, WIN
+    score: 0,
+    lives: 3,
+    muckCount: 0,
+    hasKey: false,
+    levelName: 'HUB WORLD',
+    map: null,
+    player: null,
+
+    init() {
+        this.bindEvents();
+        requestAnimationFrame(this.loop.bind(this));
+    },
+
+    bindEvents() {
+        document.getElementById('btn-start').onclick = () => { audio.init(); this.loadLevel(MAP_HUB, 'HUB WORLD'); };
+        document.getElementById('btn-sound-toggle').onclick = (e) => {
+            audio.enabled = !audio.enabled;
+            e.target.innerText = `SOUND: ${audio.enabled ? 'ON' : 'OFF'}`;
+        };
+        document.getElementById('btn-resume').onclick = () => this.togglePause();
+        document.getElementById('btn-respawn').onclick = () => { this.lives = 3; this.loadLevel(MAP_HUB, 'HUB WORLD'); };
+        document.getElementById('btn-hub').onclick = () => this.loadLevel(MAP_HUB, 'HUB WORLD');
+    },
+
+    loadLevel(mapData, name) {
+        this.state = 'PLAY';
+        this.levelName = name;
+        this.hasKey = name.includes('HUB');
+        this.map = new LevelMap(mapData, name);
+        this.player = new Player(this.map.spawnX, this.map.spawnY);
+        camera.x = this.player.x; camera.y = this.player.y;
+        
+        document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+    },
+
+    addScore(pts) { this.score += pts; },
+
+    togglePause() {
+        if (this.state === 'PLAY') {
+            this.state = 'PAUSE';
+            document.getElementById('screen-pause').classList.remove('hidden');
+        } else if (this.state === 'PAUSE') {
+            this.state = 'PLAY';
+            document.getElementById('screen-pause').classList.add('hidden');
+        }
+    },
+
+    gameOver() {
+        this.state = 'DEATH';
+        document.getElementById('screen-death').classList.remove('hidden');
+    },
+
+    levelComplete() {
+        this.state = 'WIN';
+        document.getElementById('win-score').innerText = `SCORE: ${this.score}`;
+        document.getElementById('screen-win').classList.remove('hidden');
+    },
+
+    update() {
+        if (Input.pressed.enter) this.togglePause();
+        if (this.state !== 'PLAY') { Input.update(); return; }
+
+        this.player.update(this.map, particles);
+        camera.follow(this.player, this.map.width, this.map.height);
+        particles.update();
+
+        // Item interactions
+        this.map.items.forEach(item => {
+            if (item.taken) return;
+            if (this.player.checkOverlap({x: item.x, y: item.y, width: TILE_SIZE, height: TILE_SIZE})) {
+                if (item.type === 'coin') { item.taken = true; audio.coin(); this.addScore(100); }
+                else if (item.type === 'muck') { item.taken = true; audio.coin(); this.muckCount++; this.addScore(50); }
+                else if (item.type === 'key') { item.taken = true; audio.coin(); this.hasKey = true; }
+                else if (item.type === 'door' && Input.pressed.up) {
+                    if (item.dest === '1-1') this.loadLevel(MAP_L1, 'STAGE 1-1');
+                    else if (item.dest === 'BOSS') this.loadLevel(MAP_BOSS, 'SLUDGE BOSS');
+                }
+                else if (item.type === 'toilet' && this.hasKey && Input.pressed.up) {
+                    this.levelComplete();
+                }
+            }
+        });
+
+        // Enemy interactions
+        this.map.enemies = this.map.enemies.filter(e => e.alive);
+        this.map.enemies.forEach(e => {
+            e.update(this.map);
+            if (this.player.checkOverlap(e)) {
+                if (this.player.state === 'dash' || this.player.state === 'pound') {
+                    e.alive = false; audio.bash(); particles.burst(e.x, e.y, '#facc15', 12); this.addScore(200);
+                } else if (this.player.state === 'plunger') {
+                    e.alive = false; audio.plunger(); particles.burst(e.x, e.y, '#ef4444', 12); this.addScore(150);
+                } else if (this.player.state === 'chomp') {
+                    e.alive = false; audio.chomp(); this.lives = Math.min(5, this.lives + 1); this.addScore(300);
+                } else {
+                    this.player.takeDamage();
+                }
+            }
+        });
+
+        // Boss interaction
+        if (this.map.boss && this.map.boss.alive) {
+            this.map.boss.update(this.player, particles);
+            if (this.player.checkOverlap(this.map.boss)) {
+                this.player.takeDamage();
+            }
+        }
+
+        Input.update();
+    },
+
+    draw() {
+        ctx.fillStyle = '#090314';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (this.state === 'TITLE') return;
+
+        ctx.save();
+        if (camera.shakeTimer > 0) {
+            ctx.translate((Math.random()-0.5)*4, (Math.random()-0.5)*4);
+            camera.shakeTimer--;
+        }
+        ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
+
+        this.map.draw(ctx, camera);
+        this.map.enemies.forEach(e => e.draw(ctx));
+        if (this.map.boss) this.map.boss.draw(ctx);
+        this.player.draw(ctx);
+        particles.draw(ctx);
+
+        ctx.restore();
+
+        // GameBoy HUD Bar Overlay
+        ctx.fillStyle = 'rgba(15, 5, 29, 0.85)';
+        ctx.fillRect(0, 0, canvas.width, 22);
+        ctx.fillStyle = '#facc15';
+        ctx.font = '8px "Press Start 2P"';
+        ctx.fillText(`SCORE:${String(this.score).padStart(5, '0')}`, 8, 14);
+        ctx.fillText(`LIFE:x${this.lives}`, 150, 14);
+        ctx.fillText(`MUCK:${this.muckCount}`, 250, 14);
+        ctx.fillText(`[${this.levelName}]`, 350, 14);
+    },
+
+    loop() {
+        this.update();
+        this.draw();
+        requestAnimationFrame(this.loop.bind(this));
+    }
+};
+
+game.init();
+</script>
+</body>
+</html>

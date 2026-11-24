@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gloorbio's Poopy Land: Plumbing Pandemonium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Sniglet:wght@800&display=swap');
+
+        body {
+            font-family: 'Sniglet', cursive, sans-serif;
+            background-color: #0b0710;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            overflow: hidden;
+        }
+
+        .pixel-font {
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        .hud-panel {
+            background: linear-gradient(180deg, #4c1d95 0%, #2e1065 100%);
+            border: 3px solid #facc15;
+            box-shadow: inset 0 2px 0 rgba(255,255,255,0.3), 0 4px 10px rgba(0,0,0,0.8);
+            border-radius: 10px;
+        }
+
+        .touch-btn {
+            background: linear-gradient(180deg, #facc15 0%, #ca8a04 100%);
+            border: 3px solid #ffffff;
+            box-shadow: 0 4px 0 #713f12, inset 0 2px 0 #fef08a;
+            color: #361100;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        .touch-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #713f12;
+        }
+
+        .btn-gloorbio {
+            background: linear-gradient(180deg, #a855f7 0%, #6b21a8 100%);
+            border: 3px solid #facc15;
+            box-shadow: 0 5px 0 #3b0764, 0 8px 15px rgba(0,0,0,0.6);
+            text-shadow: 2px 2px 0 #1e0238;
+        }
+
+        .btn-gloorbio:hover {
+            background: linear-gradient(180deg, #c084fc 0%, #7e22ce 100%);
+            transform: translateY(-2px);
+        }
+
+        .shake {
+            animation: shakeAnim 0.25s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shakeAnim {
+            10%, 90% { transform: translate3d(-3px, 2px, 0); }
+            20%, 80% { transform: translate3d(5px, -4px, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 5px, 0); }
+            40%, 60% { transform: translate3d(6px, -5px, 0); }
+        }
+
+        canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-0 m-0 bg-slate-950 text-white relative">
+
+    <div id="game-container" class="relative w-full h-full max-w-[960px] max-h-[576px] aspect-[5/3] overflow-hidden sm:rounded-2xl shadow-2xl border-4 border-yellow-500 bg-purple-950 flex flex-col justify-between">
+        
+        <!-- Game Display Canvas -->
+        <canvas id="gameCanvas" class="absolute inset-0 w-full h-full z-0"></canvas>
+
+        <!-- Top HUD Bar -->
+        <div id="hud" class="relative z-10 w-full px-3 py-2 flex items-center justify-between pointer-events-none select-none">
+            <!-- Score & Lives -->
+            <div class="hud-panel px-3 py-1 flex items-center space-x-3 pointer-events-auto">
+                <span id="score-display" class="pixel-font text-yellow-300 text-xs sm:text-sm tracking-wider">[Score: 000000]</span>
+                <div class="flex items-center space-x-1 pl-2 border-l border-purple-400/50">
+                    <div class="w-6 h-6 rounded-full bg-purple-800 border border-yellow-400 flex items-center justify-center font-bold text-xs text-yellow-300 font-mono">G</div>
+                    <span id="lives-display" class="pixel-font text-white text-xs sm:text-sm">x 3</span>
+                </div>
+            </div>
+
+            <!-- Active Tool & Collectibles -->
+            <div class="hud-panel px-3 py-1 flex items-center space-x-3 pointer-events-auto">
+                <div class="w-7 h-7 bg-purple-950 rounded border border-yellow-400/80 flex items-center justify-center text-sm">
+                    🪠
+                </div>
+                <div class="flex items-center space-x-1">
+                    <span class="text-base">💩</span>
+                    <span id="poop-display" class="pixel-font text-yellow-300 text-xs sm:text-sm">00/50</span>
+                </div>
+            </div>
+
+            <!-- Level Title Tag & Menu Button -->
+            <div class="hud-panel px-3 py-1 flex items-center space-x-2 pointer-events-auto">
+                <span id="level-title" class="pixel-font text-yellow-300 text-xs hidden sm:inline">[1-1 Sewage Slopes]</span>
+                <button id="btn-pause" class="bg-yellow-400 text-purple-950 hover:bg-yellow-300 px-2 py-0.5 rounded font-black pixel-font text-xs shadow border border-purple-950">
+                    + MOVES
+                </button>
+            </div>
+        </div>
+
+        <!-- Touch Controls for Mobile Devices -->
+        <div id="touch-controls" class="relative z-10 w-full p-2 sm:p-4 flex justify-between items-end pointer-events-none opacity-90 sm:opacity-0 hover:opacity-100 transition-opacity">
+            <!-- D-Pad -->
+            <div class="flex flex-col items-center space-y-1 pointer-events-auto">
+                <div class="flex space-x-1">
+                    <button id="btn-left" class="touch-btn w-12 h-12 text-sm">◄</button>
+                    <button id="btn-down" class="touch-btn w-12 h-12 text-sm">▼</button>
+                    <button id="btn-right" class="touch-btn w-12 h-12 text-sm">►</button>
+                </div>
+            </div>
+            
+            <!-- Actions (B: Jump, Y: Bash, A: Plunger/Lift, R: Waft) -->
+            <div class="grid grid-cols-2 gap-2 pointer-events-auto">
+                <button id="btn-waft" class="touch-btn w-11 h-11 bg-emerald-600 text-white text-[10px]">R<br>💨</button>
+                <button id="btn-dash" class="touch-btn w-11 h-11 bg-red-600 text-white text-[10px]">Y<br>BASH</button>
+                <button id="btn-chomp" class="touch-btn w-11 h-11 bg-amber-600 text-white text-[10px]">A<br>🪠/👄</button>
+                <button id="btn-jump" class="touch-btn w-12 h-12 bg-yellow-400 text-purple-950 text-xs">B<br>JUMP</button>
+            </div>
+        </div>
+
+        <!-- Title Screen -->
+        <div id="title-screen" class="absolute inset-0 z-20 bg-gradient-to-b from-purple-950 via-indigo-950 to-slate-950 flex flex-col items-center justify-center p-4 text-center">
+            <div class="mb-4 flex flex-col items-center">
+                <div class="pixel-font text-3xl sm:text-5xl text-purple-400 tracking-wider drop-shadow-[0_4px_0_#000] -mb-1">
+                    GLOORBIO'S
+                </div>
+                <div class="pixel-font text-3xl sm:text-5xl text-yellow-400 tracking-wider drop-shadow-[0_6px_0_#713f12] my-1">
+                    POOPY LAND
+                </div>
+                <div class="bg-amber-600 text-yellow-200 text-xs font-bold px-4 py-1 rounded-full border-2 border-yellow-300 shadow uppercase tracking-widest mt-1">
+                    Plumbing Pandemonium!
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-6 my-2 text-4xl">
+                <span>🪠</span>
+                <span>👑</span>
+                <span>💨</span>
+                <span>💩</span>
+            </div>
+
+            <!-- Start & Moveset Buttons -->
+            <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 mt-4">
+                <button id="start-btn" class="btn-gloorbio px-8 py-3 rounded-2xl text-lg sm:text-xl font-black text-yellow-300 tracking-wider cursor-pointer uppercase transition transform hover:scale-105 active:scale-95">
+                    ENTER HUB MAP
+                </button>
+                <button id="legend-btn" class="bg-yellow-500 hover:bg-yellow-400 text-purple-950 border-2 border-yellow-200 px-6 py-3 rounded-2xl text-base font-bold tracking-wider cursor-pointer shadow-lg">
+                    MOVESET GUIDE
+                </button>
+            </div>
+        </div>
+
+        <!-- Moveset Legend Menu Modal -->
+        <div id="legend-screen" class="hidden absolute inset-0 z-30 bg-purple-950/95 p-4 sm:p-6 flex flex-col items-center justify-between text-yellow-100 overflow-y-auto">
+            <div class="text-center">
+                <h2 class="pixel-font text-lg sm:text-2xl text-yellow-400 drop-shadow mb-1">GLOORBIO'S MOVESET</h2>
+                <p class="text-xs text-purple-200">Unleash Gloorbio's Plumber Mastery!</p>
+            </div>
+
+            <!-- Grid of Moves -->
+            <div class="grid grid-cols-2 gap-3 w-full max-w-2xl my-2 text-xs">
+                <!-- Shoulder Bash -->
+                <div class="bg-purple-900/90 text-yellow-100 p-2 sm:p-3 rounded-xl border-2 border-yellow-500 flex flex-col justify-between">
+                    <div class="font-bold text-sm sm:text-base flex justify-between items-center text-yellow-300">
+                        <span>Shoulder Bash</span>
+                        <span class="bg-red-600 text-white px-2 py-0.5 rounded text-[10px] pixel-font">X / Y</span>
+                    </div>
+                    <p class="text-[11px] text-purple-200 mt-1">Dash forward at high speed to shatter cracked blocks and stun enemies!</p>
+                </div>
+
+                <!-- Ground Pound -->
+                <div class="bg-purple-900/90 text-yellow-100 p-2 sm:p-3 rounded-xl border-2 border-yellow-500 flex flex-col justify-between">
+                    <div class="font-bold text-sm sm:text-base flex justify-between items-center text-yellow-300">
+                        <span>Ground Pound</span>
+                        <span class="bg-yellow-600 text-white px-2 py-0.5 rounded text-[10px] pixel-font">DOWN + JUMP</span>
+                    </div>
+                    <p class="text-[11px] text-purple-200 mt-1">Smash downwards to create a shockwave that damages nearby foes and triggers ground switches.</p>
+                </div>
+
+                <!-- Lift & Throw / Chomp -->
+                <div class="bg-purple-900/90 text-yellow-100 p-2 sm:p-3 rounded-xl border-2 border-yellow-500 flex flex-col justify-between">
+                    <div class="font-bold text-sm sm:text-base flex justify-between items-center text-yellow-300">
+                        <span>Lift & Throw / Chomp</span>
+                        <span class="bg-purple-700 text-white px-2 py-0.5 rounded text-[10px] pixel-font">C / A</span>
+                    </div>
+                    <p class="text-[11px] text-purple-200 mt-1">Press C/A to jab plunger. Near a stunned foe, lift them overhead and throw at walls or bosses!</p>
+                </div>
+
+                <!-- Gas Waft -->
+                <div class="bg-purple-900/90 text-yellow-100 p-2 sm:p-3 rounded-xl border-2 border-yellow-500 flex flex-col justify-between">
+                    <div class="font-bold text-sm sm:text-base flex justify-between items-center text-yellow-300">
+                        <span>Gas Waft</span>
+                        <span class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] pixel-font">V / R</span>
+                    </div>
+                    <p class="text-[11px] text-purple-200 mt-1">Hold V/R to build green fart power. Release a toxic cloud clearing surrounding pests!</p>
+                </div>
+            </div>
+
+            <button id="close-legend-btn" class="btn-gloorbio px-8 py-2 rounded-xl text-base font-bold text-yellow-300 cursor-pointer">
+                BACK TO GAME
+            </button>
+        </div>
+
+        <!-- Level Win Victory Modal -->
+        <div id="victory-screen" class="hidden absolute inset-0 z-30 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+            <div class="pixel-font text-3xl sm:text-5xl text-yellow-400 drop-shadow-lg mb-3">
+                LEVEL CLEAR! 🎉
+            </div>
+            <div id="win-level-name" class="text-lg text-purple-300 mb-4">Stage Cleared</div>
+            <div class="bg-purple-900 border-2 border-yellow-400 rounded-xl p-4 text-left space-y-2 mb-6 w-64 text-yellow-100 text-sm">
+                <p>Score: <span id="final-score" class="text-yellow-300 font-bold">000000</span></p>
+                <p>Poop Collected: <span id="final-poop" class="text-yellow-300 font-bold">0/50</span></p>
+                <p>Lives Remaining: <span id="final-lives" class="text-yellow-300 font-bold">3</span></p>
+            </div>
+            <button id="next-level-btn" class="btn-gloorbio px-8 py-3 rounded-2xl text-lg font-bold text-yellow-300 cursor-pointer uppercase">
+                RETURN TO HUB
+            </button>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="gameover-screen" class="hidden absolute inset-0 z-30 bg-red-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+            <div class="pixel-font text-3xl sm:text-5xl text-red-500 drop-shadow-lg mb-3">
+                FLUSHED AWAY! 💩
+            </div>
+            <p class="text-purple-200 mb-6 text-sm">Gloorbio was overwhelmed by the Plumbing Pandemonium!</p>
+            <button id="retry-btn" class="btn-gloorbio px-8 py-3 rounded-2xl text-lg font-bold text-yellow-300 cursor-pointer uppercase">
+                TRY AGAIN
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        /* Retro Web Audio API Chiptune Synthesizer */
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playJump() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(520, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playCoin() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(1318.51, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playDash() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.22);
+                gain.gain.setValueAtTime(0.22, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.22);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.22);
+            }
+
+            playPound() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(260, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(35, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playWaft() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(90, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(190, this.ctx.currentTime + 0.15);
+                osc.frequency.linearRampToValueAtTime(55, this.ctx.currentTime + 0.35);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.35);
+            }
+
+            playBossDamage() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(240, this.ctx.currentTime + 0.1);
+                osc.frequency.setValueAtTime(80, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playHurt() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(70, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playWin() {
+                if (!this.ctx) return;
+                [440, 554.37, 659.25, 880].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.1 + 0.25);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.1);
+                    osc.stop(this.ctx.currentTime + idx * 0.1 + 0.25);
+                });
+            }
+        }
+
+        const audio = new AudioEngine();
+
+        // Canvas Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+
+        const GAME_WIDTH = 800;
+        const GAME_HEIGHT = 480;
+
+        function resizeCanvas() {
+            canvas.width = GAME_WIDTH;
+            canvas.height = GAME_HEIGHT;
+            ctx.imageSmoothingEnabled = false;
+        }
+        resizeCanvas();
+
+        // Controls Input State
+        const keys = {
+            left: false,
+            right: false,
+            down: false,
+            jump: false,
+            dash: false,
+            chomp: false,
+            waft: false
+        };
+
+        // Key Listeners
+        window.addEventListener('keydown', (e) => {
+            if (['ArrowLeft', 'a', 'A'].includes(e.key)) keys.left = true;
+            if (['ArrowRight', 'd', 'D'].includes(e.key)) keys.right = true;
+            if (['ArrowDown', 's', 'S'].includes(e.key)) {
+                if (!keys.down) triggerDownKey();
+                keys.down = true;
+            }
+            if (['ArrowUp', 'w', 'W', ' ', 'z', 'Z'].includes(e.key)) {
+                if (!keys.jump) triggerJumpKey();
+                keys.jump = true;
+            }
+            if (['x', 'X', 'Shift'].includes(e.key)) {
+                if (!keys.dash) triggerDashKey();
+                keys.dash = true;
+            }
+            if (['c', 'C'].includes(e.key)) {
+                if (!keys.chomp) triggerChompKey();
+                keys.chomp = true;
+            }
+            if (['v', 'V', 'r', 'R'].includes(e.key)) {
+                keys.waft = true;
+            }
+            if (e.key === 'Escape') toggleMovesetMenu();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (['ArrowLeft', 'a', 'A'].includes(e.key)) keys.left = false;
+            if (['ArrowRight', 'd', 'D'].includes(e.key)) keys.right = false;
+            if (['ArrowDown', 's', 'S'].includes(e.key)) keys.down = false;
+            if (['ArrowUp', 'w', 'W', ' ', 'z', 'Z'].includes(e.key)) keys.jump = false;
+            if (['x', 'X', 'Shift'].includes(e.key)) keys.dash = false;
+            if (['c', 'C'].includes(e.key)) keys.chomp = false;
+            if (['v', 'V', 'r', 'R'].includes(e.key)) {
+                if (keys.waft) releaseWaftGas();
+                keys.waft = false;
+            }
+        });
+
+        // Touch button bindings
+        const bindTouch = (id, keyName, onPress, onRelease) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                keys[keyName] = true;
+                if (onPress) onPress();
+            });
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                keys[keyName] = false;
+                if (onRelease) onRelease();
+            });
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                keys[keyName] = true;
+                if (onPress) onPress();
+            });
+            btn.addEventListener('mouseup', (e) => {
+                e.preventDefault();
+                keys[keyName] = false;
+                if (onRelease) onRelease();
+            });
+        };
+
+        bindTouch('btn-left', 'left');
+        bindTouch('btn-right', 'right');
+        bindTouch('btn-down', 'down', () => triggerDownKey());
+        bindTouch('btn-jump', 'jump', () => triggerJumpKey());
+        bindTouch('btn-dash', 'dash', () => triggerDashKey());
+        bindTouch('btn-chomp', 'chomp', () => triggerChompKey());
+        bindTouch('btn-waft', 'waft', null, () => releaseWaftGas());
+
+        // Game Architecture State
+        let gameState = 'TITLE'; // TITLE, HUB, PLAYING, WIN, GAMEOVER
+        let currentWorld = 1;
+        let currentLevelIndex = 0; // 0..3 (Level 4 is Boss)
+        let score = 0;
+        let poopCollected = 0;
+        const POOP_TARGET = 50;
+        let lives = 3;
+        let cameraX = 0;
+        const WORLD_WIDTH = 3400;
+
+        // Gloorbio Character Data
+        const player = {
+            x: 100,
+            y: 300,
+            width: 44,
+            height: 52,
+            vx: 0,
+            vy: 0,
+            speed: 4.5,
+            jumpForce: -12.5,
+            gravity: 0.6,
+            grounded: false,
+            facing: 'right',
+            state: 'idle', // idle, walk, dash, groundpound, chomp, waft_charge, holding_item
+            stateTimer: 0,
+            waftCharge: 0,
+            invulnerable: 0,
+            hasKey: false,
+            carriedEnemy: null,
+            animFrame: 0,
+            animTimer: 0
+        };
+
+        // Hub World Data Structure
+        const hubNodes = [
+            // World 1 Nodes
+            { id: '1-1', world: 1, name: '1-1 Sewage Slopes', x: 120, y: 260, unlocked: true, completed: false, boss: false },
+            { id: '1-2', world: 1, name: '1-2 Pipe Grotto', x: 260, y: 220, unlocked: false, completed: false, boss: false },
+            { id: '1-3', world: 1, name: '1-3 Boggy Basin', x: 400, y: 280, unlocked: false, completed: false, boss: false },
+            { id: '1-4', world: 1, name: '1-4 The Sludge Golem', x: 540, y: 200, unlocked: false, completed: false, boss: true },
+
+            // World 2 Nodes
+            { id: '2-1', world: 2, name: '2-1 Porcelain Peaks', x: 200, y: 360, unlocked: false, completed: false, boss: false },
+            { id: '2-2', world: 2, name: '2-2 Sludge Subways', x: 360, y: 380, unlocked: false, completed: false, boss: false },
+            { id: '2-3', world: 2, name: '2-3 Faucet Falls', x: 500, y: 340, unlocked: false, completed: false, boss: false },
+            { id: '2-4', world: 2, name: '2-4 Porcelain Hydra', x: 660, y: 380, unlocked: false, completed: false, boss: true }
+        ];
+
+        let currentHubNodeIndex = 0;
+
+        function triggerJumpKey() {
+            if (gameState === 'HUB') {
+                const node = hubNodes[currentHubNodeIndex];
+                if (node.unlocked) {
+                    startLevel(node.world, hubNodes.filter(n => n.world === node.world).indexOf(node));
+                }
+            } else if (gameState === 'PLAYING' && player.grounded) {
+                player.vy = player.jumpForce;
+                player.grounded = false;
+                audio.playJump();
+            }
+        }
+
+        function triggerDownKey() {
+            if (gameState === 'PLAYING' && !player.grounded && player.state !== 'groundpound') {
+                player.state = 'groundpound';
+                player.vy = 13;
+                player.vx = 0;
+            }
+        }
+
+        function triggerDashKey() {
+            if (gameState === 'PLAYING' && player.state !== 'dash') {
+                player.state = 'dash';
+                player.stateTimer = 22;
+                audio.playDash();
+            }
+        }
+
+        function triggerChompKey() {
+            if (gameState === 'PLAYING') {
+                if (player.carriedEnemy) {
+                    // Throw Carried Enemy
+                    throwCarriedEnemy();
+                } else {
+                    player.state = 'chomp';
+                    player.stateTimer = 20;
+                    attemptChompOrLift();
+                }
+            }
+        }
+
+        function releaseWaftGas() {
+            if (gameState === 'PLAYING' && player.waftCharge > 15) {
+                audio.playWaft();
+                triggerScreenShake();
+
+                // Toxic Cloud Particles
+                for (let i = 0; i < 28; i++) {
+                    particles.push({
+                        x: player.x + (player.facing === 'right' ? -10 : player.width + 10),
+                        y: player.y + 20,
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: (Math.random() - 0.5) * 8,
+                        life: 30,
+                        color: '#84cc16',
+                        size: Math.random() * 12 + 6
+                    });
+                }
+
+                // Defeat surrounding enemies
+                enemies.forEach(e => {
+                    if (e.alive && Math.hypot(e.x - player.x, e.y - player.y) < 150) {
+                        e.alive = false;
+                        score += 300;
+                        addScorePopup(e.x, e.y, '+300');
+                    }
+                });
+
+                // Damage Boss if in radius
+                if (activeBoss && activeBoss.alive && Math.hypot(activeBoss.x - player.x, activeBoss.y - player.y) < 220) {
+                    damageBoss(1);
+                }
+
+                player.state = 'idle';
+                player.waftCharge = 0;
+            }
+        }
+
+        function attemptChompOrLift() {
+            const hitBox = {
+                x: player.facing === 'right' ? player.x + player.width : player.x - 35,
+                y: player.y,
+                w: 40,
+                h: player.height
+            };
+
+            // Check if can lift stunned enemy
+            let lifted = false;
+            enemies.forEach(e => {
+                if (e.alive && e.stunned && !lifted &&
+                    hitBox.x < e.x + 32 && hitBox.x + hitBox.w > e.x &&
+                    hitBox.y < e.y + 32 && hitBox.y + hitBox.h > e.y) {
+                    
+                    e.alive = false; // picked up into hand
+                    player.carriedEnemy = e.type;
+                    player.state = 'holding_item';
+                    lifted = true;
+                    audio.playCoin();
+                }
+            });
+
+            if (!lifted) {
+                enemies.forEach(e => {
+                    if (e.alive && e.type === 'mud_critter' &&
+                        hitBox.x < e.x + 32 && hitBox.x + hitBox.w > e.x &&
+                        hitBox.y < e.y + 32 && hitBox.y + hitBox.h > e.y) {
+                        
+                        e.alive = false;
+                        score += 400;
+                        poopCollected = Math.min(POOP_TARGET, poopCollected + 2);
+                        addScorePopup(e.x, e.y, 'CHOMP! +400');
+                        audio.playCoin();
+                        updateHUD();
+                    }
+                });
+            }
+        }
+
+        function throwCarriedEnemy() {
+            if (!player.carriedEnemy) return;
+
+            projectiles.push({
+                x: player.facing === 'right' ? player.x + player.width + 5 : player.x - 20,
+                y: player.y + 10,
+                vx: player.facing === 'right' ? 12 : -12,
+                vy: -2,
+                type: player.carriedEnemy,
+                life: 60
+            });
+
+            audio.playDash();
+            player.carriedEnemy = null;
+            player.state = 'idle';
+        }
+
+        function triggerScreenShake() {
+            const container = document.getElementById('game-container');
+            container.classList.remove('shake');
+            void container.offsetWidth;
+            container.classList.add('shake');
+            setTimeout(() => container.classList.remove('shake'), 250);
+        }
+
+        function addScorePopup(x, y, text) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: 0,
+                vy: -1.8,
+                life: 35,
+                text: text,
+                color: '#facc15'
+            });
+        }
+
+        // Level Objects State
+        let platforms = [];
+        let destructibleBlocks = [];
+        let collectibles = [];
+        let enemies = [];
+        let projectiles = [];
+        let particles = [];
+        let keyItem = null;
+        let toiletExit = null;
+        let activeBoss = null;
+
+        function startLevel(world, levelIdx) {
+            currentWorld = world;
+            currentLevelIndex = levelIdx;
+            const node = hubNodes.find(n => n.world === world && hubNodes.filter(x => x.world === world).indexOf(n) === levelIdx);
+            
+            document.getElementById('level-title').innerText = `[${node.name}]`;
+            document.getElementById('title-screen').classList.add('hidden');
+            document.getElementById('victory-screen').classList.add('hidden');
+
+            initLevel(node.boss);
+            gameState = 'PLAYING';
+        }
+
+        function initLevel(isBoss) {
+            player.x = 100;
+            player.y = 300;
+            player.vx = 0;
+            player.vy = 0;
+            player.state = 'idle';
+            player.hasKey = false;
+            player.carriedEnemy = null;
+            player.invulnerable = 0;
+            cameraX = 0;
+
+            platforms = [];
+            destructibleBlocks = [];
+            collectibles = [];
+            enemies = [];
+            projectiles = [];
+            particles = [];
+            activeBoss = null;
+
+            if (!isBoss) {
+                // Regular Platformer Stages
+                const groundSegments = [
+                    { x: 0, w: 900 },
+                    { x: 1000, w: 850 },
+                    { x: 1950, w: 750 },
+                    { x: 2800, w: 650 }
+                ];
+
+                groundSegments.forEach(seg => {
+                    platforms.push({ x: seg.x, y: 410, w: seg.w, h: 70, type: currentWorld === 1 ? 'mud' : 'tile' });
+                });
+
+                // Elevated Platforms
+                platforms.push(
+                    { x: 260, y: 310, w: 140, h: 22, type: 'wood' },
+                    { x: 480, y: 230, w: 180, h: 22, type: 'pipe' },
+                    { x: 740, y: 310, w: 120, h: 22, type: 'wood' },
+                    { x: 1100, y: 300, w: 160, h: 22, type: 'wood' },
+                    { x: 1320, y: 210, w: 200, h: 22, type: 'pipe' },
+                    { x: 1600, y: 290, w: 140, h: 22, type: 'wood' },
+                    { x: 2020, y: 310, w: 160, h: 22, type: 'wood' },
+                    { x: 2250, y: 220, w: 180, h: 22, type: 'pipe' }
+                );
+
+                // Destructible Mud Blocks
+                destructibleBlocks = [
+                    { x: 500, y: 370, w: 40, h: 40, alive: true },
+                    { x: 540, y: 370, w: 40, h: 40, alive: true },
+                    { x: 1400, y: 370, w: 40, h: 40, alive: true },
+                    { x: 1400, y: 330, w: 40, h: 40, alive: true },
+                    { x: 2300, y: 370, w: 40, h: 40, alive: true }
+                ];
+
+                // Collectibles
+                for (let x = 200; x < WORLD_WIDTH - 400; x += 90) {
+                    collectibles.push({
+                        x: x,
+                        y: 330 - Math.random() * 160,
+                        type: Math.random() > 0.4 ? 'poop' : 'coin',
+                        collected: false,
+                        floatOffset: Math.random() * Math.PI * 2
+                    });
+                }
+
+                // Key & Exit Castle
+                keyItem = { x: 1680, y: 150, w: 32, h: 44, collected: false };
+                toiletExit = { x: 3080, y: 250, w: 130, h: 160 };
+
+                // Enemies
+                enemies = [
+                    { x: 400, y: 375, vx: -1.2, type: 'mud_critter', minX: 200, maxX: 600, alive: true, stunned: false },
+                    { x: 780, y: 275, vx: 1.0, type: 'mud_critter', minX: 740, maxX: 850, alive: true, stunned: false },
+                    { x: 1180, y: 375, vx: -1.5, type: 'mud_critter', minX: 1080, maxX: 1350, alive: true, stunned: false },
+                    { x: 1380, y: 175, vx: 1.2, type: 'mud_critter', minX: 1320, maxX: 1500, alive: true, stunned: false },
+                    { x: 620, y: 150, vx: 1.5, startY: 150, type: 'pipe_bat', alive: true }
+                ];
+
+            } else {
+                // Boss Stage Arena Layout
+                platforms.push(
+                    { x: 0, y: 410, w: 1200, h: 70, type: 'tile' },
+                    { x: 180, y: 290, w: 160, h: 22, type: 'pipe' },
+                    { x: 460, y: 290, w: 160, h: 22, type: 'pipe' }
+                );
+
+                toiletExit = null;
+                keyItem = null;
+
+                if (currentWorld === 1) {
+                    // BOSS 1: The Great Sludge Golem (matching image_2cf6c4.jpg)
+                    activeBoss = {
+                        name: 'The Great Sludge Golem',
+                        x: 550,
+                        y: 180,
+                        w: 180,
+                        h: 230,
+                        hp: 6,
+                        maxHp: 6,
+                        phase: 1,
+                        alive: true,
+                        attackTimer: 0,
+                        eyeExposed: false
+                    };
+                } else {
+                    // BOSS 2: Porcelain Hydra Dragon
+                    activeBoss = {
+                        name: 'Porcelain Pipe Hydra',
+                        x: 580,
+                        y: 160,
+                        w: 190,
+                        h: 250,
+                        hp: 8,
+                        maxHp: 8,
+                        phase: 1,
+                        alive: true,
+                        attackTimer: 0,
+                        eyeExposed: true
+                    };
+                }
+            }
+
+            updateHUD();
+        }
+
+        function update() {
+            if (gameState === 'HUB') {
+                updateHubMap();
+                return;
+            }
+
+            if (gameState !== 'PLAYING') return;
+
+            // Waft Charging
+            if (keys.waft) {
+                player.state = 'waft_charge';
+                player.waftCharge++;
+                if (player.waftCharge % 5 === 0) {
+                    particles.push({
+                        x: player.x + (player.facing === 'right' ? 0 : player.width),
+                        y: player.y + 25,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: -Math.random() * 2,
+                        life: 15,
+                        color: '#84cc16',
+                        size: Math.random() * 6 + 3
+                    });
+                }
+            }
+
+            // Normal Movement Logic
+            if (player.state !== 'groundpound' && player.state !== 'dash' && player.state !== 'waft_charge') {
+                if (keys.left) {
+                    player.vx = -player.speed;
+                    player.facing = 'left';
+                    if (player.grounded) player.state = 'walk';
+                } else if (keys.right) {
+                    player.vx = player.speed;
+                    player.facing = 'right';
+                    if (player.grounded) player.state = 'walk';
+                } else {
+                    player.vx *= 0.7;
+                    if (player.grounded && player.state !== 'chomp' && player.state !== 'holding_item') player.state = 'idle';
+                }
+            }
+
+            // Dash Mechanics
+            if (player.state === 'dash') {
+                player.stateTimer--;
+                player.vx = player.facing === 'right' ? 10 : -10;
+
+                if (Math.random() > 0.3) {
+                    particles.push({
+                        x: player.x + (player.facing === 'right' ? 0 : player.width),
+                        y: player.y + player.height - 6,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: -Math.random() * 2,
+                        life: 12,
+                        color: '#a855f7',
+                        size: Math.random() * 6 + 4
+                    });
+                }
+
+                if (player.stateTimer <= 0) player.state = 'idle';
+            }
+
+            // Gravity
+            player.vy += player.gravity;
+            player.x += player.vx;
+            player.y += player.vy;
+
+            if (player.invulnerable > 0) player.invulnerable--;
+
+            // Boundary
+            if (player.x < 0) player.x = 0;
+
+            // Platform Collisions
+            player.grounded = false;
+            platforms.forEach(plat => {
+                if (player.x + player.width > plat.x &&
+                    player.x < plat.x + plat.w &&
+                    player.y + player.height >= plat.y &&
+                    player.y + player.height <= plat.y + plat.h + player.vy &&
+                    player.vy >= 0) {
+                    
+                    if (player.state === 'groundpound') {
+                        triggerScreenShake();
+                        audio.playPound();
+                        player.state = 'idle';
+
+                        // Impact Particles
+                        for (let i = 0; i < 14; i++) {
+                            particles.push({
+                                x: player.x + player.width / 2,
+                                y: plat.y,
+                                vx: (Math.random() - 0.5) * 8,
+                                vy: -Math.random() * 5,
+                                life: 18,
+                                color: '#a855f7',
+                                size: Math.random() * 8 + 4
+                            });
+                        }
+                    }
+
+                    player.grounded = true;
+                    player.vy = 0;
+                    player.y = plat.y - player.height;
+                }
+            });
+
+            // Destructible Mud Blocks
+            destructibleBlocks.forEach(b => {
+                if (!b.alive) return;
+                if (player.x + player.width > b.x &&
+                    player.x < b.x + b.w &&
+                    player.y + player.height > b.y &&
+                    player.y < b.y + b.h) {
+                    
+                    if (player.state === 'dash' || player.state === 'groundpound') {
+                        b.alive = false;
+                        score += 150;
+                        audio.playPound();
+                        addScorePopup(b.x, b.y, '+150');
+                    } else {
+                        if (player.vx > 0) player.x = b.x - player.width;
+                        else if (player.vx < 0) player.x = b.x + b.w;
+                    }
+                }
+            });
+
+            // Pit Fall
+            if (player.y > GAME_HEIGHT + 100) {
+                takeDamage(true);
+            }
+
+            // Camera Tracking
+            cameraX = player.x - GAME_WIDTH / 3;
+            if (cameraX < 0) cameraX = 0;
+            if (cameraX > WORLD_WIDTH - GAME_WIDTH) cameraX = WORLD_WIDTH - GAME_WIDTH;
+
+            // Collectibles
+            collectibles.forEach(item => {
+                if (!item.collected &&
+                    player.x < item.x + 28 &&
+                    player.x + player.width > item.x &&
+                    player.y < item.y + 28 &&
+                    player.y + player.height > item.y) {
+                    
+                    item.collected = true;
+                    if (item.type === 'coin') {
+                        score += 100;
+                        audio.playCoin();
+                        addScorePopup(item.x, item.y, '+100');
+                    } else if (item.type === 'poop') {
+                        score += 250;
+                        poopCollected = Math.min(POOP_TARGET, poopCollected + 1);
+                        audio.playCoin();
+                        addScorePopup(item.x, item.y, '💩 +250');
+                    }
+                    updateHUD();
+                }
+            });
+
+            // Key Collection
+            if (keyItem && !keyItem.collected) {
+                if (player.x < keyItem.x + keyItem.w &&
+                    player.x + player.width > keyItem.x &&
+                    player.y < keyItem.y + keyItem.h &&
+                    player.y + player.height > keyItem.y) {
+                    
+                    keyItem.collected = true;
+                    player.hasKey = true;
+                    score += 500;
+                    audio.playWin();
+                    addScorePopup(keyItem.x, keyItem.y, 'PLUNGER KEY!');
+                }
+            }
+
+            // Exit Castle Goal
+            if (toiletExit &&
+                player.x < toiletExit.x + toiletExit.w &&
+                player.x + player.width > toiletExit.x &&
+                player.y < toiletExit.y + toiletExit.h &&
+                player.y + player.height > toiletExit.y) {
+                
+                if (player.hasKey) {
+                    triggerLevelWin();
+                }
+            }
+
+            // Enemy Logic
+            enemies.forEach(e => {
+                if (!e.alive) return;
+
+                if (e.type === 'mud_critter') {
+                    if (!e.stunned) {
+                        e.x += e.vx;
+                        if (e.x < e.minX || e.x > e.maxX) e.vx *= -1;
+                    }
+                } else if (e.type === 'pipe_bat') {
+                    e.x += e.vx;
+                    e.y = e.startY + Math.sin(Date.now() * 0.005 + e.x) * 22;
+                }
+
+                // Hitbox Collisions
+                if (player.x < e.x + 32 &&
+                    player.x + player.width > e.x &&
+                    player.y < e.y + 32 &&
+                    player.y + player.height > e.y) {
+                    
+                    if (player.state === 'dash' || player.state === 'groundpound') {
+                        e.stunned = true;
+                        e.vx = 0;
+                        score += 200;
+                        audio.playPound();
+                        addScorePopup(e.x, e.y, 'STUNNED!');
+                    } else if (!e.stunned) {
+                        takeDamage(false);
+                    }
+                }
+            });
+
+            // Thrown Enemy Projectiles
+            projectiles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+
+                // Boss Collision
+                if (activeBoss && activeBoss.alive &&
+                    p.x < activeBoss.x + activeBoss.w &&
+                    p.x + 20 > activeBoss.x &&
+                    p.y < activeBoss.y + activeBoss.h &&
+                    p.y + 20 > activeBoss.y) {
+                    
+                    damageBoss(2);
+                    projectiles.splice(idx, 1);
+                }
+
+                if (p.life <= 0) projectiles.splice(idx, 1);
+            });
+
+            // Boss AI Update
+            if (activeBoss && activeBoss.alive) {
+                updateBossLogic();
+            }
+
+            // Particles
+            particles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                if (p.life <= 0) particles.splice(idx, 1);
+            });
+
+            // Anim Counter
+            player.animTimer++;
+            if (player.animTimer % 7 === 0) {
+                player.animFrame = (player.animFrame + 1) % 4;
+            }
+        }
+
+        function updateHubMap() {
+            if (keys.right) {
+                if (currentHubNodeIndex < hubNodes.length - 1) {
+                    currentHubNodeIndex++;
+                    keys.right = false;
+                }
+            } else if (keys.left) {
+                if (currentHubNodeIndex > 0) {
+                    currentHubNodeIndex--;
+                    keys.left = false;
+                }
+            }
+        }
+
+        function updateBossLogic() {
+            if (!activeBoss) return;
+            activeBoss.attackTimer++;
+
+            if (currentWorld === 1) {
+                // Sludge Golem Boss Attacks
+                if (activeBoss.attackTimer % 120 === 0) {
+                    // Spawn mud critter minions
+                    enemies.push({
+                        x: activeBoss.x - 20,
+                        y: 375,
+                        vx: -1.5,
+                        type: 'mud_critter',
+                        minX: 100,
+                        maxX: 700,
+                        alive: true,
+                        stunned: true
+                    });
+                }
+            } else {
+                // Porcelain Hydra Dragon Boss Attacks
+                if (activeBoss.attackTimer % 90 === 0) {
+                    projectiles.push({
+                        x: activeBoss.x,
+                        y: activeBoss.y + 80,
+                        vx: -6,
+                        vy: (Math.random() - 0.5) * 3,
+                        type: 'bubble',
+                        life: 80
+                    });
+                }
+            }
+        }
+
+        function damageBoss(amount) {
+            if (!activeBoss || !activeBoss.alive) return;
+
+            activeBoss.hp -= amount;
+            audio.playBossDamage();
+            triggerScreenShake();
+
+            if (activeBoss.hp <= 0) {
+                activeBoss.alive = false;
+                score += 2000;
+                addScorePopup(activeBoss.x + 80, activeBoss.y, 'BOSS DEFEATED! +2000');
+                setTimeout(() => {
+                    triggerLevelWin();
+                }, 1500);
+            }
+        }
+
+        function takeDamage(instantKill) {
+            if (player.invulnerable > 0 && !instantKill) return;
+
+            lives--;
+            audio.playHurt();
+            updateHUD();
+
+            if (lives <= 0 || instantKill) {
+                if (lives <= 0) {
+                    triggerGameOver();
+                } else {
+                    player.x = 100;
+                    player.y = 200;
+                    player.vx = 0;
+                    player.vy = 0;
+                    player.invulnerable = 60;
+                }
+            } else {
+                player.invulnerable = 60;
+                player.vy = -8;
+                player.vx = player.facing === 'right' ? -6 : 6;
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('score-display').innerText = `[Score: ${String(score).padStart(6, '0')}]`;
+            document.getElementById('lives-display').innerText = `x ${lives}`;
+            document.getElementById('poop-display').innerText = `${poopCollected}/${POOP_TARGET}`;
+        }
+
+        function triggerLevelWin() {
+            gameState = 'WIN';
+            audio.playWin();
+
+            // Unlock next node in Hub
+            const node = hubNodes[currentHubNodeIndex];
+            node.completed = true;
+            if (currentHubNodeIndex < hubNodes.length - 1) {
+                hubNodes[currentHubNodeIndex + 1].unlocked = true;
+            }
+
+            document.getElementById('win-level-name').innerText = node.name;
+            document.getElementById('final-score').innerText = String(score).padStart(6, '0');
+            document.getElementById('final-poop').innerText = `${poopCollected}/${POOP_TARGET}`;
+            document.getElementById('final-lives').innerText = lives;
+            document.getElementById('victory-screen').classList.remove('hidden');
+        }
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            document.getElementById('gameover-screen').classList.remove('hidden');
+        }
+
+        function toggleMovesetMenu() {
+            const legend = document.getElementById('legend-screen');
+            if (legend.classList.contains('hidden')) {
+                legend.classList.remove('hidden');
+            } else {
+                legend.classList.add('hidden');
+            }
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            if (gameState === 'HUB') {
+                renderHubMap();
+                return;
+            }
+
+            ctx.save();
+            ctx.translate(-Math.floor(cameraX), 0);
+
+            // 1. SKY & BACKGROUND
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+            skyGrad.addColorStop(0, currentWorld === 1 ? '#1a0b2e' : '#082f49');
+            skyGrad.addColorStop(0.5, currentWorld === 1 ? '#3b1259' : '#0f172a');
+            skyGrad.addColorStop(1, currentWorld === 1 ? '#581c87' : '#1e293b');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(cameraX, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // Moon
+            ctx.fillStyle = '#fef08a';
+            ctx.fillRect(cameraX * 0.8 + 620, 60, 60, 60);
+
+            // Hills
+            for (let i = 0; i < 7; i++) {
+                const hx = i * 500 - cameraX * 0.35;
+                ctx.fillStyle = currentWorld === 1 ? '#3b1a03' : '#1e1b4b';
+                ctx.fillRect(hx, 260, 280, 200);
+            }
+
+            // 2. PLATFORMS & TILES
+            platforms.forEach(plat => {
+                if (plat.type === 'mud') {
+                    ctx.fillStyle = '#451a03';
+                    ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+                    ctx.fillStyle = '#65a30d'; // Mud slime
+                    ctx.fillRect(plat.x, plat.y, plat.w, 14);
+                } else if (plat.type === 'tile') {
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.fillRect(plat.x, plat.y, plat.w, 8);
+                } else if (plat.type === 'wood' || plat.type === 'pipe') {
+                    ctx.fillStyle = plat.type === 'wood' ? '#78350f' : '#15803d';
+                    ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+                }
+            });
+
+            // Destructible Blocks
+            destructibleBlocks.forEach(b => {
+                if (!b.alive) return;
+                ctx.fillStyle = '#78350f';
+                ctx.fillRect(b.x, b.y, b.w, b.h);
+                ctx.fillStyle = '#451a03';
+                ctx.fillRect(b.x + 4, b.y + 4, b.w - 8, b.h - 8);
+            });
+
+            // 3. COLLECTIBLES & ITEMS
+            collectibles.forEach(item => {
+                if (item.collected) return;
+                const floatY = item.y + Math.sin(Date.now() * 0.005 + item.floatOffset) * 5;
+
+                if (item.type === 'coin') {
+                    ctx.fillStyle = '#facc15';
+                    ctx.fillRect(item.x, floatY, 24, 24);
+                    ctx.fillStyle = '#713f12';
+                    ctx.font = 'bold 10px monospace';
+                    ctx.fillText('G', item.x + 8, floatY + 16);
+                } else if (item.type === 'poop') {
+                    ctx.font = '20px sans-serif';
+                    ctx.fillText('💩', item.x, floatY + 20);
+                }
+            });
+
+            // Key & Exit
+            if (keyItem && !keyItem.collected) {
+                ctx.font = '26px sans-serif';
+                ctx.fillText('🔑', keyItem.x, keyItem.y + 30);
+            }
+
+            if (toiletExit) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(toiletExit.x, toiletExit.y, 130, 110);
+                ctx.fillStyle = '#cbd5e1';
+                ctx.fillRect(toiletExit.x - 10, toiletExit.y - 40, 150, 40);
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(toiletExit.x + 45, toiletExit.y + 50, 40, 60);
+            }
+
+            // 4. ENEMIES
+            enemies.forEach(e => {
+                if (!e.alive) return;
+                if (e.type === 'mud_critter') {
+                    ctx.font = '26px sans-serif';
+                    ctx.fillText(e.stunned ? '💫' : '💩', e.x, e.y + 26);
+                } else if (e.type === 'pipe_bat') {
+                    ctx.font = '24px sans-serif';
+                    ctx.fillText('🦇', e.x, e.y + 24);
+                }
+            });
+
+            // 5. BOSS RENDERING
+            if (activeBoss && activeBoss.alive) {
+                if (currentWorld === 1) {
+                    // Sludge Golem Boss (matching image_2cf6c4.jpg)
+                    const bx = activeBoss.x;
+                    const by = activeBoss.y;
+
+                    // Sludge Body
+                    ctx.fillStyle = '#542d0c';
+                    ctx.fillRect(bx, by + 40, 180, 180);
+
+                    // Top Hat
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(bx + 40, by, 100, 40);
+                    ctx.fillRect(bx + 20, by + 35, 140, 10);
+
+                    // Pipe Tentacles
+                    ctx.fillStyle = '#64748b';
+                    ctx.fillRect(bx - 30, by + 60, 40, 15);
+                    ctx.fillRect(bx + 170, by + 60, 40, 15);
+
+                    // Boss HP Bar
+                    ctx.fillStyle = '#991b1b';
+                    ctx.fillRect(bx, by - 25, 180, 12);
+                    ctx.fillStyle = '#22c55e';
+                    ctx.fillRect(bx, by - 25, (activeBoss.hp / activeBoss.maxHp) * 180, 12);
+                } else {
+                    // Porcelain Hydra Boss
+                    const bx = activeBoss.x;
+                    const by = activeBoss.y;
+
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.fillRect(bx, by, 190, 200);
+                    ctx.fillStyle = '#0284c7';
+                    ctx.fillRect(bx + 30, by + 40, 40, 40); // Hydra Eye
+
+                    // HP Bar
+                    ctx.fillStyle = '#991b1b';
+                    ctx.fillRect(bx, by - 25, 190, 12);
+                    ctx.fillStyle = '#22c55e';
+                    ctx.fillRect(bx, by - 25, (activeBoss.hp / activeBoss.maxHp) * 190, 12);
+                }
+            }
+
+            // 6. GLOORBIO PLAYER SPRITE RENDERING (Matching image_2cfa9d.jpg)
+            if (player.invulnerable % 4 < 2) {
+                ctx.save();
+                ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+                if (player.facing === 'left') ctx.scale(-1, 1);
+
+                const pw = player.width;
+                const ph = player.height;
+
+                if (player.state === 'dash') {
+                    // Shoulder Bash
+                    ctx.fillStyle = '#a855f7'; // Purple Pirate Hat
+                    ctx.fillRect(-pw / 2, -ph / 2 + 4, pw, 14);
+                    ctx.fillStyle = '#16a34a'; // Green Coat
+                    ctx.fillRect(-pw / 2 - 4, -ph / 2 + 18, pw + 4, 22);
+                    ctx.fillStyle = '#9333ea'; // Purple Gloves
+                    ctx.fillRect(pw / 2 - 8, ph / 2 - 10, 14, 12);
+                } else if (player.state === 'groundpound') {
+                    // Ground Pound
+                    ctx.fillStyle = '#16a34a';
+                    ctx.fillRect(-pw / 2, -ph / 2, pw, ph - 10);
+                    ctx.fillStyle = '#a855f7';
+                    ctx.fillRect(-pw / 2 + 4, ph / 2 - 14, pw - 8, 12);
+                } else if (player.state === 'holding_item') {
+                    // Overhead Carried Enemy
+                    ctx.font = '22px sans-serif';
+                    ctx.fillText('💩', -10, -ph / 2 - 10);
+
+                    ctx.fillStyle = '#a855f7';
+                    ctx.fillRect(-pw / 2 + 4, -ph / 2, pw - 8, 16);
+                    ctx.fillStyle = '#16a34a';
+                    ctx.fillRect(-pw / 2 + 2, -ph / 2 + 16, pw - 4, 24);
+                } else {
+                    // Idle & Walking Sprite Cycle
+                    const runLeg = player.state === 'walk' ? Math.sin(player.animFrame * Math.PI / 2) * 6 : 0;
+
+                    // Purple Feather Hat with 'G' emblem
+                    ctx.fillStyle = '#a855f7';
+                    ctx.fillRect(-pw / 2 + 2, -ph / 2, pw - 4, 16);
+                    ctx.fillStyle = '#ec4899'; // Feather accent
+                    ctx.fillRect(-pw / 2 - 4, -ph / 2 - 4, 8, 10);
+
+                    // Green Coat
+                    ctx.fillStyle = '#16a34a';
+                    ctx.fillRect(-pw / 2 + 2, -ph / 2 + 16, pw - 4, 24);
+
+                    // Purple Gloves with 'G'
+                    ctx.fillStyle = '#a855f7';
+                    ctx.fillRect(-pw / 2 - 4, -2, 10, 12);
+                    ctx.fillRect(pw / 2 - 6, -2, 10, 12);
+
+                    // Boots
+                    ctx.fillStyle = '#78350f';
+                    ctx.fillRect(-pw / 2 - 2, ph / 2 - 8 + runLeg, 16, 8);
+                    ctx.fillRect(pw / 2 - 14, ph / 2 - 8 - runLeg, 16, 8);
+                }
+
+                // Hat 'G' Emblem
+                ctx.fillStyle = '#facc15';
+                ctx.font = 'bold 9px monospace';
+                ctx.fillText('G', -2, -ph / 2 + 12);
+
+                ctx.restore();
+            }
+
+            // 7. PROJECTILES & PARTICLES
+            projectiles.forEach(p => {
+                ctx.font = '22px sans-serif';
+                ctx.fillText(p.type === 'bubble' ? '🫧' : '💩', p.x, p.y);
+            });
+
+            particles.forEach(p => {
+                if (p.text) {
+                    ctx.fillStyle = p.color || '#fff';
+                    ctx.font = 'bold 12px "Press Start 2P", monospace';
+                    ctx.fillText(p.text, p.x, p.y);
+                } else {
+                    ctx.fillStyle = p.color || '#8b4513';
+                    ctx.fillRect(p.x, p.y, p.size || 5, p.size || 5);
+                }
+            });
+
+            ctx.restore();
+        }
+
+        function renderHubMap() {
+            // Overworld Map Sky & Terrains
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            ctx.fillStyle = '#facc15';
+            ctx.font = '16px "Press Start 2P"';
+            ctx.fillText('OVERWORLD HUB MAP', 260, 40);
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText('Use Left/Right Arrows & Jump to Select Level', 180, 65);
+
+            // Path Lines
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            hubNodes.forEach((node, idx) => {
+                if (idx === 0) ctx.moveTo(node.x, node.y);
+                else ctx.lineTo(node.x, node.y);
+            });
+            ctx.stroke();
+
+            // Draw Level Nodes
+            hubNodes.forEach((node, idx) => {
+                ctx.fillStyle = node.completed ? '#22c55e' : (node.unlocked ? '#facc15' : '#64748b');
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, node.boss ? 24 : 16, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '10px "Press Start 2P"';
+                ctx.fillText(node.id, node.x - 12, node.y + 35);
+            });
+
+            // Player Node Cursor Position
+            const currentNode = hubNodes[currentHubNodeIndex];
+            ctx.fillStyle = '#a855f7';
+            ctx.fillRect(currentNode.x - 12, currentNode.y - 45, 24, 24);
+            ctx.fillStyle = '#facc15';
+            ctx.font = 'bold 12px monospace';
+            ctx.fillText('G', currentNode.x - 4, currentNode.y - 28);
+        }
+
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event Handler Bindings
+        document.getElementById('start-btn').addEventListener('click', () => {
+            audio.init();
+            document.getElementById('title-screen').classList.add('hidden');
+            gameState = 'HUB';
+        });
+
+        document.getElementById('legend-btn').addEventListener('click', () => {
+            toggleMovesetMenu();
+        });
+
+        document.getElementById('close-legend-btn').addEventListener('click', () => {
+            toggleMovesetMenu();
+        });
+
+        document.getElementById('btn-pause').addEventListener('click', () => {
+            toggleMovesetMenu();
+        });
+
+        document.getElementById('next-level-btn').addEventListener('click', () => {
+            document.getElementById('victory-screen').classList.add('hidden');
+            gameState = 'HUB';
+        });
+
+        document.getElementById('retry-btn').addEventListener('click', () => {
+            document.getElementById('gameover-screen').classList.add('hidden');
+            lives = 3;
+            gameState = 'HUB';
+        });
+
+        window.onload = function() {
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
